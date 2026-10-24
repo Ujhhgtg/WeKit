@@ -41,13 +41,15 @@ object SplitGroupChats : ClickableFeature() {
             val targetSplitId = "${rawId}@@chatroom"
             WeLogger.i(TAG, "launching ChattingUI for chatroom: $wxId")
 
-            val intent = Intent(context, ChattingUI::class.java).apply {
-                putExtra("Chat_User", targetSplitId)
-                putExtra("Chat_Mode", 1)
-            }
+            val intent =
+                Intent(context, ChattingUI::class.java).apply {
+                    putExtra("Chat_User", targetSplitId)
+                    putExtra("Chat_Mode", 1)
+                }
 
             context.startActivity(intent)
-        }.onFailure { WeLogger.e(TAG, "exception occured", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "exception occured", it) }
     }
 
     override val noSwitchWidget = true

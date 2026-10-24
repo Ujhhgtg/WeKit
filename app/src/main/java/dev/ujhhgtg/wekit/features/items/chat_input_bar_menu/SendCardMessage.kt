@@ -30,7 +30,9 @@ object SendCardMessage : SwitchFeature() {
                     if (content.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatInputString(R.string.send_card_message_input_empty),
+                            context.localizedChatInputString(
+                                R.string.send_card_message_input_empty,
+                            ),
                         )
                         return@ActionItem
                     }
@@ -45,8 +47,8 @@ object SendCardMessage : SwitchFeature() {
                     }
 
                     chatFooter.lastText = ""
-                }
-            )
+                },
+            ),
         )
     }
 

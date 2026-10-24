@@ -36,24 +36,35 @@ object RainbowText : SwitchFeature() {
     private lateinit var noMeasuredTvPaintProp: Field
 
     private const val PIXELS_PER_FRAME = 10.0f
-    private val RAINBOW_COLORS = intArrayOf(
-        Color.RED, Color.YELLOW, Color.GREEN,
-        Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED,
-    )
+    private val RAINBOW_COLORS =
+        intArrayOf(
+            Color.RED,
+            Color.YELLOW,
+            Color.GREEN,
+            Color.CYAN,
+            Color.BLUE,
+            Color.MAGENTA,
+            Color.RED,
+        )
 
     override fun onEnable() {
-        TextView::class.reflekt().firstMethod { name = "onDraw" }.hookBefore {
-            val textView = thisObject as TextView
-            applyRainbowEffect(textView, textView.text, textView.paint)
-        }
+        TextView::class.reflekt()
+            .firstMethod { name = "onDraw" }
+            .hookBefore {
+                val textView = thisObject as TextView
+                applyRainbowEffect(textView, textView.text, textView.paint)
+            }
 
         NoMeasuredTextView::class.reflekt()
-            .firstMethod { name = "onDraw" }.hookBefore {
+            .firstMethod { name = "onDraw" }
+            .hookBefore {
                 val view = thisObject as View
 
                 if (!::noMeasuredTvTextProp.isInitialized) {
-                    noMeasuredTvTextProp = view.reflekt().firstField { name = "mText" }.self.makeAccessible()
-                    noMeasuredTvPaintProp = view.reflekt().firstField { type = TextPaint::class }.self.makeAccessible()
+                    noMeasuredTvTextProp =
+                        view.reflekt().firstField { name = "mText" }.self.makeAccessible()
+                    noMeasuredTvPaintProp =
+                        view.reflekt().firstField { type = TextPaint::class }.self.makeAccessible()
                 }
 
                 applyRainbowEffect(
@@ -76,14 +87,21 @@ object RainbowText : SwitchFeature() {
         val width = view.measuredWidth.toFloat()
         if (width <= 0f || text.isEmpty()) return
 
-        val state = viewStateMap.getOrPut(view) {
-            TextViewAnimationState(Matrix(), paint, paint.shader, 0f)
-        }
+        val state =
+            viewStateMap.getOrPut(view) {
+                TextViewAnimationState(Matrix(), paint, paint.shader, 0f)
+            }
         val rainbowWidth = width.coerceAtLeast(400f)
-        val shader = LinearGradient(
-            0f, 0f, rainbowWidth, 0f,
-            RAINBOW_COLORS, null, Shader.TileMode.REPEAT,
-        )
+        val shader =
+            LinearGradient(
+                0f,
+                0f,
+                rainbowWidth,
+                0f,
+                RAINBOW_COLORS,
+                null,
+                Shader.TileMode.REPEAT,
+            )
 
         state.offset += PIXELS_PER_FRAME
         if (state.offset > rainbowWidth) state.offset -= rainbowWidth

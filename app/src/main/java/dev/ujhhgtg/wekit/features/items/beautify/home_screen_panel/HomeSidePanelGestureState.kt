@@ -137,8 +137,7 @@ class HomeSidePanelGestureState(
         velocityPxPerMs = 0f
     }
 
-    private fun drawerWidthPx(): Float =
-        (widthPx * config.drawerWidthFraction).coerceAtLeast(1f)
+    private fun drawerWidthPx(): Float = (widthPx * config.drawerWidthFraction).coerceAtLeast(1f)
 
     companion object {
         private const val HOME_TAB_INDEX = 0

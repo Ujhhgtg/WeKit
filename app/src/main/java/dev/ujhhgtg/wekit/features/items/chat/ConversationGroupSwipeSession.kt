@@ -44,8 +44,19 @@ class ConversationGroupSwipeSession(
     private val onVisualState: (View?, ConversationGroupPagingProgress?) -> Unit,
     private val onFailure: () -> Unit,
 ) {
-    private enum class Phase { IDLE, PREPARING, DRAGGING, SETTLING, RESTORING }
-    private enum class DeferredIntent { WAIT, SWIPE, DISCARD }
+    private enum class Phase {
+        IDLE,
+        PREPARING,
+        DRAGGING,
+        SETTLING,
+        RESTORING,
+    }
+
+    private enum class DeferredIntent {
+        WAIT,
+        SWIPE,
+        DISCARD,
+    }
 
     private val touchSlopPx = ViewConfiguration.get(sourceView.context).scaledTouchSlop.toFloat()
     private val gesture = ConversationGroupSwipeState(touchSlopPx)
@@ -84,18 +95,30 @@ class ConversationGroupSwipeSession(
         replayDeferredEvents()
     }
 
-    private val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
-        oldLeft, oldTop, oldRight, oldBottom ->
-        if (phase != Phase.IDLE &&
-            (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
-        ) {
-            abortImmediately()
+    private val layoutListener =
+        View.OnLayoutChangeListener {
+            _,
+            left,
+            top,
+            right,
+            bottom,
+            oldLeft,
+            oldTop,
+            oldRight,
+            oldBottom ->
+            if (
+                phase != Phase.IDLE &&
+                    (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
+            ) {
+                abortImmediately()
+            }
         }
-    }
-    private val attachListener = object : View.OnAttachStateChangeListener {
-        override fun onViewAttachedToWindow(view: View) = Unit
-        override fun onViewDetachedFromWindow(view: View) = abortImmediately()
-    }
+    private val attachListener =
+        object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+
+            override fun onViewDetachedFromWindow(view: View) = abortImmediately()
+        }
     private val lifecycleObserver = LifecycleEventObserver { _, event ->
         when (event) {
             Lifecycle.Event.ON_STOP -> abortImmediately()
@@ -112,12 +135,15 @@ class ConversationGroupSwipeSession(
     }
 
     val defersHomeSidePanel: Boolean
-        get() = !cancellingHost && (discardTouchStream ||
-            (!replayingEvents && deferredEvents.isNotEmpty()) ||
-            !immediateAbort && (phase != Phase.IDLE ||
-            gesture.owner == ConversationGroupSwipeState.Owner.PENDING ||
-            gesture.owner == ConversationGroupSwipeState.Owner.NATIVE_VERTICAL ||
-            gesture.owner == ConversationGroupSwipeState.Owner.GROUP))
+        get() =
+            !cancellingHost &&
+                (discardTouchStream ||
+                    (!replayingEvents && deferredEvents.isNotEmpty()) ||
+                    !immediateAbort &&
+                        (phase != Phase.IDLE ||
+                            gesture.owner == ConversationGroupSwipeState.Owner.PENDING ||
+                            gesture.owner == ConversationGroupSwipeState.Owner.NATIVE_VERTICAL ||
+                            gesture.owner == ConversationGroupSwipeState.Owner.GROUP))
 
     /** Called before the native pager dispatches an event. True means this session consumed it. */
     fun beforeDispatch(event: MotionEvent): Boolean {
@@ -133,9 +159,13 @@ class ConversationGroupSwipeSession(
             }
         }
         if (discardTouchStream) return true
-        if (!replayingEvents && !immediateAbort && !disposed && enabled() &&
-            (deferredEvents.isNotEmpty() ||
-                event.actionMasked == MotionEvent.ACTION_DOWN && phase != Phase.IDLE)
+        if (
+            !replayingEvents &&
+                !immediateAbort &&
+                !disposed &&
+                enabled() &&
+                (deferredEvents.isNotEmpty() ||
+                    event.actionMasked == MotionEvent.ACTION_DOWN && phase != Phase.IDLE)
         ) {
             // Preparation/rollback may still need the native list. Preserve DOWN and its entire
             // stream so finishing that work cannot hand an orphan MOVE to the outer pager/panel.
@@ -158,14 +188,22 @@ class ConversationGroupSwipeSession(
             val ids = groupIds()
             val selected = selectedGroupId()
             val index = ids.indexOf(selected)
-            val eligible = index >= 0 && ids.size > 1 &&
-                lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
-                sourceView.isAttachedToWindow && sourceView.isShown && canStart() &&
-                isFullyVisibleHome() && isInsideListOutsideTabs(event)
+            val eligible =
+                index >= 0 &&
+                    ids.size > 1 &&
+                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
+                    sourceView.isAttachedToWindow &&
+                    sourceView.isShown &&
+                    canStart() &&
+                    isFullyVisibleHome() &&
+                    isInsideListOutsideTabs(event)
             downGroupIds = if (eligible) ids.toList() else emptyList()
             originGroupId = if (eligible) selected else null
             gesture.onDown(
-                event.rawX, event.rawY, sourceView.width.coerceAtLeast(1).toFloat(), event.eventTime,
+                event.rawX,
+                event.rawY,
+                sourceView.width.coerceAtLeast(1).toFloat(),
+                event.eventTime,
                 canGoPrevious = index > 0,
                 canGoNext = index >= 0 && index < ids.lastIndex,
                 eligible = eligible,
@@ -203,8 +241,8 @@ class ConversationGroupSwipeSession(
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
                 if (event.pointerCount != 1) return false
-                val candidate = gesture.onMove(event.rawX, event.rawY, event.eventTime)
-                    ?: return false
+                val candidate =
+                    gesture.onMove(event.rawX, event.rawY, event.eventTime) ?: return false
                 if (gesture.owner == ConversationGroupSwipeState.Owner.PENDING) {
                     return claim(candidate, cancelHost)
                 }
@@ -226,9 +264,14 @@ class ConversationGroupSwipeSession(
     /** Clicking a tab uses the same native preparation and cancellation path as a finger swipe. */
     fun selectGroup(groupId: String, animate: Boolean): Boolean {
         if (phase != Phase.IDLE || deferredEvents.isNotEmpty()) return true
-        if (disposed || !enabled() || !canStart() || !isFullyVisibleHome() ||
-            !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
-        ) return false
+        if (
+            disposed ||
+                !enabled() ||
+                !canStart() ||
+                !isFullyVisibleHome() ||
+                !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        )
+            return false
         val ids = groupIds()
         val origin = selectedGroupId()
         val from = ids.indexOf(origin)
@@ -250,7 +293,10 @@ class ConversationGroupSwipeSession(
     fun forgetScrollPositions() = scrollPositions.clear()
 
     private fun isFullyVisibleHome(): Boolean {
-        if (!sourceView.getGlobalVisibleRect(sourceBounds) || !pager.getGlobalVisibleRect(pagerBounds)) {
+        if (
+            !sourceView.getGlobalVisibleRect(sourceBounds) ||
+                !pager.getGlobalVisibleRect(pagerBounds)
+        ) {
             return false
         }
         // Global visible rectangles are relative to the window root; MotionEvent.rawX/Y are
@@ -271,16 +317,25 @@ class ConversationGroupSwipeSession(
         return sourceBounds.contains(x, y) && !(tabsVisible && tabBounds.contains(x, y))
     }
 
-    private fun claim(candidate: ConversationGroupSwipeState.Direction, cancelHost: () -> Unit): Boolean {
+    private fun claim(
+        candidate: ConversationGroupSwipeState.Direction,
+        cancelHost: () -> Unit,
+    ): Boolean {
         val origin = originGroupId ?: return false
-        if (disposed || !enabled() || !canStart() || !isFullyVisibleHome() ||
-            selectedGroupId() != origin || groupIds() != downGroupIds
+        if (
+            disposed ||
+                !enabled() ||
+                !canStart() ||
+                !isFullyVisibleHome() ||
+                selectedGroupId() != origin ||
+                groupIds() != downGroupIds
         ) {
             gesture.onCancel()
             return false
         }
         val originIndex = downGroupIds.indexOf(origin)
-        val targetIndex = originIndex + if (candidate == ConversationGroupSwipeState.Direction.NEXT) 1 else -1
+        val targetIndex =
+            originIndex + if (candidate == ConversationGroupSwipeState.Direction.NEXT) 1 else -1
         val target = downGroupIds.getOrNull(targetIndex) ?: return false
         return beginTransition(target, candidate, animate = true, cancelHost)
     }
@@ -297,12 +352,13 @@ class ConversationGroupSwipeSession(
             return false
         }
         val overlay = ConversationGroupTransitionView(sourceView)
-        val params = when (val original = sourceView.layoutParams) {
-            is FrameLayout.LayoutParams -> FrameLayout.LayoutParams(original)
-            is RelativeLayout.LayoutParams -> RelativeLayout.LayoutParams(original)
-            is ViewGroup.MarginLayoutParams -> ViewGroup.MarginLayoutParams(original)
-            else -> ViewGroup.LayoutParams(original)
-        }
+        val params =
+            when (val original = sourceView.layoutParams) {
+                is FrameLayout.LayoutParams -> FrameLayout.LayoutParams(original)
+                is RelativeLayout.LayoutParams -> RelativeLayout.LayoutParams(original)
+                is ViewGroup.MarginLayoutParams -> ViewGroup.MarginLayoutParams(original)
+                else -> ViewGroup.LayoutParams(original)
+            }
         val position: ConversationGroupScrollPosition?
         try {
             // A floating tab is a sibling of the list: its DOWN did not stop the list's fling.
@@ -323,11 +379,16 @@ class ConversationGroupSwipeSession(
             else -> {
                 parent.removeView(overlay)
                 gesture.onCancel()
-                val error = when (result) {
-                    is ConversationGroupTransitionView.BeginResult.AllocationFailed -> result.cause
-                    is ConversationGroupTransitionView.BeginResult.CaptureFailed -> result.cause
-                    else -> IllegalStateException("conversation transition capture unavailable: $result")
-                }
+                val error =
+                    when (result) {
+                        is ConversationGroupTransitionView.BeginResult.AllocationFailed ->
+                            result.cause
+                        is ConversationGroupTransitionView.BeginResult.CaptureFailed -> result.cause
+                        else ->
+                            IllegalStateException(
+                                "conversation transition capture unavailable: $result",
+                            )
+                    }
                 reportFailure(error)
                 return false
             }
@@ -377,13 +438,17 @@ class ConversationGroupSwipeSession(
             if (!enabled() || groupIds() != downGroupIds) pendingSettlement = false
             if (!ready) {
                 pendingSettlement = false
-                reportFailure(IllegalStateException("target conversation group did not become ready"))
+                reportFailure(
+                    IllegalStateException("target conversation group did not become ready"),
+                )
                 if (phase != Phase.PREPARING) return@requestPreparation
             }
             if (immediateAbort || pendingSettlement == false || !ready) {
                 restoreOrigin()
             } else {
-                restoreScrollPosition(if (rememberScrollState()) scrollPositions[target] else null) {
+                restoreScrollPosition(
+                    if (rememberScrollState()) scrollPositions[target] else null,
+                ) {
                     if (!enabled() || groupIds() != downGroupIds || pendingSettlement == false) {
                         restoreOrigin()
                     } else {
@@ -444,27 +509,32 @@ class ConversationGroupSwipeSession(
         phase = Phase.SETTLING
         val target = if (commit) 1f else 0f
         val from = progress
-        if (!animateTransition || from == target ||
-            deferredEvents.firstOrNull()?.actionMasked == MotionEvent.ACTION_DOWN
+        if (
+            !animateTransition ||
+                from == target ||
+                deferredEvents.firstOrNull()?.actionMasked == MotionEvent.ACTION_DOWN
         ) {
             finishSettlement(commit)
             return
         }
-        animator = ValueAnimator.ofFloat(from, target).apply {
-            duration = (180L + (80f * abs(target - from)).toLong()).coerceIn(180L, 260L)
-            interpolator = easing
-            addUpdateListener { animation ->
-                progress = animation.animatedValue as Float
-                publishVisual(progress)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    animator = null
-                    finishSettlement(commit)
+        animator =
+            ValueAnimator.ofFloat(from, target).apply {
+                duration = (180L + (80f * abs(target - from)).toLong()).coerceIn(180L, 260L)
+                interpolator = easing
+                addUpdateListener { animation ->
+                    progress = animation.animatedValue as Float
+                    publishVisual(progress)
                 }
-            })
-            start()
-        }
+                addListener(
+                    object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) {
+                            animator = null
+                            finishSettlement(commit)
+                        }
+                    },
+                )
+                start()
+            }
     }
 
     private fun finishSettlement(commit: Boolean) {
@@ -485,8 +555,11 @@ class ConversationGroupSwipeSession(
         if (phase == Phase.IDLE) return
         pendingSettlement = false
         when (phase) {
-            Phase.DRAGGING, Phase.SETTLING -> settle(false)
-            Phase.PREPARING, Phase.RESTORING, Phase.IDLE -> Unit
+            Phase.DRAGGING,
+            Phase.SETTLING -> settle(false)
+            Phase.PREPARING,
+            Phase.RESTORING,
+            Phase.IDLE -> Unit
         }
     }
 
@@ -505,15 +578,19 @@ class ConversationGroupSwipeSession(
         publishVisual(0f)
         val ids = groupIds()
         val origin = originGroupId!!
-        val restoreGroup = origin.takeIf { it in ids }
-            ?: selectedGroupId().takeIf { it in ids } ?: ids.firstOrNull()
+        val restoreGroup =
+            origin.takeIf { it in ids }
+                ?: selectedGroupId().takeIf { it in ids }
+                ?: ids.firstOrNull()
         if (restoreGroup == null) {
             finishSession()
             return
         }
         requestPreparation(restoreGroup) { ready ->
             if (!ready) {
-                reportFailure(IllegalStateException("original conversation group did not become ready"))
+                reportFailure(
+                    IllegalStateException("original conversation group did not become ready"),
+                )
                 finishSession()
                 return@requestPreparation
             }
@@ -549,7 +626,10 @@ class ConversationGroupSwipeSession(
         }
     }
 
-    private fun restoreScrollPosition(position: ConversationGroupScrollPosition?, completed: () -> Unit) {
+    private fun restoreScrollPosition(
+        position: ConversationGroupScrollPosition?,
+        completed: () -> Unit,
+    ) {
         removeRestoreListener()
         val expectedPhase = phase
         val applyPosition = Runnable {
@@ -558,8 +638,10 @@ class ConversationGroupSwipeSession(
             try {
                 if (position == null) ConversationGroupScrollPosition.reset(sourceView)
                 else position.restore(sourceView)
-                if (immediateAbort || !sourceView.isAttachedToWindow ||
-                    !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                if (
+                    immediateAbort ||
+                        !sourceView.isAttachedToWindow ||
+                        !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
                 ) {
                     completed()
                 } else {
@@ -604,7 +686,8 @@ class ConversationGroupSwipeSession(
         removeRestoreListener()
         clearVisual()
         // Releasing the visual also cancels its pending native preparation. A detached page can
-        // complete the resulting restore synchronously and finish this session inside that callback.
+        // complete the resulting restore synchronously and finish this session inside that
+        // callback.
         if (phase == Phase.IDLE) return
         if (phase == Phase.RESTORING) {
             if (!preparationInFlight) finishSession()
@@ -663,14 +746,18 @@ class ConversationGroupSwipeSession(
     }
 
     private fun scheduleDeferredEvents() {
-        if (phase != Phase.IDLE || replayPosted || replayingEvents || deferredEvents.isEmpty()) return
+        if (phase != Phase.IDLE || replayPosted || replayingEvents || deferredEvents.isEmpty())
+            return
         replayPosted = true
         pager.post(replayEvents)
     }
 
     private fun replayDeferredEvents() {
-        if (disposed || !enabled() || !sourceView.isAttachedToWindow ||
-            !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        if (
+            disposed ||
+                !enabled() ||
+                !sourceView.isAttachedToWindow ||
+                !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
         ) {
             discardDeferredEvents()
             return
@@ -690,8 +777,10 @@ class ConversationGroupSwipeSession(
                         DeferredIntent.DISCARD -> {
                             do {
                                 deferredEvents.removeFirst().recycle()
-                            } while (deferredEvents.isNotEmpty() &&
-                                deferredEvents.first().actionMasked != MotionEvent.ACTION_DOWN)
+                            } while (
+                                deferredEvents.isNotEmpty() &&
+                                    deferredEvents.first().actionMasked != MotionEvent.ACTION_DOWN
+                            )
                             if (deferredEvents.isEmpty()) discardTouchStream = true
                             continue
                         }
@@ -717,8 +806,12 @@ class ConversationGroupSwipeSession(
         val down = events.next()
         val intent = ConversationGroupSwipeState(touchSlopPx)
         intent.onDown(
-            down.rawX, down.rawY, sourceView.width.coerceAtLeast(1).toFloat(), down.eventTime,
-            canGoPrevious = true, canGoNext = true,
+            down.rawX,
+            down.rawY,
+            sourceView.width.coerceAtLeast(1).toFloat(),
+            down.eventTime,
+            canGoPrevious = true,
+            canGoNext = true,
         )
         // The finger went down on a frozen page. Only replay a confirmed swipe; replaying a tap
         // (or DOWN alone before its later UP) could open a different row on the newly loaded page.
@@ -727,8 +820,10 @@ class ConversationGroupSwipeSession(
             if (event.actionMasked != MotionEvent.ACTION_MOVE || event.pointerCount != 1) {
                 return DeferredIntent.DISCARD
             }
-            if (intent.onMove(event.rawX, event.rawY, event.eventTime) != null) return DeferredIntent.SWIPE
-            if (intent.owner == ConversationGroupSwipeState.Owner.NATIVE_VERTICAL) return DeferredIntent.DISCARD
+            if (intent.onMove(event.rawX, event.rawY, event.eventTime) != null)
+                return DeferredIntent.SWIPE
+            if (intent.owner == ConversationGroupSwipeState.Owner.NATIVE_VERTICAL)
+                return DeferredIntent.DISCARD
         }
         return DeferredIntent.WAIT
     }

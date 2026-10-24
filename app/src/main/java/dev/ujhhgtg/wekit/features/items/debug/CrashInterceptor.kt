@@ -36,14 +36,15 @@ object CrashInterceptor : SwitchFeature() {
             if (CrashLogsManager.hasPendingJavaCrash()) {
                 WeLogger.i(
                     TAG,
-                    "pending Java crash detected, will show dialog when Activity is ready"
+                    "pending Java crash detected, will show dialog when Activity is ready",
                 )
                 showToast(localizedDebugString(R.string.debug_java_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) { activity ->
                     showPendingJavaCrashDialog(activity)
                 }
             }
-        }.onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
     }
 
     private fun showPendingJavaCrashDialog(activity: Activity) {
@@ -56,9 +57,10 @@ object CrashInterceptor : SwitchFeature() {
                 titleSummaryRes = R.string.debug_java_crash_detected,
                 titleDetailRes = R.string.debug_java_crash_details,
                 clearPendingFlag = CrashLogsManager::clearPendingJavaCrashFlag,
-                extractSummary = ::extractCrashSummary
+                extractSummary = ::extractCrashSummary,
             )
-        }.onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
     }
 
     private fun extractCrashSummary(crashInfo: String): String {
@@ -73,7 +75,9 @@ object CrashInterceptor : SwitchFeature() {
                 line.startsWith("Crash Type:") -> summary.append(line).append("\n\n")
                 line.contains("Exception Stack Trace") -> {
                     foundException = true
-                    summary.append(localizedDebugString(R.string.debug_crash_exception_information)).append("\n")
+                    summary
+                        .append(localizedDebugString(R.string.debug_crash_exception_information))
+                        .append("\n")
                 }
 
                 foundException -> {
@@ -85,7 +89,8 @@ object CrashInterceptor : SwitchFeature() {
             }
             if (exceptionLineCount >= 10) break
         }
-        if (summary.isEmpty()) return localizedDebugString(R.string.debug_crash_summary_parse_failed)
+        if (summary.isEmpty())
+            return localizedDebugString(R.string.debug_crash_summary_parse_failed)
         summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }

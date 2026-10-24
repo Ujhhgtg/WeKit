@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -53,21 +53,24 @@ object ImageRotation : ClickableFeature() {
     override fun onEnable() {
         if (onlyAvatars) {
             // Nuke 1.0.2 ChatAvatarRotator 逻辑: 仅挂钩聊天头像
-            "com.tencent.mm.ui.chatting.view.ChattingAvatarImageView".toClass().reflekt()
-                .firstConstructor().hookAfter {
+            "com.tencent.mm.ui.chatting.view.ChattingAvatarImageView"
+                .toClass()
+                .reflekt()
+                .firstConstructor()
+                .hookAfter {
                     applyRotation(thisObject as View)
                 }
         } else {
             // 现有 WeKit 逻辑
             ImageView::class.reflekt()
-                .firstConstructor { parameterCount = 4 }.hookAfter {
+                .firstConstructor { parameterCount = 4 }
+                .hookAfter {
                     applyRotation(thisObject as View)
                 }
 
-            "com.tencent.mm.ui.widget.QImageView".toClass().reflekt()
-                .firstConstructor().hookAfter {
-                    applyRotation(thisObject as View)
-                }
+            "com.tencent.mm.ui.widget.QImageView".toClass().reflekt().firstConstructor().hookAfter {
+                applyRotation(thisObject as View)
+            }
         }
     }
 
@@ -83,11 +86,12 @@ object ImageRotation : ClickableFeature() {
         view.post {
             if (!isActive || viewStateMap.containsKey(view)) return@post
 
-            val animator = ObjectAnimator.ofFloat(view, "rotation", 0f, 360f).apply {
-                duration = durationMs.toLong()
-                repeatCount = ObjectAnimator.INFINITE
-                interpolator = LinearInterpolator()
-            }
+            val animator =
+                ObjectAnimator.ofFloat(view, "rotation", 0f, 360f).apply {
+                    duration = durationMs.toLong()
+                    repeatCount = ObjectAnimator.INFINITE
+                    interpolator = LinearInterpolator()
+                }
             viewStateMap[view] = RotationState(view.rotation, animator)
             animator.start()
         }
@@ -130,7 +134,8 @@ object ImageRotation : ClickableFeature() {
                         item {
                             BaseItemContainer {
                                 IntNumberPickerWidget(
-                                    title = stringResource(R.string.image_rotation_period_milliseconds),
+                                    title =
+                                        stringResource(R.string.image_rotation_period_milliseconds),
                                     value = duration,
                                     startInt = MIN_DURATION_MS,
                                     endInt = MAX_DURATION_MS,

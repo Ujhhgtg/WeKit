@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Camera
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -28,9 +28,13 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    private val SUPPORTED_MSG_TYPES = setOf(
-        MessageType.TEXT, MessageType.QUOTE, MessageType.IMAGE, MessageType.VIDEO
-    )
+    private val SUPPORTED_MSG_TYPES =
+        setOf(
+            MessageType.TEXT,
+            MessageType.QUOTE,
+            MessageType.IMAGE,
+            MessageType.VIDEO,
+        )
 
     // TEXT and QUOTE both boil down to a piece of text for a Moments post
     private fun MessageInfo.isTextLike() = type == MessageType.TEXT || type == MessageType.QUOTE
@@ -46,7 +50,11 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     private fun isSupportedSelection(msgInfos: List<MessageInfo>): Boolean {
         if (msgInfos.isEmpty()) return false
         // only text/image/video participate; quotes count as text
-        if (msgInfos.any { it.type != MessageType.IMAGE && it.type != MessageType.VIDEO && !it.isTextLike() }) {
+        if (
+            msgInfos.any {
+                it.type != MessageType.IMAGE && it.type != MessageType.VIDEO && !it.isTextLike()
+            }
+        ) {
             return false
         }
 
@@ -60,13 +68,20 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         return true
     }
 
-    private fun forwardSelectionToMoments(activity: android.app.Activity, msgInfos: List<MessageInfo>) {
-        val text = msgInfos.filter { it.isTextLike() }
-            .joinToString("\n\n") { it.momentsText() }
-            .takeIf { it.isNotBlank() }
+    private fun forwardSelectionToMoments(
+        activity: android.app.Activity,
+        msgInfos: List<MessageInfo>,
+    ) {
+        val text =
+            msgInfos
+                .filter { it.isTextLike() }
+                .joinToString("\n\n") { it.momentsText() }
+                .takeIf { it.isNotBlank() }
 
-        val imageMd5s = msgInfos.filter { it.type == MessageType.IMAGE }
-            .map { WeServiceApi.getImageMd5FromMsgInfo(it) }
+        val imageMd5s =
+            msgInfos
+                .filter { it.type == MessageType.IMAGE }
+                .map { WeServiceApi.getImageMd5FromMsgInfo(it) }
         val video = msgInfos.firstOrNull { it.type == MessageType.VIDEO }
 
         when {
@@ -88,17 +103,21 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777009, localizedMomentsString(R.string.moments_forward_messages_menu), CameraIcon, MaterialSymbols.Outlined.Camera,
+                777009,
+                localizedMomentsString(R.string.moments_forward_messages_menu),
+                CameraIcon,
+                MaterialSymbols.Outlined.Camera,
                 isSupported = { it.type in SUPPORTED_MSG_TYPES },
                 // Moments can post: pure text, text + images, text + a single video, or multiple
                 // images. video can't be mixed with images and only one video is allowed. multiple
                 // texts are brute-force concatenated with blank lines.
-                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
-                    isSupported = { msgInfos -> isSupportedSelection(msgInfos) },
-                    onClick = { _, chattingContext, msgInfos ->
-                        forwardSelectionToMoments(chattingContext.activity, msgInfos)
-                    }
-                ),
+                multiSelect =
+                    WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
+                        isSupported = { msgInfos -> isSupportedSelection(msgInfos) },
+                        onClick = { _, chattingContext, msgInfos ->
+                            forwardSelectionToMoments(chattingContext.activity, msgInfos)
+                        },
+                    ),
                 onClick = { _, chattingContext, msgInfo ->
                     val activity = chattingContext.activity
 
@@ -112,7 +131,10 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
                         }
 
                         MessageType.IMAGE -> {
-                            WeMomentsApi.postImagesInUi(activity, listOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo)))
+                            WeMomentsApi.postImagesInUi(
+                                activity,
+                                listOf(WeServiceApi.getImageMd5FromMsgInfo(msgInfo)),
+                            )
                         }
 
                         MessageType.VIDEO -> {
@@ -122,8 +144,8 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
 
                         else -> {}
                     }
-                }
-            )
+                },
+            ),
         )
     }
 }

@@ -15,9 +15,7 @@ private const val MAX_THIRD_PARTY_ENDPOINT_LENGTH = 2048
 fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
     if (value.length > MAX_THIRD_PARTY_ENDPOINT_LENGTH) return null
     val trimmed = value.trimEnd('/')
-    if (
-        trimmed.isBlank() || trimmed != trimmed.trim() || trimmed.any(Char::isWhitespace)
-    ) {
+    if (trimmed.isBlank() || trimmed != trimmed.trim() || trimmed.any(Char::isWhitespace)) {
         return null
     }
     val schemeSeparator = trimmed.indexOf("://")
@@ -25,14 +23,17 @@ fun normalizeThirdPartyReadReceiptEndpoint(value: String): String? {
     val scheme = trimmed.substring(0, schemeSeparator).lowercase()
     if (scheme != "http" && scheme != "https") return null
     val authorityStart = schemeSeparator + 3
-    val authorityEnd = trimmed.indexOfAny(charArrayOf('/', '?', '#'), authorityStart)
-        .takeIf { it >= 0 } ?: trimmed.length
+    val authorityEnd =
+        trimmed.indexOfAny(charArrayOf('/', '?', '#'), authorityStart).takeIf { it >= 0 }
+            ?: trimmed.length
     val rawAuthority = trimmed.substring(authorityStart, authorityEnd)
     if (rawAuthority.isEmpty() || '@' in rawAuthority) return null
     val url = trimmed.toHttpUrlOrNull() ?: return null
     if (
-        url.username.isNotEmpty() || url.password.isNotEmpty() ||
-        url.query != null || url.fragment != null
+        url.username.isNotEmpty() ||
+            url.password.isNotEmpty() ||
+            url.query != null ||
+            url.fragment != null
     ) {
         return null
     }
@@ -61,7 +62,8 @@ object ReadReceiptRecordCodec {
             put("wxId", normalized.wxId)
             put("endpoint", normalized.endpoint)
             put("createdAtMillis", normalized.createdAtMillis)
-        }.toString()
+        }
+            .toString()
     }
 
     fun decode(value: String): ReadReceiptRecord? = runCatching {
@@ -75,7 +77,8 @@ object ReadReceiptRecordCodec {
         val createdAtMillis = objectValue["createdAtMillis"]?.strictLongOrNull() ?: return null
 
         normalize(ReadReceiptRecord(id, wxId, endpoint, createdAtMillis))
-    }.getOrNull()
+    }
+        .getOrNull()
 
     fun prune(
         records: Collection<ReadReceiptRecord>,
@@ -87,11 +90,12 @@ object ReadReceiptRecordCodec {
         for (record in records) {
             val normalized = normalize(record)
             if (normalized.createdAtMillis < cutoff) continue
-            val key = RecordKey(
-                normalized.id,
-                normalized.wxId,
-                normalized.endpoint,
-            )
+            val key =
+                RecordKey(
+                    normalized.id,
+                    normalized.wxId,
+                    normalized.endpoint,
+                )
             val previous = retained[key]
             if (previous == null || normalized.createdAtMillis > previous.createdAtMillis) {
                 retained[key] = normalized

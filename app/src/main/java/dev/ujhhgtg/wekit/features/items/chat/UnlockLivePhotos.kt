@@ -22,6 +22,11 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -37,13 +42,8 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.livephoto.WeKitLivePhotoBackend
-import org.json.JSONObject
 import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import org.json.JSONObject
 
 /** Supplies the missing local media adapter while retaining WeChat's validation and remux. */
 object UnlockLivePhotos : ClickableFeature(), IResolveDex {
@@ -57,8 +57,7 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
     private var vivoCompatibility by prefOption("live_photo_vivo_compatibility", 0)
     // Changing the test preference never switches an in-flight operation or cached host object.
     private var processForceWeKit: Boolean? = null
-    @SuppressLint("StaticFieldLeak")
-    private var backend: WeKitLivePhotoBackend? = null
+    @SuppressLint("StaticFieldLeak") private var backend: WeKitLivePhotoBackend? = null
     private var currentBackendRes = R.string.live_photo_backend_inactive
 
     override val shouldEnableOnStartup: Boolean
@@ -68,68 +67,77 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             return super.shouldEnableOnStartup
         }
 
-    private val classCore by dexClass(
-        sqlClass {
-            className = "com.motion.core.LivePhotoCore"
-        },
-    )
-    private val classWrapper by dexClass(
-        sqlClass {
-            usingEqStrings(
-                "MicroMsg.MMLivePhotoCore",
-                "initCore >> init result: ",
-                "getLivePhotoMediaData >> parse data json error",
-            )
-        },
-    )
+    private val classCore by
+        dexClass(
+            sqlClass {
+                className = "com.motion.core.LivePhotoCore"
+            },
+        )
+    private val classWrapper by
+        dexClass(
+            sqlClass {
+                usingEqStrings(
+                    "MicroMsg.MMLivePhotoCore",
+                    "initCore >> init result: ",
+                    "getLivePhotoMediaData >> parse data json error",
+                )
+            },
+        )
     private val fieldCore by dexField()
     private val fieldCoreVersion by dexField()
     private val fieldSysVersion by dexField()
     private val fieldSupport by dexField()
     private val fieldSnsSave by dexField()
 
-    private val methodExpt by dexMethod(
-        sqlMethod {
-            returnType = "java.lang.String"
-            paramTypes("java.lang.String", "java.lang.String", "boolean")
-            usingEqStrings("V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]")
-        },
-    )
-    private val methodMultiExpt by dexMethod(
-        sqlMethod {
-            returnType = "java.lang.String"
-            paramTypes("java.lang.String", "java.lang.String", "boolean", "boolean")
-            usingEqStrings("V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]")
-        },
-    )
-    private val methodRepairerGet by dexMethod(
-        sqlMethod {
-            returnType = "java.lang.Object"
-            paramTypes("java.lang.String", "java.lang.Object")
-            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-            declaredClass {
-                usingEqStrings("RepairerConfigThread")
-                usingEqStrings("ValueStrategy_")
-            }
-        },
-    )
-    private val methodRepairerStrategy by dexMethod(
-        sqlMethod {
-            returnType = "int"
-            paramCount = 1
-            usingEqStrings("ValueStrategy_", "keyObj")
-            declaredClass {
-                usingEqStrings("RepairerConfigThread")
-            }
-        },
-    )
-    private val methodSnsPublish by dexMethod(
-        sqlMethod {
-            returnType = "boolean"
-            paramCount = 0
-            usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
-        },
-    )
+    private val methodExpt by
+        dexMethod(
+            sqlMethod {
+                returnType = "java.lang.String"
+                paramTypes("java.lang.String", "java.lang.String", "boolean")
+                usingEqStrings("V2GetExpt result[%s] exptId[%d] key[%s] defStr[%s] cost[%d]")
+            },
+        )
+    private val methodMultiExpt by
+        dexMethod(
+            sqlMethod {
+                returnType = "java.lang.String"
+                paramTypes("java.lang.String", "java.lang.String", "boolean", "boolean")
+                usingEqStrings(
+                    "V2GetMulitExpt result[%s] key[%s] def[%s] cost[%d] hadReport[%b %b] exptId[%d]",
+                )
+            },
+        )
+    private val methodRepairerGet by
+        dexMethod(
+            sqlMethod {
+                returnType = "java.lang.Object"
+                paramTypes("java.lang.String", "java.lang.Object")
+                usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+                declaredClass {
+                    usingEqStrings("RepairerConfigThread")
+                    usingEqStrings("ValueStrategy_")
+                }
+            },
+        )
+    private val methodRepairerStrategy by
+        dexMethod(
+            sqlMethod {
+                returnType = "int"
+                paramCount = 1
+                usingEqStrings("ValueStrategy_", "keyObj")
+                declaredClass {
+                    usingEqStrings("RepairerConfigThread")
+                }
+            },
+        )
+    private val methodSnsPublish by
+        dexMethod(
+            sqlMethod {
+                returnType = "boolean"
+                paramCount = 0
+                usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
+            },
+        )
 
     override fun resolveDex() {
         val fields = classWrapper.data.fields.filter { Modifier.isStatic(it.modifiers) }
@@ -137,26 +145,39 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         fieldCoreVersion.setDescriptor(fields.single { it.typeName == "int" })
         fieldSysVersion.setDescriptor(fields.single { it.typeName == "java.lang.String" })
         fieldSupport.setDescriptor(fields.single { it.typeName == "boolean" })
-        val saveReads = DexResolutionContext.matcher.findMethods(
-            MethodSpec(usingStrings = listOf(StringSpec("enableSaveLivePhoto", NameMatch.Equals))),
-        ).asSequence().flatMap { it.usingFields }
-            .filter { it.usingType == FieldUsingType.Read }
-            .map { it.field }
-            .filter { it.declaredClassName == methodSnsPublish.data.declaredClassName && it.typeName == "boolean" }
-            .distinctBy { it.descriptor }.toList()
+        val saveReads =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        usingStrings = listOf(StringSpec("enableSaveLivePhoto", NameMatch.Equals)),
+                    ),
+                )
+                .asSequence()
+                .flatMap { it.usingFields }
+                .filter { it.usingType == FieldUsingType.Read }
+                .map { it.field }
+                .filter {
+                    it.declaredClassName == methodSnsPublish.data.declaredClassName &&
+                        it.typeName == "boolean"
+                }
+                .distinctBy { it.descriptor }
+                .toList()
         fieldSnsSave.setDescriptor(saveReads.single())
         // The stable adapter must provide all six signatures on every supported host.
-        val expected = mapOf(
-            "initCore" to Pair(listOf("android.content.Context"), "int"),
-            "isSupport" to Pair(emptyList(), "boolean"),
-            "getCoreMetaData" to Pair(emptyList(), "java.lang.String"),
-            "isLivePhoto" to Pair(listOf("java.util.List"), "java.util.HashMap"),
-            "getVideoMetaData" to Pair(listOf("long", "java.lang.String"), "java.lang.String"),
-            "exportLivePhoto" to Pair(listOf("java.lang.String"), "int"),
-        )
+        val expected =
+            mapOf(
+                "initCore" to Pair(listOf("android.content.Context"), "int"),
+                "isSupport" to Pair(emptyList(), "boolean"),
+                "getCoreMetaData" to Pair(emptyList(), "java.lang.String"),
+                "isLivePhoto" to Pair(listOf("java.util.List"), "java.util.HashMap"),
+                "getVideoMetaData" to Pair(listOf("long", "java.lang.String"), "java.lang.String"),
+                "exportLivePhoto" to Pair(listOf("java.lang.String"), "int"),
+            )
         expected.forEach { (name, signature) ->
             classCore.data.methods.single {
-                it.name == name && it.paramTypeNames == signature.first && it.returnTypeName == signature.second
+                it.name == name &&
+                    it.paramTypeNames == signature.first &&
+                    it.returnTypeName == signature.second
             }
         }
     }
@@ -173,7 +194,9 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             installCoreHooks(core, local)
             currentBackendRes = R.string.live_photo_backend_wekit
         } else {
-            currentBackendRes = if (system == true) R.string.live_photo_backend_system else R.string.live_photo_backend_unknown
+            currentBackendRes =
+                if (system == true) R.string.live_photo_backend_system
+                else R.string.live_photo_backend_unknown
         }
         installConfigHooks()
         // Loading the wrapper now lets its original initializer run under the selected adapter.
@@ -204,33 +227,95 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
     }
 
     private fun installCoreHooks(core: Class<*>, local: WeKitLivePhotoBackend) {
-        core.reflekt().firstMethod { name = "initCore"; parameters(Context::class) }.hookBefore {
-            result = local.initCore(args[0] as Context)
-        }
-        core.reflekt().firstMethod { name = "isSupport"; parameters() }.hookBefore { result = local.isSupport() }
-        core.reflekt().firstMethod { name = "getCoreMetaData"; parameters() }.hookBefore { result = local.getCoreMetaData() }
-        core.reflekt().firstMethod { name = "isLivePhoto"; parameters(List::class) }.hookBefore {
-            @Suppress("UNCHECKED_CAST")
-            val ids = args[0] as List<Long>
-            result = local.isLivePhoto(ids)
-        }
-        core.reflekt().firstMethod { name = "getVideoMetaData"; parameters(Long::class, String::class) }.hookBefore {
-            result = local.getVideoMetaData(args[0] as Long, args[1] as String)
-        }
-        core.reflekt().firstMethod { name = "exportLivePhoto"; parameters(String::class) }.hookBefore {
-            result = local.exportLivePhoto(args[0] as String, oplusCompatibility, vivoCompatibility)
-        }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "initCore"
+                parameters(Context::class)
+            }
+            .hookBefore {
+                result = local.initCore(args[0] as Context)
+            }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "isSupport"
+                parameters()
+            }
+            .hookBefore { result = local.isSupport() }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "getCoreMetaData"
+                parameters()
+            }
+            .hookBefore { result = local.getCoreMetaData() }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "isLivePhoto"
+                parameters(List::class)
+            }
+            .hookBefore {
+                @Suppress("UNCHECKED_CAST") val ids = args[0] as List<Long>
+                result = local.isLivePhoto(ids)
+            }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "getVideoMetaData"
+                parameters(Long::class, String::class)
+            }
+            .hookBefore {
+                result = local.getVideoMetaData(args[0] as Long, args[1] as String)
+            }
+        core
+            .reflekt()
+            .firstMethod {
+                name = "exportLivePhoto"
+                parameters(String::class)
+            }
+            .hookBefore {
+                result =
+                    local.exportLivePhoto(args[0] as String, oplusCompatibility, vivoCompatibility)
+            }
     }
 
     private fun initializeWrapper(core: Class<*>) {
-        val instance = fieldCore.field.get(null) ?: core.reflekt().firstConstructor { parameterCount = 0 }
-            .newInstance().also { fieldCore.field.set(null, it) }
-        val init = instance.reflekt().firstMethod { name = "initCore"; parameters(Context::class) }
+        val instance =
+            fieldCore.field.get(null)
+                ?: core
+                    .reflekt()
+                    .firstConstructor { parameterCount = 0 }
+                    .newInstance()
+                    .also { fieldCore.field.set(null, it) }
+        val init =
+            instance.reflekt().firstMethod {
+                name = "initCore"
+                parameters(Context::class)
+            }
         if (init.invoke(HostInfo.application) as Int != 0) return
-        val supported = instance.reflekt().firstMethod { name = "isSupport"; parameters() }.invoke() as Boolean
+        val supported =
+            instance
+                .reflekt()
+                .firstMethod {
+                    name = "isSupport"
+                    parameters()
+                }
+                .invoke() as Boolean
         if (!supported) return
-        val metadata = JSONObject(instance.reflekt().firstMethod { name = "getCoreMetaData"; parameters() }.invoke() as String)
-        if (metadata.optInt("coreVersion") == 0 || metadata.optString("wechatKey") != WECHAT_KEY) return
+        val metadata =
+            JSONObject(
+                instance
+                    .reflekt()
+                    .firstMethod {
+                        name = "getCoreMetaData"
+                        parameters()
+                    }
+                    .invoke() as String,
+            )
+        if (metadata.optInt("coreVersion") == 0 || metadata.optString("wechatKey") != WECHAT_KEY)
+            return
         fieldCoreVersion.field.setInt(null, metadata.getInt("coreVersion"))
         fieldSysVersion.field.set(null, metadata.optString("sysVersion"))
         fieldSupport.field.setBoolean(null, true)
@@ -243,13 +328,21 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         if (loader == null || loader === Context::class.java.classLoader) return true
         if (loader !is BaseDexClassLoader) return null
         return try {
-            val pathList = loader.reflekt().firstField { name = "pathList"; superclass() }.get()!!
+            val pathList =
+                loader
+                    .reflekt()
+                    .firstField {
+                        name = "pathList"
+                        superclass()
+                    }
+                    .get()!!
             val elements = pathList.reflekt().firstField { name = "dexElements" }.get() as Array<*>
             val paths = elements.mapNotNull { element ->
                 @Suppress("DEPRECATION")
                 (element!!.reflekt().firstField { name = "dexFile" }.get() as DexFile?)?.name
             }
-            val hostPaths = listOf(HostInfo.appInfo.sourceDir) + HostInfo.appInfo.splitSourceDirs.orEmpty()
+            val hostPaths =
+                listOf(HostInfo.appInfo.sourceDir) + HostInfo.appInfo.splitSourceDirs.orEmpty()
             when {
                 paths.isEmpty() -> null
                 paths.all { path -> SYSTEM_PREFIXES.any(path::startsWith) } -> true
@@ -281,33 +374,70 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.live_photo_force_wekit),
-                                description = stringResource(R.string.live_photo_force_wekit_description),
+                                description =
+                                    stringResource(R.string.live_photo_force_wekit_description),
                                 checked = forced,
-                                onCheckedChange = { forced = it; forceWeKitBackend = it },
+                                onCheckedChange = {
+                                    forced = it
+                                    forceWeKitBackend = it
+                                },
                             )
                         }
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.live_photo_oplus_compatibility),
-                                description = stringResource(R.string.live_photo_oplus_compatibility_description),
+                                description =
+                                    stringResource(
+                                        R.string.live_photo_oplus_compatibility_description,
+                                    ),
                                 checked = oplusCompatible,
-                                onCheckedChange = { oplusCompatible = it; oplusCompatibility = it },
+                                onCheckedChange = {
+                                    oplusCompatible = it
+                                    oplusCompatibility = it
+                                },
                             )
                         }
                         item {
                             DropDownMenuWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.live_photo_vivo_compatibility),
-                                description = stringResource(R.string.live_photo_vivo_compatibility_description),
+                                description =
+                                    stringResource(
+                                        R.string.live_photo_vivo_compatibility_description,
+                                    ),
                                 value = vivoMode,
-                                options = listOf(
-                                    DropdownOption(0, stringResource(R.string.live_photo_vivo_compatibility_disabled)),
-                                    DropdownOption(1, stringResource(R.string.live_photo_vivo_compatibility_dual_file)),
-                                    DropdownOption(2, stringResource(R.string.live_photo_vivo_compatibility_single_file)),
-                                    DropdownOption(3, stringResource(R.string.live_photo_vivo_compatibility_standard)),
-                                ),
-                                onValueChange = { vivoMode = it; vivoCompatibility = it },
+                                options =
+                                    listOf(
+                                        DropdownOption(
+                                            0,
+                                            stringResource(
+                                                R.string.live_photo_vivo_compatibility_disabled,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            1,
+                                            stringResource(
+                                                R.string.live_photo_vivo_compatibility_dual_file,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            2,
+                                            stringResource(
+                                                R.string.live_photo_vivo_compatibility_single_file,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            3,
+                                            stringResource(
+                                                R.string.live_photo_vivo_compatibility_standard,
+                                            ),
+                                        ),
+                                    ),
+                                onValueChange = {
+                                    vivoMode = it
+                                    vivoCompatibility = it
+                                },
                             )
                         }
                         item {
@@ -319,7 +449,9 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -327,21 +459,40 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
     private const val TAG = "UnlockLivePhotos"
     private const val CORE = "com.motion.core.LivePhotoCore"
     private const val WECHAT_KEY = "303e1e50a7e5a84dc261223a0dd6a083"
-    private val SYSTEM_PREFIXES = listOf("/system/", "/system_ext/", "/product/", "/vendor/", "/odm/", "/apex/", "/my_product/")
-    private val EXPT_KEYS = setOf(
-        "clicfg_live_photo_switch", "clicfg_live_photo_extra_manufacturer",
-        "clicfg_chatting_c2c_live_send_v4", "clicfg_chatting_c2c_live_preview_v2",
-        "clicfg_sns_publish_live_photo_v2", "clicfg_sns_check_sys_live_photo", "clicfg_sns_save_live_photo",
-    )
-    private val REPAIRER_KEYS = setOf(
-        "RepairerConfig_Chatting_C2C_Live_Send_V4_Int", "RepairerConfig_Chatting_C2C_Live_Preview_V2_Int",
-        "RepairerConfig_SnsPublishLivePhoto_Int", "RepairerConfig_SnsSaveLivePhoto_Int", "RepairerConfig_SnsCheckSysLivePhoto_Int",
-    )
-    private val REPAIRER_CLASSES = setOf(
-        "com.tencent.mm.repairer.config.chatting.RepairerConfigC2CLiveImageSend",
-        "com.tencent.mm.repairer.config.chatting.RepairerConfigC2CLiveImagePreview",
-        "com.tencent.mm.repairer.config.livephoto.RCSnsPublishLivePhoto",
-        "com.tencent.mm.repairer.config.livephoto.RCSnsSupportSaveLivePhoto",
-        "com.tencent.mm.repairer.config.livephoto.RCSnsSupportCheckSysLivePhoto",
-    )
+    private val SYSTEM_PREFIXES =
+        listOf(
+            "/system/",
+            "/system_ext/",
+            "/product/",
+            "/vendor/",
+            "/odm/",
+            "/apex/",
+            "/my_product/",
+        )
+    private val EXPT_KEYS =
+        setOf(
+            "clicfg_live_photo_switch",
+            "clicfg_live_photo_extra_manufacturer",
+            "clicfg_chatting_c2c_live_send_v4",
+            "clicfg_chatting_c2c_live_preview_v2",
+            "clicfg_sns_publish_live_photo_v2",
+            "clicfg_sns_check_sys_live_photo",
+            "clicfg_sns_save_live_photo",
+        )
+    private val REPAIRER_KEYS =
+        setOf(
+            "RepairerConfig_Chatting_C2C_Live_Send_V4_Int",
+            "RepairerConfig_Chatting_C2C_Live_Preview_V2_Int",
+            "RepairerConfig_SnsPublishLivePhoto_Int",
+            "RepairerConfig_SnsSaveLivePhoto_Int",
+            "RepairerConfig_SnsCheckSysLivePhoto_Int",
+        )
+    private val REPAIRER_CLASSES =
+        setOf(
+            "com.tencent.mm.repairer.config.chatting.RepairerConfigC2CLiveImageSend",
+            "com.tencent.mm.repairer.config.chatting.RepairerConfigC2CLiveImagePreview",
+            "com.tencent.mm.repairer.config.livephoto.RCSnsPublishLivePhoto",
+            "com.tencent.mm.repairer.config.livephoto.RCSnsSupportSaveLivePhoto",
+            "com.tencent.mm.repairer.config.livephoto.RCSnsSupportCheckSysLivePhoto",
+        )
 }

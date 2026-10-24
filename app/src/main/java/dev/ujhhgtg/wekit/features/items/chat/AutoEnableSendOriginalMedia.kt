@@ -17,10 +17,9 @@ object AutoEnableSendOriginalMedia : SwitchFeature() {
 
     /**
      * The 8.0.78+ chat picker (the half-screen album, A/B tested via
-     * clicfg_local_media_picker_chatting_opt) keeps its initial original-image
-     * state in this feature-arguments object instead of an Activity extra. Older hosts do
-     * not have the class, so the optional reflection hook is deliberately
-     * resolved at runtime.
+     * clicfg_local_media_picker_chatting_opt) keeps its initial original-image state in this
+     * feature-arguments object instead of an Activity extra. Older hosts do not have the class, so
+     * the optional reflection hook is deliberately resolved at runtime.
      */
     private const val LOCAL_PICKER_ARGUMENTS =
         "com.tencent.mm.plugin.picker.scene.chatting.ChattingLocalMediaPickerFeatureArguments"
@@ -28,14 +27,15 @@ object AutoEnableSendOriginalMedia : SwitchFeature() {
 
     override fun onEnable() {
         listOf(
-            "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI",
-            "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
-        ).forEach {
-            it.toClass().hookBeforeOnCreate {
-                val activity = thisObject as Activity
-                activity.intent.putExtra("send_raw_img", true)
+                "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI",
+                "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI",
+            )
+            .forEach {
+                it.toClass().hookBeforeOnCreate {
+                    val activity = thisObject as Activity
+                    activity.intent.putExtra("send_raw_img", true)
+                }
             }
-        }
 
         // Both picker state holders read this getter once at startup, so the
         // user can still untick the option afterwards. Hooking the getter

@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
@@ -58,6 +57,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
@@ -69,7 +69,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -84,7 +83,6 @@ import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
-import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Field
 import java.util.WeakHashMap
 import kotlin.math.roundToInt
@@ -125,8 +123,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 标题栏容器, 微信把 ViewStub(bkr) inflate 成这个 androidx 控件。 */
     private const val ACTION_BAR_CONTAINER_CLASS = "androidx.appcompat.widget.ActionBarContainer"
-    private const val ACTION_BAR_OVERLAY_LAYOUT_CLASS = "androidx.appcompat.widget.ActionBarOverlayLayout"
-    private const val EDGE_TO_EDGE_WRAPPER_CLASS = "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout"
+    private const val ACTION_BAR_OVERLAY_LAYOUT_CLASS =
+        "androidx.appcompat.widget.ActionBarOverlayLayout"
+    private const val EDGE_TO_EDGE_WRAPPER_CLASS =
+        "com.tencent.mm.ui.widget.EdgeToEdgeWrapperLayout"
 
     /** 分体式返回按钮未读角标: 左缘压进箭头右缘、上缘高出箭头上缘的距离。 */
     private const val BACK_BADGE_OVERLAP_X_DP = 8f
@@ -142,7 +142,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         "com.tencent.mm.ui.conversation.BaseConversationUI"
 
     /** 消息列表所在的内容区宿主, 标题区挂件之外的直接子 View 才需要做成悬浮卡。 */
-    private const val CHATTING_SCROLL_LAYOUT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
+    private const val CHATTING_SCROLL_LAYOUT_CLASS =
+        "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
 
     /** 消息列表与多选快捷按钮所在的内容区 (layout ss 的 bki)。 */
     private const val CHATTING_CONTENT_CLASS = "com.tencent.mm.pluginsdk.ui.chat.ChattingContent"
@@ -150,7 +151,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private const val TOOLBAR_CLASS = "androidx.appcompat.widget.Toolbar"
 
     /** 内容宿主里这些子 View 不是"标题下挂件", 排除在悬浮卡之外。 */
-    private const val ME_HOLDER_VIEW_CLASS = "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
+    private const val ME_HOLDER_VIEW_CLASS =
+        "com.tencent.mm.magicbrush.plugin.emoji.ui.MEHolderView"
     private const val TALK_ROOM_POPUP_NAV_CLASS = "com.tencent.mm.ui.base.TalkRoomPopupNav"
 
     /** 置顶消息等提示条的宿主 (ViewStub p2f 展开, s3.xml)。 */
@@ -162,37 +164,45 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 name = NameSpec("onAnimationUpdate"),
                 paramTypes = listOf(TypeSpec("android.animation.ValueAnimator")),
                 returnType = ClassSpec(className = NameSpec("void")),
-                declaredClass = ClassSpec(
-                    interfaces = listOf(
-                        ClassSpec(
-                            className = NameSpec(
-                                "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                declaredClass =
+                    ClassSpec(
+                        interfaces =
+                            listOf(
+                                ClassSpec(
+                                    className =
+                                        NameSpec(
+                                            "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                                        ),
+                                ),
                             ),
+                        fields =
+                            listOf(
+                                FieldSpec(
+                                    type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS)),
+                                ),
+                                FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                            ),
+                        fieldCount = 2..2,
+                    ),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(
+                            declaredClass =
+                                ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
+                            name = NameSpec("getAnimatedFraction"),
+                            paramTypes = emptyList(),
+                        ),
+                        MethodSpec(
+                            declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                            name = NameSpec("setOutlineProvider"),
+                            paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
+                        ),
+                        MethodSpec(
+                            declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                            name = NameSpec("invalidate"),
+                            paramTypes = emptyList(),
                         ),
                     ),
-                    fields = listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                    ),
-                    fieldCount = 2..2,
-                ),
-                invokeMethods = listOf(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
-                        name = NameSpec("getAnimatedFraction"),
-                        paramTypes = emptyList(),
-                    ),
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
-                        name = NameSpec("setOutlineProvider"),
-                        paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
-                    ),
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
-                        name = NameSpec("invalidate"),
-                        paramTypes = emptyList(),
-                    ),
-                ),
             ),
             packages = listOf("com.tencent.mm.ui.tipsbar"),
         )
@@ -204,77 +214,92 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 name = NameSpec("onAnimationUpdate"),
                 paramTypes = listOf(TypeSpec("android.animation.ValueAnimator")),
                 returnType = ClassSpec(className = NameSpec("void")),
-                declaredClass = ClassSpec(
-                    interfaces = listOf(
-                        ClassSpec(
-                            className = NameSpec(
-                                "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                declaredClass =
+                    ClassSpec(
+                        interfaces =
+                            listOf(
+                                ClassSpec(
+                                    className =
+                                        NameSpec(
+                                            "android.animation.ValueAnimator\$AnimatorUpdateListener",
+                                        ),
+                                ),
                             ),
+                        fields =
+                            listOf(
+                                FieldSpec(
+                                    type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS)),
+                                ),
+                                FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                                FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                            ),
+                        fieldCount = 3..3,
+                    ),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(
+                            declaredClass =
+                                ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
+                            name = NameSpec("getAnimatedFraction"),
+                            paramTypes = emptyList(),
+                        ),
+                        MethodSpec(
+                            declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                            name = NameSpec("setOutlineProvider"),
+                            paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
+                        ),
+                        MethodSpec(
+                            declaredClass = ClassSpec(className = NameSpec("android.view.View")),
+                            name = NameSpec("invalidate"),
+                            paramTypes = emptyList(),
                         ),
                     ),
-                    fields = listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec(TIPS_BAR_GROUP_CLASS))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                    ),
-                    fieldCount = 3..3,
-                ),
-                invokeMethods = listOf(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.animation.ValueAnimator")),
-                        name = NameSpec("getAnimatedFraction"),
-                        paramTypes = emptyList(),
-                    ),
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
-                        name = NameSpec("setOutlineProvider"),
-                        paramTypes = listOf(TypeSpec("android.view.ViewOutlineProvider")),
-                    ),
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("android.view.View")),
-                        name = NameSpec("invalidate"),
-                        paramTypes = emptyList(),
-                    ),
-                ),
             ),
             packages = listOf("com.tencent.mm.ui.tipsbar"),
         )
     }
 
-    private val methodTipsToFoldMode by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
-            returnType = "void"
-            paramTypes()
-            usingStrings("toFoldMode")
-        },
-    )
+    private val methodTipsToFoldMode by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+                returnType = "void"
+                paramTypes()
+                usingStrings("toFoldMode")
+            },
+        )
 
-    private val methodRemoveItemDecoration by dexMethod(
-        sqlMethod {
-            declaredClass = "androidx.recyclerview.widget.RecyclerView"
-            returnType = "void"
-            paramCount = 1
-            usingStrings("Cannot remove item decoration during a scroll  or layout")
-        },
-    )
+    private val methodRemoveItemDecoration by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "androidx.recyclerview.widget.RecyclerView"
+                returnType = "void"
+                paramCount = 1
+                usingStrings("Cannot remove item decoration during a scroll  or layout")
+            },
+        )
 
-    private var cornerRadiusDp by prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)
+    private var cornerRadiusDp by
+        prefOption("floating_chat_header_corner_radius", DEFAULT_CORNER_RADIUS)
     private var sideMarginDp by prefOption("floating_chat_header_side_margin", DEFAULT_SIDE_MARGIN)
     private var topGapDp by prefOption("floating_chat_header_top_gap", DEFAULT_TOP_GAP)
     private var extraGapDp by prefOption("floating_chat_header_extra_gap", DEFAULT_EXTRA_GAP)
     private var elevationDp by prefOption("floating_chat_header_elevation", DEFAULT_ELEVATION)
-    private var componentGapDp by prefOption(
-        "floating_chat_header_component_gap",
-        DEFAULT_COMPONENT_GAP,
-    )
-    private var headerLayoutStyleName by prefOption(
-        "floating_chat_header_layout_style",
-        HeaderLayoutStyle.INTEGRATED.name,
-    )
+    private var componentGapDp by
+        prefOption(
+            "floating_chat_header_component_gap",
+            DEFAULT_COMPONENT_GAP,
+        )
+    private var headerLayoutStyleName by
+        prefOption(
+            "floating_chat_header_layout_style",
+            HeaderLayoutStyle.INTEGRATED.name,
+        )
 
     private var headerLayoutStyle: HeaderLayoutStyle
-        get() = runCatching { HeaderLayoutStyle.valueOf(headerLayoutStyleName) }
+        get() = runCatching {
+            HeaderLayoutStyle.valueOf(headerLayoutStyleName)
+        }
             .getOrDefault(HeaderLayoutStyle.INTEGRATED)
         set(value) {
             headerLayoutStyleName = value.name
@@ -546,9 +571,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         private val rightRect = RectF()
         private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-        }
+        private val strokePaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+            }
         private var titleRadius = 0f
         private var buttonRadius = 0f
         private var surfaceColor = Color.TRANSPARENT
@@ -598,15 +624,25 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val nextShadowOffsetY = elevationPx * 0.5f
             val nextShadowColor = if (darkMode) 0x99000000.toInt() else 0x52000000
             val nextStrokeWidth = if (darkMode) density.coerceAtLeast(1f) else 0f
-            if (leftRect.left == leftLeft && leftRect.top == leftTop &&
-                leftRect.right == leftRight && leftRect.bottom == leftBottom &&
-                titleRect.left == titleLeft && titleRect.top == titleTop &&
-                titleRect.right == titleRight && titleRect.bottom == titleBottom &&
-                rightRect.left == rightLeft && rightRect.top == rightTop &&
-                rightRect.right == rightRight && rightRect.bottom == rightBottom &&
-                this.titleRadius == titleRadius && this.surfaceColor == surfaceColor &&
-                shadowRadius == nextShadowRadius && shadowOffsetY == nextShadowOffsetY &&
-                shadowColor == nextShadowColor && strokeWidth == nextStrokeWidth
+            if (
+                leftRect.left == leftLeft &&
+                    leftRect.top == leftTop &&
+                    leftRect.right == leftRight &&
+                    leftRect.bottom == leftBottom &&
+                    titleRect.left == titleLeft &&
+                    titleRect.top == titleTop &&
+                    titleRect.right == titleRight &&
+                    titleRect.bottom == titleBottom &&
+                    rightRect.left == rightLeft &&
+                    rightRect.top == rightTop &&
+                    rightRect.right == rightRight &&
+                    rightRect.bottom == rightBottom &&
+                    this.titleRadius == titleRadius &&
+                    this.surfaceColor == surfaceColor &&
+                    shadowRadius == nextShadowRadius &&
+                    shadowOffsetY == nextShadowOffsetY &&
+                    shadowColor == nextShadowColor &&
+                    strokeWidth == nextStrokeWidth
             ) {
                 return
             }
@@ -677,149 +713,186 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             scheduleReconcile(layout, RECONCILE_TIPS)
         }
 
-        ChattingUILayout::class.reflekt().firstConstructor {
-            parameters(Context::class, AttributeSet::class)
-        }.hookAfter {
-            ensureLayoutAttachListener(thisObject as ChattingUILayout)
-        }
+        ChattingUILayout::class.reflekt()
+            .firstConstructor {
+                parameters(Context::class, AttributeSet::class)
+            }
+            .hookAfter {
+                ensureLayoutAttachListener(thisObject as ChattingUILayout)
+            }
 
         // 通知半屏/全屏路径下 ChatFooter 一定存在且稳定 attach, 借它兜底追踪 ChattingUILayout:
         // 这些路径的 ChattingUILayout 可能由微信布局预取线程提前 inflate, 构造 hook/attach 监听会漏。
-        ChatFooter::class.reflekt().firstMethod { name = "onAttachedToWindow" }.hookAfter {
-            (thisObject as ChatFooter).findAncestorChattingUILayout()?.let { layout ->
-                ensureLayoutAttachListener(layout)
-                trackLayout(layout)
+        ChatFooter::class.reflekt()
+            .firstMethod { name = "onAttachedToWindow" }
+            .hookAfter {
+                (thisObject as ChatFooter).findAncestorChattingUILayout()?.let { layout ->
+                    ensureLayoutAttachListener(layout)
+                    trackLayout(layout)
+                }
             }
-        }
 
         // 运行中才打开本特性时, 已有会话的布局早已构造完, attach 监听不会再触发;
         // 下一次布局 (切会话/键盘/旋转) 到来时补挂追踪, 之后的 pre-draw 完成全部改造。
         // onLayout 沿继承链命中 KeyboardLinearLayout.onLayout —— ChattingUILayout 运行时
         // 实际派发的 override, 只影响这一小簇布局类, 不会波及全进程。
-        ChattingUILayout::class.reflekt().firstMethod {
-            name = "onLayout"
-            superclass()
-        }.hookAfter {
-            val layout = thisObject
-            if (layout !is ChattingUILayout) return@hookAfter
-            trackLayout(layout)
-            scheduleReconcile(layout, RECONCILE_LAYOUT)
-        }
+        ChattingUILayout::class.reflekt()
+            .firstMethod {
+                name = "onLayout"
+                superclass()
+            }
+            .hookAfter {
+                val layout = thisObject
+                if (layout !is ChattingUILayout) return@hookAfter
+                trackLayout(layout)
+                scheduleReconcile(layout, RECONCILE_LAYOUT)
+            }
 
         // 状态栏沉浸后，微信仍会把状态栏 inset 吃进 ChattingUILayout.paddingTop。
         // 只清顶部；导航栏相关的底部 padding 由 FloatingChatFooter 独立处理。
-        ChattingUILayout::class.reflekt().firstMethod { name = "fitSystemWindows" }.hookAfter {
-            zeroChatLayoutTopPadding(thisObject as View)
-        }
+        ChattingUILayout::class.reflekt()
+            .firstMethod { name = "fitSystemWindows" }
+            .hookAfter {
+                zeroChatLayoutTopPadding(thisObject as View)
+            }
 
         // 通知半屏点「全屏」时微信把包装层策略改回 ALWAYS_AVOID 并立即重算 padding, 之后每次
         // insets 变化 (如收起键盘) 都会先画出一帧整页下移一个状态栏高度。已接管的包装层
         // 始终保持 ALWAYS_HIDE。包装层 8.0.72 起才有, 旧版本没有这个类。
-        EDGE_TO_EDGE_WRAPPER_CLASS.toClassOrNull()?.reflekt()?.firstMethod {
-            name = "setStatusBarStrategy"
-            parameterCount = 1
-        }?.hookBefore {
-            if (statusBarWrappersNeutralized[thisObject as View] != true) return@hookBefore
-            val strategy = args[0] as Enum<*>
-            if (strategy.name == "ALWAYS_HIDE") return@hookBefore
-            args[0] = strategy.javaClass.enumConstants!!.single {
-                (it as Enum<*>).name == "ALWAYS_HIDE"
+        EDGE_TO_EDGE_WRAPPER_CLASS.toClassOrNull()
+            ?.reflekt()
+            ?.firstMethod {
+                name = "setStatusBarStrategy"
+                parameterCount = 1
             }
-        }
+            ?.hookBefore {
+                if (statusBarWrappersNeutralized[thisObject as View] != true) return@hookBefore
+                val strategy = args[0] as Enum<*>
+                if (strategy.name == "ALWAYS_HIDE") return@hookBefore
+                args[0] =
+                    strategy.javaClass.enumConstants!!.single {
+                        (it as Enum<*>).name == "ALWAYS_HIDE"
+                    }
+            }
 
         // 外部应用进入的全屏 ChattingMainUI 也使用窗口标题栏。AppCompat 在每次派发
         // insets 时会用系统栏尺寸覆盖它的三边 margin; 等到 pre-draw 才恢复会让本帧
         // 已按原生边距布局的标题栏先画出来。这里在测量/布局前恢复悬浮边距。
-        ACTION_BAR_OVERLAY_LAYOUT_CLASS.toClass().reflekt().firstMethod {
-            name = "fitSystemWindows"
-            parameters(Rect::class)
-        }.hookAfter {
-            val overlay = thisObject as ViewGroup
-            val (layout, header) = headerViews.entries.firstOrNull { (layout, header) ->
-                windowBarHeaders[layout] == true && header.parent === overlay &&
-                    isCachedHeaderValid(layout, header)
-            } ?: return@hookAfter
-            applyMargins(layout, header)
-        }
+        ACTION_BAR_OVERLAY_LAYOUT_CLASS.toClass()
+            .reflekt()
+            .firstMethod {
+                name = "fitSystemWindows"
+                parameters(Rect::class)
+            }
+            .hookAfter {
+                val overlay = thisObject as ViewGroup
+                val (layout, header) =
+                    headerViews.entries.firstOrNull { (layout, header) ->
+                        windowBarHeaders[layout] == true &&
+                            header.parent === overlay &&
+                            isCachedHeaderValid(layout, header)
+                    } ?: return@hookAfter
+                applyMargins(layout, header)
+            }
 
         // ConvBox.onCreate 尾部的 FullScreenHelper 会 post 把 actionBarSize 写入
         // layout nn 根布局的 paddingTop。edge-to-edge 下清掉这份根补偿，
         // 再把会话容器 jmc 对齐到标题栏最终下沿，不影响并列的 bjy。
-        CONV_BOX_ACTIVITY_CLASS.toClass().reflekt().firstMethod {
-            name = "onCreate"
-            parameters(Bundle::class)
-        }.hookAfter {
-            val activity = thisObject as Activity
-            val decor = activity.window.decorView
-            decor.post {
-                if (!isActive) return@post
-                applyConvBoxEdgeToEdge(activity)
+        CONV_BOX_ACTIVITY_CLASS.toClass()
+            .reflekt()
+            .firstMethod {
+                name = "onCreate"
+                parameters(Bundle::class)
             }
-        }
+            .hookAfter {
+                val activity = thisObject as Activity
+                val decor = activity.window.decorView
+                decor.post {
+                    if (!isActive) return@post
+                    applyConvBoxEdgeToEdge(activity)
+                }
+            }
 
         // IdleHandler 首次预加载聊天容器会重包原窗口树；退出聊天后也要
         // 重新收敛列表布局。两条路径最后都调用 resumeMainFragment。
-        BASE_CONVERSATION_ACTIVITY_CLASS.toClass().reflekt().firstMethod {
-            name = "resumeMainFragment"
-            parameters()
-        }.hookAfter {
-            val activity = thisObject as Activity
-            if (activity.javaClass.name != CONV_BOX_ACTIVITY_CLASS) return@hookAfter
-            activity.window.decorView.post {
-                if (isActive) applyConvBoxEdgeToEdge(activity)
+        BASE_CONVERSATION_ACTIVITY_CLASS.toClass()
+            .reflekt()
+            .firstMethod {
+                name = "resumeMainFragment"
+                parameters()
             }
-        }
+            .hookAfter {
+                val activity = thisObject as Activity
+                if (activity.javaClass.name != CONV_BOX_ACTIVITY_CLASS) return@hookAfter
+                activity.window.decorView.post {
+                    if (isActive) applyConvBoxEdgeToEdge(activity)
+                }
+            }
 
         // 置顶消息卡展开/收起时, 微信通过 ChatTipsBarGroup.setListViewPaddingTop 自己给消息
         // 列表补 recycler 高度。它与我们算的悬浮 padding 叠加会重复, 直接关掉这个补偿,
         // 顶部 padding 完全由本特性统一计算。
-        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstMethod {
-            name = "setListViewPaddingTop"
-        }.hookBefore {
-            val layout = ownerLayoutForTipsGroup(thisObject as View)
-            result = null
-            if (layout != null) scheduleReconcile(layout, RECONCILE_TIPS)
-        }
+        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+            .toClass()
+            .reflekt()
+            .firstMethod {
+                name = "setListViewPaddingTop"
+            }
+            .hookBefore {
+                val layout = ownerLayoutForTipsGroup(thisObject as View)
+                result = null
+                if (layout != null) scheduleReconcile(layout, RECONCILE_TIPS)
+            }
 
         // 历史消息预加载保存的是首个可见消息的 View.top, 恢复时却直接传给
         // setSelectionFromTop → LinearLayoutManager.scrollToPositionWithOffset。
         // 后者会再加 paddingTop; 原生顶部为 0 时无事, 悬浮标题栏会让消息跳动一整段
         // 顶部留白。只把这份预加载快照换算成 padding 内的偏移, 不改其他定位调用。
-        MMChattingListView::class.reflekt().firstMethod {
-            name = "getPreloadFirstVisitViewTop"
-            parameters()
-            returnType(Int::class)
-        }.hookAfter {
-            val top = result as Int
-            if (top == Int.MIN_VALUE) return@hookAfter
-            val layout = (thisObject as MMChattingListView).findAncestorChattingUILayout()
-                ?: return@hookAfter
-            val recycler = layout.chatRecycler() ?: return@hookAfter
-            if (!chatListBasePaddings.containsKey(recycler)) return@hookAfter
-            result = top - recycler.paddingTop
-        }
+        MMChattingListView::class.reflekt()
+            .firstMethod {
+                name = "getPreloadFirstVisitViewTop"
+                parameters()
+                returnType(Int::class)
+            }
+            .hookAfter {
+                val top = result as Int
+                if (top == Int.MIN_VALUE) return@hookAfter
+                val layout =
+                    (thisObject as MMChattingListView).findAncestorChattingUILayout()
+                        ?: return@hookAfter
+                val recycler = layout.chatRecycler() ?: return@hookAfter
+                if (!chatListBasePaddings.containsKey(recycler)) return@hookAfter
+                result = top - recycler.paddingTop
+            }
 
         // ChatTipsBarGroup 在树里的实际父容器不猜了: 构造时拿到实例, attach 后反查所属
         // ChattingUILayout 登记。悬浮与 dim 压制都直接走这份登记, 版本差异也能兜住。
-        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup".toClass().reflekt().firstConstructor {
-            parameters(Context::class, AttributeSet::class)
-        }.hookAfter {
-            ensureTipsGroupAttachListener(thisObject as View)
-        }
-
+        "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+            .toClass()
+            .reflekt()
+            .firstConstructor {
+                parameters(Context::class, AttributeSet::class)
+            }
+            .hookAfter {
+                ensureTipsGroupAttachListener(thisObject as View)
+            }
     }
 
     private fun cacheAnimationGroupFields() {
         listOf(
-            methodTipsExpandAnimationUpdate.method.declaringClass,
-            methodTipsFoldAnimationUpdate.method.declaringClass,
-        ).forEach { clazz ->
-            animationGroupFields[clazz] = clazz.declaredFields.single {
-                it.type.name == TIPS_BAR_GROUP_CLASS
-            }.apply {
-                isAccessible = true
+                methodTipsExpandAnimationUpdate.method.declaringClass,
+                methodTipsFoldAnimationUpdate.method.declaringClass,
+            )
+            .forEach { clazz ->
+                animationGroupFields[clazz] =
+                    clazz.declaredFields
+                        .single {
+                            it.type.name == TIPS_BAR_GROUP_CLASS
+                        }
+                        .apply {
+                            isAccessible = true
+                        }
             }
-        }
     }
 
     private fun animationGroup(listener: Any): View? {
@@ -828,15 +901,16 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun ensureLayoutAttachListener(layout: View) {
         if (layoutAttachListeners[layout] != null) return
-        val listener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                trackLayout(v)
-            }
+        val listener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    trackLayout(v)
+                }
 
-            override fun onViewDetachedFromWindow(v: View) {
-                disposeTracker(v)
+                override fun onViewDetachedFromWindow(v: View) {
+                    disposeTracker(v)
+                }
             }
-        }
         layoutAttachListeners[layout] = listener
         layout.addOnAttachStateChangeListener(listener)
         if (layout.isAttachedToWindow) trackLayout(layout)
@@ -844,27 +918,28 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun ensureTipsGroupAttachListener(group: View) {
         if (tipsGroupAttachListeners[group] != null) return
-        val listener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                val layout = v.findAncestorChattingUILayout() ?: return
-                trackLayout(layout)
-                registerTipsGroupOwnership(layout, v)
-                scheduleReconcile(layout, RECONCILE_LAYOUT)
-            }
-
-            override fun onViewDetachedFromWindow(v: View) {
-                val layout = ownerLayoutForTipsGroup(v) ?: return
-                val tracker = layoutTrackers[layout]
-                val recycler = tipsBarRecyclers[v]
-                if (tipsBarGroups[layout] === v) tipsBarGroups.remove(layout)
-                if (tracker != null) {
-                    unobserveTrackedView(tracker, v)
+        val listener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    val layout = v.findAncestorChattingUILayout() ?: return
+                    trackLayout(layout)
+                    registerTipsGroupOwnership(layout, v)
+                    scheduleReconcile(layout, RECONCILE_LAYOUT)
                 }
-                clearTipsGroupCaches(v, recycler)
-                tipsBarGroupLayouts.remove(v)
-                scheduleReconcile(layout, RECONCILE_LAYOUT)
+
+                override fun onViewDetachedFromWindow(v: View) {
+                    val layout = ownerLayoutForTipsGroup(v) ?: return
+                    val tracker = layoutTrackers[layout]
+                    val recycler = tipsBarRecyclers[v]
+                    if (tipsBarGroups[layout] === v) tipsBarGroups.remove(layout)
+                    if (tracker != null) {
+                        unobserveTrackedView(tracker, v)
+                    }
+                    clearTipsGroupCaches(v, recycler)
+                    tipsBarGroupLayouts.remove(v)
+                    scheduleReconcile(layout, RECONCILE_LAYOUT)
+                }
             }
-        }
         tipsGroupAttachListeners[group] = listener
         group.addOnAttachStateChangeListener(listener)
         if (group.isAttachedToWindow) listener.onViewAttachedToWindow(group)
@@ -890,12 +965,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun registerTipsGroupOwnership(layout: View, group: View) {
         val tracker = layoutTrackers[layout] ?: return
-        tipsBarGroups[layout]?.takeIf { it !== group }?.let { previous ->
-            val recycler = tipsBarRecyclers[previous]
-            unobserveTrackedView(tracker, previous)
-            clearTipsGroupCaches(previous, recycler)
-            tipsBarGroupLayouts.remove(previous)
-        }
+        tipsBarGroups[layout]
+            ?.takeIf { it !== group }
+            ?.let { previous ->
+                val recycler = tipsBarRecyclers[previous]
+                unobserveTrackedView(tracker, previous)
+                clearTipsGroupCaches(previous, recycler)
+                tipsBarGroupLayouts.remove(previous)
+            }
         tipsBarGroups[layout] = group
         tipsBarGroupLayouts[group] = layout
         observeTrackedView(tracker, group, RECONCILE_TIPS)
@@ -904,26 +981,36 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun observeTrackedView(tracker: LayoutTracker, view: View, flags: Int) {
         if (tracker.observedViews[view] != null) return
-        val attachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                scheduleReconcile(tracker.layout, flags)
-            }
+        val attachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    scheduleReconcile(tracker.layout, flags)
+                }
 
-            override fun onViewDetachedFromWindow(v: View) {
-                unobserveTrackedView(tracker, v)
-                if (v === tracker.layout) {
-                    disposeTracker(tracker.layout)
-                } else {
+                override fun onViewDetachedFromWindow(v: View) {
+                    unobserveTrackedView(tracker, v)
+                    if (v === tracker.layout) {
+                        disposeTracker(tracker.layout)
+                    } else {
+                        scheduleReconcile(tracker.layout, flags)
+                    }
+                }
+            }
+        val layoutListener =
+            View.OnLayoutChangeListener {
+                _,
+                left,
+                top,
+                right,
+                bottom,
+                oldLeft,
+                oldTop,
+                oldRight,
+                oldBottom ->
+                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
                     scheduleReconcile(tracker.layout, flags)
                 }
             }
-        }
-        val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
-                                                           oldLeft, oldTop, oldRight, oldBottom ->
-            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
-                scheduleReconcile(tracker.layout, flags)
-            }
-        }
         tracker.observedViews[view] = TrackedViewListeners(attachListener, layoutListener)
         view.addOnAttachStateChangeListener(attachListener)
         view.addOnLayoutChangeListener(layoutListener)
@@ -942,21 +1029,22 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (tracker.oneShotPreDraw != null) return
 
         val observer = layout.viewTreeObserver
-        val listener = object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                if (observer.isAlive) observer.removeOnPreDrawListener(this)
-                if (tracker.oneShotPreDraw === this) {
-                    tracker.oneShotPreDraw = null
-                    tracker.observer = null
+        val listener =
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                    if (tracker.oneShotPreDraw === this) {
+                        tracker.oneShotPreDraw = null
+                        tracker.observer = null
+                    }
+                    val pending = tracker.pendingFlags
+                    tracker.pendingFlags = 0
+                    if (tracker.active && layout.isAttachedToWindow) {
+                        runReconciliation(layout, pending)
+                    }
+                    return true
                 }
-                val pending = tracker.pendingFlags
-                tracker.pendingFlags = 0
-                if (tracker.active && layout.isAttachedToWindow) {
-                    runReconciliation(layout, pending)
-                }
-                return true
             }
-        }
         tracker.observer = observer
         tracker.oneShotPreDraw = listener
         observer.addOnPreDrawListener(listener)
@@ -981,12 +1069,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         applyChatListPadding(layout, header)
         val quickSelectCovered = applyQuickSelectOffset(layout, header)
         applyNewMsgChipOffset(layout, header)
-        val covered = (if (quickSelectCovered) RECONCILE_QUICK_SELECT else 0) or
-            if (tipsCovered) RECONCILE_TIPS else 0
+        val covered =
+            (if (quickSelectCovered) RECONCILE_QUICK_SELECT else 0) or
+                if (tipsCovered) RECONCILE_TIPS else 0
         val tracker = layoutTrackers[layout] ?: return covered
-        tipsBarGroups[layout]?.takeIf { it.isAttachedToWindow }?.let { group ->
-            registerTipsGroupOwnership(layout, group)
-        }
+        tipsBarGroups[layout]
+            ?.takeIf { it.isAttachedToWindow }
+            ?.let { group ->
+                registerTipsGroupOwnership(layout, group)
+            }
         trackQuickSelectInputs(tracker, layout)
         return covered
     }
@@ -1022,22 +1113,27 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun findHeader(layout: View): View? {
-        layout.allViews.firstOrNull { it.javaClass.name == ACTION_BAR_CONTAINER_CLASS }?.let {
-            headerViews[layout] = it
-            return it
-        }
+        layout.allViews
+            .firstOrNull { it.javaClass.name == ACTION_BAR_CONTAINER_CLASS }
+            ?.let {
+                headerViews[layout] = it
+                return it
+            }
         // 独立 ChattingUI 路径中 ChattingUIFragment(true) 的 isCurrentActivity=true,
         // 所以布局内的 bkr ViewStub 不会 inflate; 无论是通知半屏还是全屏
         // ChattingMainUI, 标题栏都来自窗口级 ActionBarContainer。LauncherUI 中的
         // 聊天 Fragment 仍走上面的布局内标题栏, 避免误选主窗口标题栏。
         if (layout.isInStandaloneChattingUi()) {
-            layout.rootView?.allViews?.firstOrNull {
-                it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
-            }?.let {
-                headerViews[layout] = it
-                windowBarHeaders[layout] = true
-                return it
-            }
+            layout.rootView
+                ?.allViews
+                ?.firstOrNull {
+                    it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
+                }
+                ?.let {
+                    headerViews[layout] = it
+                    windowBarHeaders[layout] = true
+                    return it
+                }
         }
         if (lookupWarned.put(layout, true) == null) {
             WeLogger.w(TAG, "ActionBarContainer not found, retrying on next layout event")
@@ -1046,9 +1142,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 把标题栏从 ChattingUILayout 摘出来, 重挂到会话页根 RelativeLayout (layout ss 的根)。
-     * 标题栏因此脱离消息流的测量, 成为铺在整页之上的覆盖物; 微信对它的 findViewById /
-     * setLayoutParams(height) 仍照常工作。pre-draw 里改层级不安全, 延迟到 post 里做。
+     * 把标题栏从 ChattingUILayout 摘出来, 重挂到会话页根 RelativeLayout (layout ss 的根)。 标题栏因此脱离消息流的测量,
+     * 成为铺在整页之上的覆盖物; 微信对它的 findViewById / setLayoutParams(height) 仍照常工作。pre-draw 里改层级不安全, 延迟到 post
+     * 里做。
      */
     private fun reparentIfNeeded(layout: View, header: View) {
         if (reparentBlocked[layout] != null) return
@@ -1065,20 +1161,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
         val tracker = layoutTrackers[layout] ?: return
         if (tracker.reparentRunnable != null) return
-        val runnable = object : Runnable {
-            override fun run() {
-                if (!tracker.active) {
-                    if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
-                    return
+        val runnable =
+            object : Runnable {
+                override fun run() {
+                    if (!tracker.active) {
+                        if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
+                        return
+                    }
+                    try {
+                        performReparent(layout, header)
+                    } finally {
+                        if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
+                    }
+                    scheduleReconcile(layout, RECONCILE_LAYOUT)
                 }
-                try {
-                    performReparent(layout, header)
-                } finally {
-                    if (tracker.reparentRunnable === this) tracker.reparentRunnable = null
-                }
-                scheduleReconcile(layout, RECONCILE_LAYOUT)
             }
-        }
         tracker.reparentRunnable = runnable
         if (!layout.post(runnable)) tracker.reparentRunnable = null
     }
@@ -1090,10 +1187,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         while (parent != null) {
             if (parent.javaClass.name == ACTION_BAR_OVERLAY_LAYOUT_CLASS) {
                 val applied = runCatching {
-                    parent.javaClass.getMethod("setOverlayMode", Boolean::class.javaPrimitiveType)
+                    parent.javaClass
+                        .getMethod("setOverlayMode", Boolean::class.javaPrimitiveType)
                         .invoke(parent, true)
                     true
-                }.getOrDefault(false)
+                }
+                    .getOrDefault(false)
                 if (applied) {
                     windowBarOverlays[header] = true
                 }
@@ -1111,7 +1210,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             if (reparentBlocked.put(layout, true) == null) {
                 WeLogger.w(
                     TAG,
-                    "reparent skipped: expected RelativeLayout root, got ${layout.parent?.javaClass?.name}"
+                    "reparent skipped: expected RelativeLayout root, got ${layout.parent?.javaClass?.name}",
                 )
             }
             return
@@ -1135,19 +1234,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         FloatingChatCardVisuals.applyDarkSurface(view, cornerRadiusDp)
         // 半屏路径微信会在展开动画结束时清掉 ActionBarContainer 的 outline (m.a()),
         // 只按样式缓存判断会漏掉这次恢复, 所以 outline/elevation 被微信改掉时也要重刷。
-        if (headerStyles[view] == style &&
-            view.outlineProvider != null &&
-            view.elevation == expectedElevation
+        if (
+            headerStyles[view] == style &&
+                view.outlineProvider != null &&
+                view.elevation == expectedElevation
         ) {
             return
         }
-        view.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                val r = view.resources.displayMetrics.density * cornerRadiusDp
-                // 高度为 0 时取 1, 避免空 outline 把整卡裁没
-                outline.setRoundRect(0, 0, view.width, view.height.coerceAtLeast(1), r)
+        view.outlineProvider =
+            object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    val r = view.resources.displayMetrics.density * cornerRadiusDp
+                    // 高度为 0 时取 1, 避免空 outline 把整卡裁没
+                    outline.setRoundRect(0, 0, view.width, view.height.coerceAtLeast(1), r)
+                }
             }
-        }
         view.clipToOutline = true
         view.elevation = expectedElevation
         headerStyles[view] = style
@@ -1168,20 +1269,22 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             return
         }
         val current = separatedHeaderStates[layout]
-        val state = if (current != null &&
-            current.header === header &&
-            current.root.isAttachedToWindow &&
-            current.root.parent === current.toolbar &&
-            current.root.rootView === header.rootView
-        ) {
-            current
-        } else {
-            if (current != null) disposeSeparatedHeader(current, restoreVisuals = true)
-            createSeparatedHeaderState(layout, header)?.also {
-                separatedHeaderStates[layout] = it
-                separatedHeaderWarned.remove(layout)
+        val state =
+            if (
+                current != null &&
+                    current.header === header &&
+                    current.root.isAttachedToWindow &&
+                    current.root.parent === current.toolbar &&
+                    current.root.rootView === header.rootView
+            ) {
+                current
+            } else {
+                if (current != null) disposeSeparatedHeader(current, restoreVisuals = true)
+                createSeparatedHeaderState(layout, header)?.also {
+                    separatedHeaderStates[layout] = it
+                    separatedHeaderWarned.remove(layout)
+                }
             }
-        }
         if (state == null) {
             if (separatedHeaderWarned.put(layout, true) == null) {
                 WeLogger.w(TAG, "split header skipped: title bar components not found")
@@ -1194,34 +1297,37 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun createSeparatedHeaderState(layout: View, header: View): SeparatedHeaderState? {
-        val toolbar = header.allViews.firstOrNull { it.javaClass.name == TOOLBAR_CLASS } as? ViewGroup
-            ?: return null
-        val parts = (0 until toolbar.childCount)
-            .map(toolbar::getChildAt)
-            .filterIsInstance<RelativeLayout>()
-            .firstNotNullOfOrNull(::findSeparatedParts)
-            ?: return null
+        val toolbar =
+            header.allViews.firstOrNull { it.javaClass.name == TOOLBAR_CLASS } as? ViewGroup
+                ?: return null
+        val parts =
+            (0 until toolbar.childCount)
+                .map(toolbar::getChildAt)
+                .filterIsInstance<RelativeLayout>()
+                .firstNotNullOfOrNull(::findSeparatedParts) ?: return null
         val menuHost = findMenuHost(parts.right)
         val surfaceColor = sampleHeaderSurfaceColor(header)
-        val visualStates = listOf(header, toolbar, parts.root).distinct().map { view ->
-            HeaderVisualState(
-                view = view,
-                background = view.background,
-                outlineProvider = view.outlineProvider,
-                clipToOutline = view.clipToOutline,
-                elevation = view.elevation,
-                translationZ = view.translationZ,
-                stateListAnimator = view.stateListAnimator,
-            )
-        }
+        val visualStates =
+            listOf(header, toolbar, parts.root).distinct().map { view ->
+                HeaderVisualState(
+                    view = view,
+                    background = view.background,
+                    outlineProvider = view.outlineProvider,
+                    clipToOutline = view.clipToOutline,
+                    elevation = view.elevation,
+                    translationZ = view.translationZ,
+                    stateListAnimator = view.stateListAnimator,
+                )
+            }
         val clipStates = captureHeaderClipStates(parts.root, header)
-        val decorationLayer = FrameLayout(header.context).apply {
-            clipChildren = false
-            clipToPadding = false
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            isClickable = false
-            isFocusable = false
-        }
+        val decorationLayer =
+            FrameLayout(header.context).apply {
+                clipChildren = false
+                clipToPadding = false
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                isClickable = false
+                isFocusable = false
+            }
         val decoration = SeparatedHeaderDecorationView(header.context)
         decorationLayer.addView(
             decoration,
@@ -1238,63 +1344,70 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
-        val state = SeparatedHeaderState(
-            layout = layout,
-            header = header,
-            toolbar = toolbar,
-            root = parts.root,
-            left = parts.left,
-            title = parts.title,
-            right = parts.right,
-            menuHost = menuHost,
-            decorationLayer = decorationLayer,
-            decoration = decoration,
-            surfaceColor = surfaceColor,
-            visualStates = visualStates,
-            clipStates = clipStates,
-            leftBaseTranslationX = parts.left.translationX,
-            rightBaseTranslationX = parts.right.translationX,
-            backBadge = findBackBadge(parts.left),
-        )
-        state.attachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                postSeparatedHeaderUpdate(state)
-            }
+        val state =
+            SeparatedHeaderState(
+                layout = layout,
+                header = header,
+                toolbar = toolbar,
+                root = parts.root,
+                left = parts.left,
+                title = parts.title,
+                right = parts.right,
+                menuHost = menuHost,
+                decorationLayer = decorationLayer,
+                decoration = decoration,
+                surfaceColor = surfaceColor,
+                visualStates = visualStates,
+                clipStates = clipStates,
+                leftBaseTranslationX = parts.left.translationX,
+                rightBaseTranslationX = parts.right.translationX,
+                backBadge = findBackBadge(parts.left),
+            )
+        state.attachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    postSeparatedHeaderUpdate(state)
+                }
 
-            override fun onViewDetachedFromWindow(v: View) {
-                // 键盘弹出/收起时微信会把 Toolbar 的自定义标题 View 摘下再挂回。立即销毁会让
-                // 下一帧重建出尚未布局的装饰层, 气泡底色闪没一帧; 等一轮 post 仍未挂回才销毁。
-                // 会话布局自己被摘下时 post 不会执行, 由 disposeTracker 负责清理。
-                layout.post {
-                    if (separatedHeaderStates[layout] === state && !state.root.isAttachedToWindow) {
-                        disposeSeparatedHeader(state, restoreVisuals = true)
-                        scheduleReconcile(layout, RECONCILE_LAYOUT)
+                override fun onViewDetachedFromWindow(v: View) {
+                    // 键盘弹出/收起时微信会把 Toolbar 的自定义标题 View 摘下再挂回。立即销毁会让
+                    // 下一帧重建出尚未布局的装饰层, 气泡底色闪没一帧; 等一轮 post 仍未挂回才销毁。
+                    // 会话布局自己被摘下时 post 不会执行, 由 disposeTracker 负责清理。
+                    layout.post {
+                        if (
+                            separatedHeaderStates[layout] === state &&
+                                !state.root.isAttachedToWindow
+                        ) {
+                            disposeSeparatedHeader(state, restoreVisuals = true)
+                            scheduleReconcile(layout, RECONCILE_LAYOUT)
+                        }
                     }
                 }
             }
-        }
         state.root.addOnAttachStateChangeListener(state.attachListener)
-        state.menuAttachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                postSeparatedHeaderUpdate(state)
-            }
+        state.menuAttachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    postSeparatedHeaderUpdate(state)
+                }
 
-            override fun onViewDetachedFromWindow(v: View) {
-                v.removeOnAttachStateChangeListener(this)
-                if (state.menuHost === v) state.menuHost = null
-                startMenuHostRetry(state)
-                postSeparatedHeaderUpdate(state)
+                override fun onViewDetachedFromWindow(v: View) {
+                    v.removeOnAttachStateChangeListener(this)
+                    if (state.menuHost === v) state.menuHost = null
+                    startMenuHostRetry(state)
+                    postSeparatedHeaderUpdate(state)
+                }
             }
-        }
-        state.menuActionAttachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                postSeparatedHeaderUpdate(state)
-            }
+        state.menuActionAttachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    postSeparatedHeaderUpdate(state)
+                }
 
-            override fun onViewDetachedFromWindow(v: View) {
-                postSeparatedHeaderUpdate(state)
+                override fun onViewDetachedFromWindow(v: View) {
+                    postSeparatedHeaderUpdate(state)
+                }
             }
-        }
         if (menuHost != null) {
             menuHost.addOnAttachStateChangeListener(state.menuAttachListener)
         } else {
@@ -1315,15 +1428,19 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun findSeparatedParts(root: RelativeLayout): SeparatedParts? {
         val children = (0 until root.childCount).map(root::getChildAt)
-        val title = children.firstOrNull { child ->
-            val lp = child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
-            lp.getRule(RelativeLayout.CENTER_IN_PARENT) != 0
-        } ?: return null
-        val right = children.firstOrNull { child ->
-            val lp = child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
-            lp.getRule(RelativeLayout.ALIGN_PARENT_RIGHT) != 0 ||
-                lp.getRule(RelativeLayout.ALIGN_PARENT_END) != 0
-        } ?: return null
+        val title =
+            children.firstOrNull { child ->
+                val lp =
+                    child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
+                lp.getRule(RelativeLayout.CENTER_IN_PARENT) != 0
+            } ?: return null
+        val right =
+            children.firstOrNull { child ->
+                val lp =
+                    child.layoutParams as? RelativeLayout.LayoutParams ?: return@firstOrNull false
+                lp.getRule(RelativeLayout.ALIGN_PARENT_RIGHT) != 0 ||
+                    lp.getRule(RelativeLayout.ALIGN_PARENT_END) != 0
+            } ?: return null
         val left = children.firstOrNull { it !== title && it !== right } ?: return null
         return SeparatedParts(root, left, title, right)
     }
@@ -1341,11 +1458,14 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 半屏切全屏时微信会保留一个外层可见、但内部图标和文字均为空的 action 槽位。
         // 新版里槽位是普通 LinearLayout 而非 WXActionMenuView, 所以不按类名过滤, 一律看内容。
         return view.allViews.drop(1).any { content ->
-            content.isShown && content.width > 0 && content.height > 0 && when (content) {
-                is ImageView -> content.drawable != null
-                is TextView -> content.text.isNotBlank()
-                else -> false
-            }
+            content.isShown &&
+                content.width > 0 &&
+                content.height > 0 &&
+                when (content) {
+                    is ImageView -> content.drawable != null
+                    is TextView -> content.text.isNotBlank()
+                    else -> false
+                }
         }
     }
 
@@ -1373,8 +1493,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 stopMenuHostRetry(state)
                 return@OnGlobalLayoutListener
             }
-            val replacement = findMenuHost(state.right)?.takeIf { it.isAttachedToWindow }
-                ?: return@OnGlobalLayoutListener
+            val replacement =
+                findMenuHost(state.right)?.takeIf { it.isAttachedToWindow }
+                    ?: return@OnGlobalLayoutListener
             state.menuHost = replacement
             replacement.addOnAttachStateChangeListener(state.menuAttachListener)
             stopMenuHostRetry(state)
@@ -1423,7 +1544,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun refreshSeparatedHeader(state: SeparatedHeaderState) {
-        if (!state.root.isAttachedToWindow || state.root.width <= 0 || state.root.height <= 0) return
+        if (!state.root.isAttachedToWindow || state.root.width <= 0 || state.root.height <= 0)
+            return
         syncMenuHost(state)
         syncSeparatedHeaderObservers(state)
         val density = state.root.resources.displayMetrics.density
@@ -1432,8 +1554,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val targetWidth = state.root.width + shadowPadding * 2
         val targetHeight = state.root.height + shadowPadding * 2
         val params = state.decoration.layoutParams as FrameLayout.LayoutParams
-        if (params.width != targetWidth || params.height != targetHeight ||
-            params.leftMargin != -shadowPadding || params.topMargin != -shadowPadding
+        if (
+            params.width != targetWidth ||
+                params.height != targetHeight ||
+                params.leftMargin != -shadowPadding ||
+                params.topMargin != -shadowPadding
         ) {
             params.width = targetWidth
             params.height = targetHeight
@@ -1444,8 +1569,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 装饰层可能刚在 pre-draw 里新建或改尺寸, 等下一轮布局会先画出一帧空白气泡;
         // 这里就地测量布局, 让本帧即按最终尺寸绘制。
         val layer = state.decorationLayer
-        if (layer.width != state.root.width || layer.height != state.root.height ||
-            state.decoration.width != targetWidth || state.decoration.height != targetHeight
+        if (
+            layer.width != state.root.width ||
+                layer.height != state.root.height ||
+                state.decoration.width != targetWidth ||
+                state.decoration.height != targetHeight
         ) {
             layer.measure(
                 View.MeasureSpec.makeMeasureSpec(state.root.width, View.MeasureSpec.EXACTLY),
@@ -1469,12 +1597,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                 val child = menuHost.getChildAt(index)
                 if (!isVisibleMenuAction(child)) continue
                 val centerX = iconCenterXInHeaderRoot(child, state.root) - rightApplied
-                val actionCard = RectF(
-                    centerX - buttonRadius,
-                    0f,
-                    centerX + buttonRadius,
-                    rootHeight,
-                )
+                val actionCard =
+                    RectF(
+                        centerX - buttonRadius,
+                        0f,
+                        centerX + buttonRadius,
+                        rootHeight,
+                    )
                 if (rightCard.isEmpty) rightCard.set(actionCard) else rightCard.union(actionCard)
             }
         }
@@ -1483,7 +1612,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 居中的名称卡两侧间距就必然不等。统一成同一个边缘距离 (且按钮不超出标题栏),
         // 再平移图标区让图标仍落在按钮正中。
         val leftEdgeDistance = leftCenterX
-        val rightEdgeDistance = if (rightCard.isEmpty) 0f else rootWidth - rightCard.right + buttonRadius
+        val rightEdgeDistance =
+            if (rightCard.isEmpty) 0f else rootWidth - rightCard.right + buttonRadius
         val edgeDistance = maxOf(leftEdgeDistance, rightEdgeDistance, buttonRadius)
         val leftShift = edgeDistance - leftEdgeDistance
         val rightShift = if (rightCard.isEmpty) 0f else rightEdgeDistance - edgeDistance
@@ -1493,29 +1623,32 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val rightTarget = state.rightBaseTranslationX + rightShift
         if (state.right.translationX != rightTarget) state.right.translationX = rightTarget
         state.backBadge?.let { positionBackBadge(it, density) }
-        val leftCard = RectF(
-            edgeDistance - buttonRadius,
-            0f,
-            edgeDistance + buttonRadius,
-            rootHeight,
-        )
+        val leftCard =
+            RectF(
+                edgeDistance - buttonRadius,
+                0f,
+                edgeDistance + buttonRadius,
+                rootHeight,
+            )
 
         val gapPx = componentGapDp * density
         val leftReserve = leftCard.right + gapPx
-        val rightReserve = if (rightCard.isEmpty) {
-            leftReserve
-        } else {
-            state.root.width - rightCard.left + gapPx
-        }
+        val rightReserve =
+            if (rightCard.isEmpty) {
+                leftReserve
+            } else {
+                state.root.width - rightCard.left + gapPx
+            }
         // 多 action 半屏右区比左侧宽；名称卡仍须以屏幕为中心，因此配置值是两侧
         // 可见间距的下限，较宽一侧严格命中，另一侧可能留出更多空间。
         val sideReserve = maxOf(leftReserve, rightReserve)
-        val titleCard = RectF(
-            sideReserve,
-            0f,
-            state.root.width - sideReserve,
-            rootHeight,
-        )
+        val titleCard =
+            RectF(
+                sideReserve,
+                0f,
+                state.root.width - sideReserve,
+                rootHeight,
+            )
         if (titleCard.right <= titleCard.left) titleCard.setEmpty()
 
         state.decoration.update(
@@ -1560,12 +1693,23 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             view.removeOnLayoutChangeListener(state.layoutListeners.remove(view))
         }
         observed.filterNot(state.layoutListeners::containsKey).forEach { view ->
-            val listener = View.OnLayoutChangeListener {
-                    _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
-                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
-                    postSeparatedHeaderUpdate(state)
+            val listener =
+                View.OnLayoutChangeListener {
+                    _,
+                    left,
+                    top,
+                    right,
+                    bottom,
+                    oldLeft,
+                    oldTop,
+                    oldRight,
+                    oldBottom ->
+                    if (
+                        left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom
+                    ) {
+                        postSeparatedHeaderUpdate(state)
+                    }
                 }
-            }
             state.layoutListeners[view] = listener
             view.addOnLayoutChangeListener(listener)
         }
@@ -1586,15 +1730,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
-    /**
-     * 按钮区内图标实际绘制位置的水平中心。微信的图标 View 常带不对称 padding
-     * (全屏的「…」就是), 按 View 边界居中会让圆形底和图标错位。
-     */
+    /** 按钮区内图标实际绘制位置的水平中心。微信的图标 View 常带不对称 padding (全屏的「…」就是), 按 View 边界居中会让圆形底和图标错位。 */
     private fun iconCenterXInHeaderRoot(container: View, root: View): Float {
         val bounds = RectF()
-        val icon = container.allViews.firstOrNull {
-            it is ImageView && it.isShown && it.width > 0 && it.height > 0 && it.drawable != null
-        } as ImageView?
+        val icon =
+            container.allViews.firstOrNull {
+                it is ImageView &&
+                    it.isShown &&
+                    it.width > 0 &&
+                    it.height > 0 &&
+                    it.drawable != null
+            } as ImageView?
         if (icon == null) {
             boundsInHeaderRoot(container, root, bounds)
             return bounds.centerX()
@@ -1623,8 +1769,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 返回箭头旁的未读数 (微信 ChattingUI 标题栏的 osp): 与箭头同在 actionbar_up_indicator
-     * 这个横向 LinearLayout 里, 紧跟在箭头之后。微信之后只改它的可见性和文字。
+     * 返回箭头旁的未读数 (微信 ChattingUI 标题栏的 osp): 与箭头同在 actionbar_up_indicator 这个横向 LinearLayout 里,
+     * 紧跟在箭头之后。微信之后只改它的可见性和文字。
      */
     private fun findBackBadge(left: View): BackBadgeState? {
         val anchor = left.allViews.firstOrNull { it is ImageView } as ImageView? ?: return null
@@ -1635,8 +1781,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 用负 leftMargin 把角标拉回到箭头右上角, 而不是 translation: 位置在正常布局里算好,
-     * 未读数从 GONE 变可见的第一帧就在正确位置。只依赖箭头几何, 箭头布局好后即可算。
+     * 用负 leftMargin 把角标拉回到箭头右上角, 而不是 translation: 位置在正常布局里算好, 未读数从 GONE 变可见的第一帧就在正确位置。只依赖箭头几何,
+     * 箭头布局好后即可算。
      */
     private fun positionBackBadge(state: BackBadgeState, density: Float) {
         val anchor = state.anchor
@@ -1646,10 +1792,13 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         glyph.offset(anchor.left.toFloat(), anchor.top.toFloat())
         val anchorLp = anchor.layoutParams as ViewGroup.MarginLayoutParams
         val parent = anchor.parent as View
-        val leftMargin = (glyph.right - BACK_BADGE_OVERLAP_X_DP * density -
-            (anchor.right + anchorLp.rightMargin)).roundToInt()
-        val topMargin = (glyph.top - BACK_BADGE_OVERLAP_Y_DP * density - parent.paddingTop)
-            .roundToInt()
+        val leftMargin =
+            (glyph.right -
+                    BACK_BADGE_OVERLAP_X_DP * density -
+                    (anchor.right + anchorLp.rightMargin))
+                .roundToInt()
+        val topMargin =
+            (glyph.top - BACK_BADGE_OVERLAP_Y_DP * density - parent.paddingTop).roundToInt()
         val lp = state.badge.layoutParams as LinearLayout.LayoutParams
         if (lp.gravity == Gravity.TOP && lp.leftMargin == leftMargin && lp.topMargin == topMargin) {
             return
@@ -1691,7 +1840,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun disposeSeparatedHeader(state: SeparatedHeaderState, restoreVisuals: Boolean) {
-        if (separatedHeaderStates[state.layout] === state) separatedHeaderStates.remove(state.layout)
+        if (separatedHeaderStates[state.layout] === state)
+            separatedHeaderStates.remove(state.layout)
         state.layoutListeners.forEach { (view, listener) ->
             view.removeOnLayoutChangeListener(listener)
         }
@@ -1728,21 +1878,21 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /**
      * 提示条卡自己的样式: 投影/裁剪的轮廓只覆盖卡片区域, 而不是整组。
      *
-     * 轮廓由一个可变高度的 TipsBarCardOutline 驱动: 展开/折叠动画期间高度跟着动画走,
-     * 展开时镜像 hyi 的 outline、折叠时由动画驱动, 阴影实时跟随卡片而不是框住整张
-     * 全高卡; 稳态时高度 = 组高 (真实卡片高)。elevation 用用户设置的固定值。
+     * 轮廓由一个可变高度的 TipsBarCardOutline 驱动: 展开/折叠动画期间高度跟着动画走, 展开时镜像 hyi 的 outline、折叠时由动画驱动,
+     * 阴影实时跟随卡片而不是框住整张 全高卡; 稳态时高度 = 组高 (真实卡片高)。elevation 用用户设置的固定值。
      */
     private fun applyTipsBarCardStyle(group: View) {
         val style = HeaderStyle(cornerRadiusDp, elevationDp)
         FloatingChatCardVisuals.applyDarkSurface(group, cornerRadiusDp)
         if (tipsBarStyles[group] != style) {
             val density = group.resources.displayMetrics.density
-            group.outlineProvider = group.outlineProvider as? TipsBarCardOutline
-                ?: TipsBarCardOutline().also {
-                    it.height = group.height
-                    group.outlineProvider = it
-                    tipsBarCardOutlineHeights[group] = group.height
-                }
+            group.outlineProvider =
+                group.outlineProvider as? TipsBarCardOutline
+                    ?: TipsBarCardOutline().also {
+                        it.height = group.height
+                        group.outlineProvider = it
+                        tipsBarCardOutlineHeights[group] = group.height
+                    }
             group.clipToOutline = true
             group.elevation = elevationDp * density
             tipsBarStyles[group] = style
@@ -1756,13 +1906,16 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val sidePx = (sideMarginDp * density).toInt()
         // 实时算而不是用重挂时的快照: 聊天页 edge-to-edge 后 paddingTop 会被清零,
         // 标题卡需要落在 状态栏 inset + 顶部间距 的位置。
-        val topPx = if (windowBarHeaders[layout] == true) {
-            // 窗口级 ActionBarContainer 的坐标原点已经包含系统栏偏移, 直接加状态栏 inset 即可
-            statusBarOffset(layout) + (topGapDp * density).toInt()
-        } else {
-            layout.top + layout.paddingTop +
+        val topPx =
+            if (windowBarHeaders[layout] == true) {
+                // 窗口级 ActionBarContainer 的坐标原点已经包含系统栏偏移, 直接加状态栏 inset 即可
                 statusBarOffset(layout) + (topGapDp * density).toInt()
-        }
+            } else {
+                layout.top +
+                    layout.paddingTop +
+                    statusBarOffset(layout) +
+                    (topGapDp * density).toInt()
+            }
         if (lp.leftMargin != sidePx || lp.rightMargin != sidePx || lp.topMargin != topPx) {
             lp.leftMargin = sidePx
             lp.rightMargin = sidePx
@@ -1772,13 +1925,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 标题栏下方还会挂其他东西 (置顶消息卡、服务通知条等): 微信把它们塞进 ChattingUILayout
-     * 里、内容区宿主之前的直接子 View (典型是 ViewStub p2p 展开后的 g7j 容器)。这些挂件
-     * 保持留在流内, 只给它们同样的侧边距 / 圆角 / 阴影, 并整体下移到悬浮标题卡下方。
+     * 标题栏下方还会挂其他东西 (置顶消息卡、服务通知条等): 微信把它们塞进 ChattingUILayout 里、内容区宿主之前的直接子 View (典型是 ViewStub p2p
+     * 展开后的 g7j 容器)。这些挂件 保持留在流内, 只给它们同样的侧边距 / 圆角 / 阴影, 并整体下移到悬浮标题卡下方。
      *
-     * 边距算法 (LinearLayout 纵向流): 第一个可见挂件的 topMargin = 标题卡高 + 顶部间距 +
-     * 卡片间距, 之后的每个可见挂件只需 topMargin = 卡片间距 —— 因为流式布局会把前面挂件的
-     * 高度和边距都计入后续位置, 高度项互相抵消。
+     * 边距算法 (LinearLayout 纵向流): 第一个可见挂件的 topMargin = 标题卡高 + 顶部间距 + 卡片间距, 之后的每个可见挂件只需 topMargin =
+     * 卡片间距 —— 因为流式布局会把前面挂件的 高度和边距都计入后续位置, 高度项互相抵消。
      */
     private fun applyHeaderZoneCards(layout: View, header: View) {
         // 标题栏还没重挂出去时它也是直接子 View, 此时不算挂件
@@ -1788,8 +1939,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val density = layout.resources.displayMetrics.density
         val sidePx = (sideMarginDp * density).toInt()
         val gapPx = (extraGapDp * density).toInt()
-        val baseOffsetPx = statusBarOffset(layout) +
-            header.height + (topGapDp * density).toInt() + gapPx
+        val baseOffsetPx =
+            statusBarOffset(layout) + header.height + (topGapDp * density).toInt() + gapPx
         var firstVisible = true
         for (i in 0 until group.childCount) {
             val child = group.getChildAt(i)
@@ -1810,7 +1961,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 定位内容区宿主: 直接子 View 里包含 ChattingScrollLayout 的那个 (layout ss 的 bqh)。 */
     private fun contentHost(layout: View): View? {
-        contentHosts[layout]?.takeIf { it.isAttachedToWindow }?.let { return it }
+        contentHosts[layout]
+            ?.takeIf { it.isAttachedToWindow }
+            ?.let {
+                return it
+            }
         val group = layout as? ViewGroup ?: return null
         for (i in 0 until group.childCount) {
             val child = group.getChildAt(i)
@@ -1825,14 +1980,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 置顶消息卡等提示条并不在 ChattingUILayout 的流里: 微信把它们作为内容宿主 (bqh,
-     * FrameLayout) 的直接子 View 盖在列表上方, 典型是 ViewStub p2f 展开的
-     * ChatTipsBarGroup (com.tencent.mm.ui.tipsbar.ChatTipsBarGroup) 和 s7o 系列提示卡,
+     * 置顶消息卡等提示条并不在 ChattingUILayout 的流里: 微信把它们作为内容宿主 (bqh, FrameLayout) 的直接子 View 盖在列表上方, 典型是
+     * ViewStub p2f 展开的 ChatTipsBarGroup (com.tencent.mm.ui.tipsbar.ChatTipsBarGroup) 和 s7o 系列提示卡,
      * 并自行通过 setListViewPaddingTop 给消息列表补它们的高度。
      *
-     * 这里把内容宿主里"可见、非滚动区、非全屏/特殊覆盖层"的子 View 都当悬浮卡处理:
-     * 同样的侧边距/圆角/阴影, 并用 topMargin 把它们整体推到标题卡下方, 多张卡按顺序堆叠,
-     * 互相之间间隔 extraGap。它们自己的入场动画走 translationY, 与 topMargin 互不干扰。
+     * 这里把内容宿主里"可见、非滚动区、非全屏/特殊覆盖层"的子 View 都当悬浮卡处理: 同样的侧边距/圆角/阴影, 并用 topMargin 把它们整体推到标题卡下方,
+     * 多张卡按顺序堆叠, 互相之间间隔 extraGap。它们自己的入场动画走 translationY, 与 topMargin 互不干扰。
      */
     private fun applyHeaderZoneOverlays(layout: View, header: View): Boolean {
         if (headerTopOffsets[layout] == null) return false
@@ -1845,8 +1998,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         // 下一张卡的期望顶部 (ChattingUILayout 坐标系)
         val hostTopPx = hostGroup.offsetTopIn(layout)
         // 流内挂件已把内容宿主推下去时, 期望位置不会高于宿主顶部
-        var nextTopPx = (statusBarOffset(layout) + layout.paddingTop +
-            titleBottomPx + gapPx).coerceAtLeast(hostTopPx)
+        var nextTopPx =
+            (statusBarOffset(layout) + layout.paddingTop + titleBottomPx + gapPx).coerceAtLeast(
+                hostTopPx,
+            )
         var bottomPx: Int? = null
         var pinnedTipsApplied = false
         for (i in 0 until hostGroup.childCount) {
@@ -1877,9 +2032,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             bottomPx = nextTopPx - gapPx
         }
         // 构造登记的 ChatTipsBarGroup 不在内容宿主下时 (版本差异), 单独悬浮它
-        val tracked = tipsBarGroups[layout]?.takeIf {
-            it.isAttachedToWindow && it.isVisible && it.parent !== hostGroup
-        }
+        val tracked =
+            tipsBarGroups[layout]?.takeIf {
+                it.isAttachedToWindow && it.isVisible && it.parent !== hostGroup
+            }
         if (tracked != null) {
             suppressTipsBarDim(tracked)
             applyTipsBarCardStyle(tracked)
@@ -1887,7 +2043,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val parentTopPx = (tracked.parent as? View)?.offsetTopIn(layout) ?: hostTopPx
             val topPx = (nextTopPx - parentTopPx).coerceAtLeast(0)
             val lp = tracked.layoutParams as? ViewGroup.MarginLayoutParams
-            if (lp != null && (lp.leftMargin != sidePx || lp.rightMargin != sidePx || lp.topMargin != topPx)) {
+            if (
+                lp != null &&
+                    (lp.leftMargin != sidePx || lp.rightMargin != sidePx || lp.topMargin != topPx)
+            ) {
                 lp.leftMargin = sidePx
                 lp.rightMargin = sidePx
                 lp.topMargin = topPx
@@ -1908,31 +2067,32 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 用构造登记的实例压制 dim, 组在哪个父容器下都能生效。 */
     private fun suppressTipsBarDimFor(layout: View) {
-        val group = tipsBarGroups[layout]?.takeIf {
-            it.isAttachedToWindow && it.isVisible
-        } ?: return
+        val group =
+            tipsBarGroups[layout]?.takeIf {
+                it.isAttachedToWindow && it.isVisible
+            } ?: return
         suppressTipsBarDim(group)
     }
 
     /**
-     * ChatTipsBarGroup 展开置顶消息列表时, 会在组内放一张全尺寸深色 View (s3.xml 的 ow1,
-     * match_parent × match_parent, 背景 #80000000) 当 dim: 盖住列表背景, 点击它 (冒泡到
-     * 组件的点击监听) 会折叠回卡片。改成悬浮后这张 dim 不可能再盖满整屏, 语义上应当整个
-     * 去掉 —— 每帧把它压成 GONE: 视觉消失, 且 GONE 不参与命中测试, 点击原 dim 区域会落到
-     * 消息列表而不是触发折叠。
+     * ChatTipsBarGroup 展开置顶消息列表时, 会在组内放一张全尺寸深色 View (s3.xml 的 ow1, match_parent × match_parent,
+     * 背景 #80000000) 当 dim: 盖住列表背景, 点击它 (冒泡到 组件的点击监听) 会折叠回卡片。改成悬浮后这张 dim 不可能再盖满整屏, 语义上应当整个 去掉 ——
+     * 每帧把它压成 GONE: 视觉消失, 且 GONE 不参与命中测试, 点击原 dim 区域会落到 消息列表而不是触发折叠。
      */
     private fun suppressTipsBarDim(group: View) {
         // 不同微信版本里组的内部结构不一样 (有的 s3.xml 直接挂 ow1, 有的套一层 FrameLayout),
         // 所以按特征递归找: 纯 View + 全尺寸参数。
         val cached = tipsBarDims[group]
-        val dims = cached?.takeIf { list -> list.all { it.parent !== null } }
-            ?: group.findViewsWhich { it.isTipsBarDim() }.toList()
+        val dims =
+            cached?.takeIf { list -> list.all { it.parent !== null } }
+                ?: group.findViewsWhich { it.isTipsBarDim() }.toList()
         if (dims.isEmpty()) {
             if (dimWarned.put(group, true) == null) {
-                val tree = group.allViews.take(30).joinToString(", ") { v ->
-                    val lp = v.layoutParams
-                    "${v.javaClass.simpleName}[w=${lp?.width} h=${lp?.height} v=${v.visibility}]"
-                }
+                val tree =
+                    group.allViews.take(30).joinToString(", ") { v ->
+                        val lp = v.layoutParams
+                        "${v.javaClass.simpleName}[w=${lp?.width} h=${lp?.height} v=${v.visibility}]"
+                    }
                 WeLogger.w(TAG, "tips bar dim not found, group tree: $tree")
             }
             return
@@ -1960,7 +2120,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 提示条组内容列表 (MaxHeightWxRecyclerView), 找不到时返回 null。 */
     private fun tipsBarRecycler(group: View): View? {
         val cached = tipsBarRecyclers[group]
-        cached?.takeIf { it.isAttachedToWindow && it.isDescendantOf(group) }?.let { return it }
+        cached
+            ?.takeIf { it.isAttachedToWindow && it.isDescendantOf(group) }
+            ?.let {
+                return it
+            }
         val found = group.findViewWhich {
             it.javaClass.name == "com.tencent.mm.view.recyclerview.MaxHeightWxRecyclerView"
         }
@@ -1972,18 +2136,22 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 返回"实际卡片"高度: 折叠动画期间轮廓随动画逐帧收缩、展开时镜像 hyi 的 reveal,
-     * 列表 padding 跟着它平滑变化。之前按占位层撑起的组高算, 折叠结束瞬间 padding 会
-     * 一次性掉几千像素, RecyclerView 锚定失效, 表现为列表跳到一条旧消息。
+     * 返回"实际卡片"高度: 折叠动画期间轮廓随动画逐帧收缩、展开时镜像 hyi 的 reveal, 列表 padding 跟着它平滑变化。之前按占位层撑起的组高算, 折叠结束瞬间
+     * padding 会 一次性掉几千像素, RecyclerView 锚定失效, 表现为列表跳到一条旧消息。
      */
     private fun effectiveTipsBarHeight(group: View): Int {
         return tipsBarCardOutlineHeights[group] ?: group.height
     }
 
-    /** 折叠过渡占位层 (s3.xml 的 ovv): 纯 View, 宽 match_parent, 高 0 或动画期被微信
-     * 撑到卡片全高; 和 dim (ow1, 全尺寸) 靠高度参数区分。 */
+    /**
+     * 折叠过渡占位层 (s3.xml 的 ovv): 纯 View, 宽 match_parent, 高 0 或动画期被微信 撑到卡片全高; 和 dim (ow1, 全尺寸) 靠高度参数区分。
+     */
     private fun tipsBarPlaceholder(group: View): View? {
-        tipsBarPlaceholders[group]?.takeIf { it.parent != null }?.let { return it }
+        tipsBarPlaceholders[group]
+            ?.takeIf { it.parent != null }
+            ?.let {
+                return it
+            }
         val found = group.findViewWhich { view ->
             view.javaClass.name == "android.view.View" &&
                 view.layoutParams?.width == ViewGroup.LayoutParams.MATCH_PARENT &&
@@ -1994,38 +2162,45 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 摘掉微信给置顶消息列表加的 item offset 装饰 (每行底部 8dp): 折叠态这 8dp 造成
-     * 内容偏上、展开态造成第二条起每行上空隙, 统一改成行内上下 4dp, 让行结构一致。
-     * 装饰列表按 Dex 定位的 removeItemDecoration 参数类型识别, 再逐个调用原生移除。
-     * 不能只清空列表后 requestLayout: RecyclerView 仍会复用已挂载/缓存行的 decor insets,
-     * 导致卡片底部保留旧的 8dp, 直到后续重新绑定才偶然恢复。
+     * 摘掉微信给置顶消息列表加的 item offset 装饰 (每行底部 8dp): 折叠态这 8dp 造成 内容偏上、展开态造成第二条起每行上空隙, 统一改成行内上下 4dp,
+     * 让行结构一致。 装饰列表按 Dex 定位的 removeItemDecoration 参数类型识别, 再逐个调用原生移除。 不能只清空列表后 requestLayout:
+     * RecyclerView 仍会复用已挂载/缓存行的 decor insets, 导致卡片底部保留旧的 8dp, 直到后续重新绑定才偶然恢复。
      */
     private fun removePinnedItemOffsets(recycler: View) {
         if (tipsBarOffsetsRemoved[recycler] != null) return
         runCatching {
             val removeDecoration = methodRemoveItemDecoration.method
             val decorationClass = removeDecoration.parameterTypes.single()
-            val decorations = recycler.reflekt().fields {
-                type = ArrayList::class
-                superclass()
-            }.mapNotNull { it.get() as ArrayList<*>? }.single { list ->
-                decorationClass.isInstance(list.firstOrNull())
-            }
+            val decorations =
+                recycler
+                    .reflekt()
+                    .fields {
+                        type = ArrayList::class
+                        superclass()
+                    }
+                    .mapNotNull { it.get() as ArrayList<*>? }
+                    .single { list ->
+                        decorationClass.isInstance(list.firstOrNull())
+                    }
             // 原生移除同时标脏已挂载和缓存行的间距, 并请求下一次测量。
             decorations.toList().forEach { decoration ->
                 removeDecoration.invoke(recycler, decoration)
             }
             tipsBarOffsetsRemoved[recycler] = true
-        }.onFailure {
-            WeLogger.w(TAG, "pinned tips bar offset decoration removal failed, keeping native spacing", it)
         }
+            .onFailure {
+                WeLogger.w(
+                    TAG,
+                    "pinned tips bar offset decoration removal failed, keeping native spacing",
+                    it,
+                )
+            }
     }
 
     /**
      * ChatTipsBarGroup 的完整重排:
      *
-     * - 所有 Tips 统一使用展开态分割线；非置顶 Tips 保留微信自己的语义背景和内部行距，
-     *   只有置顶消息行去掉 bce 背景并补内部行距，直接融入悬浮卡片；
+     * - 所有 Tips 统一使用展开态分割线；非置顶 Tips 保留微信自己的语义背景和内部行距， 只有置顶消息行去掉 bce 背景并补内部行距，直接融入悬浮卡片；
      * - 微信的 item offset 装饰摘掉，列表边距归零，行铺满整卡；
      * - 折叠态在当前首行右侧显示 +(总 Tips 数 - 1)，展开态隐藏；
      * - 各类 Tips 原有的图标、按钮和点击行为均不修改。
@@ -2036,9 +2211,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val body = tipsBarCardBody(group)
         if (body == null) {
             if (tipsBarBodyWarned.put(group, true) == null) {
-                val tree = group.allViews.take(24).joinToString(", ") { v ->
-                    "${v.javaClass.simpleName}[p=${v.parent?.javaClass?.simpleName}]"
-                }
+                val tree =
+                    group.allViews.take(24).joinToString(", ") { v ->
+                        "${v.javaClass.simpleName}[p=${v.parent?.javaClass?.simpleName}]"
+                    }
                 WeLogger.w(TAG, "pinned tips bar card body not found, group tree: $tree")
             }
             return false
@@ -2069,8 +2245,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         updateSteadyTipsBarOutline(group, expanded, collapsing, rowsKept)
         // 行铺满整卡: 去掉 s3.xml 里列表的 8dp 左右边距, 折叠单条时点击不会落在行外
         val lp = recycler.layoutParams as? ViewGroup.MarginLayoutParams
-        if (lp != null && (lp.leftMargin != 0 || lp.rightMargin != 0 ||
-            lp.topMargin != 0 || lp.bottomMargin != 0)
+        if (
+            lp != null &&
+                (lp.leftMargin != 0 ||
+                    lp.rightMargin != 0 ||
+                    lp.topMargin != 0 ||
+                    lp.bottomMargin != 0)
         ) {
             lp.leftMargin = 0
             lp.rightMargin = 0
@@ -2101,19 +2281,16 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /**
      * 卡片轮廓: 阴影和行裁剪共用一个可变高轮廓。
      *
-     * - 折叠: getItemCount hook 保住行 2+, 轮廓从全高收缩到折叠稳态高, 行被升起的
-     *   卡片下沿逐行盖住; 灰色占位层背景已清空, 不会出现全屏灰色边框; 行没保住时不做
-     *   动画, 轮廓直接贴内容卡;
-     * - 展开: 不跑自己的动画, 直接读 hyi 当前 outline 的实际高度 (微信自己的 reveal
-     *   动画在驱动它), 阴影和内容来自同一个数值, 比例严格 1:1。
-     * elevation 是用户设置的固定值; 全屏灰色边框来自微信 dim, 已由 suppressTipsBarDim
-     * 清空背景处理。
+     * - 折叠: getItemCount hook 保住行 2+, 轮廓从全高收缩到折叠稳态高, 行被升起的 卡片下沿逐行盖住; 灰色占位层背景已清空, 不会出现全屏灰色边框;
+     *   行没保住时不做 动画, 轮廓直接贴内容卡;
+     * - 展开: 不跑自己的动画, 直接读 hyi 当前 outline 的实际高度 (微信自己的 reveal 动画在驱动它), 阴影和内容来自同一个数值, 比例严格 1:1。
+     *   elevation 是用户设置的固定值; 全屏灰色边框来自微信 dim, 已由 suppressTipsBarDim 清空背景处理。
      */
     private fun updateSteadyTipsBarOutline(
         group: View,
         expanded: Boolean,
         collapsing: Boolean,
-        rowsKept: Boolean
+        rowsKept: Boolean,
     ) {
         val body = tipsBarCardBody(group) ?: return
         if (collapsing) {
@@ -2124,7 +2301,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             return
         }
         if (expanded) {
-            setTipsBarCardOutline(group, outlineHeight(body) ?: body.height.takeIf { it > 0 } ?: group.height)
+            setTipsBarCardOutline(
+                group,
+                outlineHeight(body) ?: body.height.takeIf { it > 0 } ?: group.height,
+            )
             return
         } else {
             // 行 2+ 还在时组高是展开高; 只有列表真正只剩 1 行 (行已被摘掉) 才记录折叠
@@ -2158,9 +2338,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val handle = tipsBarHandles[group]?.takeIf { it.parent != null } ?: return
         val placeholder = tipsBarPlaceholders[group]?.takeIf { it.parent != null } ?: return
         val header = headerViews[layout]?.takeIf { it.isAttachedToWindow } ?: return
-        val recycler = chatListRecyclers[layout]?.takeIf {
-            it.isAttachedToWindow && chatListRecyclerLayouts[it] === layout
-        } ?: return
+        val recycler =
+            chatListRecyclers[layout]?.takeIf {
+                it.isAttachedToWindow && chatListRecyclerLayouts[it] === layout
+            } ?: return
         val source = if (handle.isVisible) body else placeholder
         val height = outlineHeight(source) ?: return
         setTipsBarBodyOutline(body, height)
@@ -2190,8 +2371,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun setTipsBarBodyOutline(body: View, height: Int) {
         if (tipsBarBodyOutlineHeights[body] == height) return
         tipsBarBodyOutlineHeights[body] = height
-        val provider = body.outlineProvider as? TipsBarBodyOutline
-            ?: TipsBarBodyOutline().also { body.outlineProvider = it }
+        val provider =
+            body.outlineProvider as? TipsBarBodyOutline
+                ?: TipsBarBodyOutline().also { body.outlineProvider = it }
         provider.height = height
         body.clipToOutline = true
         body.invalidateOutline()
@@ -2200,8 +2382,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun setTipsBarCardOutline(group: View, height: Int) {
         if (tipsBarCardOutlineHeights[group] == height) return
         tipsBarCardOutlineHeights[group] = height
-        val provider = group.outlineProvider as? TipsBarCardOutline
-            ?: TipsBarCardOutline().also { group.outlineProvider = it }
+        val provider =
+            group.outlineProvider as? TipsBarCardOutline
+                ?: TipsBarCardOutline().also { group.outlineProvider = it }
         provider.height = height
         group.invalidateOutline()
     }
@@ -2213,18 +2396,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 折叠动画期间保住行 2+: 微信的 adapter getItemCount 在折叠态返回 1, 会立刻把多余
-     * 行摘掉, 只留灰色占位层撑全高 (阴影跟着它就成了全屏边框)。占位层 ovv 还撑着全高时
-     * 按完整数量返回, 行留着被升起的卡片下沿逐行盖住。方法名被混淆, 但 getItemCount 是
-     * adapter 自身声明里唯一的"无参返回 int"。
+     * 折叠动画期间保住行 2+: 微信的 adapter getItemCount 在折叠态返回 1, 会立刻把多余 行摘掉, 只留灰色占位层撑全高 (阴影跟着它就成了全屏边框)。占位层
+     * ovv 还撑着全高时 按完整数量返回, 行留着被升起的卡片下沿逐行盖住。方法名被混淆, 但 getItemCount 是 adapter 自身声明里唯一的"无参返回 int"。
      */
     private fun installTipsBarAdapterCountHook(recycler: View) {
         val adapter = tipsBarAdapter(recycler) ?: return
         val adapterClass = adapter.javaClass
         if (!tipsBarAdapterHooked.add(adapterClass)) return
-        val getItemCount = adapterClass.declaredMethods.firstOrNull {
-            !it.isSynthetic && it.parameterCount == 0 && it.returnType == Integer.TYPE
-        }
+        val getItemCount =
+            adapterClass.declaredMethods.firstOrNull {
+                !it.isSynthetic && it.parameterCount == 0 && it.returnType == Integer.TYPE
+            }
         if (getItemCount == null) {
             WeLogger.w(TAG, "tips bar adapter getItemCount not found, collapse animation degrades")
             return
@@ -2240,14 +2422,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 从列表上反查置顶消息 adapter: 遍历无参公开方法, 返回对象声明了 ChatTipsBarGroup
-     * 类型字段的就是它 (getAdapter 等 androidx 方法名被混淆, 按返回对象结构识别)。
+     * 从列表上反查置顶消息 adapter: 遍历无参公开方法, 返回对象声明了 ChatTipsBarGroup 类型字段的就是它 (getAdapter 等 androidx
+     * 方法名被混淆, 按返回对象结构识别)。
      */
     private fun tipsBarAdapter(recycler: View): Any? {
         for (method in recycler.javaClass.methods) {
             if (method.parameterCount != 0) continue
             val result = runCatching { method.invoke(recycler) }.getOrNull() ?: continue
-            if (result.javaClass.declaredFields.any {
+            if (
+                result.javaClass.declaredFields.any {
                     it.type.name == "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
                 }
             ) {
@@ -2260,14 +2443,18 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** adapter 里指向 ChatTipsBarGroup 的字段 (按字段类型找, 不依赖混淆名)。 */
     private fun tipsBarAdapterGroup(adapter: Any): View? {
         val clazz = adapter.javaClass
-        val field = tipsBarAdapterGroupFields[clazz] ?: clazz.declaredFields.firstOrNull {
-            it.type.name == "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
-        }?.apply { isAccessible = true }?.also { tipsBarAdapterGroupFields[clazz] = it }
+        val field =
+            tipsBarAdapterGroupFields[clazz]
+                ?: clazz.declaredFields
+                    .firstOrNull {
+                        it.type.name == "com.tencent.mm.ui.tipsbar.ChatTipsBarGroup"
+                    }
+                    ?.apply { isAccessible = true }
+                    ?.also { tipsBarAdapterGroupFields[clazz] = it }
         return field?.get(adapter) as? View
     }
 
-    /** 每帧把已挂载的 Tips 行刷成统一布局。
-     * [showExpandedStyle] 在折叠动画期间也保持 true, 行距/分割线不提前切换。 */
+    /** 每帧把已挂载的 Tips 行刷成统一布局。 [showExpandedStyle] 在折叠动画期间也保持 true, 行距/分割线不提前切换。 */
     @SuppressLint("SetTextI18n")
     private fun refreshPinnedRows(recycler: View, group: View, showExpandedStyle: Boolean) {
         val dividerColor = tipsBarDividerColor(group)
@@ -2289,9 +2476,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             if (row.isPinnedTipsRow()) {
                 val line = (row as FrameLayout).getChildAt(0) as LinearLayout
                 val lineLp = line.layoutParams as ViewGroup.MarginLayoutParams
-                val original = tipsBarRowOriginalLineMargins.getOrPut(row) {
-                    intArrayOf(lineLp.topMargin, lineLp.bottomMargin)
-                }
+                val original =
+                    tipsBarRowOriginalLineMargins.getOrPut(row) {
+                        intArrayOf(lineLp.topMargin, lineLp.bottomMargin)
+                    }
                 val halfGapPx =
                     if (showExpandedStyle) (4 * row.resources.displayMetrics.density).toInt() else 0
                 val top = original[0] + halfGapPx
@@ -2313,13 +2501,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 折叠态把 +(总数 - 1) 画在当前首行 overlay，背景仍由该 Tips 自己完整铺满。 */
     private fun updateTipsBarBadge(group: View, recycler: View, remainingCount: Int) {
-        val badge = tipsBarBadges[group] ?: TextView(group.context).apply {
-            visibility = View.GONE
-            isClickable = false
-            isFocusable = false
-            id = View.generateViewId()
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-        }.also { tipsBarBadges[group] = it }
+        val badge =
+            tipsBarBadges[group]
+                ?: TextView(group.context)
+                    .apply {
+                        visibility = View.GONE
+                        isClickable = false
+                        isFocusable = false
+                        id = View.generateViewId()
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    }
+                    .also { tipsBarBadges[group] = it }
         val show = remainingCount > 0
         if (!show) {
             hideTipsBarBadge(group, badge)
@@ -2339,21 +2531,24 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             row.overlay.add(badge)
             tipsBarBadgeRows[group] = row
         }
-        val text = row.allViews
-            .filterIsInstance<TextView>()
-            .maxBy { it.width }
+        val text = row.allViews.filterIsInstance<TextView>().maxBy { it.width }
         tipsBarBadgeTexts[group]?.takeIf { it !== text }?.let(::restoreTipsBadgeTextPadding)
         tipsBarBadgeTexts[group] = text
-        val original = tipsBarBadgeTextPaddings.getOrPut(text) {
-            intArrayOf(text.paddingStart, text.paddingTop, text.paddingEnd, text.paddingBottom)
-        }
+        val original =
+            tipsBarBadgeTextPaddings.getOrPut(text) {
+                intArrayOf(text.paddingStart, text.paddingTop, text.paddingEnd, text.paddingBottom)
+            }
         val reservedEnd = original[2] + (56 * group.resources.displayMetrics.density).toInt()
-        if (text.paddingStart != original[0] || text.paddingTop != original[1] ||
-            text.paddingEnd != reservedEnd || text.paddingBottom != original[3]
+        if (
+            text.paddingStart != original[0] ||
+                text.paddingTop != original[1] ||
+                text.paddingEnd != reservedEnd ||
+                text.paddingBottom != original[3]
         ) {
             text.setPaddingRelative(original[0], original[1], reservedEnd, original[3])
         }
-        badge.text = localizedChatString(R.string.chat_floating_header_overflow_badge, remainingCount)
+        badge.text =
+            localizedChatString(R.string.chat_floating_header_overflow_badge, remainingCount)
         val color = text.currentTextColor
         badge.setTextColor(color and 0x00FFFFFF or (0x99 shl 24))
         badge.visibility = View.VISIBLE
@@ -2382,16 +2577,19 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 用 ViewOverlay 给任意根布局的 Tips 行补一条底部分割线。 */
     private fun ensureTipsRowDivider(row: View): View {
         val rowGroup = row as ViewGroup
-        val divider = View(row.context).apply {
-            visibility = View.GONE
-        }
+        val divider =
+            View(row.context).apply {
+                visibility = View.GONE
+            }
         rowGroup.overlay.add(divider)
         tipsBarRowDividers[row] = divider
         return divider
     }
 
-    /** 置顶消息行的结构特征: s4.xml 的根 FrameLayout + 横向 LinearLayout + 带 weight 的
-     * TextView。其他提示条 (直播等) 的行根是 RelativeLayout 之类, 不会被误伤。 */
+    /**
+     * 置顶消息行的结构特征: s4.xml 的根 FrameLayout + 横向 LinearLayout + 带 weight 的 TextView。其他提示条 (直播等) 的行根是
+     * RelativeLayout 之类, 不会被误伤。
+     */
     private fun View.isPinnedTipsRow(): Boolean {
         if (javaClass.name != "android.widget.FrameLayout") return false
         val line = (this as FrameLayout).getChildAt(0) as? LinearLayout ?: return false
@@ -2402,10 +2600,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         }
     }
 
-    /** 提示条组的卡片体: 组内唯一的 RelativeLayout (s3.xml 的 hyi, 挂在 s3 根 FrameLayout
-     * 下, 不是组的直接子 View, 必须整树找)。 */
+    /**
+     * 提示条组的卡片体: 组内唯一的 RelativeLayout (s3.xml 的 hyi, 挂在 s3 根 FrameLayout 下, 不是组的直接子 View, 必须整树找)。
+     */
     private fun tipsBarCardBody(group: View): View? {
-        tipsBarCardBodies[group]?.takeIf { it.parent != null }?.let { return it }
+        tipsBarCardBodies[group]
+            ?.takeIf { it.parent != null }
+            ?.let {
+                return it
+            }
         val found = group.findViewWhich { it is RelativeLayout }
         if (found != null) tipsBarCardBodies[group] = found
         return found
@@ -2413,51 +2616,69 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     /** 多条样式的重叠矩形: 卡片体里带负 topMargin 的子 View (s3.xml 的 ovt)。 */
     private fun tipsBarOverlapRect(group: View): View? {
-        tipsBarOverlapRects[group]?.takeIf { it.parent != null }?.let { return it }
+        tipsBarOverlapRects[group]
+            ?.takeIf { it.parent != null }
+            ?.let {
+                return it
+            }
         val body = tipsBarCardBody(group) ?: return null
-        val found = body.allViews.firstOrNull { view ->
-            view.parent === body &&
-                (view.layoutParams as? ViewGroup.MarginLayoutParams)
-                    ?.topMargin?.let { it < 0 } == true
-        }
+        val found =
+            body.allViews.firstOrNull { view ->
+                view.parent === body &&
+                    (view.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin?.let {
+                        it < 0
+                    } == true
+            }
         if (found != null) tipsBarOverlapRects[group] = found
         return found
     }
 
     /** 原生分割线: 卡片体里 1px 高的子 View (s3.xml 的 ovu)。 */
     private fun tipsBarDivider(group: View): View? {
-        tipsBarDividers[group]?.takeIf { it.parent != null }?.let { return it }
+        tipsBarDividers[group]
+            ?.takeIf { it.parent != null }
+            ?.let {
+                return it
+            }
         val body = tipsBarCardBody(group) ?: return null
-        val found = body.allViews.firstOrNull { view ->
-            view.parent === body && view.layoutParams?.height == 1
-        }
+        val found =
+            body.allViews.firstOrNull { view ->
+                view.parent === body && view.layoutParams?.height == 1
+            }
         if (found != null) tipsBarDividers[group] = found
         return found
     }
 
     /** 折叠 handle: 卡片体里唯一的 FrameLayout 子 View (s3.xml 的 b1n), 可见即展开态。 */
     private fun tipsBarHandle(group: View): View? {
-        tipsBarHandles[group]?.takeIf { it.parent != null }?.let { return it }
+        tipsBarHandles[group]
+            ?.takeIf { it.parent != null }
+            ?.let {
+                return it
+            }
         val body = tipsBarCardBody(group) ?: return null
-        val found = body.allViews.firstOrNull { view ->
-            view.parent === body && view is FrameLayout
-        }
+        val found =
+            body.allViews.firstOrNull { view ->
+                view.parent === body && view is FrameLayout
+            }
         if (found != null) tipsBarHandles[group] = found
         return found
     }
 
     /** 分割线颜色取原生 ovu 的背景, 深浅色主题自动跟随。 */
     private fun tipsBarDividerColor(group: View): Int {
-        tipsBarDividerColors[group]?.let { return it }
-        val color = tipsBarDivider(group)?.background
-            ?.let { (it as? ColorDrawable)?.color } ?: 0
+        tipsBarDividerColors[group]?.let {
+            return it
+        }
+        val color = tipsBarDivider(group)?.background?.let { (it as? ColorDrawable)?.color } ?: 0
         if (color != 0) {
             tipsBarDividerColors[group] = color
             return color
         }
         // 兜底: 用任一行内文本的前景色压 10% 透明度, 深浅色都能用
-        val text = group.allViews.firstOrNull { it is TextView && it.isAttachedToWindow }
-            as? TextView ?: return 0
+        val text =
+            group.allViews.firstOrNull { it is TextView && it.isAttachedToWindow } as? TextView
+                ?: return 0
         return text.currentTextColor and 0x00FFFFFF or (0x1A shl 24)
     }
 
@@ -2511,11 +2732,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         return CHATTING_UI_ACTIVITY_CLASS.toClass().isInstance(activity)
     }
 
-    private tailrec fun Context.activityOrNull(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.activityOrNull()
-        else -> null
-    }
+    private tailrec fun Context.activityOrNull(): Activity? =
+        when (this) {
+            is Activity -> this
+            is ContextWrapper -> baseContext.activityOrNull()
+            else -> null
+        }
 
     private fun applyConvBoxEdgeToEdge(activity: Activity) {
         val window = activity.window
@@ -2536,37 +2758,40 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     private fun settleConvBoxLayout(activity: Activity, contentRoot: View) {
         val decor = activity.window.decorView
         val conversationHost = (contentRoot as ViewGroup).getChildAt(0)
-        val listener = object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                if (!isActive || !contentRoot.isAttachedToWindow) {
-                    if (decor.viewTreeObserver.isAlive) {
-                        decor.viewTreeObserver.removeOnPreDrawListener(this)
+        val listener =
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    if (!isActive || !contentRoot.isAttachedToWindow) {
+                        if (decor.viewTreeObserver.isAlive) {
+                            decor.viewTreeObserver.removeOnPreDrawListener(this)
+                        }
+                        return true
                     }
+                    val titleBar =
+                        decor.findViewWhich {
+                            it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
+                        } ?: return true
+                    if (titleBar.height <= 0 || contentRoot.height <= 0) return true
+
+                    // 保留 AppCompat 对标题栏的正常 inset 处理，只把 jmc 移到最终下沿。
+                    val titleLocation = IntArray(2)
+                    val rootLocation = IntArray(2)
+                    titleBar.getLocationOnScreen(titleLocation)
+                    contentRoot.getLocationOnScreen(rootLocation)
+                    val targetTop =
+                        (titleLocation[1] + titleBar.height - rootLocation[1]).coerceAtLeast(0)
+                    val conversationParams =
+                        conversationHost.layoutParams as FrameLayout.LayoutParams
+                    if (conversationParams.topMargin != targetTop) {
+                        conversationParams.topMargin = targetTop
+                        conversationHost.layoutParams = conversationParams
+                        return false
+                    }
+
+                    decor.viewTreeObserver.removeOnPreDrawListener(this)
                     return true
                 }
-                val titleBar = decor.findViewWhich {
-                    it.javaClass.name == ACTION_BAR_CONTAINER_CLASS
-                } ?: return true
-                if (titleBar.height <= 0 || contentRoot.height <= 0) return true
-
-                // 保留 AppCompat 对标题栏的正常 inset 处理，只把 jmc 移到最终下沿。
-                val titleLocation = IntArray(2)
-                val rootLocation = IntArray(2)
-                titleBar.getLocationOnScreen(titleLocation)
-                contentRoot.getLocationOnScreen(rootLocation)
-                val targetTop =
-                    (titleLocation[1] + titleBar.height - rootLocation[1]).coerceAtLeast(0)
-                val conversationParams = conversationHost.layoutParams as FrameLayout.LayoutParams
-                if (conversationParams.topMargin != targetTop) {
-                    conversationParams.topMargin = targetTop
-                    conversationHost.layoutParams = conversationParams
-                    return false
-                }
-
-                decor.viewTreeObserver.removeOnPreDrawListener(this)
-                return true
             }
-        }
         decor.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
@@ -2575,9 +2800,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     /** 当前会话页需要补偿给悬浮标题栏与消息列表的状态栏高度。 */
     private fun statusBarOffset(layout: View): Int = statusBarOffsets[layout] ?: 0
 
-    /**
-     * 本特性启用时让聊天内容延伸到状态栏背后。窗口级开关只应用一次，顶部布局修正保持幂等。
-     */
+    /** 本特性启用时让聊天内容延伸到状态栏背后。窗口级开关只应用一次，顶部布局修正保持幂等。 */
     private fun applyStatusBarEdgeToEdge(layout: View) {
         val activity = layout.context.activityOrNull() ?: return
         val window = activity.window
@@ -2596,7 +2819,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
         // 照片全屏过渡会隐藏状态栏；聊天页仍需保留其占位，避免背后的标题卡和列表上跳。
         return layout.rootWindowInsets
-            ?.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars())?.top ?: 0
+            ?.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars())
+            ?.top ?: 0
     }
 
     private fun currentStatusBarOffset(layout: View, insetTop: Int): Int {
@@ -2630,14 +2854,15 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
             val offset = currentStatusBarOffset(layout, inset)
             val previous = statusBarOffsets.put(layout, offset)
             reassertEdgeToEdgeStatusBar(layout)
-            val paddingFixed = zeroStandaloneChatBodyTopPadding(layout) or
-                neutralizeStatusBarWrapper(layout)
+            val paddingFixed =
+                zeroStandaloneChatBodyTopPadding(layout) or neutralizeStatusBarWrapper(layout)
             // 通知入口的独立 ChattingUI 首次 pre-draw 时 insets 可能尚未就绪；
             // 后续拿到有效状态栏高度后必须重跑完整布局，才能切换窗口标题栏 overlay，
             // 并同步标题卡、提示卡和消息列表的位置与样式。
             // 半屏的偏移始终为 0, 所以 inset 就绪本身也要触发重跑。
-            if ((previous != null && previous != offset) ||
-                (previousInset != null && previousInset != inset)
+            if (
+                (previous != null && previous != offset) ||
+                    (previousInset != null && previousInset != inset)
             ) {
                 scheduleReconcile(layout, RECONCILE_LAYOUT)
             }
@@ -2666,9 +2891,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 独立 ChattingUI 的 FullScreenHelper 会给 Fragment body 写入一个 ActionBar 高度的
-     * paddingTop。标题栏已经切成 overlay 后，这份 173px 左右的补偿会让整个消息背景仍从
-     * 标题栏下方开始；清掉它后由标题卡和列表 padding 各自处理遮挡关系。
+     * 独立 ChattingUI 的 FullScreenHelper 会给 Fragment body 写入一个 ActionBar 高度的 paddingTop。标题栏已经切成
+     * overlay 后，这份 173px 左右的补偿会让整个消息背景仍从 标题栏下方开始；清掉它后由标题卡和列表 padding 各自处理遮挡关系。
      */
     /** 返回本次是否清掉了 Fragment body 的顶部 padding。 */
     private fun zeroStandaloneChatBodyTopPadding(layout: View): Boolean {
@@ -2688,17 +2912,20 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         if (statusBarWrappersNeutralized[wrapper] != true) {
             // 高版本 ChattingUI 的 wrapper 默认 ALWAYS_AVOID，ADB 显示它会把整个内容子树
             // 下移一个状态栏高度。先把策略切到 ALWAYS_HIDE，使后续 insets 回调保持 top=0。
-            val strategySetter = wrapper.reflekt().firstMethod {
-                name = "setStatusBarStrategy"
-                parameterCount = 1
-            }
+            val strategySetter =
+                wrapper.reflekt().firstMethod {
+                    name = "setStatusBarStrategy"
+                    parameterCount = 1
+                }
             val strategyClass = strategySetter.parameterTypes.single()
-            val alwaysHide = strategyClass.enumConstants!!.single {
-                (it as Enum<*>).name == "ALWAYS_HIDE"
-            }
+            val alwaysHide =
+                strategyClass.enumConstants!!.single {
+                    (it as Enum<*>).name == "ALWAYS_HIDE"
+                }
             strategySetter.invoke(alwaysHide)
             runCatching {
-                wrapper.javaClass.getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
+                wrapper.javaClass
+                    .getMethod("setStatusBarColor", Int::class.javaPrimitiveType)
                     .invoke(wrapper, Color.TRANSPARENT)
             }
             statusBarWrappersNeutralized[wrapper] = true
@@ -2724,13 +2951,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 标题栏盖在整页之上后, 给消息列表补 [header.height + 顶部间距] 的 top padding,
-     * 让第一条消息停在卡片下沿而不是藏在卡片后面。RecyclerView 本身 clipToPadding=false,
-     * 滚动时消息会正常从卡片背后穿过; 顶部 padding 在 scrollY=0 时自动把首条消息放到
-     * padding 之下, 不需要额外调整滚动位置 (与底部 padding 的语义不同)。
+     * 标题栏盖在整页之上后, 给消息列表补 [header.height + 顶部间距] 的 top padding, 让第一条消息停在卡片下沿而不是藏在卡片后面。RecyclerView
+     * 本身 clipToPadding=false, 滚动时消息会正常从卡片背后穿过; 顶部 padding 在 scrollY=0 时自动把首条消息放到 padding 之下,
+     * 不需要额外调整滚动位置 (与底部 padding 的语义不同)。
      *
-     * 标题区挂件可见时, 它们在流内把消息列表整体推到卡片下方, 列表不会与任何悬浮卡重叠,
-     * 此时不再补 padding; 挂件全部收起时才需要补标题卡那部分。
+     * 标题区挂件可见时, 它们在流内把消息列表整体推到卡片下方, 列表不会与任何悬浮卡重叠, 此时不再补 padding; 挂件全部收起时才需要补标题卡那部分。
      */
     private fun applyChatListPadding(layout: View, header: View) {
         if (headerTopOffsets[layout] == null) return
@@ -2739,16 +2964,23 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val base = chatListBasePaddings.getOrPut(recycler) { recycler.paddingTop }
         val density = layout.resources.displayMetrics.density
         val overlayBottom = overlayCardBottoms[layout]
-        val extra = when {
-            // 内容宿主里的覆盖卡: 微信只补它自身高度, 我们补它相对列表顶部的下移量
-            overlayBottom != null -> (overlayBottom - recycler.offsetTopIn(layout)).coerceAtLeast(0)
-            // 流内挂件已把列表整体推到卡片下方
-            hasVisibleHeaderExtras(layout, header) -> 0
-            else -> statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
-        }
+        val extra =
+            when {
+                // 内容宿主里的覆盖卡: 微信只补它自身高度, 我们补它相对列表顶部的下移量
+                overlayBottom != null ->
+                    (overlayBottom - recycler.offsetTopIn(layout)).coerceAtLeast(0)
+                // 流内挂件已把列表整体推到卡片下方
+                hasVisibleHeaderExtras(layout, header) -> 0
+                else -> statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
+            }
         val target = base + extra
         if (recycler.paddingTop == target) return
-        recycler.setPadding(recycler.paddingLeft, target, recycler.paddingRight, recycler.paddingBottom)
+        recycler.setPadding(
+            recycler.paddingLeft,
+            target,
+            recycler.paddingRight,
+            recycler.paddingBottom,
+        )
     }
 
     private fun applyAnimatedChatListPadding(layout: View, recycler: View) {
@@ -2758,7 +2990,12 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val extra = (overlayBottom - recyclerTop).coerceAtLeast(0)
         val target = base + extra
         if (recycler.paddingTop == target) return
-        recycler.setPadding(recycler.paddingLeft, target, recycler.paddingRight, recycler.paddingBottom)
+        recycler.setPadding(
+            recycler.paddingLeft,
+            target,
+            recycler.paddingRight,
+            recycler.paddingBottom,
+        )
     }
 
     private fun hasVisibleHeaderExtras(layout: View, header: View): Boolean {
@@ -2775,9 +3012,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 多选模式顶部"选择到这里"按钮 (ChattingContent 里 top|left 的 wrap_content 小浮层)
-     * 原生位于标题栏下方; 标题栏重挂成悬浮卡后内容区顶到屏幕上方, 按钮会被标题卡盖住。
-     * 这里把它下推到标题卡下沿 + 卡片间距, 几何与列表 top padding 同一套。
+     * 多选模式顶部"选择到这里"按钮 (ChattingContent 里 top|left 的 wrap_content 小浮层) 原生位于标题栏下方;
+     * 标题栏重挂成悬浮卡后内容区顶到屏幕上方, 按钮会被标题卡盖住。 这里把它下推到标题卡下沿 + 卡片间距, 几何与列表 top padding 同一套。
      */
     private fun applyQuickSelectOffset(layout: View, header: View): Boolean {
         if (headerTopOffsets[layout] == null) return false
@@ -2786,8 +3022,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val density = layout.resources.displayMetrics.density
         val gapPx = (extraGapDp * density).toInt()
         // 标题卡下沿 (ChattingUILayout 坐标系): statusBarOffset + 卡高 + 顶部间距
-        val titleBottomPx = statusBarOffset(layout) +
-            header.height + (topGapDp * density).toInt()
+        val titleBottomPx = statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
         // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进按钮的屏幕位置
         val contentTopPx = content.offsetTopIn(layout) + content.translationY.roundToInt()
         val marginTop = (titleBottomPx + gapPx - contentTopPx).coerceAtLeast(0)
@@ -2800,11 +3035,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 右上角"N条新消息"角标 (HistoryMsgTongue, ss.xml 的 bm4): ChattingContent 直接子 View 里
-     * top|end 的 wrap_content 小浮层, 与"选择到这里"按钮同理, 标题栏悬浮后内容区顶到屏幕
-     * 上方, 角标会落在标题卡背后。这里把处于 top|end 态的角标推到标题卡 (或已悬浮的
-     * 置顶消息卡) 下沿 + 卡片间距。微信的 HistoryMsgTongueComponent 会按状态重设它的
-     * gravity/topMargin, 每帧重算即可覆盖; 角标切到底部态后不再命中特征, 边距交还给微信。
+     * 右上角"N条新消息"角标 (HistoryMsgTongue, ss.xml 的 bm4): ChattingContent 直接子 View 里 top|end 的
+     * wrap_content 小浮层, 与"选择到这里"按钮同理, 标题栏悬浮后内容区顶到屏幕 上方, 角标会落在标题卡背后。这里把处于 top|end 态的角标推到标题卡 (或已悬浮的
+     * 置顶消息卡) 下沿 + 卡片间距。微信的 HistoryMsgTongueComponent 会按状态重设它的 gravity/topMargin, 每帧重算即可覆盖;
+     * 角标切到底部态后不再命中特征, 边距交还给微信。
      */
     private fun applyNewMsgChipOffset(layout: View, header: View) {
         if (headerTopOffsets[layout] == null) return
@@ -2812,8 +3046,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val chip = newMsgChipView(content, layout) ?: return
         val density = layout.resources.displayMetrics.density
         val gapPx = (extraGapDp * density).toInt()
-        val titleBottomPx = statusBarOffset(layout) +
-            header.height + (topGapDp * density).toInt()
+        val titleBottomPx = statusBarOffset(layout) + header.height + (topGapDp * density).toInt()
         // 置顶消息卡等悬浮覆盖卡存在时角标排到它们下方, 不与卡片重叠
         val targetPx = (overlayCardBottoms[layout] ?: titleBottomPx) + gapPx
         // ChattingScrollLayout 滚动时用 translationY 移动内容区, 要一起算进角标的屏幕位置
@@ -2828,8 +3061,11 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun newMsgChipView(content: ViewGroup, layout: View): View? {
         // 角标会随状态切换 gravity (top|end ↔ bottom|end), 缓存命中也要重新验证特征
-        newMsgChipViews[layout]?.takeIf { it.parent === content && it.isNewMsgChip() }
-            ?.let { return it }
+        newMsgChipViews[layout]
+            ?.takeIf { it.parent === content && it.isNewMsgChip() }
+            ?.let {
+                return it
+            }
         newMsgChipViews.remove(layout)
         for (i in 0 until content.childCount) {
             val child = content.getChildAt(i)
@@ -2842,16 +3078,25 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
     }
 
     private fun chatContent(layout: View): View? {
-        chatContents[layout]?.takeIf { it.isAttachedToWindow }?.let { return it }
-        val found = layout.allViews.firstOrNull {
-            it.javaClass.name == CHATTING_CONTENT_CLASS
-        }
+        chatContents[layout]
+            ?.takeIf { it.isAttachedToWindow }
+            ?.let {
+                return it
+            }
+        val found =
+            layout.allViews.firstOrNull {
+                it.javaClass.name == CHATTING_CONTENT_CLASS
+            }
         if (found != null) chatContents[layout] = found
         return found
     }
 
     private fun quickSelectUpView(content: ViewGroup, layout: View): View? {
-        quickSelectUpViews[layout]?.takeIf { it.parent === content }?.let { return it }
+        quickSelectUpViews[layout]
+            ?.takeIf { it.parent === content }
+            ?.let {
+                return it
+            }
         for (i in 0 until content.childCount) {
             val child = content.getChildAt(i)
             if (child.isQuickSelectUp()) {
@@ -2893,16 +3138,17 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val topLeft = Gravity.TOP or Gravity.LEFT
         val topStart = Gravity.TOP or Gravity.START
         if (lp.gravity != topLeft && lp.gravity != topStart) return false
-        if (lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
-            lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
-        ) return false
+        if (
+            lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
+                lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+            return false
         return lp.topMargin > 0
     }
 
     /**
-     * 结构特征: 内容区直接子 View 里 top|end 的 wrap_content LinearLayout (ss.xml 的 bm4),
-     * 内含 TextView。8.0.65–8.0.77 的聊天布局里它是该位置唯一的这类子 View
-     * (bk8 是 match_parent 宽, bm2 是 bottom|right)。
+     * 结构特征: 内容区直接子 View 里 top|end 的 wrap_content LinearLayout (ss.xml 的 bm4), 内含
+     * TextView。8.0.65–8.0.77 的聊天布局里它是该位置唯一的这类子 View (bk8 是 match_parent 宽, bm2 是 bottom|right)。
      */
     @SuppressLint("RtlHardcoded")
     private fun View.isNewMsgChip(): Boolean {
@@ -2910,22 +3156,26 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         val topRight = Gravity.TOP or Gravity.RIGHT
         val topEnd = Gravity.TOP or Gravity.END
         if (lp.gravity != topRight && lp.gravity != topEnd) return false
-        if (lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
-            lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
-        ) return false
+        if (
+            lp.width != ViewGroup.LayoutParams.WRAP_CONTENT ||
+                lp.height != ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+            return false
         if (this !is LinearLayout) return false
         return allViews.any { it is TextView }
     }
 
     private fun View.chatRecycler(): View? {
         val cached = chatListRecyclers[this]
-        cached?.takeIf {
-            it.isAttachedToWindow && it.findAncestorChattingUILayout() === this
-        }?.let {
-            chatListRecyclerLayouts[it] = this
-            chatListTopOffsets[it] = it.offsetTopIn(this)
-            return it
-        }
+        cached
+            ?.takeIf {
+                it.isAttachedToWindow && it.findAncestorChattingUILayout() === this
+            }
+            ?.let {
+                chatListRecyclerLayouts[it] = this
+                chatListTopOffsets[it] = it.offsetTopIn(this)
+                return it
+            }
         val listHost = allViews.firstOrNull {
             it.javaClass.name == "com.tencent.mm.ui.chatting.view.MMChattingListView"
         }
@@ -2953,8 +3203,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
 
     private fun View.isChatRecycler(): Boolean {
         val name = javaClass.name
-        if (name == "com.tencent.mm.pluginsdk.ui.tools.ScrollControlRecyclerView" ||
-            name == "com.tencent.mm.pluginsdk.ui.tools.ChattingRecyclerView"
+        if (
+            name == "com.tencent.mm.pluginsdk.ui.tools.ScrollControlRecyclerView" ||
+                name == "com.tencent.mm.pluginsdk.ui.tools.ChattingRecyclerView"
         ) {
             return true
         }
@@ -3038,9 +3289,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         tipsBarRowHooks.remove(recycler)
         tipsBarOffsetsRemoved.remove(recycler)
         val rows = HashSet<View>()
-        tipsBarRowRecyclers.entries
-            .filter { it.value === recycler }
-            .forEach { rows.add(it.key) }
+        tipsBarRowRecyclers.entries.filter { it.value === recycler }.forEach { rows.add(it.key) }
         rows.forEach { row ->
             tipsBarRowDividers.remove(row)?.let((row as ViewGroup).overlay::remove)
             tipsBarRowOriginalLineMargins.remove(row)?.let { margins ->
@@ -3142,26 +3391,34 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_floating_header_restart_hint),
-                                    description = stringResource(R.string.chat_floating_header_summary),
+                                    title =
+                                        stringResource(R.string.chat_floating_header_restart_hint),
+                                    description =
+                                        stringResource(R.string.chat_floating_header_summary),
                                 )
                             }
                             item(key = "layout_style") {
                                 DropDownMenuWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_floating_header_style_label),
+                                    title =
+                                        stringResource(R.string.chat_floating_header_style_label),
                                     description = null,
                                     value = layoutStyle,
-                                    options = listOf(
-                                        DropdownOption(
-                                            HeaderLayoutStyle.INTEGRATED,
-                                            stringResource(R.string.chat_floating_header_style_integrated),
+                                    options =
+                                        listOf(
+                                            DropdownOption(
+                                                HeaderLayoutStyle.INTEGRATED,
+                                                stringResource(
+                                                    R.string.chat_floating_header_style_integrated,
+                                                ),
+                                            ),
+                                            DropdownOption(
+                                                HeaderLayoutStyle.SEPARATED,
+                                                stringResource(
+                                                    R.string.chat_floating_header_style_separated,
+                                                ),
+                                            ),
                                         ),
-                                        DropdownOption(
-                                            HeaderLayoutStyle.SEPARATED,
-                                            stringResource(R.string.chat_floating_header_style_separated),
-                                        ),
-                                    ),
                                     onValueChange = {
                                         layoutStyle = it
                                         headerLayoutStyle = it
@@ -3175,7 +3432,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             ) {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_component_gap_label),
+                                        title =
+                                            stringResource(
+                                                R.string.chat_floating_component_gap_label,
+                                            ),
                                         value = componentGap,
                                         startInt = MIN_COMPONENT_GAP,
                                         endInt = MAX_COMPONENT_GAP,
@@ -3192,7 +3452,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_corner_radius_label),
+                                        title =
+                                            stringResource(
+                                                R.string.chat_floating_corner_radius_label,
+                                            ),
                                         value = corner,
                                         startInt = MIN_CORNER_RADIUS,
                                         endInt = MAX_CORNER_RADIUS,
@@ -3209,7 +3472,10 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_side_margin_label),
+                                        title =
+                                            stringResource(
+                                                R.string.chat_floating_side_margin_label,
+                                            ),
                                         value = side,
                                         startInt = MIN_SIDE_MARGIN,
                                         endInt = MAX_SIDE_MARGIN,
@@ -3226,7 +3492,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_top_gap_label),
+                                        title =
+                                            stringResource(R.string.chat_floating_top_gap_label),
                                         value = topGap,
                                         startInt = MIN_TOP_GAP,
                                         endInt = MAX_TOP_GAP,
@@ -3243,7 +3510,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_card_gap_label),
+                                        title =
+                                            stringResource(R.string.chat_floating_card_gap_label),
                                         value = extraGap,
                                         startInt = MIN_EXTRA_GAP,
                                         endInt = MAX_EXTRA_GAP,
@@ -3260,7 +3528,8 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.chat_floating_elevation_label),
+                                        title =
+                                            stringResource(R.string.chat_floating_elevation_label),
                                         value = elevation,
                                         startInt = MIN_ELEVATION,
                                         endInt = MAX_ELEVATION,
@@ -3277,7 +3546,9 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

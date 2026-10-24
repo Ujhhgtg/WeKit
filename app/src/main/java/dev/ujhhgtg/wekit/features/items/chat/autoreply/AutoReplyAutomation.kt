@@ -23,7 +23,11 @@ import dev.ujhhgtg.wekit.ui.automation.targetEditor
 import dev.ujhhgtg.wekit.ui.automation.timeRangeEditor
 import dev.ujhhgtg.wekit.ui.automation.toggleEditor
 
-enum class AutoReplyAtTrigger { NONE, AT_ME, AT_ALL }
+enum class AutoReplyAtTrigger {
+    NONE,
+    AT_ME,
+    AT_ALL,
+}
 
 /** Settings of [AutoReply]: a GLOBAL chat filter, plus an ordered list of ITEM rules. */
 object AutoReplyAutomation : AutomationSpec("AUTO_REPLY") {
@@ -31,73 +35,160 @@ object AutoReplyAutomation : AutomationSpec("AUTO_REPLY") {
     val chats = AutomationRuleKey("chats", AutomationCodecs.target, AutomationTargetRule())
 
     // ITEM (one per rule)
-    val enabled = AutomationRuleKey("enabled", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
+    val enabled =
+        AutomationRuleKey("enabled", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
     val keyword = AutomationRuleKey("keyword", AutomationCodecs.keyword, AutomationKeywordRule())
-    val excludeKeyword = AutomationRuleKey("excludeKeyword", AutomationCodecs.keyword, AutomationKeywordRule())
+    val excludeKeyword =
+        AutomationRuleKey("excludeKeyword", AutomationCodecs.keyword, AutomationKeywordRule())
     val target = AutomationRuleKey("target", AutomationCodecs.target, AutomationTargetRule())
-    val atTrigger = AutomationRuleKey("atTrigger", AutomationCodecs.enumValue<AutoReplyAtTrigger>(), AutoReplyAtTrigger.NONE)
-    val patTrigger = AutomationRuleKey("patTrigger", AutomationCodecs.toggle, AutomationToggleRule())
-    val timeRange = AutomationRuleKey("timeRange", AutomationCodecs.timeRange, AutomationTimeRangeRule())
+    val atTrigger =
+        AutomationRuleKey(
+            "atTrigger",
+            AutomationCodecs.enumValue<AutoReplyAtTrigger>(),
+            AutoReplyAtTrigger.NONE,
+        )
+    val patTrigger =
+        AutomationRuleKey("patTrigger", AutomationCodecs.toggle, AutomationToggleRule())
+    val timeRange =
+        AutomationRuleKey("timeRange", AutomationCodecs.timeRange, AutomationTimeRangeRule())
     val maxCount = AutomationRuleKey("maxCount", AutomationCodecs.limit, AutomationLimitRule())
     val cooldown = AutomationRuleKey("cooldown", AutomationCodecs.limit, AutomationLimitRule())
-    val reply = AutomationRuleKey("reply", AutomationCodecs.reply, AutomationReplyRule(enabled = true))
+    val reply =
+        AutomationRuleKey("reply", AutomationCodecs.reply, AutomationReplyRule(enabled = true))
 
-    override val keys = listOf(chats, enabled, keyword, excludeKeyword, target, atTrigger, patTrigger, timeRange, maxCount, cooldown, reply)
+    override val keys =
+        listOf(
+            chats,
+            enabled,
+            keyword,
+            excludeKeyword,
+            target,
+            atTrigger,
+            patTrigger,
+            timeRange,
+            maxCount,
+            cooldown,
+            reply,
+        )
     override val scopeTypes = setOf(AutomationScopeType.GLOBAL, AutomationScopeType.ITEM)
     override val titleRes = R.string.feature_auto_reply_name
     override val globalSummaryRes = R.string.auto_reply_global_summary
     override val itemsTitleRes = R.string.auto_reply_rules
 
-    private val onlyGlobal = { s: dev.ujhhgtg.wekit.features.automation.AutomationScope -> s.type == AutomationScopeType.GLOBAL }
-    private val onlyItem = { s: dev.ujhhgtg.wekit.features.automation.AutomationScope -> s.type == AutomationScopeType.ITEM }
+    private val onlyGlobal = { s: dev.ujhhgtg.wekit.features.automation.AutomationScope ->
+        s.type == AutomationScopeType.GLOBAL
+    }
+    private val onlyItem = { s: dev.ujhhgtg.wekit.features.automation.AutomationScope ->
+        s.type == AutomationScopeType.ITEM
+    }
 
-    override val editors = listOf(
-        targetEditor(chats, R.string.auto_reply_chats, visibleIn = onlyGlobal),
-        toggleEditor(enabled, R.string.auto_reply_rule_enabled, R.string.automation_item_enabled, R.string.automation_item_disabled, visibleIn = onlyItem),
-        keywordEditor(keyword, R.string.auto_reply_keyword, R.string.auto_reply_keyword_any, visibleIn = onlyItem),
-        keywordEditor(excludeKeyword, R.string.auto_reply_exclude_keyword, R.string.auto_reply_exclude_keyword_off, visibleIn = onlyItem),
-        targetEditor(target, R.string.auto_reply_target, visibleIn = onlyItem),
-        choiceEditor(
-            atTrigger, R.string.auto_reply_at_trigger,
-            listOf(
-                AutoReplyAtTrigger.NONE to R.string.auto_reply_at_none,
-                AutoReplyAtTrigger.AT_ME to R.string.auto_reply_at_me,
-                AutoReplyAtTrigger.AT_ALL to R.string.auto_reply_at_all,
+    override val editors =
+        listOf(
+            targetEditor(chats, R.string.auto_reply_chats, visibleIn = onlyGlobal),
+            toggleEditor(
+                enabled,
+                R.string.auto_reply_rule_enabled,
+                R.string.automation_item_enabled,
+                R.string.automation_item_disabled,
+                visibleIn = onlyItem,
             ),
-            visibleIn = onlyItem,
-        ),
-        toggleEditor(patTrigger, R.string.auto_reply_pat_trigger, R.string.auto_reply_pat_trigger_on, R.string.auto_reply_pat_trigger_off, visibleIn = onlyItem),
-        timeRangeEditor(timeRange, R.string.auto_reply_time_range, R.string.auto_reply_time_unrestricted, visibleIn = onlyItem),
-        limitEditor(
-            maxCount, R.string.auto_reply_max_count, R.string.auto_reply_max_count_off,
-            R.string.auto_reply_max_count_value, R.string.auto_reply_max_count_field,
-            range = 1..50, step = 1, unitRes = R.string.automation_unit_times, visibleIn = onlyItem,
-        ),
-        limitEditor(
-            cooldown, R.string.auto_reply_cooldown, R.string.auto_reply_cooldown_off,
-            R.string.auto_reply_cooldown_value, R.string.auto_reply_cooldown_field,
-            range = 0..3600, step = 10, unitRes = R.string.automation_unit_seconds, visibleIn = onlyItem,
-        ),
-        replyEditor(reply, R.string.auto_reply_steps, AutomationReplyExecutor.BASE_PLACEHOLDERS, visibleIn = onlyItem, switchable = false),
-    )
+            keywordEditor(
+                keyword,
+                R.string.auto_reply_keyword,
+                R.string.auto_reply_keyword_any,
+                visibleIn = onlyItem,
+            ),
+            keywordEditor(
+                excludeKeyword,
+                R.string.auto_reply_exclude_keyword,
+                R.string.auto_reply_exclude_keyword_off,
+                visibleIn = onlyItem,
+            ),
+            targetEditor(target, R.string.auto_reply_target, visibleIn = onlyItem),
+            choiceEditor(
+                atTrigger,
+                R.string.auto_reply_at_trigger,
+                listOf(
+                    AutoReplyAtTrigger.NONE to R.string.auto_reply_at_none,
+                    AutoReplyAtTrigger.AT_ME to R.string.auto_reply_at_me,
+                    AutoReplyAtTrigger.AT_ALL to R.string.auto_reply_at_all,
+                ),
+                visibleIn = onlyItem,
+            ),
+            toggleEditor(
+                patTrigger,
+                R.string.auto_reply_pat_trigger,
+                R.string.auto_reply_pat_trigger_on,
+                R.string.auto_reply_pat_trigger_off,
+                visibleIn = onlyItem,
+            ),
+            timeRangeEditor(
+                timeRange,
+                R.string.auto_reply_time_range,
+                R.string.auto_reply_time_unrestricted,
+                visibleIn = onlyItem,
+            ),
+            limitEditor(
+                maxCount,
+                R.string.auto_reply_max_count,
+                R.string.auto_reply_max_count_off,
+                R.string.auto_reply_max_count_value,
+                R.string.auto_reply_max_count_field,
+                range = 1..50,
+                step = 1,
+                unitRes = R.string.automation_unit_times,
+                visibleIn = onlyItem,
+            ),
+            limitEditor(
+                cooldown,
+                R.string.auto_reply_cooldown,
+                R.string.auto_reply_cooldown_off,
+                R.string.auto_reply_cooldown_value,
+                R.string.auto_reply_cooldown_field,
+                range = 0..3600,
+                step = 10,
+                unitRes = R.string.automation_unit_seconds,
+                visibleIn = onlyItem,
+            ),
+            replyEditor(
+                reply,
+                R.string.auto_reply_steps,
+                AutomationReplyExecutor.BASE_PLACEHOLDERS,
+                visibleIn = onlyItem,
+                switchable = false,
+            ),
+        )
 
-    override val sections = listOf(
-        AutomationSection(null, listOf(chats)),
-        AutomationSection(R.string.auto_reply_section_triggers, listOf(keyword, excludeKeyword, atTrigger, patTrigger)),
-        AutomationSection(R.string.auto_reply_section_scope, listOf(target, timeRange)),
-        AutomationSection(R.string.auto_reply_section_limits, listOf(maxCount, cooldown)),
-        AutomationSection(R.string.auto_reply_section_reply, listOf(reply)),
-    )
+    override val sections =
+        listOf(
+            AutomationSection(null, listOf(chats)),
+            AutomationSection(
+                R.string.auto_reply_section_triggers,
+                listOf(keyword, excludeKeyword, atTrigger, patTrigger),
+            ),
+            AutomationSection(R.string.auto_reply_section_scope, listOf(target, timeRange)),
+            AutomationSection(R.string.auto_reply_section_limits, listOf(maxCount, cooldown)),
+            AutomationSection(R.string.auto_reply_section_reply, listOf(reply)),
+        )
 
     override val itemSwitch = enabled
-    override val itemSummaryKeys = listOf(keyword, atTrigger, patTrigger, timeRange, target, maxCount, cooldown)
+    override val itemSummaryKeys =
+        listOf(keyword, atTrigger, patTrigger, timeRange, target, maxCount, cooldown)
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         if (validates(keyIds, keyword)) {
-            rules[keyword].validationError(localizedAutomationString(R.string.auto_reply_keyword))?.let { return it }
+            rules[keyword]
+                .validationError(localizedAutomationString(R.string.auto_reply_keyword))
+                ?.let {
+                    return it
+                }
         }
         if (validates(keyIds, excludeKeyword)) {
-            rules[excludeKeyword].validationError(localizedAutomationString(R.string.auto_reply_exclude_keyword))?.let { return it }
+            rules[excludeKeyword]
+                .validationError(localizedAutomationString(R.string.auto_reply_exclude_keyword))
+                ?.let {
+                    return it
+                }
         }
         return null
     }
@@ -142,7 +233,8 @@ object AutoReplyMatcher {
     private fun keywordMatches(rules: AutomationRules, message: AutoReplyMessage): Boolean {
         if (message.isPat && rules[AutoReplyAutomation.patTrigger].enabled) return true
         val keyword = rules[AutoReplyAutomation.keyword]
-        if (message.isText && rules[AutoReplyAutomation.excludeKeyword].excludes(message.content)) return false
+        if (message.isText && rules[AutoReplyAutomation.excludeKeyword].excludes(message.content))
+            return false
         if (!keyword.enabled) return true
         return message.isText && keyword.matchesEnabled(message.content)
     }

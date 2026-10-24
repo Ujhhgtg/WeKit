@@ -86,7 +86,8 @@ private fun normalizeClassRef(owner: String, value: Any?): ClassSpec? =
         is Class<*> -> ClassSpec(className = NameSpec(value.name))
         else ->
             throw IllegalArgumentException(
-                "$owner must be assigned a String, Class or ClassSpec, was " + value::class.java.name,
+                "$owner must be assigned a String, Class or ClassSpec, was " +
+                    value::class.java.name,
             )
     }
 
@@ -105,7 +106,8 @@ private fun normalizeParamTypes(owner: String, value: Any?): List<TypeSpec?>? =
         is Array<*> -> value.map(::normalizeParamType)
         else ->
             throw IllegalArgumentException(
-                "$owner must be assigned a List of String/Class/TypeSpec/null, was " + value::class.java.name,
+                "$owner must be assigned a List of String/Class/TypeSpec/null, was " +
+                    value::class.java.name,
             )
     }
 

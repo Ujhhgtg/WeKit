@@ -10,17 +10,18 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.find
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
+
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     override val technicalId = "自动查看原图"
@@ -40,67 +41,92 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     private val lastLivePhotoBindings = WeakHashMap<Any, Any>()
 
-    private val originalMediaKeywords = listOf(
-        "查看原图", "Full Image", "View Full Image",
-        "查看原视频", "Original quality", "View Full Video",
-    )
+    private val originalMediaKeywords =
+        listOf(
+            "查看原图",
+            "Full Image",
+            "View Full Image",
+            "查看原视频",
+            "Original quality",
+            "View Full Video",
+        )
 
     override fun resolveDex() {
-        val results = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
-                ),
-                usingStrings = listOf(
-                    StringSpec("setHdImageActionDownloadable", NameMatch.Equals),
-                ),
-            ),
-        ).ifEmpty {
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(
-                        className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+        val results =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        declaredClass =
+                            ClassSpec(
+                                className =
+                                    NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+                            ),
+                        usingStrings =
+                            listOf(
+                                StringSpec("setHdImageActionDownloadable", NameMatch.Equals),
+                            ),
                     ),
-                    usingStrings = listOf(
-                        StringSpec("setImageHdImgBtnVisibility", NameMatch.Equals),
-                    ),
-                ),
-            )
-        }
+                )
+                .ifEmpty {
+                    DexResolutionContext.matcher.findMethods(
+                        MethodSpec(
+                            declaredClass =
+                                ClassSpec(
+                                    className =
+                                        NameSpec(
+                                            "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI",
+                                        ),
+                                ),
+                            usingStrings =
+                                listOf(
+                                    StringSpec("setImageHdImgBtnVisibility", NameMatch.Equals),
+                                ),
+                        ),
+                    )
+                }
         methodSetImageHdImgBtnVisibility.setDescriptor(results.single())
 
         methodCheckNeedShowOriginVideoBtn.find(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
-                ),
-                usingStrings = listOf(
-                    StringSpec("checkNeedShowOriginVideoBtn", NameMatch.Equals),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+                    ),
+                usingStrings =
+                    listOf(
+                        StringSpec("checkNeedShowOriginVideoBtn", NameMatch.Equals),
+                    ),
             ),
         )
 
         classMediaGalleryVideoBottomBarLayer.find(
             ClassSpec(
-                usingStrings = listOf(
-                    StringSpec("MediaGallery.VideoBottomBarLayer", NameMatch.Equals),
-                ),
+                usingStrings =
+                    listOf(
+                        StringSpec("MediaGallery.VideoBottomBarLayer", NameMatch.Equals),
+                    ),
             ),
         )
 
-        val chatLiveBottomBarLayers = DexResolutionContext.matcher.findClasses(
-            ClassSpec(
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("<init>"),
-                        paramCount = 1..1,
-                        usingStrings = listOf(
-                            StringSpec("MediaGallery.ChatLiveBottomBarLayer", NameMatch.Equals),
+        val chatLiveBottomBarLayers =
+            DexResolutionContext.matcher.findClasses(
+                ClassSpec(
+                    methods =
+                        listOf(
+                            MethodSpec(
+                                name = NameSpec("<init>"),
+                                paramCount = 1..1,
+                                usingStrings =
+                                    listOf(
+                                        StringSpec(
+                                            "MediaGallery.ChatLiveBottomBarLayer",
+                                            NameMatch.Equals,
+                                        ),
+                                    ),
+                            ),
                         ),
-                    ),
                 ),
-            ),
-        )
+            )
 
         when (chatLiveBottomBarLayers.size) {
             0 -> {
@@ -110,79 +136,97 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 return
             }
 
-            1 -> classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
-                chatLiveBottomBarLayers.single()
-            )
+            1 ->
+                classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
+                    chatLiveBottomBarLayers.single(),
+                )
 
-            else -> error(
-                "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
-                    chatLiveBottomBarLayers.joinToString { it.name }
-            )
+            else ->
+                error(
+                    "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
+                        chatLiveBottomBarLayers.joinToString { it.name },
+                )
         }
 
         methodBindMediaGalleryChatLiveBottomBar.find(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec(classMediaGalleryChatLiveBottomBarLayer.data.name),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        className = NameSpec(classMediaGalleryChatLiveBottomBarLayer.data.name),
+                    ),
                 paramCount = 1..1,
                 returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(
-                    StringSpec("bindContext", NameMatch.Equals),
-                    StringSpec("msgInfo", NameMatch.Equals),
-                ),
+                usingStrings =
+                    listOf(
+                        StringSpec("bindContext", NameMatch.Equals),
+                        StringSpec("msgInfo", NameMatch.Equals),
+                    ),
             ),
         )
 
-        val updateVideoOriginButtonMethods = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec(classMediaGalleryVideoBottomBarLayer.data.name),
+        val updateVideoOriginButtonMethods =
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass =
+                        ClassSpec(
+                            className = NameSpec(classMediaGalleryVideoBottomBarLayer.data.name),
+                        ),
+                    paramTypes = listOf(TypeSpec("java.lang.String"), TypeSpec("boolean")),
+                    returnType = ClassSpec(className = NameSpec("void")),
+                    usingStrings =
+                        listOf(
+                            StringSpec("getString(...)", NameMatch.Equals),
+                        ),
                 ),
-                paramTypes = listOf(TypeSpec("java.lang.String"), TypeSpec("boolean")),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(
-                    StringSpec("getString(...)", NameMatch.Equals),
-                ),
-            ),
-        )
+            )
 
         when (updateVideoOriginButtonMethods.size) {
             0 -> methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
 
-            1 -> methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
-                updateVideoOriginButtonMethods.single()
-            )
+            1 ->
+                methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
+                    updateVideoOriginButtonMethods.single(),
+                )
 
-            else -> error(
-                "multiple layered original-video update methods found: " +
-                    updateVideoOriginButtonMethods.joinToString { it.descriptor }
-            )
+            else ->
+                error(
+                    "multiple layered original-video update methods found: " +
+                        updateVideoOriginButtonMethods.joinToString { it.descriptor },
+                )
         }
     }
 
     override fun onEnable() {
         listOf(
-            methodSetImageHdImgBtnVisibility,
-            methodCheckNeedShowOriginVideoBtn
-        ).forEach { method ->
-            if (!method.isFound) return@forEach
+                methodSetImageHdImgBtnVisibility,
+                methodCheckNeedShowOriginVideoBtn,
+            )
+            .forEach { method ->
+                if (!method.isFound) return@forEach
 
-            method.hookAfter {
-                clickVisibleOriginalMediaButtons(thisObject!!)
+                method.hookAfter {
+                    clickVisibleOriginalMediaButtons(thisObject!!)
+                }
             }
-        }
 
         if (methodUpdateMediaGalleryVideoOriginButton.isFound) {
             methodUpdateMediaGalleryVideoOriginButton.hookAfter {
                 if (args[1] as Boolean) return@hookAfter
 
-                val binding = thisObject!!.reflekt().firstField {
-                    type { !it.isPrimitive }
-                }.get()!!
-                val originalVideoButton = binding.reflekt().firstField {
-                    type = Button::class
-                }.get() as Button
+                val binding =
+                    thisObject!!
+                        .reflekt()
+                        .firstField {
+                            type { !it.isPrimitive }
+                        }
+                        .get()!!
+                val originalVideoButton =
+                    binding
+                        .reflekt()
+                        .firstField {
+                            type = Button::class
+                        }
+                        .get() as Button
                 clickOriginalMediaButton(originalVideoButton)
             }
             methodBindMediaGalleryChatLiveBottomBar.hookAfter {
@@ -191,22 +235,34 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 if (lastLivePhotoBindings[layer] === bindContext) return@hookAfter
                 lastLivePhotoBindings[layer] = bindContext
 
-                val binding = layer.reflekt().firstField {
-                    type { candidate ->
-                        candidate.reflekt().fields {
+                val binding =
+                    layer
+                        .reflekt()
+                        .firstField {
+                            type { candidate ->
+                                candidate
+                                    .reflekt()
+                                    .fields {
+                                        type = MEDIA_DOWNLOAD_TEXT_CLASS
+                                    }
+                                    .isNotEmpty()
+                            }
+                        }
+                        .get()!!
+                val originalImageControl =
+                    binding
+                        .reflekt()
+                        .firstField {
                             type = MEDIA_DOWNLOAD_TEXT_CLASS
-                        }.isNotEmpty()
-                    }
-                }.get()!!
-                val originalImageControl = binding.reflekt().firstField {
-                    type = MEDIA_DOWNLOAD_TEXT_CLASS
-                }.get() as View
+                        }
+                        .get() as View
 
                 originalImageControl.post {
-                    if (lastLivePhotoBindings[layer] === bindContext &&
-                        originalImageControl.isShown &&
-                        originalImageControl.isEnabled &&
-                        originalImageControl.hasVisibleOriginalMediaLabel()
+                    if (
+                        lastLivePhotoBindings[layer] === bindContext &&
+                            originalImageControl.isShown &&
+                            originalImageControl.isEnabled &&
+                            originalImageControl.hasVisibleOriginalMediaLabel()
                     ) {
                         originalImageControl.performClick()
                     }
@@ -216,11 +272,14 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
     }
 
     private fun clickVisibleOriginalMediaButtons(owner: Any) {
-        owner.reflekt().fields {
-            type = Button::class
-        }.forEach {
-            clickOriginalMediaButton(it.get() as Button)
-        }
+        owner
+            .reflekt()
+            .fields {
+                type = Button::class
+            }
+            .forEach {
+                clickOriginalMediaButton(it.get() as Button)
+            }
     }
 
     private fun clickOriginalMediaButton(button: Button) {
@@ -230,13 +289,16 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
     }
 
     private fun View.hasVisibleOriginalMediaLabel(): Boolean =
-        reflekt().fields {
-            type = TextView::class
-        }.any {
-            val textView = it.get() as TextView
-            textView.isVisible && textView.text.isOriginalMediaLabel()
-        }
+        reflekt()
+            .fields {
+                type = TextView::class
+            }
+            .any {
+                val textView = it.get() as TextView
+                textView.isVisible && textView.text.isOriginalMediaLabel()
+            }
 
-    private fun CharSequence.isOriginalMediaLabel(): Boolean =
-        originalMediaKeywords.any { contains(it, ignoreCase = true) }
+    private fun CharSequence.isOriginalMediaLabel(): Boolean = originalMediaKeywords.any {
+        contains(it, ignoreCase = true)
+    }
 }

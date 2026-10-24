@@ -53,13 +53,16 @@ object SpoofMessageEditor {
 
     fun show(context: Context, target: SpoofTarget) {
         showComposeDialog(context) {
-            val existing = remember { SpoofedMessageStore[target.key]?.takeIf { it.createTime == target.createTime } }
+            val existing = remember {
+                SpoofedMessageStore[target.key]?.takeIf { it.createTime == target.createTime }
+            }
             var draft by remember {
                 mutableStateOf(
                     when (target.kind) {
                         SpoofKind.TEXT -> existing?.text ?: target.original!!
                         SpoofKind.TRANSFER -> existing?.amount ?: amountNumber(target.original!!)
-                        SpoofKind.IMAGE, SpoofKind.VIDEO -> ""
+                        SpoofKind.IMAGE,
+                        SpoofKind.VIDEO -> ""
                     },
                 )
             }
@@ -94,9 +97,18 @@ object SpoofMessageEditor {
                 text = {
                     DefaultColumn {
                         when (target.kind) {
-                            SpoofKind.IMAGE -> Text(stringResource(R.string.spoof_message_image_hint))
-                            SpoofKind.VIDEO -> Text(stringResource(R.string.spoof_message_video_hint))
-                            else -> SpoofValueField(target.kind, target.original, draft, { draft = it }, enabled = !busy)
+                            SpoofKind.IMAGE ->
+                                Text(stringResource(R.string.spoof_message_image_hint))
+                            SpoofKind.VIDEO ->
+                                Text(stringResource(R.string.spoof_message_video_hint))
+                            else ->
+                                SpoofValueField(
+                                    target.kind,
+                                    target.original,
+                                    draft,
+                                    { draft = it },
+                                    enabled = !busy,
+                                )
                         }
                         Text(
                             stringResource(R.string.spoof_message_local_only),
@@ -104,7 +116,10 @@ object SpoofMessageEditor {
                         )
                         if (busy) LinearWavyProgressIndicator(Modifier.fillMaxWidth())
                         if (failed) {
-                            Text(stringResource(R.string.spoof_message_save_failed), color = MaterialTheme.colorScheme.error)
+                            Text(
+                                stringResource(R.string.spoof_message_save_failed),
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                 },
@@ -113,13 +128,19 @@ object SpoofMessageEditor {
                         enabled = !busy && isSpoofValueValid(target.kind, draft),
                         onClick = {
                             when (target.kind) {
-                                SpoofKind.TEXT -> perform(R.string.spoof_message_saved) {
-                                    SpoofedMessageStore.saveText(target, draft)
-                                }
-                                SpoofKind.TRANSFER -> perform(R.string.spoof_message_saved) {
-                                    SpoofedMessageStore.saveAmount(target, normalizeSpoofAmount(draft)!!)
-                                }
-                                SpoofKind.IMAGE, SpoofKind.VIDEO -> {
+                                SpoofKind.TEXT ->
+                                    perform(R.string.spoof_message_saved) {
+                                        SpoofedMessageStore.saveText(target, draft)
+                                    }
+                                SpoofKind.TRANSFER ->
+                                    perform(R.string.spoof_message_saved) {
+                                        SpoofedMessageStore.saveAmount(
+                                            target,
+                                            normalizeSpoofAmount(draft)!!,
+                                        )
+                                    }
+                                SpoofKind.IMAGE,
+                                SpoofKind.VIDEO -> {
                                     onDismiss()
                                     pickMedia(context, target)
                                 }
@@ -143,13 +164,20 @@ object SpoofMessageEditor {
                             TextButton(
                                 enabled = !busy,
                                 onClick = {
-                                    perform(R.string.spoof_message_removed) { SpoofedMessageStore.remove(target.key) }
+                                    perform(R.string.spoof_message_removed) {
+                                        SpoofedMessageStore.remove(target.key)
+                                    }
                                 },
                             ) {
-                                Text(stringResource(R.string.spoof_message_remove), color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    stringResource(R.string.spoof_message_remove),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
-                        TextButton(onDismiss, enabled = !busy) { Text(stringResource(R.string.dialog_cancel)) }
+                        TextButton(onDismiss, enabled = !busy) {
+                            Text(stringResource(R.string.dialog_cancel))
+                        }
                     }
                 },
             )
@@ -158,18 +186,20 @@ object SpoofMessageEditor {
 
     private fun pickMedia(context: Context, target: SpoofTarget) {
         TransparentActivity.launch(context) {
-            val launcher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-                finish()
-                if (uri != null) importMedia(target, uri)
-            }
+            val launcher =
+                registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                    finish()
+                    if (uri != null) importMedia(target, uri)
+                }
             launcher.launch(pickMediaRequest(target.kind))
         }
     }
 
-    fun pickMediaRequest(kind: SpoofKind) = PickVisualMediaRequest(
-        if (kind == SpoofKind.VIDEO) ActivityResultContracts.PickVisualMedia.VideoOnly
-        else ActivityResultContracts.PickVisualMedia.ImageOnly,
-    )
+    fun pickMediaRequest(kind: SpoofKind) =
+        PickVisualMediaRequest(
+            if (kind == SpoofKind.VIDEO) ActivityResultContracts.PickVisualMedia.VideoOnly
+            else ActivityResultContracts.PickVisualMedia.ImageOnly,
+        )
 
     /** Imports picked media in the background; large videos take a while to copy into Room. */
     fun importMedia(target: SpoofTarget, uri: Uri) {
@@ -198,57 +228,67 @@ fun SpoofValueField(
     enabled: Boolean,
 ) {
     when (kind) {
-        SpoofKind.TEXT -> OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            enabled = enabled,
-            label = { Text(stringResource(R.string.spoof_message_text_label)) },
-            minLines = 3,
-            maxLines = 8,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        SpoofKind.TRANSFER -> OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            enabled = enabled,
-            label = { Text(stringResource(R.string.spoof_message_amount_label)) },
-            prefix = { Text(amountCurrency(original!!)) },
-            supportingText = { Text(stringResource(R.string.spoof_message_original, original!!)) },
-            isError = !isSpoofValueValid(kind, value),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        SpoofKind.IMAGE, SpoofKind.VIDEO -> error("$kind spoofs are picked, not typed")
+        SpoofKind.TEXT ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                label = { Text(stringResource(R.string.spoof_message_text_label)) },
+                minLines = 3,
+                maxLines = 8,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        SpoofKind.TRANSFER ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                label = { Text(stringResource(R.string.spoof_message_amount_label)) },
+                prefix = { Text(amountCurrency(original!!)) },
+                supportingText = {
+                    Text(stringResource(R.string.spoof_message_original, original!!))
+                },
+                isError = !isSpoofValueValid(kind, value),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        SpoofKind.IMAGE,
+        SpoofKind.VIDEO -> error("$kind spoofs are picked, not typed")
     }
 }
 
-fun isSpoofValueValid(kind: SpoofKind, value: String) = when (kind) {
-    SpoofKind.TEXT -> value.isNotEmpty()
-    SpoofKind.TRANSFER -> normalizeSpoofAmount(value) != null
-    SpoofKind.IMAGE, SpoofKind.VIDEO -> true
-}
+fun isSpoofValueValid(kind: SpoofKind, value: String) =
+    when (kind) {
+        SpoofKind.TEXT -> value.isNotEmpty()
+        SpoofKind.TRANSFER -> normalizeSpoofAmount(value) != null
+        SpoofKind.IMAGE,
+        SpoofKind.VIDEO -> true
+    }
 
 val SpoofKind.titleRes
-    get() = when (this) {
-        SpoofKind.TEXT -> R.string.spoof_message_title_text
-        SpoofKind.IMAGE -> R.string.spoof_message_title_image
-        SpoofKind.VIDEO -> R.string.spoof_message_title_video
-        SpoofKind.TRANSFER -> R.string.spoof_message_title_transfer
-    }
+    get() =
+        when (this) {
+            SpoofKind.TEXT -> R.string.spoof_message_title_text
+            SpoofKind.IMAGE -> R.string.spoof_message_title_image
+            SpoofKind.VIDEO -> R.string.spoof_message_title_video
+            SpoofKind.TRANSFER -> R.string.spoof_message_title_transfer
+        }
 
 val SpoofKind.labelRes
-    get() = when (this) {
-        SpoofKind.TEXT -> R.string.spoof_kind_text
-        SpoofKind.IMAGE -> R.string.spoof_kind_image
-        SpoofKind.VIDEO -> R.string.spoof_kind_video
-        SpoofKind.TRANSFER -> R.string.spoof_kind_transfer
-    }
+    get() =
+        when (this) {
+            SpoofKind.TEXT -> R.string.spoof_kind_text
+            SpoofKind.IMAGE -> R.string.spoof_kind_image
+            SpoofKind.VIDEO -> R.string.spoof_kind_video
+            SpoofKind.TRANSFER -> R.string.spoof_kind_transfer
+        }
 
 val SpoofKind.icon: ImageVector
-    get() = when (this) {
-        SpoofKind.TEXT -> MaterialSymbols.Outlined.Notes
-        SpoofKind.IMAGE -> MaterialSymbols.Outlined.Photo_library
-        SpoofKind.VIDEO -> MaterialSymbols.Outlined.Movie
-        SpoofKind.TRANSFER -> MaterialSymbols.Outlined.Payments
-    }
+    get() =
+        when (this) {
+            SpoofKind.TEXT -> MaterialSymbols.Outlined.Notes
+            SpoofKind.IMAGE -> MaterialSymbols.Outlined.Photo_library
+            SpoofKind.VIDEO -> MaterialSymbols.Outlined.Movie
+            SpoofKind.TRANSFER -> MaterialSymbols.Outlined.Payments
+        }

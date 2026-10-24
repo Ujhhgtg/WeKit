@@ -13,8 +13,7 @@ data class SetContactPropertyReqProto(
     @ProtoNumber(3) val payload: ContactPropertyProto,
     @ProtoNumber(4) val fromRoomName: String? = null,
 ) {
-    @Suppress("DEPRECATION")
-    fun encode(): ByteArray = WeProto.encode(this)
+    @Suppress("DEPRECATION") fun encode(): ByteArray = WeProto.encode(this)
 }
 
 @Serializable

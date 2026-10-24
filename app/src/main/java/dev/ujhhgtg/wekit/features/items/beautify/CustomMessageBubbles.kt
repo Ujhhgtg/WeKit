@@ -1,8 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.beautify
 
-import androidx.annotation.StringRes
-import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -20,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,8 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.get
 import androidx.core.graphics.toColorInt
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -51,14 +49,16 @@ import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Upload_file
 import com.tencent.mm.ui.base.AnimImageView
 import com.tencent.mm.ui.widget.MMNeat7extView
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.ICON_TINT_TAG
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.bubbleCache
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -96,8 +96,9 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
     // Guards the parse-failure toast so it fires at most once per Feature lifecycle.
     private var colorParseErrorToasted = false
 
-    // The bubble images are source nine-patch PNGs (with black border markers), read in applyBubble.
-    private const val LEFT_BUBBLE_FILE = "left_bubble.9.png"   // 对方
+    // The bubble images are source nine-patch PNGs (with black border markers), read in
+    // applyBubble.
+    private const val LEFT_BUBBLE_FILE = "left_bubble.9.png" // 对方
     private const val RIGHT_BUBBLE_FILE = "right_bubble.9.png" // 自己
 
     private enum class BubbleSide(@StringRes val titleRes: Int, val fileName: String) {
@@ -113,8 +114,10 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         val imageExists: Boolean,
     ) {
         val hasValidColors: Boolean
-            get() = listOf(foregroundLight, foregroundDark, backgroundLight, backgroundDark)
-                .all { it.isBlank() || runCatching { it.toColorInt() }.isSuccess }
+            get() =
+                listOf(foregroundLight, foregroundDark, backgroundLight, backgroundDark).all {
+                    it.isBlank() || runCatching { it.toColorInt() }.isSuccess
+                }
     }
 
     // View tag holding the icon tint color (Int) for an AnimImageView. WeChat swaps in the play
@@ -124,7 +127,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
     override fun onEnable() {
         colorParseErrorToasted = false
-//        hookVoiceIconTint()
+        //        hookVoiceIconTint()
         WeChatMessageViewApi.addListener(this)
     }
 
@@ -140,16 +143,17 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
      * and overwrite the filter on every drawable it receives, using the per-message color we stash
      * on the view as [ICON_TINT_TAG] during bind.
      */
-//    private fun hookVoiceIconTint() {
-//        TextView::class
-//            .firstMethod { name = "setCompoundDrawablesWithIntrinsicBounds"; parameterCount = 4 }
-//            .hookAfter {
-//                if (thisObject !is AnimImageView) return@hookAfter
-//                val view = thisObject as? AnimImageView ?: return@hookAfter
-//                val color = view.getTag(ICON_TINT_TAG) as? Int ?: return@hookAfter
-//                args.forEach { applyIconColorFilter(it as? Drawable, color) }
-//            }
-//    }
+    //    private fun hookVoiceIconTint() {
+    //        TextView::class
+    //            .firstMethod { name = "setCompoundDrawablesWithIntrinsicBounds"; parameterCount =
+    // 4 }
+    //            .hookAfter {
+    //                if (thisObject !is AnimImageView) return@hookAfter
+    //                val view = thisObject as? AnimImageView ?: return@hookAfter
+    //                val color = view.getTag(ICON_TINT_TAG) as? Int ?: return@hookAfter
+    //                args.forEach { applyIconColorFilter(it as? Drawable, color) }
+    //            }
+    //    }
 
     private var thatLight by prefOption("custom_bubbles_color_that_light", "black")
     private var thatDark by prefOption("custom_bubbles_color_that_dark", "white")
@@ -188,13 +192,14 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         var i2 = -1
         return ArrayList<Range>().apply {
             for (i3 in 1 until i) {
-                val pixel = if (z && z2) {
-                    bitmap[i3, bitmap.height - 1]
-                } else if (z) {
-                    bitmap[i3, 0]
-                } else {
-                    if (z2) bitmap[bitmap.width - 1, i3] else bitmap[0, i3]
-                }
+                val pixel =
+                    if (z && z2) {
+                        bitmap[i3, bitmap.height - 1]
+                    } else if (z) {
+                        bitmap[i3, 0]
+                    } else {
+                        if (z2) bitmap[bitmap.width - 1, i3] else bitmap[0, i3]
+                    }
                 val iAlpha = Color.alpha(pixel)
                 val iRed = Color.red(pixel)
                 val iGreen = Color.green(pixel)
@@ -215,27 +220,37 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
     }
 
     private fun hasBubbleTag(view: View): Boolean =
-        view.javaClass == TextView::class.java
-                && view.tag?.javaClass?.name?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
+        view.javaClass == TextView::class.java &&
+            view.tag?.javaClass?.name?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
 
     override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
 
         @Suppress("DEPRECATION")
         when (msgInfo.type) {
-            MessageType.TEXT, MessageType.LINK, MessageType.GROUP_NOTE, MessageType.QUOTE -> {
+            MessageType.TEXT,
+            MessageType.LINK,
+            MessageType.GROUP_NOTE,
+            MessageType.QUOTE -> {
                 val neatTextView = view.findViewWhich { it is MMNeat7extView }!! as MMNeat7extView
                 applyForegroundColor(neatTextView, msgInfo.isSelfSender)
                 applyBubble(neatTextView, msgInfo.isSelfSender)
             }
 
             MessageType.VOIP -> {
-                val bubbleView = view.findViewWhich {
-                    it.javaClass == LinearLayout::class.java
-                            && it.tag?.javaClass?.name?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
-                }!! as LinearLayout
+                val bubbleView =
+                    view.findViewWhich {
+                        it.javaClass == LinearLayout::class.java &&
+                            it.tag
+                                ?.javaClass
+                                ?.name
+                                ?.startsWith("com.tencent.mm.ui.chatting.viewitems") == true
+                    }!!
+                        as LinearLayout
                 val bubbleTextView = bubbleView.findViewWhich { it is TextView }!! as TextView
-                val bubbleIconView = bubbleView.findViewWhich { it !== bubbleView && it is LinearLayout }!! as LinearLayout
+                val bubbleIconView =
+                    bubbleView.findViewWhich { it !== bubbleView && it is LinearLayout }!!
+                        as LinearLayout
                 applyForegroundColor(bubbleTextView, msgInfo.isSelfSender)
                 applyForegroundColorByBackgroundColorFilter(bubbleIconView, msgInfo.isSelfSender)
                 applyBubble(bubbleView, msgInfo.isSelfSender)
@@ -248,7 +263,8 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 //   - the animated wave overlay: an AnimImageView shown on top during playback,
                 //     whose bubble background WeChat resets on every bind
                 // Style every bubble-bearing view so the overlay keeps our custom bubble too.
-                view.findViewsWhich { hasBubbleTag(it) || it is AnimImageView }
+                view
+                    .findViewsWhich { hasBubbleTag(it) || it is AnimImageView }
                     .forEach { applyBubble(it, msgInfo.isSelfSender) }
 
                 // The visible duration text (e.g. "5''") lives in a separate untagged TextView
@@ -256,26 +272,37 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                 // overlay. The tagged bubble itself has no text, so color every TextView in that
                 // container instead. Locate the container structurally (no obfuscated ids): the
                 // group whose direct children include both a tagged bubble and an AnimImageView.
-                val container = view.findViewWhich { v ->
-                    v is ViewGroup
-                            && (0 until v.childCount).any { hasBubbleTag(v.getChildAt(it)) }
-                            && (0 until v.childCount).any { v.getChildAt(it) is AnimImageView }
-                } as ViewGroup?
-                container.findViewsWhich { it is TextView }.map { it as TextView }
+                val container =
+                    view.findViewWhich { v ->
+                        v is ViewGroup &&
+                            (0 until v.childCount).any { hasBubbleTag(v.getChildAt(it)) } &&
+                            (0 until v.childCount).any { v.getChildAt(it) is AnimImageView }
+                    } as ViewGroup?
+                container
+                    .findViewsWhich { it is TextView }
+                    .map { it as TextView }
                     .forEach { applyForegroundColor(it, msgInfo.isSelfSender) }
 
                 // The play icon is a compound drawable, not text, so setTextColor never touches it.
-                // Its frames are built via uk.e() which bakes in a PorterDuff color filter, so a tint
-                // list can't override them either. Overwrite the filter directly. The idle icon sits
-                // on the static bubble now; the playing frames get swapped onto the AnimImageView on
-                // click, so we stash the color as a tag and let hookVoiceIconTint() re-apply it then.
-//                val iconColor = getForegroundColor(view.context, msgInfo.isSelfSender)
-//                if (iconColor != -1) {
-//                    container.findViewsWhich { it is TextView }.map { it as TextView }.forEach { tv ->
-//                        if (tv is AnimImageView) tv.setTag(ICON_TINT_TAG, iconColor)
-//                        tv.compoundDrawables.forEach { applyIconColorFilter(it, iconColor) }
-//                    }
-//                }
+                // Its frames are built via uk.e() which bakes in a PorterDuff color filter, so a
+                // tint
+                // list can't override them either. Overwrite the filter directly. The idle icon
+                // sits
+                // on the static bubble now; the playing frames get swapped onto the AnimImageView
+                // on
+                // click, so we stash the color as a tag and let hookVoiceIconTint() re-apply it
+                // then.
+                //                val iconColor = getForegroundColor(view.context,
+                // msgInfo.isSelfSender)
+                //                if (iconColor != -1) {
+                //                    container.findViewsWhich { it is TextView }.map { it as
+                // TextView }.forEach { tv ->
+                //                        if (tv is AnimImageView) tv.setTag(ICON_TINT_TAG,
+                // iconColor)
+                //                        tv.compoundDrawables.forEach { applyIconColorFilter(it,
+                // iconColor) }
+                //                    }
+                //                }
             }
 
             else -> {}
@@ -285,12 +312,19 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
     private fun applyBubble(bubbleView: View, isSelfSender: Boolean) {
         val context = bubbleView.context
 
-        val rawColor = if (isSelfSender) {
-            if (context.isDarkMode) bgThisDark else bgThisLight
-        } else {
-            if (context.isDarkMode) bgThatDark else bgThatLight
-        }
-        val color = parseColor(context, rawColor, label = context.localizedBeautifyString(R.string.beautify_bubble_background_color), fallback = 0)
+        val rawColor =
+            if (isSelfSender) {
+                if (context.isDarkMode) bgThisDark else bgThisLight
+            } else {
+                if (context.isDarkMode) bgThatDark else bgThatLight
+            }
+        val color =
+            parseColor(
+                context,
+                rawColor,
+                label = context.localizedBeautifyString(R.string.beautify_bubble_background_color),
+                fallback = 0,
+            )
 
         val fileName = if (isSelfSender) RIGHT_BUBBLE_FILE else LEFT_BUBBLE_FILE
         val resources = bubbleView.resources
@@ -310,22 +344,26 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
         // The cached state is untinted; each bind gets its own mutated copies so the per-message
         // background color (and the light/dark variant) never leaks into the shared state.
-        val normalDrawable = constantState.newDrawable(resources).mutate().apply {
-            if (color != 0) setTint(color)
-        }
-        val pressedDrawable = constantState.newDrawable(resources).mutate().apply {
-            val fArr = FloatArray(3).apply {
-                Color.colorToHSV(if (color != 0) color else -1, this)
-                this[2] *= 0.8f
+        val normalDrawable =
+            constantState.newDrawable(resources).mutate().apply {
+                if (color != 0) setTint(color)
             }
-            setTint(Color.HSVToColor(fArr))
-        }
+        val pressedDrawable =
+            constantState.newDrawable(resources).mutate().apply {
+                val fArr =
+                    FloatArray(3).apply {
+                        Color.colorToHSV(if (color != 0) color else -1, this)
+                        this[2] *= 0.8f
+                    }
+                setTint(Color.HSVToColor(fArr))
+            }
 
-        val stateListDrawable = StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), pressedDrawable)
-            addState(intArrayOf(android.R.attr.state_focused), pressedDrawable)
-            addState(intArrayOf(), normalDrawable)
-        }
+        val stateListDrawable =
+            StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_pressed), pressedDrawable)
+                addState(intArrayOf(android.R.attr.state_focused), pressedDrawable)
+                addState(intArrayOf(), normalDrawable)
+            }
 
         bubbleView.apply {
             background = stateListDrawable
@@ -338,11 +376,16 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
      * revision. Safe to call from the bind path: [bubbleCache] is concurrent, and a redundant
      * concurrent rebuild would only cost a duplicate decode, never a corrupt entry.
      */
-    private fun bubbleConstantState(fileName: String, resources: Resources): Drawable.ConstantState? {
+    private fun bubbleConstantState(
+        fileName: String,
+        resources: Resources,
+    ): Drawable.ConstantState? {
         val file = KnownPaths.moduleAssets / fileName
         val stamp = runCatching {
-            if (file.exists()) "${file.getLastModifiedTime().toMillis()}:${file.fileSize()}" else ABSENT_STAMP
-        }.getOrDefault(ABSENT_STAMP)
+            if (file.exists()) "${file.getLastModifiedTime().toMillis()}:${file.fileSize()}"
+            else ABSENT_STAMP
+        }
+            .getOrDefault(ABSENT_STAMP)
 
         bubbleCache[fileName]?.let { if (it.stamp == stamp) return it.state }
 
@@ -351,62 +394,71 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         return state
     }
 
-    private fun buildBubbleState(file: Path, resources: Resources): Drawable.ConstantState? = runCatching {
-        val bitmap = BitmapFactory.decodeFile(file.absolutePathString())
-            ?: error("failed to decode bubble image")
+    private fun buildBubbleState(file: Path, resources: Resources): Drawable.ConstantState? =
+        runCatching {
+            val bitmap =
+                BitmapFactory.decodeFile(file.absolutePathString())
+                    ?: error("failed to decode bubble image")
 
-        try {
-            require(bitmap.width >= MIN_BUBBLE_SIZE_PX && bitmap.height >= MIN_BUBBLE_SIZE_PX) {
-                "bubble image too small: ${bitmap.width}x${bitmap.height}"
+            try {
+                require(bitmap.width >= MIN_BUBBLE_SIZE_PX && bitmap.height >= MIN_BUBBLE_SIZE_PX) {
+                    "bubble image too small: ${bitmap.width}x${bitmap.height}"
+                }
+
+                val bitmapCreateBitmap =
+                    Bitmap.createBitmap(bitmap, 1, 1, bitmap.width - 2, bitmap.height - 2)
+                val arrayList1 = getRanges(bitmap, z = true, z2 = false)
+                val arrayList2 = getRanges(bitmap, z = false, z2 = false)
+                val range1 = getRanges(bitmap, z = true, z2 = true).firstOrNull()
+                val range2 = getRanges(bitmap, z = false, z2 = true).firstOrNull()
+                val rect =
+                    Rect(
+                        range1?.start ?: 0,
+                        range2?.start ?: 0,
+                        if (range1 != null) bitmap.width - 2 - range1.end else 0,
+                        if (range2 != null) bitmap.height - 2 - range2.end else 0,
+                    )
+
+                val byteBuffer =
+                    ByteBuffer.allocate((arrayList2.size + arrayList1.size) * 8 + 68).apply {
+                        order(ByteOrder.nativeOrder())
+                        put(1.toByte())
+                        put((arrayList1.size * 2).toByte())
+                        put((arrayList2.size * 2).toByte())
+                        put(9.toByte())
+                        putInt(0)
+                        putInt(0)
+                        putInt(rect.left)
+                        putInt(rect.right)
+                        putInt(rect.top)
+                        putInt(rect.bottom)
+                        putInt(0)
+                        for (r in arrayList1) {
+                            putInt(r.start)
+                            putInt(r.end)
+                        }
+                        for (r in arrayList2) {
+                            putInt(r.start)
+                            putInt(r.end)
+                        }
+                        repeat(9) {
+                            putInt(1)
+                        }
+                    }
+
+                NinePatchDrawable(resources, bitmapCreateBitmap, byteBuffer.array(), rect, null)
+                    .constantState
+            } finally {
+                // createBitmap copied the interior out, so the full-size source is dead weight;
+                // without
+                // this it used to be leaked once per message bind.
+                bitmap.recycle()
             }
-
-            val bitmapCreateBitmap = Bitmap.createBitmap(bitmap, 1, 1, bitmap.width - 2, bitmap.height - 2)
-            val arrayList1 = getRanges(bitmap, z = true, z2 = false)
-            val arrayList2 = getRanges(bitmap, z = false, z2 = false)
-            val range1 = getRanges(bitmap, z = true, z2 = true).firstOrNull()
-            val range2 = getRanges(bitmap, z = false, z2 = true).firstOrNull()
-            val rect = Rect(
-                range1?.start ?: 0,
-                range2?.start ?: 0,
-                if (range1 != null) bitmap.width - 2 - range1.end else 0,
-                if (range2 != null) bitmap.height - 2 - range2.end else 0
-            )
-
-            val byteBuffer = ByteBuffer.allocate((arrayList2.size + arrayList1.size) * 8 + 68).apply {
-                order(ByteOrder.nativeOrder())
-                put(1.toByte())
-                put((arrayList1.size * 2).toByte())
-                put((arrayList2.size * 2).toByte())
-                put(9.toByte())
-                putInt(0)
-                putInt(0)
-                putInt(rect.left)
-                putInt(rect.right)
-                putInt(rect.top)
-                putInt(rect.bottom)
-                putInt(0)
-                for (r in arrayList1) {
-                    putInt(r.start)
-                    putInt(r.end)
-                }
-                for (r in arrayList2) {
-                    putInt(r.start)
-                    putInt(r.end)
-                }
-                repeat(9) {
-                    putInt(1)
-                }
-            }
-
-            NinePatchDrawable(resources, bitmapCreateBitmap, byteBuffer.array(), rect, null).constantState
-        } finally {
-            // createBitmap copied the interior out, so the full-size source is dead weight; without
-            // this it used to be leaked once per message bind.
-            bitmap.recycle()
         }
-    }.onFailure {
-        WeLogger.w(TAG, "failed to build bubble drawable from ${file.fileName}", it)
-    }.getOrNull()
+        .onFailure {
+            WeLogger.w(TAG, "failed to build bubble drawable from ${file.fileName}", it)
+        }
+        .getOrNull()
 
     /**
      * Parses a user-entered color. Empty input means "no override" and returns [fallback] silently.
@@ -416,22 +468,35 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
     private fun parseColor(context: Context, rawColor: String, label: String, fallback: Int): Int {
         if (rawColor.isBlank()) return fallback
 
-        return runCatching { rawColor.toColorInt() }.getOrElse {
-            if (!colorParseErrorToasted) {
-                colorParseErrorToasted = true
-                showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_color_parse_failed, label))
+        return runCatching { rawColor.toColorInt() }
+            .getOrElse {
+                if (!colorParseErrorToasted) {
+                    colorParseErrorToasted = true
+                    showToast(
+                        context,
+                        context.localizedBeautifyString(
+                            R.string.beautify_bubble_color_parse_failed,
+                            label,
+                        ),
+                    )
+                }
+                fallback
             }
-            fallback
-        }
     }
 
     private fun getForegroundColor(context: Context, isSelfSender: Boolean): Int {
-        val rawColor = if (isSelfSender) {
-            if (context.isDarkMode) thisDark else thisLight
-        } else {
-            if (context.isDarkMode) thatDark else thatLight
-        }
-        return parseColor(context, rawColor, label = context.localizedBeautifyString(R.string.beautify_bubble_foreground_color), fallback = -1)
+        val rawColor =
+            if (isSelfSender) {
+                if (context.isDarkMode) thisDark else thisLight
+            } else {
+                if (context.isDarkMode) thatDark else thatLight
+            }
+        return parseColor(
+            context,
+            rawColor,
+            label = context.localizedBeautifyString(R.string.beautify_bubble_foreground_color),
+            fallback = -1,
+        )
     }
 
     private fun applyForegroundColor(view: MMNeat7extView, isSelfSender: Boolean) {
@@ -452,10 +517,11 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         val color = getForegroundColor(view.context, isSelfSender)
         if (color == -1) return
 
-        view.background?.mutate()?.colorFilter = PorterDuffColorFilter(
-            color,
-            PorterDuff.Mode.SRC_IN
-        )
+        view.background?.mutate()?.colorFilter =
+            PorterDuffColorFilter(
+                color,
+                PorterDuff.Mode.SRC_IN,
+            )
     }
 
     /**
@@ -463,9 +529,10 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
      * drawable state isn't affected. Used for the voice play icon, whose frames are built via
      * uk.e() with a baked-in PorterDuff filter that a View-level tint list cannot override.
      */
-//    private fun applyIconColorFilter(drawable: Drawable?, color: Int) {
-//        drawable?.mutate()?.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
-//    }
+    //    private fun applyIconColorFilter(drawable: Drawable?, color: Int) {
+    //        drawable?.mutate()?.colorFilter = PorterDuffColorFilter(color,
+    // PorterDuff.Mode.SRC_ATOP)
+    //    }
 
     /**
      * Launches a system image picker and copies the chosen file's raw bytes into [fileName] under
@@ -475,65 +542,89 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
      * bind time: applyBubble runs for every message view, and a full-resolution photo installed as
      * a bubble would mean a multi-megabyte decode per row.
      */
-    private fun importBubbleImage(context: Context, fileName: String, label: String, onDone: () -> Unit) {
+    private fun importBubbleImage(
+        context: Context,
+        fileName: String,
+        label: String,
+        onDone: () -> Unit,
+    ) {
         TransparentActivity.launch(context) {
-            val launcher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                finish()
-                if (uri == null) return@registerForActivityResult
+            val launcher =
+                registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                    finish()
+                    if (uri == null) return@registerForActivityResult
 
-                val bytes = runCatching {
-                    contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: throw IllegalStateException("failed to open input stream")
-                }.onFailure {
-                    WeLogger.e(TAG, "failed to read $label bubble image", it)
-                }.getOrNull()
+                    val bytes = runCatching {
+                        contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            ?: throw IllegalStateException("failed to open input stream")
+                    }
+                        .onFailure {
+                            WeLogger.e(TAG, "failed to read $label bubble image", it)
+                        }
+                        .getOrNull()
 
-                if (bytes == null) {
-                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_import_failed, label))
-                    return@registerForActivityResult
-                }
+                    if (bytes == null) {
+                        showToast(
+                            context,
+                            context.localizedBeautifyString(
+                                R.string.beautify_bubble_import_failed,
+                                label,
+                            ),
+                        )
+                        return@registerForActivityResult
+                    }
 
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                val width = bounds.outWidth
-                val height = bounds.outHeight
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                    val width = bounds.outWidth
+                    val height = bounds.outHeight
 
-                if (width < MIN_BUBBLE_SIZE_PX || height < MIN_BUBBLE_SIZE_PX) {
-                    showToast(context, context.localizedBeautifyString(R.string.beautify_bubble_image_too_small, label, MIN_BUBBLE_SIZE_PX))
-                    return@registerForActivityResult
-                }
-                if (width > MAX_BUBBLE_SIZE_PX || height > MAX_BUBBLE_SIZE_PX) {
+                    if (width < MIN_BUBBLE_SIZE_PX || height < MIN_BUBBLE_SIZE_PX) {
+                        showToast(
+                            context,
+                            context.localizedBeautifyString(
+                                R.string.beautify_bubble_image_too_small,
+                                label,
+                                MIN_BUBBLE_SIZE_PX,
+                            ),
+                        )
+                        return@registerForActivityResult
+                    }
+                    if (width > MAX_BUBBLE_SIZE_PX || height > MAX_BUBBLE_SIZE_PX) {
+                        showToast(
+                            context,
+                            context.localizedBeautifyString(
+                                R.string.beautify_bubble_image_too_large,
+                                label,
+                                width,
+                                height,
+                                MAX_BUBBLE_SIZE_PX,
+                            ),
+                        )
+                        return@registerForActivityResult
+                    }
+
+                    val ok = runCatching {
+                        (KnownPaths.moduleAssets / fileName).toFile().outputStream().use { output ->
+                            output.write(bytes)
+                        }
+                    }
+                        .onFailure {
+                            WeLogger.e(TAG, "failed to import $label bubble image", it)
+                        }
+                        .isSuccess
+
+                    bubbleCache.remove(fileName)
                     showToast(
                         context,
                         context.localizedBeautifyString(
-                            R.string.beautify_bubble_image_too_large,
+                            if (ok) R.string.beautify_bubble_import_succeeded
+                            else R.string.beautify_bubble_import_failed,
                             label,
-                            width,
-                            height,
-                            MAX_BUBBLE_SIZE_PX,
-                        )
+                        ),
                     )
-                    return@registerForActivityResult
+                    if (ok) onDone()
                 }
-
-                val ok = runCatching {
-                    (KnownPaths.moduleAssets / fileName).toFile().outputStream().use { output ->
-                        output.write(bytes)
-                    }
-                }.onFailure {
-                    WeLogger.e(TAG, "failed to import $label bubble image", it)
-                }.isSuccess
-
-                bubbleCache.remove(fileName)
-                showToast(
-                    context,
-                    context.localizedBeautifyString(
-                        if (ok) R.string.beautify_bubble_import_succeeded else R.string.beautify_bubble_import_failed,
-                        label,
-                    ),
-                )
-                if (ok) onDone()
-            }
             launcher.launch("image/*")
         }
     }
@@ -542,16 +633,19 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         val file = KnownPaths.moduleAssets / side.fileName
         val ok = runCatching {
             !file.exists() || file.deleteIfExists()
-        }.onFailure {
-            WeLogger.e(TAG, "failed to delete ${side.name} bubble image", it)
-        }.getOrDefault(false)
+        }
+            .onFailure {
+                WeLogger.e(TAG, "failed to delete ${side.name} bubble image", it)
+            }
+            .getOrDefault(false)
 
         bubbleCache.remove(side.fileName)
         val sideTitle = context.localizedBeautifyString(side.titleRes)
         showToast(
             context,
             context.localizedBeautifyString(
-                if (ok) R.string.beautify_bubble_deleted else R.string.beautify_bubble_delete_failed,
+                if (ok) R.string.beautify_bubble_deleted
+                else R.string.beautify_bubble_delete_failed,
                 sideTitle,
             ),
         )
@@ -621,12 +715,16 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(if (form.imageExists) R.string.imported else R.string.not_imported),
-                color = if (form.imageExists) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                text =
+                    stringResource(
+                        if (form.imageExists) R.string.imported else R.string.not_imported,
+                    ),
+                color =
+                    if (form.imageExists) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 modifier = Modifier.weight(1f),
             )
             Button(onClick = onImport) {
@@ -636,7 +734,11 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(if (form.imageExists) R.string.action_replace else R.string.action_import))
+                Text(
+                    stringResource(
+                        if (form.imageExists) R.string.action_replace else R.string.action_import,
+                    ),
+                )
             }
             IconButton(
                 onClick = onDelete,
@@ -644,12 +746,14 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             ) {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Delete,
-                    contentDescription = stringResource(R.string.beautify_bubble_delete_imported_description),
-                    tint = if (form.imageExists) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
+                    contentDescription =
+                        stringResource(R.string.beautify_bubble_delete_imported_description),
+                    tint =
+                        if (form.imageExists) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        },
                 )
             }
         }
@@ -668,7 +772,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                         backgroundLight = bgThatLight,
                         backgroundDark = bgThatDark,
                         imageExists = (KnownPaths.moduleAssets / LEFT_BUBBLE_FILE).exists(),
-                    )
+                    ),
                 )
             }
             var selfForm by remember {
@@ -679,7 +783,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                         backgroundLight = bgThisLight,
                         backgroundDark = bgThisDark,
                         imageExists = (KnownPaths.moduleAssets / RIGHT_BUBBLE_FILE).exists(),
-                    )
+                    ),
                 )
             }
 
@@ -699,11 +803,13 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                             stringResource(
                                 R.string.beautify_bubble_delete_confirm,
                                 stringResource(deleteSide.titleRes),
-                            )
+                            ),
                         )
                     },
                     dismissButton = {
-                        TextButton(onClick = { pendingDeletion = null }) { Text(stringResource(R.string.dialog_cancel)) }
+                        TextButton(onClick = { pendingDeletion = null }) {
+                            Text(stringResource(R.string.dialog_cancel))
+                        }
                     },
                     confirmButton = {
                         TextButton(
@@ -713,17 +819,21 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                     pendingDeletion = null
                                 }
                             },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            colors =
+                                ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
                         ) {
                             Text(stringResource(R.string.action_delete))
                         }
                     },
                 )
             } else {
-                val selectedForm = when (selectedSide) {
-                    BubbleSide.OTHER -> otherForm
-                    BubbleSide.SELF -> selfForm
-                }
+                val selectedForm =
+                    when (selectedSide) {
+                        BubbleSide.OTHER -> otherForm
+                        BubbleSide.SELF -> selfForm
+                    }
 
                 AlertDialogContent(
                     title = { Text(stringResource(R.string.beautify_bubble_title)) },
@@ -734,10 +844,11 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                     SegmentedButton(
                                         selected = selectedSide == side,
                                         onClick = { selectedSide = side },
-                                        shape = SegmentedButtonDefaults.itemShape(
-                                            index,
-                                            BubbleSide.entries.size,
-                                        ),
+                                        shape =
+                                            SegmentedButtonDefaults.itemShape(
+                                                index,
+                                                BubbleSide.entries.size,
+                                            ),
                                         modifier = Modifier.weight(1f),
                                     ) {
                                         Text(stringResource(side.titleRes))
@@ -750,7 +861,11 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                                 onFormChange = { next -> updateForm(selectedSide) { next } },
                                 onImport = {
                                     val side = selectedSide
-                                    importBubbleImage(context, side.fileName, localizedContext.getString(side.titleRes)) {
+                                    importBubbleImage(
+                                        context,
+                                        side.fileName,
+                                        localizedContext.getString(side.titleRes),
+                                    ) {
                                         updateForm(side) { it.copy(imageExists = true) }
                                     }
                                 },
@@ -758,7 +873,9 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                             )
                         }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                    dismissButton = {
+                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
                     confirmButton = {
                         TextButton(
                             enabled = otherForm.hasValidColors && selfForm.hasValidColors,

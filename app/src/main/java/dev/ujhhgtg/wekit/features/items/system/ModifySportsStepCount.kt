@@ -22,12 +22,12 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Upload
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -49,18 +49,26 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_modify_sports_step_count_description
 
-    private val methodGetSteps by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sport.model")
-            usingEqStrings("MicroMsg.Sport.DeviceStepManager", "get today step from %s todayStep %d")
-        },
-    )
-    private val methodUploadSteps by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sport.model")
-            usingEqStrings("MicroMsg.Sport.DeviceStepManager", "update device Step time: %s stepCount: %s")
-        },
-    )
+    private val methodGetSteps by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sport.model")
+                usingEqStrings(
+                    "MicroMsg.Sport.DeviceStepManager",
+                    "get today step from %s todayStep %d",
+                )
+            },
+        )
+    private val methodUploadSteps by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sport.model")
+                usingEqStrings(
+                    "MicroMsg.Sport.DeviceStepManager",
+                    "update device Step time: %s stepCount: %s",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodGetSteps.hookAfter {
@@ -75,35 +83,42 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
     private fun evaluatePassiveExpression(original: Long): Long? {
         val source = passiveExpression
         return runCatching {
-            val expression = synchronized(this) {
-                cachedExpression?.takeIf { it.first == source }?.second
-                    ?: DecimalExpression.parse(source, setOf(VALUE_VARIABLE)).also {
-                        cachedExpression = source to it
-                    }
-            }
+            val expression =
+                synchronized(this) {
+                    cachedExpression?.takeIf { it.first == source }?.second
+                        ?: DecimalExpression.parse(source, setOf(VALUE_VARIABLE)).also {
+                            cachedExpression = source to it
+                        }
+                }
             val evaluated = expression.evaluate(mapOf(VALUE_VARIABLE to original.toBigDecimal()))
             if (evaluated.signum() < 0) error("Step count cannot be negative")
             evaluated.setScale(0, RoundingMode.HALF_UP).longValueExact()
-        }.onFailure { error ->
-            WeLogger.e(
-                TAG,
-                "failed to evaluate passive step expression '$source' with value $original; keeping original steps",
-                error,
-            )
-        }.getOrNull()
+        }
+            .onFailure { error ->
+                WeLogger.e(
+                    TAG,
+                    "failed to evaluate passive step expression '$source' with value $original; keeping original steps",
+                    error,
+                )
+            }
+            .getOrNull()
     }
 
     private fun expressionError(expression: String): String? = runCatching {
         DecimalExpression.parse(expression, setOf(VALUE_VARIABLE))
-    }.exceptionOrNull()?.message
+    }
+        .exceptionOrNull()
+        ?.message
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var passiveInput by remember { mutableStateOf(passiveExpression) }
             var activeInput by remember { mutableStateOf("") }
             val passiveError = expressionError(passiveInput)
-            val activeError = stringResource(R.string.system_invalid_format)
-                .takeIf { activeInput.isNotEmpty() && activeInput.toLongOrNull() == null }
+            val activeError =
+                stringResource(R.string.system_invalid_format).takeIf {
+                    activeInput.isNotEmpty() && activeInput.toLongOrNull() == null
+                }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_sports_step_count_name)) },
@@ -114,15 +129,15 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                 title = stringResource(R.string.system_sports_passive_value),
                             ) {
                                 OutlinedTextField(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                     value = passiveInput,
                                     onValueChange = { passiveInput = it },
                                     supportingText = {
                                         Text(
                                             passiveError
-                                                ?: stringResource(R.string.system_sports_passive_expression_hint)
+                                                ?: stringResource(
+                                                    R.string.system_sports_passive_expression_hint,
+                                                ),
                                         )
                                     },
                                     isError = passiveError != null,
@@ -136,27 +151,34 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                 title = stringResource(R.string.system_sports_active_value),
                             ) {
                                 OutlinedTextField(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                     value = activeInput,
                                     onValueChange = {
                                         activeInput = it.filter(Char::isDigit).trim()
                                     },
                                     supportingText = activeError?.let { error -> { Text(error) } },
                                     isError = activeError != null,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Number),
                                     trailingIcon = {
                                         IconButton(
-                                            enabled = activeInput.isNotEmpty() && activeError == null,
+                                            enabled =
+                                                activeInput.isNotEmpty() && activeError == null,
                                             onClick = {
                                                 val count = activeInput.toLong()
                                                 val sportsMan =
-                                                    methodUploadSteps.method.declaringClass.createInstance()
-                                                val ok = methodUploadSteps.method.invoke(sportsMan, count) as Boolean
-                                                val result = localizedSystemString(
-                                                    if (ok) R.string.system_success else R.string.system_failure
-                                                )
+                                                    methodUploadSteps.method.declaringClass
+                                                        .createInstance()
+                                                val ok =
+                                                    methodUploadSteps.method.invoke(
+                                                        sportsMan,
+                                                        count,
+                                                    ) as Boolean
+                                                val result =
+                                                    localizedSystemString(
+                                                        if (ok) R.string.system_success
+                                                        else R.string.system_failure,
+                                                    )
                                                 showToast(
                                                     context,
                                                     context.localizedSystemString(
@@ -168,7 +190,8 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                         ) {
                                             Icon(
                                                 imageVector = MaterialSymbols.Outlined.Upload,
-                                                contentDescription = stringResource(R.string.system_sports_upload),
+                                                contentDescription =
+                                                    stringResource(R.string.system_sports_upload),
                                             )
                                         }
                                     },
@@ -194,7 +217,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                     TextButton(onDismiss) {
                         Text(stringResource(R.string.dialog_cancel))
                     }
-                }
+                },
             )
         }
     }
@@ -206,10 +229,12 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.system_risky_feature_warning)) },
                     confirmButton = {
-                        TextButton(onClick = {
-                            applyToggle(true)
-                            onDismiss()
-                        }) {
+                        TextButton(
+                            onClick = {
+                                applyToggle(true)
+                                onDismiss()
+                            },
+                        ) {
                             Text(stringResource(R.string.dialog_confirm))
                         }
                     },
@@ -217,7 +242,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                         TextButton(onDismiss) {
                             Text(stringResource(R.string.dialog_cancel))
                         }
-                    }
+                    },
                 )
             }
             return false

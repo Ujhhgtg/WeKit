@@ -24,6 +24,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -36,7 +37,6 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -53,7 +53,10 @@ import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import java.util.Collections
 import java.util.WeakHashMap
 
-object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfterParseListener,
+object AntiMessageRecall :
+    ClickableFeature(),
+    IResolveDex,
+    WeXmlParserApi.IAfterParseListener,
     WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "防撤回"
@@ -71,14 +74,12 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     private var recalledRecords by prefOption("recall_records", emptySet())
 
     // In-memory mirror of [recalledRecords] for the per-bind hot path.
-    @Volatile
-    private var recalledKeyCache: Set<String> = emptySet()
+    @Volatile private var recalledKeyCache: Set<String> = emptySet()
 
     // Content views currently dimmed by us, keyed by their bound row, so a rebind restores the
     // exact view we changed instead of clobbering other features' animations (e.g.
     // MessageEntranceAnimation).
-    private val dimmedContentViews =
-        Collections.synchronizedMap(WeakHashMap<View, View>())
+    private val dimmedContentViews = Collections.synchronizedMap(WeakHashMap<View, View>())
     private val badges = Collections.synchronizedMap(WeakHashMap<View, RecallBadge>())
 
     // Scenes currently recalling a self-sent message, keyed by the NetSceneRevokeMsg instance, so
@@ -120,28 +121,30 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     // this device never parses a revoke sysmsg — the scene rewrites the message row in place at
     // scene end (notice converter, isSend reset, row update), so the XML parser hook never sees it.
     // The constructor receives the target message; capture it for the scene-end hook.
-    private val methodRevokeMsgSceneInit by dexConstructor(
-        sqlConstructor {
-            paramCount = 3
-            declaredClass {
-                usingEqStrings(
-                    "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
-                )
-            }
-        },
-    )
+    private val methodRevokeMsgSceneInit by
+        dexConstructor(
+            sqlConstructor {
+                paramCount = 3
+                declaredClass {
+                    usingEqStrings(
+                        "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
+                    )
+                }
+            },
+        )
 
-    private val methodRevokeMsgSceneEnd by dexMethod(
-        sqlMethod {
-            name = "onGYNetEnd"
-            paramCount = 6
-            declaredClass {
-                usingEqStrings(
-                    "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
-                )
-            }
-        },
-    )
+    private val methodRevokeMsgSceneEnd by
+        dexMethod(
+            sqlMethod {
+                name = "onGYNetEnd"
+                paramCount = 6
+                declaredClass {
+                    usingEqStrings(
+                        "<sysmsg type=\"invokeMessage\"><invokeMessage><text><![CDATA[%s]]></text><timestamp><![CDATA[%s]]></timestamp><link><text><![CDATA[%s]]></text></link><preContent><![CDATA[%s]]></preContent><type><![CDATA[%s]]></type><msgSource><![CDATA[%s]]></msgSource></invokeMessage></sysmsg>",
+                    )
+                }
+            },
+        )
 
     override fun onEnable() {
         recalledKeyCache = recalledRecords
@@ -178,14 +181,19 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
 
             // Resolve the scene queue wrapper first: if that fails we bail out without recording,
             // so the original body keeps running and the recall just behaves unblocked.
-            val sceneEndField = thisObject!!.reflekt().firstField {
-                type { it.isInterface && it.declaredMethods.any { m -> m.name == "onSceneEnd" } }
-            }
+            val sceneEndField =
+                thisObject!!.reflekt().firstField {
+                    type {
+                        it.isInterface && it.declaredMethods.any { m -> m.name == "onSceneEnd" }
+                    }
+                }
             val sceneWrapper = sceneEndField.get()!!
-            @Suppress("UNCHECKED_CAST")
-            val sceneWrapperType = sceneEndField.self.type as Class<Any>
-            val sceneEnd = sceneWrapperType.reflekt()
-                .firstMethod { name = "onSceneEnd"; parameterCount = 4 }
+            @Suppress("UNCHECKED_CAST") val sceneWrapperType = sceneEndField.self.type as Class<Any>
+            val sceneEnd =
+                sceneWrapperType.reflekt().firstMethod {
+                    name = "onSceneEnd"
+                    parameterCount = 4
+                }
 
             // Replicate the trailing queue completion of the skipped body so the NetScene queue and
             // the chat UI (progress dialog dismissal, refresh) finish the scene normally.
@@ -215,10 +223,11 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         }
 
         if (result[TYPE_KEY] == "revokemsg") {
-            val cursor = WeDatabaseApi.rawQuery(
-                "SELECT type,content,talker,createTime,lvbuffer,msgId,msgSvrId,isSend FROM message WHERE msgSvrId = ?",
-                arrayOf(result[".sysmsg.revokemsg.newmsgid"] as? String? ?: return)
-            )
+            val cursor =
+                WeDatabaseApi.rawQuery(
+                    "SELECT type,content,talker,createTime,lvbuffer,msgId,msgSvrId,isSend FROM message WHERE msgSvrId = ?",
+                    arrayOf(result[".sysmsg.revokemsg.newmsgid"] as? String? ?: return),
+                )
 
             cursor.use { cursor ->
                 if (cursor.moveToFirst()) {
@@ -246,17 +255,19 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     // instead of waiting for the next rebind.
     private fun refreshBoundViews(msgInfo: MessageInfo) {
         WeChatMessageViewApi.findBoundViews {
-            it.talker == msgInfo.talker && it.serverId == msgInfo.serverId
-        }.forEach { (view, boundMsgInfo) ->
-            // onParse may run off the main thread; re-check the binding inside the posted block so
-            // a view recycled in between is never styled for the wrong message.
-            view.post {
-                val current = WeChatMessageViewApi.getBoundMessage(view) ?: return@post
-                if (current.instance === boundMsgInfo.instance) {
-                    applyRecallStyle(view, current)
+                it.talker == msgInfo.talker && it.serverId == msgInfo.serverId
+            }
+            .forEach { (view, boundMsgInfo) ->
+                // onParse may run off the main thread; re-check the binding inside the posted block
+                // so
+                // a view recycled in between is never styled for the wrong message.
+                view.post {
+                    val current = WeChatMessageViewApi.getBoundMessage(view) ?: return@post
+                    if (current.instance === boundMsgInfo.instance) {
+                        applyRecallStyle(view, current)
+                    }
                 }
             }
-        }
     }
 
     override fun onCreateView(param: HookParam, view: View) {
@@ -294,16 +305,19 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
     // excludes hidden send-status views that can carry the same tag.
     private fun findMessageContent(view: View): View? {
         val holder = view.tag!!
-        val mainContainer = holder.reflekt()
-            .firstMethod {
-                name = "getMainContainerView"
-                parameterCount = 0
-                superclass()
+        val mainContainer =
+            holder
+                .reflekt()
+                .firstMethod {
+                    name = "getMainContainerView"
+                    parameterCount = 0
+                    superclass()
+                }
+                .invoke() as? View
+        return mainContainer
+            ?: view.findViewWhich {
+                it.isVisible && isTaggedBubbleView(it)
             }
-            .invoke() as? View
-        return mainContainer ?: view.findViewWhich {
-            it.isVisible && isTaggedBubbleView(it)
-        }
     }
 
     private fun isTaggedBubbleView(view: View): Boolean =
@@ -317,34 +331,37 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         val dark = context.isDarkMode
         val iconColor = if (dark) badgeIconDark else badgeIconLight
         val circleColor = if (dark) badgeCircleDark else badgeCircleLight
-        val badgeView: View = if (badgeType == BADGE_TYPE_TEXT) {
-            TextView(context).apply {
-                text = context.localizedChatString(R.string.chat_anti_recall_badge_text_content)
-                textSize = 12f
-                setTextColor(iconColor)
-                includeFontPadding = false
-                val hPad = BADGE_PADDING_DP.dpToPx(context)
-                val vPad = (BADGE_PADDING_DP / 2).dpToPx(context)
-                setPadding(hPad, vPad, hPad, vPad)
-                background = GradientDrawable().apply {
-                    cornerRadius = (BADGE_SIZE_DP / 2).dpToPx(context).toFloat()
-                    setColor(circleColor)
+        val badgeView: View =
+            if (badgeType == BADGE_TYPE_TEXT) {
+                TextView(context).apply {
+                    text = context.localizedChatString(R.string.chat_anti_recall_badge_text_content)
+                    textSize = 12f
+                    setTextColor(iconColor)
+                    includeFontPadding = false
+                    val hPad = BADGE_PADDING_DP.dpToPx(context)
+                    val vPad = (BADGE_PADDING_DP / 2).dpToPx(context)
+                    setPadding(hPad, vPad, hPad, vPad)
+                    background =
+                        GradientDrawable().apply {
+                            cornerRadius = (BADGE_SIZE_DP / 2).dpToPx(context).toFloat()
+                            setColor(circleColor)
+                        }
                 }
+            } else {
+                RecallBadgeIconView(context, iconColor, circleColor)
             }
-        } else {
-            RecallBadgeIconView(context, iconColor, circleColor)
-        }
         // Not a child of the dimmed content row, so it must dim itself.
         badgeView.alpha = RECALL_ALPHA
         val size = BADGE_SIZE_DP.dpToPx(context)
-        val params = if (badgeType == BADGE_TYPE_TEXT) {
-            RelativeLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            )
-        } else {
-            RelativeLayout.LayoutParams(size, size)
-        }
+        val params =
+            if (badgeType == BADGE_TYPE_TEXT) {
+                RelativeLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            } else {
+                RelativeLayout.LayoutParams(size, size)
+            }
         rowGroup.addView(badgeView, params)
 
         val preDrawListener = ViewTreeObserver.OnPreDrawListener {
@@ -388,14 +405,16 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         val anchorBottom = badge.anchorLocation[1] - badge.rowLocation[1] + anchor.height
         val gap = BADGE_GAP_DP.dpToPx(row.context).toFloat()
         val rowRightLimit = (row.width - badgeWidth).toFloat()
-        val targetX = if (badge.isSelfSender) {
-            (anchorLeft - gap - badgeWidth).coerceIn(0f, rowRightLimit)
-        } else {
-            (anchorRight + gap).coerceIn(0f, rowRightLimit)
-        }
-        val targetY = (anchorBottom - badgeHeight)
-            .toFloat()
-            .coerceIn(0f, (row.height - badgeHeight).toFloat())
+        val targetX =
+            if (badge.isSelfSender) {
+                (anchorLeft - gap - badgeWidth).coerceIn(0f, rowRightLimit)
+            } else {
+                (anchorRight + gap).coerceIn(0f, rowRightLimit)
+            }
+        val targetY =
+            (anchorBottom - badgeHeight)
+                .toFloat()
+                .coerceIn(0f, (row.height - badgeHeight).toFloat())
         if (badgeView.translationX != targetX || badgeView.translationY != targetY) {
             badgeView.translationX = targetX
             badgeView.translationY = targetY
@@ -417,10 +436,11 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
             drawable.colorFilter = PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN)
             setImageDrawable(drawable)
             imageTintList = null
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(circleColor)
-            }
+            background =
+                GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(circleColor)
+                }
             val pad = BADGE_PADDING_DP.dpToPx(context)
             setPadding(pad, pad, pad, pad)
         }
@@ -434,42 +454,54 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
             var badgeTypeInput by remember { mutableStateOf(badgeType) }
 
             AlertDialogContent(
-                    title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
-                    text = {
-                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                            item {
-                                SwitchWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_anti_recall_outgoing),
-                                    description = stringResource(R.string.chat_anti_recall_outgoing_description),
-                                    checked = recallOutgoingInput,
-                                    onCheckedChange = {
-                                        recallOutgoingInput = it
-                                        recallOutgoing = it
-                                    },
-                                )
-                            }
-                            item {
-                                DropDownMenuWidget(
-                                    iconPlaceholder = false,
-                                    title = stringResource(R.string.chat_anti_recall_badge_type),
-                                    description = null,
-                                    value = badgeTypeInput,
-                                    options = listOf(
-                                        DropdownOption(BADGE_TYPE_ICON, stringResource(R.string.chat_anti_recall_badge_type_icon)),
-                                        DropdownOption(BADGE_TYPE_TEXT, stringResource(R.string.chat_anti_recall_badge_type_text)),
-                                    ),
-                                    onValueChange = {
-                                        badgeTypeInput = it
-                                        badgeType = it
-                                    },
-                                )
-                            }
+                title = { Text(stringResource(R.string.feature_anti_message_recall_name)) },
+                text = {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item {
+                            SwitchWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_anti_recall_outgoing),
+                                description =
+                                    stringResource(R.string.chat_anti_recall_outgoing_description),
+                                checked = recallOutgoingInput,
+                                onCheckedChange = {
+                                    recallOutgoingInput = it
+                                    recallOutgoing = it
+                                },
+                            )
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                    },
+                        item {
+                            DropDownMenuWidget(
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.chat_anti_recall_badge_type),
+                                description = null,
+                                value = badgeTypeInput,
+                                options =
+                                    listOf(
+                                        DropdownOption(
+                                            BADGE_TYPE_ICON,
+                                            stringResource(
+                                                R.string.chat_anti_recall_badge_type_icon,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            BADGE_TYPE_TEXT,
+                                            stringResource(
+                                                R.string.chat_anti_recall_badge_type_text,
+                                            ),
+                                        ),
+                                    ),
+                                onValueChange = {
+                                    badgeTypeInput = it
+                                    badgeType = it
+                                },
+                            )
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

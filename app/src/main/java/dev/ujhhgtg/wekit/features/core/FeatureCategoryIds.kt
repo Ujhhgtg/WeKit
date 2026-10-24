@@ -23,27 +23,28 @@ object FeatureCategoryIds {
     const val CONTACT_DETAILS = "contact_details"
     const val API = "api"
 
-    val ALL: Set<String> = setOf(
-        CHAT,
-        CHAT_INPUT_BAR_MENU,
-        CONTACTS_GROUPS,
-        PAYMENT,
-        MOMENTS,
-        SYSTEM_PRIVACY,
-        VOIP,
-        NOTIFICATIONS,
-        BEAUTIFY,
-        OFFICIAL_ACCOUNTS,
-        MINIAPPS,
-        CHANNELS,
-        PROFILE,
-        DEBUG,
-        SCRIPTING_JAVA,
-        SCRIPTING_PYTHON,
-        ENTERTAIN,
-        BATCH,
-        HOME_SCREEN_MENU,
-        CONTACT_DETAILS,
-        API,
-    )
+    val ALL: Set<String> =
+        setOf(
+            CHAT,
+            CHAT_INPUT_BAR_MENU,
+            CONTACTS_GROUPS,
+            PAYMENT,
+            MOMENTS,
+            SYSTEM_PRIVACY,
+            VOIP,
+            NOTIFICATIONS,
+            BEAUTIFY,
+            OFFICIAL_ACCOUNTS,
+            MINIAPPS,
+            CHANNELS,
+            PROFILE,
+            DEBUG,
+            SCRIPTING_JAVA,
+            SCRIPTING_PYTHON,
+            ENTERTAIN,
+            BATCH,
+            HOME_SCREEN_MENU,
+            CONTACT_DETAILS,
+            API,
+        )
 }

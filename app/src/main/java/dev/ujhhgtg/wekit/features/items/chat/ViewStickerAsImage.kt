@@ -1,9 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import androidx.core.graphics.createBitmap
-import kotlin.io.path.createDirectories
-import kotlin.io.path.createTempFile
-import kotlin.io.path.getLastModifiedTime
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
@@ -11,10 +7,19 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import android.widget.ImageView
+import androidx.core.graphics.createBitmap
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.find
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -29,22 +34,18 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.lang.reflect.Modifier
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.math.roundToInt
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
+
 object ViewStickerAsImage : SwitchFeature(), IResolveDex {
 
     override val technicalId = "表情消息以图片打开"
@@ -80,64 +81,74 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             MethodSpec(
                 paramCount = 1..1,
                 returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(
-                    StringSpec("MicroMsg.EmojiClickListener", NameMatch.Equals),
-                    StringSpec("exit in teen mode", NameMatch.Equals),
-                ),
+                usingStrings =
+                    listOf(
+                        StringSpec("MicroMsg.EmojiClickListener", NameMatch.Equals),
+                        StringSpec("exit in teen mode", NameMatch.Equals),
+                    ),
             ),
             packages = listOf("com.tencent.mm.ui.chatting.viewitems"),
         )
 
         methodEmojiClickEntry.find(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec(methodEmojiClickHandler.data.declaredClassName),
-                ),
-                paramTypes = listOf(
-                    TypeSpec("android.view.View"),
-                    null,
-                    null,
-                ),
+                declaredClass =
+                    ClassSpec(
+                        className = NameSpec(methodEmojiClickHandler.data.declaredClassName),
+                    ),
+                paramTypes =
+                    listOf(
+                        TypeSpec("android.view.View"),
+                        null,
+                        null,
+                    ),
                 returnType = ClassSpec(className = NameSpec("void")),
             ),
         )
 
-        val resolveEmojiInfo = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                paramTypes = listOf(TypeSpec(methodEmojiClickEntry.data.paramTypeNames[2])),
-                returnType = ClassSpec(
-                    className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
-                ),
-            ),
-        ).single { !Modifier.isStatic(it.modifiers) }
+        val resolveEmojiInfo =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        paramTypes = listOf(TypeSpec(methodEmojiClickEntry.data.paramTypeNames[2])),
+                        returnType =
+                            ClassSpec(
+                                className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
+                            ),
+                    ),
+                )
+                .single { !Modifier.isStatic(it.modifiers) }
         methodResolveEmojiInfo.setDescriptor(resolveEmojiInfo)
 
         methodEmojiResolverGetter.find(
             MethodSpec(
                 paramCount = 0..0,
-                returnType = ClassSpec(
-                    className = NameSpec(methodResolveEmojiInfo.data.declaredClassName),
-                ),
+                returnType =
+                    ClassSpec(
+                        className = NameSpec(methodResolveEmojiInfo.data.declaredClassName),
+                    ),
             ),
             packages = listOf("com.tencent.mm.feature.emoji"),
         )
 
         methodGetEmojiDecryptPath.find(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
+                    ),
                 paramCount = 0..0,
                 returnType = ClassSpec(className = NameSpec("java.lang.String")),
-                usingStrings = listOf(
-                    StringSpec("MicroMsg.emoji.EmojiInfo", NameMatch.Equals),
-                    StringSpec(
-                        "[cpan] get icon path failed. product id and md5 are null.",
-                        NameMatch.Equals,
+                usingStrings =
+                    listOf(
+                        StringSpec("MicroMsg.emoji.EmojiInfo", NameMatch.Equals),
+                        StringSpec(
+                            "[cpan] get icon path failed. product id and md5 are null.",
+                            NameMatch.Equals,
+                        ),
+                        StringSpec("decrypt/", NameMatch.Equals),
+                        StringSpec("getDecryptPath decrypt %s", NameMatch.Equals),
                     ),
-                    StringSpec("decrypt/", NameMatch.Equals),
-                    StringSpec("getDecryptPath decrypt %s", NameMatch.Equals),
-                ),
             ),
         )
     }
@@ -150,10 +161,9 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
 
     private fun resolveWechatDecodedPath(hostMessage: Any): Path? {
         return try {
-            val resolver = methodEmojiResolverGetter.method
-                .invoke(WeServiceApi.emojiFeatureService)!!
-            val emojiInfo = methodResolveEmojiInfo.method
-                .invoke(resolver, hostMessage)!!
+            val resolver =
+                methodEmojiResolverGetter.method.invoke(WeServiceApi.emojiFeatureService)!!
+            val emojiInfo = methodResolveEmojiInfo.method.invoke(resolver, hostMessage)!!
             val path = (methodGetEmojiDecryptPath.method.invoke(emojiInfo) as String).asPath
             path.takeIf { it.isAbsolute && it.isRegularFile() && it.fileSize() > 0L }
         } catch (error: Exception) {
@@ -163,10 +173,12 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
     }
 
     private fun resolveCachedGif(messageInfo: MessageInfo): Path? {
-        val md5 = messageInfo.stickerMd5 ?: run {
-            WeLogger.e(TAG, "failed to resolve sticker md5")
-            return null
-        }
+        val md5 =
+            messageInfo.stickerMd5
+                ?: run {
+                    WeLogger.e(TAG, "failed to resolve sticker md5")
+                    return null
+                }
         val directory = KnownPaths.moduleCache / "view-sticker-as-image" / "decoded"
         val destination = directory / "$md5.gif"
         if (!destination.isRegularFile() || destination.fileSize() <= 0L) {
@@ -178,7 +190,8 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
     private fun prunePreviewDirectory(directory: Path, extension: String) {
         try {
             directory.createDirectories()
-            directory.listDirectoryEntries()
+            directory
+                .listDirectoryEntries()
                 .filter { it.isRegularFile() && it.name.endsWith(extension) }
                 .sortedByDescending { it.getLastModifiedTime().toMillis() }
                 .drop(10)
@@ -192,14 +205,16 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         clickedView: View,
         hostMessage: Any,
         messageInfo: MessageInfo,
-    ): Path? = resolveWechatDecodedPath(hostMessage)
-        ?: resolveCachedGif(messageInfo)
-        ?: createSnapshot(clickedView)
+    ): Path? =
+        resolveWechatDecodedPath(hostMessage)
+            ?: resolveCachedGif(messageInfo)
+            ?: createSnapshot(clickedView)
 
     private fun createSnapshot(clickedView: View): Path? {
-        val imageView = clickedView.findViewWhich {
-            it is ImageView && it.drawable != null
-        } as? ImageView ?: return null
+        val imageView =
+            clickedView.findViewWhich {
+                it is ImageView && it.drawable != null
+            } as? ImageView ?: return null
         val drawable = imageView.drawable
         val sourceWidth = imageView.width.takeIf { it > 0 } ?: drawable.intrinsicWidth
         val sourceHeight = imageView.height.takeIf { it > 0 } ?: drawable.intrinsicHeight
@@ -245,7 +260,8 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         return try {
             activity.startActivity(
                 Intent().apply {
-                    component = ComponentName(activity.packageName, "com.tencent.mm.ui.tools.ShowImageUI")
+                    component =
+                        ComponentName(activity.packageName, "com.tencent.mm.ui.tools.ShowImageUI")
                     putExtra("key_image_path", imagePath.absolutePathString())
                 },
             )

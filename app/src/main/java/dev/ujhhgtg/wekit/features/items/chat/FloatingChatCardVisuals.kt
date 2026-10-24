@@ -42,12 +42,13 @@ object FloatingChatCardVisuals {
         if (appliedStyles[view] == style && view.background === appliedBackground) return
 
         val radiusPx = cornerRadiusDp * density
-        val background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = radiusPx
-            setColor(DARK_SURFACE_COLOR)
-            setStroke(strokeWidthPx, DARK_STROKE_COLOR)
-        }
+        val background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = radiusPx
+                setColor(DARK_SURFACE_COLOR)
+                setStroke(strokeWidthPx, DARK_STROKE_COLOR)
+            }
         view.background = background
         appliedBackgrounds[view] = background
         appliedStyles[view] = style

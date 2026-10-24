@@ -16,11 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
-import dev.ujhhgtg.wekit.ui.utils.ListItem
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -42,15 +39,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Close
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
+import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
+import dev.ujhhgtg.wekit.dexkit.withDexSql
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -58,23 +61,20 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
+import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
-import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.dexkit.withDexSql
-import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
+import java.lang.reflect.Modifier as JavaModifier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import java.lang.reflect.Modifier as JavaModifier
 
 /**
  * WeChat feature flag type names, matching [ly4.e.h()] return values.
@@ -87,8 +87,8 @@ import java.lang.reflect.Modifier as JavaModifier
  * - [ly4.f] extends [e]: h()="String"
  * - [ly4.g] extends [h]: empty
  *
- * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method.
- * Key format: fullKey = b() + '_' + h()    (via [ly4.e.l])
+ * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method. Key format:
+ * fullKey = b() + '_' + h() (via [ly4.e.l])
  */
 object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
@@ -97,42 +97,43 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_feature_flag_manager_description
 
+    /**
+     * Base class for all feature flags: [ly4.e] (verified from WeChat 8.0.69). Identified by its
+     * [i]() method containing "Int", "Float", "String", "Long", "". Hierarchy:
+     * [ly4.h]->[ly4.e]->[ly4.d]->[ly4.i] (Int) or [ly4.e]->[ly4.f] (String).
+     */
+    private val classFeatureFlagBase by
+        dexClass(
+            sqlClass {
+                method {
+                    usingEqStrings("Int")
+                }
+                method {
+                    usingEqStrings("Int", "Float", "String", "Long", "")
+                }
+                method {
+                    usingEqStrings("")
+                }
+            },
+        )
 
     /**
-     * Base class for all feature flags: [ly4.e] (verified from WeChat 8.0.69).
-     * Identified by its [i]() method containing "Int", "Float", "String", "Long", "".
-     * Hierarchy: [ly4.h]->[ly4.e]->[ly4.d]->[ly4.i] (Int) or [ly4.e]->[ly4.f] (String).
+     * Central API method: [fd5.d1].[b](String, Object) -> Object. Key format: splits input key by
+     * '_', uses last segment for type dispatch. Type names: "Int", "Float", "Long", "String" —
+     * matched by last _-segment.
      */
-    private val classFeatureFlagBase by dexClass(
-        sqlClass {
-            method {
-                usingEqStrings("Int")
-            }
-            method {
-                usingEqStrings("Int", "Float", "String", "Long", "")
-            }
-            method {
-                usingEqStrings("")
-            }
-        },
-    )
-
-    /**
-     * Central API method: [fd5.d1].[b](String, Object) -> Object.
-     * Key format: splits input key by '_', uses last segment for type dispatch.
-     * Type names: "Int", "Float", "Long", "String" — matched by last _-segment.
-     */
-    private val methodRepairerConfigApiGet by dexMethod(
-        sqlMethod {
-            returnType = "java.lang.Object"
-            paramTypes("java.lang.String", "java.lang.Object")
-            usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
-            declaredClass {
-                usingEqStrings("RepairerConfigThread")
-                usingEqStrings("ValueStrategy_")
-            }
-        },
-    )
+    private val methodRepairerConfigApiGet by
+        dexMethod(
+            sqlMethod {
+                returnType = "java.lang.Object"
+                paramTypes("java.lang.String", "java.lang.Object")
+                usingEqStrings("String", "Int", "Long", "Float", "key", "defaultValue")
+                declaredClass {
+                    usingEqStrings("RepairerConfigThread")
+                    usingEqStrings("ValueStrategy_")
+                }
+            },
+        )
 
     // ---------------------------------------------------------------------------
     // Flag details data model & reflective resolver
@@ -142,7 +143,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         val internalName: String = "",
         val description: String = "",
         val typeName: String = "",
-        val configKey: String = ""
+        val configKey: String = "",
     )
 
     private fun resolveFlagDetails(className: String): FlagDetails {
@@ -170,25 +171,26 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 internalName = internalName,
                 description = description,
                 typeName = typeName,
-                configKey = configKey
+                configKey = configKey,
             )
-        }.getOrElse { e ->
-            WeLogger.e(TAG, "failed to instantiate or inspect $className", e)
-            FlagDetails()
         }
+            .getOrElse { e ->
+                WeLogger.e(TAG, "failed to instantiate or inspect $className", e)
+                FlagDetails()
+            }
     }
 
     // ---------------------------------------------------------------------------
     // Hook
     // ---------------------------------------------------------------------------
 
-    @Volatile
-    private var overrides: Map<String, FeatureFlagOverrideEntity> = emptyMap()
+    @Volatile private var overrides: Map<String, FeatureFlagOverrideEntity> = emptyMap()
 
-    private fun loadOverrides() = runBlocking(Dispatchers.IO) {
-        val saved = WeKitDatabase.instance.simpleStructuredDao().getFlagOverrides()
-        overrides = saved.associateBy { it.runtimeKey }
-    }
+    private fun loadOverrides() =
+        runBlocking(Dispatchers.IO) {
+            val saved = WeKitDatabase.instance.simpleStructuredDao().getFlagOverrides()
+            overrides = saved.associateBy { it.runtimeKey }
+        }
 
     override fun onEnable() {
         loadOverrides()
@@ -226,20 +228,24 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         var selectedClassName by remember { mutableStateOf<String?>(null) }
         var isOverrideDialogOpen by remember { mutableStateOf(false) }
 
-        // Dynamic reactive filtering: checks class name and description (with auto-update on detailsMap changes)
-        val filteredClasses by remember(searchQuery, featureFlagClasses) {
-            derivedStateOf {
-                if (searchQuery.isBlank()) {
-                    featureFlagClasses
-                } else {
-                    val query = searchQuery.trim()
-                    featureFlagClasses.filter { className ->
-                        className.contains(query, ignoreCase = true) ||
-                                detailsMap[className]?.description?.contains(query, ignoreCase = true) == true
+        // Dynamic reactive filtering: checks class name and description (with auto-update on
+        // detailsMap changes)
+        val filteredClasses by
+            remember(searchQuery, featureFlagClasses) {
+                derivedStateOf {
+                    if (searchQuery.isBlank()) {
+                        featureFlagClasses
+                    } else {
+                        val query = searchQuery.trim()
+                        featureFlagClasses.filter { className ->
+                            className.contains(query, ignoreCase = true) ||
+                                detailsMap[className]
+                                    ?.description
+                                    ?.contains(query, ignoreCase = true) == true
+                        }
                     }
                 }
             }
-        }
 
         // DexSQL class scanning
         LaunchedEffect(Unit) {
@@ -251,29 +257,34 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                     fun queryDescriptors(sql: String): List<String> =
                         runtime.bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
 
-                    fun quote(descriptor: String): String = "'" + descriptor.replace("'", "''") + "'"
+                    fun quote(descriptor: String): String =
+                        "'" + descriptor.replace("'", "''") + "'"
 
-                    val direct = queryDescriptors(
-                        "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
-                            "WHERE c.superclass_descriptor = " + quote(baseDescriptor) +
-                            " ORDER BY c.descriptor;",
-                    )
-                    val grandchildren = if (direct.isEmpty()) {
-                        emptyList()
-                    } else {
+                    val direct =
                         queryDescriptors(
                             "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
-                                "WHERE c.superclass_descriptor IN " +
-                                direct.joinToString(prefix = "(", postfix = ")") { quote(it) } +
+                                "WHERE c.superclass_descriptor = " +
+                                quote(baseDescriptor) +
                                 " ORDER BY c.descriptor;",
                         )
-                    }
+                    val grandchildren =
+                        if (direct.isEmpty()) {
+                            emptyList()
+                        } else {
+                            queryDescriptors(
+                                "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                                    "WHERE c.superclass_descriptor IN " +
+                                    direct.joinToString(prefix = "(", postfix = ")") { quote(it) } +
+                                    " ORDER BY c.descriptor;",
+                            )
+                        }
 
                     (direct + grandchildren)
                         .distinct()
                         .filterNot { it.startsWith("[") }
                         .mapNotNull { descriptor ->
-                            runtime.metadata.classInfo(descriptor)
+                            runtime.metadata
+                                .classInfo(descriptor)
                                 ?.takeIf { JavaModifier.isFinal(it.modifiers) }
                                 ?.name
                         }
@@ -290,17 +301,22 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             withContext(Dispatchers.IO) {
                 while (detailsMap.size < featureFlagClasses.size) {
                     if (selectedClassName != null || isOverrideDialogOpen) {
-                        snapshotFlow { selectedClassName == null && !isOverrideDialogOpen }.first { it }
+                        snapshotFlow { selectedClassName == null && !isOverrideDialogOpen }
+                            .first { it }
                     }
 
-                    val targetClass = withContext(Dispatchers.Main.immediate) {
-                        val visibleIndices = listState.layoutInfo.visibleItemsInfo.map { it.index }
-                        val visibleClasses = visibleIndices.mapNotNull { filteredClasses.getOrNull(it) }
+                    val targetClass =
+                        withContext(Dispatchers.Main.immediate) {
+                            val visibleIndices =
+                                listState.layoutInfo.visibleItemsInfo.map { it.index }
+                            val visibleClasses = visibleIndices.mapNotNull {
+                                filteredClasses.getOrNull(it)
+                            }
 
-                        visibleClasses.firstOrNull { !detailsMap.containsKey(it) }
-                            ?: filteredClasses.firstOrNull { !detailsMap.containsKey(it) }
-                            ?: featureFlagClasses.firstOrNull { !detailsMap.containsKey(it) }
-                    }
+                            visibleClasses.firstOrNull { !detailsMap.containsKey(it) }
+                                ?: filteredClasses.firstOrNull { !detailsMap.containsKey(it) }
+                                ?: featureFlagClasses.firstOrNull { !detailsMap.containsKey(it) }
+                        }
 
                     if (targetClass == null) break
 
@@ -320,9 +336,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             title = { Text(stringResource(R.string.feature_feature_flag_manager_name)) },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 100.dp, max = 500.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 500.dp),
                 ) {
                     if (isLoading) {
                         LoadingView()
@@ -330,7 +344,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         SearchBar(
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
-                            onClear = { searchQuery = "" }
+                            onClear = { searchQuery = "" },
                         )
                         when {
                             filteredClasses.isEmpty() && featureFlagClasses.isEmpty() -> {
@@ -361,17 +375,17 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                                             onDismiss = {
                                                                 this.onDismiss()
                                                                 isOverrideDialogOpen = false
-                                                            }
+                                                            },
                                                         )
                                                     }
                                                 },
                                                 onDismiss = {
                                                     this.onDismiss()
                                                     selectedClassName = null
-                                                }
+                                                },
                                             )
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -382,16 +396,15 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(R.string.action_close))
                 }
-            }
+            },
         )
     }
 
     @Composable
     private fun ColumnScope.LoadingView() {
         Box(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f), contentAlignment = Alignment.Center
+            Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularWavyProgressIndicator()
@@ -404,22 +417,26 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     @Composable
     private fun ColumnScope.EmptyState() {
         Box(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f), contentAlignment = Alignment.Center
+            Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(stringResource(R.string.system_feature_flags_empty), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(R.string.system_feature_flags_empty),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 
     @Composable
     private fun ColumnScope.NoMatchState() {
         Box(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f), contentAlignment = Alignment.Center
+            Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(stringResource(R.string.system_feature_flags_no_match), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(R.string.system_feature_flags_no_match),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 
@@ -427,14 +444,12 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     private fun SearchBar(
         query: String,
         onQueryChange: (String) -> Unit,
-        onClear: () -> Unit
+        onClear: () -> Unit,
     ) {
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             placeholder = { Text(stringResource(R.string.system_feature_flags_search_hint)) },
             singleLine = true,
             trailingIcon = {
@@ -446,7 +461,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         )
                     }
                 }
-            }
+            },
         )
     }
 
@@ -455,20 +470,18 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         classNames: List<String>,
         listState: LazyListState,
         detailsMap: Map<String, FlagDetails>,
-        onItemClick: (String) -> Unit
+        onItemClick: (String) -> Unit,
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+            modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
             items(classNames, key = { it }) { className ->
                 FlagListItem(
                     modifier = Modifier.animateItem(),
                     className = className,
                     details = detailsMap[className],
-                    onClick = { onItemClick(className) }
+                    onClick = { onItemClick(className) },
                 )
             }
         }
@@ -479,27 +492,26 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         className: String,
         details: FlagDetails?,
         onClick: () -> Unit,
-        modifier: Modifier = Modifier
+        modifier: Modifier = Modifier,
     ) {
         ListItem(
-            modifier = modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
+            modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
             content = {
                 Text(
                     text = className.substringAfterLast('.'),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             },
             supportingContent = {
                 Text(
-                    text = details?.description?.ifBlank {
-                        stringResource(R.string.system_none)
-                    } ?: stringResource(R.string.system_loading),
+                    text =
+                        details?.description?.ifBlank {
+                            stringResource(R.string.system_none)
+                        } ?: stringResource(R.string.system_loading),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
+            },
         )
         HorizontalDivider(Modifier.alpha(0.3f))
     }
@@ -509,7 +521,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         className: String,
         initialDetails: FlagDetails?,
         onOpenOverrideDialog: (runtimeKey: String, typeName: String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         var details by remember { mutableStateOf(initialDetails) }
 
@@ -523,55 +535,77 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
         val currentDetails = details ?: FlagDetails()
         val internalName = currentDetails.internalName
-        val description = currentDetails.description.ifBlank {
-            stringResource(R.string.system_none)
-        }
+        val description =
+            currentDetails.description.ifBlank {
+                stringResource(R.string.system_none)
+            }
         val typeName = currentDetails.typeName
         val configKey = currentDetails.configKey
 
         val effectiveTypeName = typeName.ifEmpty { "Int" }
         val effectiveName = internalName.ifEmpty { configKey }
 
-        val runtimeKey = if (effectiveName.isNotEmpty()) {
-            "${effectiveName}_${effectiveTypeName}"
-        } else null
+        val runtimeKey =
+            if (effectiveName.isNotEmpty()) {
+                "${effectiveName}_${effectiveTypeName}"
+            } else null
 
         AlertDialogContent(
             title = {
                 Text(
                     text = className.substringAfterLast('.'),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
                 )
             },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.large)
+                    modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large),
                 ) {
-                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_class), className)
-                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_internal_name), internalName)
-                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_description), description)
-                    CopyInfoItem(stringResource(R.string.system_feature_flags_copy_config_key), configKey)
+                    CopyInfoItem(
+                        stringResource(R.string.system_feature_flags_copy_class),
+                        className,
+                    )
+                    CopyInfoItem(
+                        stringResource(R.string.system_feature_flags_copy_internal_name),
+                        internalName,
+                    )
+                    CopyInfoItem(
+                        stringResource(R.string.system_feature_flags_copy_description),
+                        description,
+                    )
+                    CopyInfoItem(
+                        stringResource(R.string.system_feature_flags_copy_config_key),
+                        configKey,
+                    )
 
                     ListItem(
-                        modifier = Modifier.clickable {
-                            if (runtimeKey == null) {
-                                showToast(localizedSystemString(R.string.system_feature_flags_key_unavailable))
-                                return@clickable
-                            }
-                            onOpenOverrideDialog(runtimeKey, effectiveTypeName)
+                        modifier =
+                            Modifier.clickable {
+                                if (runtimeKey == null) {
+                                    showToast(
+                                        localizedSystemString(
+                                            R.string.system_feature_flags_key_unavailable,
+                                        ),
+                                    )
+                                    return@clickable
+                                }
+                                onOpenOverrideDialog(runtimeKey, effectiveTypeName)
+                            },
+                        supportingContent = {
+                            Text(stringResource(R.string.system_feature_flags_override_summary))
                         },
-                        supportingContent = { Text(stringResource(R.string.system_feature_flags_override_summary)) },
                         content = {
-                            Text(stringResource(R.string.system_feature_flags_override), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(R.string.system_feature_flags_override),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
                         },
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
-            }
+            },
         )
     }
 
@@ -592,16 +626,17 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     private fun ShowComposeDialogScope.OverrideValueDialog(
         runtimeKey: String,
         typeName: String,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         // Map WeChat type name → internal type char
-        val defaultTypeChar = when (typeName.ifEmpty { "Int" }) {
-            "Int" -> "i"
-            "Float" -> "f"
-            "Long" -> "l"
-            "String" -> "s"
-            else -> "i"  // fallback
-        }
+        val defaultTypeChar =
+            when (typeName.ifEmpty { "Int" }) {
+                "Int" -> "i"
+                "Float" -> "f"
+                "Long" -> "l"
+                "String" -> "s"
+                else -> "i" // fallback
+            }
 
         val existingOverride = remember {
             overrides[runtimeKey]
@@ -641,12 +676,13 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         title = stringResource(R.string.system_feature_flags_type),
                         description = null,
                         value = type,
-                        options = listOf(
-                            DropdownOption("i", "Int"),
-                            DropdownOption("f", "Float"),
-                            DropdownOption("l", "Long"),
-                            DropdownOption("s", "String"),
-                        ),
+                        options =
+                            listOf(
+                                DropdownOption("i", "Int"),
+                                DropdownOption("f", "Float"),
+                                DropdownOption("l", "Long"),
+                                DropdownOption("s", "String"),
+                            ),
                         enabled = !saving,
                         onValueChange = { type = it },
                     )
@@ -656,75 +692,117 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         enabled = !saving,
                         onValueChange = { rawValue = it },
                         singleLine = true,
-                        label = { Text(stringResource(R.string.system_feature_flags_value)) }
+                        label = { Text(stringResource(R.string.system_feature_flags_value)) },
                     )
                     if (saving) {
                         LinearWavyProgressIndicator(Modifier.fillMaxWidth())
                         Text(stringResource(R.string.structured_storage_saving))
                     }
                     if (saveFailed) {
-                        Text(stringResource(R.string.structured_storage_save_failed), color = MaterialTheme.colorScheme.error)
+                        Text(
+                            stringResource(R.string.structured_storage_save_failed),
+                            color = MaterialTheme.colorScheme.error,
+                        )
                     }
                 }
             },
             dismissButton = {
-                TextButton(enabled = !saving, onClick = {
-                    if (overrides[runtimeKey] == null) {
-                        showToast(localizedSystemString(R.string.system_feature_flags_override_not_found))
-                        return@TextButton
-                    }
-                    submit {
-                        WeKitDatabase.instance.simpleStructuredDao().removeFlagOverride(runtimeKey)
-                        overrides = overrides - runtimeKey
-                    }
-                }) { Text(stringResource(R.string.action_clear)) }
-                TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
-            },
-            confirmButton = {
-                TextButton(enabled = !saving, onClick = {
-                    val rawValueStr = rawValue
-                    // Validate value based on type
-                    val validated = when (type) {
-                        "s", "string" -> FeatureFlagOverrideEntity(runtimeKey, "s", rawValueStr)
-                        "i", "int" -> {
-                            val v = rawValueStr.toIntOrNull()
-                            if (v == null) {
-                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@TextButton
-                            }
-                            FeatureFlagOverrideEntity(runtimeKey, "i", rawValueStr)
-                        }
-
-                        "l", "long" -> {
-                            val v = rawValueStr.toLongOrNull()
-                            if (v == null) {
-                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@TextButton
-                            }
-                            FeatureFlagOverrideEntity(runtimeKey, "l", rawValueStr)
-                        }
-
-                        "f", "float" -> {
-                            val v = rawValueStr.toFloatOrNull()
-                            if (v == null) {
-                                showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
-                                return@TextButton
-                            }
-                            FeatureFlagOverrideEntity(runtimeKey, "f", rawValueStr)
-                        }
-
-                        else -> {
-                            showToast(localizedSystemString(R.string.system_feature_flags_invalid_type))
+                TextButton(
+                    enabled = !saving,
+                    onClick = {
+                        if (overrides[runtimeKey] == null) {
+                            showToast(
+                                localizedSystemString(
+                                    R.string.system_feature_flags_override_not_found,
+                                ),
+                            )
                             return@TextButton
                         }
-                    }
+                        submit {
+                            WeKitDatabase.instance
+                                .simpleStructuredDao()
+                                .removeFlagOverride(runtimeKey)
+                            overrides = overrides - runtimeKey
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.action_clear))
+                }
+                TextButton(onClick = onDismiss, enabled = !saving) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = {
+                        val rawValueStr = rawValue
+                        // Validate value based on type
+                        val validated =
+                            when (type) {
+                                "s",
+                                "string" -> FeatureFlagOverrideEntity(runtimeKey, "s", rawValueStr)
+                                "i",
+                                "int" -> {
+                                    val v = rawValueStr.toIntOrNull()
+                                    if (v == null) {
+                                        showToast(
+                                            localizedSystemString(
+                                                R.string.system_feature_flags_invalid_value,
+                                            ),
+                                        )
+                                        return@TextButton
+                                    }
+                                    FeatureFlagOverrideEntity(runtimeKey, "i", rawValueStr)
+                                }
 
-                    submit {
-                        WeKitDatabase.instance.simpleStructuredDao().putFlagOverride(validated)
-                        overrides = overrides + (runtimeKey to validated)
-                    }
-                }) { Text(stringResource(R.string.dialog_confirm)) }
-            }
+                                "l",
+                                "long" -> {
+                                    val v = rawValueStr.toLongOrNull()
+                                    if (v == null) {
+                                        showToast(
+                                            localizedSystemString(
+                                                R.string.system_feature_flags_invalid_value,
+                                            ),
+                                        )
+                                        return@TextButton
+                                    }
+                                    FeatureFlagOverrideEntity(runtimeKey, "l", rawValueStr)
+                                }
+
+                                "f",
+                                "float" -> {
+                                    val v = rawValueStr.toFloatOrNull()
+                                    if (v == null) {
+                                        showToast(
+                                            localizedSystemString(
+                                                R.string.system_feature_flags_invalid_value,
+                                            ),
+                                        )
+                                        return@TextButton
+                                    }
+                                    FeatureFlagOverrideEntity(runtimeKey, "f", rawValueStr)
+                                }
+
+                                else -> {
+                                    showToast(
+                                        localizedSystemString(
+                                            R.string.system_feature_flags_invalid_type,
+                                        ),
+                                    )
+                                    return@TextButton
+                                }
+                            }
+
+                        submit {
+                            WeKitDatabase.instance.simpleStructuredDao().putFlagOverride(validated)
+                            overrides = overrides + (runtimeKey to validated)
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.dialog_confirm))
+                }
+            },
         )
     }
 }

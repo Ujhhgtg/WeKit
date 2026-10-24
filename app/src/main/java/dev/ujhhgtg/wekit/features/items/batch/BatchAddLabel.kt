@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearWavyProgressIndicator
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,25 +17,28 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 object BatchAddLabel : ClickableFeature() {
 
@@ -65,13 +65,15 @@ object BatchAddLabel : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_friend))
+                        showToast(
+                            context.localizedBatchString(R.string.batch_select_at_least_one_friend),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     pickLabelAndApply(context, selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -83,7 +85,7 @@ object BatchAddLabel : ClickableFeature() {
                 onPick = { labelName ->
                     onDismiss()
                     applyLabel(context, wxIds, labelName)
-                }
+                },
             )
         }
     }
@@ -91,7 +93,7 @@ object BatchAddLabel : ClickableFeature() {
     @Composable
     private fun LabelPickerDialog(
         onDismiss: () -> Unit,
-        onPick: (String) -> Unit
+        onPick: (String) -> Unit,
     ) {
         var newLabelName by remember { mutableStateOf("") }
         var labels by remember { mutableStateOf<List<WeContactLabelApi.ContactLabel>?>(null) }
@@ -111,7 +113,7 @@ object BatchAddLabel : ClickableFeature() {
                         onValueChange = { newLabelName = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.batch_add_label_new_label_hint)) },
-                        singleLine = true
+                        singleLine = true,
                     )
 
                     val loaded = labels
@@ -130,13 +132,17 @@ object BatchAddLabel : ClickableFeature() {
                     }
                 }
             },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+            dismissButton = {
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            },
             confirmButton = {
                 TextButton(
                     enabled = newLabelName.isNotBlank(),
-                    onClick = { onPick(newLabelName.trim()) }
-                ) { Text(stringResource(R.string.batch_add_label_create_and_apply)) }
-            }
+                    onClick = { onPick(newLabelName.trim()) },
+                ) {
+                    Text(stringResource(R.string.batch_add_label_create_and_apply))
+                }
+            },
         )
     }
 
@@ -155,7 +161,10 @@ object BatchAddLabel : ClickableFeature() {
                     if (labelId == null) {
                         showToastSuspend(
                             context,
-                            context.localizedBatchString(R.string.batch_add_label_create_failed, labelName),
+                            context.localizedBatchString(
+                                R.string.batch_add_label_create_failed,
+                                labelName,
+                            ),
                         )
                         done = true
                         return@launch
@@ -205,14 +214,17 @@ object BatchAddLabel : ClickableFeature() {
                                     completedValue,
                                     total,
                                 )
-                            }
+                            },
                         )
-                        LinearWavyProgressIndicator(progress = { if (total == 0) 1f else completedValue.toFloat() / total })
+                        LinearWavyProgressIndicator(
+                            progress = { if (total == 0) 1f else completedValue.toFloat() / total },
+                        )
                     }
                 },
-                confirmButton = if (done) {
-                    { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
-                } else null
+                confirmButton =
+                    if (done) {
+                        { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                    } else null,
             )
         }
     }

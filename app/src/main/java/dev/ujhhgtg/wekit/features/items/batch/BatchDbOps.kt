@@ -21,24 +21,26 @@ fun deleteMessageRows(wxIds: Collection<String>, onError: (Throwable) -> Unit = 
 
 /**
  * Chunked `DELETE FROM [table] WHERE [column] IN (...)`. Each chunk is a separate statement so the
- * IN-list never exceeds SQLite's host-parameter limit. Returns the total rows deleted across chunks.
+ * IN-list never exceeds SQLite's host-parameter limit. Returns the total rows deleted across
+ * chunks.
  */
 fun deleteByColumn(
     table: String,
     column: String,
     wxIds: Collection<String>,
-    onError: (Throwable) -> Unit = {}
+    onError: (Throwable) -> Unit = {},
 ): Int {
     var total = 0
     for (chunk in wxIds.chunked(SQL_VARIABLE_CHUNK)) {
         if (chunk.isEmpty()) continue
         try {
             val placeholders = chunk.joinToString(",") { "?" }
-            total += WeDatabaseApi.delete(
-                table,
-                "$column IN ($placeholders)",
-                chunk.toTypedArray()
-            )
+            total +=
+                WeDatabaseApi.delete(
+                    table,
+                    "$column IN ($placeholders)",
+                    chunk.toTypedArray(),
+                )
         } catch (e: Throwable) {
             onError(e)
         }

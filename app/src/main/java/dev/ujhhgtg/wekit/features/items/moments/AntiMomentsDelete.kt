@@ -20,19 +20,19 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
  * - `insertSnsList`: after each timeline / profile page, clears that list's sourceType bit from
  *   every local row the server page omitted (via `SnsInfoStorage.update`).
  * - `updateFilterTimeLine` / `updateFilterUserName`: raw SQL clearing the same bits. The `*Above`
- *   variants hit rows newer than the page's first item (e.g. the newest moment was deleted) and
- *   run *before* `insertSnsList`, so those rows never reach the update path.
+ *   variants hit rows newer than the page's first item (e.g. the newest moment was deleted) and run
+ *   *before* `insertSnsList`, so those rows never reach the update path.
  * - `processSnsDelAction`: the sync push for a deleted moment, which queues the moment's local
  *   media and SnsImproveStorage row for deletion on the next timeline refresh.
- * - SnsCommentDetailUI: when the detail request returns no object, deletes the SnsInfo row,
- *   its media and its SnsImproveStorage row.
+ * - SnsCommentDetailUI: when the detail request returns no object, deletes the SnsInfo row, its
+ *   media and its SnsImproveStorage row.
  *
  * The marker lives in the moment's text (TimeLineObject.contentDesc), so the raw-SQL filters can
  * skip kept rows with `instr` on the content BLOB. sourceType can't carry a flag: SnsInfoStorage
  * queries profile pages with `sourceType IN (...)` lists of the known bit combinations.
  *
- * The server also omits moments the author made private, restricted by a visibility window
- * (e.g. "仅三天可见"), or hid from you; those are kept and marked as well.
+ * The server also omits moments the author made private, restricted by a visibility window (e.g.
+ * "仅三天可见"), or hid from you; those are kept and marked as well.
  */
 object AntiMomentsDelete : SwitchFeature(), IResolveDex {
 
@@ -44,80 +44,119 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     private const val TAG = "AntiMomentsDelete"
     const val INTERCEPT_MARKER = "[拦截删除]"
 
-    /** Timeline (2), own profile page (4) and others' profile pages (8): lists that return every visible moment. */
+    /**
+     * Timeline (2), own profile page (4) and others' profile pages (8): lists that return every
+     * visible moment.
+     */
     private const val PROTECTED_SOURCE_MASK = 2 or 4 or 8
 
     /** TimeLineObject.contentDesc — the moment's text. */
     private const val TIMELINE_CONTENT_DESC = 5
 
-    private val MARKED_CONTENT_EXCLUSION = " AND instr(content, X'" +
-            INTERCEPT_MARKER.toByteArray().joinToString("") { "%02X".format(it.toInt() and 0xFF) } + "') = 0"
+    private val MARKED_CONTENT_EXCLUSION =
+        " AND instr(content, X'" +
+            INTERCEPT_MARKER.toByteArray().joinToString("") { "%02X".format(it.toInt() and 0xFF) } +
+            "') = 0"
 
     private const val SNS_INFO_STORAGE = "com.tencent.mm.plugin.sns.storage.SnsInfoStorage"
 
     // SnsInfoStorageLogic.insertSnsList(userName, srcType, snsObjects, maxSeq)
-    private val methodInsertSnsList by dexMethod(
-        sqlMethod {
-            usingEqStrings("insertSnsList", "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic")
-        },
-    )
+    private val methodInsertSnsList by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "insertSnsList",
+                    "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic",
+                )
+            },
+        )
 
-    // SnsInfoStorage.updateFilterTimeLine(whereSuffix): "UPDATE SnsInfo SET sourceType = sourceType & -3" + whereSuffix
-    private val methodUpdateFilterTimeLine by dexMethod(
-        sqlMethod {
-            usingEqStrings("updateFilterTimeLine", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    // SnsInfoStorage.updateFilterTimeLine(whereSuffix): "UPDATE SnsInfo SET sourceType = sourceType
+    // & -3" + whereSuffix
+    private val methodUpdateFilterTimeLine by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "updateFilterTimeLine",
+                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
+                )
+            },
+        )
 
     // SnsInfoStorage.updateFilterUserName(userName, isSelf, whereSuffix): clears bit 4 / 8
-    private val methodUpdateFilterUserName by dexMethod(
-        sqlMethod {
-            usingEqStrings("updateFilterUserName", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    private val methodUpdateFilterUserName by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "updateFilterUserName",
+                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
+                )
+            },
+        )
 
     // SnsInfoStorage.updateFilterTimeLineAbove(firstSeq) → updateFilterTimeLine
-    private val methodUpdateFilterTimeLineAbove by dexMethod(
-        sqlMethod {
-            usingEqStrings("updateFilterTimeLineAbove", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    private val methodUpdateFilterTimeLineAbove by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "updateFilterTimeLineAbove",
+                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
+                )
+            },
+        )
 
     // SnsInfoStorage.updateFilterUserNameAbove(userName, isSelf, firstSeq) → updateFilterUserName
-    private val methodUpdateFilterUserNameAbove by dexMethod(
-        sqlMethod {
-            usingEqStrings("updateFilterUserNameAbove", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    private val methodUpdateFilterUserNameAbove by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "updateFilterUserNameAbove",
+                    "com.tencent.mm.plugin.sns.storage.SnsInfoStorage",
+                )
+            },
+        )
 
     // SnsInfoStorage.delete(long snsId)
-    private val methodDeleteSnsInfo by dexMethod(
-        sqlMethod {
-            paramTypes("long")
-            usingEqStrings("delete", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    private val methodDeleteSnsInfo by
+        dexMethod(
+            sqlMethod {
+                paramTypes("long")
+                usingEqStrings("delete", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+            },
+        )
 
     // NetSceneSnsSync.processSnsDelAction(action, actionInfo, snsId, parentId, clientId, handler)
-    private val methodProcessSnsDelAction by dexMethod(
-        sqlMethod {
-            usingEqStrings("processSnsDelAction", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
-        },
-    )
+    private val methodProcessSnsDelAction by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "processSnsDelAction",
+                    "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
+                )
+            },
+        )
 
     // SnsResourceManager.cleanLocalResource(SnsInfo): deletes the moment's cached media
-    private val methodCleanLocalResource by dexMethod(
-        sqlMethod {
-            usingEqStrings("cleanLocalResource", "com.tencent.mm.plugin.sns.storage.SnsResourceManager")
-        },
-    )
+    private val methodCleanLocalResource by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "cleanLocalResource",
+                    "com.tencent.mm.plugin.sns.storage.SnsResourceManager",
+                )
+            },
+        )
 
     // SnsImproveStorage.deleteByLocalId(localId, snsId, createTime): removes the timeline UI row
-    private val methodImproveDeleteByLocalId by dexMethod(
-        sqlMethod {
-            usingEqStrings("deleteByLocalId", "com.tencent.mm.plugin.sns.ui.improve.repository.SnsImproveStorage")
-        },
-    )
+    private val methodImproveDeleteByLocalId by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "deleteByLocalId",
+                    "com.tencent.mm.plugin.sns.ui.improve.repository.SnsImproveStorage",
+                )
+            },
+        )
 
     private val inInsertSnsList = ThreadLocal.withInitial { false }
     private val inFilterAbove = ThreadLocal.withInitial { false }
@@ -127,7 +166,8 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
         methodInsertSnsList.hookAfter { inInsertSnsList.set(false) }
 
         // Other removeSourceFlag callers (posting, privacy changes, hiding) only act on your own
-        // moments or on your explicit request, so only insertSnsList's omissions count as deletions.
+        // moments or on your explicit request, so only insertSnsList's omissions count as
+        // deletions.
         WeMomentsApi.methodUpdateSnsInfo.hookBefore {
             if (!inInsertSnsList.get()!!) return@hookBefore
             val snsInfo = args[1]!!
@@ -183,12 +223,14 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
     private fun HookParam.guardFilter(suffixIndex: Int) {
         val suffix = args[suffixIndex] as String
         if (inFilterAbove.get()!!) {
-            val snsIds = WeMomentsApi.rawQuerySnsInfo("SELECT snsId FROM SnsInfo$suffix").use { cursor ->
-                buildList { while (cursor.moveToNext()) add(cursor.getLong(0)) }
-            }
+            val snsIds =
+                WeMomentsApi.rawQuerySnsInfo("SELECT snsId FROM SnsInfo$suffix").use { cursor ->
+                    buildList { while (cursor.moveToNext()) add(cursor.getLong(0)) }
+                }
             for (snsId in snsIds) {
                 val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
-                if (!snsInfo.isOwn && markIntercepted(snsInfo)) WeMomentsApi.updateSnsInfo(snsId, snsInfo)
+                if (!snsInfo.isOwn && markIntercepted(snsInfo))
+                    WeMomentsApi.updateSnsInfo(snsId, snsInfo)
             }
         }
         args[suffixIndex] = suffix + MARKED_CONTENT_EXCLUSION
@@ -202,7 +244,11 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
         if (text != null && text.contains(INTERCEPT_MARKER)) return false
 
         val markedText = if (text.isNullOrEmpty()) INTERCEPT_MARKER else "$INTERCEPT_MARKER $text"
-        reflekt.setField("field_content", ProtoWire.withString(content, TIMELINE_CONTENT_DESC, markedText), superclass = true)
+        reflekt.setField(
+            "field_content",
+            ProtoWire.withString(content, TIMELINE_CONTENT_DESC, markedText),
+            superclass = true,
+        )
         // setAttrBuf recomputes contentByteMd5, the key of SnsInfo's parsed-TimeLineObject cache
         reflekt.invokeMethod("setAttrBuf", reflekt.getField("field_attrBuf", true))
         WeLogger.i(TAG, "marked moment ${reflekt.getField("field_snsId", true)}")

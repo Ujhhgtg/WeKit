@@ -18,7 +18,9 @@ object RemoveVideoAds : SwitchFeature() {
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
-        "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass().reflekt()
+        "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding"
+            .toClass()
+            .reflekt()
             .firstMethod { name = "subscribeHandler" }
             .hookBefore {
                 val type = args[0] as String? ?: ""

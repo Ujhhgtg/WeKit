@@ -4,29 +4,26 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
-import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi.deleteContact
+import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BlockContactProto
-import dev.ujhhgtg.wekit.features.api.net.models.protobuf.DelContactProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ContactPropertyProto
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.DelContactProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.SetContactPropertyReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.UserNameProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.int
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.resume
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.resume
-import kotlin.time.Duration.Companion.seconds
 
 object WeContactApi : ApiFeature(), IResolveDex {
 
@@ -41,11 +38,18 @@ object WeContactApi : ApiFeature(), IResolveDex {
 
     sealed interface RelationshipProbeResult {
         data object Normal : RelationshipProbeResult
+
         data object Deleted : RelationshipProbeResult
+
         data object Blacklisted : RelationshipProbeResult
+
         data class AccountRestricted(val message: String?) : RelationshipProbeResult
+
         data class RateLimited(val message: String?) : RelationshipProbeResult
-        data class Failed(val errType: Int?, val errCode: Int?, val message: String?) : RelationshipProbeResult
+
+        data class Failed(val errType: Int?, val errCode: Int?, val message: String?) :
+            RelationshipProbeResult
+
         data object Timeout : RelationshipProbeResult
     }
 
@@ -53,10 +57,8 @@ object WeContactApi : ApiFeature(), IResolveDex {
         val deferred: CompletableDeferred<RelationshipProbeResult>,
     )
 
-    private val pendingRelationshipProbes =
-        ConcurrentHashMap<Any, PendingRelationshipProbe>()
-    private val probeMessageSuppressionUntil =
-        ConcurrentHashMap<String, Long>()
+    private val pendingRelationshipProbes = ConcurrentHashMap<Any, PendingRelationshipProbe>()
+    private val probeMessageSuppressionUntil = ConcurrentHashMap<String, Long>()
 
     /** How aggressively [deleteContact] should remove a contact. */
     enum class DeleteMode {
@@ -64,15 +66,15 @@ object WeContactApi : ApiFeature(), IResolveDex {
         DELETE_ONLY,
 
         /** Block the contact (add to blacklist), then remove it. */
-        BLOCK_AND_DELETE
+        BLOCK_AND_DELETE,
     }
 
     /**
      * Delete (and optionally block) a contact via the `oplog` CGI.
      *
-     * Modern WeChat has no standalone `deletecontact` CGI; contact removal is funneled through
-     * the generic oplog endpoint as [OpLog.CMD_DELETE_CONTACT] (and [OpLog.CMD_BLOCK_CONTACT]
-     * for blocking). [DeleteMode.BLOCK_AND_DELETE] packs both operations into a single oplog request.
+     * Modern WeChat has no standalone `deletecontact` CGI; contact removal is funneled through the
+     * generic oplog endpoint as [OpLog.CMD_DELETE_CONTACT] (and [OpLog.CMD_BLOCK_CONTACT] for
+     * blocking). [DeleteMode.BLOCK_AND_DELETE] packs both operations into a single oplog request.
      *
      * Suspends until the server responds, returning `true` on success and `false` on failure.
      * Callers that delete in bulk should space out invocations themselves, as WeChat's server
@@ -83,13 +85,27 @@ object WeContactApi : ApiFeature(), IResolveDex {
             try {
                 val operations = buildList {
                     if (mode == DeleteMode.BLOCK_AND_DELETE) {
-                        add(OpLog.operation(OpLog.CMD_BLOCK_CONTACT, BlockContactProto(UserNameProto(wxId))))
+                        add(
+                            OpLog.operation(
+                                OpLog.CMD_BLOCK_CONTACT,
+                                BlockContactProto(UserNameProto(wxId)),
+                            ),
+                        )
                     }
-                    add(OpLog.operation(OpLog.CMD_DELETE_CONTACT, DelContactProto(UserNameProto(wxId))))
+                    add(
+                        OpLog.operation(
+                            OpLog.CMD_DELETE_CONTACT,
+                            DelContactProto(UserNameProto(wxId)),
+                        ),
+                    )
                 }
 
                 WePacketHelper.sendCgi(
-                    "/cgi-bin/micromsg-bin/oplog", 681, 0, 0, OpLog.encodeRequest(operations)
+                    "/cgi-bin/micromsg-bin/oplog",
+                    681,
+                    0,
+                    0,
+                    OpLog.encodeRequest(operations),
                 ) {
                     onSuccess { _ -> if (cont.isActive) cont.resume(true) }
                     onFailure { errType, errCode, errMsg ->
@@ -103,27 +119,32 @@ object WeContactApi : ApiFeature(), IResolveDex {
             }
         }
 
-    private val ctorNetSceneVerifyUser by dexConstructor(
-        sqlConstructor {
-            searchPackages("com.tencent.mm.pluginsdk.model")
-            usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify", "getLabelIdList, %s")
-        },
-    )
+    private val ctorNetSceneVerifyUser by dexConstructor {
+        searchPackages("com.tencent.mm.pluginsdk.model")
+        usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify", "getLabelIdList, %s")
+    }
 
-    private val ctorNetSceneVerifyUserProbe by dexConstructor(
-        sqlConstructor {
-            searchPackages("com.tencent.mm.pluginsdk.model")
-            paramCount = 5
-            paramTypes("int", "java.util.List", "java.util.List", "java.lang.String", "java.lang.String")
-            declaredClass {
-                usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify")
-                usingEqStrings("This NetSceneVerifyUser init NEVER use opcode == MM_VERIFYUSER_VERIFYOK")
-            }
-        },
-    )
+    private val ctorNetSceneVerifyUserProbe by dexConstructor {
+        searchPackages("com.tencent.mm.pluginsdk.model")
+        paramCount = 5
+        paramTypes(
+            "int",
+            "java.util.List",
+            "java.util.List",
+            "java.lang.String",
+            "java.lang.String",
+        )
+        declaredClass {
+            usingEqStrings("MicroMsg.NetSceneVerifyUser.dkverify")
+            usingEqStrings(
+                "This NetSceneVerifyUser init NEVER use opcode == MM_VERIFYUSER_VERIFYOK",
+            )
+        }
+    }
 
     override fun onEnable() {
-        ctorNetSceneVerifyUserProbe.constructor.declaringClass.reflekt()
+        ctorNetSceneVerifyUserProbe.constructor.declaringClass
+            .reflekt()
             .firstMethod { name = "onGYNetEnd" }
             .hookAfter {
                 val pending = pendingRelationshipProbes.remove(thisObject) ?: return@hookAfter
@@ -150,7 +171,7 @@ object WeContactApi : ApiFeature(), IResolveDex {
     override fun onDisable() {
         pendingRelationshipProbes.values.forEach { pending ->
             pending.deferred.complete(
-                RelationshipProbeResult.Failed(null, null, "WeContactApi disabled")
+                RelationshipProbeResult.Failed(null, null, "WeContactApi disabled"),
             )
         }
         pendingRelationshipProbes.clear()
@@ -159,18 +180,19 @@ object WeContactApi : ApiFeature(), IResolveDex {
 
     suspend fun probeRelationship(wxId: String): RelationshipProbeResult {
         val deferred = CompletableDeferred<RelationshipProbeResult>()
-        val scene = try {
-            ctorNetSceneVerifyUserProbe.newInstance(
-                1,
-                listOf(wxId),
-                listOf(VERIFY_USER_SCENE_REQUEST),
-                "",
-                "",
-            )
-        } catch (e: Throwable) {
-            WeLogger.e(TAG, "failed to construct verify-user probe for $wxId", e)
-            return RelationshipProbeResult.Failed(null, null, e.message)
-        }
+        val scene =
+            try {
+                ctorNetSceneVerifyUserProbe.newInstance(
+                    1,
+                    listOf(wxId),
+                    listOf(VERIFY_USER_SCENE_REQUEST),
+                    "",
+                    "",
+                )
+            } catch (e: Throwable) {
+                WeLogger.e(TAG, "failed to construct verify-user probe for $wxId", e)
+                return RelationshipProbeResult.Failed(null, null, e.message)
+            }
 
         val now = System.currentTimeMillis()
         probeMessageSuppressionUntil.forEach { (contact, expiresAt) ->
@@ -181,8 +203,7 @@ object WeContactApi : ApiFeature(), IResolveDex {
 
         return try {
             WeNetSceneApi.sendNetScene(scene)
-            withTimeoutOrNull(20.seconds) { deferred.await() }
-                ?: RelationshipProbeResult.Timeout
+            withTimeoutOrNull(20.seconds) { deferred.await() } ?: RelationshipProbeResult.Timeout
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -197,15 +218,16 @@ object WeContactApi : ApiFeature(), IResolveDex {
         errType: Int,
         errCode: Int,
         errMsg: String?,
-    ): RelationshipProbeResult = when {
-        errType == 4 && errCode == -34 || errMsg?.contains("操作过于频繁") == true ->
-            RelationshipProbeResult.RateLimited(errMsg)
-        errType == 0 && errCode == 0 -> RelationshipProbeResult.Normal
-        errType == 4 && errCode == -44 -> RelationshipProbeResult.Deleted
-        errType == 4 && errCode == -22 -> RelationshipProbeResult.Blacklisted
-        errType == 4 && errCode == -24 -> RelationshipProbeResult.AccountRestricted(errMsg)
-        else -> RelationshipProbeResult.Failed(errType, errCode, errMsg)
-    }
+    ): RelationshipProbeResult =
+        when {
+            errType == 4 && errCode == -34 || errMsg?.contains("操作过于频繁") == true ->
+                RelationshipProbeResult.RateLimited(errMsg)
+            errType == 0 && errCode == 0 -> RelationshipProbeResult.Normal
+            errType == 4 && errCode == -44 -> RelationshipProbeResult.Deleted
+            errType == 4 && errCode == -22 -> RelationshipProbeResult.Blacklisted
+            errType == 4 && errCode == -24 -> RelationshipProbeResult.AccountRestricted(errMsg)
+            else -> RelationshipProbeResult.Failed(errType, errCode, errMsg)
+        }
 
     private fun isRelationshipProbeMessage(content: String): Boolean =
         content.contains("weixin://findfriend/verifycontact", ignoreCase = true) ||
@@ -221,7 +243,10 @@ object WeContactApi : ApiFeature(), IResolveDex {
     suspend fun setRemark(wxId: String, remark: String): Boolean {
         val sent = suspendCancellableCoroutine { cont ->
             WePacketHelper.sendCgi(
-                "/cgi-bin/micromsg-bin/setcontactproperty", 10022, 0, 0,
+                "/cgi-bin/micromsg-bin/setcontactproperty",
+                10022,
+                0,
+                0,
                 SetContactPropertyReqProto(wxId, ContactPropertyProto(remark)).encode(),
             ) {
                 onSuccess { _ -> if (cont.isActive) cont.resume(true) }
@@ -231,13 +256,27 @@ object WeContactApi : ApiFeature(), IResolveDex {
                 }
             }
         }
-        if (sent) WeDatabaseApi.execStatement("UPDATE rcontact SET conRemark = ? WHERE username = ?", arrayOf(remark, wxId))
+        if (sent)
+            WeDatabaseApi.execStatement(
+                "UPDATE rcontact SET conRemark = ? WHERE username = ?",
+                arrayOf(remark, wxId),
+            )
         return sent
     }
 
     fun verifyUser(userId: String, ticket: String, scene: Int, privacy: Int = 0) {
         try {
-            val netScene = ctorNetSceneVerifyUser.newInstance(3, userId, ticket, scene, "", privacy, null, null)
+            val netScene =
+                ctorNetSceneVerifyUser.newInstance(
+                    3,
+                    userId,
+                    ticket,
+                    scene,
+                    "",
+                    privacy,
+                    null,
+                    null,
+                )
             WeNetSceneApi.sendNetScene(netScene)
         } catch (e: Exception) {
             WeLogger.e("WeContactApi", "verifyUser failed", e)

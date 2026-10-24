@@ -7,19 +7,13 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.dsl.find
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object WeAppMsgApi : ApiFeature(), IResolveDex {
 
@@ -30,68 +24,55 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
 
     data class NativeSendResult(val statusCode: Int, val localMsgId: Long?)
 
-    private val methodParseXml by dexMethod()    // op0.q.u(String)
-    private val methodSendAppMsg by dexMethod()  // k0.J(...)
+    private val methodParseXml by dexMethod() // op0.q.u(String)
+    private val methodSendAppMsg by dexMethod() // k0.J(...)
     private val fieldQuoteItem by dexField()
     private val fieldQuoteMsgSource by dexField()
-    private val classAppMsgContent by dexClass(
-        sqlClass {
-            usingStrings("<appmsg appid=\"", "parse amessage xml failed")
-        },
-    )
-    private val classAppMsgLogic by dexClass(
-        sqlClass {
-            usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
-        },
-    )
+    private val classAppMsgContent by dexClass {
+        usingStrings("<appmsg appid=\"", "parse amessage xml failed")
+    }
+    private val classAppMsgLogic by dexClass {
+        usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
+    }
 
     private const val TAG = "WeAppMsgApi"
 
     override fun resolveDex() {
         methodParseXml.setDescriptor(
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(classAppMsgContent.data.name)),
-                    modifiers = Modifier.PUBLIC or Modifier.STATIC,
-                    paramTypes = listOf(TypeSpec(String::class.java.name)),
-                    returnType = ClassSpec(className = NameSpec(classAppMsgContent.data.name)),
-                    usingStrings = listOf(StringSpec("parse msg failed")),
-                ),
-            ).first(),
+            DexResolutionContext.findMethods {
+                    declaredClass = classAppMsgContent.data.name
+                    modifiers = Modifier.PUBLIC or Modifier.STATIC
+                    paramTypes(String::class.java.name)
+                    returnType = classAppMsgContent.data.name
+                    usingString("parse msg failed")
+                }
+                .first(),
         )
 
-        methodSendAppMsg.find(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(classAppMsgLogic.data.name)),
-                modifiers = Modifier.STATIC,
-                paramCount = 6..6,
-                paramTypes = listOf(
-                    TypeSpec(classAppMsgContent.data.name),
-                    TypeSpec("java.lang.String"),
-                    null,
-                    null,
-                    null,
-                    null,
-                ),
-            ),
-        )
-
-        val quoteItemField = classAppMsgContent.data.fields.single {
-            it.typeName == "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"
+        methodSendAppMsg.find {
+            declaredClass = classAppMsgLogic.data.name
+            modifiers = Modifier.STATIC
+            paramCount = 6
+            paramTypes(classAppMsgContent.data.name, "java.lang.String", null, null, null, null)
         }
+
+        val quoteItemField =
+            classAppMsgContent.data.fields.single {
+                it.typeName == "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"
+            }
         fieldQuoteItem.setDescriptor(quoteItemField)
         // AppMsgLogic reads the outgoing msgSource, not the quoted message's msgsource.
         fieldQuoteMsgSource.setDescriptor(
-            classAppMsgLogic.data.methods.asSequence()
+            classAppMsgLogic.data.methods
+                .asSequence()
                 .flatMap { it.usingFields.asSequence() }
                 .filter { it.usingType == FieldUsingType.Read }
                 .map { it.field }
                 .filter {
-                    it.className == quoteItemField.typeName &&
-                        it.typeName == "java.lang.String"
+                    it.className == quoteItemField.typeName && it.typeName == "java.lang.String"
                 }
                 .distinctBy { it.descriptor }
-                .single()
+                .single(),
         )
     }
 
@@ -101,7 +82,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
         appId: String,
         url: String?,
         data: ByteArray?,
-        xmlContent: String
+        xmlContent: String,
     ): Boolean {
         return try {
             WeLogger.i(TAG, "sending appmsg to $target")
@@ -119,13 +100,13 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
             }
 
             methodSendAppMsg.method.invoke(
-                null,         // static
+                null, // static
                 contentObj, // content
-                appId,             // appId
-                title,             // title/appName
-                target,            // toUser
-                url,               // attachFilePath
-                data               // thumbDat
+                appId, // appId
+                title, // title/appName
+                target, // toUser
+                url, // attachFilePath
+                data, // thumbDat
             )
 
             true
@@ -136,15 +117,16 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     }
 
     fun sendAppMsgObject(target: String, contentObj: Any): NativeSendResult {
-        val result = methodSendAppMsg.method.invoke(
-            null,
-            contentObj,
-            "",
-            "",
-            target,
-            "",
-            null,
-        ) as Pair<*, *>
+        val result =
+            methodSendAppMsg.method.invoke(
+                null,
+                contentObj,
+                "",
+                "",
+                target,
+                "",
+                null,
+            ) as Pair<*, *>
         return NativeSendResult(result.first as Int, result.second as? Long)
     }
 }

@@ -9,7 +9,6 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.MenuItem
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ListView
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
@@ -24,15 +23,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,16 +45,18 @@ import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
-import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
+import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
-import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
+import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -63,37 +64,30 @@ import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFolders
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.BaseContactSelector
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
-import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
-import dev.ujhhgtg.wekit.data.WeKitDatabase
-import kotlinx.coroutines.runBlocking
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.BString
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.io.path.div
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.lang.reflect.Proxy
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
-import java.lang.reflect.Modifier as JavaModifier
+import kotlinx.coroutines.runBlocking
 
-object ConversationAggregation : ClickableFeature(),
+object ConversationAggregation :
+    ClickableFeature(),
     WeDatabaseListenerApi.IQueryListener,
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
@@ -121,59 +115,77 @@ object ConversationAggregation : ClickableFeature(),
     // alongside unReadMuteCount > 0 when unReadCount == 0).
     private const val ATTR_FLAG_MUTE_BIT = 2097152
 
-
-    private const val CONTAINER_UI_NAME = "com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI"
-    private val methodConversationStorageQueryByParent by dexMethod(
-        sqlMethod {
-            returnType = "android.database.Cursor"
-            paramTypes("int", "java.util.List", "java.lang.String", "int")
-            usingStrings("select * from rconversation where ", " order by flag desc, conversationTime desc")
-        },
-        allowFailure = true,
-    )
+    private const val CONTAINER_UI_NAME =
+        "com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI"
+    private val methodConversationStorageQueryByParent by
+        dexMethod(
+            sqlMethod {
+                returnType = "android.database.Cursor"
+                paramTypes("int", "java.util.List", "java.lang.String", "int")
+                usingStrings(
+                    "select * from rconversation where ",
+                    " order by flag desc, conversationTime desc",
+                )
+            },
+            allowFailure = true,
+        )
 
     // Both homepage adapters hide the tapped row's unread views before/after startChatting.
     // Intercept the shared click listener before those normal-chat side effects run.
-    private val methodConversationItemClick by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes("android.widget.AdapterView", "android.view.View", "int", "long")
-            usingEqStrings("MicroMsg.ConversationClickListener", "[onItemClick] position:%s [%s,%s]")
-        },
-    )
+    private val methodConversationItemClick by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes("android.widget.AdapterView", "android.view.View", "int", "long")
+                usingEqStrings(
+                    "MicroMsg.ConversationClickListener",
+                    "[onItemClick] position:%s [%s,%s]",
+                )
+            },
+        )
 
     // SelectConversationUI#doClickUser(username) — the single entry point for all conversation
     // taps in the "share to conversation" picker. WeChat only intercepts known virtual usernames
     // ("conversationboxservice", "opencustomerservicemsg") before forwarding to its share logic.
     // Our folder rows (wekit_folder_XXX) pass those guards and reach the share machinery, which
     // tries to open a chat thread for a non-existent contact → crash.
-    private val methodSelectConversationDoClickUser by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes("java.lang.String")
-            usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
-        },
-        allowFailure = true,
-    )
+    private val methodSelectConversationDoClickUser by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes("java.lang.String")
+                usingEqStrings("MicroMsg.SelectConversationUI", "doClickUser=%s")
+            },
+            allowFailure = true,
+        )
 
     // The MVVM "select contact" picker (com.tencent.mm.ui.mvvm.MvvmContactListUI) used for in-app
-    // forwarding routes every row tap through its list item-click listener cj5.g2#g(View, item, int)
+    // forwarding routes every row tap through its list item-click listener cj5.g2#g(View, item,
+    // int)
     // (interface in5.u). A tap on a normal conversation dispatches wi5.c0(listOf(username)) to the
     // state center, which sets the "Select_Conv_User" result extra and finishes. Our folder rows
     // (wekit_folder_XXX) reach that same path with a non-existent username → crash downstream.
     // We match the two concrete listeners (main list + search results) by their unique log tags.
-    private val methodMvvmMainListItemClick by dexMethod(
-        sqlMethod {
-            usingStrings("MicroMsg.SelectContactMainRecycleViewUIC", "onItemClickListener data.type")
-        },
-    )
-    private val methodMvvmSearchItemClick by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes("android.view.View", null, "int")
-            usingStrings("MicroMsg.SelectContactSearchMvvmListUIC", "onItemClick: isAlwaysCheck=")
-        },
-    )
+    private val methodMvvmMainListItemClick by
+        dexMethod(
+            sqlMethod {
+                usingStrings(
+                    "MicroMsg.SelectContactMainRecycleViewUIC",
+                    "onItemClickListener data.type",
+                )
+            },
+        )
+    private val methodMvvmSearchItemClick by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes("android.view.View", null, "int")
+                usingStrings(
+                    "MicroMsg.SelectContactSearchMvvmListUIC",
+                    "onItemClick: isAlwaysCheck=",
+                )
+            },
+        )
 
     // com.tencent.mm.storage.m4 (ConversationStorage)#b0(username) — "updateUnreadByTalker".
     // The folder container (ConvBoxServiceConversationUI) sets its superUsername to our folder id
@@ -182,21 +194,17 @@ object ConversationAggregation : ClickableFeature(),
     // attrflag bit on that exact row — wiping our folder's badge just for opening and leaving the
     // folder without touching any member. We no-op it for folder ids so the aggregate row keeps
     // reflecting its members' (still-unread) state.
-    @Volatile
-    private var activeFolderId: String? = null
+    @Volatile private var activeFolderId: String? = null
 
-    @Volatile
-    private var folderSchemaReady: Boolean? = null
+    @Volatile private var folderSchemaReady: Boolean? = null
 
     private val storageScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val folderMembersCache = ConcurrentHashMap<String, List<String>>()
 
-    @Volatile
-    private var membersByFolder: Map<String, List<String>> = emptyMap()
+    @Volatile private var membersByFolder: Map<String, List<String>> = emptyMap()
 
-    @Volatile
-    private var folderByMember: Map<String, String> = emptyMap()
+    @Volatile private var folderByMember: Map<String, String> = emptyMap()
 
     private val suppressQueryRewrite = ThreadLocal.withInitial { false }
 
@@ -213,11 +221,9 @@ object ConversationAggregation : ClickableFeature(),
     private val pendingRefreshLock = Any()
     private val refreshAllFolders = AtomicBoolean(false)
 
-    @Volatile
-    private var refreshThread: HandlerThread? = null
+    @Volatile private var refreshThread: HandlerThread? = null
 
-    @Volatile
-    private var refreshHandler: Handler? = null
+    @Volatile private var refreshHandler: Handler? = null
 
     override fun onEnable() {
         loadFolders()
@@ -261,7 +267,8 @@ object ConversationAggregation : ClickableFeature(),
 
         // Release every folder back to the homepage — unmap members and delete all wekit_folder_*
         // rows — so disabling doesn't leave ghost aggregate conversations behind, exactly as if the
-        // user had deleted every folder. The saved config is left untouched so onEnable can restore.
+        // user had deleted every folder. The saved config is left untouched so onEnable can
+        // restore.
         releaseAllFolders()
     }
 
@@ -284,9 +291,10 @@ object ConversationAggregation : ClickableFeature(),
             }
             WeConversationApi.reloadConversations()
             WeLogger.i(TAG, "released all folders on disable")
-        }.onFailure {
-            WeLogger.e(TAG, "failed to release folders on disable", it)
         }
+            .onFailure {
+                WeLogger.e(TAG, "failed to release folders on disable", it)
+            }
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -308,9 +316,9 @@ object ConversationAggregation : ClickableFeature(),
         loadFolders().map { FolderChoice(it.id, it.name, it.type != FolderType.MANUAL) }
 
     /**
-     * Adds [talker] to the manual folder [folderId] and opens the existing edit dialog so the
-     * user can review and save. Returns false without acting when the folder is missing or in an
-     * auto mode (members are computed, not hand-picked); callers surface that to the user.
+     * Adds [talker] to the manual folder [folderId] and opens the existing edit dialog so the user
+     * can review and save. Returns false without acting when the folder is missing or in an auto
+     * mode (members are computed, not hand-picked); callers surface that to the user.
      */
     fun showAddToFolderDialog(context: Context, folderId: String, talker: String): Boolean {
         val folder = folderById(folderId) ?: return false
@@ -324,7 +332,7 @@ object ConversationAggregation : ClickableFeature(),
             },
             onFolderDeleted = {
                 syncFoldersToDatabase()
-            }
+            },
         )
         return true
     }
@@ -339,7 +347,9 @@ object ConversationAggregation : ClickableFeature(),
         if (folder.type != FolderType.MANUAL) return false
         if (talker !in folder.members) {
             try {
-                WeKitDatabase.instance.conversationCollectionDao().appendFolderMember(folderId, talker)
+                WeKitDatabase.instance
+                    .conversationCollectionDao()
+                    .appendFolderMember(folderId, talker)
             } finally {
                 invalidateFolders()
             }
@@ -362,12 +372,16 @@ object ConversationAggregation : ClickableFeature(),
         storageScope.launch {
             try {
                 try {
-                    WeKitDatabase.instance.conversationCollectionDao().removeFolderMember(folderId, talker)
+                    WeKitDatabase.instance
+                        .conversationCollectionDao()
+                        .removeFolderMember(folderId, talker)
                 } finally {
                     invalidateFolders()
                 }
                 syncFoldersToDatabase()
-                showToast(localizedChatString(R.string.chat_aggregation_removed_from_folder, folder.name))
+                showToast(
+                    localizedChatString(R.string.chat_aggregation_removed_from_folder, folder.name),
+                )
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 WeLogger.e(TAG, "Failed to remove folder member", error)
@@ -380,7 +394,7 @@ object ConversationAggregation : ClickableFeature(),
     override fun onInsert(table: String, values: ContentValues) {
         if (table != ConversationTable.NAME) return
         val username = values.getAsString(ConversationTable.USERNAME) ?: return
-        if (isFolderId(username)) return  // skip our own folder row writes
+        if (isFolderId(username)) return // skip our own folder row writes
         scheduleRefresh(username)
     }
 
@@ -390,13 +404,14 @@ object ConversationAggregation : ClickableFeature(),
         values: ContentValues,
         whereClause: String?,
         whereArgs: Array<String>?,
-        conflictAlgorithm: Int
+        conflictAlgorithm: Int,
     ) {
         if (table != ConversationTable.NAME) return
-        val targetUsername = values.getAsString(ConversationTable.USERNAME)
-            ?: whereArgs?.singleOrNull()?.takeIf {
-                whereClause?.contains(ConversationTable.USERNAME, ignoreCase = true) == true
-            }
+        val targetUsername =
+            values.getAsString(ConversationTable.USERNAME)
+                ?: whereArgs?.singleOrNull()?.takeIf {
+                    whereClause?.contains(ConversationTable.USERNAME, ignoreCase = true) == true
+                }
         if (targetUsername != null && isFolderId(targetUsername)) {
             // ConversationStorage moves read pinned rows under message_fold before serializing
             // them. Folder containers must stay at the root: the homepage can display folded
@@ -407,8 +422,9 @@ object ConversationAggregation : ClickableFeature(),
             // write and its native notifications; cancelling the whole parent update also cuts
             // off the synchronous unread update. Only correct its contact-only mute classification
             // before the counts reach the DB (groups use ChatRoomNotify instead of type & 512).
-            if (values.containsKey(ConversationTable.UNREAD_COUNT) ||
-                values.containsKey(ConversationTable.UNREAD_MUTE_COUNT)
+            if (
+                values.containsKey(ConversationTable.UNREAD_COUNT) ||
+                    values.containsKey(ConversationTable.UNREAD_MUTE_COUNT)
             ) {
                 val members = membersByFolder[targetUsername] ?: return
                 val summary = withQueryRewriteSuppressed {
@@ -420,7 +436,7 @@ object ConversationAggregation : ClickableFeature(),
                 if (attrFlag != null) {
                     values.put(
                         ConversationTable.ATTR_FLAG,
-                        (attrFlag and ATTR_FLAG_MUTE_BIT.inv()) or summary.attrFlag
+                        (attrFlag and ATTR_FLAG_MUTE_BIT.inv()) or summary.attrFlag,
                     )
                 }
             }
@@ -441,7 +457,7 @@ object ConversationAggregation : ClickableFeature(),
         handler.postAtTime(
             ::doRefreshFolderSummaries,
             REFRESH_TASK_TOKEN,
-            SystemClock.uptimeMillis() + REFRESH_DEBOUNCE_MS
+            SystemClock.uptimeMillis() + REFRESH_DEBOUNCE_MS,
         )
     }
 
@@ -449,25 +465,29 @@ object ConversationAggregation : ClickableFeature(),
         if (!WeDatabaseApi.isReady) return
         val folders = loadFolders()
         if (folders.isEmpty()) return
-        val changedMembers = synchronized(pendingRefreshLock) {
-            pendingRefreshMembers.toSet().also { pendingRefreshMembers.clear() }
-        }
+        val changedMembers =
+            synchronized(pendingRefreshLock) {
+                pendingRefreshMembers.toSet().also { pendingRefreshMembers.clear() }
+            }
         val refreshAll = refreshAllFolders.getAndSet(false)
 
         // A custom SQL rule may depend on any rconversation column. Reconcile it before using the
         // reverse index, because this write may have changed membership rather than just a summary.
-        if (folders.any { it.type == FolderType.SQL } ||
-            changedMembers.any { it !in folderByMember } && folders.any { it.type != FolderType.MANUAL }
+        if (
+            folders.any { it.type == FolderType.SQL } ||
+                changedMembers.any { it !in folderByMember } &&
+                    folders.any { it.type != FolderType.MANUAL }
         ) {
             reconcileFolders(folders)
             return
         }
 
-        val affectedFolderIds = if (refreshAll) {
-            membersByFolder.keys
-        } else {
-            changedMembers.mapNotNullTo(linkedSetOf()) { folderByMember[it] }
-        }
+        val affectedFolderIds =
+            if (refreshAll) {
+                membersByFolder.keys
+            } else {
+                changedMembers.mapNotNullTo(linkedSetOf()) { folderByMember[it] }
+            }
         if (affectedFolderIds.isEmpty()) return
 
         runCatching {
@@ -489,18 +509,19 @@ object ConversationAggregation : ClickableFeature(),
             WeLogger.d(
                 TAG,
                 "refreshed ${affectedFolderIds.size} folders for ${changedMembers.size} members in " +
-                        "${SystemClock.elapsedRealtime() - startedAt}ms"
+                    "${SystemClock.elapsedRealtime() - startedAt}ms",
             )
-        }.onFailure {
-            WeLogger.e(TAG, "failed to refresh folder summaries", it)
         }
+            .onFailure {
+                WeLogger.e(TAG, "failed to refresh folder summaries", it)
+            }
     }
 
     /**
-     * Restores [ConversationTable.PARENT_REF] = [folderId] for any member whose row was
-     * replaced by WeChat's own conversation update without a parentRef. Only rows where
-     * parentRef is currently NULL or '' are touched — rows already mapped to this folder
-     * (or to another folder) are left unchanged.
+     * Restores [ConversationTable.PARENT_REF] = [folderId] for any member whose row was replaced by
+     * WeChat's own conversation update without a parentRef. Only rows where parentRef is currently
+     * NULL or '' are touched — rows already mapped to this folder (or to another folder) are left
+     * unchanged.
      */
     private fun reanchorFolderMembers(folderId: String, members: List<String>) {
         if (members.isEmpty()) return
@@ -511,17 +532,19 @@ object ConversationAggregation : ClickableFeature(),
                 SET ${ConversationTable.PARENT_REF}=?
                 WHERE ${ConversationTable.USERNAME} IN (${placeholders(chunk.size)})
                   AND (${ConversationTable.PARENT_REF} IS NULL OR ${ConversationTable.PARENT_REF}='')
-                """.trimIndent(),
-                arrayOf(folderId, *chunk.toTypedArray())
+                """
+                    .trimIndent(),
+                arrayOf(folderId, *chunk.toTypedArray()),
             )
         }
     }
 
     private fun startRefreshThread() {
-        val thread = HandlerThread("wekit-folder-refresh").also {
-            it.start()
-            refreshThread = it
-        }
+        val thread =
+            HandlerThread("wekit-folder-refresh").also {
+                it.start()
+                refreshThread = it
+            }
         refreshHandler = Handler(thread.looper)
     }
 
@@ -583,7 +606,7 @@ object ConversationAggregation : ClickableFeature(),
     private inline fun interceptFolderChatOpen(
         username: String?,
         source: Any?,
-        cancelOriginal: () -> Unit
+        cancelOriginal: () -> Unit,
     ) {
         if (username == null || !isFolderId(username)) return
         activeFolderId = username
@@ -611,23 +634,30 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     /** "Remove from folder" on members of a manual folder, inside that folder's container. */
-    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> = listOf(
-        WeConversationContextMenuApi.MenuItem(
-            id = REMOVE_FROM_FOLDER_MENU_ID,
-            text = localizedChatString(R.string.chat_aggregation_remove_from_folder),
-            drawable = null,
-            scope = WeConversationContextMenuApi.MenuScope.AGGREGATED,
-            shouldShow = { context, _ ->
-                // activeFolderId tracks the open folder container; the intent extra is a fallback.
-                val folder = (activeFolderId ?: context.folderId)?.let(::folderById)
-                folder != null && folder.type == FolderType.MANUAL && context.talker in folder.members
-            },
-            onClick = { context -> removeMemberFromFolder((activeFolderId ?: context.folderId)!!, context.talker) },
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> =
+        listOf(
+            WeConversationContextMenuApi.MenuItem(
+                id = REMOVE_FROM_FOLDER_MENU_ID,
+                text = localizedChatString(R.string.chat_aggregation_remove_from_folder),
+                drawable = null,
+                scope = WeConversationContextMenuApi.MenuScope.AGGREGATED,
+                shouldShow = { context, _ ->
+                    // activeFolderId tracks the open folder container; the intent extra is a
+                    // fallback.
+                    val folder = (activeFolderId ?: context.folderId)?.let(::folderById)
+                    folder != null &&
+                        folder.type == FolderType.MANUAL &&
+                        context.talker in folder.members
+                },
+                onClick = { context ->
+                    removeMemberFromFolder((activeFolderId ?: context.folderId)!!, context.talker)
+                },
+            ),
         )
-    )
 
     // Intercepts the "share to conversation" picker (SelectConversationUI) before WeChat's share
-    // machinery runs. Our folder rows appear in that list because their parentRef is '' (root-level),
+    // machinery runs. Our folder rows appear in that list because their parentRef is ''
+    // (root-level),
     // but they have no real chat thread — forwarding to one crashes. We cancel the call, show a
     // picker scoped to that folder's members, then re-invoke doClickUser with the chosen member so
     // the original share flow proceeds normally.
@@ -647,9 +677,10 @@ object ConversationAggregation : ClickableFeature(),
             showFolderMemberPicker(context, folder) { selectedWxId ->
                 runCatching {
                     originalMethod(arrayOf(selectedWxId))
-                }.onFailure {
-                    WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
                 }
+                    .onFailure {
+                        WeLogger.e(TAG, "failed to forward share to member $selectedWxId", it)
+                    }
             }
         }
     }
@@ -663,22 +694,26 @@ object ConversationAggregation : ClickableFeature(),
     // to the chosen member so WeChat's own forward flow proceeds.
     private fun hookMvvmContactListItemClick() {
         listOf(
-            methodMvvmMainListItemClick,
-            methodMvvmSearchItemClick
-        ).forEach { method ->
-            if (!method.isFound) return@forEach
-            method.hookBefore { handleMvvmFolderTap(this) }
-        }
+                methodMvvmMainListItemClick,
+                methodMvvmSearchItemClick,
+            )
+            .forEach { method ->
+                if (!method.isFound) return@forEach
+                method.hookBefore { handleMvvmFolderTap(this) }
+            }
     }
 
     private fun handleMvvmFolderTap(param: HookParam) {
         val itemView = param.args[0] as View
         val data = param.args[1]!!
 
-        val folderField = data.reflekt().fields {
-            type = BString
-            modifiers(Modifiers.FINAL)
-        }[1]
+        val folderField =
+            data
+                .reflekt()
+                .fields {
+                    type = BString
+                    modifiers(Modifiers.FINAL)
+                }[1]
         val folderId = folderField.get()!! as String
 
         val folder = folderById(folderId) ?: return
@@ -697,9 +732,10 @@ object ConversationAggregation : ClickableFeature(),
                 } finally {
                     folderField.set(folderId)
                 }
-            }.onFailure {
-                WeLogger.e(TAG, "failed to forward folder tap to member $selectedWxId", it)
             }
+                .onFailure {
+                    WeLogger.e(TAG, "failed to forward folder tap to member $selectedWxId", it)
+                }
         }
     }
 
@@ -708,7 +744,7 @@ object ConversationAggregation : ClickableFeature(),
     private fun showFolderMemberPicker(
         context: Context,
         folder: ChatFolder,
-        onMemberSelected: (String) -> Unit
+        onMemberSelected: (String) -> Unit,
     ) {
         val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
         if (members.isEmpty()) {
@@ -721,7 +757,8 @@ object ConversationAggregation : ClickableFeature(),
             withQueryRewriteSuppressed {
                 WeDatabaseApi.getContacts().filter { it.wxId in membersSet }
             }
-        }.getOrDefault(emptyList())
+        }
+            .getOrDefault(emptyList())
 
         showComposeDialog(context) {
             FolderShareTargetSelector(
@@ -730,7 +767,7 @@ object ConversationAggregation : ClickableFeature(),
                 onSelect = { selectedWxId ->
                     onDismiss()
                     onMemberSelected(selectedWxId)
-                }
+                },
             )
         }
     }
@@ -742,7 +779,7 @@ object ConversationAggregation : ClickableFeature(),
     private fun FolderShareTargetSelector(
         contacts: List<IWeContact>,
         onDismiss: () -> Unit,
-        onSelect: (String) -> Unit
+        onSelect: (String) -> Unit,
     ) {
         BaseContactSelector(
             title = stringResource(R.string.chat_aggregation_select_forward_target),
@@ -760,7 +797,7 @@ object ConversationAggregation : ClickableFeature(),
                     Text(stringResource(R.string.chat_aggregation_select))
                 }
             },
-            onItemClick = { contact -> onSelect(contact.wxId) }
+            onItemClick = { contact -> onSelect(contact.wxId) },
         )
     }
 
@@ -778,8 +815,9 @@ object ConversationAggregation : ClickableFeature(),
         methodConversationStorageQueryByParent.hookBefore {
             val folderId = activeFolderId ?: return@hookBefore
             val parentRef = args.getOrNull(2) as? String ?: return@hookBefore
-            if (parentRef == WeChatFolderPlaceholder.CONVERSATION_BOX ||
-                parentRef == WeChatFolderPlaceholder.MESSAGE_FOLD
+            if (
+                parentRef == WeChatFolderPlaceholder.CONVERSATION_BOX ||
+                    parentRef == WeChatFolderPlaceholder.MESSAGE_FOLD
             ) {
                 args[2] = folderId
             }
@@ -787,7 +825,8 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     // See methodConversationStorageUpdateUnreadByTalker: cancel the "mark box read on leave" that
-    // WeChat's folder container fires against our folder id, so exiting a folder without opening any
+    // WeChat's folder container fires against our folder id, so exiting a folder without opening
+    // any
     // member never clears the aggregate row's unread badge.
     private fun hookConversationStorageUpdateUnread() {
         WeConversationApi.methodUpdateUnreadByTalker.hookBefore {
@@ -798,10 +837,11 @@ object ConversationAggregation : ClickableFeature(),
 
     private fun launchFolderContainer(source: Any?, folderId: String) {
         val context = source as? Context ?: return
-        val intent = Intent().apply {
-            setClassName(context, CONTAINER_UI_NAME)
-            applyFolderContainerIntent(this, folderId)
-        }
+        val intent =
+            Intent().apply {
+                setClassName(context, CONTAINER_UI_NAME)
+                applyFolderContainerIntent(this, folderId)
+            }
         context.startActivity(intent)
     }
 
@@ -831,7 +871,7 @@ object ConversationAggregation : ClickableFeature(),
                 onFolderDeleted = {
                     syncFoldersToDatabase()
                     activity.finish()
-                }
+                },
             )
             true
         }
@@ -850,7 +890,7 @@ object ConversationAggregation : ClickableFeature(),
         handler.postAtTime(
             { reconcileFolders(loadFolders()) },
             RECONCILE_TASK_TOKEN,
-            SystemClock.uptimeMillis()
+            SystemClock.uptimeMillis(),
         )
     }
 
@@ -872,10 +912,14 @@ object ConversationAggregation : ClickableFeature(),
                 val desiredFolderIds = folders.mapTo(linkedSetOf()) { it.id }
                 val storedFolderIds = readStoredFolderIds()
                 val removedFolderIds = storedFolderIds - desiredFolderIds
-                val changedOwnerMembers = currentOwners.filter { (member, owner) ->
-                    desiredOwners[member] != owner
-                }.keys
-                val removedMembers = changedOwnerMembers.filterTo(linkedSetOf()) { it !in desiredOwners }
+                val changedOwnerMembers =
+                    currentOwners
+                        .filter { (member, owner) ->
+                            desiredOwners[member] != owner
+                        }
+                        .keys
+                val removedMembers =
+                    changedOwnerMembers.filterTo(linkedSetOf()) { it !in desiredOwners }
                 val changedBindings = desiredOwners.filter { (member, owner) ->
                     currentOwners[member] != owner
                 }
@@ -885,20 +929,27 @@ object ConversationAggregation : ClickableFeature(),
                 val changedSummaries = folders.mapNotNull { folder ->
                     val summary = summaries[folder.id] ?: FolderSummary()
                     val stored = storedRows[folder.id]
-                    if (stored == null ||
-                        stored.parentRef.isNotEmpty() ||
-                        stored.summary != summary ||
-                        stored.attrFlag != summary.attrFlag ||
-                        stored.flag and FLAG_TIME_MASK != summary.conversationTime and FLAG_TIME_MASK
+                    if (
+                        stored == null ||
+                            stored.parentRef.isNotEmpty() ||
+                            stored.summary != summary ||
+                            stored.attrFlag != summary.attrFlag ||
+                            stored.flag and FLAG_TIME_MASK !=
+                                summary.conversationTime and FLAG_TIME_MASK
                     ) {
                         folder.id to summary
                     } else {
                         null
                     }
                 }
-                databaseChanged = changedBindings.isNotEmpty() || changedSummaries.isNotEmpty() ||
-                        removedMembers.isNotEmpty() || removedFolderIds.isNotEmpty() ||
-                        folders.any { it.id !in storedRows || existingContacts[it.id] != it.name } ||
+                databaseChanged =
+                    changedBindings.isNotEmpty() ||
+                        changedSummaries.isNotEmpty() ||
+                        removedMembers.isNotEmpty() ||
+                        removedFolderIds.isNotEmpty() ||
+                        folders.any {
+                            it.id !in storedRows || existingContacts[it.id] != it.name
+                        } ||
                         desiredFolderIds.any { it !in existingAvatarRows }
 
                 if (databaseChanged) {
@@ -936,14 +987,15 @@ object ConversationAggregation : ClickableFeature(),
                 WeLogger.i(
                     TAG,
                     "reconciled ${folders.size} folders: bindings=${changedBindings.size}, " +
-                    "unbound=${removedMembers.size}, removed=${removedFolderIds.size}, " +
-                            "elapsed=${SystemClock.elapsedRealtime() - startedAt}ms"
+                        "unbound=${removedMembers.size}, removed=${removedFolderIds.size}, " +
+                        "elapsed=${SystemClock.elapsedRealtime() - startedAt}ms",
                 )
             }
             if (databaseChanged) WeConversationApi.reloadConversations(folders.map { it.id })
-        }.onFailure {
-            WeLogger.e(TAG, "failed to sync folders", it)
         }
+            .onFailure {
+                WeLogger.e(TAG, "failed to sync folders", it)
+            }
     }
 
     private fun resolveOwnedMembers(folders: List<ChatFolder>): Map<String, List<String>> {
@@ -960,54 +1012,66 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun reverseMemberIndex(byFolder: Map<String, List<String>>): Map<String, String> =
-        buildMap { byFolder.forEach { (folderId, members) -> members.forEach { put(it, folderId) } } }
+        buildMap {
+            byFolder.forEach { (folderId, members) -> members.forEach { put(it, folderId) } }
+        }
 
     private fun readCurrentMemberOwners(): Map<String, String> {
         val result = linkedMapOf<String, String>()
         WeDatabaseApi.rawQuery(
-            "SELECT ${ConversationTable.USERNAME}, ${ConversationTable.PARENT_REF} " +
+                "SELECT ${ConversationTable.USERNAME}, ${ConversationTable.PARENT_REF} " +
                     "FROM ${ConversationTable.NAME} WHERE ${ConversationTable.PARENT_REF} LIKE ?",
-            arrayOf("$FOLDER_PREFIX%")
-        ).use { cursor ->
-            while (cursor.moveToNext()) result[cursor.getString(0)] = cursor.getString(1)
-        }
+                arrayOf("$FOLDER_PREFIX%"),
+            )
+            .use { cursor ->
+                while (cursor.moveToNext()) result[cursor.getString(0)] = cursor.getString(1)
+            }
         return result
     }
 
     private fun readStoredFolderRows(): Map<String, StoredFolderRow> {
         val result = linkedMapOf<String, StoredFolderRow>()
         WeDatabaseApi.rawQuery(
-            """
+                """
             SELECT ${ConversationTable.USERNAME}, ${ConversationTable.FLAG}, ${ConversationTable.DIGEST},
                    ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS},
                    ${ConversationTable.CONVERSATION_TIME}, ${ConversationTable.UNREAD_COUNT},
                    ${ConversationTable.UNREAD_MUTE_COUNT}, ${ConversationTable.CONTENT},
                    ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}, ${ConversationTable.ATTR_FLAG},
                    ${ConversationTable.PARENT_REF}
-            """.trimIndent() + " " +
+            """
+                    .trimIndent() +
+                    " " +
                     "FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} LIKE ?",
-            arrayOf("$FOLDER_PREFIX%")
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                result[cursor.getString(0)] = StoredFolderRow(
-                    flag = cursor.getLongOrZero(ConversationTable.FLAG),
-                    attrFlag = cursor.getIntOrZero(ConversationTable.ATTR_FLAG),
-                    parentRef = cursor.getStringOrEmpty(ConversationTable.PARENT_REF),
-                    summary = FolderSummary(
-                        digest = cursor.getStringOrEmpty(ConversationTable.DIGEST),
-                        digestUser = cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
-                        isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
-                        status = cursor.getIntOrZero(ConversationTable.STATUS),
-                        conversationTime = cursor.getLongOrZero(ConversationTable.CONVERSATION_TIME),
-                        unreadCount = cursor.getIntOrZero(ConversationTable.UNREAD_COUNT),
-                        unreadMuteCount = cursor.getIntOrZero(ConversationTable.UNREAD_MUTE_COUNT),
-                        content = cursor.getStringOrEmpty(ConversationTable.CONTENT),
-                        msgType = cursor.getStringOrEmpty(ConversationTable.MSG_TYPE),
-                        chatMode = cursor.getIntOrZero(ConversationTable.CHAT_MODE)
-                    )
-                )
+                arrayOf("$FOLDER_PREFIX%"),
+            )
+            .use { cursor ->
+                while (cursor.moveToNext()) {
+                    result[cursor.getString(0)] =
+                        StoredFolderRow(
+                            flag = cursor.getLongOrZero(ConversationTable.FLAG),
+                            attrFlag = cursor.getIntOrZero(ConversationTable.ATTR_FLAG),
+                            parentRef = cursor.getStringOrEmpty(ConversationTable.PARENT_REF),
+                            summary =
+                                FolderSummary(
+                                    digest = cursor.getStringOrEmpty(ConversationTable.DIGEST),
+                                    digestUser =
+                                        cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
+                                    isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
+                                    status = cursor.getIntOrZero(ConversationTable.STATUS),
+                                    conversationTime =
+                                        cursor.getLongOrZero(ConversationTable.CONVERSATION_TIME),
+                                    unreadCount =
+                                        cursor.getIntOrZero(ConversationTable.UNREAD_COUNT),
+                                    unreadMuteCount =
+                                        cursor.getIntOrZero(ConversationTable.UNREAD_MUTE_COUNT),
+                                    content = cursor.getStringOrEmpty(ConversationTable.CONTENT),
+                                    msgType = cursor.getStringOrEmpty(ConversationTable.MSG_TYPE),
+                                    chatMode = cursor.getIntOrZero(ConversationTable.CHAT_MODE),
+                                ),
+                        )
+                }
             }
-        }
         return result
     }
 
@@ -1015,9 +1079,10 @@ object ConversationAggregation : ClickableFeature(),
         val result = linkedSetOf<String>()
         listOf(ConversationTable.NAME, ContactTable.NAME, "img_flag").forEach { table ->
             WeDatabaseApi.rawQuery(
-                "SELECT username FROM $table WHERE username LIKE ?",
-                arrayOf("$FOLDER_PREFIX%")
-            ).use { cursor -> while (cursor.moveToNext()) result += cursor.getString(0) }
+                    "SELECT username FROM $table WHERE username LIKE ?",
+                    arrayOf("$FOLDER_PREFIX%"),
+                )
+                .use { cursor -> while (cursor.moveToNext()) result += cursor.getString(0) }
         }
         return result
     }
@@ -1027,12 +1092,14 @@ object ConversationAggregation : ClickableFeature(),
         val result = linkedMapOf<String, String>()
         folderIds.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { ids ->
             WeDatabaseApi.rawQuery(
-                "SELECT ${ContactTable.USERNAME}, ${ContactTable.NICKNAME} FROM ${ContactTable.NAME} " +
+                    "SELECT ${ContactTable.USERNAME}, ${ContactTable.NICKNAME} FROM ${ContactTable.NAME} " +
                         "WHERE ${ContactTable.USERNAME} IN (${placeholders(ids.size)})",
-                ids.toTypedArray()
-            ).use { cursor ->
-                while (cursor.moveToNext()) result[cursor.getString(0)] = cursor.getString(1) ?: ""
-            }
+                    ids.toTypedArray(),
+                )
+                .use { cursor ->
+                    while (cursor.moveToNext()) result[cursor.getString(0)] =
+                        cursor.getString(1) ?: ""
+                }
         }
         return result
     }
@@ -1042,18 +1109,23 @@ object ConversationAggregation : ClickableFeature(),
         val result = linkedSetOf<String>()
         folderIds.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { ids ->
             WeDatabaseApi.rawQuery(
-                "SELECT username FROM img_flag WHERE username IN (${placeholders(ids.size)})",
-                ids.toTypedArray()
-            ).use { cursor -> while (cursor.moveToNext()) result += cursor.getString(0) }
+                    "SELECT username FROM img_flag WHERE username IN (${placeholders(ids.size)})",
+                    ids.toTypedArray(),
+                )
+                .use { cursor -> while (cursor.moveToNext()) result += cursor.getString(0) }
         }
         return result
     }
 
     private fun persistChangedPinFlags(folders: List<ChatFolder>, liveFlags: Map<String, Long>) {
-        val changed = folders.mapNotNull { folder ->
-            val liveHigh = liveFlags[folder.id]?.and(FLAG_HIGH_MASK)
-            if (liveHigh == null || liveHigh == folder.pinFlag) null else folder.id to liveHigh
-        }.toMap()
+        val changed =
+            folders
+                .mapNotNull { folder ->
+                    val liveHigh = liveFlags[folder.id]?.and(FLAG_HIGH_MASK)
+                    if (liveHigh == null || liveHigh == folder.pinFlag) null
+                    else folder.id to liveHigh
+                }
+                .toMap()
         if (changed.isEmpty()) return
         storageScope.launch {
             try {
@@ -1084,24 +1156,25 @@ object ConversationAggregation : ClickableFeature(),
                   AND ${ConversationTable.MSG_TYPE}=''
                   AND ${ConversationTable.STATUS}=0
                   AND ${ConversationTable.IS_SEND}=0
-                """.trimIndent(),
-                arrayOf("$prefix%")
+                """
+                    .trimIndent(),
+                arrayOf("$prefix%"),
             )
             WeDatabaseApi.execStatement(
                 "UPDATE ${ConversationTable.NAME} SET ${ConversationTable.PARENT_REF}='' WHERE ${ConversationTable.PARENT_REF} LIKE ?",
-                arrayOf("$prefix%")
+                arrayOf("$prefix%"),
             )
             WeDatabaseApi.execStatement(
                 "DELETE FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} LIKE ?",
-                arrayOf("$prefix%")
+                arrayOf("$prefix%"),
             )
             WeDatabaseApi.execStatement(
                 "DELETE FROM ${ContactTable.NAME} WHERE ${ContactTable.USERNAME} LIKE ?",
-                arrayOf("$prefix%")
+                arrayOf("$prefix%"),
             )
             WeDatabaseApi.execStatement(
                 "DELETE FROM img_flag WHERE username LIKE ?",
-                arrayOf("$prefix%")
+                arrayOf("$prefix%"),
             )
         }
     }
@@ -1119,8 +1192,9 @@ object ConversationAggregation : ClickableFeature(),
                   AND ${ConversationTable.UNREAD_COUNT}=0 AND ${ConversationTable.CONVERSATION_TIME}=0
                   AND ${ConversationTable.FLAG}=0 AND ${ConversationTable.MSG_TYPE}=''
                   AND ${ConversationTable.STATUS}=0 AND ${ConversationTable.IS_SEND}=0
-                """.trimIndent(),
-                arrayOf(*chunk.toTypedArray(), "$FOLDER_PREFIX%")
+                """
+                    .trimIndent(),
+                arrayOf(*chunk.toTypedArray(), "$FOLDER_PREFIX%"),
             )
         }
     }
@@ -1129,25 +1203,35 @@ object ConversationAggregation : ClickableFeature(),
         members.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { chunk ->
             WeDatabaseApi.execStatement(
                 "UPDATE ${ConversationTable.NAME} SET ${ConversationTable.PARENT_REF}='' " +
-                        "WHERE ${ConversationTable.USERNAME} IN (${placeholders(chunk.size)}) " +
-                        "AND ${ConversationTable.PARENT_REF} LIKE ?",
-                arrayOf(*chunk.toTypedArray(), "$FOLDER_PREFIX%")
+                    "WHERE ${ConversationTable.USERNAME} IN (${placeholders(chunk.size)}) " +
+                    "AND ${ConversationTable.PARENT_REF} LIKE ?",
+                arrayOf(*chunk.toTypedArray(), "$FOLDER_PREFIX%"),
             )
         }
     }
 
-    private fun ensureManualMemberRows(folders: List<ChatFolder>, changedMembers: Collection<String>) {
+    private fun ensureManualMemberRows(
+        folders: List<ChatFolder>,
+        changedMembers: Collection<String>,
+    ) {
         val changed = changedMembers.toHashSet()
-        folders.filter { it.type == FolderType.MANUAL }.forEach { folder ->
-            folder.members.asSequence()
-                .filter { it in changed && !isFolderId(it) }
-                .distinct()
-                .chunked(SQLITE_BIND_CHUNK_SIZE / 2)
-                .forEach { chunk ->
-                    val values = chunk.joinToString(",") { "(?, ?, '', '', 0, 0, 0, 0, 0, 0, '', '', 0)" }
-                    val args: Array<Any> = chunk.flatMap { listOf<Any>(it, folder.id) }.toTypedArray()
-                    WeDatabaseApi.execStatement(
-                        """
+        folders
+            .filter { it.type == FolderType.MANUAL }
+            .forEach { folder ->
+                folder.members
+                    .asSequence()
+                    .filter { it in changed && !isFolderId(it) }
+                    .distinct()
+                    .chunked(SQLITE_BIND_CHUNK_SIZE / 2)
+                    .forEach { chunk ->
+                        val values =
+                            chunk.joinToString(",") {
+                                "(?, ?, '', '', 0, 0, 0, 0, 0, 0, '', '', 0)"
+                            }
+                        val args: Array<Any> =
+                            chunk.flatMap { listOf<Any>(it, folder.id) }.toTypedArray()
+                        WeDatabaseApi.execStatement(
+                            """
                         INSERT OR IGNORE INTO ${ConversationTable.NAME} (
                             ${ConversationTable.USERNAME}, ${ConversationTable.PARENT_REF}, ${ConversationTable.DIGEST},
                             ${ConversationTable.DIGEST_USER}, ${ConversationTable.IS_SEND}, ${ConversationTable.STATUS},
@@ -1155,11 +1239,12 @@ object ConversationAggregation : ClickableFeature(),
                             ${ConversationTable.UNREAD_MUTE_COUNT}, ${ConversationTable.CONTENT},
                             ${ConversationTable.MSG_TYPE}, ${ConversationTable.CHAT_MODE}
                         ) VALUES $values
-                        """.trimIndent(),
-                        args
-                    )
-                }
-        }
+                        """
+                                .trimIndent(),
+                            args,
+                        )
+                    }
+            }
     }
 
     private fun bindMembers(bindings: Map<String, String>) {
@@ -1167,8 +1252,8 @@ object ConversationAggregation : ClickableFeature(),
             members.chunked(SQLITE_BIND_CHUNK_SIZE - 1).forEach { chunk ->
                 WeDatabaseApi.execStatement(
                     "UPDATE ${ConversationTable.NAME} SET ${ConversationTable.PARENT_REF}=? " +
-                            "WHERE ${ConversationTable.USERNAME} IN (${placeholders(chunk.size)})",
-                    arrayOf(folderId, *chunk.toTypedArray())
+                        "WHERE ${ConversationTable.USERNAME} IN (${placeholders(chunk.size)})",
+                    arrayOf(folderId, *chunk.toTypedArray()),
                 )
             }
         }
@@ -1190,8 +1275,9 @@ object ConversationAggregation : ClickableFeature(),
                 ${ConversationTable.USERNAME}, ${ConversationTable.PARENT_REF}, ${ConversationTable.FLAG},
                 ${ConversationTable.CONVERSATION_TIME}, ${ConversationTable.DIGEST}, ${ConversationTable.CONTENT}
             ) VALUES (?, '', ?, 0, '', '')
-            """.trimIndent(),
-            arrayOf(folder.id, folder.pinFlag and FLAG_HIGH_MASK)
+            """
+                .trimIndent(),
+            arrayOf(folder.id, folder.pinFlag and FLAG_HIGH_MASK),
         )
     }
 
@@ -1201,8 +1287,9 @@ object ConversationAggregation : ClickableFeature(),
             REPLACE INTO ${ContactTable.NAME} (
                 ${ContactTable.USERNAME}, ${ContactTable.NICKNAME}, ${ContactTable.TYPE}, ${ContactTable.VERIFY_FLAG}
             ) VALUES (?, ?, 3, 0)
-            """.trimIndent(),
-            arrayOf(folder.id, folder.name)
+            """
+                .trimIndent(),
+            arrayOf(folder.id, folder.name),
         )
     }
 
@@ -1211,8 +1298,13 @@ object ConversationAggregation : ClickableFeature(),
             """
             INSERT OR IGNORE INTO img_flag (username, imgflag, lastupdatetime, reserved1, reserved2)
             VALUES (?, 3, ?, 0, ?)
-            """.trimIndent(),
-            arrayOf(folderId, System.currentTimeMillis() / 1000, "http://wekit.local/avatar/$folderId")
+            """
+                .trimIndent(),
+            arrayOf(
+                folderId,
+                System.currentTimeMillis() / 1000,
+                "http://wekit.local/avatar/$folderId",
+            ),
         )
     }
 
@@ -1230,7 +1322,8 @@ object ConversationAggregation : ClickableFeature(),
                 ${ConversationTable.CONTENT}=?, ${ConversationTable.MSG_TYPE}=?,
                 ${ConversationTable.CHAT_MODE}=?, ${ConversationTable.ATTR_FLAG}=?
             WHERE ${ConversationTable.USERNAME}=?
-            """.trimIndent(),
+            """
+                .trimIndent(),
             arrayOf(
                 summary.digest,
                 summary.digestUser,
@@ -1245,14 +1338,14 @@ object ConversationAggregation : ClickableFeature(),
                 summary.msgType,
                 summary.chatMode,
                 summary.attrFlag,
-                folderId
-            )
+                folderId,
+            ),
         )
     }
 
     private fun readFolderSummaries(
         byFolder: Map<String, List<String>>,
-        storedRows: Map<String, StoredFolderRow> = emptyMap()
+        storedRows: Map<String, StoredFolderRow> = emptyMap(),
     ): Map<String, FolderSummary> {
         val ownerByMember = reverseMemberIndex(byFolder)
         val states = byFolder.mapValuesTo(linkedMapOf()) { SummaryAccumulator() }
@@ -1260,7 +1353,7 @@ object ConversationAggregation : ClickableFeature(),
 
         members.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { chunk ->
             WeDatabaseApi.rawQuery(
-                """
+                    """
                 SELECT r.${ConversationTable.USERNAME}, r.${ConversationTable.DIGEST},
                        r.${ConversationTable.DIGEST_USER}, r.${ConversationTable.IS_SEND},
                        r.${ConversationTable.STATUS}, r.${ConversationTable.CONVERSATION_TIME},
@@ -1272,54 +1365,69 @@ object ConversationAggregation : ClickableFeature(),
                 LEFT JOIN ${ContactTable.NAME} c
                   ON c.${ContactTable.USERNAME}=r.${ConversationTable.USERNAME}
                 WHERE r.${ConversationTable.USERNAME} IN (${placeholders(chunk.size)})
-                """.trimIndent(),
-                chunk.toTypedArray()
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    val username = cursor.getStringOrEmpty(ConversationTable.USERNAME)
-                    val folderId = ownerByMember[username] ?: continue
-                    val state = states.getValue(folderId)
-                    val unread = cursor.getIntOrZero(ConversationTable.UNREAD_COUNT).coerceAtLeast(0)
-                    if (unread > 0) {
-                        val muted = if (username.endsWith("@chatroom")) {
-                            val index = cursor.getColumnIndex(ContactTable.LV_BUFF)
-                            val lvBuff = if (index >= 0 && !cursor.isNull(index)) cursor.getBlob(index) else null
-                            WeConversationApi.parseChatRoomNotify(lvBuff) == 0
-                        } else {
-                            cursor.getIntOrZero(ContactTable.TYPE) and 512 != 0
+                """
+                        .trimIndent(),
+                    chunk.toTypedArray(),
+                )
+                .use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val username = cursor.getStringOrEmpty(ConversationTable.USERNAME)
+                        val folderId = ownerByMember[username] ?: continue
+                        val state = states.getValue(folderId)
+                        val unread =
+                            cursor.getIntOrZero(ConversationTable.UNREAD_COUNT).coerceAtLeast(0)
+                        if (unread > 0) {
+                            val muted =
+                                if (username.endsWith("@chatroom")) {
+                                    val index = cursor.getColumnIndex(ContactTable.LV_BUFF)
+                                    val lvBuff =
+                                        if (index >= 0 && !cursor.isNull(index))
+                                            cursor.getBlob(index)
+                                        else null
+                                    WeConversationApi.parseChatRoomNotify(lvBuff) == 0
+                                } else {
+                                    cursor.getIntOrZero(ContactTable.TYPE) and 512 != 0
+                                }
+                            if (muted) state.mutedUnread += unread else state.normalUnread += unread
                         }
-                        if (muted) state.mutedUnread += unread else state.normalUnread += unread
-                    }
 
-                    val time = cursor.getLongOrZero(ConversationTable.CONVERSATION_TIME)
-                    if (state.latest == null || time > state.latest!!.conversationTime) {
-                        val nickname = cursor.getStringOrEmpty(ContactTable.NICKNAME)
-                        val remark = cursor.getStringOrEmpty(ContactTable.CON_REMARK)
-                        val displayName = if (username.endsWith("@chatroom")) nickname else remark.ifBlank { nickname }
-                        state.latest = MemberSummaryRow(
-                            digest = prefixWithConversationName(
-                                displayName.takeIf { it.isNotBlank() && it != username },
-                                cursor.getStringOrEmpty(ConversationTable.DIGEST)
-                            ),
-                            digestUser = cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
-                            isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
-                            status = cursor.getIntOrZero(ConversationTable.STATUS),
-                            conversationTime = time,
-                            content = cursor.getStringOrEmpty(ConversationTable.CONTENT),
-                            msgType = cursor.getStringOrEmpty(ConversationTable.MSG_TYPE),
-                            chatMode = cursor.getIntOrZero(ConversationTable.CHAT_MODE)
-                        )
+                        val time = cursor.getLongOrZero(ConversationTable.CONVERSATION_TIME)
+                        if (state.latest == null || time > state.latest!!.conversationTime) {
+                            val nickname = cursor.getStringOrEmpty(ContactTable.NICKNAME)
+                            val remark = cursor.getStringOrEmpty(ContactTable.CON_REMARK)
+                            val displayName =
+                                if (username.endsWith("@chatroom")) nickname
+                                else remark.ifBlank { nickname }
+                            state.latest =
+                                MemberSummaryRow(
+                                    digest =
+                                        prefixWithConversationName(
+                                            displayName.takeIf {
+                                                it.isNotBlank() && it != username
+                                            },
+                                            cursor.getStringOrEmpty(ConversationTable.DIGEST),
+                                        ),
+                                    digestUser =
+                                        cursor.getStringOrEmpty(ConversationTable.DIGEST_USER),
+                                    isSend = cursor.getIntOrZero(ConversationTable.IS_SEND),
+                                    status = cursor.getIntOrZero(ConversationTable.STATUS),
+                                    conversationTime = time,
+                                    content = cursor.getStringOrEmpty(ConversationTable.CONTENT),
+                                    msgType = cursor.getStringOrEmpty(ConversationTable.MSG_TYPE),
+                                    chatMode = cursor.getIntOrZero(ConversationTable.CHAT_MODE),
+                                )
+                        }
                     }
                 }
-            }
         }
 
         return states.mapValues { (folderId, state) ->
             val latest = state.latest
             if (latest == null) {
                 FolderSummary(
-                    conversationTime = storedRows[folderId]?.summary?.conversationTime
-                        ?: System.currentTimeMillis()
+                    conversationTime =
+                        storedRows[folderId]?.summary?.conversationTime
+                            ?: System.currentTimeMillis(),
                 )
             } else {
                 FolderSummary(
@@ -1327,24 +1435,25 @@ object ConversationAggregation : ClickableFeature(),
                     digestUser = latest.digestUser,
                     isSend = latest.isSend,
                     status = latest.status,
-                    conversationTime = latest.conversationTime.takeIf { it > 0L }
-                        ?: storedRows[folderId]?.summary?.conversationTime
-                        ?: System.currentTimeMillis(),
+                    conversationTime =
+                        latest.conversationTime.takeIf { it > 0L }
+                            ?: storedRows[folderId]?.summary?.conversationTime
+                            ?: System.currentTimeMillis(),
                     unreadCount = state.normalUnread,
                     unreadMuteCount = state.mutedUnread,
                     content = latest.content,
                     msgType = latest.msgType,
-                    chatMode = latest.chatMode
+                    chatMode = latest.chatMode,
                 )
             }
         }
     }
 
     /**
-     * Prefixes the folder digest with the originating conversation's display name, so the
-     * homepage folder row reads like "群聊名: 最新一条消息" instead of a bare message whose
-     * source is ambiguous once several chats are aggregated. Returns the digest untouched
-     * when it is blank or the name can't be resolved, to avoid a dangling "name: " prefix.
+     * Prefixes the folder digest with the originating conversation's display name, so the homepage
+     * folder row reads like "群聊名: 最新一条消息" instead of a bare message whose source is ambiguous once
+     * several chats are aggregated. Returns the digest untouched when it is blank or the name can't
+     * be resolved, to avoid a dangling "name: " prefix.
      */
     private fun prefixWithConversationName(displayName: String?, digest: String): String {
         if (digest.isBlank() || displayName.isNullOrBlank()) return digest
@@ -1352,26 +1461,31 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun isFolderSchemaReady(): Boolean {
-        folderSchemaReady?.let { return it }
+        folderSchemaReady?.let {
+            return it
+        }
         val result = runCatching {
             val conversationColumns = tableColumns(ConversationTable.NAME)
             val contactColumns = tableColumns(ContactTable.NAME)
-            val missingConversationColumns = ConversationTable.REQUIRED_COLUMNS - conversationColumns
+            val missingConversationColumns =
+                ConversationTable.REQUIRED_COLUMNS - conversationColumns
             val missingContactColumns = ContactTable.REQUIRED_COLUMNS - contactColumns
             if (missingConversationColumns.isNotEmpty() || missingContactColumns.isNotEmpty()) {
                 WeLogger.w(
                     TAG,
                     "skip folders sync, schema mismatch: " +
-                            "rconversation missing=${missingConversationColumns.joinToString()}, " +
-                            "rcontact missing=${missingContactColumns.joinToString()}"
+                        "rconversation missing=${missingConversationColumns.joinToString()}, " +
+                        "rcontact missing=${missingContactColumns.joinToString()}",
                 )
                 false
             } else {
                 true
             }
-        }.onFailure {
-            WeLogger.w(TAG, "skip folders sync, failed to inspect WeChat database schema", it)
-        }.getOrNull()
+        }
+            .onFailure {
+                WeLogger.w(TAG, "skip folders sync, failed to inspect WeChat database schema", it)
+            }
+            .getOrNull()
         // Only latch the outcome when the check actually completed. A transient failure (the
         // database being briefly locked or closing right after WeDatabaseApi.isReady flips)
         // must not permanently disable folder sync for the rest of the process — leave the
@@ -1395,23 +1509,25 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun rewriteContainerSql(sql: String, folderId: String): String {
-        if (!sql.contains(ConversationTable.NAME, ignoreCase = true) ||
-            !sql.contains(ConversationTable.PARENT_REF, ignoreCase = true)
+        if (
+            !sql.contains(ConversationTable.NAME, ignoreCase = true) ||
+                !sql.contains(ConversationTable.PARENT_REF, ignoreCase = true)
         ) {
             return sql
         }
-        if (!sql.contains(WeChatFolderPlaceholder.CONVERSATION_BOX) && !sql.contains(WeChatFolderPlaceholder.MESSAGE_FOLD)) {
+        if (
+            !sql.contains(WeChatFolderPlaceholder.CONVERSATION_BOX) &&
+                !sql.contains(WeChatFolderPlaceholder.MESSAGE_FOLD)
+        ) {
             return sql
         }
-        return sql
-            .replace(WeChatFolderPlaceholder.CONVERSATION_BOX, folderId)
+        return sql.replace(WeChatFolderPlaceholder.CONVERSATION_BOX, folderId)
             .replace(WeChatFolderPlaceholder.MESSAGE_FOLD, folderId)
     }
 
     private fun readFolderIdFromIntent(intent: Intent?): String? {
         if (intent == null) return null
-        return WeChatIntentExtra.ALL
-            .asSequence()
+        return WeChatIntentExtra.ALL.asSequence()
             .mapNotNull { intent.getStringExtra(it) }
             .firstOrNull(::isFolderId)
     }
@@ -1437,7 +1553,7 @@ object ConversationAggregation : ClickableFeature(),
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 420.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             if (folders.isEmpty()) {
                                 item {
@@ -1450,7 +1566,7 @@ object ConversationAggregation : ClickableFeature(),
                                         context = context,
                                         folder = folder,
                                         onFolderUpdated = { folders = loadFolders() },
-                                        onFolderDeleted = { folders = loadFolders() }
+                                        onFolderDeleted = { folders = loadFolders() },
                                     )
                                 }
                             }
@@ -1458,21 +1574,33 @@ object ConversationAggregation : ClickableFeature(),
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = {
-                        showCreateFolderDialog(context) {
-                            folders = loadFolders()
-                        }
-                    }) { Text(stringResource(R.string.chat_aggregation_create)) }
-                    TextButton(onClick = {
-                        syncFoldersToDatabase()
-                        showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
-                    }) { Text(stringResource(R.string.chat_aggregation_reload)) }
+                    TextButton(
+                        onClick = {
+                            showCreateFolderDialog(context) {
+                                folders = loadFolders()
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.chat_aggregation_create))
+                    }
+                    TextButton(
+                        onClick = {
+                            syncFoldersToDatabase()
+                            showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
+                        },
+                    ) {
+                        Text(stringResource(R.string.chat_aggregation_reload))
+                    }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_close)) }
-                }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_close))
+                    }
+                },
             )
         }
     }
@@ -1488,7 +1616,7 @@ object ConversationAggregation : ClickableFeature(),
                     upsertFolder(folder)
                     onFolderCreated()
                     onDismiss()
-                }
+                },
             )
         }
     }
@@ -1497,7 +1625,7 @@ object ConversationAggregation : ClickableFeature(),
         context: Context,
         folder: ChatFolder,
         onFolderUpdated: () -> Unit,
-        onFolderDeleted: () -> Unit
+        onFolderDeleted: () -> Unit,
     ) {
         showComposeDialog(context) {
             FolderEditorDialog(
@@ -1514,51 +1642,56 @@ object ConversationAggregation : ClickableFeature(),
                     upsertFolder(updatedFolder)
                     onFolderUpdated()
                     onDismiss()
-                }
+                },
             )
         }
     }
 
     @Composable
-    private fun folderTypeLabel(type: FolderType): String = when (type) {
-        FolderType.MANUAL -> stringResource(R.string.chat_aggregation_mode_manual)
-        FolderType.PRESET_GROUPS -> stringResource(R.string.chat_aggregation_mode_all_groups)
-        FolderType.PRESET_OFFICIALS -> stringResource(R.string.chat_aggregation_mode_all_officials)
-        FolderType.SQL -> stringResource(R.string.chat_aggregation_mode_sql)
-    }
+    private fun folderTypeLabel(type: FolderType): String =
+        when (type) {
+            FolderType.MANUAL -> stringResource(R.string.chat_aggregation_mode_manual)
+            FolderType.PRESET_GROUPS -> stringResource(R.string.chat_aggregation_mode_all_groups)
+            FolderType.PRESET_OFFICIALS ->
+                stringResource(R.string.chat_aggregation_mode_all_officials)
+            FolderType.SQL -> stringResource(R.string.chat_aggregation_mode_sql)
+        }
 
     @Composable
     private fun FolderRow(folder: ChatFolder, onClick: () -> Unit) {
         val count = remember(folder) { getFolderMembers(folder).size }
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp)
+            modifier =
+                Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
         ) {
             Text(folder.name)
-            val desc = when (folder.type) {
-                FolderType.MANUAL -> pluralStringResource(
-                    R.plurals.chat_aggregation_manual_conversation_count,
-                    count,
-                    count,
-                )
-                FolderType.PRESET_GROUPS -> pluralStringResource(
-                    R.plurals.chat_aggregation_groups_conversation_count,
-                    count,
-                    count,
-                )
-                FolderType.PRESET_OFFICIALS -> pluralStringResource(
-                    R.plurals.chat_aggregation_officials_conversation_count,
-                    count,
-                    count,
-                )
-                FolderType.SQL -> pluralStringResource(
-                    R.plurals.chat_aggregation_sql_conversation_count,
-                    count,
-                    count,
-                )
-            }
+            val desc =
+                when (folder.type) {
+                    FolderType.MANUAL ->
+                        pluralStringResource(
+                            R.plurals.chat_aggregation_manual_conversation_count,
+                            count,
+                            count,
+                        )
+                    FolderType.PRESET_GROUPS ->
+                        pluralStringResource(
+                            R.plurals.chat_aggregation_groups_conversation_count,
+                            count,
+                            count,
+                        )
+                    FolderType.PRESET_OFFICIALS ->
+                        pluralStringResource(
+                            R.plurals.chat_aggregation_officials_conversation_count,
+                            count,
+                            count,
+                        )
+                    FolderType.SQL ->
+                        pluralStringResource(
+                            R.plurals.chat_aggregation_sql_conversation_count,
+                            count,
+                            count,
+                        )
+                }
             Text(desc)
         }
     }
@@ -1570,7 +1703,7 @@ object ConversationAggregation : ClickableFeature(),
         onDismiss: () -> Unit,
         onDelete: (suspend () -> Unit)? = null,
         onSavingChanged: (Boolean) -> Unit,
-        onSave: suspend (ChatFolder) -> Unit
+        onSave: suspend (ChatFolder) -> Unit,
     ) {
         val scope = rememberCoroutineScope()
         var saving by remember { mutableStateOf(false) }
@@ -1598,27 +1731,31 @@ object ConversationAggregation : ClickableFeature(),
         var members by remember(folder) { mutableStateOf(folder?.members?.toSet().orEmpty()) }
 
         var type by remember(folder) { mutableStateOf(folder?.type ?: FolderType.MANUAL) }
-        var selectFields by remember(folder) { mutableStateOf(folder?.selectFields ?: "r.username") }
+        var selectFields by
+            remember(folder) { mutableStateOf(folder?.selectFields ?: "r.username") }
         var whereClause by remember(folder) { mutableStateOf(folder?.whereClause ?: "") }
 
-        val matchedCount = remember(type, members, selectFields, whereClause) {
-            val tempFolder = ChatFolder(
-                id = folderId,
-                name = name,
-                members = members.toList(),
-                type = type,
-                selectFields = selectFields,
-                whereClause = whereClause
-            )
-            // Resolve directly instead of going through getFolderMembers: that cache is keyed
-            // by folder id, and this preview folder reuses the id of the folder being edited,
-            // so the cached (stale) member list would freeze the count at the first result.
-            resolveFolderMembers(tempFolder).size
-        }
+        val matchedCount =
+            remember(type, members, selectFields, whereClause) {
+                val tempFolder =
+                    ChatFolder(
+                        id = folderId,
+                        name = name,
+                        members = members.toList(),
+                        type = type,
+                        selectFields = selectFields,
+                        whereClause = whereClause,
+                    )
+                // Resolve directly instead of going through getFolderMembers: that cache is keyed
+                // by folder id, and this preview folder reuses the id of the folder being edited,
+                // so the cached (stale) member list would freeze the count at the first result.
+                resolveFolderMembers(tempFolder).size
+            }
 
-        var hasAvatar by remember(folderId) {
-            mutableStateOf(CustomLocalFriendAvatars.hasCustomAvatar(folderId))
-        }
+        var hasAvatar by
+            remember(folderId) {
+                mutableStateOf(CustomLocalFriendAvatars.hasCustomAvatar(folderId))
+            }
 
         AlertDialogContent(
             modifier = Modifier.fillMaxWidth(),
@@ -1626,7 +1763,11 @@ object ConversationAggregation : ClickableFeature(),
                 Column {
                     Text(title)
                     if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (failed) Text(stringResource(R.string.logs_save_failed), color = MaterialTheme.colorScheme.error)
+                    if (failed)
+                        Text(
+                            stringResource(R.string.logs_save_failed),
+                            color = MaterialTheme.colorScheme.error,
+                        )
                 }
             },
             text = {
@@ -1637,7 +1778,7 @@ object ConversationAggregation : ClickableFeature(),
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.chat_aggregation_folder_name)) },
-                        singleLine = true
+                        singleLine = true,
                     )
 
                     var typeExpanded by remember { mutableStateOf(false) }
@@ -1647,43 +1788,53 @@ object ConversationAggregation : ClickableFeature(),
                             style = MaterialTheme.typography.labelSmall,
                         )
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !saving) { typeExpanded = true }
-                                .padding(vertical = 8.dp)
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .clickable(enabled = !saving) { typeExpanded = true }
+                                    .padding(vertical = 8.dp),
                         ) {
                             Text(
                                 text = folderTypeLabel(type),
-                                style = MaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyLarge,
                             )
                         }
                         DropdownMenu(
                             expanded = typeExpanded,
-                            onDismissRequest = { typeExpanded = false }
+                            onDismissRequest = { typeExpanded = false },
                         ) {
                             DropdownMenuItem(
                                 enabled = !saving,
-                                text = { Text(stringResource(R.string.chat_aggregation_mode_manual)) },
+                                text = {
+                                    Text(stringResource(R.string.chat_aggregation_mode_manual))
+                                },
                                 onClick = {
                                     type = FolderType.MANUAL
                                     typeExpanded = false
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 enabled = !saving,
-                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_groups)) },
+                                text = {
+                                    Text(stringResource(R.string.chat_aggregation_mode_all_groups))
+                                },
                                 onClick = {
                                     type = FolderType.PRESET_GROUPS
                                     typeExpanded = false
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 enabled = !saving,
-                                text = { Text(stringResource(R.string.chat_aggregation_mode_all_officials)) },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            R.string.chat_aggregation_mode_all_officials,
+                                        ),
+                                    )
+                                },
                                 onClick = {
                                     type = FolderType.PRESET_OFFICIALS
                                     typeExpanded = false
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 enabled = !saving,
@@ -1691,7 +1842,7 @@ object ConversationAggregation : ClickableFeature(),
                                 onClick = {
                                     type = FolderType.SQL
                                     typeExpanded = false
-                                }
+                                },
                             )
                         }
                     }
@@ -1707,7 +1858,7 @@ object ConversationAggregation : ClickableFeature(),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 val context = LocalContext.current
                                 val localizedContext = LocalWeKitLocalizedContext.current
@@ -1717,40 +1868,57 @@ object ConversationAggregation : ClickableFeature(),
                                     onClick = {
                                         showComposeDialog(context) {
                                             ContactsSelector(
-                                                title = localizedContext.getString(
-                                                    R.string.chat_aggregation_choose_conversations,
-                                                ),
+                                                title =
+                                                    localizedContext.getString(
+                                                        R.string
+                                                            .chat_aggregation_choose_conversations,
+                                                    ),
                                                 contacts = remember { WeDatabaseApi.getContacts() },
                                                 initialSelectedWxIds = members,
                                                 onDismiss = this.onDismiss,
                                                 onConfirm = {
                                                     members = it
                                                     this.onDismiss()
-                                                }
+                                                },
                                             )
                                         }
-                                    }
+                                    },
                                 ) {
-                                    Text(stringResource(R.string.chat_aggregation_choose_conversations))
+                                    Text(
+                                        stringResource(
+                                            R.string.chat_aggregation_choose_conversations,
+                                        ),
+                                    )
                                 }
 
                                 if (hasAvatar) {
-                                    Button(enabled = !saving, onClick = {
-                                        CustomLocalFriendAvatars.removeAvatar(folderId)
-                                        hasAvatar = false
-                                    }) {
+                                    Button(
+                                        enabled = !saving,
+                                        onClick = {
+                                            CustomLocalFriendAvatars.removeAvatar(folderId)
+                                            hasAvatar = false
+                                        },
+                                    ) {
                                         Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
-                                Button(enabled = !saving, onClick = {
-                                    if (!CustomLocalFriendAvatars.isEnabled) {
-                                        showToast(
-                                            localizedChatString(R.string.chat_aggregation_enable_custom_avatar),
-                                        )
-                                    }
+                                Button(
+                                    enabled = !saving,
+                                    onClick = {
+                                        if (!CustomLocalFriendAvatars.isEnabled) {
+                                            showToast(
+                                                localizedChatString(
+                                                    R.string.chat_aggregation_enable_custom_avatar,
+                                                ),
+                                            )
+                                        }
 
-                                    CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
-                                }) {
+                                        CustomLocalFriendAvatars.selectAvatarImage(
+                                            HostInfo.application,
+                                            folderId,
+                                        )
+                                    },
+                                ) {
                                     Text(
                                         stringResource(
                                             if (hasAvatar) {
@@ -1774,13 +1942,16 @@ object ConversationAggregation : ClickableFeature(),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 if (hasAvatar) {
-                                    Button(enabled = !saving, onClick = {
-                                        CustomLocalFriendAvatars.removeAvatar(folderId)
-                                        hasAvatar = false
-                                    }) {
+                                    Button(
+                                        enabled = !saving,
+                                        onClick = {
+                                            CustomLocalFriendAvatars.removeAvatar(folderId)
+                                            hasAvatar = false
+                                        },
+                                    ) {
                                         Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
@@ -1788,8 +1959,11 @@ object ConversationAggregation : ClickableFeature(),
                                     enabled = !saving,
                                     modifier = Modifier.weight(1f),
                                     onClick = {
-                                        CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
-                                    }
+                                        CustomLocalFriendAvatars.selectAvatarImage(
+                                            HostInfo.application,
+                                            folderId,
+                                        )
+                                    },
                                 ) {
                                     Text(
                                         stringResource(
@@ -1811,13 +1985,16 @@ object ConversationAggregation : ClickableFeature(),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 if (hasAvatar) {
-                                    Button(enabled = !saving, onClick = {
-                                        CustomLocalFriendAvatars.removeAvatar(folderId)
-                                        hasAvatar = false
-                                    }) {
+                                    Button(
+                                        enabled = !saving,
+                                        onClick = {
+                                            CustomLocalFriendAvatars.removeAvatar(folderId)
+                                            hasAvatar = false
+                                        },
+                                    ) {
                                         Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
@@ -1825,8 +2002,11 @@ object ConversationAggregation : ClickableFeature(),
                                     enabled = !saving,
                                     modifier = Modifier.weight(1f),
                                     onClick = {
-                                        CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
-                                    }
+                                        CustomLocalFriendAvatars.selectAvatarImage(
+                                            HostInfo.application,
+                                            folderId,
+                                        )
+                                    },
                                 ) {
                                     Text(
                                         stringResource(
@@ -1844,40 +2024,48 @@ object ConversationAggregation : ClickableFeature(),
                                 value = selectFields,
                                 onValueChange = { selectFields = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text(stringResource(R.string.chat_aggregation_select_fields)) },
-                                singleLine = true
+                                label = {
+                                    Text(stringResource(R.string.chat_aggregation_select_fields))
+                                },
+                                singleLine = true,
                             )
                             OutlinedTextField(
                                 enabled = !saving,
                                 value = whereClause,
                                 onValueChange = { whereClause = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text(stringResource(R.string.chat_aggregation_where_clause)) },
+                                label = {
+                                    Text(stringResource(R.string.chat_aggregation_where_clause))
+                                },
                                 singleLine = false,
-                                maxLines = 4
+                                maxLines = 4,
                             )
                             Text(
-                                text = pluralStringResource(
-                                    R.plurals.chat_aggregation_current_match_count,
-                                    matchedCount,
-                                    matchedCount,
-                                ),
-                                style = MaterialTheme.typography.bodyMedium
+                                text =
+                                    pluralStringResource(
+                                        R.plurals.chat_aggregation_current_match_count,
+                                        matchedCount,
+                                        matchedCount,
+                                    ),
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
                                 text = stringResource(R.string.chat_aggregation_sql_help),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 if (hasAvatar) {
-                                    Button(enabled = !saving, onClick = {
-                                        CustomLocalFriendAvatars.removeAvatar(folderId)
-                                        hasAvatar = false
-                                    }) {
+                                    Button(
+                                        enabled = !saving,
+                                        onClick = {
+                                            CustomLocalFriendAvatars.removeAvatar(folderId)
+                                            hasAvatar = false
+                                        },
+                                    ) {
                                         Text(stringResource(R.string.chat_aggregation_clear_avatar))
                                     }
                                 }
@@ -1885,8 +2073,11 @@ object ConversationAggregation : ClickableFeature(),
                                     enabled = !saving,
                                     modifier = Modifier.weight(1f),
                                     onClick = {
-                                        CustomLocalFriendAvatars.selectAvatarImage(HostInfo.application, folderId)
-                                    }
+                                        CustomLocalFriendAvatars.selectAvatarImage(
+                                            HostInfo.application,
+                                            folderId,
+                                        )
+                                    },
                                 ) {
                                     Text(
                                         stringResource(
@@ -1901,29 +2092,37 @@ object ConversationAggregation : ClickableFeature(),
                 }
             },
             dismissButton = {
-                TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onDismiss, enabled = !saving) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
                 if (onDelete != null) {
-                    TextButton(onClick = { submit { onDelete() } }, enabled = !saving) { Text(stringResource(R.string.action_delete)) }
+                    TextButton(onClick = { submit { onDelete() } }, enabled = !saving) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     enabled = !saving && name.isNotBlank(),
                     onClick = {
-                        val next = ChatFolder(
-                            id = folderId,
-                            name = name.trim(),
-                            members = members.toList().sorted(),
-                            type = type,
-                            selectFields = selectFields.trim(),
-                            whereClause = whereClause.trim(),
-                            // Carry the pin state forward — editing a folder must not reset its pin.
-                            pinFlag = folder?.pinFlag ?: 0L
-                        )
+                        val next =
+                            ChatFolder(
+                                id = folderId,
+                                name = name.trim(),
+                                members = members.toList().sorted(),
+                                type = type,
+                                selectFields = selectFields.trim(),
+                                whereClause = whereClause.trim(),
+                                // Carry the pin state forward — editing a folder must not reset its
+                                // pin.
+                                pinFlag = folder?.pinFlag ?: 0L,
+                            )
                         submit { onSave(next) }
-                    }
-                ) { Text(stringResource(R.string.dialog_confirm)) }
-            }
+                    },
+                ) {
+                    Text(stringResource(R.string.dialog_confirm))
+                }
+            },
         )
     }
 
@@ -1932,26 +2131,30 @@ object ConversationAggregation : ClickableFeature(),
             FolderType.MANUAL -> folder.members
             FolderType.PRESET_GROUPS -> {
                 runCatching {
-                    val result = WeDatabaseApi.executeQuery(
-                        "SELECT r.username FROM rcontact r WHERE r.username LIKE '%@chatroom'"
-                    )
+                    val result =
+                        WeDatabaseApi.executeQuery(
+                            "SELECT r.username FROM rcontact r WHERE r.username LIKE '%@chatroom'",
+                        )
                     result.mapNotNull { it["username"]?.toString() }
-                }.getOrElse {
-                    WeLogger.e(TAG, "failed to query preset groups", it)
-                    emptyList()
                 }
+                    .getOrElse {
+                        WeLogger.e(TAG, "failed to query preset groups", it)
+                        emptyList()
+                    }
             }
 
             FolderType.PRESET_OFFICIALS -> {
                 runCatching {
-                    val result = WeDatabaseApi.executeQuery(
-                        "SELECT r.username FROM rcontact r WHERE r.username LIKE 'gh_%'"
-                    )
+                    val result =
+                        WeDatabaseApi.executeQuery(
+                            "SELECT r.username FROM rcontact r WHERE r.username LIKE 'gh_%'",
+                        )
                     result.mapNotNull { it["username"]?.toString() }
-                }.getOrElse {
-                    WeLogger.e(TAG, "failed to query preset officials", it)
-                    emptyList()
                 }
+                    .getOrElse {
+                        WeLogger.e(TAG, "failed to query preset officials", it)
+                        emptyList()
+                    }
             }
 
             FolderType.SQL -> {
@@ -1966,10 +2169,11 @@ object ConversationAggregation : ClickableFeature(),
                         if (username != null) return@mapNotNull username
                         row.values.firstOrNull()?.toString()
                     }
-                }.getOrElse {
-                    WeLogger.e(TAG, "failed to query custom sql for folder ${folder.id}", it)
-                    emptyList()
                 }
+                    .getOrElse {
+                        WeLogger.e(TAG, "failed to query custom sql for folder ${folder.id}", it)
+                        emptyList()
+                    }
             }
         }
     }
@@ -2009,33 +2213,39 @@ object ConversationAggregation : ClickableFeature(),
             // Suppress the container SQL fallback while querying aggregate members directly.
             withQueryRewriteSuppressed {
                 val placeholders = members.joinToString(",") { "?" }
-                val cursor = WeDatabaseApi.rawQuery(
-                    """
+                val cursor =
+                    WeDatabaseApi.rawQuery(
+                        """
                     SELECT ${ConversationTable.USERNAME}
                     FROM ${ConversationTable.NAME}
                     WHERE ${ConversationTable.USERNAME} IN ($placeholders) AND ${ConversationTable.CONVERSATION_TIME} > 0
                     ORDER BY ${ConversationTable.CONVERSATION_TIME} DESC
                     LIMIT 1
-                    """.trimIndent(),
-                    arrayOf(*members.toTypedArray())
-                )
+                    """
+                            .trimIndent(),
+                        arrayOf(*members.toTypedArray()),
+                    )
                 cursor.use { c ->
                     if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null
                 }
             }
-        }.onFailure {
-            WeLogger.w(TAG, "failed to resolve latest active member", it)
-        }.getOrNull()
+        }
+            .onFailure {
+                WeLogger.w(TAG, "failed to resolve latest active member", it)
+            }
+            .getOrNull()
     }
 
-    @Volatile
-    private var foldersCache: List<ChatFolder>? = null
+    @Volatile private var foldersCache: List<ChatFolder>? = null
 
     private fun loadFolders(): List<ChatFolder> {
-        foldersCache?.let { return it }
+        foldersCache?.let {
+            return it
+        }
         return runBlocking(Dispatchers.IO) {
-            WeKitDatabase.instance.conversationCollectionDao().getFolders()
-        }.also { foldersCache = it }
+                WeKitDatabase.instance.conversationCollectionDao().getFolders()
+            }
+            .also { foldersCache = it }
     }
 
     private fun invalidateFolders() {
@@ -2069,12 +2279,11 @@ object ConversationAggregation : ClickableFeature(),
 
     private fun isFolderId(value: String): Boolean = value.startsWith(FOLDER_PREFIX)
 
-
     private data class StoredFolderRow(
         val flag: Long,
         val attrFlag: Int,
         val parentRef: String,
-        val summary: FolderSummary
+        val summary: FolderSummary,
     )
 
     private data class MemberSummaryRow(
@@ -2085,7 +2294,7 @@ object ConversationAggregation : ClickableFeature(),
         val conversationTime: Long,
         val content: String,
         val msgType: String,
-        val chatMode: Int
+        val chatMode: Int,
     )
 
     private class SummaryAccumulator {
@@ -2104,13 +2313,13 @@ object ConversationAggregation : ClickableFeature(),
         val unreadMuteCount: Int = 0,
         val content: String = "",
         val msgType: String = "",
-        val chatMode: Int = 0
+        val chatMode: Int = 0,
     ) {
         /**
-         * The folder row needs a mute attrflag bit set for the homepage badge to render a
-         * small dot (WeChat w3.b requires unReadCount==0 && unReadMuteCount>0 && attrflag has
-         * a mute bit). We add the bit only when there's muted-but-no-normal unread, and clear
-         * it otherwise so a stale dot never lingers.
+         * The folder row needs a mute attrflag bit set for the homepage badge to render a small dot
+         * (WeChat w3.b requires unReadCount==0 && unReadMuteCount>0 && attrflag has a mute bit). We
+         * add the bit only when there's muted-but-no-normal unread, and clear it otherwise so a
+         * stale dot never lingers.
          */
         val attrFlag: Int
             get() = if (unreadCount == 0 && unreadMuteCount > 0) ATTR_FLAG_MUTE_BIT else 0
@@ -2133,22 +2342,23 @@ object ConversationAggregation : ClickableFeature(),
         const val CHAT_MODE = "chatmode"
         const val ATTR_FLAG = "attrflag"
 
-        val REQUIRED_COLUMNS = setOf(
-            USERNAME,
-            PARENT_REF,
-            DIGEST,
-            DIGEST_USER,
-            IS_SEND,
-            STATUS,
-            CONVERSATION_TIME,
-            FLAG,
-            UNREAD_COUNT,
-            UNREAD_MUTE_COUNT,
-            CONTENT,
-            MSG_TYPE,
-            CHAT_MODE,
-            ATTR_FLAG
-        )
+        val REQUIRED_COLUMNS =
+            setOf(
+                USERNAME,
+                PARENT_REF,
+                DIGEST,
+                DIGEST_USER,
+                IS_SEND,
+                STATUS,
+                CONVERSATION_TIME,
+                FLAG,
+                UNREAD_COUNT,
+                UNREAD_MUTE_COUNT,
+                CONTENT,
+                MSG_TYPE,
+                CHAT_MODE,
+                ATTR_FLAG,
+            )
     }
 
     private object ContactTable {
@@ -2160,14 +2370,15 @@ object ConversationAggregation : ClickableFeature(),
         const val TYPE = "type"
         const val VERIFY_FLAG = "verifyFlag"
 
-        val REQUIRED_COLUMNS = setOf(
-            USERNAME,
-            NICKNAME,
-            TYPE,
-            CON_REMARK,
-            LV_BUFF,
-            VERIFY_FLAG
-        )
+        val REQUIRED_COLUMNS =
+            setOf(
+                USERNAME,
+                NICKNAME,
+                TYPE,
+                CON_REMARK,
+                LV_BUFF,
+                VERIFY_FLAG,
+            )
     }
 
     private object WeChatIntentExtra {
@@ -2176,19 +2387,19 @@ object ConversationAggregation : ClickableFeature(),
         const val ROOM_NAME = "room_name"
         const val CHAT_USER = "Chat_User"
 
-        val ALL = listOf(
-            CONTACT_USER,
-            CONTACT_CHAT_ROOM_ID,
-            ROOM_NAME,
-            CHAT_USER
-        )
+        val ALL =
+            listOf(
+                CONTACT_USER,
+                CONTACT_CHAT_ROOM_ID,
+                ROOM_NAME,
+                CHAT_USER,
+            )
     }
 
     private object WeChatFolderPlaceholder {
         const val CONVERSATION_BOX = "conversationboxservice"
         const val MESSAGE_FOLD = "message_fold"
     }
-
 
     private fun android.database.Cursor.getStringOrEmpty(column: String): String {
         val index = getColumnIndex(column)
@@ -2204,5 +2415,4 @@ object ConversationAggregation : ClickableFeature(),
         val index = getColumnIndex(column)
         return if (index >= 0 && !isNull(index)) getLong(index) else 0L
     }
-
 }

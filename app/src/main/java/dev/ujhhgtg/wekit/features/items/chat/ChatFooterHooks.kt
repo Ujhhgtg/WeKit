@@ -20,20 +20,25 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_chat_footer_hooks_description
 
-    private val methodInitSmileyBtn by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("initSmileyBtn")
-        },
-    )
+    private val methodInitSmileyBtn by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("initSmileyBtn")
+            },
+        )
 
     override fun onEnable() {
         methodInitSmileyBtn.hookAfter {
             val chatFooter = thisObject as ChatFooter
             val searchedView = chatFooter.findViewByChildIndexes(0)!!
-            val imgButtons = searchedView.findViewsWhich { view ->
-                view.javaClass.simpleName == "WeImageButton"
-            }.map { it as ImageButton }.toList()
+            val imgButtons =
+                searchedView
+                    .findViewsWhich { view ->
+                        view.javaClass.simpleName == "WeImageButton"
+                    }
+                    .map { it as ImageButton }
+                    .toList()
 
             if (VoicePanel.isEnabled) {
                 val voiceBtn = imgButtons.first()

@@ -32,9 +32,14 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
                 if (className == "TaskBarContainer") {
                     val heightDp = if (!ConversationGrouping.isEnabled) 48 else 94
                     val heightPx = (heightDp * view.resources.displayMetrics.density).toInt()
-                    val spacer = View(view.context).apply {
-                        layoutParams = AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, heightPx)
-                    }
+                    val spacer =
+                        View(view.context).apply {
+                            layoutParams =
+                                AbsListView.LayoutParams(
+                                    AbsListView.LayoutParams.MATCH_PARENT,
+                                    heightPx,
+                                )
+                        }
                     invokeOriginalMethod(args = arrayOf(spacer, null, true))
                     result = null
                 }
@@ -47,12 +52,14 @@ object HideHomeScreenSwipeDownPage : SwitchFeature() {
                 if (view.javaClass.simpleName != "TaskBarContainer") return@hookBefore
                 val heightDp = if (!ConversationGrouping.isEnabled) 48 else 94
                 val heightPx = (heightDp * view.resources.displayMetrics.density).toInt()
-                args[0] = View(view.context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        heightPx,
-                    )
-                }
+                args[0] =
+                    View(view.context).apply {
+                        layoutParams =
+                            ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                heightPx,
+                            )
+                    }
             }
         }
     }

@@ -21,7 +21,8 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Keep // keep the names of the marker classes to prevent class name clashing with WeChat's own classes
+@Keep // keep the names of the marker classes to prevent class name clashing with WeChat's own
+// classes
 class WeChatSettingsManager(
     private val classBaseSettingItem: Class<*>,
     private val classBaseSettingSwitchItem: Class<*>,
@@ -38,7 +39,7 @@ class WeChatSettingsManager(
     private val mGetNameResId: String,
     private val mGetGroupNameResId: String,
     private val mGetSwitchState: String,
-    private val mGetSwitchProperty: String
+    private val mGetSwitchProperty: String,
 ) {
     private val registeredItems = CopyOnWriteArrayList<ItemRegistration>()
     private val stringPool = ConcurrentHashMap<Int, () -> String>()
@@ -48,19 +49,106 @@ class WeChatSettingsManager(
     private var contextGetStringUnhook: HookHandle? = null
     private var resourcesGetStringUnhook: HookHandle? = null
 
-    private val activeSettingsUis: MutableSet<Any> =
-        Collections.newSetFromMap(WeakHashMap())
+    private val activeSettingsUis: MutableSet<Any> = Collections.newSetFromMap(WeakHashMap())
     private val settingsUiLock = Any()
 
     // 依靠 Marker 接口隔离 Proxy 类缓存
-    interface M0; interface M1; interface M2; interface M3; interface M4; interface M5; interface M6; interface M7; interface M8; interface M9; interface M10
-    interface M11; interface M12; interface M13; interface M14; interface M15; interface M16; interface M17; interface M18; interface M19; interface M20
-    interface M21; interface M22; interface M23; interface M24; interface M25; interface M26; interface M27; interface M28; interface M29; interface M30
-    private val markers = arrayOf(
-        M0::class.java, M1::class.java, M2::class.java, M3::class.java, M4::class.java, M5::class.java, M6::class.java, M7::class.java, M8::class.java, M9::class.java, M10::class.java,
-        M11::class.java, M12::class.java, M13::class.java, M14::class.java, M15::class.java, M16::class.java, M17::class.java, M18::class.java, M19::class.java, M20::class.java,
-        M21::class.java, M22::class.java, M23::class.java, M24::class.java, M25::class.java, M26::class.java, M27::class.java, M28::class.java, M29::class.java, M30::class.java,
-    )
+    interface M0
+
+    interface M1
+
+    interface M2
+
+    interface M3
+
+    interface M4
+
+    interface M5
+
+    interface M6
+
+    interface M7
+
+    interface M8
+
+    interface M9
+
+    interface M10
+
+    interface M11
+
+    interface M12
+
+    interface M13
+
+    interface M14
+
+    interface M15
+
+    interface M16
+
+    interface M17
+
+    interface M18
+
+    interface M19
+
+    interface M20
+
+    interface M21
+
+    interface M22
+
+    interface M23
+
+    interface M24
+
+    interface M25
+
+    interface M26
+
+    interface M27
+
+    interface M28
+
+    interface M29
+
+    interface M30
+
+    private val markers =
+        arrayOf(
+            M0::class.java,
+            M1::class.java,
+            M2::class.java,
+            M3::class.java,
+            M4::class.java,
+            M5::class.java,
+            M6::class.java,
+            M7::class.java,
+            M8::class.java,
+            M9::class.java,
+            M10::class.java,
+            M11::class.java,
+            M12::class.java,
+            M13::class.java,
+            M14::class.java,
+            M15::class.java,
+            M16::class.java,
+            M17::class.java,
+            M18::class.java,
+            M19::class.java,
+            M20::class.java,
+            M21::class.java,
+            M22::class.java,
+            M23::class.java,
+            M24::class.java,
+            M25::class.java,
+            M26::class.java,
+            M27::class.java,
+            M28::class.java,
+            M29::class.java,
+            M30::class.java,
+        )
 
     class SettingItemSpec {
         var key: String = ""
@@ -92,10 +180,13 @@ class WeChatSettingsManager(
         val spec = SettingItemSpec().apply(init)
         requireNotNull(spec.pageClass) { "${spec.title} does not have a page class" }
         val titleResId = allocateString(spec.titleProvider ?: { spec.title })
-        val groupResId = (spec.groupTitleProvider ?: spec.groupTitle?.let { value -> { value } })
-            ?.let(::allocateString) ?: titleResId
+        val groupResId =
+            (spec.groupTitleProvider ?: spec.groupTitle?.let { value -> { value } })?.let(
+                ::allocateString,
+            ) ?: titleResId
 
-        val targetBaseClass = if (spec.isSwitch) classBaseSettingSwitchItem else classBaseSettingItem
+        val targetBaseClass =
+            if (spec.isSwitch) classBaseSettingSwitchItem else classBaseSettingItem
 
         val handler = InvocationHandler { proxy, method, args ->
             when (method.name) {
@@ -106,7 +197,8 @@ class WeChatSettingsManager(
                         ProxyBuilder.callSuper(proxy, method, *args)
                     } else {
                         val activity = args[0] as Activity
-                        spec.onClick?.invoke(activity) ?: ProxyBuilder.callSuper(proxy, method, *args)
+                        spec.onClick?.invoke(activity)
+                            ?: ProxyBuilder.callSuper(proxy, method, *args)
                     }
                 }
 
@@ -116,9 +208,10 @@ class WeChatSettingsManager(
                 }
 
                 mGetNameResId -> titleResId
-                mGetGroupNameResId -> if (spec.groupTitle != null || spec.groupTitleProvider != null) {
-                    groupResId
-                } else null
+                mGetGroupNameResId ->
+                    if (spec.groupTitle != null || spec.groupTitleProvider != null) {
+                        groupResId
+                    } else null
 
                 // 处理开关独有方法
                 mGetSwitchState if spec.isSwitch -> {
@@ -134,18 +227,23 @@ class WeChatSettingsManager(
             }
         }
 
-        val markerInterface = if (itemIndexCounter < markers.size) markers[itemIndexCounter++] else java.io.Serializable::class.java
-        val proxyClass = createProxyBuilder(
-            ParcelableFixer.hybridClassLoader,
-            targetBaseClass,
-            arrayOf("androidx.appcompat.app.AppCompatActivity".toClass()),
-            handler,
-            arrayOf(markerInterface)
-        ).buildClass(handler)
+        val markerInterface =
+            if (itemIndexCounter < markers.size) markers[itemIndexCounter++]
+            else java.io.Serializable::class.java
+        val proxyClass =
+            createProxyBuilder(
+                    ParcelableFixer.hybridClassLoader,
+                    targetBaseClass,
+                    arrayOf("androidx.appcompat.app.AppCompatActivity".toClass()),
+                    handler,
+                    arrayOf(markerInterface),
+                )
+                .buildClass(handler)
 
         spec.childClass?.let { childClass ->
             val resolvedPage = spec.pageClass ?: proxyClass
-            childClass.reflekt()
+            childClass
+                .reflekt()
                 .firstMethod { returnType = classSettingLocation }
                 .hookBeforeDirectly {
                     result = classSettingLocation.createInstance(resolvedPage, proxyClass)
@@ -161,33 +259,37 @@ class WeChatSettingsManager(
             spec.onSwitchChanged?.invoke(args[0] as Boolean)
         }
 
-        return Proxy.newProxyInstance(switchHandlerClass.classLoader, arrayOf(switchHandlerClass), switchClassHandler)
+        return Proxy.newProxyInstance(
+            switchHandlerClass.classLoader,
+            arrayOf(switchHandlerClass),
+            switchClassHandler,
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
     fun install() {
-        classSettingItemClassesProvider.reflekt().firstMethod()
-            .hookAfterDirectly {
-                val originalMap = result as? Map<Any, Any> ?: return@hookAfterDirectly
-                val mutMap = originalMap.toMutableMap()
+        classSettingItemClassesProvider.reflekt().firstMethod().hookAfterDirectly {
+            val originalMap = result as? Map<Any, Any> ?: return@hookAfterDirectly
+            val mutMap = originalMap.toMutableMap()
 
-                val groupedByPage = registeredItems.groupBy { it.spec.pageClass ?: it.proxyClass }
-                for ((page, items) in groupedByPage) {
-                    val classesToAdd = items.map { it.proxyClass }
-                    val existingCollection = mutMap[page] as? Collection<Any>
+            val groupedByPage = registeredItems.groupBy { it.spec.pageClass ?: it.proxyClass }
+            for ((page, items) in groupedByPage) {
+                val classesToAdd = items.map { it.proxyClass }
+                val existingCollection = mutMap[page] as? Collection<Any>
 
-                    if (existingCollection != null) {
-                        val updatedSet = LinkedHashSet(existingCollection)
-                        updatedSet.addAll(classesToAdd)
-                        mutMap[page] = updatedSet
-                    } else {
-                        mutMap[page] = LinkedHashSet(classesToAdd)
-                    }
+                if (existingCollection != null) {
+                    val updatedSet = LinkedHashSet(existingCollection)
+                    updatedSet.addAll(classesToAdd)
+                    mutMap[page] = updatedSet
+                } else {
+                    mutMap[page] = LinkedHashSet(classesToAdd)
                 }
-                result = mutMap
             }
+            result = mutMap
+        }
 
-        classBaseSettingPrefUI.reflekt()
+        classBaseSettingPrefUI
+            .reflekt()
             .firstMethod { name = "superImportUIComponents" }
             .hookAfterDirectly {
                 val currentUi = thisObject!!
@@ -203,7 +305,8 @@ class WeChatSettingsManager(
                 onSettingsUiEntered(currentUi)
             }
 
-        classBaseSettingUI.reflekt()
+        classBaseSettingUI
+            .reflekt()
             .firstMethod { name = "onDestroy" }
             .hookAfterDirectly {
                 val currentUi = thisObject!!
@@ -226,11 +329,15 @@ class WeChatSettingsManager(
             if (activeSettingsUis.size != 1) return
             if (contextGetStringUnhook != null || resourcesGetStringUnhook != null) return
 
-            contextGetStringUnhook = Context::class.reflekt()
-                .firstMethod { name = "getString"; parameters(Int::class) }
-                .hookBeforeDirectly {
-                    stringPool[args[0] as Int]?.let { result = it() }
-                }
+            contextGetStringUnhook =
+                Context::class.reflekt()
+                    .firstMethod {
+                        name = "getString"
+                        parameters(Int::class)
+                    }
+                    .hookBeforeDirectly {
+                        stringPool[args[0] as Int]?.let { result = it() }
+                    }
 
             resourcesGetStringUnhook = methodResourceHelperGetStringById.hookBeforeDirectly {
                 stringPool[args[1] as Int]?.let { result = it() }
@@ -244,8 +351,10 @@ class WeChatSettingsManager(
             activeSettingsUis.remove(ui)
             if (activeSettingsUis.isNotEmpty()) return
 
-            contextGetStringUnhook?.unhook(); contextGetStringUnhook = null
-            resourcesGetStringUnhook?.unhook(); resourcesGetStringUnhook = null
+            contextGetStringUnhook?.unhook()
+            contextGetStringUnhook = null
+            resourcesGetStringUnhook?.unhook()
+            resourcesGetStringUnhook = null
         }
     }
 }

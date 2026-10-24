@@ -43,18 +43,23 @@ class HomeSession(
     private val originalRoot: ViewGroup,
     private val originalFrame: FrameLayout,
 ) {
-    private val nativeList = originalRoot.allViews.first {
-        it.hasHostClass("com.tencent.mm.ui.conversation.ConversationListView") ||
-            it.hasHostClass("com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView")
-    } as ViewGroup
+    private val nativeList =
+        originalRoot.allViews.first {
+            it.hasHostClass("com.tencent.mm.ui.conversation.ConversationListView") ||
+                it.hasHostClass("com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView")
+        } as ViewGroup
     private val originalListParent = nativeList.parent as ViewGroup
     private val originalListIndex = originalListParent.indexOfChild(nativeList)
     private val originalListParams = nativeList.layoutParams
     private val originalListSaveEnabled = nativeList.isSaveFromParentEnabled
     private val originalRootVisibility = originalRoot.visibility
-    private val originalPadding = intArrayOf(
-        nativeList.paddingLeft, nativeList.paddingTop, nativeList.paddingRight, nativeList.paddingBottom,
-    )
+    private val originalPadding =
+        intArrayOf(
+            nativeList.paddingLeft,
+            nativeList.paddingTop,
+            nativeList.paddingRight,
+            nativeList.paddingBottom,
+        )
     private val owners = LifecycleOwnerProvider.getOrCreate(activity)
     private val content = RelativeLayout(activity)
     private val shell = ComposeView(activity)
@@ -63,8 +68,11 @@ class HomeSession(
     private val chromeSizes = IdentityHashMap<View, ChromeSize>()
 
     @SuppressLint("DiscouragedApi")
-    private val chromeIds = listOf("action_bar_container", "action_bar", "actionbar")
-        .map { activity.resources.getIdentifier(it, "id", activity.packageName) }.filter { it != 0 }.toSet()
+    private val chromeIds =
+        listOf("action_bar_container", "action_bar", "actionbar")
+            .map { activity.resources.getIdentifier(it, "id", activity.packageName) }
+            .filter { it != 0 }
+            .toSet()
     private var attached = false
     private var disposed = false
     private var laidOut = false
@@ -78,14 +86,19 @@ class HomeSession(
     }
     private val watchdog = Runnable {
         if (BeautifyHome.isActive && !disposed && homeVisible && !laidOut) {
-            WeLogger.e("BeautifyHome", "Home did not lay out: shell=${shell.width}x${shell.height}, list=${nativeList.width}x${nativeList.height}")
+            WeLogger.e(
+                "BeautifyHome",
+                "Home did not lay out: shell=${shell.width}x${shell.height}, list=${nativeList.width}x${nativeList.height}",
+            )
             BeautifyHome.detach(mainUI)
         }
     }
 
     fun attach() {
         shell.setLifecycleOwner(owners)
-        shell.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        shell.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
+        )
         originalListParent.removeView(nativeList)
         content.addView(nativeList, RelativeLayout.LayoutParams(-1, -1))
         originalRoot.visibility = View.INVISIBLE
@@ -121,8 +134,14 @@ class HomeSession(
         LauncherNavigation.setBarOverride(activity, if (launcherForeground) homeVisible else null)
         val replacementOwnsBar = LauncherNavigation.syncBar(activity)
         if (!laidOut) {
-            if (shell.width <= 0 || shell.height <= 0 || nativeList.parent == null ||
-                nativeList.width <= 0 || nativeList.height <= 0) return
+            if (
+                shell.width <= 0 ||
+                    shell.height <= 0 ||
+                    nativeList.parent == null ||
+                    nativeList.width <= 0 ||
+                    nativeList.height <= 0
+            )
+                return
             laidOut = true
         }
         if (originalRoot.visibility != View.INVISIBLE) originalRoot.visibility = View.INVISIBLE
@@ -138,22 +157,32 @@ class HomeSession(
 
         val chrome = buildSet {
             viewField(BeautifyHome.fieldMainStatusMask, mainUI)?.let(::add)
-            val fields = if (nativeList.hasHostClass("com.tencent.mm.ui.conversation.ConversationListView")) {
-                listOf(BeautifyHome.fieldListActionBar, BeautifyHome.fieldListSpacer)
-            } else {
-                listOf(BeautifyHome.fieldRecyclerActionBar, BeautifyHome.fieldRecyclerSpacer)
-            }
+            val fields =
+                if (
+                    nativeList.hasHostClass("com.tencent.mm.ui.conversation.ConversationListView")
+                ) {
+                    listOf(BeautifyHome.fieldListActionBar, BeautifyHome.fieldListSpacer)
+                } else {
+                    listOf(BeautifyHome.fieldRecyclerActionBar, BeautifyHome.fieldRecyclerSpacer)
+                }
             fields.mapNotNull { viewField(it, nativeList) }.forEach(::add)
             nativeTitleContainer()?.let(::add)
-        }.filterNot { view ->
-            view.containsHostView(shell) || view.containsHostView(originalRoot) || view.containsHostView(nativeList)
-        }.toSet()
+        }
+            .filterNot { view ->
+                view.containsHostView(shell) ||
+                    view.containsHostView(originalRoot) ||
+                    view.containsHostView(nativeList)
+            }
+            .toSet()
         for (view in chrome) {
             if (homeVisible) {
                 chromeSizes.getOrPut(view) { ChromeSize(view) }
                 val params = view.layoutParams
                 val margins = params as? ViewGroup.MarginLayoutParams
-                if (params.height != 0 || margins != null && (margins.topMargin != 0 || margins.bottomMargin != 0)) {
+                if (
+                    params.height != 0 ||
+                        margins != null && (margins.topMargin != 0 || margins.bottomMargin != 0)
+                ) {
                     params.height = 0
                     margins?.topMargin = 0
                     margins?.bottomMargin = 0
@@ -164,8 +193,10 @@ class HomeSession(
             }
         }
         for (view in activity.window.decorView.allViews) {
-            val title = view in chrome || view.id in chromeIds ||
-                view.hasHostClass("androidx.appcompat.widget.ActionBarContainer")
+            val title =
+                view in chrome ||
+                    view.id in chromeIds ||
+                    view.hasHostClass("androidx.appcompat.widget.ActionBarContainer")
             val bottomTab = view.hasHostClass("com.tencent.mm.ui.LauncherUIBottomTabView")
             if (bottomTab && replacementOwnsBar) {
                 // The replacement owns native/docked/floating containers and their style.
@@ -199,7 +230,8 @@ class HomeSession(
     private fun nativeTitleContainer(): View? {
         val homeUI = BeautifyHome.homeUI(activity)
         val titleMethod = BeautifyHome.methodNativeTitleView.method
-        val actionBar = homeUI.reflekt().firstField { type = titleMethod.declaringClass }.get() ?: return null
+        val actionBar =
+            homeUI.reflekt().firstField { type = titleMethod.declaringClass }.get() ?: return null
         var title = titleMethod.invoke(actionBar) as? View ?: return null
         val roots = listOf(shell, originalRoot, nativeList)
         if (roots.any { it.containsHostView(title) }) return null
@@ -213,44 +245,69 @@ class HomeSession(
 
     private fun openSearch() {
         val homeUI = BeautifyHome.homeUI(activity)
-        val item = homeUI.reflekt().getField(BeautifyHome.fieldSearchItem.field.name) as MenuItem?
-            ?: error("Native search item has not been initialized")
+        val item =
+            homeUI.reflekt().getField(BeautifyHome.fieldSearchItem.field.name) as MenuItem?
+                ?: error("Native search item has not been initialized")
         val clickTarget = item.actionView?.allViews?.firstOrNull { it.hasOnClickListeners() }
         check(clickTarget?.performClick() ?: activity.onOptionsItemSelected(item)) {
             "Native search action unavailable"
         }
     }
 
-    private fun readMenu(): List<HomeMenuItem> = try {
-        val menu = BeautifyHome.prepareMenu(activity)
-        @Suppress("UNCHECKED_CAST")
-        val map = menu.reflekt().firstField { type = SparseArray::class }.get()!! as SparseArray<Any>
-        (0 until map.size).mapNotNull { index ->
-            val key = map.keyAt(index)
-            val wrapper = map.valueAt(index) ?: return@mapNotNull null
-            val data = wrapper.reflekt().firstField {
-                modifiers { Modifier.STATIC !in it }
-                type { !it.isPrimitive && !it.name.startsWith("java.") }
-            }.get()!!
-            val title = data.reflekt().firstField {
-                type = String::class
-                modifiers { Modifier.STATIC !in it }
-            }.get()!! as String
-            HomeMenuItem(key, title) {
-                action {
-                    val current = menu.reflekt().firstField { type = SparseArray::class }.get()
-                    check(current === map && map[key] === wrapper) { "Native menu changed; open it again" }
-                    menu.reflekt().firstMethod {
-                        name = "onItemClick"
-                        parameters(AdapterView::class, View::class, Int::class, Long::class)
-                    }.invoke(null, shell, key, 0L)
+    private fun readMenu(): List<HomeMenuItem> =
+        try {
+            val menu = BeautifyHome.prepareMenu(activity)
+            @Suppress("UNCHECKED_CAST")
+            val map =
+                menu.reflekt().firstField { type = SparseArray::class }.get()!! as SparseArray<Any>
+            (0 until map.size)
+                .mapNotNull { index ->
+                    val key = map.keyAt(index)
+                    val wrapper = map.valueAt(index) ?: return@mapNotNull null
+                    val data =
+                        wrapper
+                            .reflekt()
+                            .firstField {
+                                modifiers { Modifier.STATIC !in it }
+                                type { !it.isPrimitive && !it.name.startsWith("java.") }
+                            }
+                            .get()!!
+                    val title =
+                        data
+                            .reflekt()
+                            .firstField {
+                                type = String::class
+                                modifiers { Modifier.STATIC !in it }
+                            }
+                            .get()!!
+                            as String
+                    HomeMenuItem(key, title) {
+                        action {
+                            val current =
+                                menu.reflekt().firstField { type = SparseArray::class }.get()
+                            check(current === map && map[key] === wrapper) {
+                                "Native menu changed; open it again"
+                            }
+                            menu
+                                .reflekt()
+                                .firstMethod {
+                                    name = "onItemClick"
+                                    parameters(
+                                        AdapterView::class,
+                                        View::class,
+                                        Int::class,
+                                        Long::class,
+                                    )
+                                }
+                                .invoke(null, shell, key, 0L)
+                        }
+                    }
                 }
-            }
-        }.distinctBy { it.title }
-    } catch (error: Exception) {
-        reportActionError(error)
-        emptyList()
-    }
+                .distinctBy { it.title }
+        } catch (error: Exception) {
+            reportActionError(error)
+            emptyList()
+        }
 
     private fun action(block: () -> Unit) {
         try {
@@ -265,7 +322,8 @@ class HomeSession(
         showToast(activity, HostLocalizedStrings.get(R.string.beautify_home_action_failed))
     }
 
-    fun captureStatusBarHeight(view: View, height: Int): Boolean = statusBar.captureHeight(view, height)
+    fun captureStatusBarHeight(view: View, height: Int): Boolean =
+        statusBar.captureHeight(view, height)
 
     fun restoreStatusBar() {
         try {
@@ -314,11 +372,18 @@ class HomeSession(
         shell.disposeComposition()
         (shell.parent as? ViewGroup)?.removeView(shell)
         nativeList.isSaveFromParentEnabled = originalListSaveEnabled
-        nativeList.setPadding(originalPadding[0], originalPadding[1], originalPadding[2], originalPadding[3])
+        nativeList.setPadding(
+            originalPadding[0],
+            originalPadding[1],
+            originalPadding[2],
+            originalPadding[3],
+        )
         chromeSizes.forEach { (view, size) -> size.restore(view) }
         chromeSizes.clear()
         originalListParent.addView(
-            nativeList, originalListIndex.coerceIn(0, originalListParent.childCount), originalListParams,
+            nativeList,
+            originalListIndex.coerceIn(0, originalListParent.childCount),
+            originalListParams,
         )
         originalRoot.visibility = originalRootVisibility
         hiddenViews.forEach { (view, visibility) -> view.visibility = visibility }
@@ -330,9 +395,11 @@ class HomeSession(
 
     private class ChromeSize(view: View) {
         private val height = view.layoutParams.height
-        private val margins = (view.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
-            intArrayOf(it.topMargin, it.bottomMargin)
-        }
+        private val margins =
+            (view.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+                intArrayOf(it.topMargin, it.bottomMargin)
+            }
+
         fun restore(view: View) {
             val params = view.layoutParams
             params.height = height

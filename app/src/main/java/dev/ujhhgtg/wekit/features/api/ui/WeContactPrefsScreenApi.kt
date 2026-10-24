@@ -15,16 +15,16 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object WeContactPrefsScreenApi : ApiFeature() {
 
@@ -56,10 +56,12 @@ object WeContactPrefsScreenApi : ApiFeature() {
 
     private val providers = CopyOnWriteArrayList<IContactInfoProvider>()
     private val keySequence = AtomicLong()
+
     private data class ClickHandler(
         val provider: IContactInfoProvider,
         val callback: ((Activity) -> Unit)?,
     )
+
     private val clickHandlers = WeakHashMap<Activity, MutableMap<String, ClickHandler>>()
 
     fun addProvider(provider: IContactInfoProvider) {
@@ -90,75 +92,89 @@ object WeContactPrefsScreenApi : ApiFeature() {
         initReflection()
 
         listOf(
-            ContactInfoUI::class,
-            ChatroomInfoUI::class
-        ).forEach {
-            it.reflekt().apply {
-                firstMethod { name = "initView" }
-                    .hookAfter {
-                        val adapterInstance = adapterField.get(thisObject as Activity)
-                        for (provider in providers) {
-                            try {
-                                val items = provider.getContactInfoItem(thisObject as Activity)
-                                for (item in items) {
-                                    val pref = prefConstructor.newInstance(thisObject as Context)
-                                    val key = "wekit_contact_pref_${keySequence.incrementAndGet()}"
-                                    synchronized(clickHandlers) {
-                                        clickHandlers.getOrPut(thisObject as Activity) { mutableMapOf() }[key] =
-                                            ClickHandler(provider, item.onClick)
-                                    }
-                                    setKeyMethod.invoke(pref, key)
-                                    setTitleMethod.invoke(pref, item.title)
-                                    item.summary?.let { summary -> setSummaryMethod.invoke(pref, summary) }
-                                    addPreferenceMethod.invoke(adapterInstance, pref, item.position)
-                                    item.loadTitle?.let { loadTitle ->
-                                        loadTitleInBackground(
-                                            thisObject as Activity,
-                                            adapterInstance as BaseAdapter,
+                ContactInfoUI::class,
+                ChatroomInfoUI::class,
+            )
+            .forEach {
+                it.reflekt().apply {
+                    firstMethod { name = "initView" }
+                        .hookAfter {
+                            val adapterInstance = adapterField.get(thisObject as Activity)
+                            for (provider in providers) {
+                                try {
+                                    val items = provider.getContactInfoItem(thisObject as Activity)
+                                    for (item in items) {
+                                        val pref =
+                                            prefConstructor.newInstance(thisObject as Context)
+                                        val key =
+                                            "wekit_contact_pref_${keySequence.incrementAndGet()}"
+                                        synchronized(clickHandlers) {
+                                            clickHandlers
+                                                .getOrPut(thisObject as Activity) {
+                                                    mutableMapOf()
+                                                }[key] = ClickHandler(provider, item.onClick)
+                                        }
+                                        setKeyMethod.invoke(pref, key)
+                                        setTitleMethod.invoke(pref, item.title)
+                                        item.summary?.let { summary ->
+                                            setSummaryMethod.invoke(pref, summary)
+                                        }
+                                        addPreferenceMethod.invoke(
+                                            adapterInstance,
                                             pref,
-                                            provider,
-                                            loadTitle,
+                                            item.position,
                                         )
+                                        item.loadTitle?.let { loadTitle ->
+                                            loadTitleInBackground(
+                                                thisObject as Activity,
+                                                adapterInstance as BaseAdapter,
+                                                pref,
+                                                provider,
+                                                loadTitle,
+                                            )
+                                        }
                                     }
+                                } catch (ex: Exception) {
+                                    WeLogger.e(
+                                        TAG,
+                                        "provider ${provider.javaClass.name} threw while providing contact info item",
+                                        ex,
+                                    )
                                 }
-                            } catch (ex: Exception) {
-                                WeLogger.e(
-                                    TAG,
-                                    "provider ${provider.javaClass.name} threw while providing contact info item",
-                                    ex
-                                )
                             }
                         }
-                    }
 
-                firstMethod {
-                    name = "onDestroy"
-                }.hookAfter {
-                    synchronized(clickHandlers) {
-                        clickHandlers.remove(thisObject as Activity)
+                    firstMethod {
+                        name = "onDestroy"
                     }
-                }
+                        .hookAfter {
+                            synchronized(clickHandlers) {
+                                clickHandlers.remove(thisObject as Activity)
+                            }
+                        }
 
-                firstMethod {
-                    name = "onPreferenceTreeClick"
-                }.hookBefore {
-                    val preference = args[1] ?: return@hookBefore
-                    val key = prefKeyField.get(preference) as? String ?: return@hookBefore
-                    val activity = thisObject as Activity
-                    val clickHandler = synchronized(clickHandlers) {
-                        clickHandlers[activity]?.get(key)
-                    } ?: return@hookBefore
-                    if (!providers.contains(clickHandler.provider)) return@hookBefore
-                    try {
-                        clickHandler.callback?.invoke(activity)
-                    } catch (ex: Exception) {
-                        WeLogger.e(TAG, "contact preference click handler threw", ex)
-                    } finally {
-                        result = true
+                    firstMethod {
+                        name = "onPreferenceTreeClick"
                     }
+                        .hookBefore {
+                            val preference = args[1] ?: return@hookBefore
+                            val key = prefKeyField.get(preference) as? String ?: return@hookBefore
+                            val activity = thisObject as Activity
+                            val clickHandler =
+                                synchronized(clickHandlers) {
+                                    clickHandlers[activity]?.get(key)
+                                } ?: return@hookBefore
+                            if (!providers.contains(clickHandler.provider)) return@hookBefore
+                            try {
+                                clickHandler.callback?.invoke(activity)
+                            } catch (ex: Exception) {
+                                WeLogger.e(TAG, "contact preference click handler threw", ex)
+                            } finally {
+                                result = true
+                            }
+                        }
                 }
             }
-        }
     }
 
     private fun loadTitleInBackground(
@@ -169,12 +185,17 @@ object WeContactPrefsScreenApi : ApiFeature() {
         loadTitle: () -> String,
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            val title = try {
-                loadTitle()
-            } catch (ex: Exception) {
-                WeLogger.e(TAG, "provider ${provider.javaClass.name} threw while loading contact info item title", ex)
-                return@launch
-            }
+            val title =
+                try {
+                    loadTitle()
+                } catch (ex: Exception) {
+                    WeLogger.e(
+                        TAG,
+                        "provider ${provider.javaClass.name} threw while loading contact info item title",
+                        ex,
+                    )
+                    return@launch
+                }
             withContext(Dispatchers.Main) {
                 if (activity.isDestroyed) return@withContext
                 setTitleMethod.invoke(pref, title)
@@ -184,39 +205,54 @@ object WeContactPrefsScreenApi : ApiFeature() {
     }
 
     private fun initReflection() {
-        prefConstructor = Preference::class.reflekt()
-            .firstConstructor {
-                parameters(Context::class)
-            }.self
+        prefConstructor =
+            Preference::class.reflekt()
+                .firstConstructor {
+                    parameters(Context::class)
+                }
+                .self
 
-        prefKeyField = Preference::class.reflekt()
-            .firstField {
-                type = String::class
-                modifiers { !it.contains(Modifiers.FINAL) }
-            }.self.makeAccessible()
+        prefKeyField =
+            Preference::class.reflekt()
+                .firstField {
+                    type = String::class
+                    modifiers { !it.contains(Modifiers.FINAL) }
+                }
+                .self
+                .makeAccessible()
 
-        adapterField = MMPreference::class.reflekt()
-            .firstField {
-                modifiers { !it.contains(Modifiers.STATIC) }
-                type { it isSubclassOf BaseAdapter::class }
-            }.self.makeAccessible()
+        adapterField =
+            MMPreference::class.reflekt()
+                .firstField {
+                    modifiers { !it.contains(Modifiers.STATIC) }
+                    type { it isSubclassOf BaseAdapter::class }
+                }
+                .self
+                .makeAccessible()
 
-        addPreferenceMethod = adapterField.type.reflekt()
-            .firstMethod {
-                modifiers { !it.contains(Modifiers.FINAL) }
-                parameters(Preference::class, Int::class)
-            }.self
+        addPreferenceMethod =
+            adapterField.type
+                .reflekt()
+                .firstMethod {
+                    modifiers { !it.contains(Modifiers.FINAL) }
+                    parameters(Preference::class, Int::class)
+                }
+                .self
 
-        setKeyMethod = Preference::class.reflekt()
-            .firstMethod {
-                parameters(String::class)
-                returnType = Void.TYPE
-            }.self
+        setKeyMethod =
+            Preference::class.reflekt()
+                .firstMethod {
+                    parameters(String::class)
+                    returnType = Void.TYPE
+                }
+                .self
 
-        val charSeqMethods = Preference::class.reflekt()
-            .methods {
-                parameters(CharSequence::class)
-            }.map { it.self }
+        val charSeqMethods =
+            Preference::class.reflekt()
+                .methods {
+                    parameters(CharSequence::class)
+                }
+                .map { it.self }
 
         setSummaryMethod = charSeqMethods.getOrElse(0) { error("setSummary method not found") }
         setTitleMethod = charSeqMethods.getOrElse(1) { error("setTitle method not found") }

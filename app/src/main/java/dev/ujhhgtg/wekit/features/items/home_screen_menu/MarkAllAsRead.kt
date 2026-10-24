@@ -27,11 +27,13 @@ object MarkAllAsRead : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvi
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777012, localizedHomeMenuString(R.string.home_menu_mark_all_read), MarkChatReadIcon
+                777012,
+                localizedHomeMenuString(R.string.home_menu_mark_all_read),
+                MarkChatReadIcon,
             ) {
                 WeConversationApi.markAllAsRead()
                 showToast(localizedHomeMenuString(R.string.home_menu_all_marked_read))
-            }
+            },
         )
     }
 }

@@ -15,13 +15,16 @@ object WeViewTreeLifecycleProvider : ApiFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.API)
 
     override fun onEnable() {
-        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
-            override fun onLauncherCreated(activity: Activity) {
-                val owner = LifecycleOwnerProvider.getOrCreate(activity)
-                activity.window.decorView.setLifecycleOwner(owner)
-                activity.rootView.setLifecycleOwner(owner)
-            }
-        })
+        WeMainActivityBeautifyApi.addListener(
+            this,
+            object : WeMainActivityBeautifyApi.Listener {
+                override fun onLauncherCreated(activity: Activity) {
+                    val owner = LifecycleOwnerProvider.getOrCreate(activity)
+                    activity.window.decorView.setLifecycleOwner(owner)
+                    activity.rootView.setLifecycleOwner(owner)
+                }
+            },
+        )
     }
 
     override fun onDisable() {

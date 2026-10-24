@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -23,7 +22,15 @@ import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -36,14 +43,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 
 object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 
@@ -57,89 +56,113 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private val methodAddPref by dexMethod()
 
     // modern method
-    private val classSettingItemClassesProvider by dexClass(
-        sqlClass {
-            usingEqStrings("Repairer_Setting")
-            superClass {
-                usingEqStrings("type")
-            }
-        },
-        allowFailure = true,
-    )
-    private val classBaseSettingItem by dexClassQuery(allowFailure = true) {
-        uniqueClass(
-            ClassSpec(
-                usingStrings = listOf(
-                    StringSpec("", NameMatch.Equals),
-                    StringSpec("activity", NameMatch.Equals),
-                    StringSpec("context", NameMatch.Equals),
-                    StringSpec("intent", NameMatch.Equals),
-                ),
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("<init>"),
-                        paramTypes = listOf(TypeSpec("androidx.appcompat.app.AppCompatActivity")),
-                    ),
-                ),
-                interfaces = listOf(
-                    ClassSpec(className = NameSpec("com.tencent.mm.plugin.newtips.model", NameMatch.StartsWith)),
+    private val classSettingItemClassesProvider by
+        dexClass(
+            sqlClass {
+                usingEqStrings("Repairer_Setting")
+                superClass {
+                    usingEqStrings("type")
+                }
+            },
+            allowFailure = true,
+        )
+    private val classBaseSettingItem by
+        dexClassQuery(allowFailure = true) {
+            uniqueClass(
+                ClassSpec(
+                    usingStrings =
+                        listOf(
+                            StringSpec("", NameMatch.Equals),
+                            StringSpec("activity", NameMatch.Equals),
+                            StringSpec("context", NameMatch.Equals),
+                            StringSpec("intent", NameMatch.Equals),
+                        ),
+                    methods =
+                        listOf(
+                            MethodSpec(
+                                name = NameSpec("<init>"),
+                                paramTypes =
+                                    listOf(TypeSpec("androidx.appcompat.app.AppCompatActivity")),
+                            ),
+                        ),
+                    interfaces =
+                        listOf(
+                            ClassSpec(
+                                className =
+                                    NameSpec(
+                                        "com.tencent.mm.plugin.newtips.model",
+                                        NameMatch.StartsWith,
+                                    ),
+                            ),
+                        ),
                 ),
             )
+        }
+    private val classBaseSettingSwitchItem by
+        dexClass(
+            sqlClass {
+                usingEqStrings("activity", "context", "itemView", "1", "0")
+                method {
+                    returnType = "int"
+                    usingNumbers(2L)
+                }
+                method {
+                    name = "<init>"
+                    paramTypes("androidx.appcompat.app.AppCompatActivity")
+                    usingNumbers(1L)
+                }
+                superClass {
+                    usingEqStrings("activity")
+                }
+            },
+            allowFailure = true,
         )
-    }
-    private val classBaseSettingSwitchItem by dexClass(
-        sqlClass {
-            usingEqStrings("activity", "context", "itemView", "1", "0")
-            method {
+    private val classSettingLocation by
+        dexClass(
+            sqlClass {
+                usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
+            },
+            allowFailure = true,
+        )
+    private val methodSettingGroupAccountInfoGetStringId by
+        dexMethod(
+            sqlMethod {
+                declaredClass =
+                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
+                returnType = "java.lang.String"
+                usingEqStrings("SettingGroup_Main_AccountInfo")
+            },
+            allowFailure = true,
+        )
+    private val methodSettingGroupAccountInfoReturns1 by
+        dexMethod(
+            sqlMethod {
+                declaredClass =
+                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
                 returnType = "int"
-                usingNumbers(2L)
-            }
-            method {
-                name = "<init>"
-                paramTypes("androidx.appcompat.app.AppCompatActivity")
                 usingNumbers(1L)
-            }
-            superClass {
-                usingEqStrings("activity")
-            }
-        },
-        allowFailure = true,
-    )
-    private val classSettingLocation by dexClass(
-        sqlClass {
-            usingEqStrings("SettingLocation(parentGroup=", ", frontItem=")
-        },
-        allowFailure = true,
-    )
-    private val methodSettingGroupAccountInfoGetStringId by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-            returnType = "java.lang.String"
-            usingEqStrings("SettingGroup_Main_AccountInfo")
-        },
-        allowFailure = true,
-    )
-    private val methodSettingGroupAccountInfoReturns1 by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupAccountInfo"
-            returnType = "int"
-            usingNumbers(1L)
-        },
-        allowFailure = true,
-    )
-    private val methodSettingGroupPersonalInfoGetGroupNameResId by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
-            returnType = "java.lang.Integer"
-        },
-        allowFailure = true,
-    )
-    private val methodResourceHelperGetStringById by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.ResourceHelper", "get string, resId %d, but context is null")
-        },
-        allowFailure = true,
-    )
+            },
+            allowFailure = true,
+        )
+    private val methodSettingGroupPersonalInfoGetGroupNameResId by
+        dexMethod(
+            sqlMethod {
+                declaredClass =
+                    "com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersonalInfo"
+                returnType = "java.lang.Integer"
+            },
+            allowFailure = true,
+        )
+    private val methodResourceHelperGetStringById by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.ResourceHelper",
+                    "get string, resId %d, but context is null",
+                )
+            },
+            allowFailure = true,
+        )
 
     private const val TAG = "WeSettingsInjector"
 
@@ -147,40 +170,46 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private const val PREFERENCE_CLASS_NAME = "com.tencent.mm.ui.base.preference.Preference"
 
     override fun resolveDex() {
-        val prefClass = DexResolutionContext.matcher.findClasses(
-            ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
-        ).single()
+        val prefClass =
+            DexResolutionContext.matcher
+                .findClasses(
+                    ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
+                )
+                .single()
 
-        val setKeyCandidates = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
-                returnType = ClassSpec(className = NameSpec("void")),
-                paramTypes = listOf(TypeSpec("java.lang.String")),
-                usingStrings = listOf(StringSpec("Preference")),
-            ),
-            packages = listOf("com.tencent.mm.ui.base.preference"),
-        )
+        val setKeyCandidates =
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
+                    returnType = ClassSpec(className = NameSpec("void")),
+                    paramTypes = listOf(TypeSpec("java.lang.String")),
+                    usingStrings = listOf(StringSpec("Preference")),
+                ),
+                packages = listOf("com.tencent.mm.ui.base.preference"),
+            )
         check(setKeyCandidates.isNotEmpty()) { "DexSQL: No method found for key: methodSetKey" }
         methodSetKey.setDescriptor(setKeyCandidates.first())
 
-        val setTitleCandidates = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
-                returnType = ClassSpec(className = NameSpec("void")),
-                paramTypes = listOf(TypeSpec("java.lang.CharSequence")),
-            ),
-        )
+        val setTitleCandidates =
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
+                    returnType = ClassSpec(className = NameSpec("void")),
+                    paramTypes = listOf(TypeSpec("java.lang.CharSequence")),
+                ),
+            )
         if (setTitleCandidates.isNotEmpty()) {
             methodSetTitle.setDescriptor(setTitleCandidates.last())
         }
 
-        val getKeyCandidates = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("java.lang.String")),
-            ),
-        )
+        val getKeyCandidates =
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
+                    paramCount = 0..0,
+                    returnType = ClassSpec(className = NameSpec("java.lang.String")),
+                ),
+            )
 
         val targetGetKey = getKeyCandidates.firstOrNull { it.name != "toString" }
 
@@ -188,34 +217,41 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             methodGetKey.setDescriptor(targetGetKey)
         }
 
-        val adapterClass = DexResolutionContext.matcher.findClasses(
-            ClassSpec(
-                superClass = ClassSpec(className = NameSpec("android.widget.BaseAdapter")),
-                methods = listOf(
-                    MethodSpec(
-                        modifiers = Modifier.PUBLIC,
-                        name = NameSpec("getView"),
-                        paramCount = 3..3,
+        val adapterClass =
+            DexResolutionContext.matcher
+                .findClasses(
+                    ClassSpec(
+                        superClass = ClassSpec(className = NameSpec("android.widget.BaseAdapter")),
+                        methods =
+                            listOf(
+                                MethodSpec(
+                                    modifiers = Modifier.PUBLIC,
+                                    name = NameSpec("getView"),
+                                    paramCount = 3..3,
+                                ),
+                                MethodSpec(
+                                    name = NameSpec("<init>"),
+                                    paramCount = 3..3,
+                                ),
+                            ),
                     ),
-                    MethodSpec(
-                        name = NameSpec("<init>"),
-                        paramCount = 3..3,
-                    ),
-                ),
-            ),
-            packages = listOf("com.tencent.mm.ui.base.preference"),
-        ).singleOrNull()
+                    packages = listOf("com.tencent.mm.ui.base.preference"),
+                )
+                .singleOrNull()
 
         if (adapterClass != null) {
-            val addPrefCandidates = DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(adapterClass.name)),
-                    paramTypes = listOf(TypeSpec(PREFERENCE_CLASS_NAME), TypeSpec("int")),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                ),
-                packages = listOf("com.tencent.mm.ui.base.preference"),
-            )
-            check(addPrefCandidates.isNotEmpty()) { "DexSQL: No method found for key: methodAddPref" }
+            val addPrefCandidates =
+                DexResolutionContext.matcher.findMethods(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec(adapterClass.name)),
+                        paramTypes = listOf(TypeSpec(PREFERENCE_CLASS_NAME), TypeSpec("int")),
+                        returnType = ClassSpec(className = NameSpec("void")),
+                    ),
+                    packages = listOf("com.tencent.mm.ui.base.preference"),
+                )
+            check(addPrefCandidates.isNotEmpty()) {
+                "DexSQL: No method found for key: methodAddPref"
+            }
             methodAddPref.setDescriptor(addPrefCandidates.first())
         }
     }
@@ -223,17 +259,20 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     override fun onEnable() {
         runCatching {
             hookLauncherUi()
-        }.onFailure { WeLogger.w(TAG, "failed to hook LauncherUI") }
+        }
+            .onFailure { WeLogger.w(TAG, "failed to hook LauncherUI") }
 
         WeChatInputBarApi.addListener(this)
 
         runCatching {
             injectLegacy()
-        }.onFailure { WeLogger.w(TAG, "failed to inject into legacy settings") }
+        }
+            .onFailure { WeLogger.w(TAG, "failed to inject into legacy settings") }
 
         runCatching {
             injectModern()
-        }.onFailure { WeLogger.w(TAG, "failed to inject into modern settings") }
+        }
+            .onFailure { WeLogger.w(TAG, "failed to inject into modern settings") }
     }
 
     override fun onDisable() {
@@ -247,42 +286,49 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     }
 
     private fun injectLegacy() {
-        val clsSettingsUi = "${PackageNames.WECHAT}.plugin.setting.ui.setting.SettingsUI"
-            .toClassOrNull() ?: run {
-            WeLogger.w(TAG, "legacy settings class not found, skipping")
-            return
-        }
+        val clsSettingsUi =
+            "${PackageNames.WECHAT}.plugin.setting.ui.setting.SettingsUI".toClassOrNull()
+                ?: run {
+                    WeLogger.w(TAG, "legacy settings class not found, skipping")
+                    return
+                }
 
-        clsSettingsUi.reflekt().firstMethod {
-            name = "initView"
-            parameterCount = 0
-        }.hookAfter {
-            val context = thisObject as SettingsUI
-
-            try {
-                val prefInstance = IconPreference(context)
-
-                methodSetKey.method.invoke(prefInstance, PREFS_KEY)
-                val localizedContext = LocalizedContextFactory.create(
-                    context,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                )
-                methodSetTitle.method.invoke(
-                    prefInstance,
-                    localizedContext.getString(R.string.noncompose_wekit_settings_entry),
-                )
-
-                val prefScreen = context.reflekt().invokeMethod("getPreferenceScreen", superclass = true)
-
-                methodAddPref.method.invoke(prefScreen, prefInstance, 0)
-
-            } catch (e: Throwable) {
-                WeLogger.e(TAG, "failed to insert pref item", e)
+        clsSettingsUi
+            .reflekt()
+            .firstMethod {
+                name = "initView"
+                parameterCount = 0
             }
-        }
+            .hookAfter {
+                val context = thisObject as SettingsUI
 
-        clsSettingsUi.reflekt().firstMethod { name = "onPreferenceTreeClick" }
+                try {
+                    val prefInstance = IconPreference(context)
+
+                    methodSetKey.method.invoke(prefInstance, PREFS_KEY)
+                    val localizedContext =
+                        LocalizedContextFactory.create(
+                            context,
+                            WeKitLocaleController.resolvedLocale,
+                            LocaleResourceMode.InjectedHost,
+                        )
+                    methodSetTitle.method.invoke(
+                        prefInstance,
+                        localizedContext.getString(R.string.noncompose_wekit_settings_entry),
+                    )
+
+                    val prefScreen =
+                        context.reflekt().invokeMethod("getPreferenceScreen", superclass = true)
+
+                    methodAddPref.method.invoke(prefScreen, prefInstance, 0)
+                } catch (e: Throwable) {
+                    WeLogger.e(TAG, "failed to insert pref item", e)
+                }
+            }
+
+        clsSettingsUi
+            .reflekt()
+            .firstMethod { name = "onPreferenceTreeClick" }
             .hookBefore {
                 if (args.size < 2) return@hookBefore
                 val preference = args[1] ?: return@hookBefore
@@ -318,22 +364,30 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             mGetLevel = methodSettingGroupAccountInfoReturns1.method.name
             mOnClick = first { m -> m.parameterCount == 3 }.name
             mGetKey = methodSettingGroupAccountInfoGetStringId.method.name
-            mGetSettingLocation =
-                last { m -> m.returnType == classSettingLocation.clazz }.name
+            mGetSettingLocation = last { m -> m.returnType == classSettingLocation.clazz }.name
             mGetNameResId =
                 last { m ->
                     m.returnType == int &&
-                            m.name != methodSettingGroupAccountInfoReturns1.method.name
-                }.name
+                        m.name != methodSettingGroupAccountInfoReturns1.method.name
+                }
+                    .name
             mGetGroupNameResId = methodSettingGroupPersonalInfoGetGroupNameResId.method.name
-            mGetSwitchState = classBaseSettingSwitchItem.reflekt().firstMethod {
-                modifiers(Modifier.ABSTRACT)
-                returnType = bool
-            }.name
-            mGetSwitchProperty = classBaseSettingSwitchItem.reflekt().firstMethod {
-                modifiers(Modifier.ABSTRACT)
-                returnType { !it.isBuiltin }
-            }.name
+            mGetSwitchState =
+                classBaseSettingSwitchItem
+                    .reflekt()
+                    .firstMethod {
+                        modifiers(Modifier.ABSTRACT)
+                        returnType = bool
+                    }
+                    .name
+            mGetSwitchProperty =
+                classBaseSettingSwitchItem
+                    .reflekt()
+                    .firstMethod {
+                        modifiers(Modifier.ABSTRACT)
+                        returnType { !it.isBuiltin }
+                    }
+                    .name
 
             // non-play 8.0.69: C6, K6, Q6, w6, x6, z6, u6, W6, V6
             // non-play 8.0.70: k7, r7, w7, g7, h7, j7, ...
@@ -342,13 +396,14 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             WeLogger.d(
                 TAG,
                 "resolved all method names: $mGetPageGroupItemClass, $mGetLevel, $mOnClick, $mGetKey, $mGetSettingLocation, $mGetNameResId, $mGetGroupNameResId, " +
-                        "$mGetSwitchState, $mGetSwitchProperty"
+                    "$mGetSwitchState, $mGetSwitchProperty",
             )
         }
     }
 
     private fun injectModern() {
-        "${PackageNames.WECHAT}.plugin.setting.ui.setting_new.settings.SettingGroupMain".toClassOrNull()
+        "${PackageNames.WECHAT}.plugin.setting.ui.setting_new.settings.SettingGroupMain"
+            .toClassOrNull()
             ?: run {
                 WeLogger.w(TAG, "modern settings class not found, skipping")
                 return
@@ -356,28 +411,44 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
         resolveMethodNames()
 
-        val settingsManager = WeChatSettingsManager(
-            classBaseSettingItem.clazz, classBaseSettingSwitchItem.clazz, classSettingLocation.clazz, classSettingItemClassesProvider.clazz,
-            BaseSettingPrefUI::class.java, BaseSettingUI::class.java, methodResourceHelperGetStringById.method,
-            mGetPageGroupItemClass, mGetLevel, mOnClick, mGetKey, mGetSettingLocation, mGetNameResId, mGetGroupNameResId, mGetSwitchState, mGetSwitchProperty
-        )
+        val settingsManager =
+            WeChatSettingsManager(
+                classBaseSettingItem.clazz,
+                classBaseSettingSwitchItem.clazz,
+                classSettingLocation.clazz,
+                classSettingItemClassesProvider.clazz,
+                BaseSettingPrefUI::class.java,
+                BaseSettingUI::class.java,
+                methodResourceHelperGetStringById.method,
+                mGetPageGroupItemClass,
+                mGetLevel,
+                mOnClick,
+                mGetKey,
+                mGetSettingLocation,
+                mGetNameResId,
+                mGetGroupNameResId,
+                mGetSwitchState,
+                mGetSwitchProperty,
+            )
 
         settingsManager.createItem {
             key = "SettingGroup_Main_WeKitTest1"
             titleProvider = {
                 LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                ).getString(R.string.noncompose_wekit_settings_entry)
+                        HostInfo.application,
+                        WeKitLocaleController.resolvedLocale,
+                        LocaleResourceMode.InjectedHost,
+                    )
+                    .getString(R.string.noncompose_wekit_settings_entry)
             }
             level = 1
             groupTitleProvider = {
                 LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                ).getString(R.string.noncompose_wekit_settings_group)
+                        HostInfo.application,
+                        WeKitLocaleController.resolvedLocale,
+                        LocaleResourceMode.InjectedHost,
+                    )
+                    .getString(R.string.noncompose_wekit_settings_group)
             }
             pageClass = SettingGroupMain::class.java
             parentClass = SettingAdditionHeaderSearch::class.java

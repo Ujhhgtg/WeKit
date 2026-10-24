@@ -17,9 +17,10 @@ class FunBoxBinaryWriter(
     fun bytes(value: ByteArray?) {
         val data = value ?: ByteArray(0)
         int(data.size)
-        val transformed = ByteArray(data.size) { index ->
-            (data[index].toInt() xor (index + 0x80) % 0xff).toByte()
-        }
+        val transformed =
+            ByteArray(data.size) { index ->
+                (data[index].toInt() xor (index + 0x80) % 0xff).toByte()
+            }
         output.write(xor(transformed))
     }
 
@@ -40,28 +41,33 @@ class FunBoxBinaryWriter(
 
     fun <T> objects(values: List<T>, encode: FunBoxBinaryWriter.(T) -> Unit) {
         int(values.size)
-        values.forEach { value -> bytes(FunBoxBinaryWriter(random).apply { encode(value) }.build()) }
+        values.forEach { value ->
+            bytes(FunBoxBinaryWriter(random).apply { encode(value) }.build())
+        }
     }
 
     fun build(): ByteArray {
-        val encodedKey = ByteArray(key.size) { index ->
-            (key[index].toInt() xor (index + 0x80) % 0xff).toByte()
-        }
+        val encodedKey =
+            ByteArray(key.size) { index ->
+                (key[index].toInt() xor (index + 0x80) % 0xff).toByte()
+            }
         return encodedKey + output.toByteArray()
     }
 
-    private fun xor(value: ByteArray) = ByteArray(value.size) { index ->
-        val result = (value[index].toInt() xor key[keyIndex].toInt()).toByte()
-        keyIndex = (keyIndex + 1) % key.size
-        result
-    }
+    private fun xor(value: ByteArray) =
+        ByteArray(value.size) { index ->
+            val result = (value[index].toInt() xor key[keyIndex].toInt()).toByte()
+            keyIndex = (keyIndex + 1) % key.size
+            result
+        }
 }
 
 class FunBoxBinaryReader(data: ByteArray) {
     private val input = ByteArrayInputStream(data)
-    private val key = ByteArray(32) { index ->
-        (readRawByte().toInt() xor (index + 0x80) % 0xff).toByte()
-    }
+    private val key =
+        ByteArray(32) { index ->
+            (readRawByte().toInt() xor (index + 0x80) % 0xff).toByte()
+        }
     private var keyIndex = 0
 
     fun string(): String = String(bytes())
@@ -78,12 +84,16 @@ class FunBoxBinaryReader(data: ByteArray) {
 
     fun int(): Int {
         val data = readXor(4)
-        return data.indices.fold(0) { value, index -> value or (data[index].toInt() and 0xff shl index * 8) }
+        return data.indices.fold(0) { value, index ->
+            value or (data[index].toInt() and 0xff shl index * 8)
+        }
     }
 
     fun long(): Long {
         val data = readXor(8)
-        return data.indices.fold(0L) { value, index -> value or (data[index].toLong() and 0xffL shl index * 8) }
+        return data.indices.fold(0L) { value, index ->
+            value or (data[index].toLong() and 0xffL shl index * 8)
+        }
     }
 
     fun bool(): Boolean = readRawByte().toInt() == 1
@@ -93,7 +103,8 @@ class FunBoxBinaryReader(data: ByteArray) {
     fun <T> objects(decode: (FunBoxBinaryReader) -> T): List<T> =
         List(checkedCount()) { decode(FunBoxBinaryReader(bytes())) }
 
-    private fun checkedCount(): Int = int().also { require(it in 0..MAX_LIST_ITEMS) { "无效列表数量: $it" } }
+    private fun checkedCount(): Int =
+        int().also { require(it in 0..MAX_LIST_ITEMS) { "无效列表数量: $it" } }
 
     private fun readXor(length: Int): ByteArray {
         val raw = input.readBytes(length)

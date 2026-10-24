@@ -7,8 +7,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -31,200 +29,168 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     private const val TAG = "WeConversationApi"
 
     // Clears 4096, 1048576, 16777216 and 33554432, which drive 8071/8072 red prefixes
-//    private const val ATTR_FLAG_COMMON_RED_BITS = 51384320
-//    private const val ATTR_FLAG_8071_8072_RED_PACKET_BITS = 33280
-//    private const val TABLE_RCONVERSATION = "rconversation"
-//    private const val TABLE_ECS_CONVERSATION_RECORD = "EcsConversationRecord"
-    val classConversationStorage by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.storage")
-            usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
-        },
-    )
-    val methodUpdateUnreadByTalker by dexMethod(
-        sqlMethod {
-            declaredClass(classConversationStorage.data.name)
-            usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
-        },
-    )
+    //    private const val ATTR_FLAG_COMMON_RED_BITS = 51384320
+    //    private const val ATTR_FLAG_8071_8072_RED_PACKET_BITS = 33280
+    //    private const val TABLE_RCONVERSATION = "rconversation"
+    //    private const val TABLE_ECS_CONVERSATION_RECORD = "EcsConversationRecord"
+    val classConversationStorage by dexClass {
+        searchPackages("com.tencent.mm.storage")
+        usingEqStrings("rconversation", "PRAGMA table_info( rconversation)")
+    }
+    val methodUpdateUnreadByTalker by dexMethod {
+        declaredClass(classConversationStorage.data.name)
+        usingEqStrings("MicroMsg.ConversationStorage", "updateUnreadByTalker %s")
+    }
 
     // ConversationStorage.k(String) aka `delChatContact`: deletes the rconversation row through the
     // cache-aware storage wrapper and notifies list observers, which is the core of WeChat's native
     // "不显示该聊天" for a normal contact.
-    private val methodDelChatContact by dexMethod(
-        sqlMethod {
-            declaredClass(classConversationStorage.data.name)
-            returnType = "void"
-            paramCount = 1
-            paramTypes("java.lang.String")
-            usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
-        },
-    )
+    private val methodDelChatContact by dexMethod {
+        declaredClass(classConversationStorage.data.name)
+        returnType = "void"
+        paramCount = 1
+        paramTypes("java.lang.String")
+        usingStrings("MicroMsg.ConversationStorage", "delChatContact username:")
+    }
 
     //    private val methodClearConvRedHintsOnMarkRead by dexMethod(allowFailure = true) {
-//        matcher {
-//            modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
-//            returnType(Void.TYPE)
-//            paramCount = 1
-//            paramTypes(String::class.java)
-//            usingStrings(
-//                "MicroMsg.ConvRedHintStorage",
-//                "markReadRemoveRedHint remove red hints"
-//            )
-//        }
-//    }
-//    private val methodClearEcsGiftRedLabel by dexMethod(allowFailure = true) {
-//        matcher {
-//            returnType(Void.TYPE)
-//            paramCount = 1
-//            paramTypes(String::class.java)
-//            usingEqStrings(
-//                "MicroMsg.EcsGiftMsgService",
-//                "clearEcsGiftRedLabel, talker is empty",
-//                "clearEcsGiftRedLabel error"
-//            )
-//        }
-//    }
-    private val methodHiddenConvParent by dexMethod(
-        sqlMethod {
-            declaredClass(classConversationStorage.data.name)
-            usingEqStrings("Update rconversation set parentRef = '", "' where 1 != 1 ")
-        },
-    )
+    //        matcher {
+    //            modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
+    //            returnType(Void.TYPE)
+    //            paramCount = 1
+    //            paramTypes(String::class.java)
+    //            usingStrings(
+    //                "MicroMsg.ConvRedHintStorage",
+    //                "markReadRemoveRedHint remove red hints"
+    //            )
+    //        }
+    //    }
+    //    private val methodClearEcsGiftRedLabel by dexMethod(allowFailure = true) {
+    //        matcher {
+    //            returnType(Void.TYPE)
+    //            paramCount = 1
+    //            paramTypes(String::class.java)
+    //            usingEqStrings(
+    //                "MicroMsg.EcsGiftMsgService",
+    //                "clearEcsGiftRedLabel, talker is empty",
+    //                "clearEcsGiftRedLabel error"
+    //            )
+    //        }
+    //    }
+    private val methodHiddenConvParent by dexMethod {
+        declaredClass(classConversationStorage.data.name)
+        usingEqStrings("Update rconversation set parentRef = '", "' where 1 != 1 ")
+    }
 
     //    private val methodGetConvByName by dexMethod {
-//        matcher {
-//            declaredClass(classConversationStorage.clazz)
-//            usingEqStrings("MicroMsg.ConversationStorage", "get null with username:")
-//        }
-//    }
-//    private val methodUpdateConversationByObject by dexMethod {
-//        matcher {
-//            declaredClass(classConversationStorage.clazz)
-//            returnType(Int::class.java)
-//            paramTypes(methodGetConvByName.method.returnType, String::class.java)
-//        }
-//    }
-    val methodChatroomStorageGetMemberCount by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.storage")
-            usingEqStrings("MicroMsg.ChatroomStorage", "[getMemberCount] cost:%sms")
-        },
-    )
-    private val classChatroomMember by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.storage")
-            usingEqStrings("MicroMsg.ChatRoomMember", "service is null")
-        },
-    )
-    private val methodSetDnd by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "MicroMsg.OpenImOpLogLogic",
-                "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch add",
-            )
-        },
-    )
-    private val methodSetNoDnd by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "MicroMsg.OpenImOpLogLogic",
-                "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch cancel",
-            )
-        },
-    )
+    //        matcher {
+    //            declaredClass(classConversationStorage.clazz)
+    //            usingEqStrings("MicroMsg.ConversationStorage", "get null with username:")
+    //        }
+    //    }
+    //    private val methodUpdateConversationByObject by dexMethod {
+    //        matcher {
+    //            declaredClass(classConversationStorage.clazz)
+    //            returnType(Int::class.java)
+    //            paramTypes(methodGetConvByName.method.returnType, String::class.java)
+    //        }
+    //    }
+    val methodChatroomStorageGetMemberCount by dexMethod {
+        searchPackages("com.tencent.mm.storage")
+        usingEqStrings("MicroMsg.ChatroomStorage", "[getMemberCount] cost:%sms")
+    }
+    private val classChatroomMember by dexClass {
+        searchPackages("com.tencent.mm.storage")
+        usingEqStrings("MicroMsg.ChatRoomMember", "service is null")
+    }
+    private val methodSetDnd by dexMethod {
+        usingEqStrings(
+            "MicroMsg.OpenImOpLogLogic",
+            "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch add",
+        )
+    }
+    private val methodSetNoDnd by dexMethod {
+        usingEqStrings(
+            "MicroMsg.OpenImOpLogLogic",
+            "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch cancel",
+        )
+    }
 
     // RoomServiceFactory.get(roomId) (`ed0.e.hj` on 8.0.76) -> the room service for that room's
     // suffix (`@chatroom`, `@im.chatroom`, ...), which builds the room oplog operations. Anchored
     // on the log it emits for a room id without a suffix.
-    private val methodGetRoomService by dexMethod(
-        sqlMethod {
+    private val methodGetRoomService by
+        dexMethod(allowFailure = true) {
             usingEqStrings("MicroMsg.RoomServiceFactory", "get NotNullChatRoom %s")
-        },
-        allowFailure = true,
-    )
+        }
 
     // RoomOpLogCallbackFactory.request() (`com.tencent.mm.roomsdk.model.factory.f.b`) — hands the
     // operation built by the room service to the oplog queue, i.e. actually sends it. 8.0.69+ logs
     // "request oplog with result %s" and older builds "request oplog %s", so match the prefix.
-    private val methodRoomOpLogRequest by dexMethod(
-        sqlMethod {
+    private val methodRoomOpLogRequest by
+        dexMethod(allowFailure = true) {
             paramCount = 0
             usingStrings("MicroMsg.RoomCallbackFactory", "request oplog")
-        },
-        allowFailure = true,
-    )
+        }
 
     // ConversationStorage.M(String) / isPlacedTop — returns true when the conversation's flag
     // has the "placed top" high bits set. Anchored by the string it logs on a null/empty talker.
-    private val methodIsPlacedTop by dexMethod(
-        sqlMethod {
+    private val methodIsPlacedTop by
+        dexMethod(allowFailure = true) {
             declaredClass(classConversationStorage.data.name)
             returnType = "boolean"
             paramCount = 1
             paramTypes("java.lang.String")
             usingStrings("MicroMsg.ConversationStorage", "isPlacedTop failed")
-        },
-        allowFailure = true,
-    )
+        }
 
     // ConversationStorage.U(String) / setPlacedTop — sets the high bits in rconversation.flag
     // that WeChat uses to sort pinned conversations to the top.
-    private val methodSetPlacedTop by dexMethod(
-        sqlMethod {
+    private val methodSetPlacedTop by
+        dexMethod(allowFailure = true) {
             declaredClass(classConversationStorage.data.name)
             returnType = "boolean"
             paramCount = 1
             paramTypes("java.lang.String")
             usingStrings("MicroMsg.ConversationStorage", "setPlacedTop conversation failed")
-        },
-        allowFailure = true,
-    )
+        }
 
     // ConversationStorage.X(String) / unSetPlacedTop — clears the high bits, unpinning the row.
-    private val methodUnSetPlacedTop by dexMethod(
-        sqlMethod {
+    private val methodUnSetPlacedTop by
+        dexMethod(allowFailure = true) {
             declaredClass(classConversationStorage.data.name)
             returnType = "boolean"
             paramCount = 1
             paramTypes("java.lang.String")
             usingStrings("MicroMsg.ConversationStorage", "unSetPlacedTop conversation failed")
-        },
-        allowFailure = true,
-    )
+        }
 
     // ContactStorageLogic.toModContactOplog(z3) -> the `tn4` modContact proto WeChat sends as
     // oplog cmd 2 to sync a contact's flags (mute/top/...) to the server. Reusing WeChat's own
     // builder guarantees the ~80-field proto (including BitMask/BitVal and remark) is byte-perfect.
-    private val methodBuildModContactOplog by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "MicroMsg.ContactStorageLogic",
-                "oplog modContact user:%s remark:%s BitVal:%d BitValue2:%s isInConvBox:%s isTop:%s isMute:%s",
-            )
-        },
-    )
-    val methodNotifyConversationChanged by dexMethod(
-        sqlMethod {
+    private val methodBuildModContactOplog by dexMethod {
+        usingEqStrings(
+            "MicroMsg.ContactStorageLogic",
+            "oplog modContact user:%s remark:%s BitVal:%d BitValue2:%s isInConvBox:%s isTop:%s isMute:%s",
+        )
+    }
+    val methodNotifyConversationChanged by
+        dexMethod(allowFailure = true) {
             declaredClass(classConversationStorage.data.superClass!!.name)
             returnType = "void"
             paramCount = 3
             paramTypes("int", classConversationStorage.data.superClass!!.name, "java.lang.Object")
-        },
-        allowFailure = true,
-    )
+        }
 
     // ConversationStorage.p(String) -> com.tencent.mm.storage.m3 (the rconversation model for a
     // talker), or null. Needed to hand the conversation object to the native delete helper below.
-    private val methodGetConversationByTalker by dexMethod(
-        sqlMethod {
+    private val methodGetConversationByTalker by
+        dexMethod(allowFailure = true) {
             declaredClass(classConversationStorage.data.name)
             paramCount = 1
             paramTypes("java.lang.String")
             usingStrings("MicroMsg.ConversationStorage", "get null with username:")
-        },
-        allowFailure = true,
-    )
+        }
 
     // com.tencent.mm.ui.conversation.s1#d(context, talker, m3, PBool, ProgressDialog, boolean) =
     // doDeleteConv: the work WeChat runs AFTER the user taps 删除 in the "删除该聊天" confirm dialog
@@ -232,17 +198,16 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // permanent delete with NO confirmation dialog. Its progress callback null-checks the PBool and
     // ProgressDialog, so nulls are safe; the trailing boolean starts a tablet/split-screen
     // EmptyActivity, so we pass false. Anchored by two in-method log strings unique to s1.d.
-    private val methodDoDeleteConversation by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.conversation")
-            paramCount = 6
-            usingStrings("MicroMsg.ConvDelLogic", "oplog modContact user:%s")
-        },
-    )
-//    private var ecsGiftMsgService: Any? = null
+    private val methodDoDeleteConversation by dexMethod {
+        searchPackages("com.tencent.mm.ui.conversation")
+        paramCount = 6
+        usingStrings("MicroMsg.ConvDelLogic", "oplog modContact user:%s")
+    }
+    //    private var ecsGiftMsgService: Any? = null
 
     val conversationStorage by lazy {
-        WeServiceApi.storageFeatureService.reflekt()
+        WeServiceApi.storageFeatureService
+            .reflekt()
             .firstMethod {
                 returnType = classConversationStorage.clazz
             }
@@ -250,7 +215,8 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     val chatroomStorage by lazy {
-        WeServiceApi.chatroomService.reflekt()
+        WeServiceApi.chatroomService
+            .reflekt()
             .firstMethod {
                 returnType = methodChatroomStorageGetMemberCount.method.declaringClass
             }
@@ -260,7 +226,8 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     // this is NOT group 'member'
     // this is the group itself
     fun getGroup(groupId: String): Any {
-        return chatroomStorage.reflekt()
+        return chatroomStorage
+            .reflekt()
             .firstMethod {
                 parameters(String::class)
                 returnType = classChatroomMember.clazz
@@ -269,7 +236,10 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     fun markAllAsRead() {
-        val cursor = WeDatabaseApi.rawQuery("SELECT username FROM rconversation WHERE unReadCount>0 OR unReadMuteCount>0 OR atCount>0")
+        val cursor =
+            WeDatabaseApi.rawQuery(
+                "SELECT username FROM rconversation WHERE unReadCount>0 OR unReadMuteCount>0 OR atCount>0",
+            )
         while (cursor.moveToNext()) {
             val talker = cursor.getString(0)
             try {
@@ -282,41 +252,41 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         cursor.close()
     }
 
-//    fun markAllAsRead() {
-//        val talkers = LinkedHashSet<String>()
-//        val cursor = WeDatabaseApi.rawQuery("SELECT username, parentRef FROM rconversation")
-//        cursor.use { cursor ->
-//            while (cursor.moveToNext()) {
-//                val talker = cursor.getString(0)
-//                if (!talker.isNullOrEmpty()) {
-//                    talkers += talker
-//                }
-//                val parentRef = cursor.getString(1)
-//                if (!parentRef.isNullOrEmpty()) {
-//                    talkers += parentRef
-//                }
-//            }
-//        }
-//
-//        for (talker in talkers) {
-//            try {
-//                clearConversationUnreadState(talker)
-//            } catch (ex: Exception) {
-//                WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
-//            }
-//        }
-//
-//        clearAllConversationRedPacketMarkFields()
-//        reloadConversations()
-//    }
+    //    fun markAllAsRead() {
+    //        val talkers = LinkedHashSet<String>()
+    //        val cursor = WeDatabaseApi.rawQuery("SELECT username, parentRef FROM rconversation")
+    //        cursor.use { cursor ->
+    //            while (cursor.moveToNext()) {
+    //                val talker = cursor.getString(0)
+    //                if (!talker.isNullOrEmpty()) {
+    //                    talkers += talker
+    //                }
+    //                val parentRef = cursor.getString(1)
+    //                if (!parentRef.isNullOrEmpty()) {
+    //                    talkers += parentRef
+    //                }
+    //            }
+    //        }
+    //
+    //        for (talker in talkers) {
+    //            try {
+    //                clearConversationUnreadState(talker)
+    //            } catch (ex: Exception) {
+    //                WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
+    //            }
+    //        }
+    //
+    //        clearAllConversationRedPacketMarkFields()
+    //        reloadConversations()
+    //    }
 
     //    fun markAsRead(talker: String) {
-//        try {
-//            clearConversationUnreadState(talker)
-//        } catch (ex: Exception) {
-//            WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
-//        }
-//    }
+    //        try {
+    //            clearConversationUnreadState(talker)
+    //        } catch (ex: Exception) {
+    //            WeLogger.w(TAG, "exception while updating unread count for $talker", ex)
+    //        }
+    //    }
 
     fun markAsRead(talker: String) {
         try {
@@ -328,10 +298,10 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Remove a conversation from the home-screen list, the way WeChat's native "不显示该聊天" does:
-     * this deletes the `rconversation` row through the host's cache-aware storage wrapper and
-     * notifies the conversation-list observers, so the change is reflected immediately without a
-     * restart. Chat messages are NOT touched.
+     * Remove a conversation from the home-screen list, the way WeChat's native "不显示该聊天" does: this
+     * deletes the `rconversation` row through the host's cache-aware storage wrapper and notifies
+     * the conversation-list observers, so the change is reflected immediately without a restart.
+     * Chat messages are NOT touched.
      *
      * The observer notification is dispatched synchronously on the calling thread and mutates the
      * list adapters, so this MUST be called on the main thread (see [reloadConversations]).
@@ -348,7 +318,9 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /** The rconversation model ([com.tencent.mm.storage.m3]) for [talker], or null if none exists. */
+    /**
+     * The rconversation model ([com.tencent.mm.storage.m3]) for [talker], or null if none exists.
+     */
     fun getConversationByTalker(talker: String): Any? {
         if (!methodGetConversationByTalker.isFound) return null
         return try {
@@ -360,18 +332,22 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Permanently delete a conversation the way WeChat's "删除该聊天" menu does AFTER the user
-     * confirms — i.e. delete the conversation AND its chat messages, syncing the removal to the
-     * server. Unlike [hideConversation] (which only hides the row, "不显示该聊天"), this is
-     * irreversible. No confirmation dialog is shown.
+     * Permanently delete a conversation the way WeChat's "删除该聊天" menu does AFTER the user confirms
+     * — i.e. delete the conversation AND its chat messages, syncing the removal to the server.
+     * Unlike [hideConversation] (which only hides the row, "不显示该聊天"), this is irreversible. No
+     * confirmation dialog is shown.
      *
      * Invokes the host's post-confirm delete worker (s1.d / doDeleteConv). Runs on the main thread
-     * because it notifies the conversation-list observers synchronously (see [reloadConversations]).
+     * because it notifies the conversation-list observers synchronously (see
+     * [reloadConversations]).
      *
      * @return true if the native delete was invoked without throwing (false if unavailable on this
      *   build or the call threw).
      */
-    fun deleteConversation(talker: String, conversation: Any? = getConversationByTalker(talker)): Boolean {
+    fun deleteConversation(
+        talker: String,
+        conversation: Any? = getConversationByTalker(talker),
+    ): Boolean {
         if (!methodDoDeleteConversation.isFound) {
             WeLogger.w(TAG, "permanent delete unavailable on this build for $talker")
             return false
@@ -385,7 +361,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
                 conversation,
                 null,
                 null,
-                false
+                false,
             )
             true
         } catch (ex: Exception) {
@@ -394,83 +370,87 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         }
     }
 
-//    private fun clearConversationUnreadState(talker: String) {
-//        try {
-//            methodUpdateUnreadByTalker.method.invoke(conversationStorage, talker)
-//        } catch (ex: Exception) {
-//            WeLogger.w(TAG, "exception while invoking native mark read for $talker", ex)
-//        }
-//        clearEcsGiftRedLabelViaOfficialService(talker)
-//        clearExternalConversationRedHints(talker)
-//        notifyConversationChanged(talker)
-//        WeLogger.d(TAG, "marked $talker as read")
-//    }
+    //    private fun clearConversationUnreadState(talker: String) {
+    //        try {
+    //            methodUpdateUnreadByTalker.method.invoke(conversationStorage, talker)
+    //        } catch (ex: Exception) {
+    //            WeLogger.w(TAG, "exception while invoking native mark read for $talker", ex)
+    //        }
+    //        clearEcsGiftRedLabelViaOfficialService(talker)
+    //        clearExternalConversationRedHints(talker)
+    //        notifyConversationChanged(talker)
+    //        WeLogger.d(TAG, "marked $talker as read")
+    //    }
 
-//    private fun clearEcsGiftRedLabelViaOfficialService(talker: String): Boolean {
-//        return try {
-//            val method = resolvedClearEcsGiftRedLabelMethod() ?: return false
-//            val service = getEcsGiftMsgService(method) ?: return false
-//            method.invoke(service, talker)
-//            true
-//        } catch (ex: Exception) {
-//            WeLogger.w(TAG, "exception while invoking official ecs gift red-label clear for $talker", ex)
-//            false
-//        }
-//    }
-//
-//    private fun clearExternalConversationRedHints(talker: String) {
-//        try {
-//            WeDatabaseApi.execStatement(
-//                "UPDATE $TABLE_ECS_CONVERSATION_RECORD SET ecsUnhandledGiftCount=0, ecsGiftRedLabelType=0 WHERE talker=?",
-//                arrayOf<Any>(talker)
-//            )
-//        } catch (ex: Exception) {
-//            WeLogger.w(TAG, "exception while clearing external red hints for $talker", ex)
-//        }
-//    }
-//
-//    private fun clearAllConversationRedPacketMarkFields() {
-//        try {
-//            WeDatabaseApi.execStatement(
-//                "UPDATE $TABLE_RCONVERSATION SET hbMarkRed=0, remitMarkRed=0, attrflag=(attrflag & ${unreadClearAttrFlagMask()}) WHERE hbMarkRed<>0 OR remitMarkRed<>0"
-//            )
-//        } catch (ex: Exception) {
-//            WeLogger.w(TAG, "exception while clearing all red-packet mark fields", ex)
-//        }
-//    }
-//
-//    private fun unreadClearAttrFlagMask(): Int {
-//        return (ATTR_FLAG_COMMON_RED_BITS or ATTR_FLAG_8071_8072_RED_PACKET_BITS).inv()
-//    }
-//
-//    private fun resolvedClearEcsGiftRedLabelMethod(): Method? {
-//        if (!methodClearEcsGiftRedLabel.isFound) return null
-//        val method = methodClearEcsGiftRedLabel.method
-//        if (method.run {
-//                returnType == Void.TYPE &&
-//                        parameterCount == 1 &&
-//                        parameterTypes[0] == String::class.java
-//            }) return method
-//        WeLogger.w(
-//            TAG,
-//            "ignore invalid official ecs gift red-label clear method: ${method.declaringClass.name}.${method.name}, params=${method.parameterCount}"
-//        )
-//        return null
-//    }
-//
-//    private fun getEcsGiftMsgService(method: Method): Any? {
-//        ecsGiftMsgService?.let { return it }
-//        val concreteClass = method.declaringClass
-//        for (serviceInterface in concreteClass.interfaces) {
-//            val service = runCatching {
-//                WeServiceApi.getServiceImplByClass(serviceInterface)
-//            }.getOrNull()
-//            if (service != null && concreteClass.isInstance(service)) {
-//                return service.also { ecsGiftMsgService = it }
-//            }
-//        }
-//        return null
-//    }
+    //    private fun clearEcsGiftRedLabelViaOfficialService(talker: String): Boolean {
+    //        return try {
+    //            val method = resolvedClearEcsGiftRedLabelMethod() ?: return false
+    //            val service = getEcsGiftMsgService(method) ?: return false
+    //            method.invoke(service, talker)
+    //            true
+    //        } catch (ex: Exception) {
+    //            WeLogger.w(TAG, "exception while invoking official ecs gift red-label clear for
+    // $talker", ex)
+    //            false
+    //        }
+    //    }
+    //
+    //    private fun clearExternalConversationRedHints(talker: String) {
+    //        try {
+    //            WeDatabaseApi.execStatement(
+    //                "UPDATE $TABLE_ECS_CONVERSATION_RECORD SET ecsUnhandledGiftCount=0,
+    // ecsGiftRedLabelType=0 WHERE talker=?",
+    //                arrayOf<Any>(talker)
+    //            )
+    //        } catch (ex: Exception) {
+    //            WeLogger.w(TAG, "exception while clearing external red hints for $talker", ex)
+    //        }
+    //    }
+    //
+    //    private fun clearAllConversationRedPacketMarkFields() {
+    //        try {
+    //            WeDatabaseApi.execStatement(
+    //                "UPDATE $TABLE_RCONVERSATION SET hbMarkRed=0, remitMarkRed=0,
+    // attrflag=(attrflag & ${unreadClearAttrFlagMask()}) WHERE hbMarkRed<>0 OR remitMarkRed<>0"
+    //            )
+    //        } catch (ex: Exception) {
+    //            WeLogger.w(TAG, "exception while clearing all red-packet mark fields", ex)
+    //        }
+    //    }
+    //
+    //    private fun unreadClearAttrFlagMask(): Int {
+    //        return (ATTR_FLAG_COMMON_RED_BITS or ATTR_FLAG_8071_8072_RED_PACKET_BITS).inv()
+    //    }
+    //
+    //    private fun resolvedClearEcsGiftRedLabelMethod(): Method? {
+    //        if (!methodClearEcsGiftRedLabel.isFound) return null
+    //        val method = methodClearEcsGiftRedLabel.method
+    //        if (method.run {
+    //                returnType == Void.TYPE &&
+    //                        parameterCount == 1 &&
+    //                        parameterTypes[0] == String::class.java
+    //            }) return method
+    //        WeLogger.w(
+    //            TAG,
+    //            "ignore invalid official ecs gift red-label clear method:
+    // ${method.declaringClass.name}.${method.name}, params=${method.parameterCount}"
+    //        )
+    //        return null
+    //    }
+    //
+    //    private fun getEcsGiftMsgService(method: Method): Any? {
+    //        ecsGiftMsgService?.let { return it }
+    //        val concreteClass = method.declaringClass
+    //        for (serviceInterface in concreteClass.interfaces) {
+    //            val service = runCatching {
+    //                WeServiceApi.getServiceImplByClass(serviceInterface)
+    //            }.getOrNull()
+    //            if (service != null && concreteClass.isInstance(service)) {
+    //                return service.also { ecsGiftMsgService = it }
+    //            }
+    //        }
+    //        return null
+    //    }
 
     fun reloadConversations(updatedTalkers: Collection<String> = emptyList()) {
         // notifyConversationChanged dispatches to WeChat's conversation-list UI observers.
@@ -495,7 +475,12 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 
     private fun notifyConversationChanged(talker: String, eventType: Int = 3) {
         if (!methodNotifyConversationChanged.isFound) return
-        methodNotifyConversationChanged.method.invoke(conversationStorage, eventType, conversationStorage, talker)
+        methodNotifyConversationChanged.method.invoke(
+            conversationStorage,
+            eventType,
+            conversationStorage,
+            talker,
+        )
     }
 
     fun setConversationsVisibility(visible: Boolean, talkers: Array<String>) {
@@ -506,13 +491,13 @@ object WeConversationApi : ApiFeature(), IResolveDex {
                 talkers,
                 operation,
                 true,
-                false
+                false,
             )
         } else {
             methodHiddenConvParent.method.invoke(
                 conversationStorage,
                 talkers,
-                operation
+                operation,
             )
         }
     }
@@ -527,22 +512,27 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         setConversationsVisibility(visible, talkers.toTypedArray())
     }
 
-//    fun onlyShowFilteredConversations(queryFilter: String, selectedColumns: String = "username") {
-//        setAllConversationVisibility(false)
-//        setFilteredConversationsVisibility(true, queryFilter, selectedColumns)
-//    }
+    //    fun onlyShowFilteredConversations(queryFilter: String, selectedColumns: String =
+    // "username") {
+    //        setAllConversationVisibility(false)
+    //        setFilteredConversationsVisibility(true, queryFilter, selectedColumns)
+    //    }
 
-//    fun setFilteredConversationsVisibility(visible: Boolean, queryFilter: String, selectedColumns: String = "username") {
-//        val cursor = WeDatabaseApi.rawQuery("SELECT $selectedColumns FROM rconversation $queryFilter")
-//        val talkers = mutableListOf<String>()
-//        while (cursor.moveToNext()) {
-//            talkers += cursor.getString(0)
-//        }
-//        cursor.close()
-//        setConversationsVisibility(visible, talkers.toTypedArray())
-//    }
+    //    fun setFilteredConversationsVisibility(visible: Boolean, queryFilter: String,
+    // selectedColumns: String = "username") {
+    //        val cursor = WeDatabaseApi.rawQuery("SELECT $selectedColumns FROM rconversation
+    // $queryFilter")
+    //        val talkers = mutableListOf<String>()
+    //        while (cursor.moveToNext()) {
+    //            talkers += cursor.getString(0)
+    //        }
+    //        cursor.close()
+    //        setConversationsVisibility(visible, talkers.toTypedArray())
+    //    }
 
-    /** ContactStorageLogic (`e2`), the class that owns the DND setters and the modContact builder. */
+    /**
+     * ContactStorageLogic (`e2`), the class that owns the DND setters and the modContact builder.
+     */
     private val contactStorageLogic: Class<*> by lazy { methodSetDnd.method.declaringClass }
 
     /**
@@ -584,27 +574,38 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      */
     private fun setChatRoomDnd(roomId: String, dnd: Boolean) {
         if (!methodGetRoomService.isFound || !methodRoomOpLogRequest.isFound) {
-            WeLogger.w(TAG, "room notify oplog unavailable on this build, cannot set dnd for $roomId")
+            WeLogger.w(
+                TAG,
+                "room notify oplog unavailable on this build, cannot set dnd for $roomId",
+            )
             return
         }
         try {
             val serviceFactory = methodGetRoomService.method.declaringClass
-            val roomService = methodGetRoomService.method
-                .invoke(WeServiceApi.getServiceByClass(serviceFactory.interfaces[0]), roomId)!!
+            val roomService =
+                methodGetRoomService.method.invoke(
+                    WeServiceApi.getServiceByClass(serviceFactory.interfaces[0]),
+                    roomId,
+                )!!
             // RoomService.modChatRoomNotify(roomId, notifyMsg, defaultNeedPushFlag): notifyMsg is
             // the ChatRoomNotify value to set (1 = notify, 0 = muted). The push flag selects which
             // messages still notify while muted; 0 is the value 8.0.65 hardcodes and the default of
             // the `clicfg_chatroom_mute_refine_default` config newer builds read it from.
-            val operation = roomService.reflekt()
-                .firstMethod {
-                    parameters(BString, int, int)
-                    returnType(methodRoomOpLogRequest.method.declaringClass.superclass!!)
-                }
-                .invoke(roomId, if (dnd) 0 else 1, 0)
+            val operation =
+                roomService
+                    .reflekt()
+                    .firstMethod {
+                        parameters(BString, int, int)
+                        returnType(methodRoomOpLogRequest.method.declaringClass.superclass!!)
+                    }
+                    .invoke(roomId, if (dnd) 0 else 1, 0)
             // An unknown room suffix yields WeChat's no-op room service, whose operation object is
             // not the oplog-backed one — sending it is impossible, and silently doing nothing here
             // would look exactly like the bug this replaced.
-            if (operation == null || !methodRoomOpLogRequest.method.declaringClass.isInstance(operation)) {
+            if (
+                operation == null ||
+                    !methodRoomOpLogRequest.method.declaringClass.isInstance(operation)
+            ) {
                 WeLogger.w(TAG, "no room oplog service for $roomId, dnd=$dnd not applied")
                 return
             }
@@ -615,8 +616,8 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Returns true when [talker]'s conversation is pinned (「置顶」) in the homepage list.
-     * Reads from WeChat's ConversationStorage cache — safe to call on the UI thread.
+     * Returns true when [talker]'s conversation is pinned (「置顶」) in the homepage list. Reads from
+     * WeChat's ConversationStorage cache — safe to call on the UI thread.
      */
     fun isPinned(talker: String): Boolean {
         if (!methodIsPlacedTop.isFound) return false
@@ -629,9 +630,9 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Pin ([top] = true) or unpin ([top] = false) [talker]'s conversation.
-     * Calls WeChat's native setPlacedTop / unSetPlacedTop which writes the high bits in
-     * rconversation.flag and notifies conversation-list observers.
+     * Pin ([top] = true) or unpin ([top] = false) [talker]'s conversation. Calls WeChat's native
+     * setPlacedTop / unSetPlacedTop which writes the high bits in rconversation.flag and notifies
+     * conversation-list observers.
      */
     fun setPinned(talker: String, top: Boolean) {
         val method = if (top) methodSetPlacedTop else methodUnSetPlacedTop
@@ -650,16 +651,17 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      * Returns true when [talker]'s conversation is muted (「消息免打扰」).
      *
      * Mirrors WeChat's per-conversation mute decision (w3.b / c01.e2):
-     * - **Group chats** (`@chatroom`): muted when the ChatRoomNotify flag (z3.T) in the lvbuff
-     *   blob is 0. The flag has no column and must be parsed from the LV-encoded blob.
+     * - **Group chats** (`@chatroom`): muted when the ChatRoomNotify flag (z3.T) in the lvbuff blob
+     *   is 0. The flag has no column and must be parsed from the LV-encoded blob.
      * - **Everyone else**: muted when rcontact.type has bit 512 set.
      */
     fun isDnd(talker: String): Boolean {
         return try {
-            val cursor = WeDatabaseApi.rawQuery(
-                "SELECT type,lvbuff FROM rcontact WHERE username=? LIMIT 1",
-                arrayOf(talker)
-            )
+            val cursor =
+                WeDatabaseApi.rawQuery(
+                    "SELECT type,lvbuff FROM rcontact WHERE username=? LIMIT 1",
+                    arrayOf(talker),
+                )
             cursor.use { c ->
                 if (!c.moveToFirst()) return@use false
                 if (talker.isGroupChatWxId) {
@@ -691,28 +693,31 @@ object WeConversationApi : ApiFeature(), IResolveDex {
                 val len = buf.short.toInt() and 0xFFFF
                 buf.position(buf.position() + len)
             }
-            buf.int          // H
-            buf.int          // I
-            skipStr()        // J
-            buf.long         // K
-            buf.int          // L
-            skipStr()        // M
-            skipStr()        // N
-            buf.int          // P
-            buf.int          // Q
-            skipStr()        // R
-            skipStr()        // S
-            buf.int          // T (ChatRoomNotify)
-        }.getOrNull()
+            buf.int // H
+            buf.int // I
+            skipStr() // J
+            buf.long // K
+            buf.int // L
+            skipStr() // M
+            skipStr() // N
+            buf.int // P
+            buf.int // Q
+            skipStr() // R
+            skipStr() // S
+            buf.int // T (ChatRoomNotify)
+        }
+            .getOrNull()
     }
 
     /** Fetch the fully-populated contact ([com.tencent.mm.storage.z3]) for [convId], or null. */
     private fun fetchContact(convId: String): Any {
-        return contactStorageLogic.reflekt()
+        return contactStorageLogic
+            .reflekt()
             .firstMethod {
                 modifiers = Modifier.STATIC
                 parameters(String::class.java)
                 returnType(methodSetDnd.method.parameterTypes[0])
-            }.invoke(convId)!!
+            }
+            .invoke(convId)!!
     }
 }

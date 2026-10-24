@@ -49,38 +49,69 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
                 summary = activity.localizedChatString(R.string.chat_contact_tap_to_view),
                 position = 1,
                 onClick = onClick@{ activity ->
-                    val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId } ?: return@onClick
-                    val clickedMemberId = activity.currentWxId ?: return@onClick
+                        val groupId =
+                            WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
+                                ?: return@onClick
+                        val clickedMemberId = activity.currentWxId ?: return@onClick
 
-                    showToast(activity, activity.localizedChatString(R.string.chat_member_inviter_querying))
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val inviterId = runCatching { WeDatabaseApi.getGroupMemberInviter(groupId, clickedMemberId) }
-                            .onFailure { WeLogger.e(TAG, "failed to resolve inviter for $clickedMemberId in $groupId", it) }
-                            .getOrDefault("")
-
-                        val message = when {
-                            inviterId.isEmpty() -> activity.localizedChatString(R.string.chat_member_inviter_no_record)
-                            inviterId == clickedMemberId -> activity.localizedChatString(R.string.chat_member_inviter_self_joined)
-                            else -> {
-                                val inviterName = runCatching { WeDatabaseApi.getDisplayName(inviterId) }
-                                    .getOrDefault(inviterId)
-                                val groupNick = runCatching {
-                                    WeDatabaseApi.getGroupMemberDisplayName(groupId, inviterId)
-                                }.getOrDefault("")
-
-                                val nameLabel = if (groupNick.isNotBlank() && groupNick != inviterName) {
-                                    "$inviterName ($groupNick)"
-                                } else {
-                                    inviterName
-                                }
-                                activity.localizedChatString(R.string.chat_member_inviter_result, nameLabel)
+                        showToast(
+                            activity,
+                            activity.localizedChatString(R.string.chat_member_inviter_querying),
+                        )
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val inviterId = runCatching {
+                                WeDatabaseApi.getGroupMemberInviter(groupId, clickedMemberId)
                             }
+                                .onFailure {
+                                    WeLogger.e(
+                                        TAG,
+                                        "failed to resolve inviter for $clickedMemberId in $groupId",
+                                        it,
+                                    )
+                                }
+                                .getOrDefault("")
+
+                            val message =
+                                when {
+                                    inviterId.isEmpty() ->
+                                        activity.localizedChatString(
+                                            R.string.chat_member_inviter_no_record,
+                                        )
+                                    inviterId == clickedMemberId ->
+                                        activity.localizedChatString(
+                                            R.string.chat_member_inviter_self_joined,
+                                        )
+                                    else -> {
+                                        val inviterName = runCatching {
+                                            WeDatabaseApi.getDisplayName(inviterId)
+                                        }
+                                            .getOrDefault(inviterId)
+                                        val groupNick = runCatching {
+                                            WeDatabaseApi.getGroupMemberDisplayName(
+                                                groupId,
+                                                inviterId,
+                                            )
+                                        }
+                                            .getOrDefault("")
+
+                                        val nameLabel =
+                                            if (
+                                                groupNick.isNotBlank() && groupNick != inviterName
+                                            ) {
+                                                "$inviterName ($groupNick)"
+                                            } else {
+                                                inviterName
+                                            }
+                                        activity.localizedChatString(
+                                            R.string.chat_member_inviter_result,
+                                            nameLabel,
+                                        )
+                                    }
+                                }
+                            showToastSuspend(activity, message)
                         }
-                        showToastSuspend(activity, message)
-                    }
-                },
-            )
+                    },
+            ),
         )
     }
-
 }

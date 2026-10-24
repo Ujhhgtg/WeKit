@@ -23,9 +23,7 @@ object ErudaConsole : SwitchFeature() {
     private val erudaScript by lazy {
         val resources = HostInfo.application.resources
         ResourcesInjector.injectModuleRes(resources)
-        resources.openRawResource(R.raw.eruda)
-            .bufferedReader()
-            .use { it.readText() }
+        resources.openRawResource(R.raw.eruda).bufferedReader().use { it.readText() }
     }
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
@@ -55,14 +53,17 @@ object ErudaConsole : SwitchFeature() {
                 }
 
                 else -> {
-                    webView.reflekt().firstMethod {
-                        name = "evaluateJavascript"
-                        parameters(BString, ValueCallback::class)
-                        superclass()
-                    }.apply {
-                        invoke(erudaScript, null)
-                        invoke("eruda.init();", null)
-                    }
+                    webView
+                        .reflekt()
+                        .firstMethod {
+                            name = "evaluateJavascript"
+                            parameters(BString, ValueCallback::class)
+                            superclass()
+                        }
+                        .apply {
+                            invoke(erudaScript, null)
+                            invoke("eruda.init();", null)
+                        }
                 }
             }
             WeLogger.i(TAG, "injected eruda")

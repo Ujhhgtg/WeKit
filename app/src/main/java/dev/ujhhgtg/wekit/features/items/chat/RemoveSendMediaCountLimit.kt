@@ -15,13 +15,14 @@ object RemoveSendMediaCountLimit : SwitchFeature() {
 
     override fun onEnable() {
         listOf(
-            "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI",
-            "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
-        ).forEach {
-            it.toClass().hookBeforeOnCreate {
-                val activity = thisObject as Activity
-                activity.intent.putExtra("max_select_count", 999)
+                "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI",
+                "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI",
+            )
+            .forEach {
+                it.toClass().hookBeforeOnCreate {
+                    val activity = thisObject as Activity
+                    activity.intent.putExtra("max_select_count", 999)
+                }
             }
-        }
     }
 }

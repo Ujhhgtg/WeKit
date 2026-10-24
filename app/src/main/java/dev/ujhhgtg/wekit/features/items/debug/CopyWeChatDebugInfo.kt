@@ -26,19 +26,23 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
     override val noSwitchWidget = true
 
     override fun onClick(context: ComponentActivity) {
-        val unhook = TextView::class.reflekt()
-            .firstMethod {
-                name = "setText"
-                parameters(CharSequence::class)
-            }.hookBeforeDirectly {
-                val debugText = (args[0] as StringBuilder).toString()
-                copyToClipboard(context, debugText)
-                showToast(context, context.localizedDebugString(R.string.debug_copied))
-                throwable = RuntimeException("halt method")
-            }
+        val unhook =
+            TextView::class.reflekt()
+                .firstMethod {
+                    name = "setText"
+                    parameters(CharSequence::class)
+                }
+                .hookBeforeDirectly {
+                    val debugText = (args[0] as StringBuilder).toString()
+                    copyToClipboard(context, debugText)
+                    showToast(context, context.localizedDebugString(R.string.debug_copied))
+                    throwable = RuntimeException("halt method")
+                }
 
-        val onClickListener = methodOnClick.method.declaringClass
-            .createInstance(SettingsAboutMMHeaderPreference(context))
+        val onClickListener =
+            methodOnClick.method.declaringClass.createInstance(
+                SettingsAboutMMHeaderPreference(context),
+            )
         // WeChat has a check:
         // long jCurrentTimeMillis = System.currentTimeMillis();
         //        long j16 = this.f158935d;
@@ -46,10 +50,12 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
         //            this.f158935d = jCurrentTimeMillis;
         //            return;
         //        }
-        onClickListener.reflekt()
+        onClickListener
+            .reflekt()
             .firstField {
                 type = Long::class
-            }.set(System.currentTimeMillis())
+            }
+            .set(System.currentTimeMillis())
 
         runCatching {
             methodOnClick.method.invoke(onClickListener, View(context))
@@ -57,15 +63,16 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
         unhook.unhook()
     }
 
-    private val methodOnClick by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.setting.ui.setting")
-            name = "onClick"
-            usingEqStrings(
-                "com/tencent/mm/plugin/setting/ui/setting/SettingsAboutMMHeaderPreference\$1",
-                "android/view/View\$OnClickListener",
-                "onClick",
-            )
-        },
-    )
+    private val methodOnClick by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.setting.ui.setting")
+                name = "onClick"
+                usingEqStrings(
+                    "com/tencent/mm/plugin/setting/ui/setting/SettingsAboutMMHeaderPreference\$1",
+                    "android/view/View\$OnClickListener",
+                    "onClick",
+                )
+            },
+        )
 }

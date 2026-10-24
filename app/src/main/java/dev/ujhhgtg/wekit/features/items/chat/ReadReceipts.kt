@@ -14,6 +14,7 @@ import com.composables.icons.materialsymbols.outlined.Receipt_long
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -22,11 +23,23 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.security.MessageDigest
+import java.util.Collections
+import java.util.WeakHashMap
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,28 +66,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
-import java.security.MessageDigest
-import java.util.Collections
-import java.util.WeakHashMap
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
-import javax.net.ssl.SSLException
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.time.Duration.Companion.milliseconds
 
-fun readReceiptNetworkFailureCategory(failure: Throwable): String = when (failure) {
-    is SocketTimeoutException -> "timeout"
-    is UnknownHostException -> "dns"
-    is SSLException -> "tls"
-    is ConnectException -> "connect"
-    is IOException -> "io"
-    else -> "response"
-}
+fun readReceiptNetworkFailureCategory(failure: Throwable): String =
+    when (failure) {
+        is SocketTimeoutException -> "timeout"
+        is UnknownHostException -> "dns"
+        is SSLException -> "tls"
+        is ConnectException -> "connect"
+        is IOException -> "io"
+        else -> "response"
+    }
 
 class ReadReceiptError(
     @StringRes private val id: Int,
@@ -83,13 +84,15 @@ class ReadReceiptError(
     fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
 }
 
-object ReadReceipts : ClickableFeature(),
+object ReadReceipts :
+    ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener,
     WeChatMessageViewApi.IMessageViewLifecycleListener {
 
     override val technicalId = "已读追踪"
     override val nameRes = R.string.feature_read_receipts_name
-    override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
+    override val categoryIds =
+        listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CHAT_INPUT_BAR_MENU)
     override val descriptionRes = R.string.feature_read_receipts_description
 
     private const val TAG = "ReadReceipts"
@@ -111,8 +114,7 @@ object ReadReceipts : ClickableFeature(),
 
     private val configurationLock = Any()
 
-    @Volatile
-    private var loadedConfiguration: ReadReceiptsConfiguration? = null
+    @Volatile private var loadedConfiguration: ReadReceiptsConfiguration? = null
 
     private const val RECORD_RETENTION_MILLIS = 180L * 24 * 60 * 60 * 1000
     private const val MAX_POLL_WORKERS = 4
@@ -122,12 +124,16 @@ object ReadReceipts : ClickableFeature(),
     private const val MAX_REGISTRATION_BODY_BYTES = 20 * 1024
 
     fun configuration(): ReadReceiptsConfiguration {
-        loadedConfiguration?.let { return it }
+        loadedConfiguration?.let {
+            return it
+        }
         return synchronized(configurationLock) {
-            loadedConfiguration?.let { return@synchronized it }
+            loadedConfiguration?.let {
+                return@synchronized it
+            }
             val serialized = serializedConfiguration
-            val persisted = serialized.takeIf(String::isNotBlank)
-                ?.let(ReadReceiptsConfigurationCodec::decode)
+            val persisted =
+                serialized.takeIf(String::isNotBlank)?.let(ReadReceiptsConfigurationCodec::decode)
             val value = persisted ?: ReadReceiptsConfiguration()
             if (persisted == null) {
                 serializedConfiguration = ReadReceiptsConfigurationCodec.encode(value)
@@ -176,7 +182,10 @@ object ReadReceipts : ClickableFeature(),
 
     private val registrationCalls = ConcurrentHashMap.newKeySet<Call>()
 
-    /** Registers plaintext before the intercepted send is emitted. The underlying call is cancellable. */
+    /**
+     * Registers plaintext before the intercepted send is emitted. The underlying call is
+     * cancellable.
+     */
     private suspend fun registerMessage(
         endpoint: String,
         wxId: String,
@@ -187,7 +196,8 @@ object ReadReceipts : ClickableFeature(),
             put("wxId", wxId)
             put("content", content)
             put("createTime", createTime)
-        }.toString()
+        }
+            .toString()
         if (bodyJson.toByteArray(Charsets.UTF_8).size > MAX_REGISTRATION_BODY_BYTES) {
             return ReadReceiptError(
                 R.string.read_receipts_registration_request_too_large,
@@ -199,32 +209,37 @@ object ReadReceipts : ClickableFeature(),
             val call = httpClient.newCall(request)
             registrationCalls += call
             continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    registrationCalls -= call
-                    WeLogger.w(TAG, "register request failed (${readReceiptNetworkFailureCategory(e)})")
-                    continuation.resumeIfActive(
-                        ReadReceiptError(R.string.read_receipts_registration_failed),
-                    )
-                }
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        registrationCalls -= call
+                        WeLogger.w(
+                            TAG,
+                            "register request failed (${readReceiptNetworkFailureCategory(e)})",
+                        )
+                        continuation.resumeIfActive(
+                            ReadReceiptError(R.string.read_receipts_registration_failed),
+                        )
+                    }
 
-                override fun onResponse(call: Call, response: Response) {
-                    registrationCalls -= call
-                    response.use {
-                        if (it.isSuccessful) {
-                            continuation.resumeIfActive(null)
-                        } else {
-                            WeLogger.w(TAG, "register failed: HTTP ${it.code}")
-                            continuation.resumeIfActive(
-                                ReadReceiptError(
-                                    R.string.read_receipts_registration_http_failed,
-                                    it.code,
-                                ),
-                            )
+                    override fun onResponse(call: Call, response: Response) {
+                        registrationCalls -= call
+                        response.use {
+                            if (it.isSuccessful) {
+                                continuation.resumeIfActive(null)
+                            } else {
+                                WeLogger.w(TAG, "register failed: HTTP ${it.code}")
+                                continuation.resumeIfActive(
+                                    ReadReceiptError(
+                                        R.string.read_receipts_registration_http_failed,
+                                        it.code,
+                                    ),
+                                )
+                            }
                         }
                     }
-                }
-            })
+                },
+            )
         }
     }
 
@@ -236,21 +251,23 @@ object ReadReceipts : ClickableFeature(),
         suspendCancellableCoroutine { continuation ->
             val call = httpClient.newCall(request)
             continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (continuation.isActive) continuation.resumeWithException(e)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    if (continuation.isActive) {
-                        continuation.resume(response) { _, cancelledResponse, _ ->
-                            cancelledResponse.close()
-                        }
-                    } else {
-                        response.close()
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resumeWithException(e)
                     }
-                }
-            })
+
+                    override fun onResponse(call: Call, response: Response) {
+                        if (continuation.isActive) {
+                            continuation.resume(response) { _, cancelledResponse, _ ->
+                                cancelledResponse.close()
+                            }
+                        } else {
+                            response.close()
+                        }
+                    }
+                },
+            )
         }
 
     /** Queries the distinct-IP read count for a persisted record. Returns null on any failure. */
@@ -261,42 +278,46 @@ object ReadReceipts : ClickableFeature(),
                 .url("$endpoint/count?wxId=${record.wxId}&id=${record.id}")
                 .get()
                 .build()
-        }.getOrElse {
-            WeLogger.w(TAG, "invalid count endpoint (response)")
-            return null
         }
+            .getOrElse {
+                WeLogger.w(TAG, "invalid count endpoint (response)")
+                return null
+            }
         return suspendCancellableCoroutine { continuation ->
             val call = httpClient.newCall(request)
             continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (!call.isCanceled()) {
-                        WeLogger.w(
-                            TAG,
-                            "count request failed (${readReceiptNetworkFailureCategory(e)})",
-                        )
-                    }
-                    continuation.resumeIfActive(null)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    response.use {
-                        if (!it.isSuccessful) {
-                            WeLogger.w(TAG, "count failed: HTTP ${it.code}")
-                            continuation.resumeIfActive(null)
-                            return
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (!call.isCanceled()) {
+                            WeLogger.w(
+                                TAG,
+                                "count request failed (${readReceiptNetworkFailureCategory(e)})",
+                            )
                         }
-                        val count = runCatching {
-                            DefaultJson.parseToJsonElement(it.body.string())
-                                .jsonObject["count"]
-                                ?.jsonPrimitive
-                                ?.content
-                                ?.toIntOrNull()
-                        }.getOrNull()
-                        continuation.resumeIfActive(count)
+                        continuation.resumeIfActive(null)
                     }
-                }
-            })
+
+                    override fun onResponse(call: Call, response: Response) {
+                        response.use {
+                            if (!it.isSuccessful) {
+                                WeLogger.w(TAG, "count failed: HTTP ${it.code}")
+                                continuation.resumeIfActive(null)
+                                return
+                            }
+                            val count = runCatching {
+                                DefaultJson.parseToJsonElement(it.body.string())
+                                    .jsonObject["count"]
+                                    ?.jsonPrimitive
+                                    ?.content
+                                    ?.toIntOrNull()
+                            }
+                                .getOrNull()
+                            continuation.resumeIfActive(count)
+                        }
+                    }
+                },
+            )
         }
     }
 
@@ -330,16 +351,16 @@ object ReadReceipts : ClickableFeature(),
     /** Last successful count, isolated by historical server endpoint. */
     private val counts = ConcurrentHashMap<RecordKey, Int>()
 
-    /** Attached message-root views and the exact tracked generation currently occupying each row. */
+    /**
+     * Attached message-root views and the exact tracked generation currently occupying each row.
+     */
     private val activeViews = Collections.synchronizedMap(WeakHashMap<View, ActiveBinding>())
     private val backoffs = ConcurrentHashMap<RecordKey, PollBackoff>()
     private val pollWake = Channel<Unit>(Channel.CONFLATED)
 
-    @Volatile
-    private var featureScope: CoroutineScope? = null
+    @Volatile private var featureScope: CoroutineScope? = null
 
-    @Volatile
-    private var pollJob: Job? = null
+    @Volatile private var pollJob: Job? = null
 
     private fun ReadReceiptRecord.key() = RecordKey(id, wxId, endpoint)
 
@@ -348,36 +369,43 @@ object ReadReceipts : ClickableFeature(),
             for (value in serializedRecords) {
                 val record = ReadReceiptRecordCodec.decode(value)
                 if (record == null) {
-                    WeLogger.w(TAG, "discarding unsupported or malformed persisted read-receipt record")
+                    WeLogger.w(
+                        TAG,
+                        "discarding unsupported or malformed persisted read-receipt record",
+                    )
                 } else {
                     add(record)
                 }
             }
         }
-        val pruned = ReadReceiptRecordCodec.prune(
-            decoded,
-            System.currentTimeMillis(),
-            RECORD_RETENTION_MILLIS,
-        )
+        val pruned =
+            ReadReceiptRecordCodec.prune(
+                decoded,
+                System.currentTimeMillis(),
+                RECORD_RETENTION_MILLIS,
+            )
         synchronized(recordLock) {
             records = pruned
             serializedRecords = pruned.mapTo(linkedSetOf(), ReadReceiptRecordCodec::encode)
         }
     }
 
-    private fun findRecord(wxId: String, id: String): ReadReceiptRecord? = synchronized(recordLock) {
-        records.asSequence()
-            .filter { it.wxId == wxId && it.id == id }
-            .maxByOrNull(ReadReceiptRecord::createdAtMillis)
-    }
+    private fun findRecord(wxId: String, id: String): ReadReceiptRecord? =
+        synchronized(recordLock) {
+            records
+                .asSequence()
+                .filter { it.wxId == wxId && it.id == id }
+                .maxByOrNull(ReadReceiptRecord::createdAtMillis)
+        }
 
     private fun insertRecord(record: ReadReceiptRecord) {
         synchronized(recordLock) {
-            records = ReadReceiptRecordCodec.prune(
-                records + record,
-                System.currentTimeMillis(),
-                RECORD_RETENTION_MILLIS,
-            )
+            records =
+                ReadReceiptRecordCodec.prune(
+                    records + record,
+                    System.currentTimeMillis(),
+                    RECORD_RETENTION_MILLIS,
+                )
             serializedRecords = records.mapTo(linkedSetOf(), ReadReceiptRecordCodec::encode)
         }
     }
@@ -409,8 +437,8 @@ object ReadReceipts : ClickableFeature(),
                     } finally {
                         pendingMenuSend = false
                     }
-                }
-            )
+                },
+            ),
         )
     }
 
@@ -419,27 +447,33 @@ object ReadReceipts : ClickableFeature(),
         featureScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore(100) {
-            val chatFooter = thisObject!!.reflekt().firstField {
-                type = ChatFooter::class
-            }.get()!! as ChatFooter
+            val chatFooter =
+                thisObject!!
+                    .reflekt()
+                    .firstField {
+                        type = ChatFooter::class
+                    }
+                    .get()!!
+                    as ChatFooter
 
             val text = chatFooter.lastText
             if (text.isEmpty()) return@hookBefore
-            val actualText = when (sendMode) {
-                MODE_ACTIVE_PREFIX -> {
-                    if (!text.startsWith(triggerPrefix)) return@hookBefore
-                    text.removePrefix(triggerPrefix)
-                }
+            val actualText =
+                when (sendMode) {
+                    MODE_ACTIVE_PREFIX -> {
+                        if (!text.startsWith(triggerPrefix)) return@hookBefore
+                        text.removePrefix(triggerPrefix)
+                    }
 
-                // 主动模式 (加号菜单): 仅放行由菜单项触发的发送流程, 其余正常发送
-                MODE_ACTIVE_MENU -> {
-                    if (!pendingMenuSend) return@hookBefore
-                    text
-                }
+                    // 主动模式 (加号菜单): 仅放行由菜单项触发的发送流程, 其余正常发送
+                    MODE_ACTIVE_MENU -> {
+                        if (!pendingMenuSend) return@hookBefore
+                        text
+                    }
 
-                // 被动模式: 所有文本一律替换
-                else -> text
-            }
+                    // 被动模式: 所有文本一律替换
+                    else -> text
+                }
             result = null
 
             val endpoint = normalizeThirdPartyReadReceiptEndpoint(configuration().thirdPartyUrl)
@@ -458,11 +492,12 @@ object ReadReceipts : ClickableFeature(),
             val selfWxId = WeApi.selfWxId
             if (
                 selfWxId.toByteArray(Charsets.UTF_8).size > MAX_WX_ID_BYTES ||
-                actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
+                    actualText.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES
             ) {
-                val error = ReadReceiptError(
-                    R.string.read_receipts_sender_or_content_too_large,
-                )
+                val error =
+                    ReadReceiptError(
+                        R.string.read_receipts_sender_or_content_too_large,
+                    )
                 showToast(
                     chatFooter.context,
                     chatFooter.context.localizedChatString(
@@ -478,12 +513,13 @@ object ReadReceipts : ClickableFeature(),
 
             val pixelUrl = "$endpoint/pixel?wxId=$selfWxId&amp;id=$id"
 
-            val escapedText = actualText
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;")
+            val escapedText =
+                actualText
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&apos;")
 
             val target = WeCurrentConversationApi.value
 
@@ -506,21 +542,24 @@ object ReadReceipts : ClickableFeature(),
                 </refermsg>
               </appmsg>
             </msg>
-            """.trimIndent()
+            """
+                    .trimIndent()
 
-            val record = ReadReceiptRecord(
-                id = id,
-                wxId = selfWxId,
-                endpoint = endpoint,
-                createdAtMillis = createTime,
-            )
-            featureScope!!.launch {
-                val registrationError = registerMessage(
-                    endpoint,
-                    selfWxId,
-                    actualText,
-                    createTime,
+            val record =
+                ReadReceiptRecord(
+                    id = id,
+                    wxId = selfWxId,
+                    endpoint = endpoint,
+                    createdAtMillis = createTime,
                 )
+            featureScope!!.launch {
+                val registrationError =
+                    registerMessage(
+                        endpoint,
+                        selfWxId,
+                        actualText,
+                        createTime,
+                    )
                 if (registrationError != null) {
                     withContext(Dispatchers.Main.immediate) {
                         if (!ReadReceipts.isActive) return@withContext
@@ -584,9 +623,10 @@ object ReadReceipts : ClickableFeature(),
 
     // ── View listener: detect tracked self-messages and render the count ───────
 
-    /** Pulls `wxId` and `id` out of an embedded `/pixel?wxId=..&id=..` URL, tolerating `&`/`&amp;`. */
-    private val pixelParamRegex =
-        Regex("""/pixel\?wxId=([^&"<\s]+)(?:&amp;|&)id=([0-9a-fA-F]+)""")
+    /**
+     * Pulls `wxId` and `id` out of an embedded `/pixel?wxId=..&id=..` URL, tolerating `&`/`&amp;`.
+     */
+    private val pixelParamRegex = Regex("""/pixel\?wxId=([^&"<\s]+)(?:&amp;|&)id=([0-9a-fA-F]+)""")
 
     override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
@@ -607,10 +647,11 @@ object ReadReceipts : ClickableFeature(),
             if (current.receiptView.record.key() != record.key()) return@post
             if (timeTV.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) != msgInfo.id) return@post
             val generation = timeTV.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as Long
-            val refreshed = ActiveBinding(
-                msgInfo,
-                ActiveReceiptView(timeTV, record, generation),
-            )
+            val refreshed =
+                ActiveBinding(
+                    msgInfo,
+                    ActiveReceiptView(timeTV, record, generation),
+                )
             synchronized(activeViews) {
                 if (activeViews[view] === current) activeViews[view] = refreshed
             }
@@ -622,10 +663,11 @@ object ReadReceipts : ClickableFeature(),
         val record = findRecord(message) ?: return
         val timeTV = findTimeView(view)!!
         val generation = nextGeneration(timeTV)
-        val active = ActiveBinding(
-            message,
-            ActiveReceiptView(timeTV, record, generation),
-        )
+        val active =
+            ActiveBinding(
+                message,
+                ActiveReceiptView(timeTV, record, generation),
+            )
         synchronized(activeViews) {
             activeViews[view] = active
         }
@@ -654,8 +696,9 @@ object ReadReceipts : ClickableFeature(),
         synchronized(activeViews) {
             if (activeViews[view] === current) activeViews.remove(view)
         }
-        if (receiptView.view.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) == message.id &&
-            receiptView.view.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) == generation
+        if (
+            receiptView.view.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) == message.id &&
+                receiptView.view.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) == generation
         ) {
             MessageTimeEnhancements.renderMessageTime(
                 message,
@@ -682,7 +725,10 @@ object ReadReceipts : ClickableFeature(),
     private fun findTimeView(view: View): TextView? {
         val tag = view.tag ?: return null
         return tag.reflekt()
-            .firstField { name = "timeTV"; superclass() }
+            .firstField {
+                name = "timeTV"
+                superclass()
+            }
             .get() as? TextView
     }
 
@@ -726,11 +772,10 @@ object ReadReceipts : ClickableFeature(),
         pollJob = scope.launch {
             try {
                 while (isActive) {
-                    val activeRecords = synchronized(activeViews) {
-                        activeViews.values
-                            .map { it.receiptView.record }
-                            .distinctBy { it.key() }
-                    }
+                    val activeRecords =
+                        synchronized(activeViews) {
+                            activeViews.values.map { it.receiptView.record }.distinctBy { it.key() }
+                        }
                     if (activeRecords.isEmpty()) return@launch
 
                     val now = System.currentTimeMillis()
@@ -761,10 +806,11 @@ object ReadReceipts : ClickableFeature(),
         records.forEach { queue.trySend(it) }
         queue.close()
         List(minOf(MAX_POLL_WORKERS, records.size)) {
-            launch {
-                for (record in queue) pollRecord(record)
+                launch {
+                    for (record in queue) pollRecord(record)
+                }
             }
-        }.joinAll()
+            .joinAll()
     }
 
     private suspend fun pollRecord(record: ReadReceiptRecord) {
@@ -774,29 +820,36 @@ object ReadReceipts : ClickableFeature(),
         if (count == null) {
             val failures = (backoffs[key]?.failures ?: 0) + 1
             val multiplier = 1L shl (failures - 1).coerceAtMost(6)
-            val retryDelay = (configuration().pollIntervalSecs * 1000L * multiplier)
-                .coerceAtMost(MAX_FAILURE_BACKOFF_MILLIS)
+            val retryDelay =
+                (configuration().pollIntervalSecs * 1000L * multiplier).coerceAtMost(
+                    MAX_FAILURE_BACKOFF_MILLIS,
+                )
             backoffs[key] = PollBackoff(failures, completedAt + retryDelay)
             return
         }
 
-        backoffs[key] = PollBackoff(
-            failures = 0,
-            nextAttemptAtMillis = completedAt + configuration().pollIntervalSecs * 1000L,
-        )
+        backoffs[key] =
+            PollBackoff(
+                failures = 0,
+                nextAttemptAtMillis = completedAt + configuration().pollIntervalSecs * 1000L,
+            )
         counts[key] = count
-        val targets = synchronized(activeViews) {
-            activeViews.entries
-                .filter { it.value.receiptView.record.key() == key }
-                .map { it.key to it.value }
-        }
+        val targets =
+            synchronized(activeViews) {
+                activeViews.entries
+                    .filter { it.value.receiptView.record.key() == key }
+                    .map { it.key to it.value }
+            }
         for ((root, target) in targets) {
             mainHandler.post {
                 val receiptView = target.receiptView
                 if (receiptView.view.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) != target.message.id) {
                     return@post
                 }
-                if (receiptView.view.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) != receiptView.generation) {
+                if (
+                    receiptView.view.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) !=
+                        receiptView.generation
+                ) {
                     return@post
                 }
                 val current = synchronized(activeViews) { activeViews[root] }
@@ -821,10 +874,11 @@ object ReadReceipts : ClickableFeature(),
     ): Job? {
         val endpoint = normalizeThirdPartyReadReceiptEndpoint(value) ?: return null
         return scope.launch {
-            val request = Request.Builder()
-                .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")
-                .get()
-                .build()
+            val request =
+                Request.Builder()
+                    .url("$endpoint/count?wxId=wekit-health-check&id=${"0".repeat(64)}")
+                    .get()
+                    .build()
             val result = runCatching {
                 executeCancellable(request).use { response ->
                     check(response.isSuccessful) { "HTTP ${response.code}" }

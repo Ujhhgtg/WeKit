@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
-import androidx.annotation.StringRes
 import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
 import kotlinx.serialization.Serializable
 
 enum class PanelSource {
@@ -82,7 +82,8 @@ data class CloneExample(
     val group: String,
     val fileName: String,
 ) {
-    val title: String get() = fileName.substringBeforeLast('.').ifBlank { fileName }
+    val title: String
+        get() = fileName.substringBeforeLast('.').ifBlank { fileName }
 }
 
 data class VoiceProviderPage(
@@ -122,8 +123,11 @@ fun Throwable.toPanelUiText(@StringRes fallbackId: Int, vararg fallbackArgs: Any
 
 sealed interface PanelUiState<out T> {
     data object Loading : PanelUiState<Nothing>
+
     data class Content<T>(val value: T) : PanelUiState<T>
+
     data class Empty(val message: PanelUiText) : PanelUiState<Nothing>
+
     data class Error(val message: PanelUiText) : PanelUiState<Nothing>
 }
 

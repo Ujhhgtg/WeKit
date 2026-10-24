@@ -12,11 +12,10 @@ interface ISendEmojiProto
 /** Request body for `/cgi-bin/micromsg-bin/sendemoji` (CGI 175). */
 @Serializable
 data class SendEmojiReqProto(
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(1) val baseRequest: ByteArray? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(1) val baseRequest: ByteArray? = null,
     @ProtoNumber(2) val count: Int = 0,
     @ProtoNumber(3) val emojiList: List<EmojiItemProto> = emptyList(),
-    @ProtoNumber(4) val type: Int = 0
+    @ProtoNumber(4) val type: Int = 0,
 ) : ISendEmojiProto {
 
     override fun equals(other: Any?): Boolean {
@@ -48,7 +47,8 @@ data class EmojiItemProto(
     @ProtoNumber(2) val startPos: Int = 0,
     @ProtoNumber(3) val totalLen: Int = 0,
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
-    @ProtoNumber(4) val emojiBuffer: SKBuiltinBufferProto = SKBuiltinBufferProto(length = 0),
+    @ProtoNumber(4)
+    val emojiBuffer: SKBuiltinBufferProto = SKBuiltinBufferProto(length = 0),
     @ProtoNumber(5) val type: Int = 0,
     @ProtoNumber(6) val toUser: String = "",
     @ProtoNumber(7) val externXml: String = "",

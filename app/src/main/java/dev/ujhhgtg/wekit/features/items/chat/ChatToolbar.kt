@@ -83,6 +83,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -94,7 +95,6 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ChatToolbar.scheduleGridInitWatchdog
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -110,15 +110,15 @@ import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.constructor
 import dev.ujhhgtg.wekit.utils.now
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 private enum class ToolbarDisplayMode(
     val preferenceValue: String,
@@ -144,44 +144,47 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ChatToolbar"
 
-    private val NAME_TO_ICON_MAP = mapOf(
-        "相册" to MaterialSymbols.Outlined.Photo_library,
-        "拍摄" to MaterialSymbols.Outlined.Camera,
-        "系统拍摄" to MaterialSymbols.Outlined.Camera,
-        "视频通话" to MaterialSymbols.Outlined.Video_chat,
-        "语音通话" to MaterialSymbols.Outlined.Voice_chat,
-        "位置" to MaterialSymbols.Outlined.Location_on,
-        "红包" to MaterialSymbols.Outlined.Mail,
-        "礼物" to MaterialSymbols.Outlined.Redeem,
-        "转账" to MaterialSymbols.Outlined.Attach_money,
-        "语音输入" to MaterialSymbols.Outlined.Mic,
-        "收藏" to MaterialSymbols.Outlined.Favorite,
-        "接龙" to MaterialSymbols.Outlined.Format_list_numbered,
-        "文件" to MaterialSymbols.Outlined.Attach_file,
-        "个人名片" to MaterialSymbols.Outlined.Account_box,
-        "音乐" to MaterialSymbols.Outlined.Music_note
-    )
+    private val NAME_TO_ICON_MAP =
+        mapOf(
+            "相册" to MaterialSymbols.Outlined.Photo_library,
+            "拍摄" to MaterialSymbols.Outlined.Camera,
+            "系统拍摄" to MaterialSymbols.Outlined.Camera,
+            "视频通话" to MaterialSymbols.Outlined.Video_chat,
+            "语音通话" to MaterialSymbols.Outlined.Voice_chat,
+            "位置" to MaterialSymbols.Outlined.Location_on,
+            "红包" to MaterialSymbols.Outlined.Mail,
+            "礼物" to MaterialSymbols.Outlined.Redeem,
+            "转账" to MaterialSymbols.Outlined.Attach_money,
+            "语音输入" to MaterialSymbols.Outlined.Mic,
+            "收藏" to MaterialSymbols.Outlined.Favorite,
+            "接龙" to MaterialSymbols.Outlined.Format_list_numbered,
+            "文件" to MaterialSymbols.Outlined.Attach_file,
+            "个人名片" to MaterialSymbols.Outlined.Account_box,
+            "音乐" to MaterialSymbols.Outlined.Music_note,
+        )
 
     // 快捷回复 and WeAgent are wekit-injected items (not backed by a WeChat grid tool), so they
     // live outside NAME_TO_ICON_MAP. Their icons are resolved via iconFor().
     private const val QUICK_REPLY_NAME = "快捷回复"
     private const val WEAGENT_NAME = "WeAgent"
 
-    private val methodAppPanelInitAppGrid by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.pluginsdk.ui.chat.AppPanel"
-            usingEqStrings("MicroMsg.AppPanel", "initAppGrid()")
-        },
-    )
-    private val methodAppPanelOnMeasure by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings(
-                "MicroMsg.AppPanel",
-                "onMeasure width: %d, heigth:%d, isMeasured:%b, gridWidth:%d, gridHeight:%d",
-            )
-        },
-    )
+    private val methodAppPanelInitAppGrid by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.pluginsdk.ui.chat.AppPanel"
+                usingEqStrings("MicroMsg.AppPanel", "initAppGrid()")
+            },
+        )
+    private val methodAppPanelOnMeasure by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings(
+                    "MicroMsg.AppPanel",
+                    "onMeasure width: %d, heigth:%d, isMeasured:%b, gridWidth:%d, gridHeight:%d",
+                )
+            },
+        )
 
     private data class MenuItem(
         val name: String,
@@ -189,7 +192,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         val onLongClickListener: AdapterView.OnItemLongClickListener,
         val gridView: WeakReference<GridView>,
         val itemView: WeakReference<View>,
-        val indexInGrid: Int
+        val indexInGrid: Int,
     )
 
     private data class QuickReplyDraft(
@@ -207,9 +210,9 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
     /**
      * A tool list belongs to one AppPanel, not to the process: every chat footer builds its own
-     * panel, and WeChat builds more than one footer at a time (see [scheduleGridInitWatchdog]), so a
-     * background chat's panel must not be able to overwrite the visible chat's toolbar — nor hand it
-     * click targets that belong to another conversation.
+     * panel, and WeChat builds more than one footer at a time (see [scheduleGridInitWatchdog]), so
+     * a background chat's panel must not be able to overwrite the visible chat's toolbar — nor hand
+     * it click targets that belong to another conversation.
      *
      * [MenuItem] only ever holds *weak* references to the panel's views, so a value can't pin its
      * own key here.
@@ -222,68 +225,81 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     private fun toolsOf(appPanel: AppPanel): PanelTools =
         synchronized(panelTools) { panelTools.getOrPut(appPanel) { PanelTools() } }
 
-    private fun toolbarNameForAppGridType(type: Int): String? = when (type) {
-        0 -> "相册"
-        1 -> "拍摄"
-        2 -> "视频通话"
-        3, 4 -> "语音通话"
-        6 -> "位置"
-        7 -> "红包"
-        8 -> "礼物"
-        9 -> "转账"
-        11 -> "语音输入"
-        12 -> "收藏"
-        14 -> "接龙"
-        16 -> "个人名片"
-        20 -> "文件"
-        22 -> "音乐"
-        else -> null
-    }
+    private fun toolbarNameForAppGridType(type: Int): String? =
+        when (type) {
+            0 -> "相册"
+            1 -> "拍摄"
+            2 -> "视频通话"
+            3,
+            4 -> "语音通话"
+            6 -> "位置"
+            7 -> "红包"
+            8 -> "礼物"
+            9 -> "转账"
+            11 -> "语音输入"
+            12 -> "收藏"
+            14 -> "接龙"
+            16 -> "个人名片"
+            20 -> "文件"
+            22 -> "音乐"
+            else -> null
+        }
 
     /**
-     * AppGrid resolves native tools to an internal type before rendering them. Capture that
-     * type from getView instead of using the localized TextView label as an identity.
+     * AppGrid resolves native tools to an internal type before rendering them. Capture that type
+     * from getView instead of using the localized TextView label as an identity.
      */
     private fun captureAppGridToolType(itemView: View) {
-        val drawable = buildList {
-            fun collect(view: View) {
-                if (view is ImageView && view.drawable != null) add(view.drawable)
-                if (view is ViewGroup) view.children.forEach(::collect)
+        val drawable =
+            buildList {
+                fun collect(view: View) {
+                    if (view is ImageView && view.drawable != null) add(view.drawable)
+                    if (view is ViewGroup) view.children.forEach(::collect)
+                }
+                collect(itemView)
             }
-            collect(itemView)
-        }.firstOrNull() ?: return
-        val resourceId = drawable.reflekt()
-            .firstField { type = Int::class; superclass() }
-            .get() as Int
+                .firstOrNull() ?: return
+        val resourceId =
+            drawable
+                .reflekt()
+                .firstField {
+                    type = Int::class
+                    superclass()
+                }
+                .get() as Int
         val resourceName = itemView.resources.getResourceEntryName(resourceId)
-        val type = mapOf(
-            "panel_icon_pic" to 0,
-            "panel_icon_camera" to 1,
-            "panel_icon_voip" to 2,
-            "panel_icon_multitalk" to 3,
-            "panel_icon_voipvoice" to 4,
-            "panel_icon_location" to 6,
-            "panel_icon_luckymoney" to 7,
-            "icons_filled_gift_chatting" to 8,
-            "panel_icon_transfer" to 9,
-            "panel_icon_voiceinput" to 11,
-            "panel_icon_fav" to 12,
-            "icons_outlined_continued_form" to 14,
-            "panel_icon_friendcard" to 16,
-            "panel_icon_file_explorer" to 20,
-            "icon_music_filled" to 22,
-        )[resourceName]
+        val type =
+            mapOf(
+                "panel_icon_pic" to 0,
+                "panel_icon_camera" to 1,
+                "panel_icon_voip" to 2,
+                "panel_icon_multitalk" to 3,
+                "panel_icon_voipvoice" to 4,
+                "panel_icon_location" to 6,
+                "panel_icon_luckymoney" to 7,
+                "icons_filled_gift_chatting" to 8,
+                "panel_icon_transfer" to 9,
+                "panel_icon_voiceinput" to 11,
+                "panel_icon_fav" to 12,
+                "icons_outlined_continued_form" to 14,
+                "panel_icon_friendcard" to 16,
+                "panel_icon_file_explorer" to 20,
+                "icon_music_filled" to 22,
+            )[resourceName]
         if (type == null) return
 
         synchronized(appGridToolTypes) { appGridToolTypes[itemView] = type }
     }
 
-    private var itemsOrder by KvStore.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
-    private var enabledItems by KvStore.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
-    private var displayModeValue by KvStore.prefOption(
-        "chat_toolbar_display_mode",
-        ToolbarDisplayMode.ICON_AND_TEXT.preferenceValue,
-    )
+    private var itemsOrder by
+        KvStore.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
+    private var enabledItems by
+        KvStore.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
+    private var displayModeValue by
+        KvStore.prefOption(
+            "chat_toolbar_display_mode",
+            ToolbarDisplayMode.ICON_AND_TEXT.preferenceValue,
+        )
 
     // quick replies are stored as a JSON string array so individual replies may safely
     // contain commas, newlines or any other character
@@ -305,37 +321,39 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         quickRepliesRaw = Json.encodeToString(quickRepliesSerializer, replies)
     }
 
-    private fun iconFor(name: String): ImageVector = when (name) {
-        QUICK_REPLY_NAME -> MaterialSymbols.Outlined.Chat
-        WEAGENT_NAME -> MaterialSymbols.Outlined.Smart_toy
-        else -> NAME_TO_ICON_MAP.getValue(name)
-    }
+    private fun iconFor(name: String): ImageVector =
+        when (name) {
+            QUICK_REPLY_NAME -> MaterialSymbols.Outlined.Chat
+            WEAGENT_NAME -> MaterialSymbols.Outlined.Smart_toy
+            else -> NAME_TO_ICON_MAP.getValue(name)
+        }
 
     /**
      * The keys remain the exact host labels and saved preference identities. Only presentation is
      * localized, so changing WeKit's language never rewrites the saved order or host matching.
      */
     @StringRes
-    private fun labelResFor(name: String): Int = when (name) {
-        "相册" -> R.string.chat_toolbar_tool_album
-        "拍摄" -> R.string.chat_toolbar_tool_camera
-        "系统拍摄" -> R.string.chat_toolbar_tool_system_camera
-        "视频通话" -> R.string.chat_toolbar_tool_video_call
-        "语音通话" -> R.string.chat_toolbar_tool_voice_call
-        "位置" -> R.string.chat_toolbar_tool_location
-        "红包" -> R.string.chat_toolbar_tool_red_packet
-        "礼物" -> R.string.chat_toolbar_tool_gift
-        "转账" -> R.string.chat_toolbar_tool_transfer
-        "语音输入" -> R.string.chat_toolbar_tool_voice_input
-        "收藏" -> R.string.chat_toolbar_tool_favorites
-        "接龙" -> R.string.chat_toolbar_tool_solitaire
-        "文件" -> R.string.chat_toolbar_tool_file
-        "个人名片" -> R.string.chat_toolbar_tool_contact_card
-        "音乐" -> R.string.chat_toolbar_tool_music
-        QUICK_REPLY_NAME -> R.string.chat_toolbar_quick_reply
-        WEAGENT_NAME -> R.string.feature_we_agent_name
-        else -> error("unsupported toolbar item: $name")
-    }
+    private fun labelResFor(name: String): Int =
+        when (name) {
+            "相册" -> R.string.chat_toolbar_tool_album
+            "拍摄" -> R.string.chat_toolbar_tool_camera
+            "系统拍摄" -> R.string.chat_toolbar_tool_system_camera
+            "视频通话" -> R.string.chat_toolbar_tool_video_call
+            "语音通话" -> R.string.chat_toolbar_tool_voice_call
+            "位置" -> R.string.chat_toolbar_tool_location
+            "红包" -> R.string.chat_toolbar_tool_red_packet
+            "礼物" -> R.string.chat_toolbar_tool_gift
+            "转账" -> R.string.chat_toolbar_tool_transfer
+            "语音输入" -> R.string.chat_toolbar_tool_voice_input
+            "收藏" -> R.string.chat_toolbar_tool_favorites
+            "接龙" -> R.string.chat_toolbar_tool_solitaire
+            "文件" -> R.string.chat_toolbar_tool_file
+            "个人名片" -> R.string.chat_toolbar_tool_contact_card
+            "音乐" -> R.string.chat_toolbar_tool_music
+            QUICK_REPLY_NAME -> R.string.chat_toolbar_quick_reply
+            WEAGENT_NAME -> R.string.feature_we_agent_name
+            else -> error("unsupported toolbar item: $name")
+        }
 
     // Ensures every supported item is present while preserving the user's saved order. A missing
     // quick-reply item is inserted first, and a missing WeAgent entry right before 快捷回复.
@@ -354,10 +372,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
     /**
      * Reading a panel's grid inflates one item view per entry, and WeChat re-runs initAppGrid in
-     * bursts, so snapshots are debounced. The debounce is trailing-edge: a suppressed call schedules
-     * a single delayed refresh instead of being dropped, so the grid's final state always reaches the
-     * toolbar. (Dropping used to lose the *only* initAppGrid of a chat when it happened to land in
-     * the window — e.g. right after WeKit loaded, when the initial baseline was still "now".)
+     * bursts, so snapshots are debounced. The debounce is trailing-edge: a suppressed call
+     * schedules a single delayed refresh instead of being dropped, so the grid's final state always
+     * reaches the toolbar. (Dropping used to lose the *only* initAppGrid of a chat when it happened
+     * to land in the window — e.g. right after WeKit loaded, when the initial baseline was still
+     * "now".)
      */
     private val toolListDebounce = 2.seconds
 
@@ -373,30 +392,38 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
 
         // (0, 0, 0) is the MMFlipper holding one GridView per page; absent until AppPanel.init()
         // has inflated the panel's layout.
-        val grids = (appPanel.findViewByChildIndexes(0, 0, 0) as ViewGroup?)
-            ?.children?.map { view -> view as GridView }
-            ?: return
+        val grids =
+            (appPanel.findViewByChildIndexes(0, 0, 0) as ViewGroup?)?.children?.map { view ->
+                view as GridView
+            } ?: return
 
         grids.forEach { grid ->
-            val onClickListener = grid.reflekt()
-                .firstField { type = AdapterView.OnItemClickListener::class }.get()!! as AdapterView.OnItemClickListener
-            val onLongClickListener = grid.reflekt()
-                .firstField { type = AdapterView.OnItemLongClickListener::class }.get()!! as AdapterView.OnItemLongClickListener
+            val onClickListener =
+                grid.reflekt().firstField { type = AdapterView.OnItemClickListener::class }.get()!!
+                    as AdapterView.OnItemClickListener
+            val onLongClickListener =
+                grid
+                    .reflekt()
+                    .firstField { type = AdapterView.OnItemLongClickListener::class }
+                    .get()!!
+                    as AdapterView.OnItemLongClickListener
             val listAdapter = grid.adapter
 
             listAdapter.iterable(grid).forEachIndexed { index, itemView ->
-                val canonicalName = synchronized(appGridToolTypes) {
-                    appGridToolTypes[itemView]?.let(::toolbarNameForAppGridType)
-                } ?: return@forEachIndexed
+                val canonicalName =
+                    synchronized(appGridToolTypes) {
+                        appGridToolTypes[itemView]?.let(::toolbarNameForAppGridType)
+                    } ?: return@forEachIndexed
                 tools.add(
-                    canonicalName to MenuItem(
-                        canonicalName,
-                        onClickListener,
-                        onLongClickListener,
-                        WeakReference(grid),
-                        WeakReference(itemView),
-                        index
-                    )
+                    canonicalName to
+                        MenuItem(
+                            canonicalName,
+                            onClickListener,
+                            onLongClickListener,
+                            WeakReference(grid),
+                            WeakReference(itemView),
+                            index,
+                        ),
                 )
             }
         }
@@ -428,20 +455,30 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
      * depending on WeChat's cancellable schedule.
      */
     private fun scheduleGridInitWatchdog(appPanel: AppPanel) {
-        mainHandler.postDelayed({
-            if (toolsOf(appPanel).lastSnapshotTime != null) return@postDelayed
-            // initAppGrid dereferences views that AppPanel.init() inflates, so only force it once
-            // the panel's layout is there.
-            if (appPanel.findViewByChildIndexes(0, 0, 0) == null) return@postDelayed
+        mainHandler.postDelayed(
+            {
+                if (toolsOf(appPanel).lastSnapshotTime != null) return@postDelayed
+                // initAppGrid dereferences views that AppPanel.init() inflates, so only force it
+                // once
+                // the panel's layout is there.
+                if (appPanel.findViewByChildIndexes(0, 0, 0) == null) return@postDelayed
 
-            WeLogger.d(TAG, "grid was never initialized for this chat footer, forcing initAppGrid")
-            // R8 staticizes initAppGrid on current builds, which is why the hooks read the panel out
-            // of args[0]; tolerate the instance shape too, since this call is outside a hook and an
-            // argument mismatch would take the process down.
-            val method = methodAppPanelInitAppGrid.method
-            if (java.lang.reflect.Modifier.isStatic(method.modifiers)) method.invoke(null, appPanel)
-            else method.invoke(appPanel)
-        }, GRID_INIT_WATCHDOG_DELAY_MS)
+                WeLogger.d(
+                    TAG,
+                    "grid was never initialized for this chat footer, forcing initAppGrid",
+                )
+                // R8 staticizes initAppGrid on current builds, which is why the hooks read the
+                // panel out
+                // of args[0]; tolerate the instance shape too, since this call is outside a hook
+                // and an
+                // argument mismatch would take the process down.
+                val method = methodAppPanelInitAppGrid.method
+                if (java.lang.reflect.Modifier.isStatic(method.modifiers))
+                    method.invoke(null, appPanel)
+                else method.invoke(appPanel)
+            },
+            GRID_INIT_WATCHDOG_DELAY_MS,
+        )
     }
 
     override fun onEnable() {
@@ -453,24 +490,27 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 // reproduce WeChat's own natural dimensions instead of hardcoding pixels.
                 //   width  = screen width (initAppGrid derives column count as gridWidth / dp(82))
                 //   height = the MMFlipper height. initAppGrid spreads any height left over after
-                //            the icon rows into grid spacing/top-padding, so overshooting here shows
+                //            the icon rows into grid spacing/top-padding, so overshooting here
+                // shows
                 //            up as extra padding at the bottom of the panel.
                 // The panel's port height is NOT a fixed 215dp: getPortHeightPX() returns a value
                 // set to match the soft-keyboard height (setPortHeighPx), which is device/IME
                 // dependent. The container LinearLayout (a1r, child path 0,0) already has that
                 // resolved height in its layoutParams (set in AppPanel.y()), so read it at runtime
                 // and only fall back to the 215dp portrait / 158dp landscape default. The flipper
-                // is that container minus the MMDotView strip below it (6dp dot + 16dp paddingBottom
+                // is that container minus the MMDotView strip below it (6dp dot + 16dp
+                // paddingBottom
                 // = 22dp, see layout hy.xml), which is fixed in dp.
                 val metrics = appPanel.resources.displayMetrics
                 val width = metrics.widthPixels
                 val fallbackDp = if (metrics.widthPixels < metrics.heightPixels) 215 else 158
-                val containerHeight = appPanel.findViewByChildIndexes(0, 0)
-                    ?.layoutParams?.height?.takeIf { it > 0 }
-                    ?: (fallbackDp * metrics.density).toInt()
+                val containerHeight =
+                    appPanel.findViewByChildIndexes(0, 0)?.layoutParams?.height?.takeIf { it > 0 }
+                        ?: (fallbackDp * metrics.density).toInt()
                 val dotStrip = (22 * metrics.density).toInt()
                 val height = (containerHeight - dotStrip).coerceAtLeast(1)
-                val measurer = methodAppPanelOnMeasure.method.declaringClass.createInstance(appPanel)
+                val measurer =
+                    methodAppPanelOnMeasure.method.declaringClass.createInstance(appPanel)
                 methodAppPanelOnMeasure.method.invoke(measurer, width, height)
             }
 
@@ -488,10 +528,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 // rather than lost — it may well be the one carrying the panel's final item set.
                 if (state.refreshScheduled) return@hookAfter
                 state.refreshScheduled = true
-                mainHandler.postDelayed({
-                    state.refreshScheduled = false
-                    snapshotTools(appPanel)
-                }, (toolListDebounce - elapsed).inWholeMilliseconds.coerceAtLeast(1))
+                mainHandler.postDelayed(
+                    {
+                        state.refreshScheduled = false
+                        snapshotTools(appPanel)
+                    },
+                    (toolListDebounce - elapsed).inWholeMilliseconds.coerceAtLeast(1),
+                )
             }
         }
 
@@ -512,84 +555,124 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             if (linearLayout.findViewWhich { it is ComposeView } != null) return@hookAfter
             activity.window.decorView.setLifecycleOwner(lifecycleOwner)
 
-            // The panel is part of the footer's own layout and ChatFooter.initAppPanel() has already
+            // The panel is part of the footer's own layout and ChatFooter.initAppPanel() has
+            // already
             // run inside the constructor, so it is reachable here. Bind this toolbar to that panel
             // only, and make sure something initializes its grid.
             val appPanel = chatFooter.findViewWhich { it is AppPanel } as AppPanel?
-            if (appPanel == null) WeLogger.w(TAG, "no AppPanel in this chat footer, toolbar will stay empty")
+            if (appPanel == null)
+                WeLogger.w(TAG, "no AppPanel in this chat footer, toolbar will stay empty")
             val toolsFlow = appPanel?.let { toolsOf(it).flow } ?: MutableStateFlow(emptyList())
             appPanel?.let { scheduleGridInitWatchdog(it) }
 
-            linearLayout.addView(ComposeView(activity).apply {
-                setLifecycleOwner(lifecycleOwner)
+            linearLayout.addView(
+                ComposeView(activity).apply {
+                    setLifecycleOwner(lifecycleOwner)
 
-                setContent {
-                    InjectedUiTheme {
-                        val tools by toolsFlow.collectAsStateWithLifecycle()
-                        val itemsOrder = remember { itemsOrder }
-                        val enabledItems = remember { enabledItems }
-                        val displayMode = remember { ToolbarDisplayMode.fromPreference(displayModeValue) }
-
-                        val sortedVisibleItems = remember(tools) {
-                            if (tools.isEmpty()) return@remember emptyList()
-
-                            val firstTool = tools[0].second
-                            val orderList = normalizeOrder(itemsOrder.split(",").filter { it.isNotEmpty() })
-                            val list = mutableListOf<Pair<String, () -> Unit>>()
-
-                            list.add(WEAGENT_NAME to {
-                                // The panel is a system overlay window, so it works from any
-                                // Activity — and stays reachable when the ball is disabled.
-                                WeAgentService.init()
-                                WeAgentOverlayController.openPanel()
-                            })
-
-                            list.add(QUICK_REPLY_NAME to {
-                                showQuickReplyPicker(activity)
-                            })
-
-                            // 系统拍摄 is not a grid entry of its own: it is what long-pressing the
-                            // first item (相册, grid position 0) does. WeChat's long-click listener
-                            // only looks at the position, so the view arguments may stay null.
-                            list.add("系统拍摄" to {
-                                firstTool.onLongClickListener.onItemLongClick(null, null, 0, 0)
-                            })
-
-                            tools.forEach { (name, menuItem) ->
-                                // item views are inflated by the snapshot and only held weakly,
-                                // so they can be collected before the chip is ever tapped
-                                val gridView = menuItem.gridView.get() ?: return@forEach
-                                val itemView = menuItem.itemView.get() ?: return@forEach
-                                list.add(name to {
-                                    menuItem.onClickListener.onItemClick(
-                                        gridView,
-                                        itemView,
-                                        menuItem.indexInGrid,
-                                        0
-                                    )
-                                })
+                    setContent {
+                        InjectedUiTheme {
+                            val tools by toolsFlow.collectAsStateWithLifecycle()
+                            val itemsOrder = remember { itemsOrder }
+                            val enabledItems = remember { enabledItems }
+                            val displayMode = remember {
+                                ToolbarDisplayMode.fromPreference(displayModeValue)
                             }
 
-                            list.distinctBy { it.first }
-                                .filter { it.first in enabledItems }
-                                .sortedBy { item ->
-                                    val idx = orderList.indexOf(item.first)
-                                    if (idx == -1) Int.MAX_VALUE else idx
-                                }
-                        }
+                            val sortedVisibleItems =
+                                remember(tools) {
+                                    if (tools.isEmpty()) return@remember emptyList()
 
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                        ) {
-                            items(sortedVisibleItems, key = { it.first }) { (name, onClick) ->
-                                val icon = iconFor(name)
-                                FeatureChip(stringResource(labelResFor(name)), icon, displayMode, onClick)
+                                    val firstTool = tools[0].second
+                                    val orderList =
+                                        normalizeOrder(
+                                            itemsOrder.split(",").filter { it.isNotEmpty() },
+                                        )
+                                    val list = mutableListOf<Pair<String, () -> Unit>>()
+
+                                    list.add(
+                                        WEAGENT_NAME to
+                                            {
+                                                // The panel is a system overlay window, so it works
+                                                // from any
+                                                // Activity — and stays reachable when the ball is
+                                                // disabled.
+                                                WeAgentService.init()
+                                                WeAgentOverlayController.openPanel()
+                                            },
+                                    )
+
+                                    list.add(
+                                        QUICK_REPLY_NAME to
+                                            {
+                                                showQuickReplyPicker(activity)
+                                            },
+                                    )
+
+                                    // 系统拍摄 is not a grid entry of its own: it is what long-pressing
+                                    // the
+                                    // first item (相册, grid position 0) does. WeChat's long-click
+                                    // listener
+                                    // only looks at the position, so the view arguments may stay
+                                    // null.
+                                    list.add(
+                                        "系统拍摄" to
+                                            {
+                                                firstTool.onLongClickListener.onItemLongClick(
+                                                    null,
+                                                    null,
+                                                    0,
+                                                    0,
+                                                )
+                                            },
+                                    )
+
+                                    tools.forEach { (name, menuItem) ->
+                                        // item views are inflated by the snapshot and only held
+                                        // weakly,
+                                        // so they can be collected before the chip is ever tapped
+                                        val gridView = menuItem.gridView.get() ?: return@forEach
+                                        val itemView = menuItem.itemView.get() ?: return@forEach
+                                        list.add(
+                                            name to
+                                                {
+                                                    menuItem.onClickListener.onItemClick(
+                                                        gridView,
+                                                        itemView,
+                                                        menuItem.indexInGrid,
+                                                        0,
+                                                    )
+                                                },
+                                        )
+                                    }
+
+                                    list
+                                        .distinctBy { it.first }
+                                        .filter { it.first in enabledItems }
+                                        .sortedBy { item ->
+                                            val idx = orderList.indexOf(item.first)
+                                            if (idx == -1) Int.MAX_VALUE else idx
+                                        }
+                                }
+
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                            ) {
+                                items(sortedVisibleItems, key = { it.first }) { (name, onClick) ->
+                                    val icon = iconFor(name)
+                                    FeatureChip(
+                                        stringResource(labelResFor(name)),
+                                        icon,
+                                        displayMode,
+                                        onClick,
+                                    )
+                                }
                             }
                         }
                     }
-                }
-            }, 0)
+                },
+                0,
+            )
         }
     }
 
@@ -605,7 +688,8 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val currentOrder = remember {
-                normalizeOrder(itemsOrder.split(",").filter { it.isNotEmpty() }).toMutableStateList()
+                normalizeOrder(itemsOrder.split(",").filter { it.isNotEmpty() })
+                    .toMutableStateList()
             }
             val currentEnabled = remember { enabledItems.toMutableStateList() }
             var currentDisplayMode by remember {
@@ -619,15 +703,24 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     DefaultColumn {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             ListItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { displayModeMenuExpanded = true },
-                                content = { Text(stringResource(R.string.chat_toolbar_display_style)) },
-                                supportingContent = { Text(stringResource(currentDisplayMode.labelRes)) },
+                                modifier =
+                                    Modifier.fillMaxWidth().clickable {
+                                        displayModeMenuExpanded = true
+                                    },
+                                content = {
+                                    Text(stringResource(R.string.chat_toolbar_display_style))
+                                },
+                                supportingContent = {
+                                    Text(stringResource(currentDisplayMode.labelRes))
+                                },
                                 trailingContent = {
                                     Icon(
                                         MaterialSymbols.Outlined.Arrow_drop_down,
-                                        contentDescription = stringResource(R.string.chat_toolbar_select_display_style_description),
+                                        contentDescription =
+                                            stringResource(
+                                                R.string
+                                                    .chat_toolbar_select_display_style_description,
+                                            ),
                                     )
                                 },
                             )
@@ -645,7 +738,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                                     displayModeMenuExpanded = false
                                                 },
                                                 text = { Text(stringResource(mode.labelRes)) },
-                                                shapes = MenuDefaults.itemShape(index, ToolbarDisplayMode.entries.size),
+                                                shapes =
+                                                    MenuDefaults.itemShape(
+                                                        index,
+                                                        ToolbarDisplayMode.entries.size,
+                                                    ),
                                             )
                                         }
                                     }
@@ -653,7 +750,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             }
                         }
                         Column {
-                            Text(stringResource(R.string.chat_toolbar_display_order), style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                stringResource(R.string.chat_toolbar_display_order),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
                             Text(
                                 stringResource(R.string.chat_toolbar_reorder_hint),
                                 style = MaterialTheme.typography.bodySmall,
@@ -666,26 +766,24 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             onMove = { from, to ->
                                 currentOrder.add(to, currentOrder.removeAt(from))
                             },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 480.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
                         ) { name, dragHandleModifier ->
                             val label = stringResource(labelResFor(name))
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 60.dp),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .then(dragHandleModifier),
+                                    modifier = Modifier.size(48.dp).then(dragHandleModifier),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
                                         MaterialSymbols.Outlined.Drag_handle,
-                                        contentDescription = stringResource(R.string.chat_toolbar_drag_item_description, label),
+                                        contentDescription =
+                                            stringResource(
+                                                R.string.chat_toolbar_drag_item_description,
+                                                label,
+                                            ),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -702,9 +800,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 }
                                 Text(
                                     text = label,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 8.dp),
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                                     maxLines = 1,
                                     softWrap = false,
                                     overflow = TextOverflow.Ellipsis,
@@ -714,7 +810,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                     IconButton(onClick = { showQuickReplyConfig(context) }) {
                                         Icon(
                                             MaterialSymbols.Outlined.Settings,
-                                            contentDescription = stringResource(R.string.chat_toolbar_configure_quick_reply_description),
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string
+                                                        .chat_toolbar_configure_quick_reply_description,
+                                                ),
                                         )
                                     }
                                 }
@@ -733,12 +833,14 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        itemsOrder = currentOrder.joinToString(",")
-                        enabledItems = currentEnabled.toSet()
-                        displayModeValue = currentDisplayMode.preferenceValue
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        onClick = {
+                            itemsOrder = currentOrder.joinToString(",")
+                            enabledItems = currentEnabled.toSet()
+                            displayModeValue = currentDisplayMode.preferenceValue
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.dialog_confirm))
                     }
                 },
@@ -746,7 +848,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.dialog_cancel))
                     }
-                }
+                },
             )
         }
     }
@@ -766,10 +868,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         LazyColumn {
                             items(replies) { reply ->
                                 ListItem(
-                                    modifier = Modifier.clickable {
-                                        insertQuickReply(reply)
-                                        onDismiss()
-                                    },
+                                    modifier =
+                                        Modifier.clickable {
+                                            insertQuickReply(reply)
+                                            onDismiss()
+                                        },
                                     content = { Text(reply) },
                                 )
                             }
@@ -780,7 +883,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.dialog_close))
                     }
-                }
+                },
             )
         }
     }
@@ -801,12 +904,16 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                         value = value,
                         onValueChange = { value = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.chat_toolbar_reply_placeholder)) },
+                        placeholder = {
+                            Text(stringResource(R.string.chat_toolbar_reply_placeholder))
+                        },
                         minLines = 3,
                         maxLines = 8,
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -814,7 +921,9 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             onDismiss()
                         },
                         enabled = value.isNotBlank(),
-                    ) { Text(stringResource(R.string.action_save)) }
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
                 },
             )
         }
@@ -839,7 +948,10 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.chat_toolbar_reply_contents), style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    stringResource(R.string.chat_toolbar_reply_contents),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
                                 Text(
                                     stringResource(R.string.chat_toolbar_reply_reorder_hint),
                                     style = MaterialTheme.typography.bodySmall,
@@ -848,10 +960,13 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                             }
                             TextButton(
                                 onClick = {
-                                    showQuickReplyEditor(context, R.string.chat_toolbar_add_quick_reply) { text ->
+                                    showQuickReplyEditor(
+                                        context,
+                                        R.string.chat_toolbar_add_quick_reply,
+                                    ) { text ->
                                         replies.add(QuickReplyDraft(text = text))
                                     }
-                                }
+                                },
                             ) {
                                 Icon(MaterialSymbols.Outlined.Add, contentDescription = null)
                                 Text(stringResource(R.string.action_add))
@@ -871,9 +986,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 onMove = { from, to ->
                                     replies.add(to, replies.removeAt(from))
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 420.dp),
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
                             ) { reply, dragHandleModifier ->
                                 val editReply = {
                                     showQuickReplyEditor(
@@ -887,42 +1000,52 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                                 }
 
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 60.dp),
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .then(dragHandleModifier),
+                                        modifier = Modifier.size(48.dp).then(dragHandleModifier),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
                                             MaterialSymbols.Outlined.Drag_handle,
-                                            contentDescription = stringResource(R.string.chat_toolbar_drag_quick_reply_description),
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string
+                                                        .chat_toolbar_drag_quick_reply_description,
+                                                ),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                     Text(
                                         text = reply.text,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable(onClick = editReply)
-                                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                                        modifier =
+                                            Modifier.weight(1f)
+                                                .clickable(onClick = editReply)
+                                                .padding(horizontal = 8.dp, vertical = 12.dp),
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     IconButton(onClick = editReply) {
                                         Icon(
                                             MaterialSymbols.Outlined.Edit,
-                                            contentDescription = stringResource(R.string.chat_toolbar_edit_quick_reply_description),
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string
+                                                        .chat_toolbar_edit_quick_reply_description,
+                                                ),
                                         )
                                     }
-                                    IconButton(onClick = { replies.removeAll { it.id == reply.id } }) {
+                                    IconButton(
+                                        onClick = { replies.removeAll { it.id == reply.id } },
+                                    ) {
                                         Icon(
                                             MaterialSymbols.Outlined.Delete,
-                                            contentDescription = stringResource(R.string.chat_toolbar_delete_quick_reply_description),
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string
+                                                        .chat_toolbar_delete_quick_reply_description,
+                                                ),
                                             tint = MaterialTheme.colorScheme.error,
                                         )
                                     }
@@ -932,10 +1055,14 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        saveQuickReplies(replies.map { it.text.trim() }.filter { it.isNotEmpty() })
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        onClick = {
+                            saveQuickReplies(
+                                replies.map { it.text.trim() }.filter { it.isNotEmpty() },
+                            )
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.dialog_confirm))
                     }
                 },
@@ -943,7 +1070,7 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.dialog_cancel))
                     }
-                }
+                },
             )
         }
     }
@@ -960,23 +1087,27 @@ private fun FeatureChip(
         onClick = onClick,
         label = {
             when (displayMode) {
-                ToolbarDisplayMode.ICON_ONLY -> Icon(
-                    icon,
-                    contentDescription = text,
-                    modifier = Modifier.size(AssistChipDefaults.IconSize),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                ToolbarDisplayMode.ICON_ONLY ->
+                    Icon(
+                        icon,
+                        contentDescription = text,
+                        modifier = Modifier.size(AssistChipDefaults.IconSize),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
 
                 ToolbarDisplayMode.ICON_AND_TEXT,
                 ToolbarDisplayMode.TEXT_ONLY -> Text(text)
             }
         },
-        leadingIcon = if (displayMode == ToolbarDisplayMode.ICON_AND_TEXT) ({
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(AssistChipDefaults.IconSize),
-            )
-        }) else null,
+        leadingIcon =
+            if (displayMode == ToolbarDisplayMode.ICON_AND_TEXT)
+                ({
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(AssistChipDefaults.IconSize),
+                    )
+                })
+            else null,
     )
 }

@@ -9,8 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.api.core.models.WeChatroomSyncState
@@ -26,7 +24,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
-import java.lang.reflect.Modifier
 
 @SuppressLint("DiscouragedApi")
 object WeDatabaseApi : ApiFeature(), IResolveDex {
@@ -36,53 +33,46 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_database_api_description
 
-    val classMmKernel by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
-        },
-    )
-    val methodGetStorage by dexMethod(
-        sqlMethod {
-            declaredClass(classMmKernel.data.name)
-            paramCount = 0
-            modifiers = 9
-            usingStrings("mCoreStorage not initialized!")
-        },
-    )
-    private val classCoreStorage by dexClass(
-        sqlClass {
-            usingEqStrings("MMKernel.CoreStorage", "CheckData path[%s] blocksize:%s blockcount:%s availcount:%s")
-        },
-    )
-    private val classConfigStorage by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.storage")
-            usingEqStrings("MicroMsg.ConfigStorage", "shouldProcessEvent db is close :%s")
-        },
-    )
-    private val classSqliteDbWrapper by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
-        },
-    )
-    val methodSqliteWrapperRawQuery by dexMethod(
-        sqlMethod {
+    val classMmKernel by dexClass {
+        usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
+    }
+    val methodGetStorage by dexMethod {
+        declaredClass(classMmKernel.data.name)
+        paramCount = 0
+        modifiers = 9
+        usingStrings("mCoreStorage not initialized!")
+    }
+    private val classCoreStorage by dexClass {
+        usingEqStrings(
+            "MMKernel.CoreStorage",
+            "CheckData path[%s] blocksize:%s blockcount:%s availcount:%s",
+        )
+    }
+    private val classConfigStorage by dexClass {
+        searchPackages("com.tencent.mm.storage")
+        usingEqStrings("MicroMsg.ConfigStorage", "shouldProcessEvent db is close :%s")
+    }
+    private val classSqliteDbWrapper by dexClass {
+        usingEqStrings("MicroMsg.SqliteDB", "sql is null ")
+    }
+    val methodSqliteWrapperRawQuery by
+        dexMethod(allowFailure = true) {
             returnType = "android.database.Cursor"
             paramTypes("java.lang.String", "java.lang.String[]", "int")
             modifiers = 1
             usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
-        },
-        allowFailure = true,
-    )
+        }
 
     lateinit var db: SQLiteDatabase
 
-    val isReady: Boolean get() = ::db.isInitialized
+    val isReady: Boolean
+        get() = ::db.isInitialized
 
     private const val TAG = "WeDatabaseApi"
 
     val coreStorage by lazy {
-        classMmKernel.reflekt()
+        classMmKernel
+            .reflekt()
             .firstMethod {
                 parameterCount = 0
                 returnType = classCoreStorage.clazz
@@ -91,7 +81,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     val configStorage by lazy {
-        coreStorage.reflekt()
+        coreStorage
+            .reflekt()
             .firstMethod {
                 parameterCount = 0
                 returnType = classConfigStorage.clazz
@@ -99,22 +90,24 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             .invoke()!!
     }
 
-    fun getSelfProfileField(field: SelfProfileField, defValue: Any? = null): Any? =
-        runCatching {
-            configStorage.reflekt()
-                .firstMethod {
-                    parameters(Int::class, Any::class)
-                    returnType = Any::class
-                }
-                .invoke(field.code, defValue)
-        }.getOrElse {
+    fun getSelfProfileField(field: SelfProfileField, defValue: Any? = null): Any? = runCatching {
+        configStorage
+            .reflekt()
+            .firstMethod {
+                parameters(Int::class, Any::class)
+                returnType = Any::class
+            }
+            .invoke(field.code, defValue)
+    }
+        .getOrElse {
             WeLogger.w(TAG, "getSelfProfileField failed for ${field.name}", it)
             defValue
         }
 
     private object SqlStatements {
         // 基础字段 - 联系人查询常用字段
-        const val CONTACT_FIELDS = """
+        const val CONTACT_FIELDS =
+            """
             r.username, r.alias, r.conRemark, r.nickname,
             r.pyInitial, r.quanPin, r.encryptUsername, i.reserved2 AS avatarUrl
         """
@@ -135,14 +128,17 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         // =========================================
 
         /** 所有账号 */
-        val CONTACTS = """
+        val CONTACTS =
+            """
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 好友列表（排除群聊和公众号和系统账号和自己和假好友） */
-        val FRIENDS = """
+        val FRIENDS =
+            """
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
@@ -157,10 +153,12 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 AND (r.type & 8) = 0
                 AND (r.type & 32) = 0
                 AND r.username NOT LIKE '%chatroom'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 查询单个好友（包含微信内部id或自定义微信号alias匹配） */
-        fun friend(wxid: String) = """
+        fun friend(wxid: String) =
+            """
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
@@ -176,10 +174,12 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 AND (r.type & 8) = 0
                 AND (r.type & 32) = 0
                 AND r.username NOT LIKE '%chatroom'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 按消息量降序获取好友及消息数 */
-        fun friendsOrderedByMessageCount(limit: Int) = """
+        fun friendsOrderedByMessageCount(limit: Int) =
+            """
             SELECT COUNT(*) AS msg_count, $CONTACT_FIELDS, r.type
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
@@ -198,66 +198,75 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             GROUP BY r.username
             ORDER BY msg_count DESC
             LIMIT $limit
-        """.trimIndent()
+        """
+                .trimIndent()
 
         // =========================================
         // 群聊查询
         // =========================================
 
         /** 所有群聊 */
-        val GROUPS = """
+        val GROUPS =
+            """
             SELECT $GROUP_FIELDS
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username LIKE '%@chatroom'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 单个群聊 */
-        fun group(wxId: String) = """
+        fun group(wxId: String) =
+            """
             SELECT $GROUP_FIELDS
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username = '$wxId'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 获取群成员列表 */
-        fun groupMembers(idsStr: String) = """
+        fun groupMembers(idsStr: String) =
+            """
             SELECT $CONTACT_FIELDS
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username IN ($idsStr)
-        """.trimIndent()
+        """
+                .trimIndent()
 
         // =========================================
         // 公众号查询
         // =========================================
 
         /** 所有公众号 */
-        val OFFICIAL_LIST = """
+        val OFFICIAL_LIST =
+            """
             SELECT $OFFICIAL_ACCOUNT_FIELDS
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username LIKE 'gh_%'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         // =========================================
         // 消息查询
         // =========================================
 
         /** 分页获取消息 */
-        fun messages(wxid: String, limit: Int, offset: Int) = """
+        fun messages(wxid: String, limit: Int, offset: Int) =
+            """
             SELECT msgId, msgSvrId, talker, content, type, createTime, isSend
             FROM message
             WHERE talker='$wxid'
             ORDER BY createTime DESC
             LIMIT $limit OFFSET $offset
-        """.trimIndent()
+        """
+                .trimIndent()
 
-        /**
-         * 获取指定会话中特定发送者的消息
-         * 支持群聊（通过 content 匹配对方，或通过 isSend 匹配自己）与单聊
-         */
-        fun messagesFromSender(convId: String, senderId: String, limit: Int, offset: Int) = """
+        /** 获取指定会话中特定发送者的消息 支持群聊（通过 content 匹配对方，或通过 isSend 匹配自己）与单聊 */
+        fun messagesFromSender(convId: String, senderId: String, limit: Int, offset: Int) =
+            """
             SELECT msgId, talker, content, type, createTime, isSend
             FROM message
             WHERE talker = '$convId'
@@ -273,13 +282,12 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
               )
             ORDER BY createTime DESC
             LIMIT $limit OFFSET $offset
-        """.trimIndent()
+        """
+                .trimIndent()
 
-        /**
-         * 获取指定会话中特定发送者的消息
-         * 支持群聊（通过 content 匹配对方，或通过 isSend 匹配自己）与单聊
-         */
-        fun messagesFromSender(convId: String, senderId: String) = """
+        /** 获取指定会话中特定发送者的消息 支持群聊（通过 content 匹配对方，或通过 isSend 匹配自己）与单聊 */
+        fun messagesFromSender(convId: String, senderId: String) =
+            """
             SELECT msgId, msgSvrId, talker, content, type, createTime, isSend
             FROM message
             WHERE talker = '$convId'
@@ -294,30 +302,36 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                   ('$convId' = '$senderId')
               )
             ORDER BY createTime DESC
-        """.trimIndent()
+        """
+                .trimIndent()
 
         // =========================================
         // 头像查询
         // =========================================
 
         /** 每个会话最近一条消息的时间 */
-        val LAST_MESSAGE_TIMES = """
+        val LAST_MESSAGE_TIMES =
+            """
             SELECT talker, MAX(createTime) AS lastTime
             FROM message
             GROUP BY talker
-        """.trimIndent()
+            """
+                .trimIndent()
 
         /** 获取头像 URL */
-        fun avatar(wxid: String) = """
+        fun avatar(wxid: String) =
+            """
             SELECT i.reserved2 AS avatarUrl
             FROM img_flag i
             WHERE i.username = '$wxid'
-        """.trimIndent()
+        """
+                .trimIndent()
 
         /** 获取群聊成员列表字符串 */
         const val GROUP_MEMBERS = "SELECT memberlist FROM chatroom WHERE chatroomname = '%s'"
 
-        const val CHATROOM_SYNC_STATE = "SELECT memberlist, chatroomVersion FROM chatroom WHERE chatroomname = ?"
+        const val CHATROOM_SYNC_STATE =
+            "SELECT memberlist, chatroomVersion FROM chatroom WHERE chatroomname = ?"
     }
 
     override fun onEnable() {
@@ -331,26 +345,34 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     @Synchronized
     private fun initializeDatabase(storageObj: Any) {
-        val wrapperObj = storageObj.reflekt()
-            .firstField {
-                type {
-                    it == classSqliteDbWrapper.clazz ||
+        val wrapperObj =
+            storageObj
+                .reflekt()
+                .firstField {
+                    type {
+                        it == classSqliteDbWrapper.clazz ||
                             it == classSqliteDbWrapper.clazz.interfaces[0]
+                    }
                 }
-            }.get() ?: return
+                .get() ?: return
 
-        db = wrapperObj.reflekt()
-            .firstMethod {
-                parameterCount = 0
-                returnType = "com.tencent.wcdb.database.SQLiteDatabase"
-            }.invoke()!! as SQLiteDatabase
+        db =
+            wrapperObj
+                .reflekt()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = "com.tencent.wcdb.database.SQLiteDatabase"
+                }
+                .invoke()!!
+                as SQLiteDatabase
     }
 
     @Suppress("NOTHING_TO_INLINE")
     inline fun rawQuery(sql: String, args: Array<Any>? = null): Cursor = db.rawQuery(sql, args)
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun delete(table: String, conditions: String, args: Array<String>? = null): Int = db.delete(table, conditions, args)
+    inline fun delete(table: String, conditions: String, args: Array<String>? = null): Int =
+        db.delete(table, conditions, args)
 
     fun executeQuery(statement: String, args: Array<Any>? = null): List<Map<String, Any?>> {
         val result = mutableListOf<Map<String, Any?>>()
@@ -364,13 +386,14 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                     val row = HashMap<String, Any?>()
                     for (i in columnNames.indices) {
                         val type = cursor.getType(i)
-                        row[columnNames[i]] = when (type) {
-                            Cursor.FIELD_TYPE_NULL -> ""
-                            Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(i)
-                            Cursor.FIELD_TYPE_FLOAT -> cursor.getDouble(i)
-                            Cursor.FIELD_TYPE_BLOB -> cursor.getBlob(i)
-                            else -> cursor.getString(i)
-                        }
+                        row[columnNames[i]] =
+                            when (type) {
+                                Cursor.FIELD_TYPE_NULL -> ""
+                                Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(i)
+                                Cursor.FIELD_TYPE_FLOAT -> cursor.getDouble(i)
+                                Cursor.FIELD_TYPE_BLOB -> cursor.getBlob(i)
+                                else -> cursor.getString(i)
+                            }
                     }
                     result.add(row)
                 } while (cursor.moveToNext())
@@ -384,7 +407,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun execStatement(statement: String, args: Array<Any>? = null) = db.execSQL(statement, args)
+    inline fun execStatement(statement: String, args: Array<Any>? = null) =
+        db.execSQL(statement, args)
 
     inline fun <T> transaction(block: () -> T): T {
         db.beginTransaction()
@@ -397,23 +421,19 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /**
-     * 获取【全部联系人】
-     * 返回所有账号
-     */
+    /** 获取【全部联系人】 返回所有账号 */
     fun getContacts(): List<WeContact> {
         return mapToContacts(executeQuery(SqlStatements.CONTACTS))
     }
 
-    /**
-     * 获取【好友】
-     */
+    /** 获取【好友】 */
     fun getFriends(): List<WeContact> {
         return mapToContacts(executeQuery(SqlStatements.FRIENDS))
     }
 
     /**
      * 获取单条【好友】
+     *
      * @param wxId 微信原始 ID (wxid_xxx) 或 用户自定义微信号 (alias)
      * @return 匹配到的 WeContact 对象，若未找到或非好友则返回 null
      */
@@ -435,6 +455,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     /**
      * 获取按聊天消息总数降序排列的好友列表
      * * @param limit 返回的最大结果数量限制
+     *
      * @return 包含 WeContact 到 消息总数 映射的 Map（保持降序排列）
      */
     fun getFriendsOrderedByMessageCount(limit: Int): Map<WeContact, Int> {
@@ -446,9 +467,11 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             val contacts = mapToContacts(result)
 
             // 使用 mapIndexed 组合并转换为 Map，Kotlin 的 toMap() 会默认保留原本的降序遍历顺序
-            return result.mapIndexed { index, row ->
-                contacts[index] to row.int("msg_count")
-            }.toMap()
+            return result
+                .mapIndexed { index, row ->
+                    contacts[index] to row.int("msg_count")
+                }
+                .toMap()
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to get friends ordered by message count; limit=$limit", e)
             return emptyMap()
@@ -457,6 +480,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     /**
      * 获取单个群聊
+     *
      * @param wxId 群聊 wxId（xxx@chatroom）
      * @return WeGroup 对象，若未找到则返回 null
      */
@@ -474,7 +498,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nickname = row.str("nickname"),
                 nicknameShortPinyin = row.str("pyInitial"),
                 nicknamePinyin = row.str("quanPin"),
-                avatarUrl = row.str("avatarUrl")
+                avatarUrl = row.str("avatarUrl"),
             )
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to get group; wxid=$wxId", e)
@@ -487,11 +511,12 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         try {
             val escapedWxid = convId.replace("'", "''")
             val isGroup = convId.isGroupChatWxId
-            val sql = if (isGroup) {
-                "SELECT r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
-            } else {
-                "SELECT r.conRemark, r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
-            }
+            val sql =
+                if (isGroup) {
+                    "SELECT r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
+                } else {
+                    "SELECT r.conRemark, r.nickname FROM rcontact r WHERE r.username = '$escapedWxid'"
+                }
             val result = executeQuery(sql)
             if (result.isEmpty()) return convId
 
@@ -510,9 +535,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /**
-     * 获取【群聊】
-     */
+    /** 获取【群聊】 */
     fun getGroups(): List<WeGroup> {
         return executeQuery(SqlStatements.GROUPS).map { row ->
             WeGroup(
@@ -520,7 +543,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nickname = row.str("nickname"),
                 nicknameShortPinyin = row.str("pyInitial"),
                 nicknamePinyin = row.str("quanPin"),
-                avatarUrl = row.str("avatarUrl")
+                avatarUrl = row.str("avatarUrl"),
             )
         }
     }
@@ -548,6 +571,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     /**
      * 获取指定群聊的成员列表
+     *
      * @param groupId 群聊ID
      */
     fun getGroupMembers(groupId: String): List<WeContact> {
@@ -573,8 +597,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * 获取群成员在群中的群昵称（群备注）
-     * 数据来自 chatroom.roomdata protobuf，没有设置群昵称时返回空字符串
+     * 获取群成员在群中的群昵称（群备注） 数据来自 chatroom.roomdata protobuf，没有设置群昵称时返回空字符串
+     *
      * @param groupId 群聊 wxId（xxx@chatroom）
      * @param memberId 成员 wxId
      * @return 群昵称，未设置时返回空字符串
@@ -582,10 +606,11 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     fun getGroupMemberDisplayName(groupId: String, memberId: String): String {
         if (!groupId.isGroupChatWxId || memberId.isEmpty()) return ""
         try {
-            val cursor = db.rawQuery(
-                "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
-                arrayOf(groupId)
-            )
+            val cursor =
+                db.rawQuery(
+                    "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
+                    arrayOf(groupId),
+                )
             cursor.use { cursor ->
                 if (cursor != null && cursor.moveToFirst()) {
                     val blob = cursor.getBlob(0) ?: return ""
@@ -594,14 +619,18 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 }
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to get group member display name; groupId=$groupId, memberId=$memberId", e)
+            WeLogger.e(
+                TAG,
+                "failed to get group member display name; groupId=$groupId, memberId=$memberId",
+                e,
+            )
         }
         return ""
     }
 
     /**
-     * 获取邀请指定群成员进群的邀请者 wxId
-     * 数据来自 chatroom.roomdata protobuf，群主或无邀请者信息时返回空字符串
+     * 获取邀请指定群成员进群的邀请者 wxId 数据来自 chatroom.roomdata protobuf，群主或无邀请者信息时返回空字符串
+     *
      * @param groupId 群聊 wxId（xxx@chatroom）
      * @param memberId 成员 wxId
      * @return 邀请者 wxId；没有邀请者记录时返回空字符串。空值不代表当前群主。
@@ -609,10 +638,11 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     fun getGroupMemberInviter(groupId: String, memberId: String): String {
         if (!groupId.isGroupChatWxId || memberId.isEmpty()) return ""
         try {
-            val cursor = db.rawQuery(
-                "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
-                arrayOf(groupId)
-            )
+            val cursor =
+                db.rawQuery(
+                    "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
+                    arrayOf(groupId),
+                )
             cursor.use { cursor ->
                 if (cursor != null && cursor.moveToFirst()) {
                     val blob = cursor.getBlob(0) ?: return ""
@@ -621,27 +651,27 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 }
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to get group member inviter; groupId=$groupId, memberId=$memberId", e)
+            WeLogger.e(
+                TAG,
+                "failed to get group member inviter; groupId=$groupId, memberId=$memberId",
+                e,
+            )
         }
         return ""
     }
 
-    /**
-     * 获取【公众号】
-     */
+    /** 获取【公众号】 */
     fun getOfficialAccounts(): List<WeOfficialAccount> {
         return executeQuery(SqlStatements.OFFICIAL_LIST).map { row ->
             WeOfficialAccount(
                 wxId = row.str("username"),
                 nickname = row.str("nickname"),
-                avatarUrl = row.str("avatarUrl")
+                avatarUrl = row.str("avatarUrl"),
             )
         }
     }
 
-    /**
-     * 获取【消息】
-     */
+    /** 获取【消息】 */
     fun getMessages(convId: String, pageIndex: Int = 1, pageSize: Int = 20): List<WeMessage> {
         if (convId.isEmpty()) return emptyList()
         val offset = (pageIndex - 1) * pageSize
@@ -653,13 +683,14 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 content = row.str("content"),
                 typeCode = row.int("type"),
                 createTime = row.long("createTime"),
-                isSend = row.int("isSend")
+                isSend = row.int("isSend"),
             )
         }
     }
 
     /**
      * 获取指定会话中特定发送者的【消息】
+     *
      * @param convId 会话 ID（单聊为对方 wxid，群聊为 xxx@chatroom）
      * @param senderId 发送者 ID（wxid）
      */
@@ -683,17 +714,22 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                     content = row.str("content"),
                     typeCode = row.int("type"),
                     createTime = row.long("createTime"),
-                    isSend = row.int("isSend")
+                    isSend = row.int("isSend"),
                 )
             }
         } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to get messages from sender; convId=$convId, senderId=$senderId", e)
+            WeLogger.e(
+                TAG,
+                "failed to get messages from sender; convId=$convId, senderId=$senderId",
+                e,
+            )
             return emptyList()
         }
     }
 
     /**
      * 获取每个会话最近一条消息的时间
+     *
      * @return 会话 wxId 到最近消息时间（毫秒时间戳）的映射
      */
     fun getLastMessageTimes(): Map<String, Long> {
@@ -707,9 +743,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /**
-     * 获取头像
-     */
+    /** 获取头像 */
     fun getAvatarUrl(wxid: String): String {
         if (wxid.isEmpty()) return ""
         val result = executeQuery(SqlStatements.avatar(wxid))
@@ -731,7 +765,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl"),
                 encryptedUsername = row.str("encryptUsername"),
-                type = row.int("type")
+                type = row.int("type"),
             )
         }
     }

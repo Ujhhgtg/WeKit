@@ -15,10 +15,11 @@ enum class HomeSidePanelLiveCachePolicy(val persistLiveCaches: Boolean) {
 
 fun homeSidePanelLiveCachePolicy(
     load: HomeSidePanelLayoutLoad,
-): HomeSidePanelLiveCachePolicy = when (load) {
-    is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
-    is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
-}
+): HomeSidePanelLiveCachePolicy =
+    when (load) {
+        is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
+        is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
+    }
 
 fun homeSidePanelRuntimeDelta(
     old: HomeSidePanelLayout?,
@@ -34,19 +35,19 @@ fun homeSidePanelRuntimeDelta(
     )
 }
 
-fun weatherCacheFingerprint(city: WeatherCity): String =
-    sha256("weather|${city.cityNum}")
+fun weatherCacheFingerprint(city: WeatherCity): String = sha256("weather|${city.cityNum}")
 
-fun hitokotoCacheFingerprint(settings: HitokotoSettings): String = sha256(
-    buildString {
-        append("hitokoto|")
-        append(settings.categories.sorted().joinToString(","))
-        append('|')
-        append(settings.minLength?.toString().orEmpty())
-        append('|')
-        append(settings.maxLength?.toString().orEmpty())
-    },
-)
+fun hitokotoCacheFingerprint(settings: HitokotoSettings): String =
+    sha256(
+        buildString {
+            append("hitokoto|")
+            append(settings.categories.sorted().joinToString(","))
+            append('|')
+            append(settings.minLength?.toString().orEmpty())
+            append('|')
+            append(settings.maxLength?.toString().orEmpty())
+        },
+    )
 
 fun <T> retainCommittedCardEntries(
     entries: Map<String, T>,
@@ -57,17 +58,23 @@ fun <T> retainCommittedCardEntries(
 }
 
 private fun List<HomeSidePanelCardConfig>.runtimeCardsById(): Map<String, HomeSidePanelCardConfig> =
-    filter { it.hasRuntimeState() }.associateBy(HomeSidePanelCardConfig::id)
+    filter {
+        it.hasRuntimeState()
+    }
+    .associateBy(HomeSidePanelCardConfig::id)
 
-fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean = when (this) {
-    is WeatherCardConfig,
-    is WalletCardConfig,
-    is HitokotoCardConfig,
-    -> true
+fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean =
+    when (this) {
+        is WeatherCardConfig,
+        is WalletCardConfig,
+        is HitokotoCardConfig -> true
 
-    else -> false
-}
+        else -> false
+    }
 
-private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
-    .digest(value.toByteArray(Charsets.UTF_8))
-    .joinToString(separator = "") { byte -> "%02x".format(byte) }
+private fun sha256(value: String): String =
+    MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8)).joinToString(
+        separator = "",
+    ) { byte ->
+        "%02x".format(byte)
+    }

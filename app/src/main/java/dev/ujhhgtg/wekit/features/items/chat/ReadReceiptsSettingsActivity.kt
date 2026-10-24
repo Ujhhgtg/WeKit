@@ -58,7 +58,9 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
     val scope = rememberCoroutineScope()
     val initial = remember { ReadReceipts.configuration() }
     var url by rememberSaveable { mutableStateOf(initial.thirdPartyUrl) }
-    var intervalSecs by rememberSaveable { mutableIntStateOf(initial.pollIntervalSecs.coerceIn(1, 60)) }
+    var intervalSecs by rememberSaveable {
+        mutableIntStateOf(initial.pollIntervalSecs.coerceIn(1, 60))
+    }
     var sendMode by rememberSaveable { mutableIntStateOf(ReadReceipts.sendMode) }
     var triggerPrefix by rememberSaveable { mutableStateOf(ReadReceipts.triggerPrefix) }
     var testing by remember { mutableStateOf(false) }
@@ -76,7 +78,9 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                         value = url,
                         valueHint = stringResource(R.string.read_receipts_server_url),
                         onValueChange = { value ->
-                            val normalized = if (value.isEmpty()) "" else normalizeThirdPartyReadReceiptEndpoint(value)
+                            val normalized =
+                                if (value.isEmpty()) ""
+                                else normalizeThirdPartyReadReceiptEndpoint(value)
                             if (normalized == null) {
                                 feedbackRes = R.string.read_receipts_invalid_third_party_url
                             } else {
@@ -104,15 +108,17 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                             feedbackRes = 0
                             ReadReceipts.testThirdPartyEndpoint(url, scope) { result ->
                                 testing = false
-                                feedbackRes = if (result.isSuccess) {
-                                    R.string.read_receipts_server_connection_succeeded
-                                } else {
-                                    R.string.read_receipts_server_connection_failed
-                                }
-                            } ?: run {
-                                testing = false
-                                feedbackRes = R.string.read_receipts_invalid_third_party_url
+                                feedbackRes =
+                                    if (result.isSuccess) {
+                                        R.string.read_receipts_server_connection_succeeded
+                                    } else {
+                                        R.string.read_receipts_server_connection_failed
+                                    }
                             }
+                                ?: run {
+                                    testing = false
+                                    feedbackRes = R.string.read_receipts_invalid_third_party_url
+                                }
                         },
                     )
                 }
@@ -125,13 +131,21 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                         ) {
                             if (testing) CircularProgressIndicator(modifier = Modifier.size(20.dp))
                             Text(
-                                text = stringResource(
-                                    if (testing) R.string.read_receipts_connection_test_pending else feedbackRes,
-                                ),
+                                text =
+                                    stringResource(
+                                        if (testing) R.string.read_receipts_connection_test_pending
+                                        else feedbackRes,
+                                    ),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = if (feedbackRes == R.string.read_receipts_invalid_third_party_url ||
-                                    feedbackRes == R.string.read_receipts_server_connection_failed
-                                ) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color =
+                                    if (
+                                        feedbackRes ==
+                                            R.string.read_receipts_invalid_third_party_url ||
+                                            feedbackRes ==
+                                                R.string.read_receipts_server_connection_failed
+                                    )
+                                        MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -144,7 +158,8 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                     RadioButtonWidget(
                         iconPlaceholder = false,
                         title = stringResource(R.string.read_receipts_mode_passive),
-                        description = stringResource(R.string.read_receipts_mode_passive_description),
+                        description =
+                            stringResource(R.string.read_receipts_mode_passive_description),
                         selected = sendMode == ReadReceipts.MODE_PASSIVE,
                         onClick = {
                             sendMode = ReadReceipts.MODE_PASSIVE
@@ -156,7 +171,8 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                     RadioButtonWidget(
                         iconPlaceholder = false,
                         title = stringResource(R.string.read_receipts_mode_active_menu),
-                        description = stringResource(R.string.read_receipts_mode_active_menu_description),
+                        description =
+                            stringResource(R.string.read_receipts_mode_active_menu_description),
                         selected = sendMode == ReadReceipts.MODE_ACTIVE_MENU,
                         onClick = {
                             sendMode = ReadReceipts.MODE_ACTIVE_MENU
@@ -168,7 +184,8 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                     RadioButtonWidget(
                         iconPlaceholder = false,
                         title = stringResource(R.string.read_receipts_mode_active_prefix),
-                        description = stringResource(R.string.read_receipts_mode_active_prefix_description),
+                        description =
+                            stringResource(R.string.read_receipts_mode_active_prefix_description),
                         selected = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
                         onClick = {
                             sendMode = ReadReceipts.MODE_ACTIVE_PREFIX
@@ -176,7 +193,10 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                         },
                     )
                 }
-                item(key = "trigger_prefix", animatedVisibility = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX) {
+                item(
+                    key = "trigger_prefix",
+                    animatedVisibility = sendMode == ReadReceipts.MODE_ACTIVE_PREFIX,
+                ) {
                     TextFieldDialogWidget(
                         title = stringResource(R.string.chat_read_receipts_prefix),
                         value = triggerPrefix,

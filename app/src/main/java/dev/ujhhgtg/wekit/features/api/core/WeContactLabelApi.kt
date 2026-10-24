@@ -5,18 +5,14 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi.modifyLabel
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 
 object WeContactLabelApi : ApiFeature(), IResolveDex {
 
@@ -29,48 +25,46 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
 
     data class ContactLabel(val labelId: Int, val labelName: String)
 
-    private val classNetSceneModifyContactLabelList by dexClass(
-        sqlClass {
-            usingEqStrings("/cgi-bin/micromsg-bin/modifycontactlabellist")
-            method {
-                name = "<init>"
-                paramTypes("java.util.LinkedList")
-            }
-        },
-    )
+    private val classNetSceneModifyContactLabelList by dexClass {
+        usingEqStrings("/cgi-bin/micromsg-bin/modifycontactlabellist")
+        method {
+            name = "<init>"
+            paramTypes("java.util.LinkedList")
+        }
+    }
 
     /**
      * `NetSceneAddContactLabel` (e.g. `e93.a` on 8.0.74). Anchored on the unique cgi path plus its
      * single-`String` constructor, which takes the new label's name. On success the host persists
      * the label (with a server-assigned id) into the `ContactLabel` table inside `onGYNetEnd`.
      */
-    private val classNetSceneAddContactLabel by dexClass(
-        sqlClass {
-            usingEqStrings("/cgi-bin/micromsg-bin/addcontactlabel")
-            method {
-                name = "<init>"
-                paramTypes("java.lang.String")
-            }
-        },
-    )
+    private val classNetSceneAddContactLabel by dexClass {
+        usingEqStrings("/cgi-bin/micromsg-bin/addcontactlabel")
+        method {
+            name = "<init>"
+            paramTypes("java.lang.String")
+        }
+    }
 
     /**
      * Get all contact labels.
+     *
      * @return List of ContactLabel sorted alphabetically by name
      */
     fun getAllLabels(): List<ContactLabel> {
         return try {
-            val cursor = WeDatabaseApi.rawQuery(
-                "SELECT labelID, labelName FROM ContactLabel ORDER BY labelName"
-            )
+            val cursor =
+                WeDatabaseApi.rawQuery(
+                    "SELECT labelID, labelName FROM ContactLabel ORDER BY labelName",
+                )
             val labels = mutableListOf<ContactLabel>()
             cursor.use {
                 while (it.moveToNext()) {
                     labels.add(
                         ContactLabel(
                             it.getInt(it.getColumnIndexOrThrow("labelID")),
-                            it.getString(it.getColumnIndexOrThrow("labelName"))
-                        )
+                            it.getString(it.getColumnIndexOrThrow("labelName")),
+                        ),
                     )
                 }
             }
@@ -81,15 +75,14 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /**
-     * Get contacts belonging to a specific label, by label ID.
-     */
+    /** Get contacts belonging to a specific label, by label ID. */
     fun getContactsByLabelId(labelId: Int): List<String> {
         return try {
-            val raw = WeDatabaseApi.rawQuery(
-                "SELECT username FROM rcontact WHERE ',' || contactLabelIds || ',' LIKE ?",
-                arrayOf("%,$labelId,%")
-            )
+            val raw =
+                WeDatabaseApi.rawQuery(
+                    "SELECT username FROM rcontact WHERE ',' || contactLabelIds || ',' LIKE ?",
+                    arrayOf("%,$labelId,%"),
+                )
             val wxids = mutableListOf<String>()
             raw.use {
                 while (it.moveToNext()) {
@@ -104,26 +97,26 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Get the label names currently associated with a contact.
-     * Reads the comma-separated `contactLabelIds` column off `rcontact` and resolves each id
-     * back to its name. Useful for additive label edits, since [modifyLabel] replaces the whole
-     * label set of a contact rather than appending to it.
+     * Get the label names currently associated with a contact. Reads the comma-separated
+     * `contactLabelIds` column off `rcontact` and resolves each id back to its name. Useful for
+     * additive label edits, since [modifyLabel] replaces the whole label set of a contact rather
+     * than appending to it.
      */
     fun getLabelNamesForContact(username: String): List<String> {
         return try {
-            val labelIds = WeDatabaseApi.rawQuery(
-                "SELECT contactLabelIds FROM rcontact WHERE username = ?",
-                arrayOf(username)
-            ).use {
-                if (it.moveToFirst()) it.getString(0) else null
-            }
+            val labelIds =
+                WeDatabaseApi.rawQuery(
+                        "SELECT contactLabelIds FROM rcontact WHERE username = ?",
+                        arrayOf(username),
+                    )
+                    .use {
+                        if (it.moveToFirst()) it.getString(0) else null
+                    }
 
             if (labelIds.isNullOrBlank()) return emptyList()
 
             val idToName = getAllLabels().associate { it.labelId to it.labelName }
-            labelIds.split(",")
-                .mapNotNull { it.trim().toIntOrNull() }
-                .mapNotNull { idToName[it] }
+            labelIds.split(",").mapNotNull { it.trim().toIntOrNull() }.mapNotNull { idToName[it] }
         } catch (e: Exception) {
             WeLogger.e(TAG, "getLabelNamesForContact failed", e)
             emptyList()
@@ -131,8 +124,8 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
     }
 
     /**
-     * Get contacts belonging to a specific label, by label name.
-     * First resolves the label name to label ID, then queries contacts.
+     * Get contacts belonging to a specific label, by label name. First resolves the label name to
+     * label ID, then queries contacts.
      */
     fun getContactsByLabelName(labelName: String): List<String> {
         return try {
@@ -159,23 +152,25 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
     private val classContactLabelPb by dexClass()
 
     override fun resolveDex() {
-        val candidates = DexResolutionContext.matcher.findMethods(
-            MethodSpec(usingStrings = listOf(StringSpec("UserLabelInfoList", NameMatch.Equals))),
-        ).asSequence()
-            .flatMap { it.usingFields.asSequence() }
-            .filter { it.usingType == FieldUsingType.Read }
-            .map { it.field }
-            .filter { it.typeName == "java.lang.String" }
-            .map { field ->
-                DexResolutionContext.metadata.classInfoByName(field.declaredClassName)!!
-            }
-            .filter { clazz ->
-                val fields = clazz.fields
-                fields.size == 2 && fields.all { it.typeName == "java.lang.String" }
-            }
-            .map { it.name }
-            .distinct()
-            .toList()
+        val candidates =
+            DexResolutionContext.findMethods {
+                    usingEqString("UserLabelInfoList")
+                }
+                .asSequence()
+                .flatMap { it.usingFields.asSequence() }
+                .filter { it.usingType == FieldUsingType.Read }
+                .map { it.field }
+                .filter { it.typeName == "java.lang.String" }
+                .map { field ->
+                    DexResolutionContext.metadata.classInfoByName(field.declaredClassName)!!
+                }
+                .filter { clazz ->
+                    val fields = clazz.fields
+                    fields.size == 2 && fields.all { it.typeName == "java.lang.String" }
+                }
+                .map { it.name }
+                .distinct()
+                .toList()
 
         val className = candidates.singleOrNull()
         if (className == null) {
@@ -199,7 +194,9 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
      * @return the label id, or null if creation could not be confirmed within [timeoutMs].
      */
     fun createLabel(labelName: String, timeoutMs: Long = 10_000): Int? {
-        getLabelIdByName(labelName)?.let { return it }
+        getLabelIdByName(labelName)?.let {
+            return it
+        }
 
         try {
             WeLogger.i(TAG, "createLabel: name=$labelName")
@@ -224,6 +221,7 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
 
     /**
      * Modify contact labels.
+     *
      * @param username Target contact username
      * @param labelNames List of label names to associate with the contact
      */
@@ -261,7 +259,8 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
             val linkedList = LinkedList<Any>()
             linkedList.push(pbInstance)
 
-            val netSceneInstance = classNetSceneModifyContactLabelList.clazz.createInstance(linkedList)
+            val netSceneInstance =
+                classNetSceneModifyContactLabelList.clazz.createInstance(linkedList)
 
             WeNetSceneApi.sendNetScene(netSceneInstance)
             WeLogger.i(TAG, "modifyLabel netscene dispatched successfully")
@@ -270,14 +269,13 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /**
-     * Get a label ID from its name.
-     */
+    /** Get a label ID from its name. */
     private fun getLabelIdByName(labelName: String): Int? {
-        val cursor = WeDatabaseApi.rawQuery(
-            "SELECT labelID FROM ContactLabel WHERE labelName = ?",
-            arrayOf(labelName)
-        )
+        val cursor =
+            WeDatabaseApi.rawQuery(
+                "SELECT labelID FROM ContactLabel WHERE labelName = ?",
+                arrayOf(labelName),
+            )
         cursor.use {
             if (it.moveToFirst()) {
                 return it.getInt(0)

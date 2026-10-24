@@ -15,20 +15,20 @@ fun featureCategoryComparator(
         firstOrder != null && secondOrder == null -> -1
         firstOrder == null && secondOrder != null -> 1
         firstOrder != null && secondOrder != null ->
-            firstOrder.compareTo(secondOrder)
-                .takeIf { it != 0 }
+            firstOrder.compareTo(secondOrder).takeIf { it != 0 }
                 ?: nameComparator.compare(first, second).takeIf { it != 0 }
                 ?: first.technicalId.compareTo(second.technicalId)
 
-        else -> featureTypeRank(first).compareTo(featureTypeRank(second))
-            .takeIf { it != 0 }
-            ?: nameComparator.compare(first, second).takeIf { it != 0 }
-            ?: first.technicalId.compareTo(second.technicalId)
+        else ->
+            featureTypeRank(first).compareTo(featureTypeRank(second)).takeIf { it != 0 }
+                ?: nameComparator.compare(first, second).takeIf { it != 0 }
+                ?: first.technicalId.compareTo(second.technicalId)
     }
 }
 
-private fun featureTypeRank(feature: BaseFeature): Int = when (feature) {
-    is ClickableFeature -> 1
-    is SwitchFeature -> 0
-    else -> 2
-}
+private fun featureTypeRank(feature: BaseFeature): Int =
+    when (feature) {
+        is ClickableFeature -> 1
+        is SwitchFeature -> 0
+        else -> 2
+    }

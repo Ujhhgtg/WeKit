@@ -10,13 +10,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -25,24 +29,23 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+
 object RoundAvatars : ClickableFeature(), IResolveDex {
 
     override val technicalId = "圆角头像"
     override val nameRes = R.string.feature_round_avatars_name
-    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY)
+    override val categoryIds =
+        listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_round_avatars_description
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
-    private val ctorAvatarCreate by dexConstructor(
-        sqlConstructor {
-            usingEqStrings("workerScope", "username")
-        },
-    )
+    private val ctorAvatarCreate by
+        dexConstructor(
+            sqlConstructor {
+                usingEqStrings("workerScope", "username")
+            },
+        )
     private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float
@@ -71,14 +74,18 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
     }
 
     override fun resolveDex() {
-        val modifyMethods = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                usingStrings = listOf(
-                    StringSpec("workerScope", NameMatch.Equals),
-                    StringSpec("username", NameMatch.Equals),
-                ),
-            ),
-        ).filter { it.name != "<init>" }
+        val modifyMethods =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        usingStrings =
+                            listOf(
+                                StringSpec("workerScope", NameMatch.Equals),
+                                StringSpec("username", NameMatch.Equals),
+                            ),
+                    ),
+                )
+                .filter { it.name != "<init>" }
 
         val modifyMethod = modifyMethods.singleOrNull()
         if (modifyMethod == null) {

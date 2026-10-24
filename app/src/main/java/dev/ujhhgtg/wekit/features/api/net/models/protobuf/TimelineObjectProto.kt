@@ -13,7 +13,7 @@ data class TimelineObjectProto(
     @ProtoNumber(3) val privated: Int = 0,
     @ProtoNumber(4) val createTime: Int = 0,
     @ProtoNumber(5) val contentDesc: String? = null,
-    @ProtoNumber(8) val contentObj: ContentObjProto? = null
+    @ProtoNumber(8) val contentObj: ContentObjProto? = null,
 ) {
     @Serializable
     data class ContentObjProto(
@@ -21,7 +21,7 @@ data class TimelineObjectProto(
         @ProtoNumber(2) val type: Int = 0,
         @ProtoNumber(3) val title: String? = null,
         @ProtoNumber(4) val description: String? = null,
-        @ProtoNumber(5) val mediaList: List<MediaObjProto> = emptyList()
+        @ProtoNumber(5) val mediaList: List<MediaObjProto> = emptyList(),
     )
 
     @Serializable
@@ -35,6 +35,6 @@ data class TimelineObjectProto(
         @ProtoNumber(8) val height: Int = 0,
         @ProtoNumber(9) val thumbUrl: String? = null,
         // 实况图片的视频子对象 (jj4.X, 字段 43); 非 null 即代表该媒体项是实况图片
-        @ProtoNumber(43) val livePhotoVideo: MediaObjProto? = null
+        @ProtoNumber(43) val livePhotoVideo: MediaObjProto? = null,
     )
 }

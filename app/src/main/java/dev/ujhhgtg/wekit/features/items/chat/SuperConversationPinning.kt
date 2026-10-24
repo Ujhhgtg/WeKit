@@ -12,18 +12,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
@@ -31,16 +37,11 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.util.concurrent.atomic.AtomicBoolean
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
-object SuperConversationPinning : SwitchFeature(),
+object SuperConversationPinning :
+    SwitchFeature(),
     WeConversationContextMenuApi.IMenuItemsProvider,
-//    WeDatabaseListenerApi.IQueryListener,
+    //    WeDatabaseListenerApi.IQueryListener,
     IResolveDex {
 
     override val technicalId = "超级对话置顶"
@@ -55,40 +56,40 @@ object SuperConversationPinning : SwitchFeature(),
 
     private var storedPriorities by prefOption(PRIORITIES_KEY, "{}")
 
-    @Volatile
-    private var priorities: Map<String, Int> = emptyMap()
+    @Volatile private var priorities: Map<String, Int> = emptyMap()
 
     private val mvvmOrderingApplied = AtomicBoolean()
 
-//    private val conversationOrder = Regex(
-//        """order\s+by\s+(?:rconversation\.)?flag\s+desc(?:\s*,\s*(?:rconversation\.)?conversationTime\s+desc)?""",
-//        RegexOption.IGNORE_CASE
-//    )
-//    private val homeParentRefFilter = Regex(
-//        """parentRef\s+is\s+null""",
-//        RegexOption.IGNORE_CASE
-//    )
-//    private val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
-//        matcher {
-//            modifiers = JavaModifier.PUBLIC
-//            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
-//            paramTypes("java.lang.String", "java.lang.String[]", "int")
-//            returnType("android.database.Cursor")
-//        }
-//    }
-//    private val methodSqliteWrapperQuery by dexMethod(allowFailure = true) {
-//        matcher {
-//            usingStrings("MicroMsg.SQLiteWrapper", "Query failed.")
-//            paramTypes("java.lang.String", "java.lang.String[]")
-//            returnType("android.database.Cursor")
-//        }
-//    }
+    //    private val conversationOrder = Regex(
+    //
+    // """order\s+by\s+(?:rconversation\.)?flag\s+desc(?:\s*,\s*(?:rconversation\.)?conversationTime\s+desc)?""",
+    //        RegexOption.IGNORE_CASE
+    //    )
+    //    private val homeParentRefFilter = Regex(
+    //        """parentRef\s+is\s+null""",
+    //        RegexOption.IGNORE_CASE
+    //    )
+    //    private val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
+    //        matcher {
+    //            modifiers = JavaModifier.PUBLIC
+    //            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
+    //            paramTypes("java.lang.String", "java.lang.String[]", "int")
+    //            returnType("android.database.Cursor")
+    //        }
+    //    }
+    //    private val methodSqliteWrapperQuery by dexMethod(allowFailure = true) {
+    //        matcher {
+    //            usingStrings("MicroMsg.SQLiteWrapper", "Query failed.")
+    //            paramTypes("java.lang.String", "java.lang.String[]")
+    //            returnType("android.database.Cursor")
+    //        }
+    //    }
 
     override fun onEnable() {
         priorities = loadPriorities()
         WeConversationContextMenuApi.addProvider(this)
         WeDatabaseListenerApi.addListener(this)
-//        hookSqliteWrapperQueries()
+        //        hookSqliteWrapperQueries()
         hookMvvmConversationComparator()
         WeConversationApi.reloadConversations()
     }
@@ -99,35 +100,38 @@ object SuperConversationPinning : SwitchFeature(),
         WeConversationApi.reloadConversations()
     }
 
-    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> = listOf(
-        WeConversationContextMenuApi.MenuItem(
-            id = MENU_ITEM_ID,
-            text = localizedChatString(R.string.chat_pinning_set_priority),
-            drawable = EditIcon,
-            shouldShow = { context, _ -> context.talker.isNotEmpty() },
-            onClick = { context -> showPriorityDialog(context.activity, context.talker) }
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> =
+        listOf(
+            WeConversationContextMenuApi.MenuItem(
+                id = MENU_ITEM_ID,
+                text = localizedChatString(R.string.chat_pinning_set_priority),
+                drawable = EditIcon,
+                shouldShow = { context, _ -> context.talker.isNotEmpty() },
+                onClick = { context -> showPriorityDialog(context.activity, context.talker) },
+            ),
         )
-    )
 
-//    override fun onQuery(sql: String): String? {
-//        val currentPriorities = priorities
-//        if (currentPriorities.isEmpty()) return null
-//        if (!sql.contains("from rconversation", ignoreCase = true)) return null
-//        if (!homeParentRefFilter.containsMatchIn(sql)) return null
-//
-//        val match = conversationOrder.find(sql) ?: return null
-//        val priorityOrder = buildPriorityOrder(currentPriorities)
-//        val rewritten = sql.replaceRange(match.range, priorityOrder)
-//        WeLogger.i(TAG, "rewrote homepage ordering for ${currentPriorities.size} prioritized conversations: $rewritten")
-//        return rewritten
-//    }
+    //    override fun onQuery(sql: String): String? {
+    //        val currentPriorities = priorities
+    //        if (currentPriorities.isEmpty()) return null
+    //        if (!sql.contains("from rconversation", ignoreCase = true)) return null
+    //        if (!homeParentRefFilter.containsMatchIn(sql)) return null
+    //
+    //        val match = conversationOrder.find(sql) ?: return null
+    //        val priorityOrder = buildPriorityOrder(currentPriorities)
+    //        val rewritten = sql.replaceRange(match.range, priorityOrder)
+    //        WeLogger.i(TAG, "rewrote homepage ordering for ${currentPriorities.size} prioritized
+    // conversations: $rewritten")
+    //        return rewritten
+    //    }
 
     private fun showPriorityDialog(context: Context, talker: String) {
         showComposeDialog(context) {
             var priority by remember(talker) { mutableIntStateOf(priorityOf(talker)) }
-            val sliderState = remember(talker) {
-                SliderState(value = priority.toFloat(), steps = 9, trackRange = 0f..10f)
-            }
+            val sliderState =
+                remember(talker) {
+                    SliderState(value = priority.toFloat(), steps = 9, trackRange = 0f..10f)
+                }
             sliderState.value = priority.toFloat()
 
             AlertDialogContent(
@@ -142,13 +146,19 @@ object SuperConversationPinning : SwitchFeature(),
                         Text(stringResource(R.string.chat_pinning_priority_description))
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton({
-                        setPriority(talker, priority)
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                    TextButton(
+                        {
+                            setPriority(talker, priority)
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
             )
         }
     }
@@ -169,49 +179,60 @@ object SuperConversationPinning : SwitchFeature(),
         WeConversationApi.reloadConversations()
     }
 
-//    private fun hookSqliteWrapperQueries() {
-//        if (!methodSqliteWrapperRawQuery.isFound) {
-//            WeLogger.w(TAG, "legacy conversation SQLite wrapper query method was not resolved")
-//        } else {
-//            methodSqliteWrapperRawQuery.method.hookBefore {
-//                val sql = args.firstOrNull() as? String ?: return@hookBefore
-//                onQuery(sql)?.let { args[0] = it }
-//            }
-//            WeLogger.i(TAG, "hooked legacy conversation SQLite wrapper query")
-//        }
-//
-//        if (!methodSqliteWrapperQuery.isFound) {
-//            WeLogger.w(TAG, "standard conversation SQLite wrapper query method was not resolved")
-//        } else {
-//            methodSqliteWrapperQuery.method.hookBefore {
-//                val sql = args.firstOrNull() as? String ?: return@hookBefore
-//                onQuery(sql)?.let { args[0] = it }
-//            }
-//            WeLogger.i(TAG, "hooked standard conversation SQLite wrapper query")
-//        }
-//    }
+    //    private fun hookSqliteWrapperQueries() {
+    //        if (!methodSqliteWrapperRawQuery.isFound) {
+    //            WeLogger.w(TAG, "legacy conversation SQLite wrapper query method was not
+    // resolved")
+    //        } else {
+    //            methodSqliteWrapperRawQuery.method.hookBefore {
+    //                val sql = args.firstOrNull() as? String ?: return@hookBefore
+    //                onQuery(sql)?.let { args[0] = it }
+    //            }
+    //            WeLogger.i(TAG, "hooked legacy conversation SQLite wrapper query")
+    //        }
+    //
+    //        if (!methodSqliteWrapperQuery.isFound) {
+    //            WeLogger.w(TAG, "standard conversation SQLite wrapper query method was not
+    // resolved")
+    //        } else {
+    //            methodSqliteWrapperQuery.method.hookBefore {
+    //                val sql = args.firstOrNull() as? String ?: return@hookBefore
+    //                onQuery(sql)?.let { args[0] = it }
+    //            }
+    //            WeLogger.i(TAG, "hooked standard conversation SQLite wrapper query")
+    //        }
+    //    }
 
-    private val classConversation by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.Conversation", "[%s}]get mmkv editmsg is [%s],get conv editmsg is [%s]")
-        },
-    )
+    private val classConversation by
+        dexClass(
+            sqlClass {
+                usingEqStrings(
+                    "MicroMsg.Conversation",
+                    "[%s}]get mmkv editmsg is [%s],get conv editmsg is [%s]",
+                )
+            },
+        )
 
     private val classMvvmConversationAdapter by dexClassQuery {
         uniqueClass(
             ClassSpec(
-                superClass = ClassSpec(
-                    usingStrings = listOf(
-                        StringSpec(
-                            "null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem",
-                            NameMatch.Equals,
+                superClass =
+                    ClassSpec(
+                        usingStrings =
+                            listOf(
+                                StringSpec(
+                                    "null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem",
+                                    NameMatch.Equals,
+                                ),
+                            ),
+                    ),
+                fields =
+                    listOf(
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec(classConversation.data.name)),
                         ),
                     ),
-                ),
-                fields = listOf(
-                    FieldSpec(type = ClassSpec(className = NameSpec(classConversation.data.name))),
-                ),
-            )
+            ),
         )
     }
 
@@ -229,23 +250,30 @@ object SuperConversationPinning : SwitchFeature(),
             val otherModel = args.firstOrNull() ?: return@hookBefore
 
             fun Any.getConversation(): Any {
-                return reflekt().firstField {
-                    type = classConversation.clazz
-                }.get()!!
+                return reflekt()
+                    .firstField {
+                        type = classConversation.clazz
+                    }
+                    .get()!!
             }
 
             fun Any.getUsername(): String? {
-                return reflekt().firstField {
-                    name = "field_username"
-                    superclass()
-                }.get() as? String?
+                return reflekt()
+                    .firstField {
+                        name = "field_username"
+                        superclass()
+                    }
+                    .get() as? String?
             }
 
             fun Any.getFlag(): Long {
-                return (reflekt().firstField {
-                    name = "field_flag"
-                    superclass()
-                }.get() as Number).toLong()
+                return (reflekt()
+                        .firstField {
+                            name = "field_flag"
+                            superclass()
+                        }
+                        .get() as Number)
+                    .toLong()
             }
 
             val currentConversation = currentModel.getConversation()
@@ -272,27 +300,30 @@ object SuperConversationPinning : SwitchFeature(),
                 WeLogger.i(
                     TAG,
                     "applied mvvm homepage ordering: $currentUsername=$currentPriority, " +
-                            "$otherUsername=$otherPriority, pinned=$currentPinned"
+                        "$otherUsername=$otherPriority, pinned=$currentPinned",
                 )
             }
         }
     }
 
     private fun loadPriorities(): Map<String, Int> = runCatching {
-        DefaultJson.decodeFromString<Map<String, Int>>(storedPriorities)
-            .filter { (talker, priority) -> talker.isNotBlank() && priority in 1..10 }
-    }.getOrDefault(emptyMap())
+        DefaultJson.decodeFromString<Map<String, Int>>(storedPriorities).filter { (talker, priority)
+            ->
+            talker.isNotBlank() && priority in 1..10
+        }
+    }
+        .getOrDefault(emptyMap())
 
-//    private fun buildPriorityOrder(priorities: Map<String, Int>): String {
-//        val cases = priorities.entries
-//            .sortedByDescending { it.value }
-//            .joinToString(separator = " ") { (talker, priority) ->
-//                "WHEN '${talker.replace("'", "''")}' THEN $priority"
-//            }
-//        return """
-//            ORDER BY (rconversation.flag & $PLACED_TOP_BIT) DESC,
-//            CASE rconversation.username $cases ELSE 0 END DESC,
-//            rconversation.flag DESC, rconversation.conversationTime DESC
-//        """.trimIndent().replace('\n', ' ')
-//    }
+    //    private fun buildPriorityOrder(priorities: Map<String, Int>): String {
+    //        val cases = priorities.entries
+    //            .sortedByDescending { it.value }
+    //            .joinToString(separator = " ") { (talker, priority) ->
+    //                "WHEN '${talker.replace("'", "''")}' THEN $priority"
+    //            }
+    //        return """
+    //            ORDER BY (rconversation.flag & $PLACED_TOP_BIT) DESC,
+    //            CASE rconversation.username $cases ELSE 0 END DESC,
+    //            rconversation.flag DESC, rconversation.conversationTime DESC
+    //        """.trimIndent().replace('\n', ' ')
+    //    }
 }

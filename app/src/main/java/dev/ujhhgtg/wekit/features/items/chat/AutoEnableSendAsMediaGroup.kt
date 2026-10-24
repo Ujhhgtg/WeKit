@@ -10,6 +10,13 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -17,13 +24,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import java.util.Collections
 import java.util.WeakHashMap
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
@@ -38,53 +38,55 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
     private const val MEDIA_TAB_ALBUM_UI = "com.tencent.mm.plugin.gallery.ui.MediaTabAlbumUI"
 
     /**
-     * 「发送后合并展示」是 8.0.69+ 才有的选项（AlbumPreviewUI/ImagePreviewUI 中均包含
-     * 宿主自身 AOP 埋点字符串 initSendAsMediaGroupingViews），8.0.65/8.0.67 不存在，
-     * 因此允许解析失败。
+     * 「发送后合并展示」是 8.0.69+ 才有的选项（AlbumPreviewUI/ImagePreviewUI 中均包含 宿主自身 AOP 埋点字符串
+     * initSendAsMediaGroupingViews），8.0.65/8.0.67 不存在， 因此允许解析失败。
      */
-    private val methodInitSendAsMediaGroupingViews by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
-            usingEqStrings("initSendAsMediaGroupingViews")
-        },
-        allowFailure = true,
-    )
+    private val methodInitSendAsMediaGroupingViews by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
+                usingEqStrings("initSendAsMediaGroupingViews")
+            },
+            allowFailure = true,
+        )
 
     /**
-     * 选择数量变化回调（包含 updateSendAsMediaGroupViews 埋点字符串的方法）。
-     * 微信在数量 < 3 时会把勾选状态重置为 false，因此需要在这里随数量重新勾选。
+     * 选择数量变化回调（包含 updateSendAsMediaGroupViews 埋点字符串的方法）。 微信在数量 < 3 时会把勾选状态重置为 false，因此需要在这里随数量重新勾选。
      */
-    private val methodUpdateSendAsMediaGroupViews by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
-            usingEqStrings("updateSendAsMediaGroupViews")
-        },
-        allowFailure = true,
-    )
-
-    /**
-     * 勾选状态字段：在三个支持版本中，包含 updateSendAsMediaGroupViews 埋点字符串的方法
-     * 只写入这一个 boolean 字段（选中状态重置为 false），据此唯一定位。
-     */
-    private val sendAsMediaGroupField by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
-            type = "boolean"
-            writeMethod {
+    private val methodUpdateSendAsMediaGroupViews by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
                 usingEqStrings("updateSendAsMediaGroupViews")
-            }
-        },
-        allowFailure = true,
-    )
+            },
+            allowFailure = true,
+        )
+
+    /**
+     * 勾选状态字段：在三个支持版本中，包含 updateSendAsMediaGroupViews 埋点字符串的方法 只写入这一个 boolean 字段（选中状态重置为
+     * false），据此唯一定位。
+     */
+    private val sendAsMediaGroupField by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
+                type = "boolean"
+                writeMethod {
+                    usingEqStrings("updateSendAsMediaGroupViews")
+                }
+            },
+            allowFailure = true,
+        )
 
     /** AlbumPreviewUI 中唯一的 CheckBox 即「发送后合并展示」勾选框 */
-    private val sendAsMediaGroupCheckBoxField by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
-            type = "android.widget.CheckBox"
-        },
-        allowFailure = true,
-    )
+    private val sendAsMediaGroupCheckBoxField by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
+                type = "android.widget.CheckBox"
+            },
+            allowFailure = true,
+        )
 
     /** The half-screen picker's data-class state, identified by its toString() literal. */
     private val classLocalPickerState by dexClass()
@@ -97,13 +99,18 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         // Probe: only hosts with the half-screen chat picker have this state class
-        val states = DexResolutionContext.matcher.findClasses(
-            ClassSpec(
-                usingStrings = listOf(
-                    StringSpec("ChattingLocalMediaPickerState(selection=", NameMatch.Equals),
+        val states =
+            DexResolutionContext.matcher.findClasses(
+                ClassSpec(
+                    usingStrings =
+                        listOf(
+                            StringSpec(
+                                "ChattingLocalMediaPickerState(selection=",
+                                NameMatch.Equals,
+                            ),
+                        ),
                 ),
-            ),
-        )
+            )
         if (states.isEmpty()) {
             classLocalPickerState.markExpectedFailure()
             methodLocalPickerSelectionReducer.markExpectedFailure()
@@ -112,13 +119,15 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
         val state = states.single()
         classLocalPickerState.setDescriptor(state)
         methodLocalPickerSelectionReducer.setDescriptor(
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    returnType = ClassSpec(className = NameSpec(state.name)),
-                    paramTypes = listOf(TypeSpec(state.name), null),
-                    usingNumbers = listOf<Number>(3),
-                ),
-            ).single(),
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        returnType = ClassSpec(className = NameSpec(state.name)),
+                        paramTypes = listOf(TypeSpec(state.name), null),
+                        usingNumbers = listOf<Number>(3),
+                    ),
+                )
+                .single(),
         )
     }
 
@@ -127,9 +136,9 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
         if (
             !methodInitSendAsMediaGroupingViews.isFound ||
-            !methodUpdateSendAsMediaGroupViews.isFound ||
-            !sendAsMediaGroupField.isFound ||
-            !sendAsMediaGroupCheckBoxField.isFound
+                !methodUpdateSendAsMediaGroupViews.isFound ||
+                !sendAsMediaGroupField.isFound ||
+                !sendAsMediaGroupCheckBoxField.isFound
         ) {
             return
         }
@@ -184,9 +193,10 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
         // ChattingLocalMediaPickerState(selection, selectionKey, sendOriginal,
         //     mediaGroupAvailableCount, mediaGroupVisible, mediaGroupChecked, ...)
-        val stateConstructor = classLocalPickerState.reflekt().firstConstructor {
-            parameters { it.size > 5 && it[4] == bool && it[5] == bool }
-        }
+        val stateConstructor =
+            classLocalPickerState.reflekt().firstConstructor {
+                parameters { it.size > 5 && it[4] == bool && it[5] == bool }
+            }
         stateConstructor.hookBefore {
             if (forceMediaGroupChecked.get() == true && args[4] as Boolean) {
                 args[5] = true

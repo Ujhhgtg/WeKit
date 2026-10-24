@@ -18,13 +18,13 @@ import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
-import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import org.json.JSONObject
 
 object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
@@ -35,17 +35,22 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
     private const val TAG = "DisplayRedPacketDetails"
 
-    private val methodOnBindListView by dexMethod(
-        sqlMethod {
-            usingStrings("MicroMsg.LuckyMoneyDetailUI", "try get user contact: %s")
-        },
-    )
+    private val methodOnBindListView by
+        dexMethod(
+            sqlMethod {
+                usingStrings("MicroMsg.LuckyMoneyDetailUI", "try get user contact: %s")
+            },
+        )
 
-    private val classNetSceneLuckyMoneyDetail by dexClass(
-        sqlClass {
-            usingStrings("MicroMsg.NetSceneLuckyMoneyDetail", "/cgi-bin/mmpay-bin/qrydetailwxhb")
-        },
-    )
+    private val classNetSceneLuckyMoneyDetail by
+        dexClass(
+            sqlClass {
+                usingStrings(
+                    "MicroMsg.NetSceneLuckyMoneyDetail",
+                    "/cgi-bin/mmpay-bin/qrydetailwxhb",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodOnBindListView.hookAfter {
@@ -60,46 +65,55 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                 val localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
                 val localDate = localDateTime.toLocalDate()
                 val today = LocalDate.now()
-                val pattern = when {
-                    localDate == today -> localizedPaymentString(R.string.payment_red_packet_date_today)
-                    localDate.year == today.year ->
-                        localizedPaymentString(R.string.payment_red_packet_date_same_year)
-                    else -> localizedPaymentString(R.string.payment_red_packet_date_other_year)
-                }
-                val formatter = DateTimeFormatter.ofPattern(
-                    pattern,
-                    Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag),
-                )
+                val pattern =
+                    when {
+                        localDate == today ->
+                            localizedPaymentString(R.string.payment_red_packet_date_today)
+                        localDate.year == today.year ->
+                            localizedPaymentString(R.string.payment_red_packet_date_same_year)
+                        else -> localizedPaymentString(R.string.payment_red_packet_date_other_year)
+                    }
+                val formatter =
+                    DateTimeFormatter.ofPattern(
+                        pattern,
+                        Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag),
+                    )
                 textView.text = localDateTime.format(formatter)
-            }.onFailure {
-                WeLogger.e(TAG, "error binding red packet list item time", it)
             }
+                .onFailure {
+                    WeLogger.e(TAG, "error binding red packet list item time", it)
+                }
         }
 
-        listOf(WePaymentApi.classOpenLuckyMoney, classNetSceneLuckyMoneyDetail).forEach { dexClass ->
-            val method = dexClass.reflekt().firstMethod {
-                name = "onGYNetEnd"
-                parameters(int, BString, JSONObject::class.java)
-            }
+        listOf(WePaymentApi.classOpenLuckyMoney, classNetSceneLuckyMoneyDetail).forEach { dexClass
+            ->
+            val method =
+                dexClass.reflekt().firstMethod {
+                    name = "onGYNetEnd"
+                    parameters(int, BString, JSONObject::class.java)
+                }
 
             method.hookBefore {
                 val jsonObject = args[2] as? JSONObject ?: return@hookBefore
                 runCatching {
                     processRedPacketJson(jsonObject)
-                }.onFailure {
-                    WeLogger.e(TAG, "error processing red packet json response", it)
                 }
+                    .onFailure {
+                        WeLogger.e(TAG, "error processing red packet json response", it)
+                    }
             }
         }
     }
 
     private fun getTextViewFromHolder(holder: Any): TextView? {
-        val itemView = holder.reflekt()
-            .firstField {
-                type = View::class
-                superclass()
-            }
-            .get() as? ViewGroup ?: return null
+        val itemView =
+            holder
+                .reflekt()
+                .firstField {
+                    type = View::class
+                    superclass()
+                }
+                .get() as? ViewGroup ?: return null
         return itemView.findViewByChildIndexes(0, 1, 1, 1, 1) as TextView?
     }
 
@@ -122,10 +136,10 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
     }
 
     private fun processRedPacketJson(jsonObject: JSONObject) {
-//        if (Math.random() > 0.65) {
-//            val names = listOf("Hd", "久雾", "豆子", "拖鞋")
-//            jsonObject.put("changeWording", "已存入${names.random()}的余额(WA)")
-//        }
+        //        if (Math.random() > 0.65) {
+        //            val names = listOf("Hd", "久雾", "豆子", "拖鞋")
+        //            jsonObject.put("changeWording", "已存入${names.random()}的余额(WA)")
+        //        }
 
         val totalAmount = jsonObject.optInt("totalAmount", 0)
         val totalNum = jsonObject.optInt("totalNum", 0)
@@ -134,19 +148,22 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
         val sb = StringBuilder()
         sb.append(
-            localizedPaymentString(
-                R.string.payment_red_packet_amount_details,
-                recAmount / 100.0,
-                totalAmount / 100.0,
+                localizedPaymentString(
+                    R.string.payment_red_packet_amount_details,
+                    recAmount / 100.0,
+                    totalAmount / 100.0,
+                ),
             )
-        ).append('\n')
+            .append('\n')
         sb.append(
-            localizedPaymentString(R.string.payment_red_packet_count_details, recNum, totalNum)
-        ).append('\n')
+                localizedPaymentString(R.string.payment_red_packet_count_details, recNum, totalNum),
+            )
+            .append('\n')
 
         val remaining = (totalAmount - recAmount) / 100.0
         if (remaining > 0.0) {
-            sb.append(localizedPaymentString(R.string.payment_red_packet_remaining, remaining)).append('\n')
+            sb.append(localizedPaymentString(R.string.payment_red_packet_remaining, remaining))
+                .append('\n')
         }
 
         jsonObject.put("headTitle", sb.toString())

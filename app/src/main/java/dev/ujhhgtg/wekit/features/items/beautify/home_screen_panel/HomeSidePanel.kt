@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context
+import android.graphics.Color as AndroidColor
 import android.graphics.Outline
 import android.view.MotionEvent
 import android.view.View
@@ -49,11 +50,12 @@ import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.hookAfterDirectly
-import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
-import dev.ujhhgtg.wekit.utils.reflection.float
-import dev.ujhhgtg.wekit.utils.reflection.int
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
+import java.util.concurrent.TimeUnit
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -63,12 +65,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import java.lang.ref.WeakReference
-import java.util.WeakHashMap
-import java.util.concurrent.TimeUnit
-import kotlin.math.pow
-import kotlin.math.roundToInt
-import android.graphics.Color as AndroidColor
 
 private data class HomeSidePanelVisualTransform(
     val easedProgress: Float,
@@ -110,47 +106,52 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_home_side_panel_description
 
-    private val classWalletCache by dexClass(
-        sqlClass {
-            className = "com.tencent.mm.wallet_core.model.m1"
-        },
-    )
+    private val classWalletCache by
+        dexClass(
+            sqlClass {
+                className = "com.tencent.mm.wallet_core.model.m1"
+            },
+        )
 
-    private val classWalletPayPlugin by dexClass(
-        sqlClass {
-            className = "com.tencent.mm.plugin.wxpay.g"
-            usingEqStrings("MicroMsg.PluginWxPay")
-            method {
-                returnType(classWalletCache.data.name)
-            }
-        },
-    )
+    private val classWalletPayPlugin by
+        dexClass(
+            sqlClass {
+                className = "com.tencent.mm.plugin.wxpay.g"
+                usingEqStrings("MicroMsg.PluginWxPay")
+                method {
+                    returnType(classWalletCache.data.name)
+                }
+            },
+        )
 
-    private val methodWalletCacheRead by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.wallet_core.model.m1"
-            name = "i"
-            returnType = "java.lang.Object"
-            paramCount = 2
-        },
-    )
+    private val methodWalletCacheRead by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.wallet_core.model.m1"
+                name = "i"
+                returnType = "java.lang.Object"
+                paramCount = 2
+            },
+        )
 
-    private val methodWalletCacheWrite by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.wallet_core.model.m1"
-            name = "j"
-            returnType = "void"
-            paramCount = 2
-        },
-    )
+    private val methodWalletCacheWrite by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.wallet_core.model.m1"
+                name = "j"
+                returnType = "void"
+                paramCount = 2
+            },
+        )
 
-    private val methodWalletQuery by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramCount = 4
-            usingEqStrings("MicroMsg.QueryWeChatWalletManager", "do query wechat wallet: %s")
-        },
-    )
+    private val methodWalletQuery by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramCount = 4
+                usingEqStrings("MicroMsg.QueryWeChatWalletManager", "do query wechat wallet: %s")
+            },
+        )
 
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
@@ -178,28 +179,35 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         methodWalletCacheWrite.hookAfter {
             HomeSidePanelWalletBalanceSource.onCacheWrite(args[0], args[1])
         }
-        LauncherUI::class.reflekt().firstMethodOrNull {
-            name = "enableEdge2Edge"
-            parameters()
-        }?.hookBefore {
-            result = true
-        }
-        ViewGroup::class.reflekt().firstMethod {
-            name = "requestDisallowInterceptTouchEvent"
-            parameters(Boolean::class)
-        }.hookBefore {
-            val pager = thisObject as? WxViewPager ?: return@hookBefore
-            if (args[0] as Boolean) sessions[pager]?.get()?.onPagerChildClaimedGesture()
-        }
-        CustomViewPager::class.reflekt().firstMethod {
-            name = "onInterceptTouchEvent"
-            parameters(MotionEvent::class)
-        }.hookBefore {
-            val pager = thisObject as WxViewPager
-            val session = sessions[pager]?.get() ?: return@hookBefore
-            // The native pager must also give children the MOVE that can claim a rightward drag.
-            if (session.shouldDeferPagerInterception(args[0] as MotionEvent)) result = false
-        }
+        LauncherUI::class.reflekt()
+            .firstMethodOrNull {
+                name = "enableEdge2Edge"
+                parameters()
+            }
+            ?.hookBefore {
+                result = true
+            }
+        ViewGroup::class.reflekt()
+            .firstMethod {
+                name = "requestDisallowInterceptTouchEvent"
+                parameters(Boolean::class)
+            }
+            .hookBefore {
+                val pager = thisObject as? WxViewPager ?: return@hookBefore
+                if (args[0] as Boolean) sessions[pager]?.get()?.onPagerChildClaimedGesture()
+            }
+        CustomViewPager::class.reflekt()
+            .firstMethod {
+                name = "onInterceptTouchEvent"
+                parameters(MotionEvent::class)
+            }
+            .hookBefore {
+                val pager = thisObject as WxViewPager
+                val session = sessions[pager]?.get() ?: return@hookBefore
+                // The native pager must also give children the MOVE that can claim a rightward
+                // drag.
+                if (session.shouldDeferPagerInterception(args[0] as MotionEvent)) result = false
+            }
         dispatchTouchEventMethod.hookBefore {
             val pager = thisObject as? WxViewPager ?: return@hookBefore
             val session = sessions[pager]?.get() ?: return@hookBefore
@@ -209,7 +217,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             val pager = thisObject as? WxViewPager ?: return@hookAfter
             val session = sessions[pager]?.get() ?: return@hookAfter
             val event = args[0] as MotionEvent
-            if (session.onPagerTouchDispatched(event) {
+            if (
+                session.onPagerTouchDispatched(event) {
                     val cancel = MotionEvent.obtain(event)
                     try {
                         cancel.action = MotionEvent.ACTION_CANCEL
@@ -218,45 +227,71 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                         cancel.recycle()
                     }
                 }
-            ) result = true
+            )
+                result = true
         }
-        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
-            override fun onLauncherCreated(activity: Activity) { ensureLauncherEdgeToEdge(activity) }
-            override fun onResume(activity: Activity) { sessionFor(activity)?.onLauncherResumed() }
-            override fun onChatTransition(activity: Activity) { sessionFor(activity)?.onChatTransition() }
-            override fun onDestroy(activity: Activity) {
-                removePendingEdgeToEdgeAttachListener(activity)
-                removeSessionsForActivity(activity)
-            }
-            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
-                val activity = home.activity
-                ensureLauncherEdgeToEdge(activity)
-                val viewPager = home.pager
-                val parent = viewPager.parent as? FrameLayout
-                if (parent == null) {
-                    WeLogger.e(TAG, "MainTabUI mViewPager parent is not a FrameLayout")
-                    return
+        WeMainActivityBeautifyApi.addListener(
+            this,
+            object : WeMainActivityBeautifyApi.Listener {
+                override fun onLauncherCreated(activity: Activity) {
+                    ensureLauncherEdgeToEdge(activity)
                 }
-                if (sessions[viewPager]?.get() != null) return
-                val session = HomeSidePanelSession(activity, parent, viewPager).also { it.attach() }
-                session.setSelectedTab(home.selectedTab)
-                sessions[viewPager] = WeakReference(session)
-            }
-            override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
-                sessionFor(home.activity)?.setSelectedTab(tab)
-            }
-            override fun onPageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
-                if (tab == HOME_TAB_INDEX) ensureLauncherEdgeToEdge(home.activity)
-            }
-            override fun onPageScrolled(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
-                sessionFor(home.activity)?.setSelectedTab(
-                    if (tab == HOME_TAB_INDEX && offset <= PAGE_SETTLED_EPSILON) home.selectedTab else -1,
-                )
-            }
-            override fun onTabsChanged(home: WeMainActivityBeautifyApi.Home) {
-                sessionFor(home.activity)?.setSelectedTab(home.selectedTab)
-            }
-        })
+
+                override fun onResume(activity: Activity) {
+                    sessionFor(activity)?.onLauncherResumed()
+                }
+
+                override fun onChatTransition(activity: Activity) {
+                    sessionFor(activity)?.onChatTransition()
+                }
+
+                override fun onDestroy(activity: Activity) {
+                    removePendingEdgeToEdgeAttachListener(activity)
+                    removeSessionsForActivity(activity)
+                }
+
+                override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
+                    val activity = home.activity
+                    ensureLauncherEdgeToEdge(activity)
+                    val viewPager = home.pager
+                    val parent = viewPager.parent as? FrameLayout
+                    if (parent == null) {
+                        WeLogger.e(TAG, "MainTabUI mViewPager parent is not a FrameLayout")
+                        return
+                    }
+                    if (sessions[viewPager]?.get() != null) return
+                    val session =
+                        HomeSidePanelSession(activity, parent, viewPager).also { it.attach() }
+                    session.setSelectedTab(home.selectedTab)
+                    sessions[viewPager] = WeakReference(session)
+                }
+
+                override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                    sessionFor(home.activity)?.setSelectedTab(tab)
+                }
+
+                override fun onPageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                    if (tab == HOME_TAB_INDEX) ensureLauncherEdgeToEdge(home.activity)
+                }
+
+                override fun onPageScrolled(
+                    home: WeMainActivityBeautifyApi.Home,
+                    tab: Int,
+                    offset: Float,
+                ) {
+                    sessionFor(home.activity)
+                        ?.setSelectedTab(
+                            if (tab == HOME_TAB_INDEX && offset <= PAGE_SETTLED_EPSILON)
+                                home.selectedTab
+                            else -1,
+                        )
+                }
+
+                override fun onTabsChanged(home: WeMainActivityBeautifyApi.Home) {
+                    sessionFor(home.activity)?.setSelectedTab(home.selectedTab)
+                }
+            },
+        )
     }
 
     private fun sessionFor(activity: Activity): HomeSidePanelSession? =
@@ -289,17 +324,18 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             return
         }
         if (pendingEdgeToEdgeAttachListeners[decor] != null) return
-        val listener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(view: View) {
-                pendingEdgeToEdgeAttachListeners.remove(view)
-                view.removeOnAttachStateChangeListener(this)
-                view.post {
-                    applyLauncherEdgeToEdge(activity.window)
+        val listener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) {
+                    pendingEdgeToEdgeAttachListeners.remove(view)
+                    view.removeOnAttachStateChangeListener(this)
+                    view.post {
+                        applyLauncherEdgeToEdge(activity.window)
+                    }
                 }
-            }
 
-            override fun onViewDetachedFromWindow(view: View) = Unit
-        }
+                override fun onViewDetachedFromWindow(view: View) = Unit
+            }
         pendingEdgeToEdgeAttachListeners[decor] = listener
         decor.addOnAttachStateChangeListener(listener)
     }
@@ -343,9 +379,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val parent: FrameLayout,
         private val viewPager: WxViewPager,
     ) {
-        private val gestureConfig = homeSidePanelGestureConfig(
-            density = activity.resources.displayMetrics.density,
-        )
+        private val gestureConfig =
+            homeSidePanelGestureConfig(
+                density = activity.resources.displayMetrics.density,
+            )
         private val gesture = HomeSidePanelGestureState(gestureConfig)
         private val decorRoot = activity.window.decorView as FrameLayout
         private val contentWrapper = FrameLayout(activity)
@@ -355,33 +392,37 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private val stateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         private val layoutStore = HomeSidePanelLayoutStore
         private val cityIndex = HomeSidePanelCityIndex()
-        private val weather = HomeSidePanelWeather(
-            cityIndex = cityIndex,
-            client = homeSidePanelHttpClient,
-        )
-        private val hitokoto = HomeSidePanelHitokoto(homeSidePanelHttpClient)
-        private val runtimeStore = HomeSidePanelRuntimeStore(
-            weather = weather,
-            hitokoto = hitokoto,
-            walletBalance = HomeSidePanelWalletBalanceSource,
-            parentScope = stateScope,
-            cacheStore = layoutStore,
-        )
-        private val panelState = HomeSidePanelState(
-            activity = activity,
-            profile = HomeSidePanelProfileLoader(
+        private val weather =
+            HomeSidePanelWeather(
                 cityIndex = cityIndex,
-            ),
-            weather = weather,
-            hitokoto = hitokoto,
-            runtimeStore = runtimeStore,
-            location = HomeSidePanelLocation(cityIndex),
-            scope = stateScope,
-            layoutStore = layoutStore,
-            closePanel = { afterClosed ->
-                close(animated = true, afterClosed = afterClosed)
-            },
-        )
+                client = homeSidePanelHttpClient,
+            )
+        private val hitokoto = HomeSidePanelHitokoto(homeSidePanelHttpClient)
+        private val runtimeStore =
+            HomeSidePanelRuntimeStore(
+                weather = weather,
+                hitokoto = hitokoto,
+                walletBalance = HomeSidePanelWalletBalanceSource,
+                parentScope = stateScope,
+                cacheStore = layoutStore,
+            )
+        private val panelState =
+            HomeSidePanelState(
+                activity = activity,
+                profile =
+                    HomeSidePanelProfileLoader(
+                        cityIndex = cityIndex,
+                    ),
+                weather = weather,
+                hitokoto = hitokoto,
+                runtimeStore = runtimeStore,
+                location = HomeSidePanelLocation(cityIndex),
+                scope = stateScope,
+                layoutStore = layoutStore,
+                closePanel = { afterClosed ->
+                    close(animated = true, afterClosed = afterClosed)
+                },
+            )
         private val outlineProvider = ProgressOutlineProvider()
 
         private var animator: ValueAnimator? = null
@@ -392,9 +433,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         private var attached = false
         private var pendingSyncFlags = 0
         private var syncPosted = false
-        private val parentLayoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            requestSync(SYNC_ALL)
-        }
+        private val parentLayoutListener =
+            View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                requestSync(SYNC_ALL)
+            }
         private val decorLayoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             requestSync(SYNC_HIERARCHY or SYNC_GEOMETRY or SYNC_INSETS)
         }
@@ -448,7 +490,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun attach() {
             if (attached) return
             attached = true
-            unregisterBack = WeLauncherBackApi.register(activity, ::wouldConsumeBack, ::consumeMoveTaskToBack)
+            unregisterBack =
+                WeLauncherBackApi.register(activity, ::wouldConsumeBack, ::consumeMoveTaskToBack)
 
             parentClipChildren = parent.clipChildren
             parentClipToPadding = parent.clipToPadding
@@ -474,11 +517,12 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             panelView.setContent {
                 InjectedUiTheme {
                     LaunchedEffect(panelState) {
-                        val messagesJob = launch(start = CoroutineStart.UNDISPATCHED) {
-                            panelState.messages.collect { message ->
-                                showToast(activity, message)
+                        val messagesJob =
+                            launch(start = CoroutineStart.UNDISPATCHED) {
+                                panelState.messages.collect { message ->
+                                    showToast(activity, message)
+                                }
                             }
-                        }
                         panelState.start()
                         messagesJob.join()
                     }
@@ -494,14 +538,14 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT,
-                )
+                ),
             )
             overlayRoot.addView(
                 panelView,
                 FrameLayout.LayoutParams(
                     drawerWidthPx,
                     FrameLayout.LayoutParams.MATCH_PARENT,
-                )
+                ),
             )
 
             parent.addView(
@@ -509,14 +553,14 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT,
-                )
+                ),
             )
             decorRoot.addView(
                 overlayRoot,
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT,
-                )
+                ),
             )
             parent.addOnLayoutChangeListener(parentLayoutListener)
             decorRoot.addOnLayoutChangeListener(decorLayoutListener)
@@ -564,11 +608,13 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         private fun syncNativeContentBottomInset() {
-            val bottomBar = cachedNativeBottomTabView
-                ?.takeIf { it.isAttachedToWindow }
-                ?: contentWrapper.findViewWhich {
-                    it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS
-                }?.also { cachedNativeBottomTabView = it }
+            val bottomBar =
+                cachedNativeBottomTabView?.takeIf { it.isAttachedToWindow }
+                    ?: contentWrapper
+                        .findViewWhich {
+                            it.javaClass.name == LAUNCHER_BOTTOM_TAB_VIEW_CLASS
+                        }
+                        ?.also { cachedNativeBottomTabView = it }
             val bottomLinearLayout = (bottomBar as? ViewGroup)?.directLinearLayout()
             if (observedNativeBottomTabView !== bottomBar) {
                 observedNativeBottomTabView?.let(::unobserveView)
@@ -590,21 +636,21 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             nativeBottomTabMissingLogged = false
 
             val replacementOwnsInsets =
-                bottomBar.visibility != View.VISIBLE || bottomBar.findViewWhich { it is ComposeView } != null
+                bottomBar.visibility != View.VISIBLE ||
+                    bottomBar.findViewWhich { it is ComposeView } != null
             val insets = ViewCompat.getRootWindowInsets(contentWrapper)
-            val navigationBottom = insets
-                ?.getInsets(WindowInsetsCompat.Type.navigationBars())
-                ?.bottom
-                ?: 0
+            val navigationBottom =
+                insets?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
             val ancestorBottomInset = contentBottomGapToDecor()
-            val nativeBottomInset = bottomBar.paddingBottom +
-                (bottomLinearLayout?.paddingBottom ?: 0)
+            val nativeBottomInset =
+                bottomBar.paddingBottom + (bottomLinearLayout?.paddingBottom ?: 0)
             val alreadyAvoidedBottom = ancestorBottomInset + nativeBottomInset
-            val targetBottom = if (chattingVisible || replacementOwnsInsets) {
-                0
-            } else {
-                (navigationBottom - alreadyAvoidedBottom).coerceAtLeast(0)
-            }
+            val targetBottom =
+                if (chattingVisible || replacementOwnsInsets) {
+                    0
+                } else {
+                    (navigationBottom - alreadyAvoidedBottom).coerceAtLeast(0)
+                }
 
             if (contentWrapper.paddingBottom != targetBottom) {
                 contentWrapper.setPadding(
@@ -617,9 +663,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         /**
-         * contentWrapper 自己的 padding 不改变它的边界，因此这里得到的是微信祖先布局已经
-         * 留出的底部空间。使用布局坐标而不是屏幕坐标，避免侧栏动画的 scale/translation
-         * 被误算成系统栏补偿。
+         * contentWrapper 自己的 padding 不改变它的边界，因此这里得到的是微信祖先布局已经 留出的底部空间。使用布局坐标而不是屏幕坐标，避免侧栏动画的
+         * scale/translation 被误算成系统栏补偿。
          */
         private fun contentBottomGapToDecor(): Int {
             var bottom = contentWrapper.bottom
@@ -632,9 +677,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         }
 
         /**
-         * 8.0.65-8.0.69 把导航栏高度加在 LauncherUIBottomTabView 的直接 LinearLayout
-         * 子项上；8.0.74+ 的新 Edge2EdgeHelper 则可能直接加在底栏本身。两者都要计入
-         * 已有补偿，wrapper 只补剩余差值。
+         * 8.0.65-8.0.69 把导航栏高度加在 LauncherUIBottomTabView 的直接 LinearLayout 子项上；8.0.74+ 的新
+         * Edge2EdgeHelper 则可能直接加在底栏本身。两者都要计入 已有补偿，wrapper 只补剩余差值。
          */
         private fun ViewGroup.directLinearLayout(): LinearLayout? {
             for (index in 0 until childCount) {
@@ -719,25 +763,26 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (!attached) return
             requestSync(SYNC_HIERARCHY or SYNC_INSETS)
             pendingTransitionLayoutListener?.let(parent::removeOnLayoutChangeListener)
-            val listener = object : View.OnLayoutChangeListener {
-                override fun onLayoutChange(
-                    view: View,
-                    left: Int,
-                    top: Int,
-                    right: Int,
-                    bottom: Int,
-                    oldLeft: Int,
-                    oldTop: Int,
-                    oldRight: Int,
-                    oldBottom: Int,
-                ) {
-                    parent.removeOnLayoutChangeListener(this)
-                    if (pendingTransitionLayoutListener === this) {
-                        pendingTransitionLayoutListener = null
+            val listener =
+                object : View.OnLayoutChangeListener {
+                    override fun onLayoutChange(
+                        view: View,
+                        left: Int,
+                        top: Int,
+                        right: Int,
+                        bottom: Int,
+                        oldLeft: Int,
+                        oldTop: Int,
+                        oldRight: Int,
+                        oldBottom: Int,
+                    ) {
+                        parent.removeOnLayoutChangeListener(this)
+                        if (pendingTransitionLayoutListener === this) {
+                            pendingTransitionLayoutListener = null
+                        }
+                        requestSync(SYNC_ALL)
                     }
-                    requestSync(SYNC_ALL)
                 }
-            }
             pendingTransitionLayoutListener = listener
             parent.addOnLayoutChangeListener(listener)
         }
@@ -757,7 +802,9 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         /** Mirrors [consumeMoveTaskToBack] without acting. */
         private fun wouldConsumeBack(): Boolean =
             panelState.uiState.value.route != HomeSidePanelRoute.Home ||
-                renderedProgress > 0f || dragging || gesture.isTracking
+                renderedProgress > 0f ||
+                dragging ||
+                gesture.isTracking
 
         private fun consumeMoveTaskToBack(): Boolean {
             if (panelState.consumeSettingsBack()) {
@@ -800,14 +847,20 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         fun shouldDeferPagerInterception(event: MotionEvent): Boolean =
             event.actionMasked == MotionEvent.ACTION_MOVE &&
-                !dragging && gesture.isTracking && event.x > gestureStartX
+                !dragging &&
+                gesture.isTracking &&
+                event.x > gestureStartX
 
         fun onPagerTouchDispatched(event: MotionEvent, cancelHost: () -> Unit): Boolean {
             if (event.actionMasked != MotionEvent.ACTION_MOVE || dragging) return false
             if (ConversationGrouping.shouldDeferHomeSidePanel(viewPager, event)) return false
-            // Compose scrolling and conversation swipes request disallow-intercept while dispatching
+            // Compose scrolling and conversation swipes request disallow-intercept while
+            // dispatching
             // this very MOVE. Only decide whether to open after they have had that opportunity.
-            if (gesture.onMove(event.x, event.y, event.eventTime) != HomeSidePanelGestureDecision.CONSUME) {
+            if (
+                gesture.onMove(event.x, event.y, event.eventTime) !=
+                    HomeSidePanelGestureDecision.CONSUME
+            ) {
                 return false
             }
             dragging = true
@@ -866,8 +919,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         fun onOverlayInterceptTouch(event: MotionEvent): Boolean =
             handleIntercept(event, allowPanelPassthrough = true)
 
-        fun onOverlayTouch(event: MotionEvent): Boolean =
-            handleTouch(event)
+        fun onOverlayTouch(event: MotionEvent): Boolean = handleTouch(event)
 
         private fun handleIntercept(
             event: MotionEvent,
@@ -875,9 +927,9 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
         ): Boolean {
             if (
                 allowPanelPassthrough &&
-                isInsidePanel(event.x) &&
-                renderedProgress >= 0.98f &&
-                homeSidePanelShouldPassFullyOpenTouchToChild(event.actionMasked)
+                    isInsidePanel(event.x) &&
+                    renderedProgress >= 0.98f &&
+                    homeSidePanelShouldPassFullyOpenTouchToChild(event.actionMasked)
             ) {
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                     beginGesture(event)
@@ -905,7 +957,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                     }
                 }
 
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
                     if (gesture.isTracking && !dragging) {
                         val target = gesture.onCancel()
                         applyProgress(target)
@@ -987,29 +1040,32 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             overlayRoot.visibility = View.VISIBLE
             var canceled = false
-            animator = ValueAnimator.ofFloat(from, target).apply {
-                duration = (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
-                interpolator = DecelerateInterpolator(1.4f)
-                addUpdateListener {
-                    val progress = it.animatedValue as Float
-                    gesture.snapTo(progress)
-                    applyProgress(progress)
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationCancel(animation: Animator) {
-                        canceled = true
+            animator =
+                ValueAnimator.ofFloat(from, target).apply {
+                    duration = (120L + 120L * kotlin.math.abs(from - target)).roundToInt().toLong()
+                    interpolator = DecelerateInterpolator(1.4f)
+                    addUpdateListener {
+                        val progress = it.animatedValue as Float
+                        gesture.snapTo(progress)
+                        applyProgress(progress)
                     }
+                    addListener(
+                        object : AnimatorListenerAdapter() {
+                            override fun onAnimationCancel(animation: Animator) {
+                                canceled = true
+                            }
 
-                    override fun onAnimationEnd(animation: Animator) {
-                        if (canceled) return
-                        gesture.snapTo(target)
-                        applyProgress(target)
-                        if (animator === animation) animator = null
-                        afterClosed?.invoke()
-                    }
-                })
-                start()
-            }
+                            override fun onAnimationEnd(animation: Animator) {
+                                if (canceled) return
+                                gesture.snapTo(target)
+                                applyProgress(target)
+                                if (animator === animation) animator = null
+                                afterClosed?.invoke()
+                            }
+                        },
+                    )
+                    start()
+                }
         }
 
         private fun resolveExternalChrome() {
@@ -1045,12 +1101,12 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
             if (
                 fabCandidate != null &&
-                homeSidePanelShouldReparentExternalChrome(
-                    progress = renderedProgress,
-                    isCurrentHost = fabHostView === fabCandidate,
-                    isInContentWrapper = fabCandidate.parent === contentWrapper,
-                    parentClassName = fabCandidate.parent.javaClass.name,
-                )
+                    homeSidePanelShouldReparentExternalChrome(
+                        progress = renderedProgress,
+                        isCurrentHost = fabHostView === fabCandidate,
+                        isInContentWrapper = fabCandidate.parent === contentWrapper,
+                        parentClassName = fabCandidate.parent.javaClass.name,
+                    )
             ) {
                 moveFabHostIntoContentWrapper(fabCandidate)
             }
@@ -1087,8 +1143,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             hosts.forEach { (host, nativeTitle) ->
                 if (
                     !chattingVisible &&
-                    (host in homeToolbarHosts || host !in chattingToolbarHosts) &&
-                    host !in toolbarProfileBindings
+                        (host in homeToolbarHosts || host !in chattingToolbarHosts) &&
+                        host !in toolbarProfileBindings
                 ) {
                     homeToolbarHosts += host
                     toolbarProfileBindings[host] = createToolbarProfileBinding(host, nativeTitle)
@@ -1100,8 +1156,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             }
         }
 
-        private fun isChattingVisible(): Boolean =
-            (activity as LauncherUI).currentFragmet != null
+        private fun isChattingVisible(): Boolean = (activity as LauncherUI).currentFragmet != null
 
         private fun collectToolbarProfileHosts(
             view: View,
@@ -1147,16 +1202,17 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         private fun observeView(view: View, flags: Int) {
             if (observedViews.containsKey(view)) return
-            val attachListener = object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(view: View) {
-                    requestSync(flags)
-                }
+            val attachListener =
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {
+                        requestSync(flags)
+                    }
 
-                override fun onViewDetachedFromWindow(view: View) {
-                    unobserveView(view)
-                    requestSync(SYNC_HIERARCHY or SYNC_INSETS)
+                    override fun onViewDetachedFromWindow(view: View) {
+                        unobserveView(view)
+                        requestSync(SYNC_HIERARCHY or SYNC_INSETS)
+                    }
                 }
-            }
             val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 requestSync(flags)
             }
@@ -1175,29 +1231,31 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             host: RelativeLayout,
             nativeTitle: TextView,
         ): ToolbarProfileBinding {
-            val composeView = ComposeView(activity).apply {
-                setBackgroundColor(AndroidColor.TRANSPARENT)
-                setLifecycleOwner(LifecycleOwnerProvider.getOrCreate(activity))
-                setContent {
-                    InjectedUiTheme {
-                        val state by panelState.uiState.collectAsStateWithLifecycle()
-                        HomeSidePanelToolbarContent(
-                            profile = state.profile,
-                            onAvatarClick = ::open,
-                            onStatusClick = panelState::openStatusEditorFromToolbar,
-                        )
+            val composeView =
+                ComposeView(activity).apply {
+                    setBackgroundColor(AndroidColor.TRANSPARENT)
+                    setLifecycleOwner(LifecycleOwnerProvider.getOrCreate(activity))
+                    setContent {
+                        InjectedUiTheme {
+                            val state by panelState.uiState.collectAsStateWithLifecycle()
+                            HomeSidePanelToolbarContent(
+                                profile = state.profile,
+                                onAvatarClick = ::open,
+                                onStatusClick = panelState::openStatusEditorFromToolbar,
+                            )
+                        }
                     }
                 }
-            }
             host.addView(
                 composeView,
                 RelativeLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                ).apply {
-                    addRule(RelativeLayout.ALIGN_PARENT_START)
-                    addRule(RelativeLayout.CENTER_VERTICAL)
-                },
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    .apply {
+                        addRule(RelativeLayout.ALIGN_PARENT_START)
+                        addRule(RelativeLayout.CENTER_VERTICAL)
+                    },
             )
             return ToolbarProfileBinding(host, nativeTitle, composeView)
         }
@@ -1259,10 +1317,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             if (becameHidden) panelState.onPanelClosed()
             wasPanelVisible = p > CLOSED_EPSILON
 
-            val transform = homeSidePanelVisualTransform(
-                progress = p,
-                density = activity.resources.displayMetrics.density,
-            )
+            val transform =
+                homeSidePanelVisualTransform(
+                    progress = p,
+                    density = activity.resources.displayMetrics.density,
+                )
 
             contentWrapper.pivotX = contentWrapper.width / 2f
             contentWrapper.pivotY = contentWrapper.height / 2f
@@ -1293,8 +1352,12 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             val nextWidth = (width * DRAWER_WIDTH_FRACTION).roundToInt().coerceAtLeast(1)
             if (nextWidth == drawerWidthPx) return false
             drawerWidthPx = nextWidth
-            val params = panelView.layoutParams as? FrameLayout.LayoutParams
-                ?: FrameLayout.LayoutParams(drawerWidthPx, FrameLayout.LayoutParams.MATCH_PARENT)
+            val params =
+                panelView.layoutParams as? FrameLayout.LayoutParams
+                    ?: FrameLayout.LayoutParams(
+                        drawerWidthPx,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    )
             params.width = drawerWidthPx
             params.height = FrameLayout.LayoutParams.MATCH_PARENT
             panelView.layoutParams = params
@@ -1303,19 +1366,21 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         private fun applyActionBarProgress(
             progress: Float,
-            transform: HomeSidePanelVisualTransform = homeSidePanelVisualTransform(
-                progress = progress,
-                density = activity.resources.displayMetrics.density,
-            ),
+            transform: HomeSidePanelVisualTransform =
+                homeSidePanelVisualTransform(
+                    progress = progress,
+                    density = activity.resources.displayMetrics.density,
+                ),
         ) {
             if (progress <= CLOSED_EPSILON) {
                 restoreActionBarTransform()
                 return
             }
             actionBarContainers.forEach { actionBar ->
-                val snapshot = actionBarTransformSnapshots.getOrPut(actionBar) {
-                    captureActionBarTransform(actionBar)
-                }
+                val snapshot =
+                    actionBarTransformSnapshots.getOrPut(actionBar) {
+                        captureActionBarTransform(actionBar)
+                    }
                 if (actionBar.pivotX != snapshot.transformPivotX) {
                     actionBar.pivotX = snapshot.transformPivotX
                 }
@@ -1386,10 +1451,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             currentParent.removeView(host)
             contentWrapper.addView(
                 host,
-                fabOriginalLayoutParams ?: FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
+                fabOriginalLayoutParams
+                    ?: FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
             )
             fabHostView = host
         }
@@ -1405,10 +1471,11 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
                 originalParent.addView(
                     host,
                     index,
-                    fabOriginalLayoutParams ?: FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                    ),
+                    fabOriginalLayoutParams
+                        ?: FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                        ),
                 )
             }
             fabHostView = null
@@ -1462,8 +1529,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
             contentWrapper.translationY = 0f
         }
 
-        private fun isInsidePanel(x: Float): Boolean =
-            x <= drawerWidthPx
+        private fun isInsidePanel(x: Float): Boolean = x <= drawerWidthPx
     }
 
     private class HomeSidePanelOverlayLayout(context: Context) : FrameLayout(context) {

@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.batch
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -12,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -20,19 +20,19 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 object MassSendMessage : ClickableFeature() {
 
@@ -72,7 +72,7 @@ object MassSendMessage : ClickableFeature() {
             MassSendMessageDialog(
                 context = context,
                 contacts = contacts,
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
             )
         }
     }
@@ -81,7 +81,7 @@ object MassSendMessage : ClickableFeature() {
     private fun MassSendMessageDialog(
         context: Context,
         contacts: List<IWeContact>,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         var text by remember { mutableStateOf("") }
         var mode by remember { mutableStateOf(SendMode.TEXT) }
@@ -106,22 +106,32 @@ object MassSendMessage : ClickableFeature() {
                         label = { Text(stringResource(mode.labelRes)) },
                         singleLine = false,
                         minLines = 3,
-                        maxLines = 8
+                        maxLines = 8,
                     )
                 }
             },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+            dismissButton = {
+                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    if (text.isBlank()) {
-                        showToast(context.localizedBatchString(R.string.batch_mass_send_enter_content))
-                        return@TextButton
-                    }
+                TextButton(
+                    onClick = {
+                        if (text.isBlank()) {
+                            showToast(
+                                context.localizedBatchString(
+                                    R.string.batch_mass_send_enter_content,
+                                ),
+                            )
+                            return@TextButton
+                        }
 
-                    onDismiss()
-                    pickRecipientsAndSend(context, contacts, mode, text)
-                }) { Text(stringResource(R.string.batch_mass_send_select_recipients)) }
-            }
+                        onDismiss()
+                        pickRecipientsAndSend(context, contacts, mode, text)
+                    },
+                ) {
+                    Text(stringResource(R.string.batch_mass_send_select_recipients))
+                }
+            },
         )
     }
 
@@ -129,7 +139,7 @@ object MassSendMessage : ClickableFeature() {
         context: Context,
         contacts: List<IWeContact>,
         mode: SendMode,
-        text: String
+        text: String,
     ) {
         showComposeDialog(context) {
             ContactsSelector(
@@ -139,13 +149,17 @@ object MassSendMessage : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_mass_send_select_at_least_one))
+                        showToast(
+                            context.localizedBatchString(
+                                R.string.batch_mass_send_select_at_least_one,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     sendToAll(selectedWxIds, mode, text)
-                }
+                },
             )
         }
     }
@@ -163,10 +177,11 @@ object MassSendMessage : ClickableFeature() {
                         SendMode.TEXT -> WeMessageApi.sendText(wxId, text)
                         SendMode.CARD -> WeMessageApi.sendXmlAppMsg(wxId, text)
                     }
-                }.getOrElse {
-                    WeLogger.e(TAG, "failed to send message to $wxId", it)
-                    false
                 }
+                    .getOrElse {
+                        WeLogger.e(TAG, "failed to send message to $wxId", it)
+                        false
+                    }
                 if (sent) success++
                 if (index < wxIds.size - 1) delay(SEND_INTERVAL_MS.milliseconds)
             }
@@ -178,7 +193,7 @@ object MassSendMessage : ClickableFeature() {
                     wxIds.size,
                     success,
                     wxIds.size,
-                )
+                ),
             )
         }
     }

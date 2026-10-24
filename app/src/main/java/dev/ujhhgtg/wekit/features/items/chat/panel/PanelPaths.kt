@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
-import kotlin.io.path.getLastModifiedTime
-import kotlin.io.path.listDirectoryEntries
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.nio.file.Path
@@ -10,7 +8,9 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
 
 object PanelPaths {
     val stickerPanelDir: Path by lazy { (KnownPaths.moduleRoot / "sticker_panel").createDirsSafe() }
@@ -24,7 +24,8 @@ object PanelPaths {
     fun cleanupStalePanelCache() {
         val cutoff = FileTime.from(Instant.now().minus(1, ChronoUnit.DAYS))
         runCatching {
-            panelCacheDir.listDirectoryEntries()
+            panelCacheDir
+                .listDirectoryEntries()
                 .filter { it.isRegularFile() && it.getLastModifiedTime() < cutoff }
                 .forEach(Path::deleteIfExists)
         }

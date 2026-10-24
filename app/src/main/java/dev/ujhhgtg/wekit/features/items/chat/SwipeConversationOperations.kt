@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -31,7 +32,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyConversationList
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -52,16 +52,16 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_swipe_conversation_operations_description
 
     // Layout / gesture tuning.
-    private const val BUTTON_WIDTH_DP = 72  // width of each action button
-    private const val FLY_OUT_THRESHOLD_DP = 220  // drag past this (left) on release => fly out + delete
-    private const val COLOR_PIN = 0xFF007AFF.toInt()    // iOS-ish blue for 置顶
-    private const val COLOR_MUTE = 0xFF8E8E93.toInt()   // iOS-ish grey for 免打扰
-    private const val COLOR_HIDE = 0xFFF5A623.toInt()   // iOS-ish amber for 隐藏
+    private const val BUTTON_WIDTH_DP = 72 // width of each action button
+    private const val FLY_OUT_THRESHOLD_DP =
+        220 // drag past this (left) on release => fly out + delete
+    private const val COLOR_PIN = 0xFF007AFF.toInt() // iOS-ish blue for 置顶
+    private const val COLOR_MUTE = 0xFF8E8E93.toInt() // iOS-ish grey for 免打扰
+    private const val COLOR_HIDE = 0xFFF5A623.toInt() // iOS-ish amber for 隐藏
     private const val COLOR_DELETE = 0xFFFF3B30.toInt() // iOS-ish red for 删除
 
     private var pinButtonEnabled by prefOption("swipe_pin_button", false)
     private var muteButtonEnabled by prefOption("swipe_mute_button", false)
-
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
@@ -76,7 +76,10 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.chat_swipe_conversation_pin_toggle),
-                                description = stringResource(R.string.chat_swipe_conversation_pin_description),
+                                description =
+                                    stringResource(
+                                        R.string.chat_swipe_conversation_pin_description,
+                                    ),
                                 checked = pinEnabled,
                                 onCheckedChange = {
                                     pinEnabled = it
@@ -87,8 +90,12 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(R.string.chat_swipe_conversation_mute_toggle),
-                                description = stringResource(R.string.chat_swipe_conversation_mute_description),
+                                title =
+                                    stringResource(R.string.chat_swipe_conversation_mute_toggle),
+                                description =
+                                    stringResource(
+                                        R.string.chat_swipe_conversation_mute_description,
+                                    ),
                                 checked = muteEnabled,
                                 onCheckedChange = {
                                     muteEnabled = it
@@ -115,7 +122,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val flyOutThreshold: Float,
         var talker: String? = null,
         var conversation: Any? = null,
-        // The FrameLayout we insert to host content+panel; non-null once this row is set up (guard).
+        // The FrameLayout we insert to host content+panel; non-null once this row is set up
+        // (guard).
         var wrapper: IslandSwipeLayout? = null,
         // The content view we translate (cj0), the action panel behind it, and its buttons.
         var content: View? = null,
@@ -132,7 +140,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         var revealWidth: Float = 0f,
         var startX: Float = 0f,
         var startY: Float = 0f,
-        // translationX of the content at gesture start (0 when closed, -revealWidth when parked open).
+        // translationX of the content at gesture start (0 when closed, -revealWidth when parked
+        // open).
         var dragBase: Float = 0f,
         var isDragging: Boolean = false,
         var isOpen: Boolean = false,
@@ -184,10 +193,16 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
             val bottomRadius = if (surface.last) surface.radius else 0f
             // Button-width animations also request layout; their unchanged outer shape can reuse
             // this path for both screen drawing and backdrop/snapshot captures.
-            if (clipsIsland && islandBounds.left == clipLeft && islandBounds.top == clipTop &&
-                islandBounds.right == clipRight && islandBounds.bottom == clipBottom &&
-                radii[0] == topRadius && radii[4] == bottomRadius
-            ) return
+            if (
+                clipsIsland &&
+                    islandBounds.left == clipLeft &&
+                    islandBounds.top == clipTop &&
+                    islandBounds.right == clipRight &&
+                    islandBounds.bottom == clipBottom &&
+                    radii[0] == topRadius &&
+                    radii[4] == bottomRadius
+            )
+                return
             clipsIsland = true
             islandBounds.set(clipLeft, clipTop, clipRight, clipBottom)
             radii.fill(topRadius, 0, 4)
@@ -261,20 +276,22 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // returns the clickable row root and getItem(position) -> com.tencent.mm.storage.m3, and both
     // re-install their own row OnTouchListener on every bind — so we hook getView on whichever is
     // present. allowFailure so a build that only ships one of them still resolves the other.
-    private val classConversationAdapter by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.ui.conversation")
-            usingStrings("MicroMsg.ConversationWithCacheAdapter", "[getView] position=")
-        },
-        allowFailure = true,
-    )
+    private val classConversationAdapter by
+        dexClass(
+            sqlClass {
+                searchPackages("com.tencent.mm.ui.conversation")
+                usingStrings("MicroMsg.ConversationWithCacheAdapter", "[getView] position=")
+            },
+            allowFailure = true,
+        )
 
-    private val classMvvmConversationAdapter by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
-        },
-        allowFailure = true,
-    )
+    private val classMvvmConversationAdapter by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.ConversationAdapter.MvvmConversationAdapter")
+            },
+            allowFailure = true,
+        )
 
     override fun onEnable() {
         hookAdapter(classConversationAdapter)
@@ -294,23 +311,39 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
     private fun hookAdapter(adapter: DexClassDelegate) {
         if (!adapter.isFound) return
-        adapter.reflekt().firstMethod { name = "getView"; parameterCount = 3 }
+        adapter
+            .reflekt()
+            .firstMethod {
+                name = "getView"
+                parameterCount = 3
+            }
             .hookAfter {
                 val view = result as? View ?: return@hookAfter
                 val position = args[0] as? Int ?: return@hookAfter
 
                 // getItem(position) -> com.tencent.mm.storage.m3(rconversation model).
-                val conversation = runCatching {
-                    thisObject!!.reflekt()
-                        .firstMethod { name = "getItem"; parameterCount = 1 }
-                        .invoke(position)
-                }.getOrNull() ?: return@hookAfter
+                val conversation =
+                    runCatching {
+                        thisObject!!
+                            .reflekt()
+                            .firstMethod {
+                                name = "getItem"
+                                parameterCount = 1
+                            }
+                            .invoke(position)
+                    }
+                        .getOrNull() ?: return@hookAfter
 
                 val talker = runCatching {
-                    conversation.reflekt()
-                        .firstFieldOrNull { name = "field_username"; superclass() }
+                    conversation
+                        .reflekt()
+                        .firstFieldOrNull {
+                            name = "field_username"
+                            superclass()
+                        }
                         ?.get() as? String
-                }.getOrNull()
+                }
+                    .getOrNull()
 
                 if (talker == FOLD_CONVERSATION_TALKER) {
                     disableSwipeForFoldConversation(view)
@@ -318,15 +351,18 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 }
 
                 val ctx = view.context
-                val state = view.getTag(VIEW_TAG_SWIPE_STATE) as? SwipeState
-                    ?: SwipeState(
-                        touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop,
-                        flyOutThreshold = FLY_OUT_THRESHOLD_DP.dpToPx(ctx).toFloat(),
-                    ).also { view.setTag(VIEW_TAG_SWIPE_STATE, it) }
+                val state =
+                    view.getTag(VIEW_TAG_SWIPE_STATE) as? SwipeState
+                        ?: SwipeState(
+                                touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop,
+                                flyOutThreshold = FLY_OUT_THRESHOLD_DP.dpToPx(ctx).toFloat(),
+                            )
+                            .also { view.setTag(VIEW_TAG_SWIPE_STATE, it) }
                 state.talker = talker
                 state.conversation = conversation
 
-                // Resolve the content view (cj0 = the row's first child) and (once) build the action
+                // Resolve the content view (cj0 = the row's first child) and (once) build the
+                // action
                 // panel behind it. The recycled row now represents a different conversation, so any
                 // leftover open/translation from its previous use must be reset to closed.
                 setUpRow(view, state)
@@ -346,7 +382,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // The row root (cj1) is a horizontal LinearLayout whose first child (cj0) is the full-width
     // content. Adding a sibling to that LinearLayout would reflow cj0, so instead we WRAP cj0 in a
     // FrameLayout (inserted at cj0's original index, inheriting its LayoutParams): the action panel
-    // is pinned to the wrapper's right edge, cj0 sits on top and slides left to reveal it. Done once
+    // is pinned to the wrapper's right edge, cj0 sits on top and slides left to reveal it. Done
+    // once
     // per row and tagged so re-binds don't wrap twice.
     private fun setUpRow(row: View, s: SwipeState) {
         // Already wrapped this row (state is keyed by the row view, stable across recycles).
@@ -368,17 +405,18 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val panel = buildActionPanel(group.context, s)
 
         group.removeViewAt(index)
-        content.layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
+        content.layoutParams =
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
         // Panel spans the whole wrapper; buttons are positioned per-frame in applyTranslation.
         wrapper.addView(
             panel,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
         )
         wrapper.addView(content) // content on top
         wrapper.layoutParams = lp // take cj0's slot in the row LinearLayout
@@ -409,25 +447,40 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     private fun buildActionPanel(context: Context, s: SwipeState): View {
         val panel = FrameLayout(context)
 
-        fun button(label: String, bg: Int, onTap: () -> Unit) = TextView(context).apply {
-            text = label
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 15f
-            gravity = Gravity.CENTER
-            setBackgroundColor(bg)
-            maxLines = 1
-            // Start at width 0: real width comes from applyTranslation after the first layout pass.
-            layoutParams = FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)
-            isClickable = true
-            setOnClickListener { onTap() }
-        }
+        fun button(label: String, bg: Int, onTap: () -> Unit) =
+            TextView(context).apply {
+                text = label
+                setTextColor(0xFFFFFFFF.toInt())
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setBackgroundColor(bg)
+                maxLines = 1
+                // Start at width 0: real width comes from applyTranslation after the first layout
+                // pass.
+                layoutParams = FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT)
+                isClickable = true
+                setOnClickListener { onTap() }
+            }
 
-        // Create all buttons. Order in panel: pin, mute, hide, delete (left to right when revealed).
+        // Create all buttons. Order in panel: pin, mute, hide, delete (left to right when
+        // revealed).
         // 删除 is last and drawn on top so it can expand to cover others on over-drag.
-        val pin = button(context.localizedChatString(R.string.chat_conversation_pin), COLOR_PIN) { onAction(s, Action.PIN) }
-        val mute = button(context.localizedChatString(R.string.chat_conversation_mute), COLOR_MUTE) { onAction(s, Action.MUTE) }
-        val hide = button(context.localizedChatString(R.string.chat_conversation_hide), COLOR_HIDE) { onAction(s, Action.HIDE) }
-        val del = button(context.localizedChatString(R.string.action_delete), COLOR_DELETE) { onAction(s, Action.DELETE, context) }
+        val pin =
+            button(context.localizedChatString(R.string.chat_conversation_pin), COLOR_PIN) {
+                onAction(s, Action.PIN)
+            }
+        val mute =
+            button(context.localizedChatString(R.string.chat_conversation_mute), COLOR_MUTE) {
+                onAction(s, Action.MUTE)
+            }
+        val hide =
+            button(context.localizedChatString(R.string.chat_conversation_hide), COLOR_HIDE) {
+                onAction(s, Action.HIDE)
+            }
+        val del =
+            button(context.localizedChatString(R.string.action_delete), COLOR_DELETE) {
+                onAction(s, Action.DELETE, context)
+            }
 
         panel.addView(pin)
         panel.addView(mute)
@@ -458,7 +511,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     // reveal = -tx is how far the content has been pulled left. All buttons grow from width 0 to
     // fill the revealed strip [rowW - reveal, rowW], split evenly (reveal / n each).
     // On a second swipe (started open), dragging past the threshold smoothly widens 删除 LEFTWARD
-    // to cover the other buttons — driven by factor t (0 at threshold → 1 at fly-out). gravity=CENTER
+    // to cover the other buttons — driven by factor t (0 at threshold → 1 at fly-out).
+    // gravity=CENTER
     // keeps labels centred as buttons grow.
     private fun applyTranslation(s: SwipeState, tx: Float) {
         val content = s.content ?: return
@@ -480,9 +534,10 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
         // Over-drag transition: only on a second swipe (started open), ramps 0→1 as drag passes
         // the reveal threshold toward the fly-out threshold. 删除 expands leftward to cover all.
-        val t = if (s.startedOpen && s.flyOutThreshold > s.revealWidth) {
-            ((reveal - s.revealWidth) / (s.flyOutThreshold - s.revealWidth)).coerceIn(0f, 1f)
-        } else 0f
+        val t =
+            if (s.startedOpen && s.flyOutThreshold > s.revealWidth) {
+                ((reveal - s.revealWidth) / (s.flyOutThreshold - s.revealWidth)).coerceIn(0f, 1f)
+            } else 0f
 
         // All buttons except 删除: evenly spaced, stay fixed as t grows.
         for (i in 0 until n - 1) {
@@ -544,13 +599,18 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
     // Reads the View's current OnTouchListener out of its ListenerInfo.
     private fun getAttachedTouchListener(view: View): View.OnTouchListener? = runCatching {
-        val info = view.reflekt()
-            .firstFieldOrNull { name = "mListenerInfo"; superclass() }
-            ?.get() ?: return null
-        info.reflekt()
-            .firstFieldOrNull { name = "mOnTouchListener" }
-            ?.get() as? View.OnTouchListener
-    }.getOrNull()
+        val info =
+            view
+                .reflekt()
+                .firstFieldOrNull {
+                    name = "mListenerInfo"
+                    superclass()
+                }
+                ?.get() ?: return null
+        info.reflekt().firstFieldOrNull { name = "mOnTouchListener" }?.get()
+            as? View.OnTouchListener
+    }
+        .getOrNull()
 
     // ── gesture ──────────────────────────────────────────────────────────────
     private fun handleSwipe(v: View, s: SwipeState, event: MotionEvent): Boolean {
@@ -570,8 +630,16 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     runCatching {
                         s.isPinned = WeConversationApi.isPinned(talker)
                         s.isDnd = WeConversationApi.isDnd(talker)
-                        (s.pinBtn as? TextView)?.text = localizedChatString(if (s.isPinned) R.string.chat_conversation_unpin else R.string.chat_conversation_pin)
-                        (s.muteBtn as? TextView)?.text = localizedChatString(if (s.isDnd) R.string.chat_conversation_unmute else R.string.chat_conversation_mute)
+                        (s.pinBtn as? TextView)?.text =
+                            localizedChatString(
+                                if (s.isPinned) R.string.chat_conversation_unpin
+                                else R.string.chat_conversation_pin,
+                            )
+                        (s.muteBtn as? TextView)?.text =
+                            localizedChatString(
+                                if (s.isDnd) R.string.chat_conversation_unmute
+                                else R.string.chat_conversation_mute,
+                            )
                     }
                 }
                 false
@@ -598,7 +666,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 }
             }
 
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_CANCEL -> {
                 v.parent?.requestDisallowInterceptTouchEvent(false)
                 if (!s.isDragging) {
                     if (s.isOpen) {
@@ -652,7 +721,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
     private fun animateTo(s: SwipeState, targetTx: Float, onEnd: (() -> Unit)? = null) {
         val content = s.content ?: return
-        content.animate()
+        content
+            .animate()
             .translationX(targetTx)
             .setDuration(200)
             .setInterpolator(settleInterpolator)
@@ -662,7 +732,12 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     }
 
     // Actions the swipe buttons can trigger.
-    private enum class Action { PIN, MUTE, HIDE, DELETE }
+    private enum class Action {
+        PIN,
+        MUTE,
+        HIDE,
+        DELETE,
+    }
 
     // Executes the action for a row (button tap or fly-out).
     // [context] must be provided for DELETE so the confirmation dialog can attach to the Activity.
@@ -675,24 +750,38 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 Action.DELETE -> {
                     settleClosed(s)
                     if (openState === s) openState = null
-                    val ctx = context ?: run {
-                        WeLogger.w(TAG, "DELETE action missing context for $talker")
-                        return@postOnUiThread
-                    }
+                    val ctx =
+                        context
+                            ?: run {
+                                WeLogger.w(TAG, "DELETE action missing context for $talker")
+                                return@postOnUiThread
+                            }
                     showComposeDialog(ctx) {
                         AlertDialogContent(
-                            title = { Text(stringResource(R.string.chat_conversation_delete_title)) },
-                            text = { Text(stringResource(R.string.chat_conversation_delete_message)) },
+                            title = {
+                                Text(stringResource(R.string.chat_conversation_delete_title))
+                            },
+                            text = {
+                                Text(stringResource(R.string.chat_conversation_delete_message))
+                            },
                             confirmButton = {
-                                TextButton(onClick = {
-                                    onDismiss()
-                                    WeConversationApi.deleteConversation(talker, conversation)
-                                    showToast(localizedChatString(R.string.chat_conversation_deleted))
-                                }) { Text(stringResource(R.string.action_delete)) }
+                                TextButton(
+                                    onClick = {
+                                        onDismiss()
+                                        WeConversationApi.deleteConversation(talker, conversation)
+                                        showToast(
+                                            localizedChatString(R.string.chat_conversation_deleted),
+                                        )
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.action_delete))
+                                }
                             },
                             dismissButton = {
-                                TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                            }
+                                TextButton(onDismiss) {
+                                    Text(stringResource(R.string.dialog_cancel))
+                                }
+                            },
                         )
                     }
                 }
@@ -707,9 +796,18 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 Action.PIN -> {
                     val newTop = !s.isPinned
                     WeConversationApi.setPinned(talker, newTop)
-                    showToast(localizedChatString(if (newTop) R.string.chat_conversation_pinned else R.string.chat_conversation_unpinned))
+                    showToast(
+                        localizedChatString(
+                            if (newTop) R.string.chat_conversation_pinned
+                            else R.string.chat_conversation_unpinned,
+                        ),
+                    )
                     s.isPinned = newTop
-                    (s.pinBtn as? TextView)?.text = localizedChatString(if (newTop) R.string.chat_conversation_unpin else R.string.chat_conversation_pin)
+                    (s.pinBtn as? TextView)?.text =
+                        localizedChatString(
+                            if (newTop) R.string.chat_conversation_unpin
+                            else R.string.chat_conversation_pin,
+                        )
                     settleClosed(s)
                     if (openState === s) openState = null
                 }
@@ -717,9 +815,18 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 Action.MUTE -> {
                     val newMute = !s.isDnd
                     WeConversationApi.setDnd(talker, newMute)
-                    showToast(localizedChatString(if (newMute) R.string.chat_conversation_muted else R.string.chat_conversation_unmuted))
+                    showToast(
+                        localizedChatString(
+                            if (newMute) R.string.chat_conversation_muted
+                            else R.string.chat_conversation_unmuted,
+                        ),
+                    )
                     s.isDnd = newMute
-                    (s.muteBtn as? TextView)?.text = localizedChatString(if (newMute) R.string.chat_conversation_unmute else R.string.chat_conversation_mute)
+                    (s.muteBtn as? TextView)?.text =
+                        localizedChatString(
+                            if (newMute) R.string.chat_conversation_unmute
+                            else R.string.chat_conversation_mute,
+                        )
                     settleClosed(s)
                     if (openState === s) openState = null
                 }

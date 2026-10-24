@@ -31,12 +31,12 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -50,7 +50,6 @@ import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-
 /** View tags shared with [ReadReceipts] while keeping its bind state on the time view. */
 const val READ_RECEIPTS_MESSAGE_ID_TAG = 0x7E000010
 const val READ_RECEIPTS_BINDING_GENERATION_TAG = 0x7E000011
@@ -59,8 +58,7 @@ const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
 
 data class ReadReceiptCountState(val count: Int?)
 
-object MessageTimeEnhancements : ClickableFeature(),
-    WeChatMessageViewApi.ICreateViewListener {
+object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "消息时间增强"
     override val nameRes = R.string.feature_message_time_enhancements_name
@@ -94,48 +92,58 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (result.contains($$"$relativeTime")) {
             val createTime = msgInfo.createTime
             val zoneId = java.time.ZoneId.systemDefault()
-            val epochDay = java.time.LocalDate.now(zoneId).toEpochDay() -
-                    java.time.Instant.ofEpochMilli(createTime).atZone(zoneId).toLocalDate().toEpochDay()
-            val relTimeStr = when {
-                epochDay > 1 -> localizedChatQuantity(
-                    R.plurals.chat_message_time_days_ago,
-                    epochDay.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                    epochDay,
-                )
-                epochDay == 1L -> localizedChatString(R.string.chat_message_time_yesterday)
-                else -> {
-                    val diff = System.currentTimeMillis() - createTime
-                    when {
-                        diff <= 0 -> localizedChatString(R.string.chat_message_time_just_now)
-                        else -> {
-                            val mins = diff / 60000
-                            val hours = diff / 3600000
-                            when {
-                                mins < 1 -> localizedChatString(R.string.chat_message_time_just_now)
-                                hours < 1 -> localizedChatQuantity(
-                                    R.plurals.chat_message_time_minutes_ago,
-                                    mins.toInt(),
-                                    mins,
-                                )
-                                else -> {
-                                    val displayedHours = maxOf(hours, 1L)
-                                    localizedChatQuantity(
-                                        R.plurals.chat_message_time_hours_ago,
-                                        displayedHours.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                                        displayedHours,
-                                    )
+            val epochDay =
+                java.time.LocalDate.now(zoneId).toEpochDay() -
+                    java.time.Instant.ofEpochMilli(createTime)
+                        .atZone(zoneId)
+                        .toLocalDate()
+                        .toEpochDay()
+            val relTimeStr =
+                when {
+                    epochDay > 1 ->
+                        localizedChatQuantity(
+                            R.plurals.chat_message_time_days_ago,
+                            epochDay.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                            epochDay,
+                        )
+                    epochDay == 1L -> localizedChatString(R.string.chat_message_time_yesterday)
+                    else -> {
+                        val diff = System.currentTimeMillis() - createTime
+                        when {
+                            diff <= 0 -> localizedChatString(R.string.chat_message_time_just_now)
+                            else -> {
+                                val mins = diff / 60000
+                                val hours = diff / 3600000
+                                when {
+                                    mins < 1 ->
+                                        localizedChatString(R.string.chat_message_time_just_now)
+                                    hours < 1 ->
+                                        localizedChatQuantity(
+                                            R.plurals.chat_message_time_minutes_ago,
+                                            mins.toInt(),
+                                            mins,
+                                        )
+                                    else -> {
+                                        val displayedHours = maxOf(hours, 1L)
+                                        localizedChatQuantity(
+                                            R.plurals.chat_message_time_hours_ago,
+                                            displayedHours
+                                                .coerceAtMost(Int.MAX_VALUE.toLong())
+                                                .toInt(),
+                                            displayedHours,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
             result = result.replace($$"$relativeTime", relTimeStr)
         }
 
         if (result.contains($$"$type")) {
-//            val typeStr = "0x${msgInfo.typeCode.toString(16).uppercase(Locale.ROOT)}"
-//            result = result.replace($$"$type", typeStr)
+            //            val typeStr = "0x${msgInfo.typeCode.toString(16).uppercase(Locale.ROOT)}"
+            //            result = result.replace($$"$type", typeStr)
             result = result.replace($$"$type", msgInfo.typeCode.toString())
         }
 
@@ -148,17 +156,20 @@ object MessageTimeEnhancements : ClickableFeature(),
         }
 
         if (result.contains($$"$mentionedUsers")) {
-            val atStr = when {
-                msgInfo.mentionedUsers.isEmpty() -> ""
-                msgInfo.isAnnounceAll -> localizedChatString(R.string.chat_message_time_group_announcement)
-                msgInfo.isNotifyAll -> localizedChatString(R.string.chat_message_time_everyone)
-                msgInfo.isAtMe -> localizedChatString(R.string.chat_message_time_me)
-                else -> localizedChatQuantity(
-                    R.plurals.chat_message_time_mentioned_people,
-                    msgInfo.mentionedUsers.size,
-                    msgInfo.mentionedUsers.size,
-                )
-            }
+            val atStr =
+                when {
+                    msgInfo.mentionedUsers.isEmpty() -> ""
+                    msgInfo.isAnnounceAll ->
+                        localizedChatString(R.string.chat_message_time_group_announcement)
+                    msgInfo.isNotifyAll -> localizedChatString(R.string.chat_message_time_everyone)
+                    msgInfo.isAtMe -> localizedChatString(R.string.chat_message_time_me)
+                    else ->
+                        localizedChatQuantity(
+                            R.plurals.chat_message_time_mentioned_people,
+                            msgInfo.mentionedUsers.size,
+                            msgInfo.mentionedUsers.size,
+                        )
+                }
             result = result.replace($$"$mentionedUsers", atStr)
         }
 
@@ -169,8 +180,8 @@ object MessageTimeEnhancements : ClickableFeature(),
      * Re-renders the message-time view, optionally including a read-receipt count.
      *
      * Read-receipt updates use this entry point instead of reproducing the time formatting and
-     * styling rules. A null count is meaningful: it clears an active template placeholder but
-     * never adds a suffix to native text.
+     * styling rules. A null count is meaningful: it clears an active template placeholder but never
+     * adds a suffix to native text.
      */
     @SuppressLint("SetTextI18n")
     fun renderMessageTime(
@@ -184,14 +195,15 @@ object MessageTimeEnhancements : ClickableFeature(),
         if (!forceVisible && !isAlwaysVisible && !time.isVisible) return
 
         val context = time.context
-        val baseText = if (enhancementActive) {
-            getFormattedText(msgInfo)
-        } else {
-            readReceiptNativeText(
-                time.text?.toString().orEmpty(),
-                time.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) as? String,
-            )
-        }
+        val baseText =
+            if (enhancementActive) {
+                getFormattedText(msgInfo)
+            } else {
+                readReceiptNativeText(
+                    time.text?.toString().orEmpty(),
+                    time.getTag(READ_RECEIPTS_NATIVE_TEXT_TAG) as? String,
+                )
+            }
         val localizedReadText = readReceiptCount?.let {
             localizedChatString(R.string.chat_read_receipts_count, it)
         }
@@ -210,18 +222,22 @@ object MessageTimeEnhancements : ClickableFeature(),
         time.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize.toFloat())
 
         // 1. Convert 12dp to pixels dynamically so it matches standard screen-edge spacing
-        val edgeMarginPx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            12f,
-            context.resources.displayMetrics
-        ).toInt()
+        val edgeMarginPx =
+            TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    12f,
+                    context.resources.displayMetrics,
+                )
+                .toInt()
 
         // 2. Make the paddings above and below the time smaller (2dp)
-        val verticalPaddingPx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            2f,
-            context.resources.displayMetrics
-        ).toInt()
+        val verticalPaddingPx =
+            TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    2f,
+                    context.resources.displayMetrics,
+                )
+                .toInt()
         time.setPadding(time.paddingLeft, verticalPaddingPx, time.paddingRight, verticalPaddingPx)
 
         val lp = time.layoutParams as? RelativeLayout.LayoutParams
@@ -266,19 +282,21 @@ object MessageTimeEnhancements : ClickableFeature(),
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
         param: HookParam,
-        view: View
+        view: View,
     ) {
         val tag = view.tag ?: return
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
 
-        val time = tag.reflekt()
-            .firstField {
-                name = "timeTV"
-                superclass()
-            }
-            .get() as? TextView? ?: return
+        val time =
+            tag.reflekt()
+                .firstField {
+                    name = "timeTV"
+                    superclass()
+                }
+                .get() as? TextView? ?: return
 
-        val nextGeneration = ((time.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long) ?: 0L) + 1L
+        val nextGeneration =
+            ((time.getTag(READ_RECEIPTS_BINDING_GENERATION_TAG) as? Long) ?: 0L) + 1L
         time.setTag(READ_RECEIPTS_BINDING_GENERATION_TAG, nextGeneration)
 
         val trackedMessageId = time.getTag(READ_RECEIPTS_MESSAGE_ID_TAG) as? Long
@@ -288,11 +306,12 @@ object MessageTimeEnhancements : ClickableFeature(),
             time.setTag(READ_RECEIPTS_COUNT_TAG, null)
             time.setTag(READ_RECEIPTS_NATIVE_TEXT_TAG, null)
         }
-        val count = if (tracked) {
-            (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)?.count
-        } else {
-            null
-        }
+        val count =
+            if (tracked) {
+                (time.getTag(READ_RECEIPTS_COUNT_TAG) as? ReadReceiptCountState)?.count
+            } else {
+                null
+            }
         renderMessageTime(msgInfo, time, forceVisible = tracked, readReceiptCount = count)
     }
 
@@ -315,40 +334,42 @@ object MessageTimeEnhancements : ClickableFeature(),
                         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                             item {
                                 BaseSupportingWidget(
-                                    title = stringResource(R.string.chat_message_time_display_template),
+                                    title =
+                                        stringResource(R.string.chat_message_time_display_template),
                                 ) {
                                     Column {
                                         OutlinedTextField(
                                             value = displayFormatInput,
                                             onValueChange = { displayFormatInput = it },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp)
-                                                .onFocusChanged { isFocused = it.isFocused }
+                                            modifier =
+                                                Modifier.fillMaxWidth()
+                                                    .padding(horizontal = 16.dp)
+                                                    .onFocusChanged { isFocused = it.isFocused },
                                         )
 
                                         Text(
-                                            stringResource(R.string.chat_message_time_insert_placeholder),
-                                            modifier = Modifier
-                                                .padding(start = 16.dp, top = 8.dp)
+                                            stringResource(
+                                                R.string.chat_message_time_insert_placeholder,
+                                            ),
+                                            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                                         )
 
-                                        val placeholders = listOf(
-                                            $$"$time",
-                                            $$"$relativeTime",
-                                            $$"$type",
-                                            $$"$msgId",
-                                            $$"$msgSvrId",
-                                            $$"$mentionedUsers",
-                                            READ_RECEIPTS_PLACEHOLDER,
-                                        )
+                                        val placeholders =
+                                            listOf(
+                                                $$"$time",
+                                                $$"$relativeTime",
+                                                $$"$type",
+                                                $$"$msgId",
+                                                $$"$msgSvrId",
+                                                $$"$mentionedUsers",
+                                                READ_RECEIPTS_PLACEHOLDER,
+                                            )
                                         PlaceholderChips(
                                             placeholders = placeholders,
                                             value = displayFormatInput,
                                             isFieldFocused = isFocused,
                                             onValueChange = { displayFormatInput = it },
-                                            modifier = Modifier
-                                                .padding(horizontal = 16.dp),
+                                            modifier = Modifier.padding(horizontal = 16.dp),
                                         )
                                     }
                                 }
@@ -360,9 +381,8 @@ object MessageTimeEnhancements : ClickableFeature(),
                                     OutlinedTextField(
                                         value = timeFormatInput,
                                         onValueChange = { timeFormatInput = it },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
+                                        modifier =
+                                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                     )
                                 }
                             }
@@ -372,11 +392,13 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 ) {
                                     OutlinedTextField(
                                         value = textSizeInputRaw,
-                                        onValueChange = { textSizeInputRaw = it.filter { c -> c.isDigit() } },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
+                                        onValueChange = {
+                                            textSizeInputRaw = it.filter { c -> c.isDigit() }
+                                        },
+                                        keyboardOptions =
+                                            KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier =
+                                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                     )
                                 }
                             }
@@ -398,7 +420,8 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 SwitchWidget(
                                     iconPlaceholder = false,
                                     title = stringResource(R.string.chat_message_time_center),
-                                    description = stringResource(R.string.chat_message_time_center_summary),
+                                    description =
+                                        stringResource(R.string.chat_message_time_center_summary),
                                     checked = isAlwaysCenteredInput,
                                     onCheckedChange = { isAlwaysCenteredInput = it },
                                 )
@@ -407,7 +430,10 @@ object MessageTimeEnhancements : ClickableFeature(),
                                 SwitchWidget(
                                     iconPlaceholder = false,
                                     title = stringResource(R.string.chat_message_time_always_show),
-                                    description = stringResource(R.string.chat_message_time_always_show_summary),
+                                    description =
+                                        stringResource(
+                                            R.string.chat_message_time_always_show_summary,
+                                        ),
                                     checked = isAlwaysVisibleInput,
                                     onCheckedChange = { isAlwaysVisibleInput = it },
                                 )
@@ -416,26 +442,34 @@ object MessageTimeEnhancements : ClickableFeature(),
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val textSizeInput = textSizeInputRaw.toIntOrNull()
-                        if (textSizeInput == null || textSizeInput <= 0) {
-                            showToast(localizedContext.getString(R.string.chat_message_time_invalid_number))
-                            return@TextButton
-                        }
+                    TextButton(
+                        onClick = {
+                            val textSizeInput = textSizeInputRaw.toIntOrNull()
+                            if (textSizeInput == null || textSizeInput <= 0) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.chat_message_time_invalid_number,
+                                    ),
+                                )
+                                return@TextButton
+                            }
 
-                        displayFormat = displayFormatInput.text
-                        timeFormat = timeFormatInput
-                        textSize = textSizeInput
-                        isAlwaysCentered = isAlwaysCenteredInput
-                        isAlwaysVisible = isAlwaysVisibleInput
-                        textColorLight = textColorLightInput
-                        textColorDark = textColorDarkInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
+                            displayFormat = displayFormatInput.text
+                            timeFormat = timeFormatInput
+                            textSize = textSizeInput
+                            isAlwaysCentered = isAlwaysCenteredInput
+                            isAlwaysVisible = isAlwaysVisibleInput
+                            textColorLight = textColorLightInput
+                            textColorDark = textColorDarkInput
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                }
+                },
             )
         }
     }

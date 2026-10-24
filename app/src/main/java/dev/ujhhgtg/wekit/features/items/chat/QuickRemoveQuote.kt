@@ -17,36 +17,46 @@ object QuickRemoveQuote : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_quick_remove_quote_description
 
-    private val methodSupportAutoCompleteOnKey by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            name = "onKey"
-            usingEqStrings("ChatFooterKtHelper", "supportAutoComplete err")
-        },
-    )
-    private val methodShowMsgQuoteContainer by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-            returnType = "void"
-            paramTypes("boolean", "boolean")
-            usingEqStrings("")
-        },
-    )
+    private val methodSupportAutoCompleteOnKey by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                name = "onKey"
+                usingEqStrings("ChatFooterKtHelper", "supportAutoComplete err")
+            },
+        )
+    private val methodShowMsgQuoteContainer by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
+                returnType = "void"
+                paramTypes("boolean", "boolean")
+                usingEqStrings("")
+            },
+        )
 
     override fun onEnable() {
         methodSupportAutoCompleteOnKey.hookBefore {
             val event = args[2] as KeyEvent
-            if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DEL) return@hookBefore
+            if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DEL)
+                return@hookBefore
 
-            val chatFooterHelper = thisObject!!.reflekt()
-                .firstField {
-                    type { clazz -> clazz.name.startsWith("com.tencent.mm.pluginsdk.ui.chat.") }
-                }.get()!!
+            val chatFooterHelper =
+                thisObject!!
+                    .reflekt()
+                    .firstField {
+                        type { clazz -> clazz.name.startsWith("com.tencent.mm.pluginsdk.ui.chat.") }
+                    }
+                    .get()!!
 
-            val chatFooter = chatFooterHelper.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
-                }.get()!! as ChatFooter
+            val chatFooter =
+                chatFooterHelper
+                    .reflekt()
+                    .firstField {
+                        type = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
+                    }
+                    .get()!!
+                    as ChatFooter
 
             val text = chatFooter.lastText
             val quoteMsgId = chatFooter.lastQuoteMsgId

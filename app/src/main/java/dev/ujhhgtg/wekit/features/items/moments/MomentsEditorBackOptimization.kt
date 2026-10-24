@@ -14,10 +14,8 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /**
- * SnsUploadUI 在 8.0.74+ 将"保留当前内容？"确认框创建为不可取消 (cancelable=false)，
- * 系统返回键/手势被对话框吞掉，既不关闭对话框也无法留在编辑页。
- * 这里在框架 [Dialog.show] 之后仅对该确认框重新放开取消，让系统返回关闭对话框并留在编辑页，
- * 并在确认框文本中追加"触发系统返回以留在当前页面"提示。
+ * SnsUploadUI 在 8.0.74+ 将"保留当前内容？"确认框创建为不可取消 (cancelable=false)， 系统返回键/手势被对话框吞掉，既不关闭对话框也无法留在编辑页。
+ * 这里在框架 [Dialog.show] 之后仅对该确认框重新放开取消，让系统返回关闭对话框并留在编辑页， 并在确认框文本中追加"触发系统返回以留在当前页面"提示。
  * "保留"/"不保留"按钮语义保持不变。
  */
 object MomentsEditorBackOptimization : SwitchFeature() {
@@ -74,9 +72,10 @@ object MomentsEditorBackOptimization : SwitchFeature() {
         }
     }
 
-    private fun Context?.unwrapActivity(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.unwrapActivity()
-        else -> null
-    }
+    private fun Context?.unwrapActivity(): Activity? =
+        when (this) {
+            is Activity -> this
+            is ContextWrapper -> baseContext.unwrapActivity()
+            else -> null
+        }
 }

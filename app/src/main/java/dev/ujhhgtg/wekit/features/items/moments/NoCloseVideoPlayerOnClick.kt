@@ -6,16 +6,17 @@ import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
+
 object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
 
     override val technicalId = "单击不关闭视频播放器"
@@ -30,15 +31,19 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
             val event = args[1] as MotionEvent
             if (event.actionMasked != MotionEvent.ACTION_UP) return@hookBefore
 
-            val activity = thisObject!!.reflekt()
-                .firstField { type = "com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity" }
-                .get() as Activity
+            val activity =
+                thisObject!!
+                    .reflekt()
+                    .firstField { type = "com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity" }
+                    .get() as Activity
             val seekBarController = fieldSeekBarController.field.get(activity)!!
 
             // The legacy controller has no expandable control bar.
-            val expandableSeekBar = (seekBarController.reflekt()
-                .firstFieldOrNull { type = "com.tencent.mm.pluginsdk.ui.seekbar.ExpandableHeroSeekBarView" }
-                ?: return@hookBefore).get()!!
+            val expandableSeekBar =
+                (seekBarController.reflekt().firstFieldOrNull {
+                        type = "com.tencent.mm.pluginsdk.ui.seekbar.ExpandableHeroSeekBarView"
+                    } ?: return@hookBefore)
+                    .get()!!
             val toggleBtn = expandableSeekBar.reflekt().invokeMethod("getExpandBarBtn") as View
             toggleBtn.performClick()
         }
@@ -47,35 +52,42 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
     private val fieldSeekBarController by dexFieldQuery {
         uniqueField(
             FieldSpec(
-                declaredClass = ClassSpec(
-                    className = NameSpec("com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity"),
-                ),
-                type = ClassSpec(
-                    methods = listOf(
-                        MethodSpec(
-                            returnType = ClassSpec(className = NameSpec("void")),
-                            paramTypes = listOf(
-                                TypeSpec("android.app.Activity"),
-                                TypeSpec("android.view.ViewStub"),
-                                TypeSpec("com.tencent.mm.plugin.sns.ui.OnlineVideoView"),
-                                null,
-                            ),
-                        ),
+                declaredClass =
+                    ClassSpec(
+                        className = NameSpec("com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity"),
                     ),
-                ),
-            )
+                type =
+                    ClassSpec(
+                        methods =
+                            listOf(
+                                MethodSpec(
+                                    returnType = ClassSpec(className = NameSpec("void")),
+                                    paramTypes =
+                                        listOf(
+                                            TypeSpec("android.app.Activity"),
+                                            TypeSpec("android.view.ViewStub"),
+                                            TypeSpec(
+                                                "com.tencent.mm.plugin.sns.ui.OnlineVideoView",
+                                            ),
+                                            null,
+                                        ),
+                                ),
+                            ),
+                    ),
+            ),
         )
     }
 
-    private val methodVideoOnTouchListenerOnTouch by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui")
-            name = "onTouch"
-            usingEqStrings(
-                "com/tencent/mm/plugin/sns/ui/SnsOnlineVideoActivity\$5",
-                "android/view/View\$OnTouchListener",
-                "onTouch",
-            )
-        },
-    )
+    private val methodVideoOnTouchListenerOnTouch by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui")
+                name = "onTouch"
+                usingEqStrings(
+                    "com/tencent/mm/plugin/sns/ui/SnsOnlineVideoActivity\$5",
+                    "android/view/View\$OnTouchListener",
+                    "onTouch",
+                )
+            },
+        )
 }

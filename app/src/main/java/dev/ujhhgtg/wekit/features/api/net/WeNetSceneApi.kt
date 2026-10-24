@@ -17,16 +17,24 @@ object WeNetSceneApi : ApiFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_we_net_scene_api_description
 
     fun sendNetScene(netScene: Any) {
-        val queue = WeDatabaseApi.classMmKernel.clazz.reflekt()
-            .firstMethod {
-                returnType = methodAddNetSceneToQueue.method.declaringClass
-            }.invoke()!!
+        val queue =
+            WeDatabaseApi.classMmKernel.clazz
+                .reflekt()
+                .firstMethod {
+                    returnType = methodAddNetSceneToQueue.method.declaringClass
+                }
+                .invoke()!!
         methodAddNetSceneToQueue.method.invoke(queue, netScene, 0)
     }
 
-    val methodAddNetSceneToQueue by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.NetSceneQueue", "forbid in waiting: type=", "forbid in running: type=")
-        },
-    )
+    val methodAddNetSceneToQueue by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.NetSceneQueue",
+                    "forbid in waiting: type=",
+                    "forbid in running: type=",
+                )
+            },
+        )
 }

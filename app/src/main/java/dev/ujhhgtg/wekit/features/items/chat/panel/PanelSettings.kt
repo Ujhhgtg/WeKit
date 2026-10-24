@@ -24,68 +24,81 @@ object PanelSettings {
     private var stickerItemSortModeValue by prefOption("sticker_panel_item_sort_mode", "")
     private var voicePackSortModeValue by prefOption("voice_panel_pack_sort_mode", "")
     private var voiceItemSortModeValue by prefOption("voice_panel_item_sort_mode", "")
-    var stickerPackCustomSortHintShown by prefOption("sticker_panel_pack_custom_sort_hint_shown", false)
-    var stickerItemCustomSortHintShown by prefOption("sticker_panel_item_custom_sort_hint_shown", false)
+    var stickerPackCustomSortHintShown by
+        prefOption("sticker_panel_pack_custom_sort_hint_shown", false)
+    var stickerItemCustomSortHintShown by
+        prefOption("sticker_panel_item_custom_sort_hint_shown", false)
     var voicePackCustomSortHintShown by prefOption("voice_panel_pack_custom_sort_hint_shown", false)
     var voiceItemCustomSortHintShown by prefOption("voice_panel_item_custom_sort_hint_shown", false)
     var panelAutoClose by prefOption("panel_auto_close", true)
     var wrapPanelActions by prefOption("panel_actions_wrap", false)
     var rememberPanelNavigation by prefOption("panel_remember_navigation", true)
-    var panelDownloadConcurrency by prefOption(
-        "panel_download_concurrency",
-        DEFAULT_PANEL_DOWNLOAD_CONCURRENCY,
-    )
-    var panelConversionConcurrency by prefOption(
-        "panel_conversion_concurrency",
-        DEFAULT_PANEL_CONVERSION_CONCURRENCY,
-    )
+    var panelDownloadConcurrency by
+        prefOption(
+            "panel_download_concurrency",
+            DEFAULT_PANEL_DOWNLOAD_CONCURRENCY,
+        )
+    var panelConversionConcurrency by
+        prefOption(
+            "panel_conversion_concurrency",
+            DEFAULT_PANEL_CONVERSION_CONCURRENCY,
+        )
     private var localStickerPackLayoutValue by prefOption("sticker_panel_local_pack_layout", "TABS")
     private var onlineStickerPackLayoutValue by prefOption("sticker_panel_online_pack_layout", "")
     private var localVoicePackLayoutValue by prefOption("voice_panel_local_pack_layout", "TABS")
     var onlineStickerSortMode by prefOption("sticker_panel_online_sort_mode", 0)
     var selectedVoiceProvider by prefOption("voice_panel_selected_provider", "funbox_share")
     var selectedEdgeVoice by prefOption("voice_panel_edge_voice", "zh-CN-XiaoxiaoNeural")
-    var funBoxApiClientWxId by prefOption(
-        "funbox_api_client_wxid",
-        DEFAULT_FUNBOX_API_CLIENT_WXID,
-    )
+    var funBoxApiClientWxId by
+        prefOption(
+            "funbox_api_client_wxid",
+            DEFAULT_FUNBOX_API_CLIENT_WXID,
+        )
     var telegramBotToken by prefOption("sticker_panel_telegram_bot_token", "")
-    var stickerTgsGifFrameRate by prefOption(
-        "sticker_panel_tgs_gif_frame_rate",
-        DEFAULT_TGS_GIF_FRAME_RATE,
-    )
-    var stickerClosePreviewAfterScrub by prefOption(
-        "sticker_panel_close_preview_after_scrub",
-        true,
-    )
-    var stickerOnlinePreviewUseOriginal by prefOption(
-        "sticker_panel_online_preview_use_original",
-        true,
-    )
-    var stickerRemoveRoundedVideoMask by prefOption(
-        "sticker_panel_remove_rounded_video_mask",
-        false,
-    )
+    var stickerTgsGifFrameRate by
+        prefOption(
+            "sticker_panel_tgs_gif_frame_rate",
+            DEFAULT_TGS_GIF_FRAME_RATE,
+        )
+    var stickerClosePreviewAfterScrub by
+        prefOption(
+            "sticker_panel_close_preview_after_scrub",
+            true,
+        )
+    var stickerOnlinePreviewUseOriginal by
+        prefOption(
+            "sticker_panel_online_preview_use_original",
+            true,
+        )
+    var stickerRemoveRoundedVideoMask by
+        prefOption(
+            "sticker_panel_remove_rounded_video_mask",
+            false,
+        )
 
     var localStickerPackLayout: StickerPackLayout
-        get() = StickerPackLayout.entries.firstOrNull { it.name == localStickerPackLayoutValue }
-            ?: StickerPackLayout.TABS
+        get() =
+            StickerPackLayout.entries.firstOrNull { it.name == localStickerPackLayoutValue }
+                ?: StickerPackLayout.TABS
         set(value) {
             localStickerPackLayoutValue = value.name
         }
 
     var onlineStickerPackLayout: StickerPackLayout
-        get() = StickerPackLayout.entries
-            .firstOrNull { it != StickerPackLayout.TABS && it.name == onlineStickerPackLayoutValue }
-            ?: StickerPackLayout.GRID
+        get() =
+            StickerPackLayout.entries.firstOrNull {
+                it != StickerPackLayout.TABS && it.name == onlineStickerPackLayoutValue
+            } ?: StickerPackLayout.GRID
         set(value) {
-            val normalized = value.takeUnless { it == StickerPackLayout.TABS } ?: StickerPackLayout.GRID
+            val normalized =
+                value.takeUnless { it == StickerPackLayout.TABS } ?: StickerPackLayout.GRID
             onlineStickerPackLayoutValue = normalized.name
         }
 
     var localVoicePackLayout: VoicePackLayout
-        get() = VoicePackLayout.entries.firstOrNull { it.name == localVoicePackLayoutValue }
-            ?: VoicePackLayout.TABS
+        get() =
+            VoicePackLayout.entries.firstOrNull { it.name == localVoicePackLayoutValue }
+                ?: VoicePackLayout.TABS
         set(value) {
             localVoicePackLayoutValue = value.name
         }
@@ -115,23 +128,25 @@ object PanelSettings {
         }
 
     val effectiveFunBoxApiClientWxId: String
-        get() = funBoxApiClientWxId.takeIf(::isValidFunBoxApiClientWxId)
-            ?: DEFAULT_FUNBOX_API_CLIENT_WXID
+        get() =
+            funBoxApiClientWxId.takeIf(::isValidFunBoxApiClientWxId)
+                ?: DEFAULT_FUNBOX_API_CLIENT_WXID
 
     val effectivePanelDownloadConcurrency: Int
-        get() = panelDownloadConcurrency.coerceIn(
-            MIN_PANEL_CONCURRENCY,
-            MAX_PANEL_DOWNLOAD_CONCURRENCY,
-        )
+        get() =
+            panelDownloadConcurrency.coerceIn(
+                MIN_PANEL_CONCURRENCY,
+                MAX_PANEL_DOWNLOAD_CONCURRENCY,
+            )
 
     val effectivePanelConversionConcurrency: Int
-        get() = panelConversionConcurrency.coerceIn(
-            MIN_PANEL_CONCURRENCY,
-            MAX_PANEL_CONVERSION_CONCURRENCY,
-        )
+        get() =
+            panelConversionConcurrency.coerceIn(
+                MIN_PANEL_CONCURRENCY,
+                MAX_PANEL_CONVERSION_CONCURRENCY,
+            )
 
-    fun isValidFunBoxApiClientWxId(value: String): Boolean =
-        FUNBOX_WXID_REGEX.matches(value.trim())
+    fun isValidFunBoxApiClientWxId(value: String): Boolean = FUNBOX_WXID_REGEX.matches(value.trim())
 
     fun randomFunBoxApiClientWxId(): String {
         val bytes = ByteArray(7)

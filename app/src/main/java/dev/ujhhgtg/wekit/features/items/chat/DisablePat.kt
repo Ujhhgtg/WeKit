@@ -14,11 +14,12 @@ object DisablePat : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_disable_pat_description
 
-    private val methodAvatarDoubleClick by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.AvatarDoubleClickListener", "onDoubleClick: %s")
-        },
-    )
+    private val methodAvatarDoubleClick by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("MicroMsg.AvatarDoubleClickListener", "onDoubleClick: %s")
+            },
+        )
 
     override fun onEnable() {
         methodAvatarDoubleClick.hookBefore {

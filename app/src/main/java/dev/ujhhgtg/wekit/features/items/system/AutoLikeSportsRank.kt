@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
@@ -30,10 +31,9 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -41,19 +41,16 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.int
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.abs
-import kotlin.time.Duration.Companion.milliseconds
 
-object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
-    WeDatabaseListenerApi.IInsertListener {
+object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
 
     override val technicalId = "运动排行榜自动点赞"
     override val nameRes = R.string.feature_auto_like_sports_rank_name
@@ -65,13 +62,14 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
     private const val MESSAGE_MAX_AGE_MS = 15 * 60 * 1000L
     private const val LIKE_DELAY_MS = 60_000L
 
-    private val ctorSportsRankLike by dexConstructor(
-        sqlConstructor {
-            paramCount = 4
-            paramTypes("java.lang.String", "java.lang.String", "int", "java.lang.String")
-            usingEqStrings("/cgi-bin/mmbiz-bin/rank/addlike")
-        },
-    )
+    private val ctorSportsRankLike by
+        dexConstructor(
+            sqlConstructor {
+                paramCount = 4
+                paramTypes("java.lang.String", "java.lang.String", "int", "java.lang.String")
+                usingEqStrings("/cgi-bin/mmbiz-bin/rank/addlike")
+            },
+        )
 
     private var minScore by KvStore.prefOption("sports_rank_min_score", 0)
     private var useWhitelist by KvStore.prefOption("sports_rank_use_whitelist", false)
@@ -97,11 +95,12 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
 
         values.getAsLong("createTime")?.let { createTime ->
             val now = System.currentTimeMillis()
-            val normalizedCreateTime = if (decimalDigits(createTime) == decimalDigits(now)) {
-                createTime
-            } else {
-                createTime * 1000L
-            }
+            val normalizedCreateTime =
+                if (decimalDigits(createTime) == decimalDigits(now)) {
+                    createTime
+                } else {
+                    createTime * 1000L
+                }
             if (abs(now - normalizedCreateTime) > MESSAGE_MAX_AGE_MS) return
         }
 
@@ -120,31 +119,34 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
             return
         }
 
-        val rankId = try {
-            WeDatabaseApi.rawQuery(
-                "SELECT rankID FROM HardDeviceRankInfo ORDER BY rankID DESC LIMIT 1"
-            ).use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
+        val rankId =
+            try {
+                WeDatabaseApi.rawQuery(
+                        "SELECT rankID FROM HardDeviceRankInfo ORDER BY rankID DESC LIMIT 1",
+                    )
+                    .use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    }
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "failed to read latest sports rank ID", e)
+                return
             }
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "failed to read latest sports rank ID", e)
-            return
-        }
         if (rankId.isNullOrEmpty()) return
 
         val selfWxId = WeApi.selfWxId
         val targets = mutableListOf<Pair<String, Int>>()
         try {
             WeDatabaseApi.rawQuery(
-                "SELECT username, score FROM HardDeviceRankInfo " +
-                    "WHERE rankID = ? AND username <> ? AND selfLikeState <> 1 ORDER BY score DESC",
-                arrayOf(rankId, selfWxId),
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    val username = cursor.getString(0) ?: continue
-                    targets += username to cursor.getInt(1)
+                    "SELECT username, score FROM HardDeviceRankInfo " +
+                        "WHERE rankID = ? AND username <> ? AND selfLikeState <> 1 ORDER BY score DESC",
+                    arrayOf(rankId, selfWxId),
+                )
+                .use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val username = cursor.getString(0) ?: continue
+                        targets += username to cursor.getInt(1)
+                    }
                 }
-            }
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to read sports rank entries; rankId=$rankId", e)
             return
@@ -163,7 +165,11 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                 val request = ctorSportsRankLike.newInstance(username, sportsAccountName, 1, rankId)
                 WeNetSceneApi.sendNetScene(request)
             } catch (e: Exception) {
-                WeLogger.e(TAG, "failed to like sports rank user; username=$username rankId=$rankId", e)
+                WeLogger.e(
+                    TAG,
+                    "failed to like sports rank user; username=$username rankId=$rankId",
+                    e,
+                )
             }
         }
     }
@@ -187,25 +193,28 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                                         minScoreInput = value.filter(Char::isDigit).take(9)
                                         minScore = minScoreInput.toIntOrNull() ?: 0
                                     },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                 )
                             }
                         }
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(
-                                    if (useWhitelistState) R.string.filter_list_whitelist_selected
-                                    else R.string.filter_list_blacklist_selected
-                                ),
-                                description = stringResource(
-                                    if (useWhitelistState) R.string.sports_rank_whitelist_description
-                                    else R.string.sports_rank_blacklist_description
-                                ),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_whitelist_selected
+                                        else R.string.filter_list_blacklist_selected,
+                                    ),
+                                description =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.sports_rank_whitelist_description
+                                        else R.string.sports_rank_blacklist_description,
+                                    ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
                                     useWhitelistState = it
@@ -216,19 +225,25 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                         item {
                             BaseWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(
-                                    if (useWhitelistState) R.string.filter_list_configure_whitelist
-                                    else R.string.filter_list_configure_blacklist
-                                ),
-                                description = stringResource(R.string.filter_list_select_contacts_hint),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_configure_whitelist
+                                        else R.string.filter_list_configure_blacklist,
+                                    ),
+                                description =
+                                    stringResource(R.string.filter_list_select_contacts_hint),
                                 onClick = {
-                                    val currentList = if (useWhitelistState) whitelist else blacklist
+                                    val currentList =
+                                        if (useWhitelistState) whitelist else blacklist
                                     showComposeDialog(context) {
                                         ContactsSelector(
-                                            title = stringResource(
-                                                if (useWhitelistState) R.string.filter_list_select_whitelist
-                                                else R.string.filter_list_select_blacklist
-                                            ),
+                                            title =
+                                                stringResource(
+                                                    if (useWhitelistState)
+                                                        R.string.filter_list_select_whitelist
+                                                    else R.string.filter_list_select_blacklist,
+                                                ),
                                             contacts = WeDatabaseApi.getFriends(),
                                             initialSelectedWxIds = currentList,
                                             onDismiss = onDismiss,
@@ -242,7 +257,7 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex,
                                                 localizedSystemString(
                                                     R.string.sports_rank_contacts_saved,
                                                     selectedIds.size,
-                                                )
+                                                ),
                                             )
                                             onDismiss()
                                         }

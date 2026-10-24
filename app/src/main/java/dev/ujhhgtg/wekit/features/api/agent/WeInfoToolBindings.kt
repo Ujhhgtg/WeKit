@@ -26,25 +26,37 @@ object WeInfoToolBindings {
 
     @AgentTool(
         name = "get-current-time",
-        description = "Get the REAL current date and time (the system prompt's time is only the session-creation time and does not advance). Returns the local time, timezone, UTC time, epoch milliseconds, and the day of week. Optionally pass a Java time-zone id (e.g. 'UTC', 'America/New_York') to format the local part in that zone instead of the device's.",
+        description =
+            "Get the REAL current date and time (the system prompt's time is only the session-creation time and does not advance). Returns the local time, timezone, UTC time, epoch milliseconds, and the day of week. Optionally pass a Java time-zone id (e.g. 'UTC', 'America/New_York') to format the local part in that zone instead of the device's.",
         sideEffect = false,
         group = GROUP,
     )
     fun getCurrentTime(
-        @AgentToolParam("Optional IANA/Java time-zone id to format in (default: device zone)") timeZoneId: String?,
+        @AgentToolParam("Optional IANA/Java time-zone id to format in (default: device zone)")
+        timeZoneId: String?,
     ): String {
         val now = Instant.now()
-        val zone = timeZoneId?.takeIf { it.isNotBlank() }?.let {
-            runCatching { ZoneId.of(it) }.getOrNull()
-                ?: return "Error: unknown time-zone id '$it'. Use a Java/IANA id like 'UTC' or 'Asia/Shanghai'."
-        } ?: ZoneId.systemDefault()
+        val zone =
+            timeZoneId
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    runCatching { ZoneId.of(it) }.getOrNull()
+                        ?: return "Error: unknown time-zone id '$it'. Use a Java/IANA id like 'UTC' or 'Asia/Shanghai'."
+                } ?: ZoneId.systemDefault()
 
         val local = now.atZone(zone)
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
         val utc = now.atZone(ZoneId.of("UTC"))
         return buildString {
             append("local=").append(local.format(fmt)).append(" (").append(zone.id).append(")\n")
-            append("weekday=").append(local.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault())).append("\n")
+            append("weekday=")
+                .append(
+                    local.dayOfWeek.getDisplayName(
+                        java.time.format.TextStyle.FULL,
+                        Locale.getDefault(),
+                    ),
+                )
+                .append("\n")
             append("utc=").append(utc.format(fmt)).append(" (UTC)\n")
             append("epochMillis=").append(now.toEpochMilli())
         }
@@ -52,7 +64,8 @@ object WeInfoToolBindings {
 
     @AgentTool(
         name = "get-environment-info",
-        description = "Get static information about the runtime environment WeAgent is running in: the host app (usually WeChat) package name, version name and version code, the Android OS version and SDK level, the device model, the device's default locale, and the device's default time-zone id. Read-only.",
+        description =
+            "Get static information about the runtime environment WeAgent is running in: the host app (usually WeChat) package name, version name and version code, the Android OS version and SDK level, the device model, the device's default locale, and the device's default time-zone id. Read-only.",
         sideEffect = false,
         group = GROUP,
     )

@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 
 sealed interface HomeSidePanelRuntimeNamespace {
     data object Live : HomeSidePanelRuntimeNamespace
+
     data class Draft(val sessionId: String) : HomeSidePanelRuntimeNamespace
 }
 
@@ -37,7 +38,9 @@ data class HomeSidePanelRuntimeKey(
 
 sealed interface HomeSidePanelCardRuntimeState {
     data class Weather(val state: WeatherUiState) : HomeSidePanelCardRuntimeState
+
     data class Wallet(val state: HomeSidePanelWalletUiState) : HomeSidePanelCardRuntimeState
+
     data class Hitokoto(val state: HitokotoUiState) : HomeSidePanelCardRuntimeState
 }
 
@@ -51,7 +54,8 @@ class HomeSidePanelRuntimeStore(
 
     private val storeJob = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + storeJob)
-    private val _states = MutableStateFlow<Map<HomeSidePanelRuntimeKey, HomeSidePanelCardRuntimeState>>(emptyMap())
+    private val _states =
+        MutableStateFlow<Map<HomeSidePanelRuntimeKey, HomeSidePanelCardRuntimeState>>(emptyMap())
     private val activeLayouts = mutableMapOf<HomeSidePanelRuntimeNamespace, HomeSidePanelLayout>()
     private val jobs = mutableMapOf<HomeSidePanelRuntimeKey, Job>()
     private val weatherCaches = mutableMapOf<HomeSidePanelRuntimeKey, WeatherCardCacheRecord>()
@@ -93,11 +97,12 @@ class HomeSidePanelRuntimeStore(
         sessionId: String,
         old: HomeSidePanelLayout?,
         new: HomeSidePanelLayout,
-    ) = reconcile(
-        namespace = HomeSidePanelRuntimeNamespace.Draft(sessionId),
-        old = old,
-        new = new,
-    )
+    ) =
+        reconcile(
+            namespace = HomeSidePanelRuntimeNamespace.Draft(sessionId),
+            old = old,
+            new = new,
+        )
 
     private fun reconcile(
         namespace: HomeSidePanelRuntimeNamespace,
@@ -129,13 +134,16 @@ class HomeSidePanelRuntimeStore(
                 "Weather card $key has mismatched runtime state $runtime"
             }
             val previous = runtime.state
-            val loading = when (previous) {
-                is WeatherUiState.Ready -> previous.copy(refreshing = true)
-                is WeatherUiState.Error -> previous.cached?.let { WeatherUiState.Ready(it, refreshing = true) }
-                    ?: WeatherUiState.Loading
-                else -> cached?.let { WeatherUiState.Ready(it, refreshing = true) }
-                    ?: WeatherUiState.Loading
-            }
+            val loading =
+                when (previous) {
+                    is WeatherUiState.Ready -> previous.copy(refreshing = true)
+                    is WeatherUiState.Error ->
+                        previous.cached?.let { WeatherUiState.Ready(it, refreshing = true) }
+                            ?: WeatherUiState.Loading
+                    else ->
+                        cached?.let { WeatherUiState.Ready(it, refreshing = true) }
+                            ?: WeatherUiState.Loading
+                }
             current + (key to HomeSidePanelCardRuntimeState.Weather(loading))
         }
         replaceJob(key) {
@@ -144,15 +152,21 @@ class HomeSidePanelRuntimeStore(
                     val record = WeatherCardCacheRecord(fingerprint, result.snapshot)
                     weatherCaches[key] = record
                     persistWeatherCache(namespace, card.id, record)
-                    updateState(key, HomeSidePanelCardRuntimeState.Weather(WeatherUiState.Ready(result.snapshot)))
+                    updateState(
+                        key,
+                        HomeSidePanelCardRuntimeState.Weather(
+                            WeatherUiState.Ready(result.snapshot),
+                        ),
+                    )
                 }
 
-                is WeatherResult.Error -> updateState(
-                    key,
-                    HomeSidePanelCardRuntimeState.Weather(
-                        WeatherUiState.Error(result.message, cached),
-                    ),
-                )
+                is WeatherResult.Error ->
+                    updateState(
+                        key,
+                        HomeSidePanelCardRuntimeState.Weather(
+                            WeatherUiState.Error(result.message, cached),
+                        ),
+                    )
             }
         }
     }
@@ -168,13 +182,16 @@ class HomeSidePanelRuntimeStore(
                 "Hitokoto card $key has mismatched runtime state $runtime"
             }
             val previous = runtime.state
-            val loading = when (previous) {
-                is HitokotoUiState.Ready -> previous.copy(refreshing = true)
-                is HitokotoUiState.Error -> previous.cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
-                    ?: HitokotoUiState.Loading
-                else -> cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
-                    ?: HitokotoUiState.Loading
-            }
+            val loading =
+                when (previous) {
+                    is HitokotoUiState.Ready -> previous.copy(refreshing = true)
+                    is HitokotoUiState.Error ->
+                        previous.cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
+                            ?: HitokotoUiState.Loading
+                    else ->
+                        cached?.let { HitokotoUiState.Ready(it, refreshing = true) }
+                            ?: HitokotoUiState.Loading
+                }
             current + (key to HomeSidePanelCardRuntimeState.Hitokoto(loading))
         }
         replaceJob(key) {
@@ -183,15 +200,21 @@ class HomeSidePanelRuntimeStore(
                     val record = HitokotoCardCacheRecord(fingerprint, result.snapshot)
                     hitokotoCaches[key] = record
                     persistHitokotoCache(namespace, card.id, record)
-                    updateState(key, HomeSidePanelCardRuntimeState.Hitokoto(HitokotoUiState.Ready(result.snapshot)))
+                    updateState(
+                        key,
+                        HomeSidePanelCardRuntimeState.Hitokoto(
+                            HitokotoUiState.Ready(result.snapshot),
+                        ),
+                    )
                 }
 
-                is HitokotoResult.Error -> updateState(
-                    key,
-                    HomeSidePanelCardRuntimeState.Hitokoto(
-                        HitokotoUiState.Error(result.message, cached),
-                    ),
-                )
+                is HitokotoResult.Error ->
+                    updateState(
+                        key,
+                        HomeSidePanelCardRuntimeState.Hitokoto(
+                            HitokotoUiState.Error(result.message, cached),
+                        ),
+                    )
             }
         }
     }
@@ -204,9 +227,14 @@ class HomeSidePanelRuntimeStore(
             require(wallet is HomeSidePanelCardRuntimeState.Wallet) {
                 "Wallet card $key has mismatched runtime state $wallet"
             }
-            current + (key to wallet.copy(state = wallet.state.copy(
-                displayState = wallet.state.displayState.toggleFromCard(),
-            )))
+            current +
+                (key to
+                    wallet.copy(
+                        state =
+                            wallet.state.copy(
+                                displayState = wallet.state.displayState.toggleFromCard(),
+                            ),
+                    ))
         }
     }
 
@@ -221,7 +249,10 @@ class HomeSidePanelRuntimeStore(
         _states.update { current ->
             current.mapValues { (key, runtime) ->
                 if (key.namespace == namespace && runtime is HomeSidePanelCardRuntimeState.Wallet) {
-                    runtime.copy(state = runtime.state.copy(displayState = runtime.state.displayState.reset()))
+                    runtime.copy(
+                        state =
+                            runtime.state.copy(displayState = runtime.state.displayState.reset()),
+                    )
                 } else {
                     runtime
                 }
@@ -238,29 +269,42 @@ class HomeSidePanelRuntimeStore(
         val liveWeather = entriesForNamespace(weatherCaches, HomeSidePanelRuntimeNamespace.Live)
         val draftHitokoto = entriesForNamespace(hitokotoCaches, draft)
         val liveHitokoto = entriesForNamespace(hitokotoCaches, HomeSidePanelRuntimeNamespace.Live)
-        val promotedWeather = retainCommittedCardEntries(liveWeather + draftWeather, committed).filter { (id, record) ->
-            val card = committed.cards.firstOrNull { it.id == id } as? WeatherCardConfig
-            card != null && record.fingerprint == weatherCacheFingerprint(card.city)
-        }
-        val promotedHitokoto = retainCommittedCardEntries(liveHitokoto + draftHitokoto, committed).filter { (id, record) ->
-            val card = committed.cards.firstOrNull { it.id == id } as? HitokotoCardConfig
-            card != null && record.fingerprint == hitokotoCacheFingerprint(card.settings)
-        }
-        val promotedStates = retainCommittedCardEntries(
-            _states.value.filterKeys { it.namespace == draft }.mapKeys { it.key.cardId },
-            committed,
-        )
+        val promotedWeather =
+            retainCommittedCardEntries(liveWeather + draftWeather, committed).filter { (id, record)
+                ->
+                val card = committed.cards.firstOrNull { it.id == id } as? WeatherCardConfig
+                card != null && record.fingerprint == weatherCacheFingerprint(card.city)
+            }
+        val promotedHitokoto =
+            retainCommittedCardEntries(liveHitokoto + draftHitokoto, committed).filter {
+                (id, record) ->
+                val card = committed.cards.firstOrNull { it.id == id } as? HitokotoCardConfig
+                card != null && record.fingerprint == hitokotoCacheFingerprint(card.settings)
+            }
+        val promotedStates =
+            retainCommittedCardEntries(
+                _states.value.filterKeys { it.namespace == draft }.mapKeys { it.key.cardId },
+                committed,
+            )
 
-        jobs.keys.filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
-            .toList().forEach(::cancelJob)
+        jobs.keys
+            .filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+            .toList()
+            .forEach(::cancelJob)
         _states.update { current ->
-            current.filterKeys { it.namespace != draft && it.namespace != HomeSidePanelRuntimeNamespace.Live } +
+            current.filterKeys {
+                it.namespace != draft && it.namespace != HomeSidePanelRuntimeNamespace.Live
+            } +
                 promotedStates.mapKeys { (cardId, _) ->
                     HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, cardId)
                 }
         }
-        weatherCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
-        hitokotoCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+        weatherCaches.keys.removeAll {
+            it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live
+        }
+        hitokotoCaches.keys.removeAll {
+            it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live
+        }
         oldLive?.cards?.forEach { cacheStore.removeCardCaches(it.id) }
         promotedWeather.forEach { (cardId, record) ->
             val key = HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, cardId)
@@ -282,32 +326,50 @@ class HomeSidePanelRuntimeStore(
     fun recoverCommittedLayout(sessionId: String, committed: HomeSidePanelLayout) {
         liveCachePolicy = HomeSidePanelLiveCachePolicy.STORED
         val draft = HomeSidePanelRuntimeNamespace.Draft(sessionId)
-        jobs.keys.filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
-            .toList().forEach(::cancelJob)
-        weatherCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
-        hitokotoCaches.keys.removeAll { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+        jobs.keys
+            .filter { it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live }
+            .toList()
+            .forEach(::cancelJob)
+        weatherCaches.keys.removeAll {
+            it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live
+        }
+        hitokotoCaches.keys.removeAll {
+            it.namespace == draft || it.namespace == HomeSidePanelRuntimeNamespace.Live
+        }
         activeLayouts.remove(draft)
         activeLayouts[HomeSidePanelRuntimeNamespace.Live] = committed
 
-        val recovered = committed.cards.mapNotNull { card ->
-            val runtime = when (card) {
-                is WeatherCardConfig -> HomeSidePanelCardRuntimeState.Weather(WeatherUiState.Loading)
-                is WalletCardConfig -> HomeSidePanelCardRuntimeState.Wallet(
-                    HomeSidePanelWalletUiState(
-                        balanceFen = walletBalance.updates.value,
-                        displayState = HomeSidePanelWalletDisplayState(card.hideBalanceByDefault),
-                    ),
-                )
+        val recovered =
+            committed.cards
+                .mapNotNull { card ->
+                    val runtime =
+                        when (card) {
+                            is WeatherCardConfig ->
+                                HomeSidePanelCardRuntimeState.Weather(WeatherUiState.Loading)
+                            is WalletCardConfig ->
+                                HomeSidePanelCardRuntimeState.Wallet(
+                                    HomeSidePanelWalletUiState(
+                                        balanceFen = walletBalance.updates.value,
+                                        displayState =
+                                            HomeSidePanelWalletDisplayState(
+                                                card.hideBalanceByDefault,
+                                            ),
+                                    ),
+                                )
 
-                is HitokotoCardConfig -> HomeSidePanelCardRuntimeState.Hitokoto(HitokotoUiState.Loading)
-                else -> null
-            }
-            runtime?.let {
-                HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id) to it
-            }
-        }.toMap()
+                            is HitokotoCardConfig ->
+                                HomeSidePanelCardRuntimeState.Hitokoto(HitokotoUiState.Loading)
+                            else -> null
+                        }
+                    runtime?.let {
+                        HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id) to it
+                    }
+                }
+                .toMap()
         _states.update { current ->
-            current.filterKeys { it.namespace != draft && it.namespace != HomeSidePanelRuntimeNamespace.Live } + recovered
+            current.filterKeys {
+                it.namespace != draft && it.namespace != HomeSidePanelRuntimeNamespace.Live
+            } + recovered
         }
 
         committed.cards.forEach { card ->
@@ -315,12 +377,14 @@ class HomeSidePanelRuntimeStore(
                 when (card) {
                     is WeatherCardConfig -> refreshWeather(HomeSidePanelRuntimeNamespace.Live, card)
                     is WalletCardConfig -> walletBalance.refresh()
-                    is HitokotoCardConfig -> refreshHitokoto(HomeSidePanelRuntimeNamespace.Live, card)
+                    is HitokotoCardConfig ->
+                        refreshHitokoto(HomeSidePanelRuntimeNamespace.Live, card)
                     else -> Unit
                 }
-            }.onFailure {
-                WeLogger.w(TAG, "failed to restart runtime for committed card ${card.id}", it)
             }
+                .onFailure {
+                    WeLogger.w(TAG, "failed to restart runtime for committed card ${card.id}", it)
+                }
         }
     }
 
@@ -366,9 +430,10 @@ class HomeSidePanelRuntimeStore(
                     "Wallet card $key has mismatched runtime state $current"
                 }
                 val existing = current?.state
-                val displayState = existing?.displayState?.takeIf {
-                    it.defaultMaskEnabled == card.hideBalanceByDefault
-                } ?: HomeSidePanelWalletDisplayState(card.hideBalanceByDefault)
+                val displayState =
+                    existing?.displayState?.takeIf {
+                        it.defaultMaskEnabled == card.hideBalanceByDefault
+                    } ?: HomeSidePanelWalletDisplayState(card.hideBalanceByDefault)
                 updateState(
                     key,
                     HomeSidePanelCardRuntimeState.Wallet(
@@ -402,8 +467,7 @@ class HomeSidePanelRuntimeStore(
         weatherCaches.remove(key)
         hitokotoCaches.remove(key)
         if (
-            key.namespace == HomeSidePanelRuntimeNamespace.Live &&
-            liveCachePolicy.persistLiveCaches
+            key.namespace == HomeSidePanelRuntimeNamespace.Live && liveCachePolicy.persistLiveCaches
         ) {
             cacheStore.removeCardCaches(key.cardId)
         }
@@ -415,13 +479,15 @@ class HomeSidePanelRuntimeStore(
     ): WeatherCardCacheRecord? {
         val key = HomeSidePanelRuntimeKey(namespace, card.id)
         val fingerprint = weatherCacheFingerprint(card.city)
-        val record = weatherCaches[key]
-            ?: when (namespace) {
-                HomeSidePanelRuntimeNamespace.Live -> cacheStore.loadWeatherCache(card.id)
-                is HomeSidePanelRuntimeNamespace.Draft -> weatherCaches[
-                    HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id)
-                ] ?: cacheStore.loadWeatherCache(card.id)
-            }
+        val record =
+            weatherCaches[key]
+                ?: when (namespace) {
+                    HomeSidePanelRuntimeNamespace.Live -> cacheStore.loadWeatherCache(card.id)
+                    is HomeSidePanelRuntimeNamespace.Draft ->
+                        weatherCaches[
+                            HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id)]
+                            ?: cacheStore.loadWeatherCache(card.id)
+                }
         return record?.takeIf { it.fingerprint == fingerprint }?.also { weatherCaches[key] = it }
     }
 
@@ -431,18 +497,22 @@ class HomeSidePanelRuntimeStore(
     ): HitokotoCardCacheRecord? {
         val key = HomeSidePanelRuntimeKey(namespace, card.id)
         val fingerprint = hitokotoCacheFingerprint(card.settings)
-        val record = hitokotoCaches[key]
-            ?: when (namespace) {
-                HomeSidePanelRuntimeNamespace.Live -> cacheStore.loadHitokotoCache(card.id)
-                is HomeSidePanelRuntimeNamespace.Draft -> hitokotoCaches[
-                    HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id)
-                ] ?: cacheStore.loadHitokotoCache(card.id)
-            }
+        val record =
+            hitokotoCaches[key]
+                ?: when (namespace) {
+                    HomeSidePanelRuntimeNamespace.Live -> cacheStore.loadHitokotoCache(card.id)
+                    is HomeSidePanelRuntimeNamespace.Draft ->
+                        hitokotoCaches[
+                            HomeSidePanelRuntimeKey(HomeSidePanelRuntimeNamespace.Live, card.id)]
+                            ?: cacheStore.loadHitokotoCache(card.id)
+                }
         return record?.takeIf { it.fingerprint == fingerprint }?.also { hitokotoCaches[key] = it }
     }
 
-    private fun activeCard(namespace: HomeSidePanelRuntimeNamespace, cardId: String): HomeSidePanelCardConfig? =
-        activeLayouts[namespace]?.cards?.firstOrNull { it.id == cardId }
+    private fun activeCard(
+        namespace: HomeSidePanelRuntimeNamespace,
+        cardId: String,
+    ): HomeSidePanelCardConfig? = activeLayouts[namespace]?.cards?.firstOrNull { it.id == cardId }
 
     private fun updateState(key: HomeSidePanelRuntimeKey, state: HomeSidePanelCardRuntimeState) {
         if (activeCard(key.namespace, key.cardId) == null) return
@@ -466,10 +536,7 @@ class HomeSidePanelRuntimeStore(
         cardId: String,
         record: WeatherCardCacheRecord,
     ) {
-        if (
-            namespace != HomeSidePanelRuntimeNamespace.Live ||
-            !liveCachePolicy.persistLiveCaches
-        ) {
+        if (namespace != HomeSidePanelRuntimeNamespace.Live || !liveCachePolicy.persistLiveCaches) {
             return
         }
         cacheStore.saveWeatherCache(cardId, record).onFailure {
@@ -482,10 +549,7 @@ class HomeSidePanelRuntimeStore(
         cardId: String,
         record: HitokotoCardCacheRecord,
     ) {
-        if (
-            namespace != HomeSidePanelRuntimeNamespace.Live ||
-            !liveCachePolicy.persistLiveCaches
-        ) {
+        if (namespace != HomeSidePanelRuntimeNamespace.Live || !liveCachePolicy.persistLiveCaches) {
             return
         }
         cacheStore.saveHitokotoCache(cardId, record).onFailure {

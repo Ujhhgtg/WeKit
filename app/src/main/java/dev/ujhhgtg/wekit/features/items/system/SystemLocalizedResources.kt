@@ -13,8 +13,9 @@ fun localizedSystemString(@StringRes id: Int, vararg args: Any): String =
 fun Context.localizedSystemString(@StringRes id: Int, vararg args: Any): String =
     systemLocalizedContext().getString(id, *args)
 
-private fun Context.systemLocalizedContext(): Context = LocalizedContextFactory.create(
-    this,
-    WeKitLocaleController.resolvedLocale,
-    LocaleResourceMode.InjectedHost,
-)
+private fun Context.systemLocalizedContext(): Context =
+    LocalizedContextFactory.create(
+        this,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    )

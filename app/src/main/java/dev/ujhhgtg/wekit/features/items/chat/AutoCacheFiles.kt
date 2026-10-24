@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -22,24 +23,24 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
 
-object AutoCacheFiles : ClickableFeature(),
+object AutoCacheFiles :
+    ClickableFeature(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener {
 
@@ -79,7 +80,7 @@ object AutoCacheFiles : ClickableFeature(),
         values: ContentValues,
         whereClause: String?,
         whereArgs: Array<String>?,
-        conflictAlgorithm: Int
+        conflictAlgorithm: Int,
     ) = maybeCacheFile(table, values)
 
     private fun maybeCacheFile(table: String, values: ContentValues) {
@@ -107,22 +108,29 @@ object AutoCacheFiles : ClickableFeature(),
         // 通过 appmsg 内层 <type> 判断文件状态:
         //   74 / 131 → 对方仍在上传, 此刻下载必然失败, 跳过 (等对方传完后的更新事件再处理)
         //   6  / 130 → 文件已就绪, 可以下载
-        val file = try {
-            MessageInfo.FileMessage(content)
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "file msg $msgSvrId: failed to parse appmsg content, skip", e)
-            return
-        }
+        val file =
+            try {
+                MessageInfo.FileMessage(content)
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "file msg $msgSvrId: failed to parse appmsg content, skip", e)
+                return
+            }
 
         when {
             file.isSenderUploading -> {
-                WeLogger.i(TAG, "file msg $msgSvrId: sender still uploading (appmsgType=${file.appMsgType}), deferring")
+                WeLogger.i(
+                    TAG,
+                    "file msg $msgSvrId: sender still uploading (appmsgType=${file.appMsgType}), deferring",
+                )
                 return
             }
 
             !file.isDownloadable -> {
                 // 未知的 appmsg 类型, 保守跳过
-                WeLogger.d(TAG, "file msg $msgSvrId: not downloadable yet (appmsgType=${file.appMsgType}), skip")
+                WeLogger.d(
+                    TAG,
+                    "file msg $msgSvrId: not downloadable yet (appmsgType=${file.appMsgType}), skip",
+                )
                 return
             }
         }
@@ -132,13 +140,14 @@ object AutoCacheFiles : ClickableFeature(),
 
         WeLogger.i(TAG, "file msg $msgSvrId ready (appmsgType=${file.appMsgType}), auto caching")
         // 直接用这条消息的 ContentValues 重建实例, 避免再按 msgSvrId 查库 (可能查不到 / 字段缺失)。
-        val msgInfoInstance = try {
-            WeMessageApi.convertMsgInfoInstanceFromContentValues(values)
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "file msg $msgSvrId: failed to build msgInfo from values", e)
-            handledSvrIds.remove(msgSvrId)
-            return
-        }
+        val msgInfoInstance =
+            try {
+                WeMessageApi.convertMsgInfoInstanceFromContentValues(values)
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "file msg $msgSvrId: failed to build msgInfo from values", e)
+                handledSvrIds.remove(msgSvrId)
+                return
+            }
 
         scope.launch {
             val path = WeMessageApi.cacheFile(msgInfoInstance)
@@ -163,8 +172,18 @@ object AutoCacheFiles : ClickableFeature(),
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.filter_list_whitelist_selected else R.string.filter_list_blacklist_selected),
-                                description = stringResource(if (useWhitelistState) R.string.chat_auto_cache_files_whitelist_description else R.string.chat_auto_cache_files_blacklist_description),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_whitelist_selected
+                                        else R.string.filter_list_blacklist_selected,
+                                    ),
+                                description =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.chat_auto_cache_files_whitelist_description
+                                        else R.string.chat_auto_cache_files_blacklist_description,
+                                    ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
                                     useWhitelistState = it
@@ -175,28 +194,47 @@ object AutoCacheFiles : ClickableFeature(),
                         item {
                             BaseWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.filter_list_configure_whitelist else R.string.filter_list_configure_blacklist),
-                                description = stringResource(R.string.filter_list_select_contacts_hint),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_configure_whitelist
+                                        else R.string.filter_list_configure_blacklist,
+                                    ),
+                                description =
+                                    stringResource(R.string.filter_list_select_contacts_hint),
                                 onClick = {
-                                val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
-                                val currentList = if (useWhitelistState) whitelist else blacklist
+                                    val contacts =
+                                        WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
+                                    val currentList =
+                                        if (useWhitelistState) whitelist else blacklist
 
-                                showComposeDialog(context) {
-                                    ContactsSelector(
-                                        title = stringResource(if (useWhitelistState) R.string.filter_list_select_whitelist else R.string.filter_list_select_blacklist),
-                                        contacts = contacts,
-                                        initialSelectedWxIds = currentList,
-                                        onDismiss = onDismiss
-                                    ) { selectedIds ->
-                                        if (useWhitelistState) {
-                                            whitelist = selectedIds
-                                        } else {
-                                            blacklist = selectedIds
+                                    showComposeDialog(context) {
+                                        ContactsSelector(
+                                            title =
+                                                stringResource(
+                                                    if (useWhitelistState)
+                                                        R.string.filter_list_select_whitelist
+                                                    else R.string.filter_list_select_blacklist,
+                                                ),
+                                            contacts = contacts,
+                                            initialSelectedWxIds = currentList,
+                                            onDismiss = onDismiss,
+                                        ) { selectedIds ->
+                                            if (useWhitelistState) {
+                                                whitelist = selectedIds
+                                            } else {
+                                                blacklist = selectedIds
+                                            }
+                                            showToast(
+                                                localizedChatQuantity(
+                                                    R.plurals.filter_list_contacts_saved,
+                                                    selectedIds.size,
+                                                    selectedIds.size,
+                                                ),
+                                            )
+                                            onDismiss()
                                         }
-                                        showToast(localizedChatQuantity(R.plurals.filter_list_contacts_saved, selectedIds.size, selectedIds.size))
-                                        onDismiss()
                                     }
-                                }
                                 },
                                 trailingContent = {
                                     Icon(
@@ -209,7 +247,9 @@ object AutoCacheFiles : ClickableFeature(),
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

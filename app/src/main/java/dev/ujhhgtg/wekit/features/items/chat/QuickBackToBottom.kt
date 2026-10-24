@@ -42,8 +42,8 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     private const val BUBBLE_BOTTOM_MARGIN_DP = 44
 
     /**
-     * 气泡图标是双上箭头, 微信显示「x条新消息」时 rotation=0 (gd.java:321);
-     * 「回到最新」语义是向下, 与微信同图标的「回到引用位置」气泡 (XML rotation=180) 一致。
+     * 气泡图标是双上箭头, 微信显示「x条新消息」时 rotation=0 (gd.java:321); 「回到最新」语义是向下, 与微信同图标的「回到引用位置」气泡 (XML
+     * rotation=180) 一致。
      */
     private const val BUBBLE_ICON_ROTATION = 180f
 
@@ -75,54 +75,61 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     private val msgCounts = WeakHashMap<String, Int>()
 
     /**
-     * 我们的点击触发的原生加载链路是否还在进行中: 那条链路会在 presenter 里调
-     * adapter.setShowHistoryMsgTipId (V0/U0), 给最新消息前面插"以下为新消息"分隔条,
-     * 只对我们自己的点击生效时抑制, 微信原生点击不受影响。
+     * 我们的点击触发的原生加载链路是否还在进行中: 那条链路会在 presenter 里调 adapter.setShowHistoryMsgTipId (V0/U0),
+     * 给最新消息前面插"以下为新消息"分隔条, 只对我们自己的点击生效时抑制, 微信原生点击不受影响。
      */
-    @Volatile
-    private var suppressHistoryMsgTipUntil = 0L
+    @Volatile private var suppressHistoryMsgTipUntil = 0L
 
     /**
-     * HistoryMsgTongueComponent 的初始化方法 (8.0.65 叫 a(), 8.0.76 叫 b()):
-     * 在这里把组件实例与它的气泡 View 关联起来, 用稳定日志/追踪字符串锚定。
+     * HistoryMsgTongueComponent 的初始化方法 (8.0.65 叫 a(), 8.0.76 叫 b()): 在这里把组件实例与它的气泡 View 关联起来,
+     * 用稳定日志/追踪字符串锚定。
      */
-    private val methodComponentInit by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.component")
-            usingStrings("HistoryMsgTongueComponent", "onChattingInit")
-        },
-    )
+    private val methodComponentInit by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.component")
+                usingStrings("HistoryMsgTongueComponent", "onChattingInit")
+            },
+        )
 
     /**
-     * 微信存储的全量消息数: 8.0.65 是 f8.Xa, 8.0.76 是 f9.S7, 共用同一日志字符串
-     * ("select msgCount from rconversation")。滚进历史后 adapter 只保留已加载窗口,
-     * 只有这个存储计数能给出"最后一条消息"的全量位置; 微信每次加载/更新舌头都会调它。
+     * 微信存储的全量消息数: 8.0.65 是 f8.Xa, 8.0.76 是 f9.S7, 共用同一日志字符串 ("select msgCount from
+     * rconversation")。滚进历史后 adapter 只保留已加载窗口, 只有这个存储计数能给出"最后一条消息"的全量位置; 微信每次加载/更新舌头都会调它。
      */
-    private val methodGetMsgCount by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.MsgInfoStorage", "getMsgCount conversationStorage.getMsgCountByUsername count:%d")
-        },
-    )
+    private val methodGetMsgCount by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.MsgInfoStorage",
+                    "getMsgCount conversationStorage.getMsgCountByUsername count:%d",
+                )
+            },
+        )
 
     /**
-     * HistoryMsgTongueComponent.m0/p0 (locationByMsgId) —— 「x条新消息」点击的完整加载链路:
-     * provider → loader 按 SCENE=2 重新加载消息尾部 (深历史时最新消息不在当前窗口, 必须靠
-     * 它加载), presenter 再滚动到目标。两个版本的日志字符串略有差异, 用 usingStrings 取公共子串。
+     * HistoryMsgTongueComponent.m0/p0 (locationByMsgId) —— 「x条新消息」点击的完整加载链路: provider → loader 按
+     * SCENE=2 重新加载消息尾部 (深历史时最新消息不在当前窗口, 必须靠 它加载), presenter 再滚动到目标。两个版本的日志字符串略有差异, 用 usingStrings
+     * 取公共子串。
      */
-    private val methodLocationByMsgId by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.component")
-            usingStrings("MicroMsg.ChattingDataAdapterV3", "[locationByMsgId] position:%s mode:%s")
-        },
-    )
+    private val methodLocationByMsgId by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.component")
+                usingStrings(
+                    "MicroMsg.ChattingDataAdapterV3",
+                    "[locationByMsgId] position:%s mode:%s",
+                )
+            },
+        )
 
     /** ChattingDataAdapterV3.setShowHistoryMsgTipId (8.0.65 U0 / 8.0.76 V0)。 */
-    private val methodSetShowHistoryMsgTipId by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.adapter")
-            usingStrings("[setShowHistoryMsgTipId] pos:%s")
-        },
-    )
+    private val methodSetShowHistoryMsgTipId by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.adapter")
+                usingStrings("[setShowHistoryMsgTipId] pos:%s")
+            },
+        )
 
     override fun onEnable() {
         methodSetShowHistoryMsgTipId.hookBefore {
@@ -137,17 +144,20 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
         methodComponentInit.hookAfter {
             val component = thisObject!!
             val fieldValues = component.reflekt().fields { superclass = true }.map { it.get() }
-            val bubble = fieldValues
-                .filterIsInstance<View>()
-                .firstOrNull { it.isNewMessageBubble() } ?: return@hookAfter
+            val bubble =
+                fieldValues.filterIsInstance<View>().firstOrNull { it.isNewMessageBubble() }
+                    ?: return@hookAfter
             components[bubble] = component
-            contexts[bubble] = fieldValues.firstOrNull {
-                WeMessageApi.classChattingContext.clazz.isInstance(it)
-            } ?: return@hookAfter
+            contexts[bubble] =
+                fieldValues.firstOrNull {
+                    WeMessageApi.classChattingContext.clazz.isInstance(it)
+                } ?: return@hookAfter
         }
-        ChatFooter::class.reflekt().firstMethod { name = "onAttachedToWindow" }.hookAfter {
-            attachToChat(thisObject as ChatFooter)
-        }
+        ChatFooter::class.reflekt()
+            .firstMethod { name = "onAttachedToWindow" }
+            .hookAfter {
+                attachToChat(thisObject as ChatFooter)
+            }
     }
 
     override fun onDisable() {
@@ -159,9 +169,8 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
     }
 
     /**
-     * 会话页会复用同一个 footer 实例: 每次 attach 都先摘旧监听再挂新监听, 否则旧 observer
-     * 失效后新会话里不会再触发。列表/气泡晚于 footer attach 也没关系, pre-draw 每帧都会
-     * 重新查找, 找到后立刻接管。
+     * 会话页会复用同一个 footer 实例: 每次 attach 都先摘旧监听再挂新监听, 否则旧 observer 失效后新会话里不会再触发。列表/气泡晚于 footer attach
+     * 也没关系, pre-draw 每帧都会 重新查找, 找到后立刻接管。
      */
     private fun attachToChat(footer: ChatFooter) {
         val old = preDrawListeners.remove(footer)
@@ -177,10 +186,7 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
         footer.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
-    /**
-     * 每帧对齐气泡状态: 距最新消息超过阈值时显示并接管文字/点击, 否则隐藏。
-     * 微信自己改写文本、替换点击监听或改可见性后, 下一帧会被纠正回来。
-     */
+    /** 每帧对齐气泡状态: 距最新消息超过阈值时显示并接管文字/点击, 否则隐藏。 微信自己改写文本、替换点击监听或改可见性后, 下一帧会被纠正回来。 */
     private fun updateBubble(recycler: ChattingRecyclerView, bubble: View) {
         val remaining = distanceToBottom(recycler)
         val threshold = (TRIGGER_DISTANCE_DP * bubble.resources.displayMetrics.density).toInt()
@@ -211,22 +217,23 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
         lp.gravity = Gravity.BOTTOM or Gravity.END
         lp.topMargin = 0
         if (lp.bottomMargin <= 0) {
-            lp.bottomMargin = (BUBBLE_BOTTOM_MARGIN_DP * bubble.resources.displayMetrics.density).toInt()
+            lp.bottomMargin =
+                (BUBBLE_BOTTOM_MARGIN_DP * bubble.resources.displayMetrics.density).toInt()
         }
         bubble.layoutParams = lp
     }
 
     /** 距最新消息还剩多少像素可滚。RecyclerView 桩 (HOST. 前缀) 直接提供这三个公开方法。 */
     private fun distanceToBottom(recycler: ChattingRecyclerView): Int =
-        (recycler.computeVerticalScrollRange() - recycler.computeVerticalScrollOffset() -
-            recycler.computeVerticalScrollExtent()).coerceAtLeast(0)
+        (recycler.computeVerticalScrollRange() -
+                recycler.computeVerticalScrollOffset() -
+                recycler.computeVerticalScrollExtent())
+            .coerceAtLeast(0)
 
     /**
-     * 完整复用「x条新消息」的点击链路 (m0/p0 → loader SCENE=2)。位置 = 全量消息数 - 1
-     * (最后一条消息的全量位置): 深历史时最新消息不在当前 adapter 窗口, 直接按窗口 count
-     * 滚动只会停在历史窗口末尾; loader 会按 S7 - position 重新加载消息尾部再滚动。
-     * 不能用 Int.MAX_VALUE: S7 - MAX 是负数, SQLite LIMIT 负数 = 不限, 外层再按 ASC
-     * 排序, 取到的是最老消息。
+     * 完整复用「x条新消息」的点击链路 (m0/p0 → loader SCENE=2)。位置 = 全量消息数 - 1 (最后一条消息的全量位置): 深历史时最新消息不在当前 adapter
+     * 窗口, 直接按窗口 count 滚动只会停在历史窗口末尾; loader 会按 S7 - position 重新加载消息尾部再滚动。 不能用 Int.MAX_VALUE: S7 -
+     * MAX 是负数, SQLite LIMIT 负数 = 不限, 外层再按 ASC 排序, 取到的是最老消息。
      */
     private fun scrollToLatest(bubble: View) {
         val component = components[bubble]
@@ -236,42 +243,49 @@ object QuickBackToBottom : SwitchFeature(), IResolveDex {
             return
         }
         val talker = WeMessageApi.methodChattingContextGetTalker.method.invoke(context) as String
-        val totalCount = msgCounts[talker] ?: run {
-            WeLogger.w(TAG, "total message count not captured, click ignored")
-            return
-        }
+        val totalCount =
+            msgCounts[talker]
+                ?: run {
+                    WeLogger.w(TAG, "total message count not captured, click ignored")
+                    return
+                }
         // 原生舌头链路会在加载完成后给最新消息前插"以下为新消息"分隔条, 这里挂起抑制开关,
         // 下一次 setShowHistoryMsgTipId 调用 (异步到达) 会被跳过并自动消费掉。
-        suppressHistoryMsgTipUntil = SystemClock.elapsedRealtime() + SUPPRESS_HISTORY_MSG_TIP_WINDOW_MS
+        suppressHistoryMsgTipUntil =
+            SystemClock.elapsedRealtime() + SUPPRESS_HISTORY_MSG_TIP_WINDOW_MS
         // m0/p0 是静态方法: receiver 传 null, 组件实例和位置都进参数数组
         methodLocationByMsgId.method.invoke(null, component, totalCount - 1)
     }
 
-    /**
-     * 从 footer 所在的 ChattingScrollLayout 里定位消息列表 RecyclerView。
-     */
+    /** 从 footer 所在的 ChattingScrollLayout 里定位消息列表 RecyclerView。 */
     private fun ChatFooter.chatRecycler(): ChattingRecyclerView {
         val cached = chatListRecyclers[this]
         if (cached != null && cached.isAttachedToWindow) return cached
-        val found = ((parent as ChattingScrollLayout)
-            .findViewWhich { it is MMChattingListView }!! as MMChattingListView)
-            .findViewWhich { it is ChattingRecyclerView }!! as ChattingRecyclerView
+        val found =
+            ((parent as ChattingScrollLayout).findViewWhich { it is MMChattingListView }!!
+                    as MMChattingListView)
+                .findViewWhich { it is ChattingRecyclerView }!!
+                as ChattingRecyclerView
         chatListRecyclers[this] = found
         return found
     }
 
     /**
-     * 从 ChattingContent 里定位「x条新消息」气泡 (bm4): 直接子 LinearLayout, 内容区居中,
-     * 由 WeImageView + TextView 组成。同屏的「翻到顶部/底部」提示条用普通 ImageView,
-     * 引用气泡嵌在更深层, 只查直接子节点即可排除。
+     * 从 ChattingContent 里定位「x条新消息」气泡 (bm4): 直接子 LinearLayout, 内容区居中, 由 WeImageView + TextView
+     * 组成。同屏的「翻到顶部/底部」提示条用普通 ImageView, 引用气泡嵌在更深层, 只查直接子节点即可排除。
      */
     private fun ChatFooter.newMessageBubble(): View? {
         val cached = newMessageBubbles[this]
-        if (cached != null && cached.isAttachedToWindow && (cached.parent as ViewGroup).parent === parent) {
+        if (
+            cached != null &&
+                cached.isAttachedToWindow &&
+                (cached.parent as ViewGroup).parent === parent
+        ) {
             return cached
         }
-        val content = (parent as ChattingScrollLayout)
-            .findViewWhich { it is ChattingContent }!! as ChattingContent
+        val content =
+            (parent as ChattingScrollLayout).findViewWhich { it is ChattingContent }!!
+                as ChattingContent
         for (i in 0 until content.childCount) {
             val candidate = content.getChildAt(i)
             if (candidate.isNewMessageBubble()) {

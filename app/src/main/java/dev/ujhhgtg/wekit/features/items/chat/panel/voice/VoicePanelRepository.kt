@@ -1,12 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.voice
 
-import dev.ujhhgtg.wekit.utils.fs.moveReplacing
-import dev.ujhhgtg.wekit.utils.fs.copyFrom
-import kotlin.io.path.outputStream
-import kotlin.io.path.exists
-import kotlin.io.path.fileSize
-import kotlin.io.path.getLastModifiedTime
-import kotlin.io.path.moveTo
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelCustomOrders
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -17,65 +12,79 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.customOrderIndex
 import dev.ujhhgtg.wekit.features.items.chat.panel.normalizedCustomOrder
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import kotlinx.serialization.Serializable
 import java.io.InputStream
-import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.moveTo
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.notExists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlinx.serialization.Serializable
 
 object VoicePanelRepository {
-    private val statsFile get() = PanelPaths.voicePanelDir / ".stats.json"
-    private val onlineRecentsFile get() = PanelPaths.voicePanelDir / ".online_recents.json"
-    private val ordersFile get() = PanelPaths.voicePanelDir / ".orders.json"
+    private val statsFile
+        get() = PanelPaths.voicePanelDir / ".stats.json"
 
-    @Serializable
-    private data class VoiceStats(val sendCount: Long = 0, val lastSentAt: Long = 0)
+    private val onlineRecentsFile
+        get() = PanelPaths.voicePanelDir / ".online_recents.json"
+
+    private val ordersFile
+        get() = PanelPaths.voicePanelDir / ".orders.json"
+
+    @Serializable private data class VoiceStats(val sendCount: Long = 0, val lastSentAt: Long = 0)
 
     fun loadPacks(): List<VoicePack> {
         val root = PanelPaths.voicePanelDir
         val stats = readStats()
         val orders = readOrders()
         val packs = mutableListOf<VoicePack>()
-        root.listDirectoryEntries()
-            .filter { it.isDirectory() && it != PanelPaths.cloneVoiceDir && !it.name.startsWith(".") }
+        root
+            .listDirectoryEntries()
+            .filter {
+                it.isDirectory() && it != PanelPaths.cloneVoiceDir && !it.name.startsWith(".")
+            }
             .forEach { packDir ->
-                val items = packDir.listDirectoryEntries().filter(::isVoiceFile)
-                    .sortedWith(voiceComparator(packDir.name, stats, orders))
-                    .map { it.toItem(packDir.name, PanelSource.LOCAL, stats) }
-                packs += VoicePack(
-                    id = packDir.name,
-                    title = packDir.name,
-                    source = PanelSource.LOCAL,
-                    itemCount = items.size,
-                    items = items,
-                )
+                val items =
+                    packDir
+                        .listDirectoryEntries()
+                        .filter(::isVoiceFile)
+                        .sortedWith(voiceComparator(packDir.name, stats, orders))
+                        .map { it.toItem(packDir.name, PanelSource.LOCAL, stats) }
+                packs +=
+                    VoicePack(
+                        id = packDir.name,
+                        title = packDir.name,
+                        source = PanelSource.LOCAL,
+                        itemCount = items.size,
+                        items = items,
+                    )
             }
         packs.sortWith(packComparator(orders))
-        val recentItems = (packs.asSequence()
-            .flatMap { it.items.asSequence() }
-            .filter { it.lastSentAt > 0 } + readOnlineRecents().asSequence())
-            .distinctBy(::recentKey)
-            .sortedByDescending(VoiceItem::lastSentAt)
-            .take(historyLimit())
-            .map { it.copy(source = PanelSource.RECENT, packId = RECENT_PACK_ID) }
-            .toList()
+        val recentItems =
+            (packs.asSequence().flatMap { it.items.asSequence() }.filter { it.lastSentAt > 0 } +
+                    readOnlineRecents().asSequence())
+                .distinctBy(::recentKey)
+                .sortedByDescending(VoiceItem::lastSentAt)
+                .take(historyLimit())
+                .map { it.copy(source = PanelSource.RECENT, packId = RECENT_PACK_ID) }
+                .toList()
         return buildList {
             if (recentItems.isNotEmpty()) {
                 add(
@@ -93,13 +102,19 @@ object VoicePanelRepository {
     }
 
     fun savePackOrder(packIds: List<String>): Result<Unit> = runCatching {
-        val available = PanelPaths.voicePanelDir.listDirectoryEntries()
-            .filter { it.isDirectory() && it != PanelPaths.cloneVoiceDir && !it.name.startsWith(".") }
-            .map { it.name }
+        val available =
+            PanelPaths.voicePanelDir
+                .listDirectoryEntries()
+                .filter {
+                    it.isDirectory() && it != PanelPaths.cloneVoiceDir && !it.name.startsWith(".")
+                }
+                .map { it.name }
         val orders = readOrders()
         atomicWrite(
             ordersFile,
-            DefaultJson.encodeToString(orders.copy(packs = normalizedCustomOrder(packIds, available))),
+            DefaultJson.encodeToString(
+                orders.copy(packs = normalizedCustomOrder(packIds, available)),
+            ),
         )
     }
 
@@ -108,39 +123,51 @@ object VoicePanelRepository {
         val directory = packPath(safePack)
         require(directory.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
         val requested = filePaths.map { value ->
-            value.asPath.toAbsolutePath().normalize().also { path ->
-                require(path.parent == directory && path.isRegularFile() && isVoiceFile(path)) {
-                    localizedChatString(R.string.chat_voice_not_in_pack)
+            value.asPath
+                .toAbsolutePath()
+                .normalize()
+                .also { path ->
+                    require(path.parent == directory && path.isRegularFile() && isVoiceFile(path)) {
+                        localizedChatString(R.string.chat_voice_not_in_pack)
+                    }
                 }
-            }.name
+                .name
         }
         val available = directory.listDirectoryEntries().filter(::isVoiceFile).map { it.name }
         val orders = readOrders()
         atomicWrite(
             ordersFile,
             DefaultJson.encodeToString(
-                orders.copy(items = orders.items + (safePack to normalizedCustomOrder(requested, available))),
+                orders.copy(
+                    items =
+                        orders.items + (safePack to normalizedCustomOrder(requested, available)),
+                ),
             ),
         )
     }
 
-    fun loadVoices(): List<VoiceItem> = loadPacks()
-        .filter { it.id != RECENT_PACK_ID }
-        .flatMap { it.items }
+    fun loadVoices(): List<VoiceItem> =
+        loadPacks().filter { it.id != RECENT_PACK_ID }.flatMap { it.items }
 
     fun search(query: String): List<VoiceItem> {
         val term = query.trim()
-        return loadPacks().filter { it.id != RECENT_PACK_ID }.flatMap { pack ->
-            pack.items.filter {
-                term.isEmpty() || it.title.contains(term, true) || pack.title.contains(term, true)
+        return loadPacks()
+            .filter { it.id != RECENT_PACK_ID }
+            .flatMap { pack ->
+                pack.items.filter {
+                    term.isEmpty() ||
+                        it.title.contains(term, true) ||
+                        pack.title.contains(term, true)
+                }
             }
-        }
     }
 
     fun createPack(name: String): Result<String> = runCatching {
         val safeName = sanitizeName(name)
         require(safeName.isNotBlank()) { localizedChatString(R.string.chat_voice_pack_name_empty) }
-        require(safeName !in reservedNames) { localizedChatString(R.string.chat_voice_pack_name_unavailable) }
+        require(safeName !in reservedNames) {
+            localizedChatString(R.string.chat_voice_pack_name_unavailable)
+        }
         val destination = packPath(safeName)
         require(destination.notExists()) { localizedChatString(R.string.chat_voice_pack_exists) }
         destination.createDirectories()
@@ -158,7 +185,9 @@ object VoicePanelRepository {
         val safeOldName = requirePackName(oldName)
         val safeName = sanitizeName(newName)
         require(safeName.isNotBlank()) { localizedChatString(R.string.chat_voice_pack_name_empty) }
-        require(safeName !in reservedNames) { localizedChatString(R.string.chat_voice_pack_name_unavailable) }
+        require(safeName !in reservedNames) {
+            localizedChatString(R.string.chat_voice_pack_name_unavailable)
+        }
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
         require(source.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
@@ -171,23 +200,34 @@ object VoicePanelRepository {
     fun deletePack(name: String): Result<Unit> = runCatching {
         val directory = packPath(requirePackName(name))
         require(directory.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
-        require(directory.toFile().deleteRecursively()) { localizedChatString(R.string.chat_voice_pack_delete_failed) }
+        require(directory.toFile().deleteRecursively()) {
+            localizedChatString(R.string.chat_voice_pack_delete_failed)
+        }
         removeStatsPrefix(directory)
         removePackOrder(directory.name)
     }
 
     fun deleteVoices(filePaths: List<String>): Result<Int> = runCatching {
         val root = PanelPaths.voicePanelDir.toAbsolutePath().normalize()
-        val paths = filePaths.map { value ->
-            value.asPath.toAbsolutePath().normalize().also { path ->
-                require(
-                    path.startsWith(root) && path.parent != root &&
-                            path.isRegularFile() && isVoiceFile(path),
-                ) { localizedChatString(R.string.chat_voice_path_invalid) }
-            }
-        }.distinct()
+        val paths =
+            filePaths
+                .map { value ->
+                    value.asPath.toAbsolutePath().normalize().also { path ->
+                        require(
+                            path.startsWith(root) &&
+                                path.parent != root &&
+                                path.isRegularFile() &&
+                                isVoiceFile(path),
+                        ) {
+                            localizedChatString(R.string.chat_voice_path_invalid)
+                        }
+                    }
+                }
+                .distinct()
         require(paths.isNotEmpty()) { localizedChatString(R.string.chat_voice_none_selected) }
-        paths.forEach { path -> require(path.deleteIfExists()) { localizedChatString(R.string.chat_voice_not_found) } }
+        paths.forEach { path ->
+            require(path.deleteIfExists()) { localizedChatString(R.string.chat_voice_not_found) }
+        }
 
         val deletedPaths = paths.mapTo(hashSetOf()) { it.absolutePathString() }
         atomicWrite(
@@ -200,51 +240,69 @@ object VoicePanelRepository {
             ordersFile,
             DefaultJson.encodeToString(
                 orders.copy(
-                    items = orders.items.mapValues { (packName, names) ->
-                        names.filterNot { it in deletedNamesByPack[packName].orEmpty() }
-                    },
+                    items =
+                        orders.items.mapValues { (packName, names) ->
+                            names.filterNot { it in deletedNamesByPack[packName].orEmpty() }
+                        },
                 ),
             ),
         )
         paths.size
     }
 
-    fun importVoice(packId: String, displayName: String, input: InputStream): Result<VoiceItem> = runCatching {
-        val directory = packPath(requirePackName(packId)).also { it.createDirectories() }
-        val temporary = directory / ".import-${UUID.randomUUID()}.part"
-        try {
-            input.use(temporary::copyFrom)
-            require(temporary.fileSize() > 0L) { localizedChatString(R.string.chat_voice_file_empty) }
-            val format = MediaFileTypeDetector.detectAudio(temporary)
-                ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_unsupported_format))
-            val destination = uniquePath(
-                directory,
-                "${importedFileStem(displayName, "voice")}.${format.extension}",
-            )
-            moveImportedFile(temporary, destination)
-            destination.toItem(packId, PanelSource.IMPORTED, readStats())
-        } finally {
-            temporary.deleteIfExists()
+    fun importVoice(packId: String, displayName: String, input: InputStream): Result<VoiceItem> =
+        runCatching {
+            val directory = packPath(requirePackName(packId)).also { it.createDirectories() }
+            val temporary = directory / ".import-${UUID.randomUUID()}.part"
+            try {
+                input.use(temporary::copyFrom)
+                require(temporary.fileSize() > 0L) {
+                    localizedChatString(R.string.chat_voice_file_empty)
+                }
+                val format =
+                    MediaFileTypeDetector.detectAudio(temporary)
+                        ?: throw IllegalArgumentException(
+                            localizedChatString(R.string.chat_voice_unsupported_format),
+                        )
+                val destination =
+                    uniquePath(
+                        directory,
+                        "${importedFileStem(displayName, "voice")}.${format.extension}",
+                    )
+                moveImportedFile(temporary, destination)
+                destination.toItem(packId, PanelSource.IMPORTED, readStats())
+            } finally {
+                temporary.deleteIfExists()
+            }
         }
-    }
 
     /**
      * Saves an online voice using a stable provider/object identity. A non-empty existing file is
      * considered complete, so rerunning an interrupted pack save does not create suffixed copies.
      */
-    fun importOnlineVoice(packName: String, item: VoiceItem, input: InputStream): Result<VoiceItem> = runCatching {
+    fun importOnlineVoice(
+        packName: String,
+        item: VoiceItem,
+        input: InputStream,
+    ): Result<VoiceItem> = runCatching {
         val safePack = requirePackName(packName)
         val directory = packPath(safePack).also { it.createDirectories() }
-        val identity = sanitizeName(item.remoteObjectId ?: item.id).ifBlank { sanitizeName(item.title) }
+        val identity =
+            sanitizeName(item.remoteObjectId ?: item.id).ifBlank { sanitizeName(item.title) }
         existingOnlinePath(directory, identity)?.let { existing ->
             return@runCatching existing.toItem(safePack, PanelSource.IMPORTED, readStats())
         }
         val temporary = directory / "${identity.take(96)}.part"
         try {
             input.use(temporary::copyFrom)
-            require(temporary.fileSize() > 0L) { localizedChatString(R.string.chat_voice_server_empty) }
-            val extension = MediaFileTypeDetector.detectAudio(temporary)?.extension
-                ?: throw IllegalArgumentException(localizedChatString(R.string.chat_voice_server_unsupported_format))
+            require(temporary.fileSize() > 0L) {
+                localizedChatString(R.string.chat_voice_server_empty)
+            }
+            val extension =
+                MediaFileTypeDetector.detectAudio(temporary)?.extension
+                    ?: throw IllegalArgumentException(
+                        localizedChatString(R.string.chat_voice_server_unsupported_format),
+                    )
             val destination = directory / "${identity.take(96)}.$extension"
             moveImportedFile(temporary, destination)
             destination.toItem(safePack, PanelSource.IMPORTED, readStats())
@@ -255,38 +313,42 @@ object VoicePanelRepository {
 
     fun hasOnlineVoice(packName: String, item: VoiceItem): Boolean = runCatching {
         val safePack = requirePackName(packName)
-        val identity = sanitizeName(item.remoteObjectId ?: item.id).ifBlank { sanitizeName(item.title) }
+        val identity =
+            sanitizeName(item.remoteObjectId ?: item.id).ifBlank { sanitizeName(item.title) }
         existingOnlinePath(packPath(safePack), identity) != null
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     fun recordSent(filePath: String) {
         val stats = readStats().toMutableMap()
         val current = stats[filePath] ?: VoiceStats()
-        stats[filePath] = current.copy(
-            sendCount = current.sendCount + 1,
-            lastSentAt = System.currentTimeMillis(),
-        )
+        stats[filePath] =
+            current.copy(
+                sendCount = current.sendCount + 1,
+                lastSentAt = System.currentTimeMillis(),
+            )
         atomicWrite(statsFile, DefaultJson.encodeToString(stats))
     }
 
     fun recordSent(item: VoiceItem) {
-        if (item.localPath != null) recordSent(item.localPath)
-        else recordOnlineRecent(item)
+        if (item.localPath != null) recordSent(item.localPath) else recordOnlineRecent(item)
     }
 
     private fun recordOnlineRecent(item: VoiceItem) {
         val key = recentKey(item).takeIf { item.remoteObjectId != null || ':' in item.id } ?: return
         val previous = readOnlineRecents().firstOrNull { recentKey(it) == key }
-        val recorded = item.copy(
-            source = PanelSource.RECENT,
-            packId = RECENT_PACK_ID,
-            sendCount = (previous?.sendCount ?: item.sendCount) + 1,
-            lastSentAt = System.currentTimeMillis(),
-        )
+        val recorded =
+            item.copy(
+                source = PanelSource.RECENT,
+                packId = RECENT_PACK_ID,
+                sendCount = (previous?.sendCount ?: item.sendCount) + 1,
+                lastSentAt = System.currentTimeMillis(),
+            )
         val current = buildList {
             add(recorded)
             addAll(readOnlineRecents().filterNot { recentKey(it) == key })
-        }.take(historyLimit())
+        }
+            .take(historyLimit())
         atomicWrite(onlineRecentsFile, DefaultJson.encodeToString(current))
     }
 
@@ -312,15 +374,18 @@ object VoicePanelRepository {
 
     private fun readStats(): Map<String, VoiceStats> {
         if (statsFile.notExists()) return emptyMap()
-        return runCatching { DefaultJson.decodeFromString<Map<String, VoiceStats>>(statsFile.readText()) }
+        return runCatching {
+                DefaultJson.decodeFromString<Map<String, VoiceStats>>(statsFile.readText())
+            }
             .getOrDefault(emptyMap())
     }
 
     private fun readOrders(): PanelCustomOrders {
         if (ordersFile.notExists()) return PanelCustomOrders()
         return runCatching {
-            DefaultJson.decodeFromString<PanelCustomOrders>(ordersFile.readText())
-        }.getOrDefault(PanelCustomOrders())
+                DefaultJson.decodeFromString<PanelCustomOrders>(ordersFile.readText())
+            }
+            .getOrDefault(PanelCustomOrders())
     }
 
     private fun voiceComparator(
@@ -328,21 +393,29 @@ object VoicePanelRepository {
         stats: Map<String, VoiceStats>,
         orders: PanelCustomOrders,
     ): Comparator<java.nio.file.Path> {
-        val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { path: java.nio.file.Path -> path.name }
+        val byName =
+            compareBy(String.CASE_INSENSITIVE_ORDER) { path: java.nio.file.Path -> path.name }
         return when (PanelSettings.voiceItemSortMode) {
             LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED -> compareByDescending<java.nio.file.Path>(::lastModified).then(byName)
-            LocalSortMode.RECENT -> compareByDescending<java.nio.file.Path> {
-                stats[it.absolutePathString()]?.lastSentAt ?: 0L
-            }.then(byName)
+            LocalSortMode.MODIFIED ->
+                compareByDescending<java.nio.file.Path>(::lastModified).then(byName)
+            LocalSortMode.RECENT ->
+                compareByDescending<java.nio.file.Path> {
+                        stats[it.absolutePathString()]?.lastSentAt ?: 0L
+                    }
+                    .then(byName)
 
-            LocalSortMode.FREQUENT -> compareByDescending<java.nio.file.Path> {
-                stats[it.absolutePathString()]?.sendCount ?: 0L
-            }.then(byName)
+            LocalSortMode.FREQUENT ->
+                compareByDescending<java.nio.file.Path> {
+                        stats[it.absolutePathString()]?.sendCount ?: 0L
+                    }
+                    .then(byName)
 
-            LocalSortMode.CUSTOM -> compareBy<java.nio.file.Path> {
-                customOrderIndex(orders.items[packName], it.name)
-            }.then(byName)
+            LocalSortMode.CUSTOM ->
+                compareBy<java.nio.file.Path> {
+                        customOrderIndex(orders.items[packName], it.name)
+                    }
+                    .then(byName)
         }
     }
 
@@ -350,43 +423,56 @@ object VoicePanelRepository {
         val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { pack: VoicePack -> pack.title }
         return when (PanelSettings.voicePackSortMode) {
             LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED -> compareByDescending<VoicePack> { pack ->
-                maxOf(
-                    lastModified(packPath(pack.id)),
-                    pack.items.maxOfOrNull { it.localPath?.asPath?.let(::lastModified) ?: 0L } ?: 0L,
-                )
-            }.then(byName)
+            LocalSortMode.MODIFIED ->
+                compareByDescending<VoicePack> { pack ->
+                        maxOf(
+                            lastModified(packPath(pack.id)),
+                            pack.items.maxOfOrNull {
+                                it.localPath?.asPath?.let(::lastModified) ?: 0L
+                            } ?: 0L,
+                        )
+                    }
+                    .then(byName)
 
-            LocalSortMode.RECENT -> compareByDescending<VoicePack> { pack ->
-                pack.items.maxOfOrNull(VoiceItem::lastSentAt) ?: 0L
-            }.then(byName)
+            LocalSortMode.RECENT ->
+                compareByDescending<VoicePack> { pack ->
+                        pack.items.maxOfOrNull(VoiceItem::lastSentAt) ?: 0L
+                    }
+                    .then(byName)
 
-            LocalSortMode.FREQUENT -> compareByDescending<VoicePack> { pack ->
-                pack.items.sumOf(VoiceItem::sendCount)
-            }.then(byName)
+            LocalSortMode.FREQUENT ->
+                compareByDescending<VoicePack> { pack ->
+                        pack.items.sumOf(VoiceItem::sendCount)
+                    }
+                    .then(byName)
 
-            LocalSortMode.CUSTOM -> compareBy<VoicePack> {
-                customOrderIndex(orders.packs, it.id)
-            }.then(byName)
+            LocalSortMode.CUSTOM ->
+                compareBy<VoicePack> {
+                        customOrderIndex(orders.packs, it.id)
+                    }
+                    .then(byName)
         }
     }
 
-    private fun lastModified(path: java.nio.file.Path): Long =
-        runCatching { path.getLastModifiedTime().toMillis() }.getOrDefault(0L)
+    private fun lastModified(path: java.nio.file.Path): Long = runCatching {
+        path.getLastModifiedTime().toMillis()
+    }
+        .getOrDefault(0L)
 
     private fun readOnlineRecents(): List<VoiceItem> {
         if (onlineRecentsFile.notExists()) return emptyList()
         return runCatching {
-            DefaultJson.decodeFromString<List<VoiceItem>>(onlineRecentsFile.readText())
-                .filter { it.localPath == null && (it.remoteObjectId != null || ':' in it.id) }
-        }.getOrDefault(emptyList())
+                DefaultJson.decodeFromString<List<VoiceItem>>(onlineRecentsFile.readText()).filter {
+                    it.localPath == null && (it.remoteObjectId != null || ':' in it.id)
+                }
+            }
+            .getOrDefault(emptyList())
     }
 
     private fun recentKey(item: VoiceItem): String = item.remoteObjectId ?: item.id
 
-    private fun historyLimit(): Int = PanelSettings.voiceMaxHistory
-        .coerceIn(1L, Int.MAX_VALUE.toLong())
-        .toInt()
+    private fun historyLimit(): Int =
+        PanelSettings.voiceMaxHistory.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
 
     @Synchronized
     private fun atomicWrite(path: java.nio.file.Path, value: String) {
@@ -399,22 +485,28 @@ object VoicePanelRepository {
     private fun migrateStatsPrefix(source: java.nio.file.Path, destination: java.nio.file.Path) {
         val sourcePrefix = source.toAbsolutePath().normalize()
         val destinationPrefix = destination.toAbsolutePath().normalize()
-        val migrated = readStats().mapKeys { (value, _) ->
-            runCatching {
-                val path = value.asPath.toAbsolutePath().normalize()
-                if (path.startsWith(sourcePrefix)) destinationPrefix.resolve(sourcePrefix.relativize(path)).toString() else value
-            }.getOrDefault(value)
-        }
+        val migrated =
+            readStats().mapKeys { (value, _) ->
+                runCatching {
+                        val path = value.asPath.toAbsolutePath().normalize()
+                        if (path.startsWith(sourcePrefix))
+                            destinationPrefix.resolve(sourcePrefix.relativize(path)).toString()
+                        else value
+                    }
+                    .getOrDefault(value)
+            }
         atomicWrite(statsFile, DefaultJson.encodeToString(migrated))
     }
 
     private fun removeStatsPrefix(directory: java.nio.file.Path) {
         val prefix = directory.toAbsolutePath().normalize()
-        val retained = readStats().filterKeys { value ->
-            runCatching {
-                !value.asPath.toAbsolutePath().normalize().startsWith(prefix)
-            }.getOrDefault(true)
-        }
+        val retained =
+            readStats().filterKeys { value ->
+                runCatching {
+                        !value.asPath.toAbsolutePath().normalize().startsWith(prefix)
+                    }
+                    .getOrDefault(true)
+            }
         atomicWrite(statsFile, DefaultJson.encodeToString(retained))
     }
 
@@ -425,9 +517,10 @@ object VoicePanelRepository {
             DefaultJson.encodeToString(
                 orders.copy(
                     packs = orders.packs.map { if (it == oldName) newName else it },
-                    items = orders.items.toMutableMap().apply {
-                        remove(oldName)?.let { put(newName, it) }
-                    },
+                    items =
+                        orders.items.toMutableMap().apply {
+                            remove(oldName)?.let { put(newName, it) }
+                        },
                 ),
             ),
         )
@@ -447,17 +540,21 @@ object VoicePanelRepository {
     }
 
     private fun isVoiceFile(path: java.nio.file.Path) =
-        path.isRegularFile() && !path.name.endsWith(".part") && MediaFileTypeDetector.detectAudio(path) != null
+        path.isRegularFile() &&
+            !path.name.endsWith(".part") &&
+            MediaFileTypeDetector.detectAudio(path) != null
 
-    private fun existingOnlinePath(directory: java.nio.file.Path, identity: String): java.nio.file.Path? =
+    private fun existingOnlinePath(
+        directory: java.nio.file.Path,
+        identity: String,
+    ): java.nio.file.Path? =
         if (!directory.isDirectory()) null
         else {
             val stableIdentity = identity.take(96)
-            directory.listDirectoryEntries()
-            .firstOrNull { path ->
+            directory.listDirectoryEntries().firstOrNull { path ->
                 path.isRegularFile() &&
-                        (path.name == stableIdentity || path.name.startsWith("$stableIdentity.")) &&
-                        isVoiceFile(path)
+                    (path.name == stableIdentity || path.name.startsWith("$stableIdentity.")) &&
+                    isVoiceFile(path)
             }
         }
 
@@ -472,7 +569,9 @@ object VoicePanelRepository {
     private fun packPath(name: String): java.nio.file.Path {
         val root = PanelPaths.voicePanelDir.toAbsolutePath().normalize()
         return root.resolve(name).normalize().also { path ->
-            require(path.parent == root) { localizedChatString(R.string.chat_voice_pack_path_invalid) }
+            require(path.parent == root) {
+                localizedChatString(R.string.chat_voice_pack_path_invalid)
+            }
         }
     }
 
@@ -498,5 +597,4 @@ object VoicePanelRepository {
     }
 
     private val reservedNames = setOf(".", "..", "clone_voices", RECENT_PACK_ID)
-
 }

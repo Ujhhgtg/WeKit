@@ -17,12 +17,16 @@ import androidx.compose.ui.unit.dp
 import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -32,10 +36,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
@@ -49,64 +49,76 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
     const val KEY_BLUR_RADIUS = "blur_radius"
     const val DEFAULT_BLUR_RADIUS = 20
 
-    private val classMmAlertDialog by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
-        },
-    )
-    private val classMmProgressDialog by dexClass(
-        sqlClass {
-            usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
-        },
-    )
+    private val classMmAlertDialog by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
+            },
+        )
+    private val classMmProgressDialog by
+        dexClass(
+            sqlClass {
+                usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
+            },
+        )
     private val classMmQuickDialog by dexClassQuery {
         uniqueClass(
             ClassSpec(
                 superClass = ClassSpec(className = NameSpec("android.app.Dialog")),
-                fields = listOf(
-                    FieldSpec(type = ClassSpec(className = NameSpec("android.widget.TextView"))),
-                    FieldSpec(
-                        type = ClassSpec(className = NameSpec("int")),
-                        modifiers = java.lang.reflect.Modifier.STATIC or java.lang.reflect.Modifier.FINAL,
-                    ),
-                    FieldSpec(
-                        type = ClassSpec(
-                            className = NameSpec("com.tencent.mm.ui.widget.imageview.WeImageView"),
+                fields =
+                    listOf(
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec("android.widget.TextView")),
+                        ),
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec("int")),
+                            modifiers =
+                                java.lang.reflect.Modifier.STATIC or
+                                    java.lang.reflect.Modifier.FINAL,
+                        ),
+                        FieldSpec(
+                            type =
+                                ClassSpec(
+                                    className =
+                                        NameSpec("com.tencent.mm.ui.widget.imageview.WeImageView"),
+                                ),
+                        ),
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec("android.widget.ProgressBar")),
+                        ),
+                        FieldSpec(type = ClassSpec(className = NameSpec("android.view.View"))),
+                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec("boolean")),
+                            modifiers = java.lang.reflect.Modifier.FINAL,
                         ),
                     ),
-                    FieldSpec(type = ClassSpec(className = NameSpec("android.widget.ProgressBar"))),
-                    FieldSpec(type = ClassSpec(className = NameSpec("android.view.View"))),
-                    FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                    FieldSpec(
-                        type = ClassSpec(className = NameSpec("boolean")),
-                        modifiers = java.lang.reflect.Modifier.FINAL,
-                    ),
-                ),
-            )
+            ),
         )
     }
 
     override fun onEnable() {
         listOf(
-            classMmAlertDialog.clazz,
-            classMmProgressDialog.clazz,
-            classMmQuickDialog.clazz,
-            HalfScreenTransparentActivity::class.java,
-            Dialog::class.java
-        ).forEach {
-            it.reflekt()
-                .firstMethod {
-                    name = "onCreate"
-                }
-                .hookBefore {
-                    val thiz = thisObject
-                    if (thiz is Dialog) {
-                        thiz.window?.let { w -> applyBlur(w) }
-                    } else if (thiz is Activity) {
-                        thiz.window?.let { w -> applyBlur(w) }
+                classMmAlertDialog.clazz,
+                classMmProgressDialog.clazz,
+                classMmQuickDialog.clazz,
+                HalfScreenTransparentActivity::class.java,
+                Dialog::class.java,
+            )
+            .forEach {
+                it.reflekt()
+                    .firstMethod {
+                        name = "onCreate"
                     }
-                }
-        }
+                    .hookBefore {
+                        val thiz = thisObject
+                        if (thiz is Dialog) {
+                            thiz.window?.let { w -> applyBlur(w) }
+                        } else if (thiz is Activity) {
+                            thiz.window?.let { w -> applyBlur(w) }
+                        }
+                    }
+            }
     }
 
     private fun applyBlur(window: Window) {
@@ -126,8 +138,9 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
             var blurRadius by remember {
                 mutableIntStateOf(
                     KvStore.getIntOrDef(
-                        KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS
-                    )
+                        KEY_BLUR_RADIUS,
+                        DEFAULT_BLUR_RADIUS,
+                    ),
                 )
             }
 
@@ -139,7 +152,10 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                             item {
                                 BaseWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.beautify_dialog_blur_unsupported_hint),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_dialog_blur_unsupported_hint,
+                                        ),
                                 )
                             }
                         }
@@ -157,7 +173,9 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                                         KvStore.putInt(KEY_BLUR_RADIUS, it)
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                             window.attributes.blurBehindRadius = it
-                                            window.attributes = window.attributes // trigger onWindowAttributesChanged
+                                            window.attributes =
+                                                window
+                                                    .attributes // trigger onWindowAttributesChanged
                                         }
                                     },
                                 )
@@ -165,7 +183,9 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

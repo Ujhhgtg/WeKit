@@ -18,25 +18,32 @@ object DisableChatBackgroundDimming : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_disable_chat_background_dimming_description
 
-    private val methodSetChatBackground by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.ChattingUI.ChattingBackgroundComponent", "initBackground: info:%s bgId:%s")
-        },
-    )
+    private val methodSetChatBackground by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.ChattingUI.ChattingBackgroundComponent",
+                    "initBackground: info:%s bgId:%s",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodSetChatBackground.hookAfter {
             // 遮罩与背景图是该组件仅有的两个 ImageView 字段, 遮罩的特征是背景为
             // 纯 #99000000 的 ColorDrawable (来自聊天背景布局 XML)。字段在纯色背景
             // 等路径下可能尚未赋值, 找不到遮罩即无事可做。
-            thisObject!!.reflekt().fields {
-                type = ImageView::class
-            }.forEach { field ->
-                val view = field.get() as? ImageView ?: return@forEach
-                if ((view.background as? ColorDrawable)?.color == DIM_OVERLAY_COLOR) {
-                    view.visibility = View.GONE
+            thisObject!!
+                .reflekt()
+                .fields {
+                    type = ImageView::class
                 }
-            }
+                .forEach { field ->
+                    val view = field.get() as? ImageView ?: return@forEach
+                    if ((view.background as? ColorDrawable)?.color == DIM_OVERLAY_COLOR) {
+                        view.visibility = View.GONE
+                    }
+                }
         }
     }
 

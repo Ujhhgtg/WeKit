@@ -33,12 +33,13 @@ object WeXmlParserApi : ApiFeature(), IResolveDex {
         listeners.remove(listener)
     }
 
-    private val methodXmlParser by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.sdk.platformtools")
-            usingEqStrings("MicroMsg.SDK.XmlParser", "[ %s ]")
-        },
-    )
+    private val methodXmlParser by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.sdk.platformtools")
+                usingEqStrings("MicroMsg.SDK.XmlParser", "[ %s ]")
+            },
+        )
 
     override fun onEnable() {
         methodXmlParser.hookAfter {
@@ -48,9 +49,11 @@ object WeXmlParserApi : ApiFeature(), IResolveDex {
             val result = result as? MutableMap<String, Any?>? ?: return@hookAfter
             listeners.forEach { listener ->
                 runCatching {
-                    @Suppress("UNCHECKED_CAST")
-                    listener.onParse(param, result)
-                }.onFailure { WeLogger.e(TAG, "failed to execute listener ${listener.javaClass.name}", it) }
+                    @Suppress("UNCHECKED_CAST") listener.onParse(param, result)
+                }
+                    .onFailure {
+                        WeLogger.e(TAG, "failed to execute listener ${listener.javaClass.name}", it)
+                    }
             }
         }
     }

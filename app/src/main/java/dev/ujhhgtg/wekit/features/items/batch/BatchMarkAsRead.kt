@@ -37,13 +37,17 @@ object BatchMarkAsRead : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
+                        showToast(
+                            context.localizedBatchString(
+                                R.string.batch_select_at_least_one_conversation,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     markAsRead(selectedWxIds)
-                }
+                },
             )
         }
     }

@@ -41,32 +41,55 @@ fun showOpenConversationDialog(context: Context) {
                 TextField(
                     value = wxId,
                     onValueChange = { wxId = it },
-                    label = { Text(stringResource(R.string.contacts_wechat_id)) })
+                    label = { Text(stringResource(R.string.contacts_wechat_id)) },
+                )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@TextButton
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
-                }) { Text(stringResource(R.string.contacts_open_chat)) }
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_chat))
+                }
 
-                TextButton(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@TextButton
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.SETTINGS)
-                }) { Text(stringResource(R.string.contacts_open_settings)) }
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.SETTINGS)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_settings))
+                }
 
-                TextButton(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@TextButton
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
-                }) { Text(stringResource(R.string.contacts_open_homepage)) }
-            })
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_homepage))
+                }
+            },
+        )
     }
 }

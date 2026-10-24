@@ -6,17 +6,13 @@ import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 
-/**
- * MsgId 预览工具
- */
+/** MsgId 预览工具 */
 object MsgIdPreviewer {
 
     private const val MMKV_FILE_ID = "db_max_id_record"
     private const val KEY_PREFIX = "msg."
 
-    /**
-     * 生成 ClientMsgId
-     */
+    /** 生成 ClientMsgId */
     fun generateClientMsgId(wxId: String, timeMs: Long): Int {
         val rawString = generateClientMsgIdString(wxId, timeMs)
         return rawString.hashCode()
@@ -37,9 +33,7 @@ object MsgIdPreviewer {
         return str2 + suffixHex + suffixNum
     }
 
-    /**
-     * MD5 实现
-     */
+    /** MD5 实现 */
     private fun md5V2(bytes: ByteArray): String {
         return try {
             val digest = MessageDigest.getInstance("MD5")
@@ -62,22 +56,25 @@ object MsgIdPreviewer {
 
     /**
      * 获取下一个可用的 MsgId
+     *
      * @param tableName 表名，主表为 "message"，小程序为 "appbrandmessage" 等
      */
     fun previewNextId(tableName: String): Long {
         return try {
             val mmkvClass = Class.forName("com.tencent.mmkv.MMKV")
-            val mmkvWithIDMethod = mmkvClass.getDeclaredMethod(
-                "mmkvWithID",
-                String::class.java,
-                Int::class.javaPrimitiveType
-            )
+            val mmkvWithIDMethod =
+                mmkvClass.getDeclaredMethod(
+                    "mmkvWithID",
+                    String::class.java,
+                    Int::class.javaPrimitiveType,
+                )
             val mmkvInstance = mmkvWithIDMethod.invoke(null, MMKV_FILE_ID, 2)
-            val decodeLongMethod = mmkvClass.getDeclaredMethod(
-                "decodeLong",
-                String::class.java,
-                Long::class.javaPrimitiveType
-            )
+            val decodeLongMethod =
+                mmkvClass.getDeclaredMethod(
+                    "decodeLong",
+                    String::class.java,
+                    Long::class.javaPrimitiveType,
+                )
 
             val currentId =
                 decodeLongMethod.invoke(mmkvInstance, "$KEY_PREFIX$tableName", 0L) as Long
@@ -95,11 +92,12 @@ object MsgIdPreviewer {
 
     private fun calculateNext(tableName: String, current: Long): Long {
         return when (tableName) {
-            "message" -> when (current) {
-                1_000_000L -> 10_000_000L
-                90_000_000L -> 500_000_001L
-                else -> current + 1
-            }
+            "message" ->
+                when (current) {
+                    1_000_000L -> 10_000_000L
+                    90_000_000L -> 500_000_001L
+                    else -> current + 1
+                }
 
             "qmessage" -> if (current == 1_500_000L) 90_000_001L else current + 1
             "tmessage" -> if (current == 2_000_000L) 93_000_001L else current + 1

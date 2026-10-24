@@ -26,11 +26,12 @@ object FeaturesLoader {
         allFeatures.filterIsInstance<SwitchFeature>().forEach(SwitchFeature::loadPersistedState)
 
         val safeMode = SafeMode.isEnabled
-        val featuresToStart = if (safeMode) {
-            allFeatures.filterIsInstance<ApiFeature>()
-        } else {
-            allFeatures
-        }
+        val featuresToStart =
+            if (safeMode) {
+                allFeatures.filterIsInstance<ApiFeature>()
+            } else {
+                allFeatures
+            }
         if (safeMode) {
             WeLogger.i(
                 TAG,
@@ -42,16 +43,23 @@ object FeaturesLoader {
         // States are loaded for every Dex feature so settings can show errors even for features
         // that SafeMode keeps from starting; only features about to start can request resolution.
         allFeatures.filterIsInstance<IResolveDex>().forEach(::loadDexState)
-        val needsResolution = featuresToStart
-            .filterIsInstance<IResolveDex>()
-            .filter { (it as BaseFeature).dexState == DexItemState.NeedsResolution }
+        val needsResolution =
+            featuresToStart.filterIsInstance<IResolveDex>().filter {
+                (it as BaseFeature).dexState == DexItemState.NeedsResolution
+            }
 
         if (needsResolution.isNotEmpty()) {
             // Starting any feature now could run it against a missing dependency; the resolution
             // dialog restarts WeChat once the caches are rebuilt, and every process starts clean.
-            WeLogger.i(TAG, "${needsResolution.size} item(s) need Dex resolution; not starting any feature")
+            WeLogger.i(
+                TAG,
+                "${needsResolution.size} item(s) need Dex resolution; not starting any feature",
+            )
             if (TargetProcesses.isInMain) {
-                DexResolutionPrompt.showWhenLauncherReady(needsResolution, DexResolutionMode.Startup)
+                DexResolutionPrompt.showWhenLauncherReady(
+                    needsResolution,
+                    DexResolutionMode.Startup,
+                )
             }
             return
         }
@@ -70,11 +78,12 @@ object FeaturesLoader {
         WeLogger.i(TAG, "loading all features took $elapsed")
 
         if (TargetProcesses.isInMain && Preferences.showStartupToast) {
-            val context = LocalizedContextFactory.create(
-                HostInfo.application,
-                WeKitLocaleController.resolvedLocale,
-                LocaleResourceMode.InjectedHost,
-            )
+            val context =
+                LocalizedContextFactory.create(
+                    HostInfo.application,
+                    WeKitLocaleController.resolvedLocale,
+                    LocaleResourceMode.InjectedHost,
+                )
             showToast(context, context.getString(R.string.noncompose_features_loaded))
         }
     }
@@ -82,8 +91,8 @@ object FeaturesLoader {
     // ---------------------------------------------------------------------------
 
     /**
-     * Reads the persisted state of [item] and, when valid, restores its delegates from the cache.
-     * A cache that cannot be restored is deleted, and the item needs resolution again.
+     * Reads the persisted state of [item] and, when valid, restores its delegates from the cache. A
+     * cache that cannot be restored is deleted, and the item needs resolution again.
      */
     private fun loadDexState(item: IResolveDex) {
         val feature = item as BaseFeature
@@ -91,17 +100,19 @@ object FeaturesLoader {
         val state = DexCacheManager.stateOf(item)
         feature.dexState = state
         when (state) {
-            DexItemState.Valid -> try {
-                val missingKeys = item.loadFromCache(DexCacheManager.loadItemCache(item)!!)
-                check(missingKeys.isEmpty()) { "cache lost keys while loading: $missingKeys" }
-            } catch (e: Exception) {
-                WeLogger.e(TAG, "cache load failed for $path", e)
-                runCatching { DexCacheManager.deleteCache(feature.technicalId) }
-                feature.dexState = DexItemState.NeedsResolution
-            }
+            DexItemState.Valid ->
+                try {
+                    val missingKeys = item.loadFromCache(DexCacheManager.loadItemCache(item)!!)
+                    check(missingKeys.isEmpty()) { "cache lost keys while loading: $missingKeys" }
+                } catch (e: Exception) {
+                    WeLogger.e(TAG, "cache load failed for $path", e)
+                    runCatching { DexCacheManager.deleteCache(feature.technicalId) }
+                    feature.dexState = DexItemState.NeedsResolution
+                }
 
             DexItemState.NeedsResolution -> WeLogger.w(TAG, "$path needs Dex resolution")
-            is DexItemState.Failed -> WeLogger.w(TAG, "$path has a recorded Dex failure: ${state.message}")
+            is DexItemState.Failed ->
+                WeLogger.w(TAG, "$path has a recorded Dex failure: ${state.message}")
         }
     }
 }

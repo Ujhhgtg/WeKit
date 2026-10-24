@@ -24,7 +24,13 @@ object WeDatabaseListenerApi : ApiFeature() {
     }
 
     fun interface IUpdateListener {
-        fun onUpdate(table: String, values: ContentValues, whereClause: String?, whereArgs: Array<String>?, conflictAlgorithm: Int)
+        fun onUpdate(
+            table: String,
+            values: ContentValues,
+            whereClause: String?,
+            whereArgs: Array<String>?,
+            conflictAlgorithm: Int,
+        )
     }
 
     fun interface IQueryListener {
@@ -80,7 +86,8 @@ object WeDatabaseListenerApi : ApiFeature() {
             .firstMethod {
                 name = "insertWithOnConflict"
                 parameters(String::class, String::class, ContentValues::class, Int::class)
-            }.hookAfter {
+            }
+            .hookAfter {
                 try {
                     if (insertListeners.isEmpty()) return@hookAfter
 
@@ -98,43 +105,55 @@ object WeDatabaseListenerApi : ApiFeature() {
 
     private fun hookDatabaseUpdate() {
         listOf(
-            "com.tencent.wcdb.compat.SQLiteDatabase", "com.tencent.wcdb.database.SQLiteDatabase"
-        ).forEach { className ->
-            className.toClass().reflekt()
-                .firstMethod {
-                    name = "updateWithOnConflict"
-                    parameters(
-                        String::class,
-                        ContentValues::class,
-                        String::class,
-                        Array<String>::class,
-                        Int::class
-                    )
-                }
-                .hookBefore {
-                    try {
-                        if (updateListeners.isEmpty()) return@hookBefore
-
-                        val table = args[0] as String
-                        val values = args[1] as ContentValues
-                        val whereClause = args[2] as String?
-
-                        @Suppress("UNCHECKED_CAST")
-                        val whereArgs = args[3] as Array<String>?
-                        val conflictAlgorithm = args[4] as Int
-
-                        updateListeners.forEach { it.onUpdate(table, values, whereClause, whereArgs, conflictAlgorithm) }
-                    } catch (e: Throwable) {
-                        WeLogger.e(TAG, "update dispatch failed", e)
+                "com.tencent.wcdb.compat.SQLiteDatabase",
+                "com.tencent.wcdb.database.SQLiteDatabase",
+            )
+            .forEach { className ->
+                className
+                    .toClass()
+                    .reflekt()
+                    .firstMethod {
+                        name = "updateWithOnConflict"
+                        parameters(
+                            String::class,
+                            ContentValues::class,
+                            String::class,
+                            Array<String>::class,
+                            Int::class,
+                        )
                     }
-                }
-        }
+                    .hookBefore {
+                        try {
+                            if (updateListeners.isEmpty()) return@hookBefore
+
+                            val table = args[0] as String
+                            val values = args[1] as ContentValues
+                            val whereClause = args[2] as String?
+
+                            @Suppress("UNCHECKED_CAST") val whereArgs = args[3] as Array<String>?
+                            val conflictAlgorithm = args[4] as Int
+
+                            updateListeners.forEach {
+                                it.onUpdate(
+                                    table,
+                                    values,
+                                    whereClause,
+                                    whereArgs,
+                                    conflictAlgorithm,
+                                )
+                            }
+                        } catch (e: Throwable) {
+                            WeLogger.e(TAG, "update dispatch failed", e)
+                        }
+                    }
+            }
     }
 
     // ==================== Query Hook ====================
 
     private fun hookDatabaseQuery() {
-        com.tencent.wcdb.compat.SQLiteDatabase::class.reflekt()
+        com.tencent.wcdb.compat.SQLiteDatabase::class
+            .reflekt()
             .firstMethod {
                 name = "rawQuery"
                 parameters(String::class, Array<Any>::class)

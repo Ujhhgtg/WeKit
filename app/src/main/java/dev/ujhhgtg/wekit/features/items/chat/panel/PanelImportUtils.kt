@@ -20,22 +20,26 @@ fun pickPanelFile(
     onSelected: (name: String, uri: Uri, activity: FragmentActivity) -> Unit,
 ) {
     TransparentActivity.launch(context) {
-        val launcher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) {
-                finish()
-                return@registerForActivityResult
+        val launcher =
+            registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri == null) {
+                    finish()
+                    return@registerForActivityResult
+                }
+                val displayName =
+                    contentResolver
+                        .query(
+                            uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null,
+                        )
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0) else null
+                        } ?: "imported_file"
+                onSelected(displayName, uri, this)
             }
-            val displayName = contentResolver.query(
-                uri,
-                arrayOf(OpenableColumns.DISPLAY_NAME),
-                null,
-                null,
-                null,
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
-            } ?: "imported_file"
-            onSelected(displayName, uri, this)
-        }
         launcher.launch(mimeTypes)
     }
 }
@@ -46,16 +50,17 @@ fun pickPanelFiles(
     onSelected: (files: List<PickedPanelFile>, activity: FragmentActivity) -> Unit,
 ) {
     TransparentActivity.launch(context) {
-        val launcher = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-            if (uris.isEmpty()) {
-                finish()
-                return@registerForActivityResult
+        val launcher =
+            registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                if (uris.isEmpty()) {
+                    finish()
+                    return@registerForActivityResult
+                }
+                onSelected(
+                    uris.map { uri -> PickedPanelFile(contentResolver.displayName(uri), uri) },
+                    this,
+                )
             }
-            onSelected(
-                uris.map { uri -> PickedPanelFile(contentResolver.displayName(uri), uri) },
-                this,
-            )
-        }
         launcher.launch(mimeTypes)
     }
 }
@@ -65,13 +70,14 @@ fun pickPanelDirectory(
     onSelected: (treeUri: Uri, activity: FragmentActivity) -> Unit,
 ) {
     TransparentActivity.launch(context) {
-        val launcher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-            if (uri == null) {
-                finish()
-                return@registerForActivityResult
+        val launcher =
+            registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+                if (uri == null) {
+                    finish()
+                    return@registerForActivityResult
+                }
+                onSelected(uri, this)
             }
-            onSelected(uri, this)
-        }
         launcher.launch(null)
     }
 }
@@ -86,40 +92,48 @@ fun listPanelTreeFiles(
     fun visit(documentId: String) {
         if (!visited.add(documentId)) return
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
-        val children = resolver.query(
-            childrenUri,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-            ),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            val typeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
-            buildList {
-                while (cursor.moveToNext()) {
-                    add(
-                        Triple(
-                            cursor.getString(idIndex),
-                            cursor.getString(nameIndex) ?: "imported_file",
-                            cursor.getString(typeIndex),
-                        ),
-                    )
+        val children =
+            resolver
+                .query(
+                    childrenUri,
+                    arrayOf(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    ),
+                    null,
+                    null,
+                    null,
+                )
+                ?.use { cursor ->
+                    val idIndex =
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val nameIndex =
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val typeIndex =
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    buildList {
+                        while (cursor.moveToNext()) {
+                            add(
+                                Triple(
+                                    cursor.getString(idIndex),
+                                    cursor.getString(nameIndex) ?: "imported_file",
+                                    cursor.getString(typeIndex),
+                                ),
+                            )
+                        }
+                    }
                 }
-            }
-        }.orEmpty()
+                .orEmpty()
         children.forEach { (childId, name, mimeType) ->
             if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
                 visit(childId)
             } else {
-                result += PickedPanelFile(
-                    name = name,
-                    uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId),
-                )
+                result +=
+                    PickedPanelFile(
+                        name = name,
+                        uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId),
+                    )
             }
         }
     }
@@ -128,12 +142,14 @@ fun listPanelTreeFiles(
     return result
 }
 
-private fun ContentResolver.displayName(uri: Uri): String = query(
-    uri,
-    arrayOf(OpenableColumns.DISPLAY_NAME),
-    null,
-    null,
-    null,
-)?.use { cursor ->
-    if (cursor.moveToFirst()) cursor.getString(0) else null
-} ?: "imported_file"
+private fun ContentResolver.displayName(uri: Uri): String =
+    query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )
+        ?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: "imported_file"

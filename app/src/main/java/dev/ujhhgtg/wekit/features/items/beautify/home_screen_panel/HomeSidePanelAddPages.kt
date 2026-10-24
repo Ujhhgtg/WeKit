@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -76,56 +75,59 @@ sealed interface HomeSidePanelAddCandidate {
     ) : HomeSidePanelAddCandidate
 }
 
-val HOME_SIDE_PANEL_PREVIEW_TIME: LocalDateTime =
-    LocalDateTime.of(2026, 8, 20, 12, 34)
+val HOME_SIDE_PANEL_PREVIEW_TIME: LocalDateTime = LocalDateTime.of(2026, 8, 20, 12, 34)
 
-val HOME_SIDE_PANEL_PREVIEW_WEATHER = WeatherSnapshot(
-    city = DEFAULT_WEATHER_CITY,
-    weatherCode = "0",
-    temperature = "26",
-    feelsLike = "27",
-    high = "30",
-    low = "21",
-    humidity = "48",
-    windSpeed = "8",
-    publishedAt = "12:00",
-    fetchedAt = 0L,
-)
+val HOME_SIDE_PANEL_PREVIEW_WEATHER =
+    WeatherSnapshot(
+        city = DEFAULT_WEATHER_CITY,
+        weatherCode = "0",
+        temperature = "26",
+        feelsLike = "27",
+        high = "30",
+        low = "21",
+        humidity = "48",
+        windSpeed = "8",
+        publishedAt = "12:00",
+        fetchedAt = 0L,
+    )
 
-private val HOME_SIDE_PANEL_PREVIEW_HITOKOTO = HitokotoSnapshot(
-    uuid = "preview-hitokoto",
-    text = "The best way out is always through.",
-    type = "k",
-    source = "A Servant to Servants",
-    author = "Robert Frost",
-    creator = null,
-    createdAt = null,
-    fetchedAt = 0L,
-)
+private val HOME_SIDE_PANEL_PREVIEW_HITOKOTO =
+    HitokotoSnapshot(
+        uuid = "preview-hitokoto",
+        text = "The best way out is always through.",
+        type = "k",
+        source = "A Servant to Servants",
+        author = "Robert Frost",
+        creator = null,
+        createdAt = null,
+        fetchedAt = 0L,
+    )
 
-private val HOME_SIDE_PANEL_CARD_TYPES = listOf(
-    HomeSidePanelCardType.DATE_TIME,
-    HomeSidePanelCardType.WEATHER,
-    HomeSidePanelCardType.WALLET,
-    HomeSidePanelCardType.HITOKOTO,
-    HomeSidePanelCardType.IMAGE,
-    HomeSidePanelCardType.HORIZONTAL_ACTIONS,
-    HomeSidePanelCardType.VERTICAL_ACTIONS,
-)
+private val HOME_SIDE_PANEL_CARD_TYPES =
+    listOf(
+        HomeSidePanelCardType.DATE_TIME,
+        HomeSidePanelCardType.WEATHER,
+        HomeSidePanelCardType.WALLET,
+        HomeSidePanelCardType.HITOKOTO,
+        HomeSidePanelCardType.IMAGE,
+        HomeSidePanelCardType.HORIZONTAL_ACTIONS,
+        HomeSidePanelCardType.VERTICAL_ACTIONS,
+    )
 
-private val HOME_SIDE_PANEL_ACTION_KINDS = listOf(
-    HomeSidePanelActionKind.ADD_FRIEND,
-    HomeSidePanelActionKind.SCAN,
-    HomeSidePanelActionKind.MOMENTS,
-    HomeSidePanelActionKind.WALLET,
-    HomeSidePanelActionKind.CHANNELS,
-    HomeSidePanelActionKind.WECHAT_SETTINGS,
-    HomeSidePanelActionKind.FAVORITES,
-    HomeSidePanelActionKind.WEKIT_SETTINGS,
-    HomeSidePanelActionKind.RESTART_WECHAT,
-    HomeSidePanelActionKind.FORCE_STOP_WECHAT,
-    HomeSidePanelActionKind.MARK_ALL_READ,
-)
+private val HOME_SIDE_PANEL_ACTION_KINDS =
+    listOf(
+        HomeSidePanelActionKind.ADD_FRIEND,
+        HomeSidePanelActionKind.SCAN,
+        HomeSidePanelActionKind.MOMENTS,
+        HomeSidePanelActionKind.WALLET,
+        HomeSidePanelActionKind.CHANNELS,
+        HomeSidePanelActionKind.WECHAT_SETTINGS,
+        HomeSidePanelActionKind.FAVORITES,
+        HomeSidePanelActionKind.WEKIT_SETTINGS,
+        HomeSidePanelActionKind.RESTART_WECHAT,
+        HomeSidePanelActionKind.FORCE_STOP_WECHAT,
+        HomeSidePanelActionKind.MARK_ALL_READ,
+    )
 
 @Composable
 fun HomeSidePanelAddCardPage(
@@ -138,26 +140,32 @@ fun HomeSidePanelAddCardPage(
         SettingsHeader(
             title = stringResource(R.string.home_side_panel_add_card),
             onBack = onBack,
-            modifier = Modifier
-                .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top).asPaddingValues())
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+            modifier =
+                Modifier.padding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top).asPaddingValues(),
+                    )
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
         )
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 18.dp,
-                top = 4.dp,
-                end = 18.dp,
-                bottom = 18.dp + bottomInset,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = 18.dp,
+                    top = 4.dp,
+                    end = 18.dp,
+                    bottom = 18.dp + bottomInset,
+                ),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             items(HOME_SIDE_PANEL_CARD_TYPES, key = HomeSidePanelCardType::name) { type ->
                 HomeSidePanelCardCandidate(
                     type = type,
-                    modifier = Modifier.homeSidePanelCandidateLongPress(
-                        descriptionRes = R.string.home_side_panel_drag_add_card,
-                    ) { pointer -> onLongPressCard(type, pointer) },
+                    modifier =
+                        Modifier.homeSidePanelCandidateLongPress(
+                            descriptionRes = R.string.home_side_panel_drag_add_card,
+                        ) { pointer ->
+                            onLongPressCard(type, pointer)
+                        },
                     onClick = { onAddCard(type) },
                 )
             }
@@ -194,64 +202,96 @@ fun HomeSidePanelCardCandidateVisual(
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         when (type) {
-            HomeSidePanelCardType.DATE_TIME -> HomeSidePanelDateTimeCard(
-                card = DateTimeCardConfig("preview-date-time"),
-                content = DateTimeCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_TIME),
-                editMode = false,
-            )
+            HomeSidePanelCardType.DATE_TIME ->
+                HomeSidePanelDateTimeCard(
+                    card = DateTimeCardConfig("preview-date-time"),
+                    content = DateTimeCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_TIME),
+                    editMode = false,
+                )
 
-            HomeSidePanelCardType.WEATHER -> HomeSidePanelWeatherCard(
-                card = WeatherCardConfig("preview-weather", DEFAULT_WEATHER_CITY),
-                content = WeatherCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_WEATHER),
-                editMode = false,
-            )
+            HomeSidePanelCardType.WEATHER ->
+                HomeSidePanelWeatherCard(
+                    card = WeatherCardConfig("preview-weather", DEFAULT_WEATHER_CITY),
+                    content = WeatherCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_WEATHER),
+                    editMode = false,
+                )
 
-            HomeSidePanelCardType.WALLET -> HomeSidePanelWalletCard(
-                card = WalletCardConfig("preview-wallet"),
-                content = WalletCardContent.Preview("¥ 1,234.56"),
-                editMode = false,
-            )
+            HomeSidePanelCardType.WALLET ->
+                HomeSidePanelWalletCard(
+                    card = WalletCardConfig("preview-wallet"),
+                    content = WalletCardContent.Preview("¥ 1,234.56"),
+                    editMode = false,
+                )
 
-            HomeSidePanelCardType.HITOKOTO -> HomeSidePanelHitokotoCard(
-                card = HitokotoCardConfig("preview-hitokoto"),
-                content = HitokotoCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_HITOKOTO),
-                editMode = false,
-            )
+            HomeSidePanelCardType.HITOKOTO ->
+                HomeSidePanelHitokotoCard(
+                    card = HitokotoCardConfig("preview-hitokoto"),
+                    content = HitokotoCardContent.Preview(HOME_SIDE_PANEL_PREVIEW_HITOKOTO),
+                    editMode = false,
+                )
 
-            HomeSidePanelCardType.IMAGE -> HomeSidePanelImageCard(
-                card = ImageCardConfig("preview-image"),
-                imageFile = null,
-                editMode = false,
-                importing = false,
-                preview = true,
-            )
+            HomeSidePanelCardType.IMAGE ->
+                HomeSidePanelImageCard(
+                    card = ImageCardConfig("preview-image"),
+                    imageFile = null,
+                    editMode = false,
+                    importing = false,
+                    preview = true,
+                )
 
-            HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HomeSidePanelHorizontalActionsCard(
-                card = HorizontalActionsCardConfig(
-                    id = "preview-horizontal-actions",
-                    actions = listOf(
-                        HomeSidePanelActionConfig("preview-scan", HomeSidePanelActionKind.SCAN),
-                        HomeSidePanelActionConfig("preview-wallet-action", HomeSidePanelActionKind.WALLET),
-                        HomeSidePanelActionConfig("preview-favorites", HomeSidePanelActionKind.FAVORITES),
-                    ),
-                ),
-                content = HomeSidePanelActionCardContent.Preview,
-                editMode = false,
-            )
+            HomeSidePanelCardType.HORIZONTAL_ACTIONS ->
+                HomeSidePanelHorizontalActionsCard(
+                    card =
+                        HorizontalActionsCardConfig(
+                            id = "preview-horizontal-actions",
+                            actions =
+                                listOf(
+                                    HomeSidePanelActionConfig(
+                                        "preview-scan",
+                                        HomeSidePanelActionKind.SCAN,
+                                    ),
+                                    HomeSidePanelActionConfig(
+                                        "preview-wallet-action",
+                                        HomeSidePanelActionKind.WALLET,
+                                    ),
+                                    HomeSidePanelActionConfig(
+                                        "preview-favorites",
+                                        HomeSidePanelActionKind.FAVORITES,
+                                    ),
+                                ),
+                        ),
+                    content = HomeSidePanelActionCardContent.Preview,
+                    editMode = false,
+                )
 
-            HomeSidePanelCardType.VERTICAL_ACTIONS -> HomeSidePanelVerticalActionsCard(
-                card = VerticalActionsCardConfig(
-                    id = "preview-vertical-actions",
-                    actions = listOf(
-                        HomeSidePanelActionConfig("preview-moments", HomeSidePanelActionKind.MOMENTS),
-                        HomeSidePanelActionConfig("preview-channels", HomeSidePanelActionKind.CHANNELS),
-                        HomeSidePanelActionConfig("preview-mark-read", HomeSidePanelActionKind.MARK_ALL_READ),
-                        HomeSidePanelActionConfig("preview-wekit", HomeSidePanelActionKind.WEKIT_SETTINGS),
-                    ),
-                ),
-                content = HomeSidePanelActionCardContent.Preview,
-                editMode = false,
-            )
+            HomeSidePanelCardType.VERTICAL_ACTIONS ->
+                HomeSidePanelVerticalActionsCard(
+                    card =
+                        VerticalActionsCardConfig(
+                            id = "preview-vertical-actions",
+                            actions =
+                                listOf(
+                                    HomeSidePanelActionConfig(
+                                        "preview-moments",
+                                        HomeSidePanelActionKind.MOMENTS,
+                                    ),
+                                    HomeSidePanelActionConfig(
+                                        "preview-channels",
+                                        HomeSidePanelActionKind.CHANNELS,
+                                    ),
+                                    HomeSidePanelActionConfig(
+                                        "preview-mark-read",
+                                        HomeSidePanelActionKind.MARK_ALL_READ,
+                                    ),
+                                    HomeSidePanelActionConfig(
+                                        "preview-wekit",
+                                        HomeSidePanelActionKind.WEKIT_SETTINGS,
+                                    ),
+                                ),
+                        ),
+                    content = HomeSidePanelActionCardContent.Preview,
+                    editMode = false,
+                )
         }
     }
 }
@@ -261,11 +301,12 @@ fun HomeSidePanelAddActionPage(
     card: HomeSidePanelCardConfig,
     onBack: () -> Unit,
     onAddAction: (String, HomeSidePanelActionKind) -> Unit,
-    onLongPressAction: (
-        cardId: String,
-        kind: HomeSidePanelActionKind,
-        pointer: HomeSidePanelCandidatePointer,
-    ) -> Unit,
+    onLongPressAction:
+        (
+            cardId: String,
+            kind: HomeSidePanelActionKind,
+            pointer: HomeSidePanelCandidatePointer,
+        ) -> Unit,
 ) {
     require(card is HorizontalActionsCardConfig || card is VerticalActionsCardConfig) {
         "Card '${card.id}' is ${card.type}; expected an action card"
@@ -275,18 +316,21 @@ fun HomeSidePanelAddActionPage(
         SettingsHeader(
             title = stringResource(R.string.home_side_panel_add_action),
             onBack = onBack,
-            modifier = Modifier
-                .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top).asPaddingValues())
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+            modifier =
+                Modifier.padding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top).asPaddingValues(),
+                    )
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
         )
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 18.dp,
-                top = 4.dp,
-                end = 18.dp,
-                bottom = 18.dp + bottomInset,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = 18.dp,
+                    top = 4.dp,
+                    end = 18.dp,
+                    bottom = 18.dp + bottomInset,
+                ),
         ) {
             item {
                 if (card is HorizontalActionsCardConfig) {
@@ -299,11 +343,12 @@ fun HomeSidePanelAddActionPage(
                         HOME_SIDE_PANEL_ACTION_KINDS.forEach { kind ->
                             HomeSidePanelActionCandidateTile(
                                 kind = kind,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .homeSidePanelCandidateLongPress(
+                                modifier =
+                                    Modifier.weight(1f).homeSidePanelCandidateLongPress(
                                         descriptionRes = R.string.home_side_panel_drag_add_action,
-                                    ) { pointer -> onLongPressAction(card.id, kind, pointer) },
+                                    ) { pointer ->
+                                        onLongPressAction(card.id, kind, pointer)
+                                    },
                                 onClick = { onAddAction(card.id, kind) },
                             )
                         }
@@ -330,12 +375,11 @@ private fun HomeSidePanelActionCandidateTile(
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
@@ -357,20 +401,27 @@ private fun HomeSidePanelActionCandidateList(
 ) {
     Card(
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         HOME_SIDE_PANEL_ACTION_KINDS.forEachIndexed { index, kind ->
             val spec = homeSidePanelActionSpec(kind)
             ListItem(
                 leadingContent = {
-                    Icon(spec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        spec.icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .homeSidePanelCandidateLongPress(
-                        descriptionRes = R.string.home_side_panel_drag_add_action,
-                    ) { pointer -> onLongPressAction(cardId, kind, pointer) }
-                    .clickable { onAddAction(cardId, kind) },
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .homeSidePanelCandidateLongPress(
+                            descriptionRes = R.string.home_side_panel_drag_add_action,
+                        ) { pointer ->
+                            onLongPressAction(cardId, kind, pointer)
+                        }
+                        .clickable { onAddAction(cardId, kind) },
             ) {
                 Text(stringResource(spec.labelRes))
             }
@@ -382,15 +433,16 @@ private fun HomeSidePanelActionCandidateList(
 }
 
 @StringRes
-fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int = when (type) {
-    HomeSidePanelCardType.DATE_TIME -> R.string.home_side_panel_card_date_time
-    HomeSidePanelCardType.WEATHER -> R.string.home_side_panel_card_weather
-    HomeSidePanelCardType.WALLET -> R.string.home_side_panel_card_wallet
-    HomeSidePanelCardType.HITOKOTO -> R.string.home_side_panel_card_hitokoto
-    HomeSidePanelCardType.IMAGE -> R.string.home_side_panel_card_image
-    HomeSidePanelCardType.HORIZONTAL_ACTIONS -> R.string.home_side_panel_card_horizontal_actions
-    HomeSidePanelCardType.VERTICAL_ACTIONS -> R.string.home_side_panel_card_vertical_actions
-}
+fun homeSidePanelCardNameRes(type: HomeSidePanelCardType): Int =
+    when (type) {
+        HomeSidePanelCardType.DATE_TIME -> R.string.home_side_panel_card_date_time
+        HomeSidePanelCardType.WEATHER -> R.string.home_side_panel_card_weather
+        HomeSidePanelCardType.WALLET -> R.string.home_side_panel_card_wallet
+        HomeSidePanelCardType.HITOKOTO -> R.string.home_side_panel_card_hitokoto
+        HomeSidePanelCardType.IMAGE -> R.string.home_side_panel_card_image
+        HomeSidePanelCardType.HORIZONTAL_ACTIONS -> R.string.home_side_panel_card_horizontal_actions
+        HomeSidePanelCardType.VERTICAL_ACTIONS -> R.string.home_side_panel_card_vertical_actions
+    }
 
 private fun Modifier.homeSidePanelCandidateLongPress(
     @StringRes descriptionRes: Int,
@@ -404,8 +456,17 @@ private fun Modifier.homeSidePanelCandidateLongPress(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
-                val bounds = coordinates?.homeSidePanelUnclippedBoundsInRoot() ?: return@awaitEachGesture
-                onLongPress(longPress.toCandidatePointer(bounds.topLeft, bounds.left, bounds.top, bounds.right, bounds.bottom))
+                val bounds =
+                    coordinates?.homeSidePanelUnclippedBoundsInRoot() ?: return@awaitEachGesture
+                onLongPress(
+                    longPress.toCandidatePointer(
+                        bounds.topLeft,
+                        bounds.left,
+                        bounds.top,
+                        bounds.right,
+                        bounds.bottom,
+                    ),
+                )
                 longPress.consume()
                 do {
                     val event = awaitPointerEvent()
@@ -421,14 +482,15 @@ private fun PointerInputChange.toCandidatePointer(
     top: Float,
     right: Float,
     bottom: Float,
-): HomeSidePanelCandidatePointer = HomeSidePanelCandidatePointer(
-    pointerId = id.value,
-    rootX = rootOrigin.x + position.x,
-    rootY = rootOrigin.y + position.y,
-    anchorX = position.x,
-    anchorY = position.y,
-    sourceLeft = left,
-    sourceTop = top,
-    sourceRight = right,
-    sourceBottom = bottom,
-)
+): HomeSidePanelCandidatePointer =
+    HomeSidePanelCandidatePointer(
+        pointerId = id.value,
+        rootX = rootOrigin.x + position.x,
+        rootY = rootOrigin.y + position.y,
+        anchorX = position.x,
+        anchorY = position.y,
+        sourceLeft = left,
+        sourceTop = top,
+        sourceRight = right,
+        sourceBottom = bottom,
+    )

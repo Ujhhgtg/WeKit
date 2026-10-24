@@ -1,20 +1,20 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+
 object ForceEnableAllTools : SwitchFeature(), IResolveDex {
 
     override val technicalId = "强制启用所有功能"
@@ -32,43 +32,54 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
         methodRefreshAppPanel.hookBefore {
             val appPanel = thisObject ?: return@hookBefore
             val config = fieldAppPanelConfig.field.get(appPanel) ?: return@hookBefore
-            config.reflekt().fields {
-                type = fieldFirstFlag.field.type
-            }.forEach {
-                fieldFlagEnabled.field.setBoolean(it.get()!!, true)
-            }
+            config
+                .reflekt()
+                .fields {
+                    type = fieldFirstFlag.field.type
+                }
+                .forEach {
+                    fieldFlagEnabled.field.setBoolean(it.get()!!, true)
+                }
         }
     }
 
     override fun resolveDex() {
-        val refreshMethod = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(APP_PANEL_CLASS)),
-                usingStrings = listOf(
-                    StringSpec("MicroMsg.AppPanel", NameMatch.Equals),
-                    StringSpec("roomEnable:%s, hideRoomLive:%s", NameMatch.Equals),
-                ),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-            packages = listOf(APP_PANEL_PACKAGE),
-        ).single()
+        val refreshMethod =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec(APP_PANEL_CLASS)),
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.AppPanel", NameMatch.Equals),
+                                StringSpec("roomEnable:%s, hideRoomLive:%s", NameMatch.Equals),
+                            ),
+                        paramCount = 0..0,
+                        returnType = ClassSpec(className = NameSpec("void")),
+                    ),
+                    packages = listOf(APP_PANEL_PACKAGE),
+                )
+                .single()
         methodRefreshAppPanel.setDescriptor(refreshMethod)
 
         val usedFields = refreshMethod.usingFields.map { it.field }.distinctBy { it.descriptor }
-        // The previous resolver skipped non-final fields before resolving their type, so an external or
+        // The previous resolver skipped non-final fields before resolving their type, so an
+        // external or
         // primitive type (classInfoByName -> null) must count as "no boolean fields".
         val firstFlag = usedFields.first { field ->
             field.modifiers and java.lang.reflect.Modifier.FINAL != 0 &&
-                DexResolutionContext.metadata.classInfoByName(field.typeName)
-                    ?.fields?.count { it.typeName == "boolean" } == 1
+                DexResolutionContext.metadata.classInfoByName(field.typeName)?.fields?.count {
+                    it.typeName == "boolean"
+                } == 1
         }
         val configClass = firstFlag.declaredClass!!
         val appPanelConfig = usedFields.single { field ->
             field.className == APP_PANEL_CLASS && field.typeName == configClass.name
         }
-        val flagEnabled = DexResolutionContext.metadata.classInfoByName(firstFlag.typeName)!!
-            .fields.single { it.typeName == "boolean" }
+        val flagEnabled =
+            DexResolutionContext.metadata.classInfoByName(firstFlag.typeName)!!.fields.single {
+                it.typeName == "boolean"
+            }
 
         classAppPanelConfig.setDescriptor(configClass)
         fieldAppPanelConfig.setDescriptor(appPanelConfig)

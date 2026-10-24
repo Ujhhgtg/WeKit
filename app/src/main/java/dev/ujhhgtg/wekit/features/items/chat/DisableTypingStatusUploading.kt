@@ -3,12 +3,13 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.find
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
+
 object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
 
     override val technicalId = "禁止上传正在输入状态"
@@ -21,7 +22,9 @@ object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
     override fun onEnable() {
         if (!classMmTypingSendReq.isFound) return
 
-        classMmTypingSendReq.reflekt().firstMethod { name = "doScene" }
+        classMmTypingSendReq
+            .reflekt()
+            .firstMethod { name = "doScene" }
             .hookBefore {
                 result = -1
             }
@@ -30,13 +33,14 @@ object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
     override fun resolveDex() {
         classMmTypingSendReq.find(
             ClassSpec(
-                usingStrings = listOf(
-                    StringSpec(
-                        "null cannot be cast to non-null type com.tencent.mm.protocal.MMTypingSend.Req",
-                        NameMatch.Equals,
+                usingStrings =
+                    listOf(
+                        StringSpec(
+                            "null cannot be cast to non-null type com.tencent.mm.protocal.MMTypingSend.Req",
+                            NameMatch.Equals,
+                        ),
+                        StringSpec("autoAuth", NameMatch.Equals),
                     ),
-                    StringSpec("autoAuth", NameMatch.Equals),
-                ),
             ),
             packages = listOf("com.tencent.mm.modelsimple"),
             allowFailure = true,

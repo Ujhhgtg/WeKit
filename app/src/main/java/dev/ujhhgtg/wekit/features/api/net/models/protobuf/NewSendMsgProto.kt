@@ -6,15 +6,13 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-/**
- * Request body for `/cgi-bin/micromsg-bin/newsendmsg` (cgi 522).
- */
+/** Request body for `/cgi-bin/micromsg-bin/newsendmsg` (cgi 522). */
 @Serializable
 data class NewSendMsgReqProto(
     @ProtoNumber(1) val count: Int = 1,
     @ProtoNumber(2) val items: List<NewSendMsgItemProto> = emptyList(),
     @ProtoNumber(4) override val createTime: Int = 0,
-    @ProtoNumber(5) override val clientMsgId: Int = 0
+    @ProtoNumber(5) override val clientMsgId: Int = 0,
 ) : INewSendMsgProto
 
 interface INewSendMsgProto {

@@ -7,7 +7,17 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.dsl.find
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -15,17 +25,6 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object WeServiceApi : ApiFeature(), IResolveDex {
 
@@ -34,123 +33,162 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_service_api_description
 
-    private val methodServiceManagerGetService by dexMethod(
-        sqlMethod {
-            paramTypes("java.lang.Class")
-            modifiers = 8
-            usingEqStrings("calling getService(...)")
-        },
-    )
-    private val classEmojiFeatureService by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.feature.emoji")
-            method {
-                usingEqStrings("MicroMsg.EmojiFeatureService", "[onAccountInitialized]")
-            }
-        },
-    )
+    private val methodServiceManagerGetService by
+        dexMethod(
+            sqlMethod {
+                paramTypes("java.lang.Class")
+                modifiers = 8
+                usingEqStrings("calling getService(...)")
+            },
+        )
+    private val classEmojiFeatureService by
+        dexClass(
+            sqlClass {
+                searchPackages("com.tencent.mm.feature.emoji")
+                method {
+                    usingEqStrings("MicroMsg.EmojiFeatureService", "[onAccountInitialized]")
+                }
+            },
+        )
     private val classStorageFeatureService by dexClassQuery {
         uniqueClass(
             ClassSpec(
-                methods = listOf(
-                    MethodSpec(
-                        returnType = ClassSpec(
-                            usingStrings = listOf(
-                                StringSpec("PRAGMA table_info( contact_ext )", NameMatch.Equals),
-                            ),
+                methods =
+                    listOf(
+                        MethodSpec(
+                            returnType =
+                                ClassSpec(
+                                    usingStrings =
+                                        listOf(
+                                            StringSpec(
+                                                "PRAGMA table_info( contact_ext )",
+                                                NameMatch.Equals,
+                                            ),
+                                        ),
+                                ),
+                        ),
+                        MethodSpec(
+                            returnType =
+                                ClassSpec(
+                                    usingStrings =
+                                        listOf(
+                                            StringSpec("MicroMsg.MsgInfoStorage", NameMatch.Equals),
+                                            StringSpec(
+                                                "deleted dirty msg ,count is %d",
+                                                NameMatch.Equals,
+                                            ),
+                                        ),
+                                ),
+                        ),
+                        MethodSpec(
+                            returnType =
+                                ClassSpec(
+                                    usingStrings =
+                                        listOf(
+                                            StringSpec(
+                                                "PRAGMA table_info( rconversation)",
+                                                NameMatch.Equals,
+                                            ),
+                                        ),
+                                ),
                         ),
                     ),
-                    MethodSpec(
-                        returnType = ClassSpec(
-                            usingStrings = listOf(
-                                StringSpec("MicroMsg.MsgInfoStorage", NameMatch.Equals),
-                                StringSpec("deleted dirty msg ,count is %d", NameMatch.Equals),
-                            ),
-                        ),
-                    ),
-                    MethodSpec(
-                        returnType = ClassSpec(
-                            usingStrings = listOf(
-                                StringSpec("PRAGMA table_info( rconversation)", NameMatch.Equals),
-                            ),
-                        ),
-                    ),
-                ),
             ),
             packages = listOf("com.tencent.mm.plugin.messenger.foundation"),
         )
     }
-    private val classChatroomService by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.ChatroomService", "[isEnableRoomManager]")
-        },
-    )
-    val classImageInfoStorage by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.ImgInfoStorage", "generateMd5: %s, %s")
-        },
-    )
-    val methodDownloadImageServiceDownloadImage by dexMethod(
-        sqlMethod {
-            usingEqStrings("ModelImage.DownloadImgService", "] add failed, task already done")
-        },
-    )
+    private val classChatroomService by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.ChatroomService", "[isEnableRoomManager]")
+            },
+        )
+    val classImageInfoStorage by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.ImgInfoStorage", "generateMd5: %s, %s")
+            },
+        )
+    val methodDownloadImageServiceDownloadImage by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("ModelImage.DownloadImgService", "] add failed, task already done")
+            },
+        )
     val classImageFeatureService by dexClassQuery {
         uniqueClass(
             ClassSpec(
-                fields = listOf(
-                    FieldSpec(type = ClassSpec(className = NameSpec(classImageInfoStorage.data.name))),
-                    FieldSpec(
-                        type = ClassSpec(
-                            className = NameSpec(
-                                methodDownloadImageServiceDownloadImage.data.declaredClassName,
-                            ),
+                fields =
+                    listOf(
+                        FieldSpec(
+                            type = ClassSpec(className = NameSpec(classImageInfoStorage.data.name)),
+                        ),
+                        FieldSpec(
+                            type =
+                                ClassSpec(
+                                    className =
+                                        NameSpec(
+                                            methodDownloadImageServiceDownloadImage.data
+                                                .declaredClassName,
+                                        ),
+                                ),
                         ),
                     ),
-                ),
-            )
+            ),
         )
     }
-    private val methodApiManagerGetApi by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.manager")
-            usingEqStrings("[get] ", " is not a interface!")
-        },
-    )
+    private val methodApiManagerGetApi by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.manager")
+                usingEqStrings("[get] ", " is not a interface!")
+            },
+        )
     private val methodMmKernelGetServiceImpl by dexMethod()
-    private val classMmKernel by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
-        },
-    )
-    private val methodVideoPathFeatureServiceRestoreMp4Path by dexMethod() // formerly VideoInfoStorage
-    val classVideoService by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.VideoService", "MicroMsg.SubCoreVideo", "quitVideoSendThread")
-        },
-    )
-    val classEmojiMgrImpl by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.emoji.EmojiMgrImpl", "sendEmoji: context is null")
-        },
-    )
-    val classEmojiInfoStorage by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.emoji.EmojiInfoStorage", "md5 is null or invalue. md5:%s")
-        },
-    )
-    private val classEmojiStorageMgr by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.storage")
-            usingEqStrings("MicroMsg.emoji.EmojiStorageMgr", "EmojiStorageMgr: %s")
-        },
-    )
-    val methodSaveEmojiThumb by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.storage.emotion.EmojiInfo"
-            usingEqStrings("save emoji thumb error")
-        },
-    )
+    private val classMmKernel by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
+            },
+        )
+    private val methodVideoPathFeatureServiceRestoreMp4Path by
+        dexMethod() // formerly VideoInfoStorage
+    val classVideoService by
+        dexClass(
+            sqlClass {
+                usingEqStrings(
+                    "MicroMsg.VideoService",
+                    "MicroMsg.SubCoreVideo",
+                    "quitVideoSendThread",
+                )
+            },
+        )
+    val classEmojiMgrImpl by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.emoji.EmojiMgrImpl", "sendEmoji: context is null")
+            },
+        )
+    val classEmojiInfoStorage by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.emoji.EmojiInfoStorage", "md5 is null or invalue. md5:%s")
+            },
+        )
+    private val classEmojiStorageMgr by
+        dexClass(
+            sqlClass {
+                searchPackages("com.tencent.mm.storage")
+                usingEqStrings("MicroMsg.emoji.EmojiStorageMgr", "EmojiStorageMgr: %s")
+            },
+        )
+    val methodSaveEmojiThumb by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.storage.emotion.EmojiInfo"
+                usingEqStrings("save emoji thumb error")
+            },
+        )
     val apiManagerClass: Class<*>
         get() = methodApiManagerGetApi.method.declaringClass
 
@@ -158,37 +196,53 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         get() = getServiceByClass(classEmojiFeatureService.clazz)
 
     val emojiStorageMgr
-        get() = classEmojiStorageMgr.reflekt().firstMethod {
-            modifiers(Modifiers.STATIC)
-            returnType = classEmojiStorageMgr.clazz
-        }.invoke()!!
+        get() =
+            classEmojiStorageMgr
+                .reflekt()
+                .firstMethod {
+                    modifiers(Modifiers.STATIC)
+                    returnType = classEmojiStorageMgr.clazz
+                }
+                .invoke()!!
 
     val emojiMgr
-        get() = emojiFeatureService.reflekt()
-            .firstMethod {
-                parameterCount = 0
-                returnType = classEmojiMgrImpl.clazz
-            }.invoke(emojiFeatureService)!!
+        get() =
+            emojiFeatureService
+                .reflekt()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = classEmojiMgrImpl.clazz
+                }
+                .invoke(emojiFeatureService)!!
 
     val emojiMgrImpl
-        get() = emojiFeatureService.reflekt()
-            .firstMethod {
-                returnType = classEmojiMgrImpl.clazz
-            }
-            .invoke()!!
+        get() =
+            emojiFeatureService
+                .reflekt()
+                .firstMethod {
+                    returnType = classEmojiMgrImpl.clazz
+                }
+                .invoke()!!
 
     fun processEmojiPath(path: String): String {
-        return emojiMgrImpl.reflekt().firstMethod {
-            parameters(Context::class, BString)
-            returnType = BString
-        }.invoke(HostInfo.application, path)!! as String
+        return emojiMgrImpl
+            .reflekt()
+            .firstMethod {
+                parameters(Context::class, BString)
+                returnType = BString
+            }
+            .invoke(HostInfo.application, path)!!
+            as String
     }
 
     fun saveEmojiThumb(path: String): Any {
-        return emojiInfoStorage.reflekt().firstMethod {
-            parameters(BString)
-            returnType = methodSaveEmojiThumb.method.declaringClass
-        }.invoke(path)!!
+        return emojiInfoStorage
+            .reflekt()
+            .firstMethod {
+                parameters(BString)
+                returnType = methodSaveEmojiThumb.method.declaringClass
+            }
+            .invoke(path)!!
     }
 
     fun getEmojiMd5FromPath(context: Context, path: String): String {
@@ -202,14 +256,17 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
 
     val emojiInfoStorage
-        get() = emojiStorageMgr.reflekt()
-            .firstMethod {
-                returnType = classEmojiInfoStorage.clazz
-            }
-            .invoke()!!
+        get() =
+            emojiStorageMgr
+                .reflekt()
+                .firstMethod {
+                    returnType = classEmojiInfoStorage.clazz
+                }
+                .invoke()!!
 
     fun getEmojiInfoByMd5(md5: String): Any {
-        return emojiInfoStorage.reflekt()
+        return emojiInfoStorage
+            .reflekt()
             .firstMethod {
                 parameters(BString)
                 returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
@@ -221,21 +278,27 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         get() = getServiceByClass(classStorageFeatureService.clazz)
 
     val msgInfoStorage
-        get() = storageFeatureService.reflekt()
-            .firstMethod {
-                parameterCount = 0
-                returnType = WeMessageApi.classMsgInfoStorage.clazz
-            }
-            .invoke()!!
+        get() =
+            storageFeatureService
+                .reflekt()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = WeMessageApi.classMsgInfoStorage.clazz
+                }
+                .invoke()!!
 
     val chatroomService
         get() = getServiceImplByClass(classChatroomService.clazz.interfaces[0])
 
     val chatroomStorage
         get() =
-            chatroomService.reflekt().firstField {
-                type = WeConversationApi.methodChatroomStorageGetMemberCount.method.declaringClass
-            }.get()!!
+            chatroomService
+                .reflekt()
+                .firstField {
+                    type =
+                        WeConversationApi.methodChatroomStorageGetMemberCount.method.declaringClass
+                }
+                .get()!!
 
     fun getServiceByClass(clazz: Class<*>): Any {
         return methodServiceManagerGetService.method.invoke(null, clazz)!!
@@ -250,30 +313,36 @@ object WeServiceApi : ApiFeature(), IResolveDex {
     }
 
     val imageInfoStorage
-        get() = classImageFeatureService.reflekt()
-            .firstMethod {
-                modifiers(Modifiers.STATIC)
-                returnType = classImageInfoStorage.clazz
-            }.invoke()!!
+        get() =
+            classImageFeatureService
+                .reflekt()
+                .firstMethod {
+                    modifiers(Modifiers.STATIC)
+                    returnType = classImageInfoStorage.clazz
+                }
+                .invoke()!!
 
     fun getImageMd5FromMsgInfo(msgInfo: MessageInfo): String {
-        return imageInfoStorage.reflekt()
+        return imageInfoStorage
+            .reflekt()
             .firstMethod {
                 returnType = String::class
                 parameters(WeMessageApi.classMsgInfo.clazz)
-            }.invoke(msgInfo.instance)!! as String
+            }
+            .invoke(msgInfo.instance)!!
+            as String
     }
 
     val videoPathFeatureService
-        get() = getServiceByClass(
-            methodVideoPathFeatureServiceRestoreMp4Path
-                .method.declaringClass
-                .interfaces[0]
-        )
+        get() =
+            getServiceByClass(
+                methodVideoPathFeatureServiceRestoreMp4Path.method.declaringClass.interfaces[0],
+            )
 
     fun getVideoMp4PathFromMsgInfo(msgInfo: MessageInfo): String {
         return methodVideoPathFeatureServiceRestoreMp4Path.method.invoke(
-            videoPathFeatureService, msgInfo.imagePath!!
+            videoPathFeatureService,
+            msgInfo.imagePath!!,
         ) as String
     }
 
@@ -285,25 +354,30 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             ),
         )
 
-        val results = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                usingStrings = listOf(
-                    StringSpec("MicroMsg.C2CVideoPathFeatureService", NameMatch.Equals),
-                    StringSpec("success restore file, from ", NameMatch.Equals),
-                    StringSpec(".mp4", NameMatch.Equals),
-                ),
-            ),
-        ).ifEmpty {
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    usingStrings = listOf(
-                        StringSpec("MicroMsg.VideoInfoStorage", NameMatch.Equals),
-                        StringSpec("success restore file, from ", NameMatch.Equals),
-                        StringSpec(".mp4", NameMatch.Equals),
+        val results =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.C2CVideoPathFeatureService", NameMatch.Equals),
+                                StringSpec("success restore file, from ", NameMatch.Equals),
+                                StringSpec(".mp4", NameMatch.Equals),
+                            ),
                     ),
-                ),
-            )
-        }
+                )
+                .ifEmpty {
+                    DexResolutionContext.matcher.findMethods(
+                        MethodSpec(
+                            usingStrings =
+                                listOf(
+                                    StringSpec("MicroMsg.VideoInfoStorage", NameMatch.Equals),
+                                    StringSpec("success restore file, from ", NameMatch.Equals),
+                                    StringSpec(".mp4", NameMatch.Equals),
+                                ),
+                        ),
+                    )
+                }
         methodVideoPathFeatureServiceRestoreMp4Path.setDescriptor(results.single())
     }
 }

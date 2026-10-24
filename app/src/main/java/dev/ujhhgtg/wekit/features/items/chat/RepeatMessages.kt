@@ -36,34 +36,42 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     }
 
     @Suppress("DEPRECATION")
-    private val SUPPORTED_MSG_TYPES = setOf(
-        MessageType.TEXT,
-        MessageType.QUOTE,
-        MessageType.APP,
-        MessageType.IMAGE,
-        MessageType.VOICE,
-        MessageType.VIDEO,
-        MessageType.MICRO_VIDEO,
-        MessageType.STICKER,
-        MessageType.SO_GOU_EMOJI
-    )
+    private val SUPPORTED_MSG_TYPES =
+        setOf(
+            MessageType.TEXT,
+            MessageType.QUOTE,
+            MessageType.APP,
+            MessageType.IMAGE,
+            MessageType.VOICE,
+            MessageType.VIDEO,
+            MessageType.MICRO_VIDEO,
+            MessageType.STICKER,
+            MessageType.SO_GOU_EMOJI,
+        )
 
     fun isSupported(msgInfo: MessageInfo): Boolean = msgInfo.type in SUPPORTED_MSG_TYPES
 
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777008, localizedChatString(R.string.chat_repeat_menu), ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
+                777008,
+                localizedChatString(R.string.chat_repeat_menu),
+                ExposurePlus1Icon,
+                MaterialSymbols.Outlined.Exposure_plus_1,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
                     val context = view.context
 
                     CoroutineScope(Dispatchers.IO).launch {
                         val sent = repeatMessage(msgInfo)
-                        if (!sent) showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
+                        if (!sent)
+                            showToastSuspend(
+                                context,
+                                context.localizedChatString(R.string.chat_repeat_failed),
+                            )
                     }
-                }
-            )
+                },
+            ),
         )
     }
 
@@ -74,8 +82,10 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                 MessageType.TEXT -> WeMessageApi.sendText(msgInfo.talker, msgInfo.actualContent)
                 MessageType.IMAGE -> repeatImage(msgInfo)
                 MessageType.VOICE -> repeatVoice(msgInfo)
-                MessageType.VIDEO, MessageType.MICRO_VIDEO -> repeatVideo(msgInfo)
-                MessageType.STICKER, MessageType.SO_GOU_EMOJI -> repeatEmoji(msgInfo)
+                MessageType.VIDEO,
+                MessageType.MICRO_VIDEO -> repeatVideo(msgInfo)
+                MessageType.STICKER,
+                MessageType.SO_GOU_EMOJI -> repeatEmoji(msgInfo)
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(msgInfo.talker, msgInfo.actualContent)
                 MessageType.QUOTE -> {
                     val quote = msgInfo.toQuoteMessage()!!
@@ -91,10 +101,11 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                 }
                 else -> false
             }
-        }.getOrElse {
-            WeLogger.e(TAG, "failed to repeat message: type=${msgInfo.typeCode}", it)
-            false
         }
+            .getOrElse {
+                WeLogger.e(TAG, "failed to repeat message: type=${msgInfo.typeCode}", it)
+                false
+            }
     }
 
     private fun repeatImage(msgInfo: MessageInfo): Boolean {

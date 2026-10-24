@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -23,10 +24,9 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -58,14 +58,18 @@ object BlockAtAllNotifications : ClickableFeature() {
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(
-                                    if (useWhitelistState) R.string.filter_list_whitelist_selected
-                                    else R.string.filter_list_blacklist_selected
-                                ),
-                                description = stringResource(
-                                    if (useWhitelistState) R.string.chat_block_at_all_whitelist_description
-                                    else R.string.chat_block_at_all_blacklist_description
-                                ),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_whitelist_selected
+                                        else R.string.filter_list_blacklist_selected,
+                                    ),
+                                description =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.chat_block_at_all_whitelist_description
+                                        else R.string.chat_block_at_all_blacklist_description,
+                                    ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
                                     useWhitelistState = it
@@ -76,20 +80,26 @@ object BlockAtAllNotifications : ClickableFeature() {
                         item {
                             BaseWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(
-                                    if (useWhitelistState) R.string.filter_list_configure_whitelist
-                                    else R.string.filter_list_configure_blacklist
-                                ),
-                                description = stringResource(R.string.chat_block_at_all_select_groups_hint),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState)
+                                            R.string.filter_list_configure_whitelist
+                                        else R.string.filter_list_configure_blacklist,
+                                    ),
+                                description =
+                                    stringResource(R.string.chat_block_at_all_select_groups_hint),
                                 onClick = {
                                     val groups = WeDatabaseApi.getGroups()
-                                    val currentList = if (useWhitelistState) whitelist else blacklist
+                                    val currentList =
+                                        if (useWhitelistState) whitelist else blacklist
                                     showComposeDialog(context) {
                                         ContactsSelector(
-                                            title = stringResource(
-                                                if (useWhitelistState) R.string.filter_list_select_whitelist
-                                                else R.string.filter_list_select_blacklist
-                                            ),
+                                            title =
+                                                stringResource(
+                                                    if (useWhitelistState)
+                                                        R.string.filter_list_select_whitelist
+                                                    else R.string.filter_list_select_blacklist,
+                                                ),
                                             contacts = groups,
                                             initialSelectedWxIds = currentList,
                                             onDismiss = onDismiss,
@@ -104,7 +114,7 @@ object BlockAtAllNotifications : ClickableFeature() {
                                                     R.plurals.chat_block_at_all_groups_saved,
                                                     selectedIds.size,
                                                     selectedIds.size,
-                                                )
+                                                ),
                                             )
                                             onDismiss()
                                         }
@@ -162,30 +172,37 @@ object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
     private val pendingLock = Any()
     private val pendingByGroup = HashMap<String, ArrayDeque<PendingAtAll>>()
 
-    private val methodDealNotify by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.booter.notification")
-            returnType = "void"
-            paramCount = 6
-            usingEqStrings("jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s")
-        },
-    )
+    private val methodDealNotify by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.booter.notification")
+                returnType = "void"
+                paramCount = 6
+                usingEqStrings(
+                    "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
+                )
+            },
+        )
 
-    private val methodNotifyForLightPush by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.booter.notification")
-            returnType = "void"
-            paramCount = 7
-            usingEqStrings("LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)")
-        },
-    )
+    private val methodNotifyForLightPush by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.booter.notification")
+                returnType = "void"
+                paramCount = 7
+                usingEqStrings(
+                    "LightPush [NO NOTIFICATION] Util.isNullOrNil(userName) || Util.isNullOrNil(nickName)",
+                )
+            },
+        )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 
     override fun onEnable() {
         WeMessageApi.methodMsgInfoStorageInsertMessage.hookAfter {
             val message = MessageInfo(args[0]!!)
-            if (message.isSelfSender || !message.isInGroupChat || !message.isNotifyAll) return@hookAfter
+            if (message.isSelfSender || !message.isInGroupChat || !message.isNotifyAll)
+                return@hookAfter
             recordPending(message.talker, message.content)
         }
 

@@ -41,12 +41,10 @@ fun formatHomeSidePanelLunarDate(
 }
 
 fun homeSidePanelLunarDate(dateTime: LocalDateTime): HomeSidePanelLunarDate {
-    val calendar = ChineseCalendar().apply {
-        timeInMillis = dateTime
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-    }
+    val calendar =
+        ChineseCalendar().apply {
+            timeInMillis = dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
     return HomeSidePanelLunarDate(
         month = calendar.get(Calendar.MONTH) + 1,
         day = calendar.get(Calendar.DAY_OF_MONTH),

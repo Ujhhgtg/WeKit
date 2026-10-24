@@ -3,6 +3,11 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -14,20 +19,15 @@ import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookDirectly
+import java.util.IdentityHashMap
+import java.util.LinkedHashMap
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.IdentityHashMap
-import java.util.LinkedHashMap
-import java.util.Locale
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
@@ -54,29 +54,33 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     )
 
     override fun resolveDex() {
-        val matches = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                returnType = ClassSpec(className = NameSpec("boolean")),
-                paramCount = 10..11,
-                usingStrings = listOf(
-                    StringSpec("MicroMsg.ChatroomMembersLogic"),
-                    StringSpec("SyncAddChatroomMember"),
-                ),
-            ),
-        ).filter { method ->
-            val params = method.paramTypeNames
-            params[0] == "java.lang.String" &&
-                params[1] == "java.lang.String" &&
-                params[3] == "int" &&
-                params[4] == "int" &&
-                params[5] == "int" &&
-                params[6] == "java.lang.String" &&
-                params[8] == "boolean" &&
-                params[9] == "boolean" &&
-                (params.size == 10 || params[10] == "int") &&
-                params[2] !in PRIMITIVE_TYPE_NAMES &&
-                params[7] !in PRIMITIVE_TYPE_NAMES
-        }
+        val matches =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        returnType = ClassSpec(className = NameSpec("boolean")),
+                        paramCount = 10..11,
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.ChatroomMembersLogic"),
+                                StringSpec("SyncAddChatroomMember"),
+                            ),
+                    ),
+                )
+                .filter { method ->
+                    val params = method.paramTypeNames
+                    params[0] == "java.lang.String" &&
+                        params[1] == "java.lang.String" &&
+                        params[3] == "int" &&
+                        params[4] == "int" &&
+                        params[5] == "int" &&
+                        params[6] == "java.lang.String" &&
+                        params[8] == "boolean" &&
+                        params[9] == "boolean" &&
+                        (params.size == 10 || params[10] == "int") &&
+                        params[2] !in PRIMITIVE_TYPE_NAMES &&
+                        params[7] !in PRIMITIVE_TYPE_NAMES
+                }
 
         check(matches.size == 1) {
             "expected one ChatroomMembersLogic sync method, found ${matches.size}: " +
@@ -88,63 +92,87 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     override fun onEnable() {
         if (!scope.coroutineContext[Job]!!.isActive) scope = newScope()
 
-        registerUnhook(methodSyncChatroomMembers.method.hookDirectly(object : HookCallback() {
-            override fun beforeHookedMethod(param: HookParam) {
-                val roomId = param.args[0] as String
-                if (!roomId.isSupportedChatroomId()) return
+        registerUnhook(
+            methodSyncChatroomMembers.method.hookDirectly(
+                object : HookCallback() {
+                    override fun beforeHookedMethod(param: HookParam) {
+                        val roomId = param.args[0] as String
+                        if (!roomId.isSupportedChatroomId()) return
 
-                val selfWxId = WeApi.selfWxId
-                if (selfWxId.isEmpty()) return
+                        val selfWxId = WeApi.selfWxId
+                        if (selfWxId.isEmpty()) return
 
-                val snapshot = SyncSnapshot(roomId, WeDatabaseApi.getChatroomSyncState(roomId), selfWxId)
-                synchronized(stateLock) {
-                    observeAccount(selfWxId)
-                    if (snapshots.size >= MAX_SNAPSHOTS) snapshots.entries.iterator().run {
-                        next()
-                        remove()
+                        val snapshot =
+                            SyncSnapshot(
+                                roomId,
+                                WeDatabaseApi.getChatroomSyncState(roomId),
+                                selfWxId,
+                            )
+                        synchronized(stateLock) {
+                            observeAccount(selfWxId)
+                            if (snapshots.size >= MAX_SNAPSHOTS)
+                                snapshots.entries.iterator().run {
+                                    next()
+                                    remove()
+                                }
+                            snapshots[param] = snapshot
+                        }
                     }
-                    snapshots[param] = snapshot
-                }
-            }
 
-            override fun afterHookedMethod(param: HookParam) {
-                val selfWxId = WeApi.selfWxId
-                val snapshot = synchronized(stateLock) {
-                    val pendingSnapshot = snapshots.remove(param) ?: return
-                    if (selfWxId != pendingSnapshot.selfWxId) {
-                        observeAccount(selfWxId)
-                        return
-                    }
-                    observeAccount(selfWxId)
-                    pendingSnapshot
-                }
-                if (param.throwable != null) return
+                    override fun afterHookedMethod(param: HookParam) {
+                        val selfWxId = WeApi.selfWxId
+                        val snapshot =
+                            synchronized(stateLock) {
+                                val pendingSnapshot = snapshots.remove(param) ?: return
+                                if (selfWxId != pendingSnapshot.selfWxId) {
+                                    observeAccount(selfWxId)
+                                    return
+                                }
+                                observeAccount(selfWxId)
+                                pendingSnapshot
+                            }
+                        if (param.throwable != null) return
 
-                val oldState = when (snapshot.oldState) {
-                    ChatroomSyncStateReadResult.MissingRow -> null
-                    is ChatroomSyncStateReadResult.Available -> snapshot.oldState.state
-                    ChatroomSyncStateReadResult.Unavailable -> {
-                        WeLogger.d(TAG, "skip unavailable pre-sync state for ${snapshot.roomId}")
-                        return
-                    }
-                }
-                val newState = when (val result = WeDatabaseApi.getChatroomSyncState(snapshot.roomId)) {
-                    is ChatroomSyncStateReadResult.Available -> result.state
-                    ChatroomSyncStateReadResult.MissingRow -> {
-                        WeLogger.d(TAG, "skip missing post-sync state for ${snapshot.roomId}")
-                        return
-                    }
-                    ChatroomSyncStateReadResult.Unavailable -> {
-                        WeLogger.d(TAG, "skip unavailable post-sync state for ${snapshot.roomId}")
-                        return
-                    }
-                }
+                        val oldState =
+                            when (snapshot.oldState) {
+                                ChatroomSyncStateReadResult.MissingRow -> null
+                                is ChatroomSyncStateReadResult.Available -> snapshot.oldState.state
+                                ChatroomSyncStateReadResult.Unavailable -> {
+                                    WeLogger.d(
+                                        TAG,
+                                        "skip unavailable pre-sync state for ${snapshot.roomId}",
+                                    )
+                                    return
+                                }
+                            }
+                        val newState =
+                            when (
+                                val result = WeDatabaseApi.getChatroomSyncState(snapshot.roomId)
+                            ) {
+                                is ChatroomSyncStateReadResult.Available -> result.state
+                                ChatroomSyncStateReadResult.MissingRow -> {
+                                    WeLogger.d(
+                                        TAG,
+                                        "skip missing post-sync state for ${snapshot.roomId}",
+                                    )
+                                    return
+                                }
+                                ChatroomSyncStateReadResult.Unavailable -> {
+                                    WeLogger.d(
+                                        TAG,
+                                        "skip unavailable post-sync state for ${snapshot.roomId}",
+                                    )
+                                    return
+                                }
+                            }
 
-                if (!shouldMuteJoinedGroup(oldState, newState, snapshot.selfWxId)) return
+                        if (!shouldMuteJoinedGroup(oldState, newState, snapshot.selfWxId)) return
 
-                submitDnd(snapshot.roomId, newState, snapshot.selfWxId)
-            }
-        }))
+                        submitDnd(snapshot.roomId, newState, snapshot.selfWxId)
+                    }
+                },
+            ),
+        )
     }
 
     override fun onDisable() {
@@ -159,7 +187,10 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     private fun submitDnd(roomId: String, state: WeChatroomSyncState, selfWxId: String) {
         val key = dedupKey(state)
         if (!markDedupKey(key)) {
-            WeLogger.d(TAG, "skip duplicate DND room=$roomId key=$key version=${state.memberVersion}")
+            WeLogger.d(
+                TAG,
+                "skip duplicate DND room=$roomId key=$key version=${state.memberVersion}",
+            )
             return
         }
 
@@ -170,13 +201,23 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                     return@launch
                 }
                 if (WeConversationApi.isDnd(roomId)) {
-                    WeLogger.d(TAG, "skip already-muted room=$roomId key=$key version=${state.memberVersion}")
+                    WeLogger.d(
+                        TAG,
+                        "skip already-muted room=$roomId key=$key version=${state.memberVersion}",
+                    )
                     return@launch
                 }
                 WeConversationApi.setDnd(roomId, true)
-                WeLogger.i(TAG, "submitted DND room=$roomId key=$key version=${state.memberVersion}")
+                WeLogger.i(
+                    TAG,
+                    "submitted DND room=$roomId key=$key version=${state.memberVersion}",
+                )
             } catch (e: Exception) {
-                WeLogger.w(TAG, "DND submission failed room=$roomId key=$key version=${state.memberVersion}", e)
+                WeLogger.w(
+                    TAG,
+                    "DND submission failed room=$roomId key=$key version=${state.memberVersion}",
+                    e,
+                )
             }
         }
     }
@@ -189,15 +230,17 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
         observedSelfWxId = selfWxId
     }
 
-    private fun markDedupKey(key: String): Boolean = synchronized(stateLock) {
-        if (dedupKeys.containsKey(key)) return@synchronized false
-        if (dedupKeys.size >= MAX_DEDUP_KEYS) dedupKeys.entries.iterator().run {
-            next()
-            remove()
+    private fun markDedupKey(key: String): Boolean =
+        synchronized(stateLock) {
+            if (dedupKeys.containsKey(key)) return@synchronized false
+            if (dedupKeys.size >= MAX_DEDUP_KEYS)
+                dedupKeys.entries.iterator().run {
+                    next()
+                    remove()
+                }
+            dedupKeys[key] = Unit
+            true
         }
-        dedupKeys[key] = Unit
-        true
-    }
 
     private fun String.isSupportedChatroomId(): Boolean {
         val lowerCaseId = lowercase(Locale.ROOT)
@@ -206,16 +249,17 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
     private fun newScope() = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val PRIMITIVE_TYPE_NAMES = setOf(
-        "boolean",
-        "byte",
-        "char",
-        "double",
-        "float",
-        "int",
-        "long",
-        "short",
-        "void",
-        "java.lang.String",
-    )
+    private val PRIMITIVE_TYPE_NAMES =
+        setOf(
+            "boolean",
+            "byte",
+            "char",
+            "double",
+            "float",
+            "int",
+            "long",
+            "short",
+            "void",
+            "java.lang.String",
+        )
 }

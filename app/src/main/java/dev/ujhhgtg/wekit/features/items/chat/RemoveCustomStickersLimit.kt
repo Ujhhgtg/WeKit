@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
-import java.lang.reflect.Modifier
 
 object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
 
@@ -20,78 +19,91 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_remove_custom_stickers_limit_description
 
-    private val methodGetCustomEmojiMaxSize by dexMethod(
-        sqlMethod {
-            returnType = "int"
-            paramCount = 0
-            modifiers = 8
-            usingEqStrings("CustomEmojiMaxSize")
-        },
-    )
+    private val methodGetCustomEmojiMaxSize by
+        dexMethod(
+            sqlMethod {
+                returnType = "int"
+                paramCount = 0
+                modifiers = 8
+                usingEqStrings("CustomEmojiMaxSize")
+            },
+        )
 
-    private val methodComputeEmojiStorageState by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramCount = 1
-            usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
-        },
-    )
+    private val methodComputeEmojiStorageState by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramCount = 1
+                usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
+            },
+        )
 
-    private val classMmkv by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        },
-    )
+    private val classMmkv by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
+            },
+        )
 
-    private val methodGetMmkv by dexMethod(
-        sqlMethod {
-            declaredClass(classMmkv.data.name)
-            usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        },
-    )
+    private val methodGetMmkv by
+        dexMethod(
+            sqlMethod {
+                declaredClass(classMmkv.data.name)
+                usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
+            },
+        )
 
-    private val classCgiBack by dexClass(
-        sqlClass {
-            usingEqStrings("CgiBack{errType=")
-        },
-    )
+    private val classCgiBack by
+        dexClass(
+            sqlClass {
+                usingEqStrings("CgiBack{errType=")
+            },
+        )
 
-    private val methodCreateCgiBack by dexMethod(
-        sqlMethod {
-            declaredClass(classCgiBack.data.name)
-            returnType(classCgiBack.data.name)
-            paramCount = 6
-            modifiers = 8
-        },
-    )
+    private val methodCreateCgiBack by
+        dexMethod(
+            sqlMethod {
+                declaredClass(classCgiBack.data.name)
+                returnType(classCgiBack.data.name)
+                paramCount = 6
+                modifiers = 8
+            },
+        )
 
-    private val methodAddEmojiOnSceneEnd by dexMethod(
-        sqlMethod {
-            usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
-        },
-    )
+    private val methodAddEmojiOnSceneEnd by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
+            },
+        )
 
-    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by dexMethod(
-        sqlMethod {
-            name = "onGYNetEnd"
-            usingEqStrings("MicroMsg.emoji.NetSceneBackupEmojiOperate", "errType:%d, errCode:%d")
-        },
-    )
+    private val methodNetSceneBackupEmojiOperateOnGYNetEnd by
+        dexMethod(
+            sqlMethod {
+                name = "onGYNetEnd"
+                usingEqStrings(
+                    "MicroMsg.emoji.NetSceneBackupEmojiOperate",
+                    "errType:%d, errCode:%d",
+                )
+            },
+        )
 
-    private val methodChattingUiEmoji by dexMethod(
-        sqlMethod {
-            usingEqStrings("addToCustom. over max size.")
-        },
-    )
+    private val methodChattingUiEmoji by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("addToCustom. over max size.")
+            },
+        )
 
-    private val methodConditionallyShowDialog by dexMethod(
-        sqlMethod {
-            usingEqStrings("custom_full")
-            declaredClass {
-                usingEqStrings("uninstallEmoticon Failed to send net scene: ")
-            }
-        },
-    )
+    private val methodConditionallyShowDialog by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("custom_full")
+                declaredClass {
+                    usingEqStrings("uninstallEmoticon Failed to send net scene: ")
+                }
+            },
+        )
 
     private fun putCustomFullFalseInMmkv() {
         runCatching {
@@ -116,29 +128,37 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         methodCreateCgiBack.hookAfter {
             val res = result ?: return@hookAfter
             @Suppress("UNCHECKED_CAST")
-            (classCgiBack.clazz as Class<Any>).reflekt().fields {
-                type = int
-            }.forEach {
-                // Bound, so a static int field is read/written like before instead of failing arity.
-                val field = it.of(res)
-                if (field.get() == -434) {
-                    field.set(0)
+            (classCgiBack.clazz as Class<Any>)
+                .reflekt()
+                .fields {
+                    type = int
                 }
-            }
+                .forEach {
+                    // Bound, so a static int field is read/written like before instead of failing
+                    // arity.
+                    val field = it.of(res)
+                    if (field.get() == -434) {
+                        field.set(0)
+                    }
+                }
         }
 
         methodAddEmojiOnSceneEnd.hookBefore {
             val resp = args[0] ?: return@hookBefore
             @Suppress("UNCHECKED_CAST")
-            (classCgiBack.clazz as Class<Any>).reflekt().fields {
-                type = int
-            }.forEach {
-                // Bound, so a static int field is read/written like before instead of failing arity.
-                val field = it.of(resp)
-                if (field.get() == -434) {
-                    field.set(0)
+            (classCgiBack.clazz as Class<Any>)
+                .reflekt()
+                .fields {
+                    type = int
                 }
-            }
+                .forEach {
+                    // Bound, so a static int field is read/written like before instead of failing
+                    // arity.
+                    val field = it.of(resp)
+                    if (field.get() == -434) {
+                        field.set(0)
+                    }
+                }
         }
 
         methodNetSceneBackupEmojiOperateOnGYNetEnd.hookBefore {
@@ -149,16 +169,17 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         }
 
         listOf(
-            methodComputeEmojiStorageState,
-            methodChattingUiEmoji,
-            methodConditionallyShowDialog
-        ).forEach {
-            it.hookBefore {
-                putCustomFullFalseInMmkv()
+                methodComputeEmojiStorageState,
+                methodChattingUiEmoji,
+                methodConditionallyShowDialog,
+            )
+            .forEach {
+                it.hookBefore {
+                    putCustomFullFalseInMmkv()
+                }
+                it.hookAfter {
+                    putCustomFullFalseInMmkv()
+                }
             }
-            it.hookAfter {
-                putCustomFullFalseInMmkv()
-            }
-        }
     }
 }

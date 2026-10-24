@@ -321,8 +321,8 @@ internal fun dexConstructor(
 
 /**
  * Lazy spec delegate: [block] runs during Dex resolution, inside the active resolution context, so
- * it may read other delegates' .data (their resolution is triggered on demand) exactly like the
- * old DexKit matcher / DexSQL builder blocks. SQL-expressible specs use the canonical SQL path,
+ * it may read other delegates' .data (their resolution is triggered on demand) exactly like the old
+ * DexKit matcher / DexSQL builder blocks. SQL-expressible specs use the canonical SQL path,
  * everything else falls back to the query matcher; the delegate keeps the single-result contract.
  */
 fun dexMethod(
@@ -359,7 +359,10 @@ fun dexConstructor(
     block: MethodMatcher.() -> Unit,
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
     PropertyDelegateProvider { item, property ->
-        DexConstructorDelegate(property.name, sqlSpec = lazyMethodDexSqlSpec(allowFailure, true, block))
+        DexConstructorDelegate(
+                property.name,
+                sqlSpec = lazyMethodDexSqlSpec(allowFailure, true, block),
+            )
             .also { item.registerDexDelegate(it) }
     }
 
@@ -403,13 +406,16 @@ private fun lazyFieldDexSqlSpec(
         else resolveMatcher(bridge, allowFailure) { uniqueField(spec) }
     }
 
-private fun sqlDescriptor(bridge: dev.ujhhgtg.wekit.dexkit.DexSqlBridge, sql: String, allowFailure: Boolean): String? {
+private fun sqlDescriptor(
+    bridge: dev.ujhhgtg.wekit.dexkit.DexSqlBridge,
+    sql: String,
+    allowFailure: Boolean,
+): String? {
     val result = bridge.query(sql)
     return when (result.rows.size) {
         0 -> if (allowFailure) null else error("DexSQL: no row found for query: " + sql)
         1 ->
-            result.rows.single().firstOrNull()
-                ?: error("DexSQL: query returned no columns: " + sql)
+            result.rows.single().firstOrNull() ?: error("DexSQL: query returned no columns: " + sql)
         else -> error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
     }
 }

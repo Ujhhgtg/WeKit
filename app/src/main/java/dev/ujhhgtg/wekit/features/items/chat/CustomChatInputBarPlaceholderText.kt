@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -23,7 +24,6 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -32,12 +32,14 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.time.LocalDate
 
-object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
+object CustomChatInputBarPlaceholderText :
+    ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
 
     override val technicalId = "自定义输入框占位符文本"
     override val nameRes = R.string.feature_custom_chat_input_bar_placeholder_text_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
-    override val descriptionRes = R.string.feature_custom_chat_input_bar_placeholder_text_description
+    override val descriptionRes =
+        R.string.feature_custom_chat_input_bar_placeholder_text_description
 
     private var lastDayOfMonth by prefOption("custom_pt_day", 0)
     private var totC by prefOption("custom_pt_tot_count", 0)
@@ -49,21 +51,23 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
     private var fileC by prefOption("custom_pt_file_count", 0)
     private var text by prefOption("custom_pt_text", $$"今天总共发了 $totalCount 条消息喵")
 
-    private val PLACEHOLDERS = listOf(
-        $$"$totalCount",
-        $$"$textCount",
-        $$"$charCount",
-        $$"$emojiCount",
-        $$"$transferCount",
-        $$"$redPacketCount",
-        $$"$fileCount"
-    )
+    private val PLACEHOLDERS =
+        listOf(
+            $$"$totalCount",
+            $$"$textCount",
+            $$"$charCount",
+            $$"$emojiCount",
+            $$"$transferCount",
+            $$"$redPacketCount",
+            $$"$fileCount",
+        )
 
-    private val methodChatFooterCanSend by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.ChatFooter", "canSend true ! sendBtn is visible")
-        },
-    )
+    private val methodChatFooterCanSend by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("MicroMsg.ChatFooter", "canSend true ! sendBtn is visible")
+            },
+        )
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
@@ -84,16 +88,19 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
             val canSend = args[0] as Boolean
             if (canSend) return@hookAfter
 
-            thisObject!!.reflekt().invokeMethod(
-                "setHint", text
-                    .replace($$"$totalCount", totC.toString())
-                    .replace($$"$textCount", textC.toString())
-                    .replace($$"$charCount", charC.toString())
-                    .replace($$"$emojiCount", emojiC.toString())
-                    .replace($$"$transferCount", transferC.toString())
-                    .replace($$"$redPacketCount", redPacketC.toString())
-                    .replace($$"$fileCount", fileC.toString())
-            )
+            thisObject!!
+                .reflekt()
+                .invokeMethod(
+                    "setHint",
+                    text
+                        .replace($$"$totalCount", totC.toString())
+                        .replace($$"$textCount", textC.toString())
+                        .replace($$"$charCount", charC.toString())
+                        .replace($$"$emojiCount", emojiC.toString())
+                        .replace($$"$transferCount", transferC.toString())
+                        .replace($$"$redPacketCount", redPacketC.toString())
+                        .replace($$"$fileCount", fileC.toString()),
+                )
         }
     }
 
@@ -118,10 +125,15 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
 
         if (type == MessageType.QUOTE.code) {
             textC += 1
-            charC += msgInfo.quoteMsgActualContent?.length ?: run {
-                WeLogger.w("CustomChatInputBarPlaceholderText", "failed to get quote message content")
-                0
-            }
+            charC +=
+                msgInfo.quoteMsgActualContent?.length
+                    ?: run {
+                        WeLogger.w(
+                            "CustomChatInputBarPlaceholderText",
+                            "failed to get quote message content",
+                        )
+                        0
+                    }
             totC += 1
         }
 
@@ -156,7 +168,13 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
             var isFocused by remember { mutableStateOf(false) }
 
             AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_custom_chat_input_bar_placeholder_text_name)) },
+                title = {
+                    Text(
+                        stringResource(
+                            R.string.feature_custom_chat_input_bar_placeholder_text_name,
+                        ),
+                    )
+                },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
@@ -164,9 +182,8 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
                             onValueChange = { textInput = it },
                             label = { Text(stringResource(R.string.chat_placeholder_content)) },
                             minLines = 3,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
+                            modifier =
+                                Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
                         )
 
                         Text(stringResource(R.string.chat_placeholder_insert_hint))
@@ -183,13 +200,15 @@ object CustomChatInputBarPlaceholderText : ClickableFeature(), IResolveDex, WeDa
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        text = textInput.text
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        onClick = {
+                            text = textInput.text
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.action_save))
                     }
-                }
+                },
             )
         }
     }

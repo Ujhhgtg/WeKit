@@ -46,8 +46,9 @@ object HomeSidePanelLayoutStore {
             runCatching { DefaultJson.decodeFromString<T>(raw) }.getOrNull()
         }
 
-    private inline fun <reified T> encodeCache(key: String, value: T): Result<Unit> =
-        runCatching { KvStore.putString(key, DefaultJson.encodeToString(value)) }
+    private inline fun <reified T> encodeCache(key: String, value: T): Result<Unit> = runCatching {
+        KvStore.putString(key, DefaultJson.encodeToString(value))
+    }
 
     private const val TAG = "HomeSidePanelLayoutStore"
 }

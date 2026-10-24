@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import android.content.Context
-import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -17,6 +16,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
@@ -50,47 +50,47 @@ object TriggerCrash : ClickableFeature() {
                     CrashCategory.JAVA -> showJavaCrashTypeDialog(context)
                     CrashCategory.NATIVE -> showNativeCrashTypeDialog(context)
                 }
-            }
+            },
         )
     }
 
     private fun showJavaCrashTypeDialog(context: Context) {
-        val crashTypes = listOf(
-            R.string.debug_trigger_crash_java_null_pointer,
-            R.string.debug_trigger_crash_java_array_bounds,
-            R.string.debug_trigger_crash_java_class_cast,
-            R.string.debug_trigger_crash_java_arithmetic,
-            R.string.debug_trigger_crash_java_stack_overflow,
-        )
+        val crashTypes =
+            listOf(
+                R.string.debug_trigger_crash_java_null_pointer,
+                R.string.debug_trigger_crash_java_array_bounds,
+                R.string.debug_trigger_crash_java_class_cast,
+                R.string.debug_trigger_crash_java_arithmetic,
+                R.string.debug_trigger_crash_java_stack_overflow,
+            )
         showCrashTypeListDialog(
             context = context,
             titleRes = R.string.debug_trigger_crash_select_java_type,
             itemResources = crashTypes,
             onBack = { showCrashCategoryDialog(context) },
-            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.JAVA, index) }
+            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.JAVA, index) },
         )
     }
 
     private fun showNativeCrashTypeDialog(context: Context) {
-        val crashTypes = listOf(
-            R.string.debug_trigger_crash_native_sigsegv,
-            R.string.debug_trigger_crash_native_sigabrt,
-            R.string.debug_trigger_crash_native_sigfpe,
-            R.string.debug_trigger_crash_native_sigill,
-            R.string.debug_trigger_crash_native_sigbus,
-        )
+        val crashTypes =
+            listOf(
+                R.string.debug_trigger_crash_native_sigsegv,
+                R.string.debug_trigger_crash_native_sigabrt,
+                R.string.debug_trigger_crash_native_sigfpe,
+                R.string.debug_trigger_crash_native_sigill,
+                R.string.debug_trigger_crash_native_sigbus,
+            )
         showCrashTypeListDialog(
             context = context,
             titleRes = R.string.debug_trigger_crash_select_native_type,
             itemResources = crashTypes,
             onBack = { showCrashCategoryDialog(context) },
-            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.NATIVE, index) }
+            onSelect = { index -> confirmTriggerCrash(context, CrashCategory.NATIVE, index) },
         )
     }
 
-    /**
-     * Shared composable list dialog for crash type selection.
-     */
+    /** Shared composable list dialog for crash type selection. */
     private fun showCrashTypeListDialog(
         context: Context,
         @StringRes titleRes: Int,
@@ -105,30 +105,39 @@ object TriggerCrash : ClickableFeature() {
                     Column {
                         itemResources.forEachIndexed { index, itemRes ->
                             ListItem(
-                                modifier = Modifier.clickable {
-                                    onDismiss()
-                                    onSelect(index)
-                                },
+                                modifier =
+                                    Modifier.clickable {
+                                        onDismiss()
+                                        onSelect(index)
+                                    },
                                 content = {
                                     Text(
                                         text = stringResource(itemRes),
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                 },
                             )
-                            if (index < itemResources.lastIndex) HorizontalDivider(thickness = 0.5.dp)
+                            if (index < itemResources.lastIndex)
+                                HorizontalDivider(thickness = 0.5.dp)
                         }
                     }
                 },
                 confirmButton = {
                     if (onBack != null) {
-                        TextButton(onClick = { onDismiss(); onBack() }) {
+                        TextButton(
+                            onClick = {
+                                onDismiss()
+                                onBack()
+                            },
+                        ) {
                             Text(stringResource(R.string.action_back))
                         }
                     } else {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(R.string.dialog_cancel))
+                        }
                     }
-                }
+                },
             )
         }
     }
@@ -142,23 +151,25 @@ object TriggerCrash : ClickableFeature() {
                         stringResource(
                             R.string.debug_trigger_crash_confirmation_message,
                             stringResource(category.titleRes),
-                        )
+                        ),
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                        when (category) {
-                            CrashCategory.JAVA -> triggerJavaCrash(crashType)
-                            CrashCategory.NATIVE -> NativeCrashHandler.triggerCrash(crashType)
-                        }
-                    }) {
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            when (category) {
+                                CrashCategory.JAVA -> triggerJavaCrash(crashType)
+                                CrashCategory.NATIVE -> NativeCrashHandler.triggerCrash(crashType)
+                            }
+                        },
+                    ) {
                         Text(stringResource(R.string.dialog_confirm))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                }
+                },
             )
         }
     }
@@ -177,15 +188,13 @@ object TriggerCrash : ClickableFeature() {
 
     private fun triggerNullPointerException() {
         val obj: String? = null
-        @Suppress("KotlinConstantConditions")
-        obj!!.length
+        @Suppress("KotlinConstantConditions") obj!!.length
     }
 
     private fun triggerArrayIndexOutOfBoundsException() {
         val array = arrayOf(1, 2, 3)
 
-        @Suppress("UNUSED_VARIABLE", "unused")
-        val value = array[10]
+        @Suppress("UNUSED_VARIABLE", "unused") val value = array[10]
     }
 
     private fun triggerClassCastException() {
@@ -196,8 +205,7 @@ object TriggerCrash : ClickableFeature() {
     }
 
     private fun triggerArithmeticException() {
-        @Suppress("UNUSED_VARIABLE", "DIVISION_BY_ZERO", "unused")
-        val result = 10 / 0
+        @Suppress("UNUSED_VARIABLE", "DIVISION_BY_ZERO", "unused") val result = 10 / 0
     }
 
     private fun triggerStackOverflowError() {

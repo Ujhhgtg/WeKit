@@ -19,21 +19,26 @@ object BypassUnderageGamingLimit : SwitchFeature() {
 
     override fun onEnable() {
         listOf(
-            "com.tencent.xweb.pinus.PSWebview",
-            "com.tencent.xweb.pinus.sdk.WebView",
-            "com.tencent.xweb.WebView"
-        ).forEach {
-            it.toClassOrNull()?.reflekt()?.firstMethod("loadUrl")?.hookBefore {
-                val url = args[0] as String
-                val webView = thisObject as View
+                "com.tencent.xweb.pinus.PSWebview",
+                "com.tencent.xweb.pinus.sdk.WebView",
+                "com.tencent.xweb.WebView",
+            )
+            .forEach {
+                it.toClassOrNull()?.reflekt()?.firstMethod("loadUrl")?.hookBefore {
+                    val url = args[0] as String
+                    val webView = thisObject as View
 
-                if (url.startsWith("https://jiazhang.qq.com/healthy/dist/faceRecognition/game_no.html?")) {
-                    webView.translationX = 99999.0f
-                    webView.translationY = 99999.0f
-                    webView.scaleX = 0.01f
-                    webView.scaleY = 0.01f
+                    if (
+                        url.startsWith(
+                            "https://jiazhang.qq.com/healthy/dist/faceRecognition/game_no.html?",
+                        )
+                    ) {
+                        webView.translationX = 99999.0f
+                        webView.translationY = 99999.0f
+                        webView.scaleX = 0.01f
+                        webView.scaleY = 0.01f
+                    }
                 }
             }
-        }
     }
 }

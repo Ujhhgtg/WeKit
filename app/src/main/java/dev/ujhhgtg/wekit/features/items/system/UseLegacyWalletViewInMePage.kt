@@ -18,15 +18,16 @@ object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         methodGetOrderAndCardEntranceInfo.hookAfter {
-            result!!.reflekt()
+            result!!
+                .reflekt()
                 .firstField {
                     type = Int::class.java
-                }.set(1)
+                }
+                .set(1)
         }
 
         methodMoreTabUIHandlePrefOnClick.hookBefore {
-            val field = Preference::class.reflekt()
-                .firstField { type = String::class }
+            val field = Preference::class.reflekt().firstField { type = String::class }
 
             val pref = args[1] as Preference
             if (field.get(pref) as? String? == "settings_mm_cardpackage_new") {
@@ -35,15 +36,24 @@ object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodGetOrderAndCardEntranceInfo by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.EcsOrderService", "getOrderAndCardEntranceInfo use finder logic")
-        },
-    )
+    private val methodGetOrderAndCardEntranceInfo by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.EcsOrderService",
+                    "getOrderAndCardEntranceInfo use finder logic",
+                )
+            },
+        )
 
-    private val methodMoreTabUIHandlePrefOnClick by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.MoreTabUI", "account has not already!", "onPreferenceTreeClick")
-        },
-    )
+    private val methodMoreTabUIHandlePrefOnClick by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.MoreTabUI",
+                    "account has not already!",
+                    "onPreferenceTreeClick",
+                )
+            },
+        )
 }

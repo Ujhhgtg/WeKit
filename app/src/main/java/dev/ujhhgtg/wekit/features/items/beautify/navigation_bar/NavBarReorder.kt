@@ -14,16 +14,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-enum class ReorderSource { LIST, BAR }
+enum class ReorderSource {
+    LIST,
+    BAR,
+}
 
 /**
- * One drag shared by the page-management list and the bar itself, so both surfaces show
- * the same lift, preview and drop regardless of where the finger is.
+ * One drag shared by the page-management list and the bar itself, so both surfaces show the same
+ * lift, preview and drop regardless of where the finger is.
  */
 @Stable
 class NavBarReorderState {
     var draggedTab by mutableStateOf<Int?>(null)
         private set
+
     var source by mutableStateOf(ReorderSource.LIST)
         private set
 
@@ -71,12 +75,17 @@ fun reorderTarget(from: Int, offset: Float, step: Float, lastIndex: Int): Int {
 /**
  * Animated translation of the item currently laid out at [slot].
  *
- * When the layout reorders underneath (a drop commits, or the other surface moved an
- * item), the value is rebased by the slot delta first, so items glide from where they
- * were drawn instead of jumping to their new layout slot.
+ * When the layout reorders underneath (a drop commits, or the other surface moved an item), the
+ * value is rebased by the slot delta first, so items glide from where they were drawn instead of
+ * jumping to their new layout slot.
  */
 @Composable
-fun rememberReorderOffset(slot: Int, step: Float, target: Float, followFinger: Boolean): State<Float> {
+fun rememberReorderOffset(
+    slot: Int,
+    step: Float,
+    target: Float,
+    followFinger: Boolean,
+): State<Float> {
     val offset = remember { Animatable(0f) }
     var lastSlot by remember { mutableIntStateOf(slot) }
     LaunchedEffect(slot, step, target, followFinger) {
@@ -97,7 +106,10 @@ fun rememberReorderOffset(slot: Int, step: Float, target: Float, followFinger: B
 fun rememberReorderLift(lifted: Boolean): State<Float> {
     val lift = remember { Animatable(0f) }
     LaunchedEffect(lifted) {
-        lift.animateTo(if (lifted) 1f else 0f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
+        lift.animateTo(
+            if (lifted) 1f else 0f,
+            spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        )
     }
     return lift.asState()
 }

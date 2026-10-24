@@ -16,9 +16,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -89,7 +89,10 @@ import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import kotlin.math.roundToInt
 
-enum class EditorPage { SETTINGS, PAGES }
+enum class EditorPage {
+    SETTINGS,
+    PAGES,
+}
 
 private const val VEIL_DIM_ALPHA = 0.32f
 private val VEIL_BLUR_RADIUS = 24.dp
@@ -97,9 +100,9 @@ private val CARD_BAR_GAP = 16.dp
 private val SCREEN_MARGIN = 24.dp
 
 /**
- * In-place bar editor on LauncherUI. It is a plain view on the decor, not a Dialog: a
- * dialog window would take focus from WeChat and could not keep the bar drawn above its
- * veil. Everything except the bar is blurred, dimmed and made untouchable.
+ * In-place bar editor on LauncherUI. It is a plain view on the decor, not a Dialog: a dialog window
+ * would take focus from WeChat and could not keep the bar drawn above its veil. Everything except
+ * the bar is blurred, dimmed and made untouchable.
  */
 class NavBarEditor(private val session: NavBarSession) {
 
@@ -114,7 +117,13 @@ class NavBarEditor(private val session: NavBarSession) {
     fun show() {
         view.setLifecycleOwner(session.lifecycleOwner)
         view.setContent { InjectedUiTheme { NavBarEditorOverlay(this, session) } }
-        decor.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        decor.addView(
+            view,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
         visible = true
         // Registered after HomeSidePanel's, so the editor on top gets the gesture first.
         unregisterBack = WeLauncherBackApi.register(session.activity, { true }, ::onBack)
@@ -191,13 +200,21 @@ class ContentVeil(private val decor: ViewGroup, private val overlay: View) {
             val radius = blurRadiusPx * progress
             // Skia folds a no-op filter (fully transparent SRC_ATOP) or blur to null, and
             // RenderEffect then throws "nativePtr is null": only build the effects that act.
-            val dim = if (dimAlpha > 0) {
-                RenderEffect.createColorFilterEffect(PorterDuffColorFilter(dimColor, PorterDuff.Mode.SRC_ATOP))
-            } else {
-                null
-            }
-            val blur = if (radius >= 1f) RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP) else null
-            val effect = if (dim != null && blur != null) RenderEffect.createChainEffect(dim, blur) else dim ?: blur
+            val dim =
+                if (dimAlpha > 0) {
+                    RenderEffect.createColorFilterEffect(
+                        PorterDuffColorFilter(dimColor, PorterDuff.Mode.SRC_ATOP),
+                    )
+                } else {
+                    null
+                }
+            val blur =
+                if (radius >= 1f)
+                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                else null
+            val effect =
+                if (dim != null && blur != null) RenderEffect.createChainEffect(dim, blur)
+                else dim ?: blur
             targets.forEach { it.setRenderEffect(effect) }
         } else {
             dims.values.forEach { it.color = dimColor }
@@ -239,7 +256,7 @@ private fun NavBarEditorOverlay(editor: NavBarEditor, session: NavBarSession) {
     val blurRadiusPx = with(density) { VEIL_BLUR_RADIUS.toPx() }
     DisposableEffect(barView) {
         editor.veil.retarget(barView, blurRadiusPx)
-        onDispose { }
+        onDispose {}
     }
     LaunchedEffect(Unit) {
         snapshotFlow { appear.value }.collect { editor.veil.apply(it) }
@@ -248,56 +265,77 @@ private fun NavBarEditorOverlay(editor: NavBarEditor, session: NavBarSession) {
     if (config.style == NavBarStyle.NATIVE) NativeBarReorderEffects(session, config)
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            // Any pointer input node makes this view consume the touch, so nothing under
-            // the veil (including the bar) reacts while editing.
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false) } }
-            .pointerInput(editor.page) {
-                if (editor.page != EditorPage.PAGES) return@pointerInput
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { position ->
-                        val layout = session.barLayout ?: return@detectDragGesturesAfterLongPress
-                        val top = layout.top + session.barLift
-                        if (position.y !in top..top + layout.height || position.x !in layout.left..layout.right) {
-                            return@detectDragGesturesAfterLongPress
-                        }
-                        val current = BeautifyNavigationBar.config
-                        val slot = ((position.x - layout.left) / layout.step).toInt().coerceIn(0, layout.count - 1)
-                        val tab = current.visibleTabs[slot]
-                        session.reorder.start(tab, ReorderSource.BAR, current.order.indexOf(tab))
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onDrag = { change, amount ->
-                        val reorder = session.reorder
-                        val tab = reorder.draggedTab
-                        val layout = session.barLayout
-                        if (tab == null || reorder.source != ReorderSource.BAR || layout == null) {
-                            return@detectDragGesturesAfterLongPress
-                        }
-                        change.consume()
-                        reorder.fingerOffset += amount.x
-                        val current = BeautifyNavigationBar.config
-                        val visible = current.visibleTabs
-                        val from = visible.indexOf(tab)
-                        val slot = reorderTarget(from, reorder.fingerOffset, layout.step, visible.lastIndex)
-                        // Dropping onto a neighbour's slot takes its place in the full order,
-                        // which also keeps hidden pages where they were relative to it.
-                        val target = current.order.indexOf(visible[slot])
-                        if (target != reorder.targetIndex) {
-                            reorder.targetIndex = target
-                            haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                        }
-                    },
-                    onDragEnd = {
-                        if (session.reorder.source == ReorderSource.BAR) commitReorder(session)
-                        haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                    },
-                    onDragCancel = {
-                        if (session.reorder.source == ReorderSource.BAR) session.reorder.reset()
-                    },
-                )
-            },
+        modifier =
+            Modifier.fillMaxSize()
+                // Any pointer input node makes this view consume the touch, so nothing under
+                // the veil (including the bar) reacts while editing.
+                .pointerInput(Unit) {
+                    awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
+                }
+                .pointerInput(editor.page) {
+                    if (editor.page != EditorPage.PAGES) return@pointerInput
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { position ->
+                            val layout =
+                                session.barLayout ?: return@detectDragGesturesAfterLongPress
+                            val top = layout.top + session.barLift
+                            if (
+                                position.y !in top..top + layout.height ||
+                                    position.x !in layout.left..layout.right
+                            ) {
+                                return@detectDragGesturesAfterLongPress
+                            }
+                            val current = BeautifyNavigationBar.config
+                            val slot =
+                                ((position.x - layout.left) / layout.step)
+                                    .toInt()
+                                    .coerceIn(0, layout.count - 1)
+                            val tab = current.visibleTabs[slot]
+                            session.reorder.start(
+                                tab,
+                                ReorderSource.BAR,
+                                current.order.indexOf(tab),
+                            )
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onDrag = { change, amount ->
+                            val reorder = session.reorder
+                            val tab = reorder.draggedTab
+                            val layout = session.barLayout
+                            if (
+                                tab == null || reorder.source != ReorderSource.BAR || layout == null
+                            ) {
+                                return@detectDragGesturesAfterLongPress
+                            }
+                            change.consume()
+                            reorder.fingerOffset += amount.x
+                            val current = BeautifyNavigationBar.config
+                            val visible = current.visibleTabs
+                            val from = visible.indexOf(tab)
+                            val slot =
+                                reorderTarget(
+                                    from,
+                                    reorder.fingerOffset,
+                                    layout.step,
+                                    visible.lastIndex,
+                                )
+                            // Dropping onto a neighbour's slot takes its place in the full order,
+                            // which also keeps hidden pages where they were relative to it.
+                            val target = current.order.indexOf(visible[slot])
+                            if (target != reorder.targetIndex) {
+                                reorder.targetIndex = target
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            }
+                        },
+                        onDragEnd = {
+                            if (session.reorder.source == ReorderSource.BAR) commitReorder(session)
+                            haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                        },
+                        onDragCancel = {
+                            if (session.reorder.source == ReorderSource.BAR) session.reorder.reset()
+                        },
+                    )
+                },
     ) {
         val screenHeight = constraints.maxHeight.toFloat()
         val barLayout = session.barLayout
@@ -309,54 +347,67 @@ private fun NavBarEditorOverlay(editor: NavBarEditor, session: NavBarSession) {
         var cardHeight by remember { mutableIntStateOf(0) }
 
         // Page management lifts the bar to sit right below the card and centres both together.
-        val liftTarget = if (editor.page == EditorPage.PAGES && barLayout != null && editor.visible) 1f else 0f
-        val lift by animateFloatAsState(liftTarget, tween(360, easing = FastOutSlowInEasing), label = "barLift")
+        val liftTarget =
+            if (editor.page == EditorPage.PAGES && barLayout != null && editor.visible) 1f else 0f
+        val lift by
+            animateFloatAsState(
+                liftTarget,
+                tween(360, easing = FastOutSlowInEasing),
+                label = "barLift",
+            )
         val barHeight = barLayout?.height ?: 0f
         val cardShift = -(gapPx + barHeight) / 2f * lift
-        val barLift = if (barLayout == null) 0f else {
-            val groupTop = (screenHeight - (cardHeight + gapPx + barHeight)) / 2f
-            (groupTop + cardHeight + gapPx - barLayout.top) * lift
-        }
+        val barLift =
+            if (barLayout == null) 0f
+            else {
+                val groupTop = (screenHeight - (cardHeight + gapPx + barHeight)) / 2f
+                (groupTop + cardHeight + gapPx - barLayout.top) * lift
+            }
         SideEffect { session.setBarLift(barLift) }
 
-        val bottomReserved = barLayout?.let { screenHeight - it.top + gapPx }
-            ?: (with(density) { bottomInset.toPx() } + marginPx)
-        val maxCardHeightPx = if (editor.page == EditorPage.PAGES) {
-            screenHeight - gapPx - barHeight - 2 * topReserved
-        } else {
-            screenHeight - 2 * maxOf(topReserved, bottomReserved)
-        }
+        val bottomReserved =
+            barLayout?.let { screenHeight - it.top + gapPx }
+                ?: (with(density) { bottomInset.toPx() } + marginPx)
+        val maxCardHeightPx =
+            if (editor.page == EditorPage.PAGES) {
+                screenHeight - gapPx - barHeight - 2 * topReserved
+            } else {
+                screenHeight - 2 * maxOf(topReserved, bottomReserved)
+            }
 
         Surface(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset { IntOffset(0, cardShift.roundToInt()) }
-                .padding(horizontal = SCREEN_MARGIN)
-                .widthIn(max = 480.dp)
-                .fillMaxWidth()
-                .onSizeChanged { cardHeight = it.height }
-                .graphicsLayer {
-                    alpha = appear.value
-                    val scale = 0.92f + 0.08f * appear.value
-                    scaleX = scale
-                    scaleY = scale
-                },
+            modifier =
+                Modifier.align(Alignment.Center)
+                    .offset { IntOffset(0, cardShift.roundToInt()) }
+                    .padding(horizontal = SCREEN_MARGIN)
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                    .onSizeChanged { cardHeight = it.height }
+                    .graphicsLayer {
+                        alpha = appear.value
+                        val scale = 0.92f + 0.08f * appear.value
+                        scaleX = scale
+                        scaleY = scale
+                    },
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainer,
             tonalElevation = 6.dp,
             shadowElevation = 12.dp,
         ) {
-            Column(Modifier.heightIn(max = with(density) { maxCardHeightPx.coerceAtLeast(0f).toDp() })) {
+            Column(
+                Modifier.heightIn(max = with(density) { maxCardHeightPx.coerceAtLeast(0f).toDp() }),
+            ) {
                 EditorHeader(editor)
                 AnimatedContent(
                     targetState = editor.page,
-                    transitionSpec = { editorPageTransform(push = targetState == EditorPage.PAGES) },
+                    transitionSpec = {
+                        editorPageTransform(push = targetState == EditorPage.PAGES)
+                    },
                     label = "navBarEditorPage",
                 ) { page ->
                     Column(
-                        Modifier
-                            .verticalScroll(rememberScrollState())
-                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        Modifier.verticalScroll(rememberScrollState())
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     ) {
                         when (page) {
                             EditorPage.SETTINGS -> SettingsPage(editor, config)
@@ -370,21 +421,23 @@ private fun NavBarEditorOverlay(editor: NavBarEditor, session: NavBarSession) {
 }
 
 // Same push/pop motion as HomeSidePanel's settings pages.
-private fun editorPageTransform(push: Boolean): ContentTransform = if (push) {
-    (fadeIn(tween(180)) + slideInHorizontally(tween(240)) { it / 4 })
-        .togetherWith(fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { -it / 8 })
-} else {
-    (fadeIn(tween(180)) + slideInHorizontally(tween(240)) { -it / 8 })
-        .togetherWith(fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 4 })
-}
+private fun editorPageTransform(push: Boolean): ContentTransform =
+    if (push) {
+        (fadeIn(tween(180)) + slideInHorizontally(tween(240)) { it / 4 }).togetherWith(
+            fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { -it / 8 },
+        )
+    } else {
+        (fadeIn(tween(180)) + slideInHorizontally(tween(240)) { -it / 8 }).togetherWith(
+            fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { it / 4 },
+        )
+    }
 
 @Composable
 private fun EditorHeader(editor: NavBarEditor) {
     val inPages = editor.page == EditorPage.PAGES
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+        modifier =
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedVisibility(
@@ -393,18 +446,26 @@ private fun EditorHeader(editor: NavBarEditor) {
             exit = fadeOut() + shrinkHorizontally(),
         ) {
             IconButton(onClick = { editor.page = EditorPage.SETTINGS }) {
-                Icon(MaterialSymbols.Outlined.Arrow_back, contentDescription = stringResource(R.string.action_back))
+                Icon(
+                    MaterialSymbols.Outlined.Arrow_back,
+                    contentDescription = stringResource(R.string.action_back),
+                )
             }
         }
         Text(
-            text = stringResource(if (inPages) R.string.nav_page_management else R.string.feature_beautify_navigation_bar_name),
+            text =
+                stringResource(
+                    if (inPages) R.string.nav_page_management
+                    else R.string.feature_beautify_navigation_bar_name,
+                ),
             style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = if (inPages) 4.dp else 12.dp),
+            modifier = Modifier.weight(1f).padding(start = if (inPages) 4.dp else 12.dp),
         )
         IconButton(onClick = editor::dismiss) {
-            Icon(MaterialSymbols.Outlined.Check, contentDescription = stringResource(R.string.action_done))
+            Icon(
+                MaterialSymbols.Outlined.Check,
+                contentDescription = stringResource(R.string.action_done),
+            )
         }
     }
 }
@@ -418,8 +479,11 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_bar_style),
                 description = null,
                 value = style,
-                options = NavBarStyle.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
-                onValueChange = { value -> BeautifyNavigationBar.updateConfig { copy(style = value) } },
+                options =
+                    NavBarStyle.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
+                onValueChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(style = value) }
+                },
             )
         }
         item(animatedVisibility = style != NavBarStyle.HIDDEN) {
@@ -427,8 +491,11 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_icon_style),
                 description = null,
                 value = config.iconStyle,
-                options = NavIconStyle.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
-                onValueChange = { value -> BeautifyNavigationBar.updateConfig { copy(iconStyle = value) } },
+                options =
+                    NavIconStyle.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
+                onValueChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(iconStyle = value) }
+                },
             )
         }
         item(animatedVisibility = style != NavBarStyle.HIDDEN) {
@@ -436,8 +503,11 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_label_content),
                 description = null,
                 value = config.labelMode,
-                options = NavLabelMode.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
-                onValueChange = { value -> BeautifyNavigationBar.updateConfig { copy(labelMode = value) } },
+                options =
+                    NavLabelMode.entries.map { DropdownOption(it, stringResource(it.labelRes)) },
+                onValueChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(labelMode = value) }
+                },
             )
         }
         item {
@@ -459,7 +529,9 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_auto_hide_bar),
                 description = stringResource(R.string.nav_auto_hide_bar_summary),
                 checked = config.autoHide,
-                onCheckedChange = { value -> BeautifyNavigationBar.updateConfig { copy(autoHide = value) } },
+                onCheckedChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(autoHide = value) }
+                },
             )
         }
         item(animatedVisibility = style == NavBarStyle.LIQUID_GLASS) {
@@ -471,7 +543,9 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                     endInt = NavBarPrefs.MAX_BLUR_RADIUS,
                     stepSize = 1,
                     valueSuffix = "px",
-                    onValueChange = { value -> BeautifyNavigationBar.updateConfig { copy(blurRadius = value) } },
+                    onValueChange = { value ->
+                        BeautifyNavigationBar.updateConfig { copy(blurRadius = value) }
+                    },
                 )
             }
         }
@@ -480,7 +554,9 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_dynamic_gravity_highlight),
                 description = stringResource(R.string.nav_dynamic_gravity_highlight_summary),
                 checked = config.gravityHighlight,
-                onCheckedChange = { value -> BeautifyNavigationBar.updateConfig { copy(gravityHighlight = value) } },
+                onCheckedChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(gravityHighlight = value) }
+                },
             )
         }
         item(animatedVisibility = style.usesComposeBar) {
@@ -492,7 +568,9 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                     endInt = NavBarPrefs.MAX_BAR_SCALE,
                     stepSize = NavBarPrefs.BAR_SCALE_STEP,
                     valueSuffix = "%",
-                    onValueChange = { value -> BeautifyNavigationBar.updateConfig { copy(scalePercent = value) } },
+                    onValueChange = { value ->
+                        BeautifyNavigationBar.updateConfig { copy(scalePercent = value) }
+                    },
                 )
             }
         }
@@ -501,7 +579,9 @@ private fun SettingsPage(editor: NavBarEditor, config: NavBarConfig) {
                 title = stringResource(R.string.nav_page_animation),
                 description = stringResource(R.string.nav_page_animation_summary),
                 checked = config.animatePageChange,
-                onCheckedChange = { value -> BeautifyNavigationBar.updateConfig { copy(animatePageChange = value) } },
+                onCheckedChange = { value ->
+                    BeautifyNavigationBar.updateConfig { copy(animatePageChange = value) }
+                },
             )
         }
     }
@@ -520,21 +600,31 @@ private fun NativeBarReorderEffects(session: NavBarSession, config: NavBarConfig
     config.visibleTabs.forEachIndexed { slot, tab ->
         key(tab) {
             val reorder = session.reorder
-            val offset = rememberReorderOffset(
-                slot = slot,
-                step = step,
-                target = reorderShift(reorder, config.order, { it in config.enabledTabs }, tab, step, ReorderSource.BAR),
-                followFinger = reorder.follows(tab, ReorderSource.BAR),
-            )
+            val offset =
+                rememberReorderOffset(
+                    slot = slot,
+                    step = step,
+                    target =
+                        reorderShift(
+                            reorder,
+                            config.order,
+                            { it in config.enabledTabs },
+                            tab,
+                            step,
+                            ReorderSource.BAR,
+                        ),
+                    followFinger = reorder.follows(tab, ReorderSource.BAR),
+                )
             val lift = rememberReorderLift(reorder.draggedTab == tab)
             val container = session.nativeTabs.getValue(tab).container
             LaunchedEffect(container) {
-                snapshotFlow { offset.value to lift.value }.collect { (dx, lifted) ->
-                    container.translationX = dx
-                    container.translationZ = liftZ * lifted
-                    container.scaleX = 1f + REORDER_LIFT_SCALE * lifted
-                    container.scaleY = 1f + REORDER_LIFT_SCALE * lifted
-                }
+                snapshotFlow { offset.value to lift.value }
+                    .collect { (dx, lifted) ->
+                        container.translationX = dx
+                        container.translationZ = liftZ * lifted
+                        container.scaleX = 1f + REORDER_LIFT_SCALE * lifted
+                        container.scaleY = 1f + REORDER_LIFT_SCALE * lifted
+                    }
             }
             DisposableEffect(container) {
                 onDispose {

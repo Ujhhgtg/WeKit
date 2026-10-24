@@ -33,14 +33,14 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
                 shouldShow = { context, _ ->
                     val talker = context.talker
                     talker.isNotEmpty() &&
-                            !talker.isGroupChatWxId &&
-                            !talker.startsWith("gh_") &&
-                            !talker.endsWith("@app") &&
-                            !talker.startsWith(ConversationAggregation.FOLDER_PREFIX)
+                        !talker.isGroupChatWxId &&
+                        !talker.startsWith("gh_") &&
+                        !talker.endsWith("@app") &&
+                        !talker.startsWith(ConversationAggregation.FOLDER_PREFIX)
                 },
             ) { context ->
                 WeApi.openMoments(context.activity, context.talker)
-            }
+            },
         )
     }
 }

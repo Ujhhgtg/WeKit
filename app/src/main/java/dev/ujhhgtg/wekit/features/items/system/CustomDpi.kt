@@ -17,8 +17,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -39,24 +38,28 @@ object CustomDpi : ClickableFeature(), IResolveDex {
 
     override val technicalId = "DPI 修改"
     override val nameRes = R.string.feature_custom_dpi_name
-    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY)
+    override val categoryIds =
+        listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_custom_dpi_description
 
     private val methodGetDisplayMetrics by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    usingStrings = listOf(
-                        StringSpec("MicroMsg.MMDensityManager"),
-                        StringSpec("screenResolution_target_field"),
+                declaredClass =
+                    ClassSpec(
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.MMDensityManager"),
+                                StringSpec("screenResolution_target_field"),
+                            ),
                     ),
-                ),
                 modifiers = java.lang.reflect.Modifier.PUBLIC,
                 returnType = ClassSpec(className = NameSpec("android.util.DisplayMetrics")),
                 paramCount = 0..0,
-                invokeMethods = listOf(
-                    MethodSpec(returnType = ClassSpec(className = NameSpec("boolean"))),
-                ),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(returnType = ClassSpec(className = NameSpec("boolean"))),
+                    ),
             ),
         )
     }
@@ -84,23 +87,27 @@ object CustomDpi : ClickableFeature(), IResolveDex {
                         onValueChange = { value = it.filter { ch -> ch.isDigit() } },
                         label = { Text(stringResource(R.string.system_custom_dpi_width)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 },
                 dismissButton = {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val dpiInput = value.toIntOrNull()
-                        if (dpiInput == null || dpiInput <= 0) {
-                            showToast(localizedSystemString(R.string.system_invalid_number))
-                            return@TextButton
-                        }
-                        customDpi = dpiInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                    TextButton(
+                        onClick = {
+                            val dpiInput = value.toIntOrNull()
+                            if (dpiInput == null || dpiInput <= 0) {
+                                showToast(localizedSystemString(R.string.system_invalid_number))
+                                return@TextButton
+                            }
+                            customDpi = dpiInput
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
             )
         }
     }
@@ -116,16 +123,18 @@ object CustomDpi : ClickableFeature(), IResolveDex {
 
     private fun hookTabIconScale() {
         val tabIconView = "com.tencent.mm.ui.TabIconView".toClass()
-        val method = tabIconView.reflekt().firstMethod {
-            parameters(int, int, int, bool)
-        }
+        val method =
+            tabIconView.reflekt().firstMethod {
+                parameters(int, int, int, bool)
+            }
 
         method.hookBefore {
             val view = thisObject ?: return@hookBefore
-            val field = view.reflekt().firstField {
-                type = float
-                modifiers { !it.contains(Modifiers.STATIC) }
-            }
+            val field =
+                view.reflekt().firstField {
+                    type = float
+                    modifiers { !it.contains(Modifiers.STATIC) }
+                }
 
             field.set(customDpi * 1.1666666f / 400.0f)
         }

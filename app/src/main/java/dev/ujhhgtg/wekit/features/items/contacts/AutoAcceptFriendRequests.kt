@@ -71,12 +71,15 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import java.util.concurrent.Executors
 
-/** Labels applied to a new friend; entries are templates (`$nickname`, `$time`). Missing labels are created. */
+/**
+ * Labels applied to a new friend; entries are templates (`$nickname`, `$time`). Missing labels are
+ * created.
+ */
 data class FriendLabelRule(
     val enabled: Boolean = false,
     val labels: List<String> = emptyList(),
@@ -98,30 +101,45 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
     const val ACCEPT = "ACCEPT"
     const val ACCEPTED = "ACCEPTED"
 
-    private val labelCodec = object : AutomationValueCodec<FriendLabelRule> {
-        override fun write(value: FriendLabelRule, out: AutomationFieldWriter) {
-            out.put("enabled", value.enabled)
-            out.put("timeFormat", value.timeFormat)
-            out.putList("labels", value.labels)
+    private val labelCodec =
+        object : AutomationValueCodec<FriendLabelRule> {
+            override fun write(value: FriendLabelRule, out: AutomationFieldWriter) {
+                out.put("enabled", value.enabled)
+                out.put("timeFormat", value.timeFormat)
+                out.putList("labels", value.labels)
+            }
+
+            override fun read(input: AutomationFieldReader) =
+                FriendLabelRule(
+                    input.boolean("enabled"),
+                    input.list("labels"),
+                    input.string("timeFormat"),
+                )
         }
 
-        override fun read(input: AutomationFieldReader) =
-            FriendLabelRule(input.boolean("enabled"), input.list("labels"), input.string("timeFormat"))
-    }
+    private val remarkCodec =
+        object : AutomationValueCodec<FriendRemarkRule> {
+            override fun write(value: FriendRemarkRule, out: AutomationFieldWriter) {
+                out.put("enabled", value.enabled)
+                out.put("template", value.template)
+                out.put("timeFormat", value.timeFormat)
+            }
 
-    private val remarkCodec = object : AutomationValueCodec<FriendRemarkRule> {
-        override fun write(value: FriendRemarkRule, out: AutomationFieldWriter) {
-            out.put("enabled", value.enabled)
-            out.put("template", value.template)
-            out.put("timeFormat", value.timeFormat)
+            override fun read(input: AutomationFieldReader) =
+                FriendRemarkRule(
+                    input.boolean("enabled"),
+                    input.string("template"),
+                    input.string("timeFormat"),
+                )
         }
-
-        override fun read(input: AutomationFieldReader) =
-            FriendRemarkRule(input.boolean("enabled"), input.string("template"), input.string("timeFormat"))
-    }
 
     val enabled = AutomationRuleKey("enabled", AutomationCodecs.toggle, AutomationToggleRule())
-    val delay = AutomationRuleKey("delay", AutomationCodecs.limit, AutomationLimitRule(enabled = true, value = 2000L))
+    val delay =
+        AutomationRuleKey(
+            "delay",
+            AutomationCodecs.limit,
+            AutomationLimitRule(enabled = true, value = 2000L),
+        )
     val labels = AutomationRuleKey("labels", labelCodec, FriendLabelRule())
     val remark = AutomationRuleKey("remark", remarkCodec, FriendRemarkRule())
     val reply = AutomationRuleKey("reply", AutomationCodecs.reply, AutomationReplyRule())
@@ -129,46 +147,67 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
     override val keys = listOf(enabled, delay, labels, remark, reply)
     override val scopeTypes = setOf(AutomationScopeType.ITEM)
     override val titleRes = R.string.feature_auto_accept_friend_requests_name
-    override val fixedItems = listOf(
-        ACCEPT to R.string.friend_automation_accept,
-        ACCEPTED to R.string.friend_automation_accepted,
-    )
+    override val fixedItems =
+        listOf(
+            ACCEPT to R.string.friend_automation_accept,
+            ACCEPTED to R.string.friend_automation_accepted,
+        )
 
-    override val editors = listOf(
-        toggleEditor(enabled, R.string.friend_automation_enabled, R.string.automation_item_enabled, R.string.automation_item_disabled),
-        limitEditor(
-            delay, R.string.friend_automation_delay, R.string.friend_automation_no_delay,
-            R.string.friend_automation_delay_value, R.string.friend_automation_delay_ms,
-            range = 0..10_000, step = 100, unitRes = R.string.automation_unit_ms,
-        ),
-        AutomationRuleEditor(
-            key = labels,
-            titleRes = R.string.friend_automation_labels,
-            summary = {
-                if (!it.enabled || it.labels.isEmpty()) stringResource(R.string.friend_automation_labels_off)
-                else stringResource(R.string.friend_automation_labels_count, it.labels.size)
-            },
-            isOn = { it.enabled },
-            setOn = { rule, on -> rule.copy(enabled = on) },
-            summaryExtra = { if (it.enabled) AutomationMiniChips(it.labels) },
-            sheet = { _, value, onChange -> LabelsSheet(value, onChange) },
-        ),
-        AutomationRuleEditor(
-            key = remark,
-            titleRes = R.string.friend_automation_remark,
-            summary = { if (it.enabled) it.template else stringResource(R.string.friend_automation_remark_off) },
-            isOn = { it.enabled },
-            setOn = { rule, on -> rule.copy(enabled = on) },
-            sheet = { _, value, onChange -> RemarkSheet(value, onChange) },
-        ),
-        replyEditor(reply, R.string.friend_automation_reply, AutomationReplyExecutor.BASE_PLACEHOLDERS),
-    )
+    override val editors =
+        listOf(
+            toggleEditor(
+                enabled,
+                R.string.friend_automation_enabled,
+                R.string.automation_item_enabled,
+                R.string.automation_item_disabled,
+            ),
+            limitEditor(
+                delay,
+                R.string.friend_automation_delay,
+                R.string.friend_automation_no_delay,
+                R.string.friend_automation_delay_value,
+                R.string.friend_automation_delay_ms,
+                range = 0..10_000,
+                step = 100,
+                unitRes = R.string.automation_unit_ms,
+            ),
+            AutomationRuleEditor(
+                key = labels,
+                titleRes = R.string.friend_automation_labels,
+                summary = {
+                    if (!it.enabled || it.labels.isEmpty())
+                        stringResource(R.string.friend_automation_labels_off)
+                    else stringResource(R.string.friend_automation_labels_count, it.labels.size)
+                },
+                isOn = { it.enabled },
+                setOn = { rule, on -> rule.copy(enabled = on) },
+                summaryExtra = { if (it.enabled) AutomationMiniChips(it.labels) },
+                sheet = { _, value, onChange -> LabelsSheet(value, onChange) },
+            ),
+            AutomationRuleEditor(
+                key = remark,
+                titleRes = R.string.friend_automation_remark,
+                summary = {
+                    if (it.enabled) it.template
+                    else stringResource(R.string.friend_automation_remark_off)
+                },
+                isOn = { it.enabled },
+                setOn = { rule, on -> rule.copy(enabled = on) },
+                sheet = { _, value, onChange -> RemarkSheet(value, onChange) },
+            ),
+            replyEditor(
+                reply,
+                R.string.friend_automation_reply,
+                AutomationReplyExecutor.BASE_PLACEHOLDERS,
+            ),
+        )
 
-    override val sections = listOf(
-        AutomationSection(R.string.friend_automation_section_timing, listOf(delay)),
-        AutomationSection(R.string.friend_automation_section_profile, listOf(labels, remark)),
-        AutomationSection(R.string.friend_automation_section_messages, listOf(reply)),
-    )
+    override val sections =
+        listOf(
+            AutomationSection(R.string.friend_automation_section_timing, listOf(delay)),
+            AutomationSection(R.string.friend_automation_section_profile, listOf(labels, remark)),
+            AutomationSection(R.string.friend_automation_section_messages, listOf(reply)),
+        )
 
     override val itemSwitch = enabled
     override val itemSummaryKeys = listOf(labels, remark, reply)
@@ -177,7 +216,9 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
         if (validates(keyIds, labels) && rules[labels].let { it.enabled && it.labels.isEmpty() }) {
             return localizedAutomationString(R.string.friend_automation_labels_required)
         }
-        if (validates(keyIds, remark) && rules[remark].let { it.enabled && it.template.isBlank() }) {
+        if (
+            validates(keyIds, remark) && rules[remark].let { it.enabled && it.template.isBlank() }
+        ) {
             return localizedAutomationString(R.string.friend_automation_remark_required)
         }
         if (validates(keyIds, reply)) return rules[reply].validationError()
@@ -186,17 +227,25 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
 
     private const val TAG = "FriendAutomation"
 
-    fun rules(item: String): AutomationRules = store.snapshot().effectiveRules(AutomationScope.item(item))
+    fun rules(item: String): AutomationRules =
+        store.snapshot().effectiveRules(AutomationScope.item(item))
 
     fun formatTemplate(template: String, nickname: String, timeFormat: String): String =
-        template.replace($$"$nickname", nickname).replace($$"$time", formatEpoch(System.currentTimeMillis(), timeFormat))
+        template
+            .replace($$"$nickname", nickname)
+            .replace($$"$time", formatEpoch(System.currentTimeMillis(), timeFormat))
 }
 
 private val TEMPLATE_PLACEHOLDERS = listOf($$"$nickname", $$"$time")
 
 /** A template field with tappable placeholders. */
 @Composable
-private fun TemplateField(label: String, value: String, onChange: (String) -> Unit, trailing: @Composable (() -> Unit)? = null) {
+private fun TemplateField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    trailing: @Composable (() -> Unit)? = null,
+) {
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     var focused by remember { mutableStateOf(false) }
     if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
@@ -211,14 +260,17 @@ private fun TemplateField(label: String, value: String, onChange: (String) -> Un
             trailingIcon = trailing,
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused },
+            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
         )
-        PlaceholderChips(TEMPLATE_PLACEHOLDERS, field, focused, {
-            field = it
-            onChange(it.text)
-        })
+        PlaceholderChips(
+            TEMPLATE_PLACEHOLDERS,
+            field,
+            focused,
+            {
+                field = it
+                onChange(it.text)
+            },
+        )
     }
 }
 
@@ -228,7 +280,14 @@ private fun TimeFormatField(value: String, onChange: (String) -> Unit) {
         value = value,
         onValueChange = onChange,
         label = { Text(stringResource(R.string.friend_automation_time_format)) },
-        supportingText = { Text(stringResource(R.string.friend_automation_time_example, formatEpoch(System.currentTimeMillis(), value))) },
+        supportingText = {
+            Text(
+                stringResource(
+                    R.string.friend_automation_time_example,
+                    formatEpoch(System.currentTimeMillis(), value),
+                ),
+            )
+        },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -237,25 +296,42 @@ private fun TimeFormatField(value: String, onChange: (String) -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> Unit) {
-    val existing by produceState(emptyList<String>()) {
-        this.value = withContext(Dispatchers.IO) {
-            runCatching { WeContactLabelApi.getAllLabels().map { it.labelName } }
-                .onFailure { WeLogger.e("FriendAutomation", "failed to load labels", it) }.getOrDefault(emptyList())
+    val existing by
+        produceState(emptyList<String>()) {
+            this.value =
+                withContext(Dispatchers.IO) {
+                    runCatching { WeContactLabelApi.getAllLabels().map { it.labelName } }
+                        .onFailure { WeLogger.e("FriendAutomation", "failed to load labels", it) }
+                        .getOrDefault(emptyList())
+                }
         }
-    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AutomationFieldLabel(stringResource(R.string.friend_automation_existing_labels))
-        if (existing.isEmpty()) AutomationSheetNote(stringResource(R.string.friend_automation_no_labels))
+        if (existing.isEmpty())
+            AutomationSheetNote(stringResource(R.string.friend_automation_no_labels))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             existing.forEach { label ->
                 val on = label in value.labels
                 FilterChip(
                     selected = on,
-                    onClick = { onChange(value.copy(labels = if (on) value.labels - label else value.labels + label)) },
+                    onClick = {
+                        onChange(
+                            value.copy(
+                                labels = if (on) value.labels - label else value.labels + label,
+                            ),
+                        )
+                    },
                     label = { Text(label) },
-                    leadingIcon = if (on) {
-                        { Icon(MaterialSymbols.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
-                    } else null,
+                    leadingIcon =
+                        if (on) {
+                            {
+                                Icon(
+                                    MaterialSymbols.Outlined.Check,
+                                    null,
+                                    Modifier.size(FilterChipDefaults.IconSize),
+                                )
+                            }
+                        } else null,
                 )
             }
         }
@@ -269,21 +345,32 @@ private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> U
                     selected = false,
                     onClick = { onChange(value.copy(labels = value.labels - label)) },
                     label = { Text(label) },
-                    trailingIcon = { Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.action_delete), Modifier.size(InputChipDefaults.IconSize)) },
+                    trailingIcon = {
+                        Icon(
+                            MaterialSymbols.Outlined.Close,
+                            stringResource(R.string.action_delete),
+                            Modifier.size(InputChipDefaults.IconSize),
+                        )
+                    },
                 )
             }
         }
         var pending by remember { mutableStateOf("") }
         val add = {
             val label = pending.trim()
-            if (label.isNotEmpty() && label !in value.labels) onChange(value.copy(labels = value.labels + label))
+            if (label.isNotEmpty() && label !in value.labels)
+                onChange(value.copy(labels = value.labels + label))
             pending = ""
         }
         TemplateField(
             label = stringResource(R.string.friend_automation_label_template),
             value = pending,
             onChange = { pending = it },
-            trailing = { IconButton(enabled = pending.isNotBlank(), onClick = add) { Icon(MaterialSymbols.Outlined.Add, stringResource(R.string.automation_add_item)) } },
+            trailing = {
+                IconButton(enabled = pending.isNotBlank(), onClick = add) {
+                    Icon(MaterialSymbols.Outlined.Add, stringResource(R.string.automation_add_item))
+                }
+            },
         )
     }
     TimeFormatField(value.timeFormat) { onChange(value.copy(timeFormat = it)) }
@@ -291,13 +378,21 @@ private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> U
 
 @Composable
 private fun RemarkSheet(value: FriendRemarkRule, onChange: (FriendRemarkRule) -> Unit) {
-    TemplateField(stringResource(R.string.friend_automation_remark_template), value.template, { onChange(value.copy(template = it)) })
+    TemplateField(
+        stringResource(R.string.friend_automation_remark_template),
+        value.template,
+        { onChange(value.copy(template = it)) },
+    )
     TimeFormatField(value.timeFormat) { onChange(value.copy(timeFormat = it)) }
     AutomationSheetNote(
         stringResource(
             R.string.friend_automation_remark_preview,
-            FriendAutomation.formatTemplate(value.template, stringResource(R.string.friend_automation_sample_nickname), value.timeFormat),
-        )
+            FriendAutomation.formatTemplate(
+                value.template,
+                stringResource(R.string.friend_automation_sample_nickname),
+                value.timeFormat,
+            ),
+        ),
     )
 }
 
@@ -310,10 +405,11 @@ object AutoAcceptFriendRequests : ClickableFeature() {
     private const val TAG = "AutoAcceptFriendRequests"
 
     /** The system text a friend's chat starts with after they accept my request. */
-    private val ACCEPTED_TEXTS = setOf(
-        "我通过了你的朋友验证请求，现在我们可以开始聊天了",
-        "I've accepted your friend request. Now let's chat!",
-    )
+    private val ACCEPTED_TEXTS =
+        setOf(
+            "我通过了你的朋友验证请求，现在我们可以开始聊天了",
+            "I've accepted your friend request. Now let's chat!",
+        )
 
     private val executor = Executors.newSingleThreadExecutor { Thread(it, TAG) }
 
@@ -324,10 +420,11 @@ object AutoAcceptFriendRequests : ClickableFeature() {
     }
 
     private val onMessage: (MessageInfo) -> Unit = { message ->
-        if (!message.isSelfSender &&
-            AutomationTalkerCategory.of(message.talker) == AutomationTalkerCategory.PRIVATE &&
-            message.content.trim() in ACCEPTED_TEXTS &&
-            FriendAutomation.rules(FriendAutomation.ACCEPTED)[FriendAutomation.enabled].enabled
+        if (
+            !message.isSelfSender &&
+                AutomationTalkerCategory.of(message.talker) == AutomationTalkerCategory.PRIVATE &&
+                message.content.trim() in ACCEPTED_TEXTS &&
+                FriendAutomation.rules(FriendAutomation.ACCEPTED)[FriendAutomation.enabled].enabled
         ) {
             val talker = message.talker
             val content = message.content.trim()
@@ -354,22 +451,37 @@ object AutoAcceptFriendRequests : ClickableFeature() {
     }
 
     private fun accept(request: NewFriendRequest) {
-        val verifyUsername = NewFriendEvents.resolveVerifyUsername(request.verifyUsername, request.ticket)
+        val verifyUsername =
+            NewFriendEvents.resolveVerifyUsername(request.verifyUsername, request.ticket)
         WeLogger.i(TAG, "accepting friend request from ${request.wxId} (scene=${request.scene})")
         WeContactApi.verifyUser(verifyUsername, request.ticket, request.scene)
-        runPipeline(FriendAutomation.rules(FriendAutomation.ACCEPT), request.wxId, request.nickname, "")
+        runPipeline(
+            FriendAutomation.rules(FriendAutomation.ACCEPT),
+            request.wxId,
+            request.nickname,
+            "",
+        )
     }
 
     /** Labels, remark, then (after the configured delay) the reply steps. Runs on [executor]. */
-    private fun runPipeline(rules: AutomationRules, wxId: String, fallbackNickname: String, content: String) {
-        val nickname = WeDatabaseApi.getDisplayName(wxId).takeIf { it.isNotBlank() && it != wxId }
-            ?: fallbackNickname.ifBlank { wxId }
+    private fun runPipeline(
+        rules: AutomationRules,
+        wxId: String,
+        fallbackNickname: String,
+        content: String,
+    ) {
+        val nickname =
+            WeDatabaseApi.getDisplayName(wxId).takeIf { it.isNotBlank() && it != wxId }
+                ?: fallbackNickname.ifBlank { wxId }
 
         val labelRule = rules[FriendAutomation.labels]
         if (labelRule.enabled && labelRule.labels.isNotEmpty()) {
-            val labels = labelRule.labels
-                .map { FriendAutomation.formatTemplate(it, nickname, labelRule.timeFormat).trim() }
-                .filter(String::isNotEmpty)
+            val labels =
+                labelRule.labels
+                    .map {
+                        FriendAutomation.formatTemplate(it, nickname, labelRule.timeFormat).trim()
+                    }
+                    .filter(String::isNotEmpty)
             labels.forEach { WeContactLabelApi.createLabel(it) }
             val current = WeContactLabelApi.getLabelNamesForContact(wxId)
             WeContactLabelApi.modifyLabel(wxId, (current + labels).distinct())
@@ -377,14 +489,26 @@ object AutoAcceptFriendRequests : ClickableFeature() {
 
         val remarkRule = rules[FriendAutomation.remark]
         if (remarkRule.enabled && remarkRule.template.isNotBlank()) {
-            val remark = FriendAutomation.formatTemplate(remarkRule.template, nickname, remarkRule.timeFormat).trim()
-            if (!runBlocking { WeContactApi.setRemark(wxId, remark) }) WeLogger.w(TAG, "failed to set remark of $wxId")
+            val remark =
+                FriendAutomation.formatTemplate(
+                        remarkRule.template,
+                        nickname,
+                        remarkRule.timeFormat,
+                    )
+                    .trim()
+            if (!runBlocking { WeContactApi.setRemark(wxId, remark) })
+                WeLogger.w(TAG, "failed to set remark of $wxId")
         }
 
         val delay = rules[FriendAutomation.delay].let { if (it.enabled) it.value else 0L }
         val reply = rules[FriendAutomation.reply]
         if (reply.enabled) {
-            AutomationReplyExecutor.run(reply.steps, AutomationReplyContext(talker = wxId, content = content), reply.asQuote, delay)
+            AutomationReplyExecutor.run(
+                reply.steps,
+                AutomationReplyContext(talker = wxId, content = content),
+                reply.asQuote,
+                delay,
+            )
         }
     }
 }

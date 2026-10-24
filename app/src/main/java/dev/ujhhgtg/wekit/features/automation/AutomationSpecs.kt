@@ -12,8 +12,14 @@ import dev.ujhhgtg.wekit.features.items.payment.TransferAutomation
 object AutomationSpecs {
     private val all: List<AutomationSpec> by lazy {
         listOf(
-            RedPacketAutomation, TransferAutomation, MomentsAutomation.Like, MomentsAutomation.Repost, FriendAutomation,
-            AutoReplyAutomation, BlockMessagesAutomation, CustomNotificationsAutomation,
+            RedPacketAutomation,
+            TransferAutomation,
+            MomentsAutomation.Like,
+            MomentsAutomation.Repost,
+            FriendAutomation,
+            AutoReplyAutomation,
+            BlockMessagesAutomation,
+            CustomNotificationsAutomation,
         )
     }
 

@@ -41,32 +41,48 @@ object LaunchInternalUrls : ClickableFeature(), IResolveDex {
                         TextField(
                             value = url,
                             onValueChange = { url = it },
-                            label = { Text(stringResource(R.string.debug_launch_internal_url_url)) })
+                            label = {
+                                Text(stringResource(R.string.debug_launch_internal_url_url))
+                            },
+                        )
                         TextField(
                             value = argsInput,
                             onValueChange = { argsInput = it },
-                            label = { Text(stringResource(R.string.debug_launch_internal_url_arguments)) })
+                            label = {
+                                Text(stringResource(R.string.debug_launch_internal_url_arguments))
+                            },
+                        )
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                        val args = if (argsInput.isBlank()) emptyList() else argsInput.split("\n")
-                        methodOpenUrl.method.invoke(
-                            // FIXME: getDeclaredConstructor() says no ctor exists?? but Unsafe works????
-                            TheUnsafe.allocateInstance(methodOpenUrl.method.declaringClass),
-                            *arrayOf(context, url, args.toTypedArray())
-                        )
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            val args =
+                                if (argsInput.isBlank()) emptyList() else argsInput.split("\n")
+                            methodOpenUrl.method.invoke(
+                                // FIXME: getDeclaredConstructor() says no ctor exists?? but Unsafe
+                                // works????
+                                TheUnsafe.allocateInstance(methodOpenUrl.method.declaringClass),
+                                *arrayOf(context, url, args.toTypedArray()),
+                            )
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
+            )
         }
     }
 
-    private val methodOpenUrl by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.app.plugin")
-            usingEqStrings("MicroMsg.MMURIJumpHandler", "openSpecificUI, context is null")
-        },
-    )
+    private val methodOpenUrl by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.app.plugin")
+                usingEqStrings("MicroMsg.MMURIJumpHandler", "openSpecificUI, context is null")
+            },
+        )
 }

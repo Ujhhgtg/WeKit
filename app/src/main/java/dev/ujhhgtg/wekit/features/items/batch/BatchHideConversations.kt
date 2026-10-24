@@ -11,8 +11,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -41,13 +41,17 @@ object BatchHideConversations : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
+                        showToast(
+                            context.localizedBatchString(
+                                R.string.batch_select_at_least_one_conversation,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     confirmAndHide(context, selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -65,13 +69,19 @@ object BatchHideConversations : ClickableFeature() {
                         ),
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                        hideConversations(wxIds)
-                    }) { Text(stringResource(R.string.batch_hide_conversations_action)) }
-                }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            hideConversations(wxIds)
+                        },
+                    ) {
+                        Text(stringResource(R.string.batch_hide_conversations_action))
+                    }
+                },
             )
         }
     }

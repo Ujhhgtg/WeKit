@@ -64,13 +64,20 @@ fun HomeSidePanelPanelSettings(
     panelState: HomeSidePanelState,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .padding(
+                    WindowInsets.safeDrawing
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
+                        .asPaddingValues(),
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader(stringResource(R.string.home_side_panel_settings), panelState::closeCardSettings)
+        SettingsHeader(
+            stringResource(R.string.home_side_panel_settings),
+            panelState::closeCardSettings,
+        )
         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
             item {
                 BaseWidget(
@@ -110,10 +117,14 @@ fun HomeSidePanelDateTimeSettings(
     panelState: HomeSidePanelState,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .padding(
+                    WindowInsets.safeDrawing
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
+                        .asPaddingValues(),
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SettingsHeader(
@@ -144,14 +155,21 @@ fun HomeSidePanelWeatherSettings(
     val settings = settingsByCard[card.id] ?: WeatherSettingsUiState(selectedCity = card.city)
     var query by remember(card.id, settings.searchQuery) { mutableStateOf(settings.searchQuery) }
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    WindowInsets.safeDrawing
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
+                        .asPaddingValues(),
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader(stringResource(R.string.home_side_panel_weather_settings), panelState::closeCardSettings)
+        SettingsHeader(
+            stringResource(R.string.home_side_panel_weather_settings),
+            panelState::closeCardSettings,
+        )
         Text(
             stringResource(
                 R.string.home_side_panel_current_city,
@@ -160,12 +178,13 @@ fun HomeSidePanelWeatherSettings(
             ),
             style = MaterialTheme.typography.titleMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             OutlinedButton(
                 onClick = { panelState.detectWeatherLocation(card.id) },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(72.dp),
+                modifier = Modifier.weight(1f).height(72.dp),
                 enabled = !settings.actionInProgress,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             ) {
@@ -173,7 +192,11 @@ fun HomeSidePanelWeatherSettings(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Icon(MaterialSymbols.Outlined.My_location, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(
+                        MaterialSymbols.Outlined.My_location,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
                     Text(
                         stringResource(R.string.home_side_panel_auto_detect),
                         maxLines = 1,
@@ -183,9 +206,7 @@ fun HomeSidePanelWeatherSettings(
             }
             OutlinedButton(
                 onClick = { panelState.readWeatherFromProfile(card.id) },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(72.dp),
+                modifier = Modifier.weight(1f).height(72.dp),
                 enabled = !settings.actionInProgress,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             ) {
@@ -193,7 +214,11 @@ fun HomeSidePanelWeatherSettings(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Icon(MaterialSymbols.Outlined.Person_pin, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(
+                        MaterialSymbols.Outlined.Person_pin,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
                     Text(
                         stringResource(R.string.home_side_panel_read_profile),
                         maxLines = 1,
@@ -223,23 +248,29 @@ fun HomeSidePanelWeatherSettings(
         if (settings.searchResults.isNotEmpty()) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
             ) {
                 settings.searchResults.forEachIndexed { index, city ->
                     val selected = city.cityNum == settings.selectedCity.cityNum
                     ListItem(
                         supportingContent = { Text("${city.province} · ${city.cityNum}") },
                         trailingContent = { RadioButton(selected = selected, onClick = null) },
-                        colors = ListItemDefaults.colors(
-                            containerColor = if (selected) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerLow
-                            },
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !settings.actionInProgress) {
+                        colors =
+                            ListItemDefaults.colors(
+                                containerColor =
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                    },
+                            ),
+                        modifier =
+                            Modifier.fillMaxWidth().clickable(
+                                enabled = !settings.actionInProgress,
+                            ) {
                                 panelState.updateWeatherCity(card.id, city)
                             },
                     ) {
@@ -260,13 +291,20 @@ fun HomeSidePanelWalletSettings(
     panelState: HomeSidePanelState,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .padding(
+                    WindowInsets.safeDrawing
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
+                        .asPaddingValues(),
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader(stringResource(R.string.home_side_panel_wallet_settings), panelState::closeCardSettings)
+        SettingsHeader(
+            stringResource(R.string.home_side_panel_wallet_settings),
+            panelState::closeCardSettings,
+        )
         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
             item {
                 SwitchWidget(
@@ -294,19 +332,30 @@ fun HomeSidePanelHitokotoSettings(
     panelState: HomeSidePanelState,
 ) {
     var draft by remember(card.id, card.settings) { mutableStateOf(card.settings) }
-    val lengthUpperBound = remember(card.settings) {
-        maxOf(500, card.settings.minLength ?: 0, card.settings.maxLength ?: 0)
-    }
+    val lengthUpperBound =
+        remember(card.settings) {
+            maxOf(500, card.settings.minLength ?: 0, card.settings.maxLength ?: 0)
+        }
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom).asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+        modifier =
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    WindowInsets.safeDrawing
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom)
+                        .asPaddingValues(),
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsHeader(stringResource(R.string.home_side_panel_hitokoto_settings), panelState::closeCardSettings)
-        Text(stringResource(R.string.home_side_panel_categories), style = MaterialTheme.typography.titleMedium)
+        SettingsHeader(
+            stringResource(R.string.home_side_panel_hitokoto_settings),
+            panelState::closeCardSettings,
+        )
+        Text(
+            stringResource(R.string.home_side_panel_categories),
+            style = MaterialTheme.typography.titleMedium,
+        )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -315,13 +364,15 @@ fun HomeSidePanelHitokotoSettings(
                 FilterChip(
                     selected = code in draft.categories,
                     onClick = {
-                        draft = draft.copy(
-                            categories = if (code in draft.categories) {
-                                draft.categories - code
-                            } else {
-                                draft.categories + code
-                            },
-                        )
+                        draft =
+                            draft.copy(
+                                categories =
+                                    if (code in draft.categories) {
+                                        draft.categories - code
+                                    } else {
+                                        draft.categories + code
+                                    },
+                            )
                     },
                     label = { Text(stringResource(labelRes)) },
                 )
@@ -383,7 +434,10 @@ fun HomeSidePanelHitokotoSettings(
                 color = MaterialTheme.colorScheme.error,
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             OutlinedButton(
                 onClick = { draft = HitokotoSettings() },
                 modifier = Modifier.weight(1f),
@@ -411,23 +465,27 @@ fun SettingsHeader(
         modifier = modifier.fillMaxWidth(),
     ) {
         IconButton(onClick = onBack) {
-            Icon(MaterialSymbols.Outlined.Arrow_back, contentDescription = stringResource(R.string.action_back))
+            Icon(
+                MaterialSymbols.Outlined.Arrow_back,
+                contentDescription = stringResource(R.string.action_back),
+            )
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
     }
 }
 
-private val hitokotoCategoryLabels = linkedMapOf(
-    "a" to R.string.home_side_panel_hitokoto_animation,
-    "b" to R.string.home_side_panel_hitokoto_comics,
-    "c" to R.string.home_side_panel_hitokoto_games,
-    "d" to R.string.home_side_panel_hitokoto_literature,
-    "e" to R.string.home_side_panel_hitokoto_original,
-    "f" to R.string.home_side_panel_hitokoto_web,
-    "g" to R.string.home_side_panel_hitokoto_other,
-    "h" to R.string.home_side_panel_hitokoto_movies,
-    "i" to R.string.home_side_panel_hitokoto_poetry,
-    "j" to R.string.home_side_panel_hitokoto_netease_music,
-    "k" to R.string.home_side_panel_hitokoto_philosophy,
-    "l" to R.string.home_side_panel_hitokoto_witty,
-)
+private val hitokotoCategoryLabels =
+    linkedMapOf(
+        "a" to R.string.home_side_panel_hitokoto_animation,
+        "b" to R.string.home_side_panel_hitokoto_comics,
+        "c" to R.string.home_side_panel_hitokoto_games,
+        "d" to R.string.home_side_panel_hitokoto_literature,
+        "e" to R.string.home_side_panel_hitokoto_original,
+        "f" to R.string.home_side_panel_hitokoto_web,
+        "g" to R.string.home_side_panel_hitokoto_other,
+        "h" to R.string.home_side_panel_hitokoto_movies,
+        "i" to R.string.home_side_panel_hitokoto_poetry,
+        "j" to R.string.home_side_panel_hitokoto_netease_music,
+        "k" to R.string.home_side_panel_hitokoto_philosophy,
+        "l" to R.string.home_side_panel_hitokoto_witty,
+    )

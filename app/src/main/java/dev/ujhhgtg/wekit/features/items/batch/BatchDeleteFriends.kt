@@ -11,8 +11,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -47,13 +47,15 @@ object BatchDeleteFriends : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_friend))
+                        showToast(
+                            context.localizedBatchString(R.string.batch_select_at_least_one_friend),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     confirmAndDelete(context, selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -71,17 +73,27 @@ object BatchDeleteFriends : ClickableFeature() {
                         ),
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                        deleteFriends(wxIds, WeContactApi.DeleteMode.DELETE_ONLY)
-                    }) { Text(stringResource(R.string.action_delete)) }
-                    TextButton(onClick = {
-                        onDismiss()
-                        deleteFriends(wxIds, WeContactApi.DeleteMode.BLOCK_AND_DELETE)
-                    }) { Text(stringResource(R.string.batch_delete_friends_block_and_delete)) }
-                }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            deleteFriends(wxIds, WeContactApi.DeleteMode.DELETE_ONLY)
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            deleteFriends(wxIds, WeContactApi.DeleteMode.BLOCK_AND_DELETE)
+                        },
+                    ) {
+                        Text(stringResource(R.string.batch_delete_friends_block_and_delete))
+                    }
+                },
             )
         }
     }
@@ -110,7 +122,7 @@ object BatchDeleteFriends : ClickableFeature() {
                     wxIds.size,
                     success,
                     wxIds.size,
-                )
+                ),
             )
         }
     }

@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonClassDiscriminator
-import java.util.UUID
 
 const val HOME_SIDE_PANEL_LAYOUT_VERSION = 1
 const val HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP = 80
@@ -73,8 +72,7 @@ data class DateTimeCardConfig(
     override val id: String,
     val showLunarCalendar: Boolean = false,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.DATE_TIME
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.DATE_TIME
 }
 
 @Serializable
@@ -83,8 +81,7 @@ data class WeatherCardConfig(
     override val id: String,
     val city: WeatherCity,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.WEATHER
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.WEATHER
 }
 
 @Serializable
@@ -93,8 +90,7 @@ data class WalletCardConfig(
     override val id: String,
     val hideBalanceByDefault: Boolean = false,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.WALLET
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.WALLET
 }
 
 @Serializable
@@ -103,8 +99,7 @@ data class HitokotoCardConfig(
     override val id: String,
     val settings: HitokotoSettings = HitokotoSettings(),
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.HITOKOTO
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.HITOKOTO
 }
 
 @Serializable
@@ -125,8 +120,7 @@ data class ImageCardConfig(
     val heightDp: Int = 240,
     val scaleMode: HomeSidePanelImageScaleMode = HomeSidePanelImageScaleMode.CROP,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.IMAGE
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.IMAGE
 }
 
 @Serializable
@@ -135,8 +129,7 @@ data class HorizontalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.HORIZONTAL_ACTIONS
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.HORIZONTAL_ACTIONS
 }
 
 @Serializable
@@ -145,8 +138,7 @@ data class VerticalActionsCardConfig(
     override val id: String,
     val actions: List<HomeSidePanelActionConfig>,
 ) : HomeSidePanelCardConfig() {
-    @Transient
-    override val type: HomeSidePanelCardType = HomeSidePanelCardType.VERTICAL_ACTIONS
+    @Transient override val type: HomeSidePanelCardType = HomeSidePanelCardType.VERTICAL_ACTIONS
 }
 
 class InvalidHomeSidePanelLayoutException(message: String) : IllegalArgumentException(message)
@@ -164,43 +156,63 @@ fun validateHomeSidePanelLayout(layout: HomeSidePanelLayout) {
     }
     layout.cards.forEach { card ->
         when (card) {
-            is HitokotoCardConfig -> validateHitokotoSettings(
-                minLength = card.settings.minLength,
-                maxLength = card.settings.maxLength,
-                categories = card.settings.categories,
-            )?.let { throw InvalidHomeSidePanelLayoutException("Invalid hitokoto settings: $it") }
+            is HitokotoCardConfig ->
+                validateHitokotoSettings(
+                        minLength = card.settings.minLength,
+                        maxLength = card.settings.maxLength,
+                        categories = card.settings.categories,
+                    )
+                    ?.let {
+                        throw InvalidHomeSidePanelLayoutException("Invalid hitokoto settings: $it")
+                    }
 
             is ImageCardConfig -> {
                 card.imageAssetId?.let { assetId ->
-                    val parsed = runCatching { UUID.fromString(assetId) }.getOrElse {
-                        throw InvalidHomeSidePanelLayoutException("Invalid image asset ID: $assetId")
+                    val parsed = runCatching {
+                        UUID.fromString(assetId)
                     }
+                        .getOrElse {
+                            throw InvalidHomeSidePanelLayoutException(
+                                "Invalid image asset ID: $assetId",
+                            )
+                        }
                     if (parsed.toString() != assetId) {
-                        throw InvalidHomeSidePanelLayoutException("Invalid image asset ID: $assetId")
+                        throw InvalidHomeSidePanelLayoutException(
+                            "Invalid image asset ID: $assetId",
+                        )
                     }
                 }
                 if (
-                    card.heightDp !in HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP..HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP ||
-                    card.heightDp % HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP != 0
+                    card.heightDp !in
+                        HOME_SIDE_PANEL_IMAGE_MIN_HEIGHT_DP..HOME_SIDE_PANEL_IMAGE_MAX_HEIGHT_DP ||
+                        card.heightDp % HOME_SIDE_PANEL_IMAGE_HEIGHT_STEP_DP != 0
                 ) {
-                    throw InvalidHomeSidePanelLayoutException("Invalid image card height: ${card.heightDp}")
+                    throw InvalidHomeSidePanelLayoutException(
+                        "Invalid image card height: ${card.heightDp}",
+                    )
                 }
                 val width = card.imageWidthPx
                 val height = card.imageHeightPx
                 if (card.imageAssetId == null && (width != null || height != null)) {
-                    throw InvalidHomeSidePanelLayoutException("An empty image card cannot have dimensions")
+                    throw InvalidHomeSidePanelLayoutException(
+                        "An empty image card cannot have dimensions",
+                    )
                 }
                 if ((width == null) != (height == null)) {
-                    throw InvalidHomeSidePanelLayoutException("Image dimensions must both be present or absent")
+                    throw InvalidHomeSidePanelLayoutException(
+                        "Image dimensions must both be present or absent",
+                    )
                 }
                 if (width != null && height != null) {
                     if (
                         width <= 0 ||
-                        height <= 0 ||
-                        width.toLong() * height.toLong() > 50_000_000L ||
-                        !isHomeSidePanelImageAspectRatioSupported(width, height)
+                            height <= 0 ||
+                            width.toLong() * height.toLong() > 50_000_000L ||
+                            !isHomeSidePanelImageAspectRatioSupported(width, height)
                     ) {
-                        throw InvalidHomeSidePanelLayoutException("Invalid image dimensions: ${width}x$height")
+                        throw InvalidHomeSidePanelLayoutException(
+                            "Invalid image dimensions: ${width}x$height",
+                        )
                     }
                 }
             }
@@ -219,9 +231,10 @@ fun isHomeSidePanelImageAspectRatioSupported(width: Int, height: Int): Boolean {
     return longer <= shorter * HOME_SIDE_PANEL_IMAGE_MAX_ASPECT_RATIO
 }
 
-fun HomeSidePanelLayout.imageAssetIds(): Set<String> = cards
-    .filterIsInstance<ImageCardConfig>()
-    .mapNotNullTo(linkedSetOf(), ImageCardConfig::imageAssetId)
+fun HomeSidePanelLayout.imageAssetIds(): Set<String> =
+    cards
+        .filterIsInstance<ImageCardConfig>()
+        .mapNotNullTo(linkedSetOf(), ImageCardConfig::imageAssetId)
 
 private fun validateActionIds(actions: List<HomeSidePanelActionConfig>) {
     val actionIds = actions.map(HomeSidePanelActionConfig::id)
@@ -246,21 +259,23 @@ object HomeSidePanelLayoutCodec {
     fun load(
         raw: String,
         idGenerator: HomeSidePanelIdGenerator,
-    ): HomeSidePanelLayoutLoad = try {
-        HomeSidePanelLayoutLoad.Stored(decode(raw))
-    } catch (error: Exception) {
-        HomeSidePanelLayoutLoad.Fallback(
-            layout = defaultHomeSidePanelLayout(idGenerator),
-            invalidRaw = raw,
-            reason = error.message ?: error::class.simpleName.orEmpty(),
-        )
-    }
+    ): HomeSidePanelLayoutLoad =
+        try {
+            HomeSidePanelLayoutLoad.Stored(decode(raw))
+        } catch (error: Exception) {
+            HomeSidePanelLayoutLoad.Fallback(
+                layout = defaultHomeSidePanelLayout(idGenerator),
+                invalidRaw = raw,
+                reason = error.message ?: error::class.simpleName.orEmpty(),
+            )
+        }
 }
 
 sealed interface HomeSidePanelLayoutLoad {
     val layout: HomeSidePanelLayout
 
     data class Stored(override val layout: HomeSidePanelLayout) : HomeSidePanelLayoutLoad
+
     data class Fallback(
         override val layout: HomeSidePanelLayout,
         val invalidRaw: String,
@@ -270,21 +285,38 @@ sealed interface HomeSidePanelLayoutLoad {
 
 fun defaultHomeSidePanelLayout(
     idGenerator: HomeSidePanelIdGenerator = UuidHomeSidePanelIdGenerator,
-): HomeSidePanelLayout = HomeSidePanelLayout(
-    cards = listOf(
-        DateTimeCardConfig(idGenerator.nextId()),
-        WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY),
-        WalletCardConfig(idGenerator.nextId(), false),
-        VerticalActionsCardConfig(
-            idGenerator.nextId(),
+): HomeSidePanelLayout =
+    HomeSidePanelLayout(
+        cards =
             listOf(
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.ADD_FRIEND),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MOMENTS),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.CHANNELS),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.MARK_ALL_READ),
-                HomeSidePanelActionConfig(idGenerator.nextId(), HomeSidePanelActionKind.WEKIT_SETTINGS),
+                DateTimeCardConfig(idGenerator.nextId()),
+                WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY),
+                WalletCardConfig(idGenerator.nextId(), false),
+                VerticalActionsCardConfig(
+                    idGenerator.nextId(),
+                    listOf(
+                        HomeSidePanelActionConfig(
+                            idGenerator.nextId(),
+                            HomeSidePanelActionKind.ADD_FRIEND,
+                        ),
+                        HomeSidePanelActionConfig(
+                            idGenerator.nextId(),
+                            HomeSidePanelActionKind.MOMENTS,
+                        ),
+                        HomeSidePanelActionConfig(
+                            idGenerator.nextId(),
+                            HomeSidePanelActionKind.CHANNELS,
+                        ),
+                        HomeSidePanelActionConfig(
+                            idGenerator.nextId(),
+                            HomeSidePanelActionKind.MARK_ALL_READ,
+                        ),
+                        HomeSidePanelActionConfig(
+                            idGenerator.nextId(),
+                            HomeSidePanelActionKind.WEKIT_SETTINGS,
+                        ),
+                    ),
+                ),
+                HitokotoCardConfig(idGenerator.nextId(), HitokotoSettings()),
             ),
-        ),
-        HitokotoCardConfig(idGenerator.nextId(), HitokotoSettings()),
-    ),
-)
+    )

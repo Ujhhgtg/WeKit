@@ -77,17 +77,18 @@ import com.composables.icons.materialsymbols.outlined.Weather_snowy
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
-fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? = when (state) {
-    is WeatherUiState.Ready -> state.snapshot
-    is WeatherUiState.Error -> state.cached
-    WeatherUiState.Loading -> null
-}
+fun weatherCardSnapshot(state: WeatherUiState): WeatherSnapshot? =
+    when (state) {
+        is WeatherUiState.Ready -> state.snapshot
+        is WeatherUiState.Error -> state.cached
+        WeatherUiState.Loading -> null
+    }
 
 @Composable
 fun HomeSidePanelDateTimeCard(
@@ -99,42 +100,47 @@ fun HomeSidePanelDateTimeCard(
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
-    val now = when (content) {
-        DateTimeCardContent.Runtime -> rememberHomeSidePanelNow()
-        is DateTimeCardContent.Preview -> content.now
-    }
+    val now =
+        when (content) {
+            DateTimeCardContent.Runtime -> rememberHomeSidePanelNow()
+            is DateTimeCardContent.Preview -> content.now
+        }
     val localizedContext = LocalWeKitLocalizedContext.current
-    val dateText = now.format(
-        DateTimeFormatter.ofPattern(
-            stringResource(R.string.home_side_panel_date_pattern),
-            localizedContext.resources.configuration.locales[0],
-        ),
-    )
-    val lunarDate = if (card.showLunarCalendar) {
-        remember(now.toLocalDate()) { homeSidePanelLunarDate(now) }
-    } else {
-        null
-    }
+    val dateText =
+        now.format(
+            DateTimeFormatter.ofPattern(
+                stringResource(R.string.home_side_panel_date_pattern),
+                localizedContext.resources.configuration.locales[0],
+            ),
+        )
+    val lunarDate =
+        if (card.showLunarCalendar) {
+            remember(now.toLocalDate()) { homeSidePanelLunarDate(now) }
+        } else {
+            null
+        }
     val lunarText = lunarDate?.let {
         formatHomeSidePanelLunarDate(
             date = it,
-            text = HomeSidePanelLunarDateText(
-                prefix = stringResource(R.string.home_side_panel_lunar_prefix),
-                leapPrefix = stringResource(R.string.home_side_panel_lunar_leap_prefix),
-                separator = stringResource(R.string.home_side_panel_lunar_separator),
-                monthNames = stringArrayResource(R.array.home_side_panel_lunar_month_names).asList(),
-                dayNames = stringArrayResource(R.array.home_side_panel_lunar_day_names).asList(),
-            ),
+            text =
+                HomeSidePanelLunarDateText(
+                    prefix = stringResource(R.string.home_side_panel_lunar_prefix),
+                    leapPrefix = stringResource(R.string.home_side_panel_lunar_leap_prefix),
+                    separator = stringResource(R.string.home_side_panel_lunar_separator),
+                    monthNames =
+                        stringArrayResource(R.array.home_side_panel_lunar_month_names).asList(),
+                    dayNames =
+                        stringArrayResource(R.array.home_side_panel_lunar_day_names).asList(),
+                ),
         )
     }
     HomeSidePanelCardFrame(
         cardId = card.id,
         modifier = modifier.fillMaxWidth(),
-        cardModifier = Modifier
-            .fillMaxWidth()
-            .then(if (editMode) cardDragModifier else Modifier),
+        cardModifier = Modifier.fillMaxWidth().then(if (editMode) cardDragModifier else Modifier),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         editMode = editMode,
         onEdit = onEditCard?.let { edit -> { edit(card.id) } },
         onDelete = onDeleteCard?.let { delete -> { delete(card.id) } },
@@ -147,9 +153,7 @@ fun HomeSidePanelDateTimeCard(
                     fontWeight = FontWeight.Bold,
                 )
                 BoxWithConstraints(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp, bottom = 5.dp)
+                    modifier = Modifier.weight(1f).padding(start = 10.dp, bottom = 5.dp),
                 ) {
                     val combinedText = buildString {
                         append(dateText)
@@ -158,12 +162,16 @@ fun HomeSidePanelDateTimeCard(
                     if (lunarText == null) {
                         HomeSidePanelDateText(combinedText)
                     } else {
-                        val combinedFitsOneLine = rememberTextMeasurer().measure(
-                            text = AnnotatedString(combinedText),
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            softWrap = false,
-                        ).size.width <= constraints.maxWidth
+                        val combinedFitsOneLine =
+                            rememberTextMeasurer()
+                                .measure(
+                                    text = AnnotatedString(combinedText),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                                .size
+                                .width <= constraints.maxWidth
                         if (combinedFitsOneLine) {
                             HomeSidePanelDateText(combinedText)
                         } else {
@@ -175,7 +183,10 @@ fun HomeSidePanelDateTimeCard(
                     }
                 }
             }
-            Text(stringResource(greetingResForHour(now.hour)), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(greetingResForHour(now.hour)),
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
     }
 }
@@ -206,40 +217,42 @@ fun HomeSidePanelWeatherCard(
     val localizedContext = LocalWeKitLocalizedContext.current
     val runtime = content as? WeatherCardContent.Runtime
     val weather = runtime?.state
-    val snapshot = when (content) {
-        is WeatherCardContent.Runtime -> weatherCardSnapshot(content.state)
-        is WeatherCardContent.Preview -> content.snapshot
-    }
+    val snapshot =
+        when (content) {
+            is WeatherCardContent.Runtime -> weatherCardSnapshot(content.state)
+            is WeatherCardContent.Preview -> content.snapshot
+        }
     val shape = RoundedCornerShape(24.dp)
-    val clickModifier = if (interactionEnabled && !editMode && runtime != null) {
-        Modifier.clickable { onRefresh(card.id) }
-    } else {
-        Modifier
-    }
+    val clickModifier =
+        if (interactionEnabled && !editMode && runtime != null) {
+            Modifier.clickable { onRefresh(card.id) }
+        } else {
+            Modifier
+        }
     HomeSidePanelCardFrame(
         cardId = card.id,
         modifier = modifier.fillMaxWidth(),
-        cardModifier = Modifier
-            .fillMaxWidth()
-            .then(if (editMode) cardDragModifier else Modifier)
-            .then(clickModifier),
+        cardModifier =
+            Modifier.fillMaxWidth()
+                .then(if (editMode) cardDragModifier else Modifier)
+                .then(clickModifier),
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         editMode = editMode,
         onEdit = onEditCard?.let { edit -> { edit(card.id) } },
         onDelete = onDeleteCard?.let { delete -> { delete(card.id) } },
     ) {
         val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        val location = snapshot?.city?.let { city ->
-            listOfNotNull(city.city, city.district?.takeIf(String::isNotBlank))
-                .distinct()
-                .joinToString(" · ")
-        } ?: stringResource(R.string.home_side_panel_weather)
+        val location =
+            snapshot?.city?.let { city ->
+                listOfNotNull(city.city, city.district?.takeIf(String::isNotBlank))
+                    .distinct()
+                    .joinToString(" · ")
+            } ?: stringResource(R.string.home_side_panel_weather)
         Column {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 18.dp, top = 17.dp, end = 18.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 18.dp, top = 17.dp, end = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -250,9 +263,7 @@ fun HomeSidePanelWeatherCard(
                 )
                 Text(
                     location,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 5.dp),
+                    modifier = Modifier.weight(1f).padding(start = 5.dp),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor,
@@ -261,10 +272,11 @@ fun HomeSidePanelWeatherCard(
                 )
                 snapshot?.let {
                     Text(
-                        stringResource(R.string.home_side_panel_updated_at, formatWeatherPublishedAt(it.publishedAt)),
-                        modifier = Modifier
-                            .padding(start = 10.dp)
-                            .widthIn(max = 112.dp),
+                        stringResource(
+                            R.string.home_side_panel_updated_at,
+                            formatWeatherPublishedAt(it.publishedAt),
+                        ),
+                        modifier = Modifier.padding(start = 10.dp).widthIn(max = 112.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = contentColor.copy(alpha = 0.65f),
                         maxLines = 1,
@@ -285,10 +297,8 @@ fun HomeSidePanelWeatherCard(
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(110.dp)
-                            .padding(horizontal = 18.dp),
+                        modifier =
+                            Modifier.fillMaxWidth().height(110.dp).padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (snapshot != null) {
@@ -305,7 +315,10 @@ fun HomeSidePanelWeatherCard(
                                         maxLines = 1,
                                     )
                                     Text(
-                                        stringResource(R.string.home_side_panel_feels_like, snapshot.feelsLike),
+                                        stringResource(
+                                            R.string.home_side_panel_feels_like,
+                                            snapshot.feelsLike,
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = contentColor.copy(alpha = 0.72f),
                                     )
@@ -347,9 +360,7 @@ fun HomeSidePanelWeatherCard(
                     }
                     HorizontalDivider(color = contentColor.copy(alpha = 0.14f))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(68.dp),
+                        modifier = Modifier.fillMaxWidth().height(68.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         HomeSidePanelWeatherMetric(
@@ -359,9 +370,7 @@ fun HomeSidePanelWeatherCard(
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(vertical = 10.dp),
+                            modifier = Modifier.fillMaxHeight().padding(vertical = 10.dp),
                             color = contentColor.copy(alpha = 0.12f),
                         )
                         HomeSidePanelWeatherMetric(
@@ -371,9 +380,7 @@ fun HomeSidePanelWeatherCard(
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(vertical = 10.dp),
+                            modifier = Modifier.fillMaxHeight().padding(vertical = 10.dp),
                             color = contentColor.copy(alpha = 0.12f),
                         )
                         HomeSidePanelWeatherMetric(
@@ -386,9 +393,11 @@ fun HomeSidePanelWeatherCard(
                 }
                 if (weather is WeatherUiState.Ready && weather.refreshing) {
                     Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)),
+                        modifier =
+                            Modifier.matchParentSize()
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f),
+                                ),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
@@ -418,26 +427,29 @@ fun HomeSidePanelWalletCard(
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
     val runtime = content as? WalletCardContent.Runtime
-    val displayBalance = when (content) {
-        is WalletCardContent.Runtime -> content.state.displayBalance
-        is WalletCardContent.Preview -> content.displayBalance
-    }
+    val displayBalance =
+        when (content) {
+            is WalletCardContent.Runtime -> content.state.displayBalance
+            is WalletCardContent.Preview -> content.displayBalance
+        }
     val isMasked = runtime?.state?.displayState?.isMasked == true
     val interactive = interactionEnabled && !editMode && runtime != null
-    val clickModifier = if (interactive) {
-        Modifier.clickable { onToggleBalance(card.id) }
-    } else {
-        Modifier
-    }
+    val clickModifier =
+        if (interactive) {
+            Modifier.clickable { onToggleBalance(card.id) }
+        } else {
+            Modifier
+        }
     HomeSidePanelCardFrame(
         cardId = card.id,
         modifier = modifier.fillMaxWidth(),
-        cardModifier = Modifier
-            .fillMaxWidth()
-            .then(if (editMode) cardDragModifier else Modifier)
-            .then(clickModifier),
+        cardModifier =
+            Modifier.fillMaxWidth()
+                .then(if (editMode) cardDragModifier else Modifier)
+                .then(clickModifier),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         editMode = editMode,
         onEdit = onEditCard?.let { edit -> { edit(card.id) } },
         onDelete = onDeleteCard?.let { delete -> { delete(card.id) } },
@@ -482,14 +494,23 @@ fun HomeSidePanelWalletCard(
                     modifier = Modifier.weight(1f),
                     enabled = interactive,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        disabledContentColor = MaterialTheme.colorScheme.primary,
-                    ),
+                    colors =
+                        ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            disabledContentColor = MaterialTheme.colorScheme.primary,
+                        ),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
                 ) {
-                    Icon(MaterialSymbols.Outlined.Qr_code_scanner, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.home_side_panel_scan), modifier = Modifier.padding(start = 7.dp), maxLines = 1)
+                    Icon(
+                        MaterialSymbols.Outlined.Qr_code_scanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.home_side_panel_scan),
+                        modifier = Modifier.padding(start = 7.dp),
+                        maxLines = 1,
+                    )
                 }
                 Button(
                     onClick = {
@@ -497,14 +518,23 @@ fun HomeSidePanelWalletCard(
                     },
                     modifier = Modifier.weight(1f),
                     enabled = interactive,
-                    colors = ButtonDefaults.buttonColors(
-                        disabledContainerColor = MaterialTheme.colorScheme.primary,
-                        disabledContentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            disabledContainerColor = MaterialTheme.colorScheme.primary,
+                            disabledContentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
                 ) {
-                    Icon(MaterialSymbols.Outlined.Wallet, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.home_side_panel_payment_code), modifier = Modifier.padding(start = 7.dp), maxLines = 1)
+                    Icon(
+                        MaterialSymbols.Outlined.Wallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.home_side_panel_payment_code),
+                        modifier = Modifier.padding(start = 7.dp),
+                        maxLines = 1,
+                    )
                 }
             }
         }
@@ -526,36 +556,46 @@ fun HomeSidePanelHitokotoCard(
     val localizedContext = LocalWeKitLocalizedContext.current
     val runtime = content as? HitokotoCardContent.Runtime
     val hitokoto = runtime?.state
-    val snapshot = when (content) {
-        is HitokotoCardContent.Runtime -> when (val state = content.state) {
-            is HitokotoUiState.Ready -> state.snapshot
-            is HitokotoUiState.Error -> state.cached
-            HitokotoUiState.Loading -> null
-        }
+    val snapshot =
+        when (content) {
+            is HitokotoCardContent.Runtime ->
+                when (val state = content.state) {
+                    is HitokotoUiState.Ready -> state.snapshot
+                    is HitokotoUiState.Error -> state.cached
+                    HitokotoUiState.Loading -> null
+                }
 
-        is HitokotoCardContent.Preview -> content.snapshot
-    }
-    val clickModifier = if (interactionEnabled && !editMode && runtime != null) {
-        Modifier.clickable { onRefresh(card.id) }
-    } else {
-        Modifier
-    }
+            is HitokotoCardContent.Preview -> content.snapshot
+        }
+    val clickModifier =
+        if (interactionEnabled && !editMode && runtime != null) {
+            Modifier.clickable { onRefresh(card.id) }
+        } else {
+            Modifier
+        }
     HomeSidePanelCardFrame(
         cardId = card.id,
         modifier = modifier.fillMaxWidth(),
-        cardModifier = Modifier
-            .fillMaxWidth()
-            .then(if (editMode) cardDragModifier else Modifier)
-            .then(clickModifier),
+        cardModifier =
+            Modifier.fillMaxWidth()
+                .then(if (editMode) cardDragModifier else Modifier)
+                .then(clickModifier),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
         editMode = editMode,
         onEdit = onEditCard?.let { edit -> { edit(card.id) } },
         onDelete = onDeleteCard?.let { delete -> { delete(card.id) } },
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    MaterialSymbols.Outlined.Format_quote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
                 Text(
                     stringResource(R.string.home_side_panel_hitokoto),
                     modifier = Modifier.padding(start = 8.dp),
@@ -566,29 +606,49 @@ fun HomeSidePanelHitokotoCard(
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(
-                        text = snapshot?.text ?: stringResource(
-                            if (hitokoto is HitokotoUiState.Loading) {
-                                R.string.home_side_panel_hitokoto_loading
-                            } else {
-                                R.string.home_side_panel_hitokoto_tap
-                            }
-                        ),
+                        text =
+                            snapshot?.text
+                                ?: stringResource(
+                                    if (hitokoto is HitokotoUiState.Loading) {
+                                        R.string.home_side_panel_hitokoto_loading
+                                    } else {
+                                        R.string.home_side_panel_hitokoto_tap
+                                    },
+                                ),
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    if (snapshot != null && (card.settings.showSource || card.settings.showAuthor)) {
-                        val author = snapshot.author?.trim()?.takeIf { card.settings.showAuthor && it.isNotEmpty() }
-                        val source = snapshot.source?.trim()?.takeIf { card.settings.showSource && it.isNotEmpty() }
-                        val attribution = when {
-                            author != null && source != null -> stringResource(
-                                R.string.home_side_panel_attribution_author_source,
-                                author,
-                                source,
-                            )
+                    if (
+                        snapshot != null && (card.settings.showSource || card.settings.showAuthor)
+                    ) {
+                        val author =
+                            snapshot.author?.trim()?.takeIf {
+                                card.settings.showAuthor && it.isNotEmpty()
+                            }
+                        val source =
+                            snapshot.source?.trim()?.takeIf {
+                                card.settings.showSource && it.isNotEmpty()
+                            }
+                        val attribution =
+                            when {
+                                author != null && source != null ->
+                                    stringResource(
+                                        R.string.home_side_panel_attribution_author_source,
+                                        author,
+                                        source,
+                                    )
 
-                            author != null -> stringResource(R.string.home_side_panel_attribution_author, author)
-                            source != null -> stringResource(R.string.home_side_panel_attribution_source, source)
-                            else -> null
-                        }
+                                author != null ->
+                                    stringResource(
+                                        R.string.home_side_panel_attribution_author,
+                                        author,
+                                    )
+                                source != null ->
+                                    stringResource(
+                                        R.string.home_side_panel_attribution_source,
+                                        source,
+                                    )
+                                else -> null
+                            }
                         attribution?.let {
                             Text(
                                 text = it,
@@ -600,13 +660,18 @@ fun HomeSidePanelHitokotoCard(
                         }
                     }
                 }
-                val refreshing = hitokoto is HitokotoUiState.Loading ||
-                    hitokoto is HitokotoUiState.Ready && hitokoto.refreshing
+                val refreshing =
+                    hitokoto is HitokotoUiState.Loading ||
+                        hitokoto is HitokotoUiState.Ready && hitokoto.refreshing
                 if (refreshing) {
                     Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.82f)),
+                        modifier =
+                            Modifier.matchParentSize()
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceContainerHighest.copy(
+                                        alpha = 0.82f,
+                                    ),
+                                ),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
@@ -677,84 +742,88 @@ private fun rememberHomeSidePanelNow(): LocalDateTime {
 }
 
 @StringRes
-private fun greetingResForHour(hour: Int): Int = when (hour) {
-    in 5..11 -> R.string.home_side_panel_greeting_morning
-    in 12..17 -> R.string.home_side_panel_greeting_afternoon
-    else -> R.string.home_side_panel_greeting_evening
-}
+private fun greetingResForHour(hour: Int): Int =
+    when (hour) {
+        in 5..11 -> R.string.home_side_panel_greeting_morning
+        in 12..17 -> R.string.home_side_panel_greeting_afternoon
+        else -> R.string.home_side_panel_greeting_evening
+    }
 
-private fun weatherIcon(code: String): ImageVector = when (weatherIconKind(code)) {
-    WeatherIconKind.SUNNY -> MaterialSymbols.Outlined.Sunny
-    WeatherIconKind.PARTLY_CLOUDY -> MaterialSymbols.Outlined.Partly_cloudy_day
-    WeatherIconKind.OVERCAST -> MaterialSymbols.Outlined.Cloud
-    WeatherIconKind.SHOWER -> MaterialSymbols.Outlined.Rainy
-    WeatherIconKind.THUNDERSTORM -> MaterialSymbols.Outlined.Thunderstorm
-    WeatherIconKind.HAIL -> MaterialSymbols.Outlined.Weather_hail
-    WeatherIconKind.SLEET -> MaterialSymbols.Outlined.Rainy_snow
-    WeatherIconKind.LIGHT_RAIN -> MaterialSymbols.Outlined.Rainy_light
-    WeatherIconKind.RAIN -> MaterialSymbols.Outlined.Rainy
-    WeatherIconKind.HEAVY_RAIN -> MaterialSymbols.Outlined.Rainy_heavy
-    WeatherIconKind.RAINSTORM -> MaterialSymbols.Outlined.Storm
-    WeatherIconKind.SNOW_SHOWER -> MaterialSymbols.Outlined.Sunny_snowing
-    WeatherIconKind.LIGHT_SNOW -> MaterialSymbols.Outlined.Snowing
-    WeatherIconKind.SNOW -> MaterialSymbols.Outlined.Weather_snowy
-    WeatherIconKind.HEAVY_SNOW -> MaterialSymbols.Outlined.Snowing_heavy
-    WeatherIconKind.BLIZZARD -> MaterialSymbols.Outlined.Cloudy_snowing
-    WeatherIconKind.FOG -> MaterialSymbols.Outlined.Foggy
-    WeatherIconKind.FREEZING_RAIN -> MaterialSymbols.Outlined.Rainy_snow
-    WeatherIconKind.DUST_STORM -> MaterialSymbols.Outlined.Storm
-    WeatherIconKind.DUST -> MaterialSymbols.Outlined.Grain
-    WeatherIconKind.SAND -> MaterialSymbols.Outlined.Grain
-    WeatherIconKind.SQUALL -> MaterialSymbols.Outlined.Cyclone
-    WeatherIconKind.TORNADO -> MaterialSymbols.Outlined.Tornado
-    WeatherIconKind.HAZE -> MaterialSymbols.Outlined.Air
-    WeatherIconKind.UNKNOWN -> MaterialSymbols.Outlined.Question_mark
-}
+private fun weatherIcon(code: String): ImageVector =
+    when (weatherIconKind(code)) {
+        WeatherIconKind.SUNNY -> MaterialSymbols.Outlined.Sunny
+        WeatherIconKind.PARTLY_CLOUDY -> MaterialSymbols.Outlined.Partly_cloudy_day
+        WeatherIconKind.OVERCAST -> MaterialSymbols.Outlined.Cloud
+        WeatherIconKind.SHOWER -> MaterialSymbols.Outlined.Rainy
+        WeatherIconKind.THUNDERSTORM -> MaterialSymbols.Outlined.Thunderstorm
+        WeatherIconKind.HAIL -> MaterialSymbols.Outlined.Weather_hail
+        WeatherIconKind.SLEET -> MaterialSymbols.Outlined.Rainy_snow
+        WeatherIconKind.LIGHT_RAIN -> MaterialSymbols.Outlined.Rainy_light
+        WeatherIconKind.RAIN -> MaterialSymbols.Outlined.Rainy
+        WeatherIconKind.HEAVY_RAIN -> MaterialSymbols.Outlined.Rainy_heavy
+        WeatherIconKind.RAINSTORM -> MaterialSymbols.Outlined.Storm
+        WeatherIconKind.SNOW_SHOWER -> MaterialSymbols.Outlined.Sunny_snowing
+        WeatherIconKind.LIGHT_SNOW -> MaterialSymbols.Outlined.Snowing
+        WeatherIconKind.SNOW -> MaterialSymbols.Outlined.Weather_snowy
+        WeatherIconKind.HEAVY_SNOW -> MaterialSymbols.Outlined.Snowing_heavy
+        WeatherIconKind.BLIZZARD -> MaterialSymbols.Outlined.Cloudy_snowing
+        WeatherIconKind.FOG -> MaterialSymbols.Outlined.Foggy
+        WeatherIconKind.FREEZING_RAIN -> MaterialSymbols.Outlined.Rainy_snow
+        WeatherIconKind.DUST_STORM -> MaterialSymbols.Outlined.Storm
+        WeatherIconKind.DUST -> MaterialSymbols.Outlined.Grain
+        WeatherIconKind.SAND -> MaterialSymbols.Outlined.Grain
+        WeatherIconKind.SQUALL -> MaterialSymbols.Outlined.Cyclone
+        WeatherIconKind.TORNADO -> MaterialSymbols.Outlined.Tornado
+        WeatherIconKind.HAZE -> MaterialSymbols.Outlined.Air
+        WeatherIconKind.UNKNOWN -> MaterialSymbols.Outlined.Question_mark
+    }
 
 @StringRes
-private fun weatherDescriptionRes(code: String): Int = when (code.toIntOrNull()) {
-    0 -> R.string.weather_sunny
-    1 -> R.string.weather_cloudy
-    2 -> R.string.weather_overcast
-    3 -> R.string.weather_shower
-    4 -> R.string.weather_thunderstorm
-    5 -> R.string.weather_hail_thunderstorm
-    6 -> R.string.weather_sleet
-    7 -> R.string.weather_light_rain
-    8 -> R.string.weather_moderate_rain
-    9 -> R.string.weather_heavy_rain
-    10 -> R.string.weather_rainstorm
-    11 -> R.string.weather_heavy_rainstorm
-    12 -> R.string.weather_severe_rainstorm
-    13 -> R.string.weather_snow_shower
-    14 -> R.string.weather_light_snow
-    15 -> R.string.weather_moderate_snow
-    16 -> R.string.weather_heavy_snow
-    17 -> R.string.weather_blizzard
-    18 -> R.string.weather_fog
-    19 -> R.string.weather_freezing_rain
-    20 -> R.string.weather_dust_storm
-    21 -> R.string.weather_light_to_moderate_rain
-    22 -> R.string.weather_moderate_to_heavy_rain
-    23 -> R.string.weather_heavy_rain_to_rainstorm
-    24 -> R.string.weather_rainstorm_to_heavy
-    25 -> R.string.weather_heavy_to_severe_rainstorm
-    26 -> R.string.weather_light_to_moderate_snow
-    27 -> R.string.weather_moderate_to_heavy_snow
-    28 -> R.string.weather_heavy_snow_to_blizzard
-    29 -> R.string.weather_dust
-    30 -> R.string.weather_sand
-    31 -> R.string.weather_severe_dust_storm
-    32 -> R.string.weather_squall
-    33 -> R.string.weather_tornado
-    34 -> R.string.weather_blowing_snow
-    35 -> R.string.weather_mist
-    53 -> R.string.weather_haze
-    else -> R.string.unknown
-}
+private fun weatherDescriptionRes(code: String): Int =
+    when (code.toIntOrNull()) {
+        0 -> R.string.weather_sunny
+        1 -> R.string.weather_cloudy
+        2 -> R.string.weather_overcast
+        3 -> R.string.weather_shower
+        4 -> R.string.weather_thunderstorm
+        5 -> R.string.weather_hail_thunderstorm
+        6 -> R.string.weather_sleet
+        7 -> R.string.weather_light_rain
+        8 -> R.string.weather_moderate_rain
+        9 -> R.string.weather_heavy_rain
+        10 -> R.string.weather_rainstorm
+        11 -> R.string.weather_heavy_rainstorm
+        12 -> R.string.weather_severe_rainstorm
+        13 -> R.string.weather_snow_shower
+        14 -> R.string.weather_light_snow
+        15 -> R.string.weather_moderate_snow
+        16 -> R.string.weather_heavy_snow
+        17 -> R.string.weather_blizzard
+        18 -> R.string.weather_fog
+        19 -> R.string.weather_freezing_rain
+        20 -> R.string.weather_dust_storm
+        21 -> R.string.weather_light_to_moderate_rain
+        22 -> R.string.weather_moderate_to_heavy_rain
+        23 -> R.string.weather_heavy_rain_to_rainstorm
+        24 -> R.string.weather_rainstorm_to_heavy
+        25 -> R.string.weather_heavy_to_severe_rainstorm
+        26 -> R.string.weather_light_to_moderate_snow
+        27 -> R.string.weather_moderate_to_heavy_snow
+        28 -> R.string.weather_heavy_snow_to_blizzard
+        29 -> R.string.weather_dust
+        30 -> R.string.weather_sand
+        31 -> R.string.weather_severe_dust_storm
+        32 -> R.string.weather_squall
+        33 -> R.string.weather_tornado
+        34 -> R.string.weather_blowing_snow
+        35 -> R.string.weather_mist
+        53 -> R.string.weather_haze
+        else -> R.string.unknown
+    }
 
 private fun formatWeatherPublishedAt(publishedAt: String): String = runCatching {
     OffsetDateTime.parse(publishedAt).format(HOME_SIDE_PANEL_TIME_FORMATTER)
-}.getOrDefault(publishedAt)
+}
+    .getOrDefault(publishedAt)
 
 private val HOME_SIDE_PANEL_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")

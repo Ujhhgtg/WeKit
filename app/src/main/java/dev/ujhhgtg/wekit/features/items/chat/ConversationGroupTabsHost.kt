@@ -20,11 +20,12 @@ class ConversationGroupTabsHost(
     private val onContentOverlapChanged: (Boolean) -> Unit = {},
 ) : FrameLayout(conversationView.context), ViewTreeObserver.OnPreDrawListener {
     private val spacer = View(context)
-    private val header = FrameLayout(context).apply {
-        // WeChat's getFirstHeaderVisible() requires a visible first child.
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        addView(spacer, LayoutParams(LayoutParams.MATCH_PARENT, 0))
-    }
+    private val header =
+        FrameLayout(context).apply {
+            // WeChat's getFirstHeaderVisible() requires a visible first child.
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            addView(spacer, LayoutParams(LayoutParams.MATCH_PARENT, 0))
+        }
     private var headerPosition = 0
     private var observer: ViewTreeObserver? = null
     private val hostLocation = IntArray(2)
@@ -34,7 +35,8 @@ class ConversationGroupTabsHost(
     private val touchLocation = IntArray(2)
     private val visibleBounds = Rect()
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-    private val capsuleVerticalInset = ConversationGrouping.CAPSULE_VERTICAL_INSET_DP.dpToPx(context)
+    private val capsuleVerticalInset =
+        ConversationGrouping.CAPSULE_VERTICAL_INSET_DP.dpToPx(context)
     private var contentOverlap = false
     private var pagingTransitionActive = false
     private var downEvent: MotionEvent? = null
@@ -54,7 +56,10 @@ class ConversationGroupTabsHost(
         headerPosition = WeConversationListViewApi.headerCount(conversationView) - 1
         (conversationView.parent as ViewGroup).addView(
             this,
-            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
         )
     }
 
@@ -97,7 +102,13 @@ class ConversationGroupTabsHost(
         // tab-bar anchor until that page is committed or the original scroll state is restored.
         if (pagingTransitionActive) return true
         val actionBar = WeConversationListViewApi.actionBarView(conversationView)
-        if (!conversationView.isShown || actionBar == null || !actionBar.isShown || actionBar.alpha == 0f || height == 0) {
+        if (
+            !conversationView.isShown ||
+                actionBar == null ||
+                !actionBar.isShown ||
+                actionBar.alpha == 0f ||
+                height == 0
+        ) {
             hideTabs()
             return true
         }
@@ -106,7 +117,8 @@ class ConversationGroupTabsHost(
             val position = conversationView.getPositionForView(header)
             if (position >= 0) headerPosition = position
         }
-        val scrolledPastHeader = WeConversationListViewApi.firstVisiblePosition(conversationView) > headerPosition
+        val scrolledPastHeader =
+            WeConversationListViewApi.firstVisiblePosition(conversationView) > headerPosition
         if (!headerAttached && (!pinned || !scrolledPastHeader)) {
             // A missing header can also be BELOW the viewport while the recent page is open.
             hideTabs()
@@ -118,17 +130,24 @@ class ConversationGroupTabsHost(
         parentView.getLocationInWindow(parentLocation)
         actionBar.getLocationInWindow(actionBarLocation)
         val actionBarBottom = actionBarLocation[1] + actionBar.height
-        val headerTop = if (headerAttached) {
-            header.getLocationInWindow(headerLocation)
-            headerLocation[1]
-        } else {
-            actionBarBottom
-        }
+        val headerTop =
+            if (headerAttached) {
+                header.getLocationInWindow(headerLocation)
+                headerLocation[1]
+            } else {
+                actionBarBottom
+            }
         val top = if (pinned) maxOf(headerTop, actionBarBottom) else headerTop
-        val contentWidth = conversationView.width - conversationView.paddingLeft - conversationView.paddingRight
-        val clipTop = (maxOf(actionBarBottom, hostLocation[1] + conversationView.paddingTop) - top)
-            .coerceAtLeast(0)
-        val clipBottom = minOf(height, hostLocation[1] + conversationView.height - conversationView.paddingBottom - top)
+        val contentWidth =
+            conversationView.width - conversationView.paddingLeft - conversationView.paddingRight
+        val clipTop =
+            (maxOf(actionBarBottom, hostLocation[1] + conversationView.paddingTop) - top)
+                .coerceAtLeast(0)
+        val clipBottom =
+            minOf(
+                height,
+                hostLocation[1] + conversationView.height - conversationView.paddingBottom - top,
+            )
         if (contentWidth <= 0 || clipBottom <= clipTop) {
             hideTabs()
             return true
@@ -136,7 +155,10 @@ class ConversationGroupTabsHost(
         if (layoutParams.width != contentWidth) {
             layoutParams = layoutParams.apply { width = contentWidth }
         }
-        x = (hostLocation[0] + conversationView.paddingLeft - parentLocation[0] + parentView.scrollX).toFloat()
+        x =
+            (hostLocation[0] + conversationView.paddingLeft - parentLocation[0] +
+                    parentView.scrollX)
+                .toFloat()
         y = (top - parentLocation[1] + parentView.scrollY).toFloat()
         visibleBounds.set(0, clipTop, contentWidth, clipBottom)
         clipBounds = visibleBounds
@@ -145,11 +167,12 @@ class ConversationGroupTabsHost(
         // The header reserves this overlay's full height. Its transparent bottom inset must
         // scroll away before the visible capsule actually overlaps the conversations below.
         val capsuleBottom = minOf(height - capsuleVerticalInset, clipBottom)
-        val overlapsConversations = if (headerAttached) {
-            top + capsuleBottom > headerTop + height
-        } else {
-            scrolledPastHeader
-        }
+        val overlapsConversations =
+            if (headerAttached) {
+                top + capsuleBottom > headerTop + height
+            } else {
+                scrolledPastHeader
+            }
         updateContentOverlap(
             pinned && capsuleBottom > maxOf(capsuleVerticalInset, clipTop) && overlapsConversations,
         )
@@ -186,11 +209,13 @@ class ConversationGroupTabsHost(
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             if (!visibleBounds.contains(event.x.toInt(), event.y.toInt())) return false
             if (ConversationGrouping.usesFloatingTabs) {
-                val left = ConversationGrouping.CAPSULE_HORIZONTAL_INSET_DP.dpToPx(context).toFloat()
+                val left =
+                    ConversationGrouping.CAPSULE_HORIZONTAL_INSET_DP.dpToPx(context).toFloat()
                 val top = ConversationGrouping.CAPSULE_VERTICAL_INSET_DP.dpToPx(context).toFloat()
                 val right = width - left
                 val bottom = height - top
-                if (event.x < left || event.x > right || event.y < top || event.y > bottom) return false
+                if (event.x < left || event.x > right || event.y < top || event.y > bottom)
+                    return false
                 val radius = minOf(right - left, bottom - top) / 2f
                 val dx = event.x - event.x.coerceIn(left + radius, right - radius)
                 val dy = event.y - event.y.coerceIn(top + radius, bottom - radius)
@@ -204,8 +229,13 @@ class ConversationGroupTabsHost(
             forwardingScroll = false
         }
         val down = downEvent
-        if (!forwardingScroll && !horizontalGesture && !childOwnsGesture && down != null &&
-            event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 1
+        if (
+            !forwardingScroll &&
+                !horizontalGesture &&
+                !childOwnsGesture &&
+                down != null &&
+                event.actionMasked == MotionEvent.ACTION_MOVE &&
+                event.pointerCount == 1
         ) {
             val dx = abs(event.rawX - down.rawX)
             val dy = abs(event.rawY - down.rawY)
@@ -213,7 +243,8 @@ class ConversationGroupTabsHost(
                 if (dx >= dy) {
                     horizontalGesture = true
                 } else {
-                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+                    val cancel =
+                        MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
                     super.dispatchTouchEvent(cancel)
                     cancel.recycle()
                     forwardingScroll = true
@@ -230,7 +261,10 @@ class ConversationGroupTabsHost(
                 super.dispatchTouchEvent(event)
             }
         } finally {
-            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            if (
+                event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
                 if (forwardingScroll) parent.requestDisallowInterceptTouchEvent(false)
                 downEvent?.recycle()
                 downEvent = null

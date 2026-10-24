@@ -15,20 +15,21 @@ object SkipSplash : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_skip_splash_description
 
-    private val methodShowSplash by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.appbrand")
-            declaredClass = "com.tencent.mm.plugin.appbrand.AppBrandRuntime"
-            returnType = "void"
-            paramCount = 0
-            usingEqStrings(
-                "public:prepare",
-                "Loading页展示",
-                "MicroMsg.AppBrandRuntime",
-                "showSplash[AppBrandSplashAd], appId:%s, splash:%s",
-            )
-        },
-    )
+    private val methodShowSplash by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.appbrand")
+                declaredClass = "com.tencent.mm.plugin.appbrand.AppBrandRuntime"
+                returnType = "void"
+                paramCount = 0
+                usingEqStrings(
+                    "public:prepare",
+                    "Loading页展示",
+                    "MicroMsg.AppBrandRuntime",
+                    "showSplash[AppBrandSplashAd], appId:%s, splash:%s",
+                )
+            },
+        )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 

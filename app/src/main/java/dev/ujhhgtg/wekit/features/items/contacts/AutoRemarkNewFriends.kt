@@ -11,14 +11,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.res.stringResource
-import dev.ujhhgtg.wekit.R
+import androidx.compose.ui.text.input.TextFieldValue
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -43,23 +43,28 @@ object AutoRemarkNewFriends : ClickableFeature() {
     private var timeFormat by KvStore.prefOption("auto_remark_time_format", DEFAULT_TIME_FORMAT)
 
     override fun onEnable() {
-        "com.tencent.mm.plugin.profile.ui.SayHiWithSnsPermissionUI".toClass().reflekt().firstMethod("initView").hookBefore {
-            val activity = thisObject as? Activity ?: return@hookBefore
-            val intent = activity.intent ?: return@hookBefore
-            val nickname = intent.getStringExtra("Contact_Nick") ?: ""
-            if (nickname.isNotEmpty()) {
-                val formatText = textFormat
-                val formatTime = timeFormat
-                val formattedTime = formatEpoch(System.currentTimeMillis(), formatTime)
+        "com.tencent.mm.plugin.profile.ui.SayHiWithSnsPermissionUI"
+            .toClass()
+            .reflekt()
+            .firstMethod("initView")
+            .hookBefore {
+                val activity = thisObject as? Activity ?: return@hookBefore
+                val intent = activity.intent ?: return@hookBefore
+                val nickname = intent.getStringExtra("Contact_Nick") ?: ""
+                if (nickname.isNotEmpty()) {
+                    val formatText = textFormat
+                    val formatTime = timeFormat
+                    val formattedTime = formatEpoch(System.currentTimeMillis(), formatTime)
 
-                val remark = formatText
-                    .replace($$"$nickname", nickname)
-                    .replace($$"$time", formattedTime)
+                    val remark =
+                        formatText
+                            .replace($$"$nickname", nickname)
+                            .replace($$"$time", formattedTime)
 
-                intent.putExtra("Contact_RemarkName", remark)
-                WeLogger.i(TAG, "auto remark succeeded: $remark")
+                    intent.putExtra("Contact_RemarkName", remark)
+                    WeLogger.i(TAG, "auto remark succeeded: $remark")
+                }
             }
-        }
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -76,9 +81,8 @@ object AutoRemarkNewFriends : ClickableFeature() {
                             value = displayFormatInput,
                             onValueChange = { displayFormatInput = it },
                             label = { Text(stringResource(R.string.contacts_auto_remark_format)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
+                            modifier =
+                                Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
                         )
 
                         Text(stringResource(R.string.contacts_auto_remark_insert_placeholder))
@@ -93,8 +97,10 @@ object AutoRemarkNewFriends : ClickableFeature() {
                         TextField(
                             value = timeFormat,
                             onValueChange = { timeFormat = it },
-                            label = { Text(stringResource(R.string.contacts_auto_remark_time_format)) },
-                            modifier = Modifier.fillMaxWidth()
+                            label = {
+                                Text(stringResource(R.string.contacts_auto_remark_time_format))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 },
@@ -102,12 +108,16 @@ object AutoRemarkNewFriends : ClickableFeature() {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        textFormat = displayFormatInput.text
-                        AutoRemarkNewFriends.timeFormat = timeFormat
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                    TextButton(
+                        onClick = {
+                            textFormat = displayFormatInput.text
+                            AutoRemarkNewFriends.timeFormat = timeFormat
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
             )
         }
     }

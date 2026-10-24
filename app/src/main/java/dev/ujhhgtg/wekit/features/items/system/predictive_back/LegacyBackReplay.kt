@@ -24,7 +24,8 @@ fun replayLegacyBack(window: Window, fallback: () -> Unit) {
     val time = SystemClock.uptimeMillis()
     decor.dispatchKeyEvent(backKeyEvent(time, KeyEvent.ACTION_DOWN))
     val up = backKeyEvent(time, KeyEvent.ACTION_UP)
-    // KeyEvent.DispatcherState marks the UP as tracking while dispatching it when the DOWN was tracked.
+    // KeyEvent.DispatcherState marks the UP as tracking while dispatching it when the DOWN was
+    // tracked.
     val handled = decor.dispatchKeyEvent(up)
     if (!handled && up.isTracking && !up.isCanceled) fallback()
 }
@@ -42,9 +43,16 @@ fun hideImeIfVisible(window: Window): Boolean {
     return true
 }
 
-private fun backKeyEvent(time: Long, action: Int) = KeyEvent(
-    time, time, action, KeyEvent.KEYCODE_BACK, 0, 0,
-    KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-    KeyEvent.FLAG_FROM_SYSTEM or KeyEvent.FLAG_VIRTUAL_HARD_KEY,
-    InputDevice.SOURCE_KEYBOARD,
-)
+private fun backKeyEvent(time: Long, action: Int) =
+    KeyEvent(
+        time,
+        time,
+        action,
+        KeyEvent.KEYCODE_BACK,
+        0,
+        0,
+        KeyCharacterMap.VIRTUAL_KEYBOARD,
+        0,
+        KeyEvent.FLAG_FROM_SYSTEM or KeyEvent.FLAG_VIRTUAL_HARD_KEY,
+        InputDevice.SOURCE_KEYBOARD,
+    )

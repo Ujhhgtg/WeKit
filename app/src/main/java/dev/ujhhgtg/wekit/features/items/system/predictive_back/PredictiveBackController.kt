@@ -18,10 +18,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  *   stays on top so the platform plays its back-to-home / cross-activity animation; its body is
  *   replaced by [IdleBridge], which runs WeChat's legacy back chain.
  * - Whenever something would consume BACK first, [callback] is registered above it. It drives
- *   WeChat's chat swipe for a plain in-window chat and otherwise replays the legacy chain on release.
+ *   WeChat's chat swipe for a plain in-window chat and otherwise replays the legacy chain on
+ *   release.
  */
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-class PredictiveBackController private constructor(
+class PredictiveBackController
+private constructor(
     private val activity: Activity,
     private val host: BackHost,
     private val originalDefaultCallback: OnBackInvokedCallback,
@@ -29,10 +31,11 @@ class PredictiveBackController private constructor(
     private val window = activity.window
     private val decor = window.decorView
     private val dispatcher = activity.onBackInvokedDispatcher
-    private val defaultCallbackField = activity.reflekt().firstField {
-        name = "mDefaultBackCallback"
-        superclass()
-    }
+    private val defaultCallbackField =
+        activity.reflekt().firstField {
+            name = "mDefaultBackCallback"
+            superclass()
+        }
     private val idleBridge = IdleBridge()
 
     private var callbackRegistered = false
@@ -49,32 +52,32 @@ class PredictiveBackController private constructor(
         true
     }
 
-    private val callback = object : OnBackAnimationCallback {
-        override fun onBackStarted(backEvent: BackEvent) = guarded { startGesture(backEvent) }
+    private val callback =
+        object : OnBackAnimationCallback {
+            override fun onBackStarted(backEvent: BackEvent) = guarded { startGesture(backEvent) }
 
-        override fun onBackProgressed(backEvent: BackEvent) = guarded {
-            val d = driver ?: return@guarded
-            if (d.isAttached) d.moveToProgress(backEvent.progress) else driver = null
-        }
-
-        override fun onBackCancelled() = guarded {
-            driver?.takeIf { it.isAttached }?.cancel()
-            endGesture()
-        }
-
-        override fun onBackInvoked() = guarded {
-            val d = driver
-            endGesture()
-            if (d != null) {
-                if (!d.isAttached) return@guarded
-                if (host.isChatForeground()) d.commit() else d.cancel()
-                return@guarded
+            override fun onBackProgressed(backEvent: BackEvent) = guarded {
+                val d = driver ?: return@guarded
+                if (d.isAttached) d.moveToProgress(backEvent.progress) else driver = null
             }
-            if (hideImeIfVisible(window)) return@guarded
-            @Suppress("DEPRECATION")
-            replayLegacyBack(window) { activity.onBackPressed() }
+
+            override fun onBackCancelled() = guarded {
+                driver?.takeIf { it.isAttached }?.cancel()
+                endGesture()
+            }
+
+            override fun onBackInvoked() = guarded {
+                val d = driver
+                endGesture()
+                if (d != null) {
+                    if (!d.isAttached) return@guarded
+                    if (host.isChatForeground()) d.commit() else d.cancel()
+                    return@guarded
+                }
+                if (hideImeIfVisible(window)) return@guarded
+                @Suppress("DEPRECATION") replayLegacyBack(window) { activity.onBackPressed() }
+            }
         }
-    }
 
     private fun attach() {
         dispatcher.unregisterOnBackInvokedCallback(originalDefaultCallback)
@@ -116,20 +119,26 @@ class PredictiveBackController private constructor(
     private fun endGesture() {
         gestureActive = false
         driver = null
-        // Deferred: unregistering inside a callback re-enters onBackCancelled via the progress animator.
+        // Deferred: unregistering inside a callback re-enters onBackCancelled via the progress
+        // animator.
         decor.post(::syncRegistration)
     }
 
     private fun syncRegistration() {
-        val needed = degraded || try {
-            !host.isIdle()
-        } catch (e: Throwable) {
-            degrade(e)
-            true
-        }
+        val needed =
+            degraded ||
+                try {
+                    !host.isIdle()
+                } catch (e: Throwable) {
+                    degrade(e)
+                    true
+                }
         if (needed == callbackRegistered || gestureActive || isSystemBackGestureInProgress()) return
         if (needed) {
-            dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback)
+            dispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                callback,
+            )
         } else {
             dispatcher.unregisterOnBackInvokedCallback(callback)
         }
@@ -139,12 +148,18 @@ class PredictiveBackController private constructor(
     /** Toggling the top callback mid-gesture would retarget the system's own back animation. */
     private fun isSystemBackGestureInProgress(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return false
-        val viewRoot = decor.reflekt().firstMethod {
-            name = "getViewRootImpl"
-            superclass()
-        }.invoke() ?: return false
-        val windowDispatcher = viewRoot.reflekt().firstMethod { name = "getOnBackInvokedDispatcher" }.invoke()!!
-        return windowDispatcher.reflekt().firstMethod { name = "isBackGestureInProgress" }.invoke() as Boolean
+        val viewRoot =
+            decor
+                .reflekt()
+                .firstMethod {
+                    name = "getViewRootImpl"
+                    superclass()
+                }
+                .invoke() ?: return false
+        val windowDispatcher =
+            viewRoot.reflekt().firstMethod { name = "getOnBackInvokedDispatcher" }.invoke()!!
+        return windowDispatcher.reflekt().firstMethod { name = "isBackGestureInProgress" }.invoke()
+            as Boolean
     }
 
     private inline fun guarded(block: () -> Unit) {
@@ -158,7 +173,12 @@ class PredictiveBackController private constructor(
     }
 
     private fun degrade(e: Throwable) {
-        if (!degraded) WeLogger.e(TAG, "predictive back failed on ${activity.javaClass.name}, falling back to legacy back", e)
+        if (!degraded)
+            WeLogger.e(
+                TAG,
+                "predictive back failed on ${activity.javaClass.name}, falling back to legacy back",
+                e,
+            )
         degraded = true
     }
 
@@ -171,8 +191,7 @@ class PredictiveBackController private constructor(
             replayingIdleBack = true
             leftDuringReplay = false
             try {
-                @Suppress("DEPRECATION")
-                replayLegacyBack(window) { activity.onBackPressed() }
+                @Suppress("DEPRECATION") replayLegacyBack(window) { activity.onBackPressed() }
             } finally {
                 replayingIdleBack = false
             }
@@ -190,20 +209,27 @@ class PredictiveBackController private constructor(
         /** `BackEvent.EDGE_NONE` (API 36), used for key presses. */
         private const val EDGE_NONE = 2
 
-        private val REGISTER_SYSTEM_CALLBACK = OnBackInvokedDispatcher::class.reflekt().firstMethod {
-            name = "registerSystemOnBackInvokedCallback"
-        }
+        private val REGISTER_SYSTEM_CALLBACK =
+            OnBackInvokedDispatcher::class.reflekt().firstMethod {
+                name = "registerSystemOnBackInvokedCallback"
+            }
 
-        /** Key presses start with a zero-coordinate event (EDGE_LEFT on 34/35, EDGE_NONE on 36+). */
+        /**
+         * Key presses start with a zero-coordinate event (EDGE_LEFT on 34/35, EDGE_NONE on 36+).
+         */
         private fun isButtonPress(e: BackEvent): Boolean =
             e.swipeEdge == EDGE_NONE || e.touchX == 0f && e.touchY == 0f
 
         /** Returns null when [activity] did not opt into predictive back (no default callback). */
         fun attachTo(activity: Activity, host: BackHost): PredictiveBackController? {
-            val original = activity.reflekt().firstField {
-                name = "mDefaultBackCallback"
-                superclass()
-            }.get() as? OnBackInvokedCallback? ?: return null
+            val original =
+                activity
+                    .reflekt()
+                    .firstField {
+                        name = "mDefaultBackCallback"
+                        superclass()
+                    }
+                    .get() as? OnBackInvokedCallback? ?: return null
             return PredictiveBackController(activity, host, original).also { it.attach() }
         }
     }

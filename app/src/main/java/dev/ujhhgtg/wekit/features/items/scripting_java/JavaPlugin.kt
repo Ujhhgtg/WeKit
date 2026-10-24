@@ -7,7 +7,7 @@ data class JavaPluginInfo(
     val name: String,
     val author: String? = null,
     val version: String? = null,
-    val updateTime: String? = null
+    val updateTime: String? = null,
 )
 
 data class JavaPlugin(
@@ -15,7 +15,7 @@ data class JavaPlugin(
     val dir: Path,
     val info: JavaPluginInfo,
     val content: String,
-    val interpreter: Interpreter
+    val interpreter: Interpreter,
 ) {
     companion object {
         fun parseInfoProp(content: String): JavaPluginInfo {
@@ -32,7 +32,7 @@ data class JavaPlugin(
                 name = props["name"] ?: "unnamed",
                 author = props["author"],
                 version = props["version"],
-                updateTime = props["updateTime"]
+                updateTime = props["updateTime"],
             )
         }
     }

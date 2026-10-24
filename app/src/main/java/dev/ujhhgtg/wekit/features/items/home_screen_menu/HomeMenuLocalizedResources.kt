@@ -8,7 +8,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 
 fun localizedHomeMenuString(@StringRes id: Int, vararg formatArgs: Any): String =
     LocalizedContextFactory.create(
-        HostInfo.application,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(id, *formatArgs)
+            HostInfo.application,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
+        .getString(id, *formatArgs)

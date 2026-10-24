@@ -17,7 +17,8 @@ object WeAgentSkillToolBindings {
 
     @AgentTool(
         name = "load_skill",
-        description = "Load an available skill's full instructions by name (see the skills catalog in the " +
+        description =
+            "Load an available skill's full instructions by name (see the skills catalog in the " +
                 "system prompt). Optionally pass 'resource' to read a bundled file from the skill's folder " +
                 "instead of the instructions. Returns the content as text.",
         sideEffect = false,
@@ -25,18 +26,24 @@ object WeAgentSkillToolBindings {
     )
     suspend fun loadSkill(
         @AgentToolParam("The skill name from the catalog, e.g. pdf-forms") name: String,
-        @AgentToolParam("Optional: a bundled resource file path relative to the skill folder to read instead of SKILL.md")
+        @AgentToolParam(
+            "Optional: a bundled resource file path relative to the skill folder to read instead of SKILL.md",
+        )
         resource: String?,
     ): String {
-        val skill = SkillStore.get(name)
-            ?: return "No such skill '$name'. Check the skills catalog in the system prompt for exact names."
+        val skill =
+            SkillStore.get(name)
+                ?: return "No such skill '$name'. Check the skills catalog in the system prompt for exact names."
         if (!skill.enabled) return "Skill '$name' is disabled."
 
         if (!resource.isNullOrBlank()) {
-            return SkillStore.readResource(name, resource).fold(
-                onSuccess = { it },
-                onFailure = { "Failed to read resource '$resource' of skill '$name': ${it.message}" },
-            )
+            return SkillStore.readResource(name, resource)
+                .fold(
+                    onSuccess = { it },
+                    onFailure = {
+                        "Failed to read resource '$resource' of skill '$name': ${it.message}"
+                    },
+                )
         }
 
         return buildString {
@@ -44,7 +51,9 @@ object WeAgentSkillToolBindings {
             append(skill.body)
             if (skill.resources.isNotEmpty()) {
                 append("\n\n---\n")
-                append("Bundled resources (call load_skill again with the 'resource' argument to read one): ")
+                append(
+                    "Bundled resources (call load_skill again with the 'resource' argument to read one): ",
+                )
                 append(skill.resources.joinToString(", "))
             }
         }

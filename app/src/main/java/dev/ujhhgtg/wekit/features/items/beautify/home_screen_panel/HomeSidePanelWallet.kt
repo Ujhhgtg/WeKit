@@ -2,24 +2,25 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.lang.reflect.Method
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class HomeSidePanelWalletDisplayState(
     val defaultMaskEnabled: Boolean,
     val isMasked: Boolean = defaultMaskEnabled,
 ) {
-    fun toggleFromCard(): HomeSidePanelWalletDisplayState = if (defaultMaskEnabled) {
-        copy(isMasked = !isMasked)
-    } else {
-        this
-    }
+    fun toggleFromCard(): HomeSidePanelWalletDisplayState =
+        if (defaultMaskEnabled) {
+            copy(isMasked = !isMasked)
+        } else {
+            this
+        }
 
     fun reset() = copy(isMasked = defaultMaskEnabled)
 }
@@ -31,7 +32,8 @@ data class HomeSidePanelWalletUiState(
     fun withBalance(balanceFen: Long?): HomeSidePanelWalletUiState = copy(balanceFen = balanceFen)
 
     val displayBalance: String
-        get() = if (displayState.isMasked) "******" else formatHomeSidePanelWalletBalance(balanceFen)
+        get() =
+            if (displayState.isMasked) "******" else formatHomeSidePanelWalletBalance(balanceFen)
 }
 
 fun formatHomeSidePanelWalletBalance(balanceFen: Long?): String {
@@ -66,19 +68,21 @@ object HomeSidePanelWalletBalanceSource {
         }
     }
 
-    fun read(): Long? = synchronized(lock) {
-        readBalance?.invoke()
-    }
+    fun read(): Long? =
+        synchronized(lock) {
+            readBalance?.invoke()
+        }
 
     /**
      * Publishes the cached balance immediately, then asks WeChat to query the server; the fresh
      * value arrives asynchronously through [onCacheWrite] once the wallet response is stored.
      */
     fun refresh() {
-        val query = synchronized(lock) {
-            _updates.value = readBalance?.invoke()
-            queryBalance
-        }
+        val query =
+            synchronized(lock) {
+                _updates.value = readBalance?.invoke()
+                queryBalance
+            }
         query?.invoke()
     }
 
@@ -101,11 +105,17 @@ fun readHomeSidePanelWalletBalance(
     walletPayPluginClass: Class<*>,
 ): Long? {
     val walletPayService = WeServiceApi.getServiceByClass(walletPayPluginClass.interfaces[0])
-    val walletCache = walletPayService.reflekt().firstMethod {
-        parameters()
-        returnType = walletCacheReadMethod.declaringClass
-    }.invoke()!!
-    val balanceKey = walletCacheReadMethod.parameterTypes[0].enumConstants!!
-        .single { (it as Enum<*>).name == HomeSidePanelWalletBalanceSource.BALANCE_KEY }
+    val walletCache =
+        walletPayService
+            .reflekt()
+            .firstMethod {
+                parameters()
+                returnType = walletCacheReadMethod.declaringClass
+            }
+            .invoke()!!
+    val balanceKey =
+        walletCacheReadMethod.parameterTypes[0].enumConstants!!.single {
+            (it as Enum<*>).name == HomeSidePanelWalletBalanceSource.BALANCE_KEY
+        }
     return walletCacheReadMethod.invoke(walletCache, balanceKey, null) as? Long
 }

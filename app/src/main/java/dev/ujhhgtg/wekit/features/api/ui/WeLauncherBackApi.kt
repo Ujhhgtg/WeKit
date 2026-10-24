@@ -11,8 +11,8 @@ import java.util.WeakHashMap
 /**
  * Back handling for overlays injected into LauncherUI.
  *
- * LauncherUI turns a root back into `moveTaskToBack(boolean)`, so that call is the one place
- * every home-screen overlay can intercept. Handlers are tried newest first, like
+ * LauncherUI turns a root back into `moveTaskToBack(boolean)`, so that call is the one place every
+ * home-screen overlay can intercept. Handlers are tried newest first, like
  * `OnBackPressedDispatcher`, so an overlay opened on top of another gets the gesture first.
  */
 object WeLauncherBackApi : ApiFeature() {
@@ -56,20 +56,24 @@ object WeLauncherBackApi : ApiFeature() {
     fun isConsumedThisFrame(activity: Activity): Boolean = consumedThisFrame[activity] == true
 
     override fun onEnable() {
-        LauncherUI::class.reflekt().firstMethod {
-            name = "moveTaskToBack"
-            parameters(Boolean::class)
-        }.hookBefore {
-            val activity = thisObject as Activity
-            if (isConsumedThisFrame(activity)) {
-                result = true
-                return@hookBefore
+        LauncherUI::class.reflekt()
+            .firstMethod {
+                name = "moveTaskToBack"
+                parameters(Boolean::class)
             }
-            val consumed = registrations[activity]?.toList()?.asReversed()?.any { it.handler.onBack() } == true
-            if (!consumed) return@hookBefore
-            consumedThisFrame[activity] = true
-            activity.window.decorView.postOnAnimation { consumedThisFrame.remove(activity) }
-            result = true
-        }
+            .hookBefore {
+                val activity = thisObject as Activity
+                if (isConsumedThisFrame(activity)) {
+                    result = true
+                    return@hookBefore
+                }
+                val consumed =
+                    registrations[activity]?.toList()?.asReversed()?.any { it.handler.onBack() } ==
+                        true
+                if (!consumed) return@hookBefore
+                consumedThisFrame[activity] = true
+                activity.window.decorView.postOnAnimation { consumedThisFrame.remove(activity) }
+                result = true
+            }
     }
 }

@@ -27,7 +27,8 @@ data class AutomationReplyContext(
     /** Extra `$name` variables (e.g. `amount`), applied before the built-in ones. */
     val variables: Map<String, String> = emptyMap(),
 ) {
-    val isGroup: Boolean get() = AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
+    val isGroup: Boolean
+        get() = AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
 }
 
 /** Sends [AutomationReplyStep] sequences. All sends block, so callers go through [launch]. */
@@ -36,13 +37,23 @@ object AutomationReplyExecutor {
     private const val AT_ALL = "notify@all"
     private const val PART_GAP_MS = 300L
     private val AT_REGEX = Regex("""\[AtWx=([^\]]+)]""")
-    private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "ogg", "aac", "m4a", "amr", "flac", "opus", "silk")
+    private val AUDIO_EXTENSIONS =
+        setOf("mp3", "wav", "ogg", "aac", "m4a", "amr", "flac", "opus", "silk")
 
     /** Variables offered by every reply editor; features add their own (e.g. `$amount`). */
-    val BASE_PLACEHOLDERS = listOf(
-        $$"$nickname", $$"$senderName", $$"$senderWxid", $$"$talker", $$"$groupName", $$"$content",
-        $$"$atSender", $$"$atAll", $$"$time", $$"$date",
-    )
+    val BASE_PLACEHOLDERS =
+        listOf(
+            $$"$nickname",
+            $$"$senderName",
+            $$"$senderWxid",
+            $$"$talker",
+            $$"$groupName",
+            $$"$content",
+            $$"$atSender",
+            $$"$atAll",
+            $$"$time",
+            $$"$date",
+        )
 
     fun launch(
         steps: List<AutomationReplyStep>,
@@ -57,7 +68,11 @@ object AutomationReplyExecutor {
         }
     }
 
-    fun launch(rule: AutomationReplyRule, context: AutomationReplyContext, initialDelayMs: Long = 0L) {
+    fun launch(
+        rule: AutomationReplyRule,
+        context: AutomationReplyContext,
+        initialDelayMs: Long = 0L,
+    ) {
         if (rule.enabled) launch(rule.steps, context, rule.asQuote, initialDelayMs)
     }
 
@@ -73,19 +88,30 @@ object AutomationReplyExecutor {
         steps.forEachIndexed { index, step ->
             val delay = step.delayMs + if (step.randomDelay) Random.nextLong(0L, 2001L) else 0L
             if (delay > 0) Thread.sleep(delay)
-            sent = runCatching { send(step, context, asQuote) }
-                .onFailure { WeLogger.e(TAG, "failed to send ${step.kind} step to ${context.talker}", it) }
-                .getOrDefault(false) || sent
+            sent =
+                runCatching { send(step, context, asQuote) }
+                    .onFailure {
+                        WeLogger.e(TAG, "failed to send ${step.kind} step to ${context.talker}", it)
+                    }
+                    .getOrDefault(false) || sent
             if (index < steps.lastIndex && step.delayMs <= 0L) Thread.sleep(PART_GAP_MS)
         }
         return sent
     }
 
-    private fun send(step: AutomationReplyStep, context: AutomationReplyContext, asQuote: Boolean): Boolean {
+    private fun send(
+        step: AutomationReplyStep,
+        context: AutomationReplyContext,
+        asQuote: Boolean,
+    ): Boolean {
         val target = context.talker
         return when (step.kind) {
             AutomationReplyStepKind.TEXT -> {
-                val parts = format(step.content, context).split('|').map(String::trim).filter(String::isNotEmpty)
+                val parts =
+                    format(step.content, context)
+                        .split('|')
+                        .map(String::trim)
+                        .filter(String::isNotEmpty)
                 var sent = false
                 parts.forEachIndexed { index, text ->
                     sent = sendText(target, text, context, asQuote) || sent
@@ -94,19 +120,27 @@ object AutomationReplyExecutor {
                 sent
             }
 
-            AutomationReplyStepKind.IMAGE -> sendPaths(step.content) { WeMessageApi.sendImage(target, it) }
+            AutomationReplyStepKind.IMAGE ->
+                sendPaths(step.content) { WeMessageApi.sendImage(target, it) }
             AutomationReplyStepKind.VOICE -> sendPaths(step.content) { sendVoice(target, it) }
-            AutomationReplyStepKind.RANDOM_VOICE -> randomAudioFile(step.content)?.let { sendVoice(target, it) } ?: run {
-                WeLogger.w(TAG, "random voice step has no audio files: ${step.content}")
-                false
-            }
+            AutomationReplyStepKind.RANDOM_VOICE ->
+                randomAudioFile(step.content)?.let { sendVoice(target, it) }
+                    ?: run {
+                        WeLogger.w(TAG, "random voice step has no audio files: ${step.content}")
+                        false
+                    }
 
-            AutomationReplyStepKind.EMOJI -> sendPaths(step.content) { WeMessageApi.sendSticker(target, it) }
-            AutomationReplyStepKind.VIDEO -> sendPaths(step.content) { WeMessageApi.sendVideo(target, it) }
-            AutomationReplyStepKind.FILE -> sendPaths(step.content) { WeMessageApi.sendFile(target, it, File(it).name) }
-            AutomationReplyStepKind.FAVORITE -> eachValue(step.content) { id -> WeFavoriteApi.send(target, id.toLong()) }
+            AutomationReplyStepKind.EMOJI ->
+                sendPaths(step.content) { WeMessageApi.sendSticker(target, it) }
+            AutomationReplyStepKind.VIDEO ->
+                sendPaths(step.content) { WeMessageApi.sendVideo(target, it) }
+            AutomationReplyStepKind.FILE ->
+                sendPaths(step.content) { WeMessageApi.sendFile(target, it, File(it).name) }
+            AutomationReplyStepKind.FAVORITE ->
+                eachValue(step.content) { id -> WeFavoriteApi.send(target, id.toLong()) }
 
-            AutomationReplyStepKind.CARD -> eachValue(step.content) { WeMessageApi.sendShareCard(target, it) }
+            AutomationReplyStepKind.CARD ->
+                eachValue(step.content) { WeMessageApi.sendShareCard(target, it) }
             AutomationReplyStepKind.INVITE_GROUP -> {
                 val member = context.sender
                 eachValue(step.content) { groupId ->
@@ -115,7 +149,8 @@ object AutomationReplyExecutor {
                 }
             }
 
-            AutomationReplyStepKind.XML -> WeMessageApi.sendXmlAppMsg(target, ensureXml(format(step.content, context)))
+            AutomationReplyStepKind.XML ->
+                WeMessageApi.sendXmlAppMsg(target, ensureXml(format(step.content, context)))
         }
     }
 
@@ -123,58 +158,83 @@ object AutomationReplyExecutor {
     fun format(template: String, context: AutomationReplyContext): String {
         val senderName = senderName(context)
         val now = Date()
-        val variables = context.variables + mapOf(
-            "nickname" to senderName,
-            "senderName" to senderName,
-            "senderWxid" to context.sender,
-            "talker" to context.talker,
-            "groupName" to if (context.isGroup) WeDatabaseApi.getDisplayName(context.talker) else "",
-            "content" to context.content,
-            "atSender" to "[AtWx=${context.sender}]",
-            "atAll" to if (context.isGroup) "[AtWx=$AT_ALL]" else "@所有人",
-            "time" to SimpleDateFormat("HH:mm", Locale.getDefault()).format(now),
-            "date" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now),
-        )
-        // One pass, longest names first, so substituted values (e.g. $content) are never re-expanded.
-        val pattern = Regex(variables.keys.sortedByDescending { it.length }.joinToString("|", prefix = "\\$(", postfix = ")") { Regex.escape(it) })
+        val variables =
+            context.variables +
+                mapOf(
+                    "nickname" to senderName,
+                    "senderName" to senderName,
+                    "senderWxid" to context.sender,
+                    "talker" to context.talker,
+                    "groupName" to
+                        if (context.isGroup) WeDatabaseApi.getDisplayName(context.talker) else "",
+                    "content" to context.content,
+                    "atSender" to "[AtWx=${context.sender}]",
+                    "atAll" to if (context.isGroup) "[AtWx=$AT_ALL]" else "@所有人",
+                    "time" to SimpleDateFormat("HH:mm", Locale.getDefault()).format(now),
+                    "date" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now),
+                )
+        // One pass, longest names first, so substituted values (e.g. $content) are never
+        // re-expanded.
+        val pattern =
+            Regex(
+                variables.keys
+                    .sortedByDescending { it.length }
+                    .joinToString("|", prefix = "\\$(", postfix = ")") { Regex.escape(it) },
+            )
         return pattern.replace(template) { variables.getValue(it.groupValues[1]) }
     }
 
     private fun senderName(context: AutomationReplyContext): String {
-        val name = if (context.isGroup && context.sender != context.talker) {
-            WeDatabaseApi.getGroupMemberDisplayName(context.talker, context.sender)
-        } else {
-            WeDatabaseApi.getDisplayName(context.sender)
-        }
+        val name =
+            if (context.isGroup && context.sender != context.talker) {
+                WeDatabaseApi.getGroupMemberDisplayName(context.talker, context.sender)
+            } else {
+                WeDatabaseApi.getDisplayName(context.sender)
+            }
         return name.ifBlank { context.sender }
     }
 
     /** Sends text, expanding `[AtWx=wxid]` into real mentions; mentions can't be quoted. */
-    private fun sendText(target: String, text: String, context: AutomationReplyContext, asQuote: Boolean): Boolean {
+    private fun sendText(
+        target: String,
+        text: String,
+        context: AutomationReplyContext,
+        asQuote: Boolean,
+    ): Boolean {
         if (text.isBlank()) return false
-        val atList = AT_REGEX.findAll(text).map { it.groupValues[1].trim() }.filter(String::isNotEmpty).toList()
+        val atList =
+            AT_REGEX.findAll(text)
+                .map { it.groupValues[1].trim() }
+                .filter(String::isNotEmpty)
+                .toList()
         if (atList.isEmpty()) {
-            return if (asQuote && context.msgId > 0L) WeMessageApi.sendQuoteTextByMsgId(target, context.msgId, text)
+            return if (asQuote && context.msgId > 0L)
+                WeMessageApi.sendQuoteTextByMsgId(target, context.msgId, text)
             else WeMessageApi.sendText(target, text)
         }
-        val expanded = AT_REGEX.replace(text) { match ->
-            val wxId = match.groupValues[1].trim()
-            val name = if (wxId == AT_ALL) "所有人" else {
-                WeDatabaseApi.getGroupMemberDisplayName(target, wxId)
-                    .ifBlank { WeDatabaseApi.getDisplayName(wxId) }
-                    .ifBlank { wxId }
+        val expanded =
+            AT_REGEX.replace(text) { match ->
+                val wxId = match.groupValues[1].trim()
+                val name =
+                    if (wxId == AT_ALL) "所有人"
+                    else {
+                        WeDatabaseApi.getGroupMemberDisplayName(target, wxId)
+                            .ifBlank { WeDatabaseApi.getDisplayName(wxId) }
+                            .ifBlank { wxId }
+                    }
+                "@$name "
             }
-            "@$name "
-        }
         return WeMessageApi.sendTextWithAtList(target, expanded, atList)
     }
 
-    private fun sendPaths(content: String, sender: (String) -> Boolean): Boolean = eachValue(content) { path ->
-        if (File(path).isFile) sender(path) else {
-            WeLogger.w(TAG, "reply file is missing: $path")
-            false
+    private fun sendPaths(content: String, sender: (String) -> Boolean): Boolean =
+        eachValue(content) { path ->
+            if (File(path).isFile) sender(path)
+            else {
+                WeLogger.w(TAG, "reply file is missing: $path")
+                false
+            }
         }
-    }
 
     private fun eachValue(content: String, sender: (String) -> Boolean): Boolean {
         val values = splitReplyValues(content)
@@ -211,16 +271,23 @@ object AutomationReplyExecutor {
     private fun randomAudioFile(content: String): String? {
         val entries = splitReplyValues(content).map(::File)
         fun File.isAudio() = isFile && extension.lowercase() in AUDIO_EXTENSIONS
-        entries.filter { it.isAudio() }.takeIf { it.isNotEmpty() }?.let { return it.random().absolutePath }
-        return entries.filter(File::isDirectory)
+        entries
+            .filter { it.isAudio() }
+            .takeIf { it.isNotEmpty() }
+            ?.let {
+                return it.random().absolutePath
+            }
+        return entries
+            .filter(File::isDirectory)
             .flatMap { it.listFiles().orEmpty().filter { f -> f.isAudio() } }
-            .randomOrNull()?.absolutePath
+            .randomOrNull()
+            ?.absolutePath
     }
 
     private fun ensureXml(content: String): String {
         if (content.trim().startsWith("<")) return content
         val safe = content.replace("]]>", "]]]]><![CDATA[>")
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><msg><appmsg appid=\"\" sdkver=\"0\"><title><![CDATA[$safe]]></title>" +
-                "<des><![CDATA[$safe]]></des><type>1</type><content><![CDATA[$safe]]></content></appmsg></msg>"
+            "<des><![CDATA[$safe]]></des><type>1</type><content><![CDATA[$safe]]></content></appmsg></msg>"
     }
 }

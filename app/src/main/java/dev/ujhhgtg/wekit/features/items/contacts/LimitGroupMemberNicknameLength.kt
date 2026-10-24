@@ -13,14 +13,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
-import dev.ujhhgtg.wekit.R
+import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -28,7 +28,8 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
+object LimitGroupMemberNicknameLength :
+    ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "限制群成员昵称长度"
     override val nameRes = R.string.feature_limit_group_member_nickname_length_name
@@ -50,15 +51,19 @@ object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi
             var value by remember { mutableStateOf(maxNicknameLength.toString()) }
 
             AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_limit_group_member_nickname_length_name)) },
+                title = {
+                    Text(stringResource(R.string.feature_limit_group_member_nickname_length_name))
+                },
                 text = {
                     DefaultColumn {
                         OutlinedTextField(
                             value = value,
                             onValueChange = { value = it.filter { ch -> ch.isDigit() } },
-                            label = { Text(stringResource(R.string.contacts_nickname_max_characters)) },
+                            label = {
+                                Text(stringResource(R.string.contacts_nickname_max_characters))
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 },
@@ -66,16 +71,20 @@ object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val lenInput = value.toIntOrNull()
-                        if (lenInput == null || lenInput <= 0) {
-                            showToast(localizedContactsString(R.string.contacts_invalid_number))
-                            return@TextButton
-                        }
-                        maxNicknameLength = lenInput
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                }
+                    TextButton(
+                        onClick = {
+                            val lenInput = value.toIntOrNull()
+                            if (lenInput == null || lenInput <= 0) {
+                                showToast(localizedContactsString(R.string.contacts_invalid_number))
+                                return@TextButton
+                            }
+                            maxNicknameLength = lenInput
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
             )
         }
     }
@@ -85,9 +94,14 @@ object LimitGroupMemberNicknameLength : ClickableFeature(), WeChatMessageViewApi
         if (!msgInfo.isInGroupChat) return
         if (msgInfo.isSend != 0) return
 
-        val textView = view.tag.reflekt()
-            .firstField { name = "userTV"; superclass() }
-            .get() as? TextView? ?: return
+        val textView =
+            view.tag
+                .reflekt()
+                .firstField {
+                    name = "userTV"
+                    superclass()
+                }
+                .get() as? TextView? ?: return
 
         val currentText = textView.text ?: return
         val maxLen = maxNicknameLength

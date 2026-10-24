@@ -11,8 +11,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 data class SKBuiltinBufferProto(
     @ProtoNumber(1) val length: Int,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(2) val buf: ByteArray? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(2) val buf: ByteArray? = null,
 ) {
 
     override fun equals(other: Any?): Boolean {

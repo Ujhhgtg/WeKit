@@ -12,10 +12,11 @@ fun localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String 
 
 fun Context.localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any): String =
     LocalizedContextFactory.create(
-        this,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(id, *formatArgs)
+            this,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
+        .getString(id, *formatArgs)
 
 sealed interface BeautifyText {
     data class Resource(
@@ -29,7 +30,8 @@ sealed interface BeautifyText {
 fun beautifyText(@StringRes id: Int, vararg args: Any): BeautifyText =
     BeautifyText.Resource(id, args.toList())
 
-fun Context.resolveBeautifyText(text: BeautifyText): String = when (text) {
-    is BeautifyText.Resource -> localizedBeautifyString(text.id, *text.args.toTypedArray())
-    is BeautifyText.Raw -> text.value
-}
+fun Context.resolveBeautifyText(text: BeautifyText): String =
+    when (text) {
+        is BeautifyText.Resource -> localizedBeautifyString(text.id, *text.args.toTypedArray())
+        is BeautifyText.Raw -> text.value
+    }

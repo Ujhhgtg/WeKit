@@ -2,16 +2,17 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 import java.lang.reflect.Modifier
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+
 object RemoveMenuLimits : SwitchFeature(), IResolveDex {
 
     override val technicalId = "去除菜单限制"
@@ -25,29 +26,33 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
 
     override fun onEnable() {
         listOf(
-            methodGetMenuItemVisibility1,
-            methodGetMenuItemVisibility2
-        ).forEach {
-            it.hookBefore {
-                if (!::showAndClickableEnumValue.isInitialized) {
-                    val returnType = methodGetMenuItemVisibility1.method.returnType
-                    showAndClickableEnumValue = enumValueOfClass(returnType, "SHOW_CLICKABLE")
+                methodGetMenuItemVisibility1,
+                methodGetMenuItemVisibility2,
+            )
+            .forEach {
+                it.hookBefore {
+                    if (!::showAndClickableEnumValue.isInitialized) {
+                        val returnType = methodGetMenuItemVisibility1.method.returnType
+                        showAndClickableEnumValue = enumValueOfClass(returnType, "SHOW_CLICKABLE")
+                    }
+                    result = showAndClickableEnumValue
                 }
-                result = showAndClickableEnumValue
             }
-        }
     }
 
     private val methodGetMenuItemVisibility1 by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
-                    methods = listOf(MethodSpec(usingNumbers = listOf<Number>(39))),
-                ),
-                returnType = ClassSpec(
-                    className = NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
+                        methods = listOf(MethodSpec(usingNumbers = listOf<Number>(39))),
+                    ),
+                returnType =
+                    ClassSpec(
+                        className =
+                            NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
+                    ),
             ),
             packages = listOf("com.tencent.mm.plugin.appbrand.menu"),
         )
@@ -56,13 +61,16 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
     private val methodGetMenuItemVisibility2 by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
-                    methods = listOf(MethodSpec(usingNumbers = listOf<Number>(30))),
-                ),
-                returnType = ClassSpec(
-                    className = NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
+                        methods = listOf(MethodSpec(usingNumbers = listOf<Number>(30))),
+                    ),
+                returnType =
+                    ClassSpec(
+                        className =
+                            NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
+                    ),
             ),
             packages = listOf("com.tencent.mm.plugin.appbrand.menu"),
         )

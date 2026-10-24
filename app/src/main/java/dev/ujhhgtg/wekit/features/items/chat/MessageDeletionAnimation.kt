@@ -22,22 +22,19 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.animation.ThanosEffect
-import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
 /**
  * 消息删除动画 — Telegram 风格 (Telegram `ChatListItemAnimator` + `ThanosEffect`)。
  *
- * 宿主 MMChattingListView 把聊天 RecyclerView 的 ItemAnimator 置为 null, 删除消息时该行
- * 直接消失、其余行瞬间跳位。宿主 RecyclerView/ItemAnimator 均被混淆, 模块无法继承实现
- * ItemAnimator, 因此采用「快照 + 覆盖层」:
- * 1. MsgInfoStorageLogic 按 msgId 删除单条消息 (长按删除 / 多选删除 / 重发等共用) 调用前,
- *    在主线程对仍在屏幕上的对应行截图, 并记录列表内所有行的可视 top;
- * 2. 之后列表的首个 pre-draw 中若这些行都已离开列表 (被回收或换绑到其他消息), 即宿主已完成
- *    刷新, 在同一帧开始动画:
- *    - 被删行: 支持 GL 时为 Telegram 的灭霸粒子消散, 否则 120ms 淡出 (Telegram 移除时长);
- *    - 其余行: 从旧位置平移归位, 普通为 250ms + Telegram `DEFAULT_INTERPOLATOR`,
- *      灭霸时为 475ms + `EASE_OUT` (`ChatListItemAnimator.animateMoveImpl`)。
+ * 宿主 MMChattingListView 把聊天 RecyclerView 的 ItemAnimator 置为 null, 删除消息时该行 直接消失、其余行瞬间跳位。宿主
+ * RecyclerView/ItemAnimator 均被混淆, 模块无法继承实现 ItemAnimator, 因此采用「快照 + 覆盖层」:
+ * 1. MsgInfoStorageLogic 按 msgId 删除单条消息 (长按删除 / 多选删除 / 重发等共用) 调用前, 在主线程对仍在屏幕上的对应行截图, 并记录列表内所有行的可视
+ *    top;
+ * 2. 之后列表的首个 pre-draw 中若这些行都已离开列表 (被回收或换绑到其他消息), 即宿主已完成 刷新, 在同一帧开始动画:
+ *     - 被删行: 支持 GL 时为 Telegram 的灭霸粒子消散, 否则 120ms 淡出 (Telegram 移除时长);
+ *     - 其余行: 从旧位置平移归位, 普通为 250ms + Telegram `DEFAULT_INTERPOLATOR`, 灭霸时为 475ms + `EASE_OUT`
+ *       (`ChatListItemAnimator.animateMoveImpl`)。
  */
 object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
 
@@ -57,7 +54,8 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     private const val THANOS_MOVE_DURATION_MS = 475L
 
     /** Telegram `ChatListItemAnimator.DEFAULT_INTERPOLATOR` */
-    private val MOVE_INTERPOLATOR = PathInterpolator(0.19919473f, 0.010644531f, 0.27920938f, 0.9102539f)
+    private val MOVE_INTERPOLATOR =
+        PathInterpolator(0.19919473f, 0.010644531f, 0.27920938f, 0.9102539f)
 
     /** Telegram `CubicBezierInterpolator.EASE_OUT` */
     private val THANOS_MOVE_INTERPOLATOR = PathInterpolator(0f, 0f, 0.58f, 1f)
@@ -70,9 +68,10 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     /** 非主线程 (多选删除) 触发的待截图 msgId, 合并后在主线程统一处理 */
     private val pendingMsgIds = LinkedHashSet<Long>()
     private val drainPendingRunnable = Runnable {
-        val msgIds = synchronized(pendingMsgIds) {
-            pendingMsgIds.toSet().also { pendingMsgIds.clear() }
-        }
+        val msgIds =
+            synchronized(pendingMsgIds) {
+                pendingMsgIds.toSet().also { pendingMsgIds.clear() }
+            }
         captureRemovals(msgIds)
     }
 
@@ -80,38 +79,45 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     private val thanosEffects = WeakHashMap<ViewGroup, ThanosEffect>()
 
     /** 同 [MessageEntranceAnimation]: ChattingDataAdapterV3.getItem(int) -> 消息存储对象 */
-    private val methodChattingAdapterGetItem by dexMethod(
-        sqlMethod {
-            name = "getItem"
-            paramTypes("int")
-            declaredClass {
-                usingEqStrings("MicroMsg.ChattingDataAdapterV3")
-            }
-        },
-    )
+    private val methodChattingAdapterGetItem by
+        dexMethod(
+            sqlMethod {
+                name = "getItem"
+                paramTypes("int")
+                declaredClass {
+                    usingEqStrings("MicroMsg.ChattingDataAdapterV3")
+                }
+            },
+        )
 
     /**
-     * MsgInfoStorageLogic 的 `static int (long msgId, String talker)`: 查出消息、发布
-     * DeleteMsgEvent 后按 id 删除
+     * MsgInfoStorageLogic 的 `static int (long msgId, String talker)`: 查出消息、发布 DeleteMsgEvent 后按 id
+     * 删除
      */
-    private val methodDeleteMsgById by dexMethod(
-        sqlMethod {
-            returnType = "int"
-            paramTypes("long", "java.lang.String")
-            modifiers = 8
-            declaredClass {
-                usingEqStrings("MicroMsg.MsgInfoStorageLogic")
-                usingEqStrings("deleteMsgByTalkerSync ")
-            }
-        },
-    )
+    private val methodDeleteMsgById by
+        dexMethod(
+            sqlMethod {
+                returnType = "int"
+                paramTypes("long", "java.lang.String")
+                modifiers = 8
+                declaredClass {
+                    usingEqStrings("MicroMsg.MsgInfoStorageLogic")
+                    usingEqStrings("deleteMsgByTalkerSync ")
+                }
+            },
+        )
 
     override fun onEnable() {
         WeMessageApi.methodChattingDataAdapterOnBindViewHolder.hookAfter {
             // RecyclerView.ViewHolder.itemView
-            val itemView = args[0]!!.reflekt()
-                .firstField { name = "itemView"; superclass() }
-                .get() as View
+            val itemView =
+                args[0]!!
+                    .reflekt()
+                    .firstField {
+                        name = "itemView"
+                        superclass()
+                    }
+                    .get() as View
             val item = methodChattingAdapterGetItem.method.invoke(thisObject, args[1] as Int)!!
             itemView.setTag(VIEW_TAG_MSG_ID, MessageInfo(item).id)
             boundRows[itemView] = Unit
@@ -140,10 +146,14 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     }
 
     private fun captureRemovals(msgIds: Set<Long>) {
-        val rows = boundRows.keys.filter {
-            it.getTag(VIEW_TAG_MSG_ID) in msgIds && it.isAttachedToWindow && it.isShown &&
-                    it.width > 0 && it.height > 0
-        }
+        val rows =
+            boundRows.keys.filter {
+                it.getTag(VIEW_TAG_MSG_ID) in msgIds &&
+                    it.isAttachedToWindow &&
+                    it.isShown &&
+                    it.width > 0 &&
+                    it.height > 0
+            }
         for ((parent, listRows) in rows.groupBy { it.parent }) {
             val list = parent as ViewGroup
             val session = sessions.getOrPut(list) { Session(list).also { it.begin() } }
@@ -162,7 +172,13 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
         return Bitmap.createBitmap(picture)
     }
 
-    private class Removal(val msgId: Long, val view: View, val bitmap: Bitmap, val left: Int, val top: Int)
+    private class Removal(
+        val msgId: Long,
+        val view: View,
+        val bitmap: Bitmap,
+        val left: Int,
+        val top: Int,
+    )
 
     private class Session(val list: ViewGroup) : ViewTreeObserver.OnPreDrawListener {
 
@@ -178,13 +194,14 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
 
         fun add(row: View) {
             if (removals.any { it.view === row }) return
-            removals += Removal(
-                msgId = row.getTag(VIEW_TAG_MSG_ID) as Long,
-                view = row,
-                bitmap = snapshot(row),
-                left = (row.left + row.translationX).toInt(),
-                top = (row.top + row.translationY).toInt(),
-            )
+            removals +=
+                Removal(
+                    msgId = row.getTag(VIEW_TAG_MSG_ID) as Long,
+                    view = row,
+                    bitmap = snapshot(row),
+                    left = (row.left + row.translationX).toInt(),
+                    top = (row.top + row.translationY).toInt(),
+                )
             // 同一批删除中途若已发生过布局, 补记新出现的行
             recordTops()
         }
@@ -218,7 +235,12 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
         private fun animateRemoval(removal: Removal, thanos: Boolean) {
             val bitmap = removal.bitmap
             val placeholder = bitmap.toDrawable(list.resources)
-            placeholder.setBounds(removal.left, removal.top, removal.left + bitmap.width, removal.top + bitmap.height)
+            placeholder.setBounds(
+                removal.left,
+                removal.top,
+                removal.left + bitmap.width,
+                removal.top + bitmap.height,
+            )
             list.overlay.add(placeholder)
 
             if (thanos) {
@@ -226,20 +248,24 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
                 val listLocation = IntArray(2).also(list::getLocationInWindow)
                 val rootLocation = IntArray(2).also(root::getLocationInWindow)
                 // 粒子首帧上屏后再撤掉覆盖层上的静态快照, 避免中间闪空
-                obtainThanosEffect(root).animate(
-                    bitmap = bitmap,
-                    left = (listLocation[0] - rootLocation[0] + removal.left).toFloat(),
-                    top = (listLocation[1] - rootLocation[1] + removal.top).toFloat(),
-                    onStart = { list.overlay.remove(placeholder) },
-                    onDone = {},
-                )
+                obtainThanosEffect(root)
+                    .animate(
+                        bitmap = bitmap,
+                        left = (listLocation[0] - rootLocation[0] + removal.left).toFloat(),
+                        top = (listLocation[1] - rootLocation[1] + removal.top).toFloat(),
+                        onStart = { list.overlay.remove(placeholder) },
+                        onDone = {},
+                    )
             } else {
                 ValueAnimator.ofInt(255, 0).apply {
                     duration = FADE_DURATION_MS
                     addUpdateListener { placeholder.alpha = it.animatedValue as Int }
-                    addListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) = list.overlay.remove(placeholder)
-                    })
+                    addListener(
+                        object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) =
+                                list.overlay.remove(placeholder)
+                        },
+                    )
                     start()
                 }
             }
@@ -260,7 +286,8 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
                     return@forEachIndexed
                 }
                 child.translationY = delta
-                child.animate()
+                child
+                    .animate()
                     .translationY(0f)
                     .setDuration(if (thanos) THANOS_MOVE_DURATION_MS else MOVE_DURATION_MS)
                     .setInterpolator(if (thanos) THANOS_MOVE_INTERPOLATOR else MOVE_INTERPOLATOR)
@@ -271,13 +298,22 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     }
 
     private fun obtainThanosEffect(root: ViewGroup): ThanosEffect {
-        thanosEffects[root]?.let { return it }
-        lateinit var effect: ThanosEffect
-        effect = ThanosEffect(root.context) {
-            if (thanosEffects[root] === effect) thanosEffects.remove(root)
-            root.removeView(effect)
+        thanosEffects[root]?.let {
+            return it
         }
-        root.addView(effect, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        lateinit var effect: ThanosEffect
+        effect =
+            ThanosEffect(root.context) {
+                if (thanosEffects[root] === effect) thanosEffects.remove(root)
+                root.removeView(effect)
+            }
+        root.addView(
+            effect,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
         thanosEffects[root] = effect
         return effect
     }

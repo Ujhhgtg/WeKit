@@ -27,10 +27,14 @@ object SpoofHostVersion : SwitchFeature(), IResolveDex {
         methodPrivateOpenUrl.hookBefore {
             val data = args[1] as JSONObject
             val url = data.optString("url")
-            if (UPGRADE_URLS.any {
-                    url == it || url.startsWith("$it/") ||
-                        url.startsWith("$it?") || url.startsWith("$it#")
-                }) {
+            if (
+                UPGRADE_URLS.any {
+                    url == it ||
+                        url.startsWith("$it/") ||
+                        url.startsWith("$it?") ||
+                        url.startsWith("$it#")
+                }
+            ) {
                 // An empty URL takes the host's normal "fail" callback path. Skipping the
                 // entire method would leave the Mini App's JS callback unresolved.
                 data.put("url", "")
@@ -38,25 +42,28 @@ object SpoofHostVersion : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val UPGRADE_URLS = listOf(
-        "https://support.weixin.qq.com/update",
-        "https://szsupport.weixin.qq.com/update",
-    )
+    private val UPGRADE_URLS =
+        listOf(
+            "https://support.weixin.qq.com/update",
+            "https://szsupport.weixin.qq.com/update",
+        )
 
-    private val methodPrivateOpenUrl by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes(null, "org.json.JSONObject", "int")
-            usingEqStrings("private_openUrl", "rawUrl", "geta8key_open_webview_appid")
-        },
-    )
+    private val methodPrivateOpenUrl by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes(null, "org.json.JSONObject", "int")
+                usingEqStrings("private_openUrl", "rawUrl", "geta8key_open_webview_appid")
+            },
+        )
 
-    private val ctorCgiLaunchWxaAppFunc1122 by dexConstructor(
-        sqlConstructor {
-            usingEqStrings(
-                "MicroMsg.AppBrand.CgiLaunchWxaApp|func:1122",
-                "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b",
-            )
-        },
-    )
+    private val ctorCgiLaunchWxaAppFunc1122 by
+        dexConstructor(
+            sqlConstructor {
+                usingEqStrings(
+                    "MicroMsg.AppBrand.CgiLaunchWxaApp|func:1122",
+                    "<init> cgiHash[%d], username[%s] appId[%s] sync[%b] sessionId[%s] instanceId[%s] libVersion[%d], source:%s, launchMode:%d, migrate:%b, fallback:%b",
+                )
+            },
+        )
 }

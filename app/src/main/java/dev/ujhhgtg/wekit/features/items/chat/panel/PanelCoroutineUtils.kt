@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel
 
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -7,7 +8,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicInteger
 
 /** Runs independent work on a fixed worker pool and serializes its progress callbacks. */
 suspend fun <T, R> Iterable<T>.parallelForEachWithProgress(
@@ -24,21 +24,22 @@ suspend fun <T, R> Iterable<T>.parallelForEachWithProgress(
     var completed = 0
     coroutineScope {
         List(minOf(maxConcurrency, items.size)) {
-            launch {
-                while (true) {
-                    currentCoroutineContext().ensureActive()
-                    val index = nextIndex.getAndIncrement()
-                    if (index >= items.size) break
-                    val item = items[index]
-                    val result = transform(item)
-                    currentCoroutineContext().ensureActive()
-                    progressMutex.withLock {
+                launch {
+                    while (true) {
                         currentCoroutineContext().ensureActive()
-                        completed++
-                        onItemComplete(completed, items.size, item, result)
+                        val index = nextIndex.getAndIncrement()
+                        if (index >= items.size) break
+                        val item = items[index]
+                        val result = transform(item)
+                        currentCoroutineContext().ensureActive()
+                        progressMutex.withLock {
+                            currentCoroutineContext().ensureActive()
+                            completed++
+                            onItemComplete(completed, items.size, item, result)
+                        }
                     }
                 }
             }
-        }.joinAll()
+            .joinAll()
     }
 }

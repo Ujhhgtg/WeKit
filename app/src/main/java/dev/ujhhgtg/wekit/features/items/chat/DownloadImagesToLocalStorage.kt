@@ -15,7 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-object DownloadImagesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+object DownloadImagesToLocalStorage :
+    SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "图片保存到本地"
     override val nameRes = R.string.feature_download_images_to_local_storage_name
@@ -39,17 +40,23 @@ object DownloadImagesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuA
                 localizedChatString(R.string.chat_action_download),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
-                { msgInfo -> msgInfo.type == MessageType.IMAGE }
+                { msgInfo -> msgInfo.type == MessageType.IMAGE },
             ) { _, _, msgInfo ->
                 CoroutineScope(Dispatchers.IO).launch {
-                    val path = WeMessageApi.downloadImage(msgInfo.serverId) ?: run {
-                        WeLogger.e(TAG, "failed to cache & download image")
-                        showToastSuspend(localizedChatString(R.string.chat_image_download_failed))
-                        return@launch
-                    }
-                    showToastSuspend(localizedChatString(R.string.chat_image_download_success, path))
+                    val path =
+                        WeMessageApi.downloadImage(msgInfo.serverId)
+                            ?: run {
+                                WeLogger.e(TAG, "failed to cache & download image")
+                                showToastSuspend(
+                                    localizedChatString(R.string.chat_image_download_failed),
+                                )
+                                return@launch
+                            }
+                    showToastSuspend(
+                        localizedChatString(R.string.chat_image_download_success, path),
+                    )
                 }
-            }
+            },
         )
     }
 }

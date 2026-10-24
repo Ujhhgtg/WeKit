@@ -38,6 +38,7 @@ import com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -47,7 +48,6 @@ import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.PANEL_TOP_RESERV
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.maxPanelHeight
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.movePanelAbove
 import dev.ujhhgtg.wekit.features.items.chat.FloatingChatFooter.offscreenHeight
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -154,94 +154,103 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     private var resizingAppPanel = false
 
     /**
-     * 是否把表情/工具面板移到输入行上方。关掉就是微信原生的"面板在下方、输入行随之上移",
-     * 此时输入框下半部分仍会延伸到屏幕外, 拿不到下方两个圆角 —— 那是面板在下方的固有结果。
+     * 是否把表情/工具面板移到输入行上方。关掉就是微信原生的"面板在下方、输入行随之上移", 此时输入框下半部分仍会延伸到屏幕外, 拿不到下方两个圆角 —— 那是面板在下方的固有结果。
      *
      * 改动只在 ChatFooter attach 时生效, 切换后需要重进会话。
      */
     private var movePanelAbove by prefOption("floating_chat_footer_panel_above", true)
 
-    private var cornerRadiusDp by prefOption("floating_chat_footer_corner_radius", DEFAULT_CORNER_RADIUS)
+    private var cornerRadiusDp by
+        prefOption("floating_chat_footer_corner_radius", DEFAULT_CORNER_RADIUS)
     private var sideMarginDp by prefOption("floating_chat_footer_side_margin", DEFAULT_SIDE_MARGIN)
     private var bottomGapDp by prefOption("floating_chat_footer_bottom_gap", DEFAULT_BOTTOM_GAP)
     private var elevationDp by prefOption("floating_chat_footer_elevation", DEFAULT_ELEVATION)
 
     /**
-     * Locates ChatFooter.refreshBottomHeight() by the unique log string WeChat emits at the
-     * start of the method. The intentional typo "keyborPx" is WeChat's own, copied faithfully.
+     * Locates ChatFooter.refreshBottomHeight() by the unique log string WeChat emits at the start
+     * of the method. The intentional typo "keyborPx" is WeChat's own, copied faithfully.
      */
-    private val methodRefreshBottomHeight by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChatFooter", "[refreshBottomHeight] keyborPx:%d")
-        },
-    )
+    private val methodRefreshBottomHeight by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("MicroMsg.ChatFooter", "[refreshBottomHeight] keyborPx:%d")
+            },
+        )
 
     /**
-     * ChatFooter.switchPanel(int state, boolean, int) —— 底部面板状态机。
-     * state: 0=收起 1=键盘 2=表情面板 3=工具面板 4=语音。
+     * ChatFooter.switchPanel(int state, boolean, int) —— 底部面板状态机。 state: 0=收起 1=键盘 2=表情面板 3=工具面板
+     * 4=语音。
      */
-    private val methodSwitchPanel by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChatFooter", "switchPanel: %s, %s")
-        },
-    )
+    private val methodSwitchPanel by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("MicroMsg.ChatFooter", "switchPanel: %s, %s")
+            },
+        )
 
     /**
-     * ChattingScrollLayout.scrollContentTo(int y, boolean, int, int) —— 微信展开面板的方式:
-     * 对除消息列表宿主外的所有子 View 做 translationY(-y)。
+     * ChattingScrollLayout.scrollContentTo(int y, boolean, int, int) —— 微信展开面板的方式: 对除消息列表宿主外的所有子
+     * View 做 translationY(-y)。
      */
-    private val methodScrollContentTo by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChattingScrollLayout", "scrollContentTo: y:%s, targetScroll:%s, alwaysScroll:%s")
-        },
-    )
+    private val methodScrollContentTo by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings(
+                    "MicroMsg.ChattingScrollLayout",
+                    "scrollContentTo: y:%s, targetScroll:%s, alwaysScroll:%s",
+                )
+            },
+        )
 
     /**
-     * ChatFooter.configPanel(int state, boolean, int) —— switchPanel 的外层包装。
-     * 负责在切换前后开关软键盘: 切到 state 1 且键盘未开时 post 一个 showSoftInput,
-     * 切到非 1 且键盘已开时 hideVKB。竖屏下它还会把 switchPanel 推迟到键盘收起回调里补跑。
+     * ChatFooter.configPanel(int state, boolean, int) —— switchPanel 的外层包装。 负责在切换前后开关软键盘: 切到 state
+     * 1 且键盘未开时 post 一个 showSoftInput, 切到非 1 且键盘已开时 hideVKB。竖屏下它还会把 switchPanel 推迟到键盘收起回调里补跑。
      */
-    private val methodConfigPanel by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChatFooter", "configPanel: %s, %s, %s, %s, %s")
-        },
-    )
+    private val methodConfigPanel by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("MicroMsg.ChatFooter", "configPanel: %s, %s, %s, %s, %s")
+            },
+        )
 
     /**
      * ChatFooter.enterKeyboardState() —— 无参, 内部就是 configPanel(1, true, -1)。
      * 表情键与「+」键在面板已展开时都调它来"关面板", 顺带把键盘弹出来。
      */
-    private val methodEnterKeyboardState by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChatFooter", "isScrolling!! pass this event!")
-        },
-    )
+    private val methodEnterKeyboardState by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("MicroMsg.ChatFooter", "isScrolling!! pass this event!")
+            },
+        )
 
     /**
-     * FullScreenEditHelper.updateFullScreenEdtLayoutHeight() —— 全屏编辑器的高度
-     * = `ChatFooterBottom 的屏幕 Y` 减去顶部锚点的屏幕 Y。它拿面板当下边界。
+     * FullScreenEditHelper.updateFullScreenEdtLayoutHeight() —— 全屏编辑器的高度 = `ChatFooterBottom 的屏幕 Y`
+     * 减去顶部锚点的屏幕 Y。它拿面板当下边界。
      */
-    private val methodUpdateFullScreenEditHeight by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("updateFullScreenEdtLayoutHeight:")
-        },
-    )
+    private val methodUpdateFullScreenEditHeight by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("updateFullScreenEdtLayoutHeight:")
+            },
+        )
 
     /**
-     * EmojiPanelDragIndicator.determineExtent(parentHeight, collapsedHeight, inputHeight)
-     * —— 算出表情面板把手最多能往上拖出多少 (maxExtendedHeight)。
+     * EmojiPanelDragIndicator.determineExtent(parentHeight, collapsedHeight, inputHeight) ——
+     * 算出表情面板把手最多能往上拖出多少 (maxExtendedHeight)。
      */
-    private val methodDetermineExtent by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.EmojiPanelDragIndicator", "determineExtent: parentHeight=")
-        },
-    )
+    private val methodDetermineExtent by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("MicroMsg.EmojiPanelDragIndicator", "determineExtent: parentHeight=")
+            },
+        )
 
     override fun onEnable() {
         FloatingChatPagination.install(this) { recycler ->
@@ -260,47 +269,58 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         //
         // applyDrawingStyle 在这里再来一次 (幂等): 运行时才打开本特性的话, 当前会话的
         // ChatFooter 早已构造完毕, 构造函数 hook 会整个错过。
-        reflekt.firstMethod { name = "onAttachedToWindow" }.hookAfter {
-            val footer = thisObject as ChatFooter
-            applyNavigationBarEdgeToEdge(footer)
-            applyDrawingStyle(footer)
-            applySideMargins(footer)
-            if (movePanelAbove) {
-                reparentBottomPanel(footer)
-                applyBottomMargin(footer)
-            } else {
-                applyBottomGap(footer)
+        reflekt
+            .firstMethod { name = "onAttachedToWindow" }
+            .hookAfter {
+                val footer = thisObject as ChatFooter
+                applyNavigationBarEdgeToEdge(footer)
+                applyDrawingStyle(footer)
+                applySideMargins(footer)
+                if (movePanelAbove) {
+                    reparentBottomPanel(footer)
+                    applyBottomMargin(footer)
+                } else {
+                    applyBottomGap(footer)
+                }
+                trackNavBarInset(footer)
             }
-            trackNavBarInset(footer)
-        }
 
         // 导航栏沉浸后，微信仍会把导航栏 inset 吃进 ChattingUILayout.paddingBottom，
         // 8.0.72+ 还会在底部画一条不透明色块。只处理底部，顶部由 FloatingChatHeader 负责。
-        ChattingUILayout::class.reflekt().firstMethodOrNull { name = "fitSystemWindows" }?.let { fit ->
-            fit.hookBefore {
-                val layout = thisObject as View
-                navBarInsetsBeforeFit[layout] = (args[0] as Rect).bottom
-            }
-            fit.hookAfter {
-                val layout = thisObject as View
-                val originalBottom = navBarInsetsBeforeFit.remove(layout) ?: 0
-                val keep = (layout.paddingBottom - originalBottom).coerceAtLeast(0)
-                if (layout.paddingBottom != keep) {
-                    layout.setPadding(layout.paddingLeft, layout.paddingTop, layout.paddingRight, keep)
+        ChattingUILayout::class.reflekt()
+            .firstMethodOrNull { name = "fitSystemWindows" }
+            ?.let { fit ->
+                fit.hookBefore {
+                    val layout = thisObject as View
+                    navBarInsetsBeforeFit[layout] = (args[0] as Rect).bottom
                 }
-                suppressNavBarStrip(layout)
-                neutralizeNavigationBarWrapper(layout)
-            }
-        } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
+                fit.hookAfter {
+                    val layout = thisObject as View
+                    val originalBottom = navBarInsetsBeforeFit.remove(layout) ?: 0
+                    val keep = (layout.paddingBottom - originalBottom).coerceAtLeast(0)
+                    if (layout.paddingBottom != keep) {
+                        layout.setPadding(
+                            layout.paddingLeft,
+                            layout.paddingTop,
+                            layout.paddingRight,
+                            keep,
+                        )
+                    }
+                    suppressNavBarStrip(layout)
+                    neutralizeNavigationBarWrapper(layout)
+                }
+            } ?: WeLogger.w(TAG, "ChattingUILayout.fitSystemWindows hook target not found")
 
         // AppPanel 的自然高度只有微信自己知道 (它把 f207332x2 喂给 setPortHeighPx),
         // 记下来给 applyPanelHeight 当基准。setPortHeighPx 是 View 子类的 set* 方法,
         // 被默认 proguard 规则保留, 按名字反射是安全的。
-        AppPanel::class.reflekt().firstMethod { name = "setPortHeighPx" }.hookBefore {
-            if (resizingAppPanel) return@hookBefore
-            val px = args[0] as? Int ?: return@hookBefore
-            if (px > 0) naturalPanelHeights[thisObject as View] = px
-        }
+        AppPanel::class.reflekt()
+            .firstMethod { name = "setPortHeighPx" }
+            .hookBefore {
+                if (resizingAppPanel) return@hookBefore
+                val px = args[0] as? Int ?: return@hookBefore
+                if (px > 0) naturalPanelHeights[thisObject as View] = px
+            }
 
         // 微信在这里写入 bottomMargin = -面板高, 我们在它之后覆盖掉;
         // 顺便重算面板高度 —— 这里同样会把容器高度改回微信那套值。
@@ -431,9 +451,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
             val footer = thisObject as ChatFooter
             val panel = footer.bottomPanel ?: return@hookAfter
             if (panel.visibility != View.VISIBLE) return@hookAfter
-            val panelHeight = panel.height.takeIf { it > 0 }
-                ?: panel.layoutParams?.height?.takeIf { it > 0 }
-                ?: return@hookAfter
+            val panelHeight =
+                panel.height.takeIf { it > 0 }
+                    ?: panel.layoutParams?.height?.takeIf { it > 0 }
+                    ?: return@hookAfter
             val yFromBottom = result as? Int ?: return@hookAfter
             result = (yFromBottom - panelHeight).coerceAtLeast(0)
         }
@@ -442,15 +463,15 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /**
      * 软键盘当前占据的高度, 未显示时为 0。
      *
-     * API 30 以下拿不到可靠的 IME inset, 一律按"未显示"处理 —— 那些设备退化为微信原生
-     * 行为 (面板与键盘互斥), 不会走到需要两者共存的分支, 因此退化是安全的。
+     * API 30 以下拿不到可靠的 IME inset, 一律按"未显示"处理 —— 那些设备退化为微信原生 行为 (面板与键盘互斥), 不会走到需要两者共存的分支, 因此退化是安全的。
      */
     private val View.imeHeight: Int
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            rootWindowInsets?.getInsets(WindowInsets.Type.ime())?.bottom ?: 0
-        } else {
-            0
-        }
+        get() =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                rootWindowInsets?.getInsets(WindowInsets.Type.ime())?.bottom ?: 0
+            } else {
+                0
+            }
 
     private val View.isImeVisible: Boolean
         get() = imeHeight > 0
@@ -460,11 +481,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      *
      * 两件事:
      *
-     * 1. 微信把容器高度设为 `max(表情面板推荐高, 键盘高)`, 而 AppPanel 只撑到键盘高 ——
-     *    多出来的那几十像素在「+」面板底部留下一条空白 (表情面板是 MATCH_PARENT 加进
-     *    容器的, 所以没有)。改用 AppPanel 的自然高度当基准, 两种面板都刚好贴住输入行。
-     * 2. 键盘和面板现在可以同时开着, 两者叠加会把面板顶到聊天页顶栏后面。键盘开着时
-     *    按剩余空间压缩面板, 并给会话内容留出 [PANEL_TOP_RESERVE_DP]。
+     * 1. 微信把容器高度设为 `max(表情面板推荐高, 键盘高)`, 而 AppPanel 只撑到键盘高 —— 多出来的那几十像素在「+」面板底部留下一条空白 (表情面板是
+     *    MATCH_PARENT 加进 容器的, 所以没有)。改用 AppPanel 的自然高度当基准, 两种面板都刚好贴住输入行。
+     * 2. 键盘和面板现在可以同时开着, 两者叠加会把面板顶到聊天页顶栏后面。键盘开着时 按剩余空间压缩面板, 并给会话内容留出 [PANEL_TOP_RESERVE_DP]。
      */
     private fun applyPanelHeight(footer: ChatFooter, panel: ChatFooterBottom) {
         val appPanel = footer.findViewWhich { it is AppPanel }
@@ -474,9 +493,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         // 随时可读且不依赖任何时序。少了这一层, 第一次开表情面板会用容器原值
         // max(表情面板推荐高, 键盘高) 而偏高;「+」面板则因为被我们拉伸到同一高度而看不出来。
         val recorded = naturalPanelHeights[appPanel]
-        val natural = recorded
-            ?: footer.keyBordHeightPX.takeIf { it > 0 }
-            ?: lp.height
+        val natural = recorded ?: footer.keyBordHeightPX.takeIf { it > 0 } ?: lp.height
         if (natural <= 0) return
 
         // 把手展开的增量 (见 installPanelDragHooks); 面板关掉时清零, 不跨次保留展开状态
@@ -492,9 +509,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 面板容器的高度上限: 宿主高度扣掉软键盘、footer 的非面板部分, 再给会话内容留出
-     * [PANEL_TOP_RESERVE_DP]。键盘没开时这个值通常远大于自然高度, 不会产生影响;
-     * 键盘开着时它就是防止面板顶到聊天页顶栏后面的那道闸。
+     * 面板容器的高度上限: 宿主高度扣掉软键盘、footer 的非面板部分, 再给会话内容留出 [PANEL_TOP_RESERVE_DP]。键盘没开时这个值通常远大于自然高度,
+     * 不会产生影响; 键盘开着时它就是防止面板顶到聊天页顶栏后面的那道闸。
      */
     private fun maxPanelHeight(footer: ChatFooter, panel: ChatFooterBottom): Int {
         val hostHeight = (footer.parent as? View)?.height ?: 0
@@ -502,17 +518,16 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         // 还没走过布局, 量不到真实尺寸 —— 此时不设限, 否则会把面板钉在下限上。
         if (hostHeight <= 0 || inputHeight <= 0) return Int.MAX_VALUE
         val density = footer.resources.displayMetrics.density
-        val room = hostHeight - footer.imeHeight - inputHeight -
-            (PANEL_TOP_RESERVE_DP * density).toInt()
+        val room =
+            hostHeight - footer.imeHeight - inputHeight - (PANEL_TOP_RESERVE_DP * density).toInt()
         return room.coerceAtLeast((MIN_PANEL_HEIGHT_DP * density).toInt())
     }
 
     /**
      * footer 里除面板之外的内容有多高 (引用条 + 输入列)。
      *
-     * 不能写成 `footer.height - panel.height`: 这两个实测值不同步 —— 面板刚被设为可见时
-     * `panel.height` 已是新值而 `footer.height` 还是上一帧的旧值, 相减会得到负数, 让
-     * [maxPanelHeight] 凭空多出上千像素, 压缩就失效了。面板的兄弟节点与面板开合无关,
+     * 不能写成 `footer.height - panel.height`: 这两个实测值不同步 —— 面板刚被设为可见时 `panel.height` 已是新值而
+     * `footer.height` 还是上一帧的旧值, 相减会得到负数, 让 [maxPanelHeight] 凭空多出上千像素, 压缩就失效了。面板的兄弟节点与面板开合无关,
      * 直接把它们加起来才是稳定的。
      */
     private fun footerHeightExcludingPanel(panel: ChatFooterBottom): Int {
@@ -528,9 +543,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /**
      * 把 AppPanel 的内容撑到 [target]。
      *
-     * `setPortHeighPx` 只是打个标记, 真正应用它的 `forceRefreshSize` 方法名被混淆了,
-     * 不能按名字反射。改为直接找到被它撑开的那个子 View —— 首次查找时它的高度恰好等于
-     * 自然高度 [natural] —— 之后缓存起来, 否则压缩过一次就再也认不出它了。
+     * `setPortHeighPx` 只是打个标记, 真正应用它的 `forceRefreshSize` 方法名被混淆了, 不能按名字反射。改为直接找到被它撑开的那个子 View ——
+     * 首次查找时它的高度恰好等于 自然高度 [natural] —— 之后缓存起来, 否则压缩过一次就再也认不出它了。
      */
     private fun resizeAppPanelBody(appPanel: View, natural: Int, target: Int) {
         resizingAppPanel = true
@@ -541,10 +555,11 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         } finally {
             resizingAppPanel = false
         }
-        val body = appPanelBodies.getOrPut(appPanel) {
-            appPanel.findViewWhich { it !== appPanel && it.layoutParams?.height == natural }
-                ?: return
-        }
+        val body =
+            appPanelBodies.getOrPut(appPanel) {
+                appPanel.findViewWhich { it !== appPanel && it.layoutParams?.height == natural }
+                    ?: return
+            }
         val blp = body.layoutParams ?: return
         if (blp.height == target) return
         blp.height = target
@@ -558,13 +573,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /** 从 ChatFooter 的辅助类实例 (如 FullScreenEditHelper) 反查它服务的 ChatFooter。 */
     private val Any.ownerChatFooter: ChatFooter?
         get() = runCatching {
-            reflekt().firstField { type = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" }
-                .get() as? ChatFooter
-        }.getOrNull()
+            reflekt().firstField { type = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" }.get()
+                as? ChatFooter
+        }
+            .getOrNull()
 
     /**
-     * 从 ChattingScrollLayout 定位面板。只遍历 ChatFooter 子树 —— 直接对整个
-     * ChattingScrollLayout 做 DFS 会先把整条消息列表走一遍, 白白付出代价。
+     * 从 ChattingScrollLayout 定位面板。只遍历 ChatFooter 子树 —— 直接对整个 ChattingScrollLayout 做 DFS
+     * 会先把整条消息列表走一遍, 白白付出代价。
      */
     private val ChattingScrollLayout.footerBottomPanel: ChatFooterBottom?
         get() {
@@ -578,13 +594,14 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /** 设置 outline / 圆角裁剪 / 阴影 / 暗色浮层 —— 全是不依赖 LayoutParams 的绘制属性, 可重复调用。 */
     private fun applyDrawingStyle(footer: ChatFooter) {
         val density = footer.resources.displayMetrics.density
-        footer.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                val r = view.resources.displayMetrics.density * cornerRadiusDp
-                val bottom = (view.height - offscreenHeight(footer)).coerceAtLeast(1)
-                outline.setRoundRect(0, 0, view.width, bottom, r)
+        footer.outlineProvider =
+            object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    val r = view.resources.displayMetrics.density * cornerRadiusDp
+                    val bottom = (view.height - offscreenHeight(footer)).coerceAtLeast(1)
+                    outline.setRoundRect(0, 0, view.width, bottom, r)
+                }
             }
-        }
         footer.clipToOutline = true
         footer.elevation = elevationDp * density
         FloatingChatCardVisuals.applyDarkSurface(footer, cornerRadiusDp)
@@ -595,13 +612,11 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
      *
      * 面板在上方时恒为 0 —— bottomMargin 非负, footer 的实际高度就是可视高度。
      *
-     * 面板在下方 (开关关闭) 时不然: `bottomMargin = -面板高` 把面板那段挤到 LinearLayout
-     * 底边之外, 微信靠 translationY 把整个 footer 上移来"展开"面板。于是悬在外面的高度
-     * 是 `面板高 + translationY` (translationY ∈ [-面板高, 0]): 收起时等于面板高, 圆角
+     * 面板在下方 (开关关闭) 时不然: `bottomMargin = -面板高` 把面板那段挤到 LinearLayout 底边之外, 微信靠 translationY 把整个
+     * footer 上移来"展开"面板。于是悬在外面的高度 是 `面板高 + translationY` (translationY ∈ [-面板高, 0]): 收起时等于面板高, 圆角
      * 落在输入行下沿; 完全展开时归零, 圆角落在 footer 真正的底边。中间过程连续。
      *
-     * 键盘态例外: 微信同样把 footer 上移键盘高度, 面板容器也保持可见并撑到键盘高, 但里面
-     * 的表情/工具面板都被淡出隐藏了 —— 那一段只是 IME 背后的空白。此时整个面板都不算
+     * 键盘态例外: 微信同样把 footer 上移键盘高度, 面板容器也保持可见并撑到键盘高, 但里面 的表情/工具面板都被淡出隐藏了 —— 那一段只是 IME 背后的空白。此时整个面板都不算
      * 卡片, 圆角落在输入行下沿, 而不是延伸到 IME 下面。
      */
     private fun offscreenHeight(footer: ChatFooter): Int {
@@ -612,9 +627,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 面板容器里是否有正在显示的面板 (表情面板 / AppPanel)。微信收起它们时先淡出再设
-     * INVISIBLE, 所以只看可见性。不能看 alpha: 表情面板切到工具面板时, AppPanel 以 alpha 0
-     * 设为可见再淡入, 头几帧会被误判为空面板, 卡片下沿会闪回输入行。
+     * 面板容器里是否有正在显示的面板 (表情面板 / AppPanel)。微信收起它们时先淡出再设 INVISIBLE, 所以只看可见性。不能看 alpha: 表情面板切到工具面板时,
+     * AppPanel 以 alpha 0 设为可见再淡入, 头几帧会被误判为空面板, 卡片下沿会闪回输入行。
      */
     private val ChatFooterBottom.isShowingContent: Boolean
         get() {
@@ -625,8 +639,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         }
 
     /**
-     * translationY 或面板显隐变了不会自动重算 outline, 得手动 invalidate。只在面板位于下方时
-     * 需要 —— 面板在上方时 [offscreenHeight] 恒为 0。值没变就不 invalidate, 不会自激。
+     * translationY 或面板显隐变了不会自动重算 outline, 得手动 invalidate。只在面板位于下方时 需要 —— 面板在上方时 [offscreenHeight]
+     * 恒为 0。值没变就不 invalidate, 不会自激。
      */
     private fun refreshOutline(footer: ChatFooter) {
         val offscreen = offscreenHeight(footer)
@@ -634,9 +648,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 导航栏 inset 变化后重算 footer 底边距。键盘弹出/收起、旋转、手势模式切换都会触发
-     * 一帧 pre-draw。apply* 内部都有"目标值没变就不动"的判断, 所以每帧调用是幂等的,
-     * 还能兜底纠正面板开关瞬间 refreshBottomHeight 用旧高度算出的瞬时错误值。
+     * 导航栏 inset 变化后重算 footer 底边距。键盘弹出/收起、旋转、手势模式切换都会触发 一帧 pre-draw。apply* 内部都有"目标值没变就不动"的判断,
+     * 所以每帧调用是幂等的, 还能兜底纠正面板开关瞬间 refreshBottomHeight 用旧高度算出的瞬时错误值。
      */
     private fun trackNavBarInset(footer: ChatFooter) {
         val listener = ViewTreeObserver.OnPreDrawListener {
@@ -659,11 +672,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 「x条新消息」气泡 (HistoryMsgTongueComponent 的 mGoBackToHistoryMsgLayout, 布局 id
-     * bm4) 是 ChattingContent 的直接子 View, 始终贴着内容底边。悬浮卡片用负 topMargin
-     * 盖住了内容底部一截, 微信自己的 44dp 底边距就不够用了,
-     * 气泡下半截会被卡片挡住。这里按 footer 实际绘制位置算出卡片盖住的高度, 在微信
-     * 设定的 margin 之上补足, 保留原版的气泡与输入框间距。
+     * 「x条新消息」气泡 (HistoryMsgTongueComponent 的 mGoBackToHistoryMsgLayout, 布局 id bm4) 是
+     * ChattingContent 的直接子 View, 始终贴着内容底边。悬浮卡片用负 topMargin 盖住了内容底部一截, 微信自己的 44dp 底边距就不够用了,
+     * 气泡下半截会被卡片挡住。这里按 footer 实际绘制位置算出卡片盖住的高度, 在微信 设定的 margin 之上补足, 保留原版的气泡与输入框间距。
      */
     private fun liftNewMessageBubble(footer: ChatFooter) {
         val bubble = footer.newMessageBubble() ?: return
@@ -682,16 +693,19 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 从 ChattingScrollLayout 里定位「x条新消息」气泡。不碰资源表, 也不依赖逐版本混淆的
-     * 资源名/类名: 气泡是 ChattingContent (footer 的兄弟节点) 的直接子 LinearLayout,
-     * 内容区居中, 由 WeImageView + TextView 组成。微信同屏的「翻到顶部/底部」提示条虽然
-     * 也是 WeImageView + TextView, 但内容是 center_vertical 且带 elevation, 不会命中;
-     * 引用气泡用普通 ImageView; 其余提示视图都嵌在更深层, 只查直接子节点即可排除。
+     * 从 ChattingScrollLayout 里定位「x条新消息」气泡。不碰资源表, 也不依赖逐版本混淆的 资源名/类名: 气泡是 ChattingContent (footer
+     * 的兄弟节点) 的直接子 LinearLayout, 内容区居中, 由 WeImageView + TextView 组成。微信同屏的「翻到顶部/底部」提示条虽然 也是
+     * WeImageView + TextView, 但内容是 center_vertical 且带 elevation, 不会命中; 引用气泡用普通 ImageView;
+     * 其余提示视图都嵌在更深层, 只查直接子节点即可排除。
      */
     private fun ChatFooter.newMessageBubble(): View? {
-        newMessageBubbles[this]?.takeIf {
-            it.isAttachedToWindow && (it.parent as? ViewGroup)?.parent === parent
-        }?.let { return it }
+        newMessageBubbles[this]
+            ?.takeIf {
+                it.isAttachedToWindow && (it.parent as? ViewGroup)?.parent === parent
+            }
+            ?.let {
+                return it
+            }
         val scrollLayout = parent as? ViewGroup ?: return null
         for (i in 0 until scrollLayout.childCount) {
             val sibling = scrollLayout.getChildAt(i) as? ViewGroup ?: continue
@@ -727,11 +741,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 面板在上方时, 卡片需要悬浮出列表的高度 = footer 总高去掉面板那一段
-     * (即面板在 footer 根布局里的那些可见兄弟节点: 输入列、引用条等)。
+     * 面板在上方时, 卡片需要悬浮出列表的高度 = footer 总高去掉面板那一段 (即面板在 footer 根布局里的那些可见兄弟节点: 输入列、引用条等)。
      *
-     * 不用 `footer.height - panel.height`: 面板开/关的瞬间 footer 还没重排, 高度里仍带着
-     * 上一帧的面板, 会算出瞬时错误值; 兄弟节点自己的高度不受面板开关影响, 恒稳定。
+     * 不用 `footer.height - panel.height`: 面板开/关的瞬间 footer 还没重排, 高度里仍带着 上一帧的面板, 会算出瞬时错误值;
+     * 兄弟节点自己的高度不受面板开关影响, 恒稳定。
      */
     private fun overlayAmount(footer: ChatFooter): Int {
         val panel = footer.bottomPanel ?: return footer.height
@@ -773,10 +786,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         }
         if (navBarWrappersNeutralized.put(wrapper, true) != null) return
         runCatching {
-            wrapper.javaClass.getMethod(
-                "setNavigationBarBackgroundColor",
-                Int::class.javaPrimitiveType,
-            ).invoke(wrapper, Color.TRANSPARENT)
+            wrapper.javaClass
+                .getMethod(
+                    "setNavigationBarBackgroundColor",
+                    Int::class.javaPrimitiveType,
+                )
+                .invoke(wrapper, Color.TRANSPARENT)
         }
     }
 
@@ -802,9 +817,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     /** 8.0.72+ ChattingUILayout 底部自绘色块。 */
     private fun suppressNavBarStrip(layout: View) {
-        val paintField = layout.javaClass.declaredFields.firstOrNull {
-            !Modifier.isStatic(it.modifiers) && it.type == Paint::class.java
-        } ?: return
+        val paintField =
+            layout.javaClass.declaredFields.firstOrNull {
+                !Modifier.isStatic(it.modifiers) && it.type == Paint::class.java
+            } ?: return
         runCatching {
             paintField.isAccessible = true
             (paintField.get(layout) as Paint).alpha = 0
@@ -814,8 +830,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     /**
      * 需要补到 footer 底边的导航栏 inset。
      *
-     * 只有窗口真的铺到导航栏后面 (微信 edge-to-edge 开关打开) 才补 —— 否则内容区本身就
-     * 在导航栏上方结束, 再补会把输入框顶高。键盘弹出时导航栏被 IME 盖住,
+     * 只有窗口真的铺到导航栏后面 (微信 edge-to-edge 开关打开) 才补 —— 否则内容区本身就 在导航栏上方结束, 再补会把输入框顶高。键盘弹出时导航栏被 IME 盖住,
      * getInsets(navigationBars()) 自然返回 0, 不用单独判断键盘状态。
      */
     private fun bottomNavBarInsetToAdd(footer: ChatFooter): Int {
@@ -829,15 +844,20 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         return edgeToEdgeApplied[activity.window] == true
     }
 
-    private tailrec fun Context.activityOrNull(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.activityOrNull()
-        else -> null
-    }
+    private tailrec fun Context.activityOrNull(): Activity? =
+        when (this) {
+            is Activity -> this
+            is ContextWrapper -> baseContext.activityOrNull()
+            else -> null
+        }
 
     /** 从 footer 所在的 ChattingScrollLayout 里定位消息列表的 RecyclerView。 */
     private fun ChatFooter.chatRecycler(): View? {
-        chatListRecyclers[this]?.takeIf { it.isAttachedToWindow }?.let { return it }
+        chatListRecyclers[this]
+            ?.takeIf { it.isAttachedToWindow }
+            ?.let {
+                return it
+            }
         val found = findChatRecycler(this)
         if (found != null) chatListRecyclers[this] = found
         return found
@@ -845,15 +865,18 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     private fun View.findChatRecycler(footer: ChatFooter): View? {
         val scrollLayout = parent as? View
-        if (scrollLayout?.javaClass?.name != "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout") {
+        if (
+            scrollLayout?.javaClass?.name != "com.tencent.mm.pluginsdk.ui.chat.ChattingScrollLayout"
+        ) {
             footer.logChatListLookup("parent=${scrollLayout?.javaClass?.name}")
             return null
         }
         // 只用类名字符串定位, 不用 `is` 跨类加载器判断: 模块自带的 androidx 类
         // 与微信进程里的类不是同一个 Class 对象, `is RecyclerView` 会静默失败。
-        val listHost = scrollLayout.allViews.firstOrNull {
-            it.javaClass.name == "com.tencent.mm.ui.chatting.view.MMChattingListView"
-        }
+        val listHost =
+            scrollLayout.allViews.firstOrNull {
+                it.javaClass.name == "com.tencent.mm.ui.chatting.view.MMChattingListView"
+            }
         if (listHost == null) {
             footer.logChatListLookup("MMChattingListView missing")
             return null
@@ -865,19 +888,22 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
 
     private fun View.isChatRecycler(): Boolean {
         val name = javaClass.name
-        if (name == "com.tencent.mm.pluginsdk.ui.tools.ScrollControlRecyclerView" ||
-            name == "com.tencent.mm.pluginsdk.ui.tools.ChattingRecyclerView"
+        if (
+            name == "com.tencent.mm.pluginsdk.ui.tools.ScrollControlRecyclerView" ||
+                name == "com.tencent.mm.pluginsdk.ui.tools.ChattingRecyclerView"
         ) {
             return true
         }
         // 兜底: 用视图自己的 classloader 判定宿主 RecyclerView 子类
-        val hostRecycler = runCatching {
-            Class.forName(
-                "androidx.recyclerview.widget.RecyclerView",
-                false,
-                javaClass.classLoader
-            )
-        }.getOrNull() ?: return false
+        val hostRecycler =
+            runCatching {
+                Class.forName(
+                    "androidx.recyclerview.widget.RecyclerView",
+                    false,
+                    javaClass.classLoader,
+                )
+            }
+                .getOrNull() ?: return false
         return hostRecycler.isInstance(this)
     }
 
@@ -888,12 +914,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 卡片悬浮在列表之上后, 给消息列表底部补 [extra] 的 padding, 让最后一条消息在滚到底时
-     * 停在卡片上沿而不是藏在卡片后面。RecyclerView 本身 clipToPadding=false, 滚动时消息
-     * 会正常从卡片和小白条背后穿过。
+     * 卡片悬浮在列表之上后, 给消息列表底部补 [extra] 的 padding, 让最后一条消息在滚到底时 停在卡片上沿而不是藏在卡片后面。RecyclerView 本身
+     * clipToPadding=false, 滚动时消息 会正常从卡片和小白条背后穿过。
      *
-     * 补 padding 本身不会移动现有滚动位置: 如果列表此刻正停在旧的底端, 还要顺着新 padding
-     * 再往下滚一段, 最新消息才会立刻从卡片后面露出。
+     * 补 padding 本身不会移动现有滚动位置: 如果列表此刻正停在旧的底端, 还要顺着新 padding 再往下滚一段, 最新消息才会立刻从卡片后面露出。
      */
     private fun applyChatListPadding(footer: ChatFooter, extra: Int) {
         val recycler = footer.chatRecycler()
@@ -906,7 +930,12 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         val old = recycler.paddingBottom
         if (old == target) return
         val wasAtBottom = !recycler.canScrollVertically(1)
-        recycler.setPadding(recycler.paddingLeft, recycler.paddingTop, recycler.paddingRight, target)
+        recycler.setPadding(
+            recycler.paddingLeft,
+            recycler.paddingTop,
+            recycler.paddingRight,
+            target,
+        )
         if (wasAtBottom && target > old) {
             // 滚动到新的 padding 底端, 让最新消息从卡片后露出; 用户正翻旧消息时不打扰
             recycler.scrollBy(0, target - old)
@@ -923,13 +952,11 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 微信的 refreshBottomHeight 会写 bottomMargin = -面板高, 把 footer 下半段 (面板)
-     * 挤到屏幕外。面板重排到输入行上方之后这个负值必须消失, 否则输入行本身会被推出屏幕。
-     * 这里改为绝对赋值 —— 直接写用户配置的底部间距。
+     * 微信的 refreshBottomHeight 会写 bottomMargin = -面板高, 把 footer 下半段 (面板) 挤到屏幕外。面板重排到输入行上方之后这个负值必须消失,
+     * 否则输入行本身会被推出屏幕。 这里改为绝对赋值 —— 直接写用户配置的底部间距。
      *
-     * 悬浮用负 topMargin 实现: footer 在 LinearLayout 流里只占底间距的高度, 卡片本体
-     * 被 -topMargin 拉回列表之上, 消息列表因此能一直铺到屏幕底边 (edge-to-edge), 滚动时
-     * 从卡片和小白条背后穿过。
+     * 悬浮用负 topMargin 实现: footer 在 LinearLayout 流里只占底间距的高度, 卡片本体 被 -topMargin 拉回列表之上,
+     * 消息列表因此能一直铺到屏幕底边 (edge-to-edge), 滚动时 从卡片和小白条背后穿过。
      */
     private fun applyBottomMargin(footer: ChatFooter) {
         val lp = footer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
@@ -947,16 +974,15 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * [movePanelAbove] 关闭时的底部间距。面板仍在输入行下方, 微信写入的
-     * `bottomMargin = -面板高` 必须保留 (否则输入行会被推出屏幕), 只能在它之上叠加。
+     * [movePanelAbove] 关闭时的底部间距。面板仍在输入行下方, 微信写入的 `bottomMargin = -面板高` 必须保留 (否则输入行会被推出屏幕),
+     * 只能在它之上叠加。
      *
-     * 直接从面板的 LayoutParams 取那个"面板高"重算, 而不是在现值上做加法 —— 加法在
-     * onAttachedToWindow 与 refreshBottomHeight 都会调到时会重复累加。
+     * 直接从面板的 LayoutParams 取那个"面板高"重算, 而不是在现值上做加法 —— 加法在 onAttachedToWindow 与 refreshBottomHeight
+     * 都会调到时会重复累加。
      *
-     * 悬浮与 [applyBottomMargin] 相同: 负 topMargin 抵消 footer 在 LinearLayout 流里的
-     * 全部占位, 消息列表铺到屏幕底边, 再用列表 padding 把最后一条消息顶到卡片上沿。
-     * 可视卡片高度取实测的 `footer.height - panel.height`: 面板在下方时恒可见, 两者出自同一
-     * 次布局; 面板高变化时差值不变, 不会像面板在上方时那样因开合而失步。
+     * 悬浮与 [applyBottomMargin] 相同: 负 topMargin 抵消 footer 在 LinearLayout 流里的 全部占位, 消息列表铺到屏幕底边, 再用列表
+     * padding 把最后一条消息顶到卡片上沿。 可视卡片高度取实测的 `footer.height - panel.height`: 面板在下方时恒可见, 两者出自同一 次布局;
+     * 面板高变化时差值不变, 不会像面板在上方时那样因开合而失步。
      */
     private fun applyBottomGap(footer: ChatFooter) {
         val lp = footer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
@@ -977,12 +1003,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * 把 ChatFooterBottom (表情/工具面板容器) 从输入列移到 footer 根 RelativeLayout
-     * 的首位, 使面板出现在输入行**上方**并向上延伸。
+     * 把 ChatFooterBottom (表情/工具面板容器) 从输入列移到 footer 根 RelativeLayout 的首位, 使面板出现在输入行**上方**并向上延伸。
      *
-     * 不依赖任何微信 R.id: 面板按类型找, 输入列 = 面板的父容器, 根布局 = 输入列的父容器。
-     * 重排后把根布局中原本顶部对齐 (没有 BELOW 规则) 的兄弟节点重新锚到面板下方,
-     * 保持 面板 → 引用条 → 输入行 的纵向顺序。
+     * 不依赖任何微信 R.id: 面板按类型找, 输入列 = 面板的父容器, 根布局 = 输入列的父容器。 重排后把根布局中原本顶部对齐 (没有 BELOW 规则)
+     * 的兄弟节点重新锚到面板下方, 保持 面板 → 引用条 → 输入行 的纵向顺序。
      *
      * 幂等: onAttachedToWindow 会重入 (切换会话复用 footer), 面板已在根布局时直接返回。
      */
@@ -1000,7 +1024,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         if (root == null) {
             WeLogger.w(
                 TAG,
-                "reparent: expected RelativeLayout root, got ${inputColumn.parent?.javaClass?.name}"
+                "reparent: expected RelativeLayout root, got ${inputColumn.parent?.javaClass?.name}",
             )
             return
         }
@@ -1013,7 +1037,7 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
         root.addView(
             panel,
             0,
-            RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height)
+            RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height),
         )
 
         for (i in 0 until root.childCount) {
@@ -1054,7 +1078,10 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.chat_floating_footer_panel_above),
-                                description = stringResource(R.string.chat_floating_footer_panel_above_summary),
+                                description =
+                                    stringResource(
+                                        R.string.chat_floating_footer_panel_above_summary,
+                                    ),
                                 checked = panelAbove,
                                 onCheckedChange = {
                                     panelAbove = it
@@ -1065,7 +1092,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                         item {
                             BaseItemContainer {
                                 IntNumberPickerWidget(
-                                    title = stringResource(R.string.chat_floating_corner_radius_label),
+                                    title =
+                                        stringResource(R.string.chat_floating_corner_radius_label),
                                     value = corner,
                                     startInt = MIN_CORNER_RADIUS,
                                     endInt = MAX_CORNER_RADIUS,
@@ -1081,7 +1109,8 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                         item {
                             BaseItemContainer {
                                 IntNumberPickerWidget(
-                                    title = stringResource(R.string.chat_floating_side_margin_label),
+                                    title =
+                                        stringResource(R.string.chat_floating_side_margin_label),
                                     value = side,
                                     startInt = MIN_SIDE_MARGIN,
                                     endInt = MAX_SIDE_MARGIN,
@@ -1128,7 +1157,9 @@ object FloatingChatFooter : ClickableFeature(), IResolveDex {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

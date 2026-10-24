@@ -12,14 +12,16 @@ object RemoveExternalAppSharingSignatureVerify : SwitchFeature(), IResolveDex {
     override val technicalId = "移除分享签名校验"
     override val nameRes = R.string.feature_remove_external_app_sharing_signature_verify_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
-    override val descriptionRes = R.string.feature_remove_external_app_sharing_signature_verify_description
+    override val descriptionRes =
+        R.string.feature_remove_external_app_sharing_signature_verify_description
 
-    private val methodSignCheck by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.model.app")
-            usingEqStrings("checkAppSignature get local signature failed")
-        },
-    )
+    private val methodSignCheck by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.model.app")
+                usingEqStrings("checkAppSignature get local signature failed")
+            },
+        )
 
     override fun onEnable() {
         methodSignCheck.hookBefore {

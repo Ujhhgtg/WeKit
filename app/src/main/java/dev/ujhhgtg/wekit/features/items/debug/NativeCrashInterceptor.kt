@@ -37,14 +37,15 @@ object NativeCrashInterceptor : SwitchFeature() {
             if (CrashLogsManager.hasPendingNativeCrash()) {
                 WeLogger.i(
                     TAG,
-                    "pending native crash detected, will show dialog when Activity is ready"
+                    "pending native crash detected, will show dialog when Activity is ready",
                 )
                 showToast(localizedDebugString(R.string.debug_native_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) {
                     showPendingNativeCrashDialog()
                 }
             }
-        }.onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
     }
 
     private fun showPendingNativeCrashDialog() {
@@ -58,9 +59,10 @@ object NativeCrashInterceptor : SwitchFeature() {
                 titleSummaryRes = R.string.debug_native_crash_detected,
                 titleDetailRes = R.string.debug_native_crash_details,
                 clearPendingFlag = CrashLogsManager::clearPendingNativeCrashFlag,
-                extractSummary = ::extractCrashSummary
+                extractSummary = ::extractCrashSummary,
             )
-        }.onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
     }
 
     private fun extractCrashSummary(crashInfo: String): String {
@@ -94,7 +96,9 @@ object NativeCrashInterceptor : SwitchFeature() {
 
                 line.contains("Stack Trace") -> {
                     foundStackTrace = true
-                    summary.append(localizedDebugString(R.string.debug_crash_stack_preview)).append("\n")
+                    summary
+                        .append(localizedDebugString(R.string.debug_crash_stack_preview))
+                        .append("\n")
                 }
 
                 foundStackTrace -> {

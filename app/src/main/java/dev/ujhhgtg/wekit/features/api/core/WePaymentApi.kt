@@ -6,9 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -23,53 +20,65 @@ object WePaymentApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WePaymentApi"
 
-    private val ctorNetSceneTransferOperation by dexConstructor(
-        sqlConstructor {
-            searchPackages("com.tencent.mm.plugin.remittance.model")
-            usingEqStrings("account click info , key is %s, value is %s")
-            declaredClass {
-                usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm")
-                usingEqStrings("/cgi-bin/mmpay-bin/transferoperation")
-            }
-        },
-    )
-    val classReceiveLuckyMoney by dexClass(
-        sqlClass {
-            method {
-                name = "<init>"
-                usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
-            }
-        },
-    )
-    val classOpenLuckyMoney by dexClass(
-        sqlClass {
-            method {
-                name = "<init>"
-                usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
-            }
-        },
-    )
-    val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod(
-        sqlMethod {
-            declaredClass(classReceiveLuckyMoney.data.name)
-            name = "onGYNetEnd"
-            paramCount = 3
-        },
-    )
-    val methodOpenLuckyMoneyOnGYNetEnd by dexMethod(
-        sqlMethod {
-            declaredClass(classOpenLuckyMoney.data.name)
-            name = "onGYNetEnd"
-            paramCount = 3
-        },
-    )
-
-    fun confirmTransfer(transactionId: String, transferId: String, payerUsername: String, invalidTime: Int): Boolean {
-        return executeTransferOperation("confirm", transactionId, transferId, payerUsername, invalidTime)
+    private val ctorNetSceneTransferOperation by dexConstructor {
+        searchPackages("com.tencent.mm.plugin.remittance.model")
+        usingEqStrings("account click info , key is %s, value is %s")
+        declaredClass {
+            usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm")
+            usingEqStrings("/cgi-bin/mmpay-bin/transferoperation")
+        }
+    }
+    val classReceiveLuckyMoney by dexClass {
+        method {
+            name = "<init>"
+            usingEqStrings("MicroMsg.NetSceneReceiveLuckyMoney")
+        }
+    }
+    val classOpenLuckyMoney by dexClass {
+        method {
+            name = "<init>"
+            usingEqStrings("MicroMsg.NetSceneOpenLuckyMoney")
+        }
+    }
+    val methodReceiveLuckyMoneyOnGYNetEnd by dexMethod {
+        declaredClass(classReceiveLuckyMoney.data.name)
+        name = "onGYNetEnd"
+        paramCount = 3
+    }
+    val methodOpenLuckyMoneyOnGYNetEnd by dexMethod {
+        declaredClass(classOpenLuckyMoney.data.name)
+        name = "onGYNetEnd"
+        paramCount = 3
     }
 
-    fun refuseTransfer(transactionId: String, transferId: String, payerUsername: String, invalidTime: Int): Boolean {
-        return executeTransferOperation("refuse", transactionId, transferId, payerUsername, invalidTime)
+    fun confirmTransfer(
+        transactionId: String,
+        transferId: String,
+        payerUsername: String,
+        invalidTime: Int,
+    ): Boolean {
+        return executeTransferOperation(
+            "confirm",
+            transactionId,
+            transferId,
+            payerUsername,
+            invalidTime,
+        )
+    }
+
+    fun refuseTransfer(
+        transactionId: String,
+        transferId: String,
+        payerUsername: String,
+        invalidTime: Int,
+    ): Boolean {
+        return executeTransferOperation(
+            "refuse",
+            transactionId,
+            transferId,
+            payerUsername,
+            invalidTime,
+        )
     }
 
     private fun executeTransferOperation(
@@ -77,17 +86,75 @@ object WePaymentApi : ApiFeature(), IResolveDex {
         transactionId: String,
         transferId: String,
         payerUsername: String,
-        invalidTime: Int
+        invalidTime: Int,
     ): Boolean {
         return try {
             val ctor = ctorNetSceneTransferOperation.constructor
-            val netScene = when (ctor.parameterCount) {
-                10 -> ctor.newInstance(transactionId, transferId, 0, operation, payerUsername, invalidTime, "", null, 1, null)
-                12 -> ctor.newInstance(transactionId, transferId, 0, operation, payerUsername, invalidTime, "", null, 1, null, 0L, "")
-                13 -> ctor.newInstance(transactionId, transferId, 0, operation, payerUsername, invalidTime, "", null, 1, null, 0L, "", "")
-                14 -> ctor.newInstance(transactionId, transferId, 0, operation, payerUsername, invalidTime, "", null, 1, "", null, 0L, "", "")
-                else -> error("unknown NetSceneTransferOperation constructor variant")
-            }
+            val netScene =
+                when (ctor.parameterCount) {
+                    10 ->
+                        ctor.newInstance(
+                            transactionId,
+                            transferId,
+                            0,
+                            operation,
+                            payerUsername,
+                            invalidTime,
+                            "",
+                            null,
+                            1,
+                            null,
+                        )
+                    12 ->
+                        ctor.newInstance(
+                            transactionId,
+                            transferId,
+                            0,
+                            operation,
+                            payerUsername,
+                            invalidTime,
+                            "",
+                            null,
+                            1,
+                            null,
+                            0L,
+                            "",
+                        )
+                    13 ->
+                        ctor.newInstance(
+                            transactionId,
+                            transferId,
+                            0,
+                            operation,
+                            payerUsername,
+                            invalidTime,
+                            "",
+                            null,
+                            1,
+                            null,
+                            0L,
+                            "",
+                            "",
+                        )
+                    14 ->
+                        ctor.newInstance(
+                            transactionId,
+                            transferId,
+                            0,
+                            operation,
+                            payerUsername,
+                            invalidTime,
+                            "",
+                            null,
+                            1,
+                            "",
+                            null,
+                            0L,
+                            "",
+                            "",
+                        )
+                    else -> error("unknown NetSceneTransferOperation constructor variant")
+                }
             WeNetSceneApi.sendNetScene(netScene)
             true
         } catch (e: Exception) {

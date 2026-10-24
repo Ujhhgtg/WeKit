@@ -33,75 +33,94 @@ object ClearProfileDetails : ClickableFeature() {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-//                        val payload = """{"1":{"1":1,"2":{"1":1,"2":{"1":91,"2":{"1":128,"2":{"1":""},"3":{"1":""},"4":0,"5":{"1":""},"6":{"1":""},"7":0,"8":0,"9":"","10":0,"11":"","12":"","13":"","14":1,"16":0,"17":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":"","25":0,"27":"","28":"","29":0,"30":0,"31":0,"33":0,"34":0,"36":0,"38":""}}}}}"""
+                    TextButton(
+                        onClick = {
+                            //                        val payload =
+                            // """{"1":{"1":1,"2":{"1":1,"2":{"1":91,"2":{"1":128,"2":{"1":""},"3":{"1":""},"4":0,"5":{"1":""},"6":{"1":""},"7":0,"8":0,"9":"","10":0,"11":"","12":"","13":"","14":1,"16":0,"17":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":"","25":0,"27":"","28":"","29":0,"30":0,"31":0,"33":0,"34":0,"36":0,"38":""}}}}}"""
 
-                        val reqBytes = OpLog.encodeSingle(
-                            OpLog.CMD_MOD_PROFILE,
-                            ModProfileProto()
-                        )
+                            val reqBytes =
+                                OpLog.encodeSingle(
+                                    OpLog.CMD_MOD_PROFILE,
+                                    ModProfileProto(),
+                                )
 
-                        WePacketHelper.sendCgi(
-//                        WePacketHelper.sendCgi(
-                            "/cgi-bin/micromsg-bin/oplog",
-                            681, 0, 0,
-                            reqBytes = reqBytes
-//                            payload
-                        ) {
-                            onSuccess { bytes ->
-                                val resp = bytes?.let { OpLogRespProto.decode(it) }
-                                WeLogger.i(TAG, "success: ret=${resp?.ret}")
-                                showComposeDialog(context) {
-                                    AlertDialogContent(
-                                        title = {
-                                            Text(stringResource(R.string.clear_profile_details_send_success))
-                                        },
-                                        text = {
-                                            Text(
-                                                stringResource(
-                                                    R.string.clear_profile_details_server_response_code,
-                                                    resp?.ret?.toString()
-                                                        ?: stringResource(R.string.unknown),
+                            WePacketHelper.sendCgi(
+                                //                        WePacketHelper.sendCgi(
+                                "/cgi-bin/micromsg-bin/oplog",
+                                681,
+                                0,
+                                0,
+                                reqBytes = reqBytes,
+                                //                            payload
+                            ) {
+                                onSuccess { bytes ->
+                                    val resp = bytes?.let { OpLogRespProto.decode(it) }
+                                    WeLogger.i(TAG, "success: ret=${resp?.ret}")
+                                    showComposeDialog(context) {
+                                        AlertDialogContent(
+                                            title = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.clear_profile_details_send_success,
+                                                    ),
                                                 )
-                                            )
-                                        },
-                                        confirmButton = {
-                                            TextButton(onClick = onDismiss) {
-                                                Text(stringResource(R.string.dialog_close))
-                                            }
-                                        }
-                                    )
+                                            },
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string
+                                                            .clear_profile_details_server_response_code,
+                                                        resp?.ret?.toString()
+                                                            ?: stringResource(R.string.unknown),
+                                                    ),
+                                                )
+                                            },
+                                            confirmButton = {
+                                                TextButton(onClick = onDismiss) {
+                                                    Text(stringResource(R.string.dialog_close))
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+
+                                onFailure { type, code, msg ->
+                                    showComposeDialog(context) {
+                                        AlertDialogContent(
+                                            title = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.clear_profile_details_send_failure,
+                                                    ),
+                                                )
+                                            },
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string
+                                                            .clear_profile_details_send_failure_details,
+                                                        type.toString(),
+                                                        code.toString(),
+                                                        msg,
+                                                    ),
+                                                )
+                                            },
+                                            confirmButton = {
+                                                TextButton(onClick = onDismiss) {
+                                                    Text(stringResource(R.string.dialog_close))
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
-
-                            onFailure { type, code, msg ->
-                                showComposeDialog(context) {
-                                    AlertDialogContent(
-                                        title = {
-                                            Text(stringResource(R.string.clear_profile_details_send_failure))
-                                        },
-                                        text = {
-                                            Text(
-                                                stringResource(
-                                                    R.string.clear_profile_details_send_failure_details,
-                                                    type.toString(),
-                                                    code.toString(),
-                                                    msg,
-                                                )
-                                            )
-                                        },
-                                        confirmButton = {
-                                            TextButton(onClick = onDismiss) {
-                                                Text(stringResource(R.string.dialog_close))
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
+            )
         }
     }
 

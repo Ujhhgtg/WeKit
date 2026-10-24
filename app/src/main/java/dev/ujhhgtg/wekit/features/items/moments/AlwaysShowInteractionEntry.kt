@@ -15,8 +15,7 @@ import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 
 /**
- * 朋友圈信息流顶部的互动消息气泡由 ImproveHeaderUIC.onNotifyChange 驱动:
- * 有未读互动时显示「N 条新消息」, 只有已读互动时显示「朋友的互动消息」,
+ * 朋友圈信息流顶部的互动消息气泡由 ImproveHeaderUIC.onNotifyChange 驱动: 有未读互动时显示「N 条新消息」, 只有已读互动时显示「朋友的互动消息」,
  * 一条互动都没有时直接隐藏。这里把最后一种情况也改成显示。
  */
 object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
@@ -32,68 +31,75 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
     private const val MSG_UI_WITH_ALL = "${PackageNames.WECHAT}.plugin.sns.ui.SnsMsgUIWithAll"
 
     /**
-     * 上一次 onNotifyChange 的结论: 一条互动消息都没有。
-     * onNotifyChange$1 只按游标条数分流, count > 0 走 $1$1, count == 0 走 $1$4,
-     * 因此这两个分支就是完整的信号。
+     * 上一次 onNotifyChange 的结论: 一条互动消息都没有。 onNotifyChange$1 只按游标条数分流, count > 0 走 $1$1, count == 0 走
+     * $1$4, 因此这两个分支就是完整的信号。
      */
-    @Volatile
-    private var noInteractionMessages = false
+    @Volatile private var noInteractionMessages = false
 
     /** ImproveHeaderUIC$onNotifyChange$1$1 — 有互动消息, 显示气泡并写入文案 */
-    private val methodShowNotifyBar by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "invokeSuspend",
-                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$1",
-            )
-        },
-    )
+    private val methodShowNotifyBar by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "invokeSuspend",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$1",
+                )
+            },
+        )
 
     /** ImproveHeaderUIC$onNotifyChange$1$4 — 没有互动消息, 隐藏气泡 */
-    private val methodHideNotifyBar by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "invokeSuspend",
-                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$4",
-            )
-        },
-    )
+    private val methodHideNotifyBar by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "invokeSuspend",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC\$onNotifyChange\$1\$4",
+                )
+            },
+        )
 
-    private val methodGetNotifyLayout by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "access\$getMsgNotifyLayout",
-                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-            )
-        },
-    )
+    private val methodGetNotifyLayout by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "access\$getMsgNotifyLayout",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+                )
+            },
+        )
 
-    private val methodGetNotifyContent by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "access\$getMsgNotifyContent",
-                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-            )
-        },
-    )
+    private val methodGetNotifyContent by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "access\$getMsgNotifyContent",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+                )
+            },
+        )
 
-    private val methodGetNotifyImg by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "access\$getMsgNotifyImg",
-                "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
-            )
-        },
-    )
+    private val methodGetNotifyImg by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "access\$getMsgNotifyImg",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+                )
+            },
+        )
 
     /** ImproveHeaderUIC.gotoNotifyMsgUI() — 点击入口后的跳转 */
-    private val methodGotoNotifyMsgUI by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramCount = 0
-            usingEqStrings("gotoNotifyMsgUI", "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC")
-        },
-    )
+    private val methodGotoNotifyMsgUI by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramCount = 0
+                usingEqStrings(
+                    "gotoNotifyMsgUI",
+                    "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC",
+                )
+            },
+        )
 
     private val headerUicClass: Class<*>
         get() = methodGetNotifyLayout.method.declaringClass
@@ -103,7 +109,8 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
             noInteractionMessages = true
             val headerUic = extractHeaderUic(thisObject ?: return@hookAfter) ?: return@hookAfter
             notifyLayout(headerUic).isVisible = true
-            notifyContent(headerUic).text = localizedMomentsString(R.string.moments_interaction_idle)
+            notifyContent(headerUic).text =
+                localizedMomentsString(R.string.moments_interaction_idle)
             // 一条互动消息都没有, 没有可展示的头像
             notifyImg(headerUic).isVisible = false
         }
@@ -122,12 +129,14 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
             val headerUic = thisObject ?: return@hookBefore
             val activity = notifyLayout(headerUic).context.baseActivity ?: return@hookBefore
 
-            activity.startActivity(Intent {
-                setClassName(PackageNames.WECHAT, MSG_UI_WITH_ALL)
-                putExtra("sns_msg_force_show_all", true)
-                putExtra("sns_msg_comment_list_scene", 1)
-                putExtra("sns_msg_can_update_to_read", false)
-            })
+            activity.startActivity(
+                Intent {
+                    setClassName(PackageNames.WECHAT, MSG_UI_WITH_ALL)
+                    putExtra("sns_msg_force_show_all", true)
+                    putExtra("sns_msg_comment_list_scene", 1)
+                    putExtra("sns_msg_can_update_to_read", false)
+                },
+            )
             // 跳过原方法, 它还会把入口气泡藏起来
             result = null
         }

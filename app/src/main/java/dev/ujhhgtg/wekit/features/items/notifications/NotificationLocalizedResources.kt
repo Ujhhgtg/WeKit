@@ -8,7 +8,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 
 fun localizedNotificationString(@StringRes id: Int, vararg args: Any): String =
     LocalizedContextFactory.create(
-        HostInfo.application,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(id, *args)
+            HostInfo.application,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
+        .getString(id, *args)

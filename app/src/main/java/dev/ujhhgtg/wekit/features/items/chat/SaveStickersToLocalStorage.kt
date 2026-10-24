@@ -15,8 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-object SaveStickersToLocalStorage : SwitchFeature(),
-    WeChatMessageContextMenuApi.IMenuItemsProvider {
+object SaveStickersToLocalStorage :
+    SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "贴纸保存到本地"
     override val nameRes = R.string.feature_save_stickers_to_local_storage_name
@@ -42,47 +42,52 @@ object SaveStickersToLocalStorage : SwitchFeature(),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type?.isSticker ?: false },
-                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
-                    isSupported = { msgs ->
-                        msgs.isNotEmpty() && msgs.all { it.type?.isSticker ?: false }
-                    },
-                    onClick = { view, _, msgs ->
-                        CoroutineScope(Dispatchers.IO).launch {
-                            var succeeded = 0
-                            msgs.forEach { if (saveSticker(it) != null) succeeded++ }
-                            showToastSuspend(
-                                view.context,
-                                view.context.localizedChatQuantity(
-                                    R.plurals.chat_stickers_saved_locally,
-                                    msgs.size,
-                                    succeeded,
-                                    msgs.size,
-                                ),
-                            )
-                        }
-                    },
-                )
+                multiSelect =
+                    WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
+                        isSupported = { msgs ->
+                            msgs.isNotEmpty() && msgs.all { it.type?.isSticker ?: false }
+                        },
+                        onClick = { view, _, msgs ->
+                            CoroutineScope(Dispatchers.IO).launch {
+                                var succeeded = 0
+                                msgs.forEach { if (saveSticker(it) != null) succeeded++ }
+                                showToastSuspend(
+                                    view.context,
+                                    view.context.localizedChatQuantity(
+                                        R.plurals.chat_stickers_saved_locally,
+                                        msgs.size,
+                                        succeeded,
+                                        msgs.size,
+                                    ),
+                                )
+                            }
+                        },
+                    ),
             ) { view, _, msgInfo ->
                 CoroutineScope(Dispatchers.IO).launch {
                     val path = saveSticker(msgInfo)
                     showToastSuspend(
                         view.context,
-                        path?.let { view.context.localizedChatString(R.string.chat_sticker_saved_to, it) }
-                            ?: view.context.localizedChatString(R.string.chat_sticker_save_failed),
+                        path?.let {
+                            view.context.localizedChatString(R.string.chat_sticker_saved_to, it)
+                        } ?: view.context.localizedChatString(R.string.chat_sticker_save_failed),
                     )
                 }
-            }
+            },
         )
     }
 
     private suspend fun saveSticker(msgInfo: MessageInfo): String? {
-        val md5 = msgInfo.imagePath ?: run {
-            WeLogger.e(TAG, "sticker imagePath is null")
-            return null
-        }
-        return WeMessageApi.saveStickerByMd5(md5) ?: run {
-            WeLogger.e(TAG, "failed to save sticker md5=$md5")
-            null
-        }
+        val md5 =
+            msgInfo.imagePath
+                ?: run {
+                    WeLogger.e(TAG, "sticker imagePath is null")
+                    return null
+                }
+        return WeMessageApi.saveStickerByMd5(md5)
+            ?: run {
+                WeLogger.e(TAG, "failed to save sticker md5=$md5")
+                null
+            }
     }
 }

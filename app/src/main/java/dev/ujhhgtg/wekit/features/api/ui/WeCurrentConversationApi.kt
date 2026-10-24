@@ -25,7 +25,8 @@ object WeCurrentConversationApi : ApiFeature() {
         ChatFooter::class.reflekt()
             .firstMethod {
                 name = "setUserName"
-            }.hookAfter {
+            }
+            .hookAfter {
                 chatFooterRef = WeakReference(thisObject as ChatFooter)
                 val conv = args[0] as? String
                 if (!conv.isNullOrEmpty()) {

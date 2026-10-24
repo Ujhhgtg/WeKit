@@ -13,7 +13,10 @@ sealed interface ConversationGroupScrollPosition {
     data class ListPosition(val position: Int, val offset: Int) : ConversationGroupScrollPosition {
         override fun restore(view: View) {
             val list = view as ListView
-            list.setSelectionFromTop(position.coerceAtMost((list.count - 1).coerceAtLeast(0)), offset)
+            list.setSelectionFromTop(
+                position.coerceAtMost((list.count - 1).coerceAtLeast(0)),
+                offset,
+            )
         }
     }
 
@@ -22,30 +25,38 @@ sealed interface ConversationGroupScrollPosition {
             // The host layout manager retains and can mutate the supplied SavedState. Keep our
             // copy reusable when a preview is cancelled or this group is visited again.
             val parcel = Parcel.obtain()
-            val copy = try {
-                parcel.writeParcelable(state, 0)
-                parcel.setDataPosition(0)
-                @Suppress("DEPRECATION")
-                parcel.readParcelable<Parcelable>(state.javaClass.classLoader)!!
-            } finally {
-                parcel.recycle()
-            }
-            layoutManager(view).reflekt().firstMethod {
-                name = "onRestoreInstanceState"
-                parameters(Parcelable::class)
-                superclass()
-            }.invoke(copy)
+            val copy =
+                try {
+                    parcel.writeParcelable(state, 0)
+                    parcel.setDataPosition(0)
+                    @Suppress("DEPRECATION")
+                    parcel.readParcelable<Parcelable>(state.javaClass.classLoader)!!
+                } finally {
+                    parcel.recycle()
+                }
+            layoutManager(view)
+                .reflekt()
+                .firstMethod {
+                    name = "onRestoreInstanceState"
+                    parameters(Parcelable::class)
+                    superclass()
+                }
+                .invoke(copy)
         }
     }
 
     companion object {
         fun stopScrolling(view: View) {
             if (view is ListView) view.smoothScrollBy(0, 0)
-            else view.reflekt().firstMethod {
-                name = "setScrollState"
-                parameters(Int::class)
-                superclass()
-            }.invoke(0)
+            else
+                view
+                    .reflekt()
+                    .firstMethod {
+                        name = "setScrollState"
+                        parameters(Int::class)
+                        superclass()
+                    }
+                    .invoke(0)
         }
 
         fun capture(view: View): ConversationGroupScrollPosition? {
@@ -53,11 +64,15 @@ sealed interface ConversationGroupScrollPosition {
                 val first = view.getChildAt(0) ?: return null
                 return ListPosition(view.firstVisiblePosition, first.top - view.paddingTop)
             }
-            val state = layoutManager(view).reflekt().firstMethod {
-                name = "onSaveInstanceState"
-                parameters()
-                superclass()
-            }.invoke() as Parcelable
+            val state =
+                layoutManager(view)
+                    .reflekt()
+                    .firstMethod {
+                        name = "onSaveInstanceState"
+                        parameters()
+                        superclass()
+                    }
+                    .invoke() as Parcelable
             return RecyclerPosition(state)
         }
 
@@ -65,16 +80,24 @@ sealed interface ConversationGroupScrollPosition {
             // These host entry points hide the recent-mini-program header and use its normal
             // action-bar offset. Scrolling raw adapter position zero would expose that header.
             if (view is ListView) view.setSelection(0)
-            else view.reflekt().firstMethod {
-                name = "setSelectionWithOffset"
-                parameters(Int::class)
-            }.invoke(0)
+            else
+                view
+                    .reflekt()
+                    .firstMethod {
+                        name = "setSelectionWithOffset"
+                        parameters(Int::class)
+                    }
+                    .invoke(0)
         }
 
-        private fun layoutManager(view: View): Any = view.reflekt().firstMethod {
-            name = "getLayoutManager"
-            parameters()
-            superclass()
-        }.invoke()!!
+        private fun layoutManager(view: View): Any =
+            view
+                .reflekt()
+                .firstMethod {
+                    name = "getLayoutManager"
+                    parameters()
+                    superclass()
+                }
+                .invoke()!!
     }
 }

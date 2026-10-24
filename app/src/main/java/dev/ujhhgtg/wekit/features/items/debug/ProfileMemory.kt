@@ -65,6 +65,7 @@ object ProfileMemory : ClickableFeature() {
                 val parts = line.split(":\\s+".toRegex(), limit = 2)
                 if (parts.size == 2) put(parts[0].trim(), parts[1].trim().removeSuffix(" kB"))
             }
-        }.onFailure { WeLogger.e(TAG, "/proc read failed", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "/proc read failed", it) }
     }
 }

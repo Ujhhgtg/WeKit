@@ -6,6 +6,13 @@ import android.webkit.ValueCallback
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.evaluateJavascript
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.loadUrl
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.reload
@@ -17,25 +24,19 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+
 /**
  * 主进程 WebView 追踪服务。
  *
- * 通过 hook [android.webkit.WebView] 与 [com.tencent.xweb.WebView] 的构造方法，维护一个当前进程内所有
- * 存活 WebView 实例的弱引用集合（[WeakHashMap] 支撑，实例被回收后自动移除）。WeAgent 的 `builtin-webview`
- * 工具借此枚举 WebView 并对其调用 [evaluateJavascript]、[loadUrl]、[reload] 等常用能力。
+ * 通过 hook [android.webkit.WebView] 与 [com.tencent.xweb.WebView] 的构造方法，维护一个当前进程内所有 存活 WebView
+ * 实例的弱引用集合（[WeakHashMap] 支撑，实例被回收后自动移除）。WeAgent 的 `builtin-webview` 工具借此枚举 WebView 并对其调用
+ * [evaluateJavascript]、[loadUrl]、[reload] 等常用能力。
  *
- * 说明：WeAgent 运行于微信主进程，因此只能追踪到主进程内构造的 WebView。H5（`:tools`）与小程序
- * （`:appbrand`）运行在独立进程，其 WebView 不在此集合内 —— 这是进程隔离的固有限制。
+ * 说明：WeAgent 运行于微信主进程，因此只能追踪到主进程内构造的 WebView。H5（`:tools`）与小程序 （`:appbrand`）运行在独立进程，其 WebView 不在此集合内
+ * —— 这是进程隔离的固有限制。
  *
- * 两种 WebView 并不共享带这些方法的公共父类（xweb 的是 FrameLayout 包装器），因此所有操作均通过反射按
- * 方法名调用，同时适配二者（与 [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
+ * 两种 WebView 并不共享带这些方法的公共父类（xweb 的是 FrameLayout 包装器），因此所有操作均通过反射按 方法名调用，同时适配二者（与
+ * [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
  */
 object WeWebViewApi : ApiFeature(), IResolveDex {
 
@@ -63,23 +64,27 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     val xwebOnPageFinished by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    usingStrings = listOf(
-                        StringSpec("MicroMsg.AppBrandWebView", NameMatch.Equals),
-                        StringSpec(
-                            "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d",
-                            NameMatch.Equals,
-                        ),
+                declaredClass =
+                    ClassSpec(
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.AppBrandWebView", NameMatch.Equals),
+                                StringSpec(
+                                    "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d",
+                                    NameMatch.Equals,
+                                ),
+                            ),
+                        superClass =
+                            ClassSpec(
+                                className = NameSpec("com.tencent.xweb", NameMatch.StartsWith),
+                            ),
                     ),
-                    superClass = ClassSpec(
-                        className = NameSpec("com.tencent.xweb", NameMatch.StartsWith),
+                paramTypes =
+                    listOf(
+                        TypeSpec("com.tencent.xweb.WebView"),
+                        TypeSpec("java.lang.String"),
+                        TypeSpec("android.graphics.Bitmap"),
                     ),
-                ),
-                paramTypes = listOf(
-                    TypeSpec("com.tencent.xweb.WebView"),
-                    TypeSpec("java.lang.String"),
-                    TypeSpec("android.graphics.Bitmap"),
-                ),
                 returnType = ClassSpec(className = NameSpec("void")),
             ),
             packages = listOf("com.tencent.mm.plugin.appbrand.page"),
@@ -88,9 +93,11 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     val androidOnPageFinished by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    superClass = ClassSpec(className = NameSpec("android.webkit.WebViewClient")),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        superClass =
+                            ClassSpec(className = NameSpec("android.webkit.WebViewClient")),
+                    ),
                 paramCount = 2..2,
                 returnType = ClassSpec(className = NameSpec("void")),
             ),
@@ -140,12 +147,17 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
 
     /**
      * Reflectively invokes a method by name on either WebView type. Both `android.webkit.WebView`
-     * and `com.tencent.xweb.WebView` expose the same method names but share no common supertype that
-     * declares them, so we resolve by name (searching superclasses) rather than a static cast.
+     * and `com.tencent.xweb.WebView` expose the same method names but share no common supertype
+     * that declares them, so we resolve by name (searching superclasses) rather than a static cast.
      */
     private fun call(webView: Any, method: String, paramCount: Int, vararg args: Any?): Any? =
-        webView.reflekt()
-            .firstMethod { name = method; parameterCount = paramCount; superclass() }
+        webView
+            .reflekt()
+            .firstMethod {
+                name = method
+                parameterCount = paramCount
+                superclass()
+            }
             .invoke(*args)
 
     // -------------------------------------------------------------------------------------------
@@ -161,35 +173,52 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
         val resultLatch = CountDownLatch(1)
         var jsResult: String? = null
         onMain(timeoutMs) {
-            val cb = ValueCallback<String> { value -> jsResult = value; resultLatch.countDown() }
+            val cb =
+                ValueCallback<String> { value ->
+                    jsResult = value
+                    resultLatch.countDown()
+                }
             call(webView, "evaluateJavascript", 2, script, cb)
         }
         // The eval callback fires asynchronously after we post; wait for it (bounded).
         if (!resultLatch.await(timeoutMs, TimeUnit.MILLISECONDS))
-            throw RuntimeException("evaluateJavascript timed out after ${timeoutMs}ms (no result callback)")
+            throw RuntimeException(
+                "evaluateJavascript timed out after ${timeoutMs}ms (no result callback)",
+            )
         return jsResult
     }
 
     fun loadUrl(webView: Any, url: String, timeoutMs: Long = 5_000L) =
-        onMain(timeoutMs) { call(webView, "loadUrl", 1, url); Unit }
+        onMain(timeoutMs) {
+            call(webView, "loadUrl", 1, url)
+            Unit
+        }
 
     fun reload(webView: Any, timeoutMs: Long = 5_000L) =
-        onMain(timeoutMs) { call(webView, "reload", 0); Unit }
+        onMain(timeoutMs) {
+            call(webView, "reload", 0)
+            Unit
+        }
 
     fun stopLoading(webView: Any, timeoutMs: Long = 5_000L) =
-        onMain(timeoutMs) { call(webView, "stopLoading", 0); Unit }
+        onMain(timeoutMs) {
+            call(webView, "stopLoading", 0)
+            Unit
+        }
 
-    fun goBack(webView: Any, timeoutMs: Long = 5_000L): Boolean = onMain(timeoutMs) {
-        val can = call(webView, "canGoBack", 0) as? Boolean ?: false
-        if (can) call(webView, "goBack", 0)
-        can
-    }
+    fun goBack(webView: Any, timeoutMs: Long = 5_000L): Boolean =
+        onMain(timeoutMs) {
+            val can = call(webView, "canGoBack", 0) as? Boolean ?: false
+            if (can) call(webView, "goBack", 0)
+            can
+        }
 
-    fun goForward(webView: Any, timeoutMs: Long = 5_000L): Boolean = onMain(timeoutMs) {
-        val can = call(webView, "canGoForward", 0) as? Boolean ?: false
-        if (can) call(webView, "goForward", 0)
-        can
-    }
+    fun goForward(webView: Any, timeoutMs: Long = 5_000L): Boolean =
+        onMain(timeoutMs) {
+            val can = call(webView, "canGoForward", 0) as? Boolean ?: false
+            if (can) call(webView, "goForward", 0)
+            can
+        }
 
     fun getUrl(webView: Any, timeoutMs: Long = 5_000L): String? =
         onMain(timeoutMs) { call(webView, "getUrl", 0) as? String }

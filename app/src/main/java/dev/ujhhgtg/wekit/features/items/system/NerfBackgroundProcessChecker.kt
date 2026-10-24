@@ -14,11 +14,15 @@ object NerfBackgroundProcessChecker : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_nerf_background_process_checker_description
 
-    private val methodPerformProcessCheck by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.AbstractProcessChecker", "pass this check,because request is null! ????")
-        },
-    )
+    private val methodPerformProcessCheck by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.AbstractProcessChecker",
+                    "pass this check,because request is null! ????",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodPerformProcessCheck.hookBefore {

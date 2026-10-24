@@ -91,10 +91,11 @@ class ConversationGroupSwipeState(private val touchSlopPx: Float) {
 
                 absDx > touchSlopPx && absDx >= absDy * HORIZONTAL_DOMINANCE -> {
                     val direction = if (dx > 0f) Direction.PREVIOUS else Direction.NEXT
-                    val hasNeighbor = when (direction) {
-                        Direction.PREVIOUS -> canGoPrevious
-                        Direction.NEXT -> canGoNext
-                    }
+                    val hasNeighbor =
+                        when (direction) {
+                            Direction.PREVIOUS -> canGoPrevious
+                            Direction.NEXT -> canGoNext
+                        }
                     if (!hasNeighbor) {
                         owner = Owner.OUTER
                         return null
@@ -126,29 +127,34 @@ class ConversationGroupSwipeState(private val touchSlopPx: Float) {
 
     fun onUp(timeMs: Long): Settlement? {
         val direction = candidateDirection
-        val settlement = if (owner == Owner.GROUP && direction != null) {
-            // A finger held still before release must not retain the velocity of an old flick.
-            val velocity = if (timeMs - lastMotionTimeMs <= VELOCITY_TIMEOUT_MS) {
-                velocityPxPerMs * direction.dragSign
+        val settlement =
+            if (owner == Owner.GROUP && direction != null) {
+                // A finger held still before release must not retain the velocity of an old flick.
+                val velocity =
+                    if (timeMs - lastMotionTimeMs <= VELOCITY_TIMEOUT_MS) {
+                        velocityPxPerMs * direction.dragSign
+                    } else {
+                        0f
+                    }
+                val projectedProgress = progress + velocity * VELOCITY_PROJECTION_MS / widthPx
+                Settlement(
+                    direction = direction,
+                    commit =
+                        progress > 0f &&
+                            (progress >= COMMIT_PROGRESS || projectedProgress >= COMMIT_PROGRESS),
+                )
             } else {
-                0f
+                null
             }
-            val projectedProgress = progress + velocity * VELOCITY_PROJECTION_MS / widthPx
-            Settlement(
-                direction = direction,
-                commit = progress > 0f &&
-                    (progress >= COMMIT_PROGRESS || projectedProgress >= COMMIT_PROGRESS),
-            )
-        } else {
-            null
-        }
         reset()
         return settlement
     }
 
     fun onCancel(): Settlement? {
-        val settlement = candidateDirection?.takeIf { owner == Owner.GROUP }
-            ?.let { Settlement(it, commit = false) }
+        val settlement =
+            candidateDirection
+                ?.takeIf { owner == Owner.GROUP }
+                ?.let { Settlement(it, commit = false) }
         reset()
         return settlement
     }

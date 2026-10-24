@@ -20,10 +20,11 @@ object WeUnsafeApi : ApiFeature() {
         val unsafeClass = Class.forName("sun.misc.Unsafe")
         val theUnsafeField = unsafeClass.getDeclaredField("theUnsafe")
         theUnsafe = theUnsafeField.makeAccessible().get(null)!!
-        mAllocateInstance = unsafeClass.getMethod(
-            "allocateInstance",
-            Class::class.java
-        )
+        mAllocateInstance =
+            unsafeClass.getMethod(
+                "allocateInstance",
+                Class::class.java,
+            )
     }
 
     fun allocateInstance(clazz: Class<*>): Any? = mAllocateInstance.invoke(theUnsafe, clazz)

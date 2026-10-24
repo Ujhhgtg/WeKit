@@ -39,6 +39,12 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -51,12 +57,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.math.exp
-import kotlin.math.ln
-import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.minutes
 
 object AutoRefresh : ClickableFeature(), IResolveDex {
 
@@ -71,7 +71,8 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private const val MAX_INTERVAL_MINUTES = 120
     private const val REFRESH_TIMEOUT_MS = 60_000L
 
-    private var intervalMinutes by KvStore.prefOption("moments_auto_refresh_interval_minutes", DEFAULT_INTERVAL_MINUTES)
+    private var intervalMinutes by
+        KvStore.prefOption("moments_auto_refresh_interval_minutes", DEFAULT_INTERVAL_MINUTES)
 
     fun interface IRefreshListener {
         /** The automatic timeline request has finished processing a valid response. */
@@ -92,11 +93,9 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private class RefreshRequest(val account: String) {
-        @Volatile
-        var scene: Any? = null
+        @Volatile var scene: Any? = null
 
-        @Volatile
-        var handledValidResponse = false
+        @Volatile var handledValidResponse = false
 
         val completion = CompletableDeferred<Boolean>()
     }
@@ -104,44 +103,52 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private val pendingRefresh = AtomicReference<RefreshRequest?>()
     private val submittingRefresh = ThreadLocal<RefreshRequest>()
 
-    private val methodGetSnsCore by dexMethod(
-        sqlMethod {
-            usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
-        },
-    )
+    private val methodGetSnsCore by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("getCore", "com.tencent.mm.plugin.sns.model.SnsCore")
+            },
+        )
 
-    private val methodDoFpList by dexMethod(
-        sqlMethod {
-            usingEqStrings("doFpList", "com.tencent.mm.plugin.sns.model.SnsLogic\$SnsServer")
-        },
-    )
+    private val methodDoFpList by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("doFpList", "com.tencent.mm.plugin.sns.model.SnsLogic\$SnsServer")
+            },
+        )
 
-    private val ctorTimelineRequest by dexConstructor(
-        sqlConstructor {
-            paramTypes("long", "long", "int")
-            declaredClass {
-                usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
-            }
-        },
-    )
+    private val ctorTimelineRequest by
+        dexConstructor(
+            sqlConstructor {
+                paramTypes("long", "long", "int")
+                declaredClass {
+                    usingEqStrings("/cgi-bin/micromsg-bin/mmsnstimeline")
+                }
+            },
+        )
 
-    private val methodHandleNormalResponse by dexMethod(
-        sqlMethod {
-            declaredClass(ctorTimelineRequest.data.declaredClassName)
-            returnType = "void"
-            paramTypes("int", "int", "java.lang.String", null)
-            usingEqStrings("handleNormalResp", "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine")
-        },
-    )
+    private val methodHandleNormalResponse by
+        dexMethod(
+            sqlMethod {
+                declaredClass(ctorTimelineRequest.data.declaredClassName)
+                returnType = "void"
+                paramTypes("int", "int", "java.lang.String", null)
+                usingEqStrings(
+                    "handleNormalResp",
+                    "com.tencent.mm.plugin.sns.model.NetSceneSnsTimeLine",
+                )
+            },
+        )
 
-    private val methodTimelineResponseEnd by dexMethod(
-        sqlMethod {
-            declaredClass(ctorTimelineRequest.data.declaredClassName)
-            name = "onGYNetEnd"
-            returnType = "void"
-            paramCount = 6
-        },
-    )
+    private val methodTimelineResponseEnd by
+        dexMethod(
+            sqlMethod {
+                declaredClass(ctorTimelineRequest.data.declaredClassName)
+                name = "onGYNetEnd"
+                returnType = "void"
+                paramCount = 6
+            },
+        )
 
     override fun onEnable() {
         // The type=1 doFpList branch constructs its scene synchronously before enqueueing it.
@@ -157,7 +164,8 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
             val errType = args[0] as Int
             val errCode = args[1] as Int
             // The host also handles the timeline's 207 response as a valid result.
-            request.handledValidResponse = errType == 0 && errCode == 0 || errType == 4 && errCode == 207
+            request.handledValidResponse =
+                errType == 0 && errCode == 0 || errType == 4 && errCode == 207
         }
         methodTimelineResponseEnd.hookAfter {
             val request = pendingRefresh.get() ?: return@hookAfter
@@ -193,9 +201,13 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
         try {
             WeLogger.d(TAG, "refreshing moments")
             val snsCore = methodGetSnsCore.method.invoke(null)!!
-            val server = snsCore.reflekt().firstField {
-                type = methodDoFpList.method.declaringClass
-            }.get()!!
+            val server =
+                snsCore
+                    .reflekt()
+                    .firstField {
+                        type = methodDoFpList.method.declaringClass
+                    }
+                    .get()!!
             submittingRefresh.set(request)
             try {
                 methodDoFpList.method.invoke(server, 1, "@__weixintimtline", false, false, 0)
@@ -216,7 +228,11 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
                         try {
                             listener.onRefresh()
                         } catch (e: Exception) {
-                            WeLogger.w(TAG, "refresh listener failed: ${listener.javaClass.name}", e)
+                            WeLogger.w(
+                                TAG,
+                                "refresh listener failed: ${listener.javaClass.name}",
+                                e,
+                            )
                         }
                     }
                 }
@@ -236,10 +252,12 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val initialInterval = remember {
-                intervalMinutes.coerceIn(
-                    MIN_INTERVAL_MINUTES.toLong(),
-                    MAX_INTERVAL_MINUTES.toLong(),
-                ).toInt()
+                intervalMinutes
+                    .coerceIn(
+                        MIN_INTERVAL_MINUTES.toLong(),
+                        MAX_INTERVAL_MINUTES.toLong(),
+                    )
+                    .toInt()
             }
             var sliderPosition by remember {
                 mutableFloatStateOf(minutesToSliderPosition(initialInterval))
@@ -254,7 +272,8 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
                 text = {
                     BaseSupportingWidget(
                         title = stringResource(R.string.moments_auto_refresh_interval),
-                        description = stringResource(R.string.moments_auto_refresh_interval_summary),
+                        description =
+                            stringResource(R.string.moments_auto_refresh_interval_summary),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -278,29 +297,38 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        intervalMinutes = intervalInput.toLong()
-                        if (isEnabled) startRefreshingJob()
-                        showToast(localizedContext.getString(R.string.settings_saved))
-                        onDismiss()
-                    }) { Text(stringResource(R.string.action_save)) }
+                    TextButton(
+                        onClick = {
+                            intervalMinutes = intervalInput.toLong()
+                            if (isEnabled) startRefreshingJob()
+                            showToast(localizedContext.getString(R.string.settings_saved))
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
             )
         }
     }
 
-    private fun minutesToSliderPosition(minutes: Int): Float = when (minutes) {
-        MIN_INTERVAL_MINUTES -> 0f
-        MAX_INTERVAL_MINUTES -> 1f
-        else -> (ln(minutes.toDouble()) / ln(MAX_INTERVAL_MINUTES.toDouble())).toFloat()
-    }
+    private fun minutesToSliderPosition(minutes: Int): Float =
+        when (minutes) {
+            MIN_INTERVAL_MINUTES -> 0f
+            MAX_INTERVAL_MINUTES -> 1f
+            else -> (ln(minutes.toDouble()) / ln(MAX_INTERVAL_MINUTES.toDouble())).toFloat()
+        }
 
-    private fun sliderPositionToMinutes(position: Float): Int = when {
-        position <= 0f -> MIN_INTERVAL_MINUTES
-        position >= 1f -> MAX_INTERVAL_MINUTES
-        else -> exp(position * ln(MAX_INTERVAL_MINUTES.toDouble()))
-            .roundToInt()
-            .coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
-    }
+    private fun sliderPositionToMinutes(position: Float): Int =
+        when {
+            position <= 0f -> MIN_INTERVAL_MINUTES
+            position >= 1f -> MAX_INTERVAL_MINUTES
+            else ->
+                exp(position * ln(MAX_INTERVAL_MINUTES.toDouble()))
+                    .roundToInt()
+                    .coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
+        }
 }

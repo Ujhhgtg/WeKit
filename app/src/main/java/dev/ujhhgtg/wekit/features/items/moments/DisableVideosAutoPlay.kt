@@ -14,17 +14,22 @@ object DisableVideosAutoPlay : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
     override val descriptionRes = R.string.feature_disable_videos_auto_play_description
 
-    private val methodCheckAutoPlay by dexMethod(
-        sqlMethod {
-            usingEqStrings("checkAutoPlay", "com.tencent.mm.plugin.sns.util.SnsAutoPlayUtil")
-        },
-    )
+    private val methodCheckAutoPlay by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("checkAutoPlay", "com.tencent.mm.plugin.sns.util.SnsAutoPlayUtil")
+            },
+        )
 
-    private val methodImproveAutoPlayInvoke by dexMethod(
-        sqlMethod {
-            usingEqStrings("invoke", "com.tencent.mm.plugin.sns.ui.improve.util.ImproveAutoPlayManager\$autoPlay\$2")
-        },
-    )
+    private val methodImproveAutoPlayInvoke by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "invoke",
+                    "com.tencent.mm.plugin.sns.ui.improve.util.ImproveAutoPlayManager\$autoPlay\$2",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodCheckAutoPlay.hookBefore {

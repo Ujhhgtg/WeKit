@@ -22,7 +22,8 @@ object ReadReceiptsConfigurationCodec {
             put("version", SCHEMA_VERSION)
             put("thirdPartyUrl", value.thirdPartyUrl)
             put("pollIntervalSecs", value.pollIntervalSecs)
-        }.toString()
+        }
+            .toString()
     }
 
     fun decode(value: String): ReadReceiptsConfiguration? = runCatching {
@@ -30,20 +31,24 @@ object ReadReceiptsConfigurationCodec {
         require(objectValue["version"]?.strictIntOrNull() == SCHEMA_VERSION)
         validate(
             ReadReceiptsConfiguration(
-                thirdPartyUrl = objectValue["thirdPartyUrl"]?.stringOrNull()
-                    ?: error("missing third-party URL"),
-                pollIntervalSecs = objectValue["pollIntervalSecs"]?.strictIntOrNull()
-                    ?: error("missing poll interval"),
+                thirdPartyUrl =
+                    objectValue["thirdPartyUrl"]?.stringOrNull()
+                        ?: error("missing third-party URL"),
+                pollIntervalSecs =
+                    objectValue["pollIntervalSecs"]?.strictIntOrNull()
+                        ?: error("missing poll interval"),
             ),
         )
-    }.getOrNull()
+    }
+        .getOrNull()
 
     private fun validate(value: ReadReceiptsConfiguration): ReadReceiptsConfiguration {
         require(value.pollIntervalSecs > 0)
         if (value.thirdPartyUrl.isEmpty()) return value
-        val endpoint = requireNotNull(normalizeThirdPartyReadReceiptEndpoint(value.thirdPartyUrl)) {
-            "invalid third-party server URL"
-        }
+        val endpoint =
+            requireNotNull(normalizeThirdPartyReadReceiptEndpoint(value.thirdPartyUrl)) {
+                "invalid third-party server URL"
+            }
         return value.copy(thirdPartyUrl = endpoint)
     }
 

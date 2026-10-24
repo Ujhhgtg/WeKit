@@ -12,13 +12,12 @@ interface ISendPatProto
 /** Request body for `/cgi-bin/micromsg-bin/sendpat` (CGI 849). */
 @Serializable
 data class SendPatReqProto(
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(1) val baseRequest: ByteArray? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(1) val baseRequest: ByteArray? = null,
     @ProtoNumber(2) val fromUser: String = "",
     @ProtoNumber(3) val chatUserName: String = "",
     @ProtoNumber(4) val pattedUser: String = "",
     @ProtoNumber(5) val msgPointer: String = "",
-    @ProtoNumber(6) val scene: Int = 0
+    @ProtoNumber(6) val scene: Int = 0,
 ) : ISendPatProto {
 
     override fun equals(other: Any?): Boolean {

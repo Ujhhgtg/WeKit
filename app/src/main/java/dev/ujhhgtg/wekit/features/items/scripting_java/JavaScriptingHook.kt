@@ -20,16 +20,16 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
-import dev.ujhhgtg.wekit.features.automation.NewFriendEvents
-import dev.ujhhgtg.wekit.features.automation.NewFriendRequest
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
-import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
+import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
+import dev.ujhhgtg.wekit.features.automation.NewFriendEvents
+import dev.ujhhgtg.wekit.features.automation.NewFriendRequest
+import dev.ujhhgtg.wekit.features.core.ClickableFeature
+import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -39,14 +39,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
-import me.hd.wauxv.data.bean.MsgInfoBean
-import me.hd.wauxv.data.bean.PayMsgBean
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.deleteIfExists
@@ -57,6 +49,14 @@ import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import me.hd.wauxv.data.bean.MsgInfoBean
+import me.hd.wauxv.data.bean.PayMsgBean
 
 object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
 
@@ -81,17 +81,19 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         val enabled: Boolean,
     )
 
-    private val methodPayMsg by dexMethod(
-        sqlMethod {
-            usingEqStrings("[onRecv PayerMsg]，newMsg.msgType：%s")
-        },
-    )
+    private val methodPayMsg by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("[onRecv PayerMsg]，newMsg.msgType：%s")
+            },
+        )
 
     override fun onEnable() {
-        val generation = synchronized(lifecycleLock) {
-            lifecycleGeneration += 1
-            lifecycleGeneration
-        }
+        val generation =
+            synchronized(lifecycleLock) {
+                lifecycleGeneration += 1
+                lifecycleGeneration
+            }
         WeDatabaseListenerApi.addListener(this)
         NewFriendEvents.subscribe(onNewFriend)
 
@@ -102,9 +104,14 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         }
 
         WeChatInputBarMenuApi.methodSendMessage.hookBefore {
-            val chatFooter = thisObject!!.reflekt().firstField {
-                type = ChatFooter::class
-            }.get()!! as ChatFooter
+            val chatFooter =
+                thisObject!!
+                    .reflekt()
+                    .firstField {
+                        type = ChatFooter::class
+                    }
+                    .get()!!
+                    as ChatFooter
             val text = chatFooter.lastText
             JavaEngine.executeAllOnClickSendBtn(scripts, this, text)
         }
@@ -115,47 +122,49 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
             JavaEngine.executeAllOnRecvPayMsg(scripts, payMsgBean)
         }
 
-        loadJob = CoroutineScope(Dispatchers.IO).launch {
-            WeLogger.d(TAG, "loading java scripts...")
-            val loadedScripts = ConcurrentHashMap<String, JavaPlugin>()
-            for (scriptDir in SCRIPTS_DIR.listDirectoryEntries().filter { it.isDirectory() }) {
+        loadJob =
+            CoroutineScope(Dispatchers.IO).launch {
+                WeLogger.d(TAG, "loading java scripts...")
+                val loadedScripts = ConcurrentHashMap<String, JavaPlugin>()
+                for (scriptDir in SCRIPTS_DIR.listDirectoryEntries().filter { it.isDirectory() }) {
+                    currentCoroutineContext().ensureActive()
+                    val dirName = scriptDir.name
+                    if (!isScriptEnabled(scriptDir)) {
+                        WeLogger.d(TAG, "skipping '$dirName': disabled")
+                        continue
+                    }
+
+                    val mainFile = scriptDir / "main.java"
+                    val infoFile = scriptDir / "info.prop"
+                    if (!mainFile.exists() || !infoFile.exists()) {
+                        WeLogger.w(TAG, "skipping '$dirName': missing main.java or info.prop")
+                        continue
+                    }
+
+                    val content = runCatching { mainFile.readText() }.getOrElse { continue }
+                    val infoPropContent = runCatching { infoFile.readText() }.getOrElse { continue }
+                    val info = JavaPlugin.parseInfoProp(infoPropContent)
+                    WeLogger.d(TAG, "loaded script, name='${info.name}', length=${content.length}")
+
+                    val plugin =
+                        JavaPlugin(
+                            name = dirName,
+                            dir = scriptDir,
+                            info = info,
+                            content = content,
+                            interpreter = Interpreter(null, ""),
+                        )
+                    loadedScripts[dirName] = plugin
+                }
+
                 currentCoroutineContext().ensureActive()
-                val dirName = scriptDir.name
-                if (!isScriptEnabled(scriptDir)) {
-                    WeLogger.d(TAG, "skipping '$dirName': disabled")
-                    continue
+                synchronized(lifecycleLock) {
+                    check(lifecycleGeneration == generation)
+                    scripts.clear()
+                    scripts.putAll(loadedScripts)
+                    JavaEngine.executeAllOnLoad(scripts)
                 }
-
-                val mainFile = scriptDir / "main.java"
-                val infoFile = scriptDir / "info.prop"
-                if (!mainFile.exists() || !infoFile.exists()) {
-                    WeLogger.w(TAG, "skipping '$dirName': missing main.java or info.prop")
-                    continue
-                }
-
-                val content = runCatching { mainFile.readText() }.getOrElse { continue }
-                val infoPropContent = runCatching { infoFile.readText() }.getOrElse { continue }
-                val info = JavaPlugin.parseInfoProp(infoPropContent)
-                WeLogger.d(TAG, "loaded script, name='${info.name}', length=${content.length}")
-
-                val plugin = JavaPlugin(
-                    name = dirName,
-                    dir = scriptDir,
-                    info = info,
-                    content = content,
-                    interpreter = Interpreter(null, "")
-                )
-                loadedScripts[dirName] = plugin
             }
-
-            currentCoroutineContext().ensureActive()
-            synchronized(lifecycleLock) {
-                check(lifecycleGeneration == generation)
-                scripts.clear()
-                scripts.putAll(loadedScripts)
-                JavaEngine.executeAllOnLoad(scripts)
-            }
-        }
 
         if (!ScriptDepsPack.isInstalled()) {
             getTopMostActivity(allowPaused = true)?.let { activity ->
@@ -174,34 +183,40 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                         Text(stringResource(R.string.java_scripts_empty))
                     } else {
                         LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 480.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
                         ) {
                             lazySegmentedItems(entries, key = { it.dir.name }) { entry ->
                                 var enabled by remember(entry.dir) { mutableStateOf(entry.enabled) }
-                                val statusText = stringResource(
-                                    if (enabled) R.string.java_script_status_enabled
-                                    else R.string.java_script_status_disabled
-                                )
+                                val statusText =
+                                    stringResource(
+                                        if (enabled) R.string.java_script_status_enabled
+                                        else R.string.java_script_status_disabled,
+                                    )
                                 val versionText =
-                                    entry.info.version?.let { stringResource(R.string.java_script_version, it) }
+                                    entry.info.version?.let {
+                                        stringResource(R.string.java_script_version, it)
+                                    }
                                 val authorText =
-                                    entry.info.author?.let { stringResource(R.string.java_script_author, it) }
+                                    entry.info.author?.let {
+                                        stringResource(R.string.java_script_author, it)
+                                    }
 
                                 SwitchWidget(
                                     iconPlaceholder = false,
-                                    title = if (entry.info.name == "unnamed") {
-                                        stringResource(R.string.java_script_unnamed)
-                                    } else {
-                                        entry.info.name
-                                    },
-                                    description = buildList {
-                                        add(entry.dir.name)
-                                        add(statusText)
-                                        versionText?.let { add(it) }
-                                        authorText?.let { add(it) }
-                                    }.joinToString(" · "),
+                                    title =
+                                        if (entry.info.name == "unnamed") {
+                                            stringResource(R.string.java_script_unnamed)
+                                        } else {
+                                            entry.info.name
+                                        },
+                                    description =
+                                        buildList {
+                                                add(entry.dir.name)
+                                                add(statusText)
+                                                versionText?.let { add(it) }
+                                                authorText?.let { add(it) }
+                                            }
+                                            .joinToString(" · "),
                                     checked = enabled,
                                     onCheckedChange = { newState ->
                                         if (setScriptEnabled(entry.dir, newState)) {
@@ -229,9 +244,11 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                 val infoFile = scriptDir / "info.prop"
                 if (!mainFile.exists() || !infoFile.exists()) return@mapNotNull null
 
-                val info = runCatching {
-                    JavaPlugin.parseInfoProp(infoFile.readText())
-                }.getOrNull() ?: return@mapNotNull null
+                val info =
+                    runCatching {
+                        JavaPlugin.parseInfoProp(infoFile.readText())
+                    }
+                        .getOrNull() ?: return@mapNotNull null
                 ScriptEntry(
                     dir = scriptDir,
                     info = info,
@@ -239,8 +256,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                 )
             }
 
-    private fun isScriptEnabled(scriptDir: Path): Boolean =
-        !(scriptDir / DISABLED_FLAG).exists()
+    private fun isScriptEnabled(scriptDir: Path): Boolean = !(scriptDir / DISABLED_FLAG).exists()
 
     private fun setScriptEnabled(scriptDir: Path, enabled: Boolean): Boolean = runCatching {
         val disabledFlag = scriptDir / DISABLED_FLAG
@@ -250,9 +266,15 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
             disabledFlag.writeText("")
         }
         true
-    }.onFailure {
-        WeLogger.w(TAG, "failed to ${if (enabled) "enable" else "disable"} script '${scriptDir.name}'", it)
-    }.getOrDefault(false)
+    }
+        .onFailure {
+            WeLogger.w(
+                TAG,
+                "failed to ${if (enabled) "enable" else "disable"} script '${scriptDir.name}'",
+                it,
+            )
+        }
+        .getOrDefault(false)
 
     override fun onDisable() {
         synchronized(lifecycleLock) {
@@ -270,7 +292,12 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
     }
 
     private val onNewFriend: (NewFriendRequest) -> Unit = { request ->
-        JavaEngine.executeAllOnNewFriend(scripts, request.verifyUsername, request.ticket, request.scene)
+        JavaEngine.executeAllOnNewFriend(
+            scripts,
+            request.verifyUsername,
+            request.ticket,
+            request.scene,
+        )
     }
 
     override fun onUpdate(
@@ -278,7 +305,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         values: ContentValues,
         whereClause: String?,
         whereArgs: Array<String>?,
-        conflictAlgorithm: Int
+        conflictAlgorithm: Int,
     ) {
         if (table != "chatroom") return
         val chatroomName = values.getAsString("chatroomname") ?: return
@@ -286,10 +313,11 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
         val memberlist = values.getAsString("memberlist") ?: return
         if (memberlist.isBlank()) return
 
-        val cursor = WeDatabaseApi.rawQuery(
-            "SELECT memberlist, memberCount FROM chatroom WHERE chatroomname = ?",
-            arrayOf(chatroomName)
-        )
+        val cursor =
+            WeDatabaseApi.rawQuery(
+                "SELECT memberlist, memberCount FROM chatroom WHERE chatroomname = ?",
+                arrayOf(chatroomName),
+            )
         if (cursor.moveToFirst()) {
             val oldMemberCount = cursor.getInt(cursor.getColumnIndexOrThrow("memberCount"))
             val oldMemberListStr = cursor.getString(cursor.getColumnIndexOrThrow("memberlist"))
@@ -304,13 +332,25 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
                 val joined = newMembers - oldMembers
                 joined.forEach { userWxid ->
                     val nickname = WeDatabaseApi.getDisplayName(userWxid)
-                    JavaEngine.executeAllOnMemberChange(scripts, "join", chatroomName, userWxid, nickname)
+                    JavaEngine.executeAllOnMemberChange(
+                        scripts,
+                        "join",
+                        chatroomName,
+                        userWxid,
+                        nickname,
+                    )
                 }
             } else if (memberCount < oldMemberCount) {
                 val left = oldMembers - newMembers
                 left.forEach { userWxid ->
                     val nickname = WeDatabaseApi.getDisplayName(userWxid)
-                    JavaEngine.executeAllOnMemberChange(scripts, "left", chatroomName, userWxid, nickname)
+                    JavaEngine.executeAllOnMemberChange(
+                        scripts,
+                        "left",
+                        chatroomName,
+                        userWxid,
+                        nickname,
+                    )
                 }
             }
         }

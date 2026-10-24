@@ -26,12 +26,12 @@ import androidx.core.graphics.drawable.toDrawable
 import dev.ujhhgtg.reflekt.reflected.ReflectedField
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.features.items.chat.SwipeConversationOperations
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -55,7 +55,8 @@ object BeautifyConversationList : ClickableFeature() {
     private const val PLACED_TOP_BIT = 0x4000000000000000L
 
     private var layoutEnabled by prefOption("beautify_conversation_list_layout_enabled", true)
-    private var highlightUnreadEnabled by prefOption("beautify_conversation_list_highlight_unread", false)
+    private var highlightUnreadEnabled by
+        prefOption("beautify_conversation_list_highlight_unread", false)
     private var hideDividersEnabled by prefOption("beautify_conversation_list_hide_dividers", true)
 
     val isLayoutBeautificationEnabled: Boolean
@@ -91,6 +92,7 @@ object BeautifyConversationList : ClickableFeature() {
 
     private sealed interface UnreadAccessor {
         data class Field(val get: (Any) -> Any?) : UnreadAccessor
+
         data object Missing : UnreadAccessor
     }
 
@@ -98,41 +100,51 @@ object BeautifyConversationList : ClickableFeature() {
     private val unreadFailuresLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val pinFlagFields = ConcurrentHashMap<Class<*>, ReflectedField<Any>>()
 
-    private val bindListener = WeConversationListViewApi.IBindViewListener { _, row, conversation, context ->
-        bindRow(row, conversation, context)
-    }
+    private val bindListener =
+        WeConversationListViewApi.IBindViewListener { _, row, conversation, context ->
+            bindRow(row, conversation, context)
+        }
 
     override fun onEnable() {
-        LinearLayout::class.reflekt().firstMethod {
-            name = "onMeasure"
-            parameters(Int::class, Int::class)
-        }.hookBefore {
-            val state = rows[thisObject as View] ?: return@hookBefore
-            val gap = state.gapTop
-            if (gap == 0) return@hookBefore
-            val heightSpec = args[1] as Int
-            val height = View.MeasureSpec.getSize(heightSpec)
-            if (height > 0 && View.MeasureSpec.getMode(heightSpec) == View.MeasureSpec.EXACTLY) {
-                // ConversationFolderItemView replaces its incoming height with the holder's
-                // fixed height before calling this superclass. Add the gap here so the native
-                // children still receive their full height after subtracting our extra padding.
-                args[1] = View.MeasureSpec.makeMeasureSpec(
-                    height + gap, View.MeasureSpec.EXACTLY,
-                )
+        LinearLayout::class.reflekt()
+            .firstMethod {
+                name = "onMeasure"
+                parameters(Int::class, Int::class)
             }
-        }
+            .hookBefore {
+                val state = rows[thisObject as View] ?: return@hookBefore
+                val gap = state.gapTop
+                if (gap == 0) return@hookBefore
+                val heightSpec = args[1] as Int
+                val height = View.MeasureSpec.getSize(heightSpec)
+                if (
+                    height > 0 && View.MeasureSpec.getMode(heightSpec) == View.MeasureSpec.EXACTLY
+                ) {
+                    // ConversationFolderItemView replaces its incoming height with the holder's
+                    // fixed height before calling this superclass. Add the gap here so the native
+                    // children still receive their full height after subtracting our extra padding.
+                    args[1] =
+                        View.MeasureSpec.makeMeasureSpec(
+                            height + gap,
+                            View.MeasureSpec.EXACTLY,
+                        )
+                }
+            }
         // WeChat also replaces row backgrounds after its click animation, outside adapter binding.
-        // Keep our surface installed while remembering the host's latest background for restoration.
-        View::class.reflekt().firstMethod {
-            name = "setBackgroundDrawable"
-            parameters(Drawable::class)
-        }.hookBefore {
-            val state = backgrounds[thisObject as View] ?: return@hookBefore
-            if (args[0] !== state.applied) {
-                state.original = args[0] as Drawable?
-                args[0] = state.applied
+        // Keep our surface installed while remembering the host's latest background for
+        // restoration.
+        View::class.reflekt()
+            .firstMethod {
+                name = "setBackgroundDrawable"
+                parameters(Drawable::class)
             }
-        }
+            .hookBefore {
+                val state = backgrounds[thisObject as View] ?: return@hookBefore
+                if (args[0] !== state.applied) {
+                    state.original = args[0] as Drawable?
+                    args[0] = state.applied
+                }
+            }
         WeConversationListViewApi.addListener(bindListener)
         refreshAppearance()
     }
@@ -163,19 +175,22 @@ object BeautifyConversationList : ClickableFeature() {
                         item {
                             SwitchWidget(
                                 title = stringResource(R.string.beautify_conversation_layout),
-                                description = stringResource(R.string.beautify_conversation_layout_summary),
+                                description =
+                                    stringResource(R.string.beautify_conversation_layout_summary),
                                 checked = layout,
                                 onCheckedChange = {
                                     layout = it
                                     layoutEnabled = it
                                     refreshAppearance()
-                                    if (it && isEnabled) ConversationGrouping.showFloatingTabsRecommendation(context)
+                                    if (it && isEnabled)
+                                        ConversationGrouping.showFloatingTabsRecommendation(context)
                                 },
                             )
                         }
                         item {
                             SwitchWidget(
-                                title = stringResource(R.string.beautify_conversation_highlight_unread),
+                                title =
+                                    stringResource(R.string.beautify_conversation_highlight_unread),
                                 checked = highlightUnread,
                                 onCheckedChange = {
                                     highlightUnread = it
@@ -186,7 +201,8 @@ object BeautifyConversationList : ClickableFeature() {
                         }
                         item {
                             SwitchWidget(
-                                title = stringResource(R.string.beautify_conversation_hide_dividers),
+                                title =
+                                    stringResource(R.string.beautify_conversation_hide_dividers),
                                 checked = hideDividers,
                                 onCheckedChange = {
                                     hideDividers = it
@@ -210,7 +226,8 @@ object BeautifyConversationList : ClickableFeature() {
             // Islands supply their own inset, one-pixel separators. Native separators would
             // leave seams between the rows that make up the continuous surface.
             WeConversationListViewApi.setDividerHidden(
-                this, isEnabled && (layoutEnabled || hideDividersEnabled),
+                this,
+                isEnabled && (layoutEnabled || hideDividersEnabled),
             )
         }
     }
@@ -228,7 +245,10 @@ object BeautifyConversationList : ClickableFeature() {
                 val dark = row.context.isDarkMode
                 val accent = MonetEngine.surfaceColors(dark)?.primary?.and(0x00ffffff) ?: 0x3CB371
                 val highlight = (accent or if (dark) 0x24000000 else 0x14000000).toDrawable()
-                replaceBackground(row, LayerDrawable(arrayOf(original ?: ColorDrawable(), highlight)))
+                replaceBackground(
+                    row,
+                    LayerDrawable(arrayOf(original ?: ColorDrawable(), highlight)),
+                )
             } else {
                 restoreBackground(row)
             }
@@ -254,8 +274,10 @@ object BeautifyConversationList : ClickableFeature() {
         // The background's inter-island gap occupies added row space, not the content's height.
         // Recycled boundary rows reset both their padding and measurement compensation on bind.
         row.setPadding(
-            state.paddingLeft + inset, state.paddingTop + state.gapTop,
-            state.paddingRight + inset, state.paddingBottom,
+            state.paddingLeft + inset,
+            state.paddingTop + state.gapTop,
+            state.paddingRight + inset,
+            state.paddingBottom,
         )
         SwipeConversationOperations.refreshIslandShape(row)
 
@@ -278,7 +300,9 @@ object BeautifyConversationList : ClickableFeature() {
     private fun paintEmptyFooters(container: View) {
         // The list itself must keep WeChat's background and its recent-page alpha animation.
         val dark = container.context.isDarkMode
-        val color = MonetEngine.surfaceColors(dark)?.page ?: if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
+        val color =
+            MonetEngine.surfaceColors(dark)?.page
+                ?: if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
         if (footerColors[container] == color) return
 
         val footers = WeConversationListViewApi.emptyFooterViews(container)
@@ -321,7 +345,12 @@ object BeautifyConversationList : ClickableFeature() {
         val rowSnapshots = rows.entries.map { it.key to it.value }
         rows.clear()
         rowSnapshots.forEach { (view, state) ->
-            view.setPadding(state.paddingLeft, state.paddingTop, state.paddingRight, state.paddingBottom)
+            view.setPadding(
+                state.paddingLeft,
+                state.paddingTop,
+                state.paddingRight,
+                state.paddingBottom,
+            )
             SwipeConversationOperations.refreshIslandShape(view)
         }
     }
@@ -338,17 +367,22 @@ object BeautifyConversationList : ClickableFeature() {
         private var hasGapBefore = false
         var shape: IslandShape? = null
             private set
-        private val surfaceLayers = LayerDrawable(arrayOf(surface, divider)).apply {
-            setLayerHeight(1, 1)
-            setLayerGravity(1, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
-            // Host nickname column starts at 16dp + 56dp avatar slot + 4dp gap.
-            setLayerInsetRelative(1, 76.dpToPx(context), 0, 0, 0)
-        }
+
+        private val surfaceLayers =
+            LayerDrawable(arrayOf(surface, divider)).apply {
+                setLayerHeight(1, 1)
+                setLayerGravity(1, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
+                // Host nickname column starts at 16dp + 56dp avatar slot + 4dp gap.
+                setLayerInsetRelative(1, 76.dpToPx(context), 0, 0, 0)
+            }
         private val ripple = RippleDrawable(ColorStateList.valueOf(0), surfaceLayers, mask)
-        val drawable = LayerDrawable(arrayOf(
-            page,
-            InsetDrawable(ripple, horizontalInset, 0, horizontalInset, 0),
-        ))
+        val drawable =
+            LayerDrawable(
+                arrayOf(
+                    page,
+                    InsetDrawable(ripple, horizontalInset, 0, horizontalInset, 0),
+                ),
+            )
 
         fun update(
             dark: Boolean,
@@ -358,15 +392,21 @@ object BeautifyConversationList : ClickableFeature() {
             unread: Boolean,
             hideDivider: Boolean,
         ) {
-            shape = IslandShape(horizontalInset, if (gapBefore) islandGap else 0, radius, first, last)
+            shape =
+                IslandShape(horizontalInset, if (gapBefore) islandGap else 0, radius, first, last)
             if (hasGapBefore != gapBefore) {
                 // Put the full gap before the new island. The preceding pinned row keeps its
                 // native height, which WeChat also uses as the start of its collapse animation.
-                drawable.setDrawable(1, InsetDrawable(
-                    ripple,
-                    horizontalInset, if (gapBefore) islandGap else 0,
-                    horizontalInset, 0,
-                ))
+                drawable.setDrawable(
+                    1,
+                    InsetDrawable(
+                        ripple,
+                        horizontalInset,
+                        if (gapBefore) islandGap else 0,
+                        horizontalInset,
+                        0,
+                    ),
+                )
                 hasGapBefore = gapBefore
             }
             // Follow the Monet engine's palette when it is applied, WeChat's neutrals otherwise.
@@ -377,33 +417,38 @@ object BeautifyConversationList : ClickableFeature() {
             surface.cornerRadii = corners
             mask.cornerRadii = corners
             page.color = monet?.page ?: if (dark) 0xFF101012.toInt() else 0xFFF0F0F3.toInt()
-            surface.setColor(when {
-                unread && monet != null -> monet.primaryContainer
-                unread && dark -> 0xFF20372C.toInt()
-                unread -> 0xFFECF6EF.toInt()
-                monet != null -> monet.surface
-                dark -> 0xFF1C1C1E.toInt()
-                else -> Color.WHITE
-            })
-            divider.color = when {
-                last || hideDivider -> Color.TRANSPARENT
-                monet != null -> monet.divider
-                dark -> 0xFF303033.toInt()
-                else -> 0xFFEDEDEF.toInt()
-            }
+            surface.setColor(
+                when {
+                    unread && monet != null -> monet.primaryContainer
+                    unread && dark -> 0xFF20372C.toInt()
+                    unread -> 0xFFECF6EF.toInt()
+                    monet != null -> monet.surface
+                    dark -> 0xFF1C1C1E.toInt()
+                    else -> Color.WHITE
+                },
+            )
+            divider.color =
+                when {
+                    last || hideDivider -> Color.TRANSPARENT
+                    monet != null -> monet.divider
+                    dark -> 0xFF303033.toInt()
+                    else -> 0xFFEDEDEF.toInt()
+                }
             ripple.setColor(ColorStateList.valueOf(if (dark) 0x20FFFFFF else 0x14000000))
         }
     }
 
     private fun isPinned(conversation: Any): Boolean {
-        val field = pinFlagFields.computeIfAbsent(conversation.javaClass) { modelClass ->
-            @Suppress("UNCHECKED_CAST")
-            (modelClass.reflekt().firstField {
-                name = "field_flag"
-                superclass()
-            } as ReflectedField<Any>)
-        }
-        // Read the bound model every time so pin/unpin updates need no storage query or cache reset.
+        val field =
+            pinFlagFields.computeIfAbsent(conversation.javaClass) { modelClass ->
+                @Suppress("UNCHECKED_CAST")
+                (modelClass.reflekt().firstField {
+                    name = "field_flag"
+                    superclass()
+                } as ReflectedField<Any>)
+            }
+        // Read the bound model every time so pin/unpin updates need no storage query or cache
+        // reset.
         return field.get(conversation) as Long and PLACED_TOP_BIT != 0L
     }
 
@@ -412,8 +457,9 @@ object BeautifyConversationList : ClickableFeature() {
         val accessor = unreadAccessorCache.computeIfAbsent(modelClass, ::findUnreadAccessor)
         if (accessor === UnreadAccessor.Missing) return false
         return try {
-            val unreadCount = ((accessor as UnreadAccessor.Field).get(conversation) as? Number)
-                ?.toInt() ?: return false
+            val unreadCount =
+                ((accessor as UnreadAccessor.Field).get(conversation) as? Number)?.toInt()
+                    ?: return false
             unreadCount > 0
         } catch (error: Exception) {
             logUnreadFailureOnce(modelClass, "could not read field_unReadCount", error)
@@ -421,26 +467,27 @@ object BeautifyConversationList : ClickableFeature() {
         }
     }
 
-    private fun findUnreadAccessor(modelClass: Class<*>): UnreadAccessor = try {
-        val field = modelClass.reflekt().firstFieldOrNull {
-            name = "field_unReadCount"
-            superclass()
-        } ?: run {
-            logUnreadFailureOnce(modelClass, "field_unReadCount is absent", null)
-            return UnreadAccessor.Missing
+    private fun findUnreadAccessor(modelClass: Class<*>): UnreadAccessor =
+        try {
+            val field =
+                modelClass.reflekt().firstFieldOrNull {
+                    name = "field_unReadCount"
+                    superclass()
+                }
+                    ?: run {
+                        logUnreadFailureOnce(modelClass, "field_unReadCount is absent", null)
+                        return UnreadAccessor.Missing
+                    }
+            @Suppress("UNCHECKED_CAST") val accessor = field as ReflectedField<Any>
+            UnreadAccessor.Field { conversation -> accessor.get(conversation) }
+        } catch (error: Exception) {
+            logUnreadFailureOnce(modelClass, "could not resolve field_unReadCount", error)
+            UnreadAccessor.Missing
         }
-        @Suppress("UNCHECKED_CAST")
-        val accessor = field as ReflectedField<Any>
-        UnreadAccessor.Field { conversation -> accessor.get(conversation) }
-    } catch (error: Exception) {
-        logUnreadFailureOnce(modelClass, "could not resolve field_unReadCount", error)
-        UnreadAccessor.Missing
-    }
 
     private fun logUnreadFailureOnce(modelClass: Class<*>, message: String, error: Exception?) {
         if (!unreadFailuresLogged.add(modelClass)) return
         if (error == null) WeLogger.w(TAG, "$message on ${modelClass.name}")
         else WeLogger.w(TAG, "$message on ${modelClass.name}", error)
     }
-
 }

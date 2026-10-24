@@ -45,12 +45,15 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
     private const val POSITION_NONE = -2
 
     private val mutableConfigState by lazy { mutableStateOf(NavBarPrefs.load()) }
-    val configState: State<NavBarConfig> get() = mutableConfigState
-    val config: NavBarConfig get() = mutableConfigState.value
+    val configState: State<NavBarConfig>
+        get() = mutableConfigState
+
+    val config: NavBarConfig
+        get() = mutableConfigState.value
 
     /**
-     * Logical tabs currently backing the pager positions. Follows [NavBarConfig.visibleTabs],
-     * but only changes together with the adapter notification in [applyPageSet].
+     * Logical tabs currently backing the pager positions. Follows [NavBarConfig.visibleTabs], but
+     * only changes together with the adapter notification in [applyPageSet].
      */
     var pagerTabs: List<Int> = emptyList()
         private set
@@ -90,9 +93,11 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         return sessions.toList()
     }
 
-    private fun isManaged(tabsAdapter: Any): Boolean = managedAdapters.getOrPut(tabsAdapter) {
-        tabsAdapter.reflekt().firstField { type = "com.tencent.mm.ui.MainTabUI" }.get() in managedMainTabUIs
-    }
+    private fun isManaged(tabsAdapter: Any): Boolean =
+        managedAdapters.getOrPut(tabsAdapter) {
+            tabsAdapter.reflekt().firstField { type = "com.tencent.mm.ui.MainTabUI" }.get() in
+                managedMainTabUIs
+        }
 
     private fun tabsOf(tabsAdapter: Any?): List<Int> =
         if (isManaged(tabsAdapter!!)) pagerTabs else IDENTITY_TABS
@@ -153,64 +158,74 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
 
         val tabsAdapterClass = $$"com.tencent.mm.ui.MainTabUI$TabsAdapter".toClass()
         tabsAdapterClass.reflekt().apply {
-            firstMethod { name = "getCount" }.hookAfter(priority = 100) {
-                result = if (allowLogicalTabCount.get() == true) NAV_TABS.size else tabsOf(thisObject).size
-            }
+            firstMethod { name = "getCount" }
+                .hookAfter(priority = 100) {
+                    result =
+                        if (allowLogicalTabCount.get() == true) NAV_TABS.size
+                        else tabsOf(thisObject).size
+                }
             firstMethod {
-                name = "getItem"
-                parameters(int)
-            }.hookBefore(priority = 100) {
-                args[0] = tabsOf(thisObject)[args[0] as Int]
-            }
+                    name = "getItem"
+                    parameters(int)
+                }
+                .hookBefore(priority = 100) {
+                    args[0] = tabsOf(thisObject)[args[0] as Int]
+                }
 
             listOf("onPageScrolled", "onPageSelected").forEach { callbackName ->
-                firstMethod { name = callbackName }.apply {
-                    hookBefore(priority = 100) {
-                        val pagerIndex = args[0] as Int
-                        args[0] = tabsOf(thisObject)[pagerIndex]
+                firstMethod { name = callbackName }
+                    .apply {
+                        hookBefore(priority = 100) {
+                            val pagerIndex = args[0] as Int
+                            args[0] = tabsOf(thisObject)[pagerIndex]
+                        }
                     }
-                }
             }
 
             firstMethod {
                 name = "onTabClick"
                 parameters(int)
-            }.apply {
-                hookBefore(priority = 100) {
-                    if (args[0] as Int !in tabsOf(thisObject)) {
-                        result = null
-                    } else {
-                        remapProgrammaticTab.set(true)
-                        animateNextPageChange.set(true)
+            }
+                .apply {
+                    hookBefore(priority = 100) {
+                        if (args[0] as Int !in tabsOf(thisObject)) {
+                            result = null
+                        } else {
+                            remapProgrammaticTab.set(true)
+                            animateNextPageChange.set(true)
+                        }
+                    }
+                    hookAfter(priority = 100) {
+                        remapProgrammaticTab.remove()
+                        animateNextPageChange.remove()
                     }
                 }
-                hookAfter(priority = 100) {
-                    remapProgrammaticTab.remove()
-                    animateNextPageChange.remove()
-                }
-            }
 
             // Live page set: map fragments to their new positions and keep hidden ones
             // alive (see NavBarSession.syncPager) instead of letting the adapter remove them.
             firstMethod {
                 name = "getItemPosition"
                 superclass()
-            }.hookBefore {
-                if (!pageSetChanging || thisObject!!.javaClass != tabsAdapterClass) return@hookBefore
-                val session = sessionFor(thisObject)!!
-                val tab = session.fragmentTab(args[0]!!)
-                val position = if (tab == null) -1 else pagerTabs.indexOf(tab)
-                result = if (position >= 0) position else POSITION_NONE
             }
+                .hookBefore {
+                    if (!pageSetChanging || thisObject!!.javaClass != tabsAdapterClass)
+                        return@hookBefore
+                    val session = sessionFor(thisObject)!!
+                    val tab = session.fragmentTab(args[0]!!)
+                    val position = if (tab == null) -1 else pagerTabs.indexOf(tab)
+                    result = if (position >= 0) position else POSITION_NONE
+                }
             firstMethod {
                 name = "destroyItem"
                 parameters(ViewGroup::class, int, Any::class)
                 superclass()
-            }.hookBefore {
-                if (!pageSetChanging || thisObject!!.javaClass != tabsAdapterClass) return@hookBefore
-                sessionFor(thisObject)!!.fragmentView(args[2]!!)?.visibility = View.GONE
-                result = null
             }
+                .hookBefore {
+                    if (!pageSetChanging || thisObject!!.javaClass != tabsAdapterClass)
+                        return@hookBefore
+                    sessionFor(thisObject)!!.fragmentView(args[2]!!)?.visibility = View.GONE
+                    result = null
+                }
         }
 
         methodChangeTab.apply {
@@ -234,9 +249,9 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
                 val logicalIndex = args[0] as Int
                 val pagerIndex = pagerTabs.indexOf(logicalIndex)
                 if (pagerIndex >= 0) {
-                    val viewPager = thisObject!!.reflekt()
-                        .firstField { name = "mViewPager" }
-                        .get()!! as WxViewPager
+                    val viewPager =
+                        thisObject!!.reflekt().firstField { name = "mViewPager" }.get()!!
+                            as WxViewPager
                     if (viewPager.currentItem != pagerIndex) {
                         viewPager.setCurrentItem(pagerIndex, false)
                     }
@@ -247,40 +262,45 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         "com.tencent.mm.ui.mogic.WxViewPager".toClass().reflekt().apply {
             listOf("setCurrentItem", "setCurrentItemNotify").forEach { methodName ->
                 firstMethod {
-                    name = methodName
-                    parameters(int, bool)
-                }.hookBefore(priority = 100) {
-                    if (remapProgrammaticTab.get() != true) return@hookBefore
-                    val logicalIndex = args[0] as Int
-                    val pagerIndex = pagerTabs.indexOf(logicalIndex)
-                    if (pagerIndex >= 0) args[0] = pagerIndex
-                    allowLogicalTabCount.set(false)
-                    // The second parameter is the pager's `smoothScroll` flag. Flipping it to
-                    // true makes WxViewPager animate the same horizontal slide a finger swipe
-                    // produces. This is scoped to `onTabClick`-originated changes (actual tab
-                    // taps) only: MainTabUI.a(int) is also driven by programmatic flows that
-                    // fire rapid same-frame tab bounces — e.g. returning from the wallet
-                    // "服务" page starts LauncherUI with FLAG_ACTIVITY_CLEAR_TOP +
-                    // preferred_tab, which makes MainTabUI.f() call a(0) then a(3) back to
-                    // back. Stock WeChat snaps both (smoothScroll=false) so the bounce is
-                    // invisible; animating both round-trips desyncs the pager (content stays
-                    // on the first page while the logical tab says the second). The
-                    // state-restore and first-layout paths never reach here either because
-                    // the `remapProgrammaticTab` guard is only armed by tab interactions.
-                    // Non-adjacent jumps sweep past the pages in between, but MainTabUI sets
-                    // an offscreen page limit of 4, so every one of them is alive and renders
-                    // real content. The pager caps the scroll duration at 600ms on its own.
-                    if (config.animatePageChange && animateNextPageChange.get() == true) args[1] = true
-                }
+                        name = methodName
+                        parameters(int, bool)
+                    }
+                    .hookBefore(priority = 100) {
+                        if (remapProgrammaticTab.get() != true) return@hookBefore
+                        val logicalIndex = args[0] as Int
+                        val pagerIndex = pagerTabs.indexOf(logicalIndex)
+                        if (pagerIndex >= 0) args[0] = pagerIndex
+                        allowLogicalTabCount.set(false)
+                        // The second parameter is the pager's `smoothScroll` flag. Flipping it to
+                        // true makes WxViewPager animate the same horizontal slide a finger swipe
+                        // produces. This is scoped to `onTabClick`-originated changes (actual tab
+                        // taps) only: MainTabUI.a(int) is also driven by programmatic flows that
+                        // fire rapid same-frame tab bounces — e.g. returning from the wallet
+                        // "服务" page starts LauncherUI with FLAG_ACTIVITY_CLEAR_TOP +
+                        // preferred_tab, which makes MainTabUI.f() call a(0) then a(3) back to
+                        // back. Stock WeChat snaps both (smoothScroll=false) so the bounce is
+                        // invisible; animating both round-trips desyncs the pager (content stays
+                        // on the first page while the logical tab says the second). The
+                        // state-restore and first-layout paths never reach here either because
+                        // the `remapProgrammaticTab` guard is only armed by tab interactions.
+                        // Non-adjacent jumps sweep past the pages in between, but MainTabUI sets
+                        // an offscreen page limit of 4, so every one of them is alive and renders
+                        // real content. The pager caps the scroll duration at 600ms on its own.
+                        if (config.animatePageChange && animateNextPageChange.get() == true)
+                            args[1] = true
+                    }
             }
         }
 
-        "com.tencent.mm.ui.TabIconView".toClass().firstMethod {
-            name = "setFocusAlpha"
-            parameters(int)
-        }.hookAfter {
-            focusAlphaStates[thisObject as View]?.intValue = args[0] as Int
-        }
+        "com.tencent.mm.ui.TabIconView"
+            .toClass()
+            .firstMethod {
+                name = "setFocusAlpha"
+                parameters(int)
+            }
+            .hookAfter {
+                focusAlphaStates[thisObject as View]?.intValue = args[0] as Int
+            }
 
         // TaskBarAnimController starts this listener only when it actually hides the
         // native tabs. Its generic isOpen callback also fires while closing/cancelling.
@@ -312,30 +332,33 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         // ListView and installs itself as its own OnScrollListener, so instead of replacing
         // that listener (which would break WeChat's own handling) we hook its listener
         // methods directly. They fire on every item-scroll position change, drag or fling.
-        val conversationListViewClass = "com.tencent.mm.ui.conversation.ConversationListView".toClass()
+        val conversationListViewClass =
+            "com.tencent.mm.ui.conversation.ConversationListView".toClass()
         conversationListViewClass.reflekt().apply {
             firstMethod {
                 name = "onScroll"
                 parameters { it.size == 4 }
-            }.hookAfter {
-                // Same gating as NagramXF: hide on any downward movement, but only show
-                // again while the finger is actively dragging the list up (touch scroll);
-                // a settling downward fling must not resurrect the bar.
-                if (!config.style.isFloating || !config.autoHide) return@hookAfter
-                val list = thisObject as AbsListView
-                val firstPosition = args[1] as Int
-                val firstViewTop = list.getChildAt(0)?.top ?: return@hookAfter
-                updateConversationScroll(firstPosition, firstViewTop)
             }
+                .hookAfter {
+                    // Same gating as NagramXF: hide on any downward movement, but only show
+                    // again while the finger is actively dragging the list up (touch scroll);
+                    // a settling downward fling must not resurrect the bar.
+                    if (!config.style.isFloating || !config.autoHide) return@hookAfter
+                    val list = thisObject as AbsListView
+                    val firstPosition = args[1] as Int
+                    val firstViewTop = list.getChildAt(0)?.top ?: return@hookAfter
+                    updateConversationScroll(firstPosition, firstViewTop)
+                }
 
             firstMethod {
                 name = "onScrollStateChanged"
                 parameters { it.size == 2 }
-            }.hookAfter {
-                scrollingManually =
-                    args[1] as Int == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL
-                if (scrollingManually) dragSawDownward = false
             }
+                .hookAfter {
+                    scrollingManually =
+                        args[1] as Int == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL
+                    if (scrollingManually) dragSawDownward = false
+                }
         }
 
         val recyclerOnScrolled = WeConversationListViewApi.methodRecyclerOnScrolled
@@ -344,8 +367,9 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
                 if (!config.style.isFloating || !config.autoHide) return@hookAfter
                 val recyclerView = args[0] as ViewGroup
                 val firstPosition =
-                    WeConversationListViewApi.methodRecyclerFirstVisiblePosition.method
-                        .invoke(recyclerView) as Int
+                    WeConversationListViewApi.methodRecyclerFirstVisiblePosition.method.invoke(
+                        recyclerView,
+                    ) as Int
                 if (firstPosition < 0) return@hookAfter
                 val firstViewTop = recyclerView.getChildAt(0)?.top ?: return@hookAfter
                 updateConversationScroll(firstPosition, firstViewTop)
@@ -359,59 +383,87 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         // Only the native bar keeps WeChat's bottom frost. WeKit's bars draw their own
         // background and the hidden style has none, so suppress the host overlay there,
         // including before doOnCreate finishes, so no frosted strip is left behind.
-        "com.tencent.mm.ui.FrostedContentView".toClass().firstMethod {
-            parameters { it[0] == bool && it[1] == int }
-        }.hookBefore {
-            val activity = (thisObject as View).context.baseActivity
-            val hiddenByHome = activity != null &&
-                LauncherNavigation.barOverride(activity).value == true &&
-                sessionForActivity(activity)?.editor == null
-            if (config.style != NavBarStyle.NATIVE || hiddenByHome) args[0] = false
-        }
+        "com.tencent.mm.ui.FrostedContentView"
+            .toClass()
+            .firstMethod {
+                parameters { it[0] == bool && it[1] == int }
+            }
+            .hookBefore {
+                val activity = (thisObject as View).context.baseActivity
+                val hiddenByHome =
+                    activity != null &&
+                        LauncherNavigation.barOverride(activity).value == true &&
+                        sessionForActivity(activity)?.editor == null
+                if (config.style != NavBarStyle.NATIVE || hiddenByHome) args[0] = false
+            }
         LauncherNavigation.tabsProvider = ::tabsOf
         LauncherNavigation.applyBarVisibility = { activity ->
             val session = sessionForActivity(activity)
             if (session != null) session.applyHomeVisibility()
             session != null
         }
-        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
-            override fun onBeforeTabsCreate(mainTabUI: Any) { managedMainTabUIs += mainTabUI }
-            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) { attachBar(home) }
-            override fun onResume(activity: Activity) {
-                if (!pendingEditor) return
-                pendingEditor = false
-                val session = sessionForActivity(activity)
-                if (session == null) {
-                    showToast(HostInfo.application.getString(R.string.restart_wechat_to_apply))
-                    return
+        WeMainActivityBeautifyApi.addListener(
+            this,
+            object : WeMainActivityBeautifyApi.Listener {
+                override fun onBeforeTabsCreate(mainTabUI: Any) {
+                    managedMainTabUIs += mainTabUI
                 }
-                session.openEditor()
-            }
-            override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
-                sessionFor(home.adapter)?.targetPageIndexState?.intValue = home.tabs.indexOf(tab)
-            }
-            override fun onPageScrolled(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
-                val session = sessionFor(home.adapter) ?: return
-                session.selectedPageIndexState.intValue = home.tabs.indexOf(tab)
-                session.scrollOffsetState.floatValue = offset
-                if (tab != TAB_HOME) {
-                    recentPageHiddenState.value = false
-                    barScrollHiddenState.value = false
-                    scrollUpdated = false
+
+                override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
+                    attachBar(home)
                 }
-            }
-            override fun onPageScrolledAfter(home: WeMainActivityBeautifyApi.Home, tab: Int, offset: Float) {
-                sessionFor(home.adapter)?.syncNativeFocus(home.tabs.indexOf(tab), offset)
-            }
-            override fun onDestroy(activity: Activity) {
-                sessions.filter { it.activity === activity }.forEach { session ->
-                    session.dispose()
-                    managedMainTabUIs.remove(session.mainTabUI)
-                    managedAdapters.remove(session.tabsAdapter)
+
+                override fun onResume(activity: Activity) {
+                    if (!pendingEditor) return
+                    pendingEditor = false
+                    val session = sessionForActivity(activity)
+                    if (session == null) {
+                        showToast(HostInfo.application.getString(R.string.restart_wechat_to_apply))
+                        return
+                    }
+                    session.openEditor()
                 }
-                sessions.removeAll { it.activity === activity }
-            }
-        })
+
+                override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                    sessionFor(home.adapter)?.targetPageIndexState?.intValue =
+                        home.tabs.indexOf(tab)
+                }
+
+                override fun onPageScrolled(
+                    home: WeMainActivityBeautifyApi.Home,
+                    tab: Int,
+                    offset: Float,
+                ) {
+                    val session = sessionFor(home.adapter) ?: return
+                    session.selectedPageIndexState.intValue = home.tabs.indexOf(tab)
+                    session.scrollOffsetState.floatValue = offset
+                    if (tab != TAB_HOME) {
+                        recentPageHiddenState.value = false
+                        barScrollHiddenState.value = false
+                        scrollUpdated = false
+                    }
+                }
+
+                override fun onPageScrolledAfter(
+                    home: WeMainActivityBeautifyApi.Home,
+                    tab: Int,
+                    offset: Float,
+                ) {
+                    sessionFor(home.adapter)?.syncNativeFocus(home.tabs.indexOf(tab), offset)
+                }
+
+                override fun onDestroy(activity: Activity) {
+                    sessions
+                        .filter { it.activity === activity }
+                        .forEach { session ->
+                            session.dispose()
+                            managedMainTabUIs.remove(session.mainTabUI)
+                            managedAdapters.remove(session.tabsAdapter)
+                        }
+                    sessions.removeAll { it.activity === activity }
+                }
+            },
+        )
     }
 
     private fun attachBar(home: WeMainActivityBeautifyApi.Home) {
@@ -421,8 +473,10 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         val tabsAdapter = home.adapter
         recentPageHiddenState.value = false
         if (!isManaged(tabsAdapter)) return
-        val bottomTab = (viewPager.parent as ViewGroup).children
-            .first { it.javaClass.name == "com.tencent.mm.ui.LauncherUIBottomTabView" } as ViewGroup
+        val bottomTab =
+            (viewPager.parent as ViewGroup).children.first {
+                it.javaClass.name == "com.tencent.mm.ui.LauncherUIBottomTabView"
+            } as ViewGroup
 
         val session = NavBarSession(activity, mainTabUI, viewPager, tabsAdapter, bottomTab)
         sessions += session
@@ -430,9 +484,12 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         // Counters posted before this bar existed are kept by the native view.
         bottomTab.reflekt().apply {
             unreadCountState.intValue = firstMethod { name = "getMainTabUnread" }.invoke() as Int
-            contactUnreadCountState.intValue = firstMethod { name = "getContactTabUnread" }.invoke() as Int
-            finderUnreadCountState.intValue = firstMethod { name = "getFriendTabUnread" }.invoke() as Int
-            showFinderDotState.value = firstMethod { name = "getShowFriendPoint" }.invoke() as Boolean
+            contactUnreadCountState.intValue =
+                firstMethod { name = "getContactTabUnread" }.invoke() as Int
+            finderUnreadCountState.intValue =
+                firstMethod { name = "getFriendTabUnread" }.invoke() as Int
+            showFinderDotState.value =
+                firstMethod { name = "getShowFriendPoint" }.invoke() as Boolean
         }
         session.applyConfig(config)
         LauncherNavigation.notifyTabsChanged(tabsAdapter)
@@ -478,10 +535,13 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         // Pull-down overscroll springs the first row upward after release. Suppress that
         // bounce unless the same gesture actually dragged the list downward first.
         if (scrollingManually && goingDown) dragSawDownward = true
-        val isOverscrollBounceBack = goingDown && !scrollingManually &&
-            !dragSawDownward && firstPosition == scrollPrevPosition
-        if (changed && scrollUpdated && (goingDown || scrollingManually) &&
-            !isOverscrollBounceBack
+        val isOverscrollBounceBack =
+            goingDown &&
+                !scrollingManually &&
+                !dragSawDownward &&
+                firstPosition == scrollPrevPosition
+        if (
+            changed && scrollUpdated && (goingDown || scrollingManually) && !isOverscrollBounceBack
         ) {
             barScrollHiddenState.value = goingDown
         }
@@ -491,8 +551,9 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
     }
 
     /**
-     * Returns to WeChat's home and edits the bar in place. [CLEAR_TOP][Intent.FLAG_ACTIVITY_CLEAR_TOP]
-     * finishes everything above LauncherUI, wherever the settings were opened from.
+     * Returns to WeChat's home and edits the bar in place.
+     * [CLEAR_TOP][Intent.FLAG_ACTIVITY_CLEAR_TOP] finishes everything above LauncherUI, wherever
+     * the settings were opened from.
      */
     override fun onClick(context: ComponentActivity) {
         if (!isEnabled) {
@@ -501,72 +562,82 @@ object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
         }
         pendingEditor = true
         runCatching {
-            context.startActivity(Intent().apply {
-                setClassName(HostInfo.packageName, "com.tencent.mm.ui.LauncherUI")
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                )
-            })
-        }.onFailure {
-            pendingEditor = false
-            WeLogger.e(TAG, "无法返回微信主界面", it)
+            context.startActivity(
+                Intent().apply {
+                    setClassName(HostInfo.packageName, "com.tencent.mm.ui.LauncherUI")
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                    )
+                },
+            )
         }
+            .onFailure {
+                pendingEditor = false
+                WeLogger.e(TAG, "无法返回微信主界面", it)
+            }
         context.finish()
     }
 
-    private val methodRecentPageHideAnimationStart by dexMethod(
-        sqlMethod {
-            name = "onAnimationStart"
-            returnType = "void"
-            paramTypes("android.animation.Animator")
-            declaredClass {
-                usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController\$6")
-            }
-        },
-    )
+    private val methodRecentPageHideAnimationStart by
+        dexMethod(
+            sqlMethod {
+                name = "onAnimationStart"
+                returnType = "void"
+                paramTypes("android.animation.Animator")
+                declaredClass {
+                    usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController\$6")
+                }
+            },
+        )
 
-    private val methodRecentPageClose by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes("boolean")
-            usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController", "onClose")
-        },
-    )
+    private val methodRecentPageClose by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes("boolean")
+                usingEqStrings("com/tencent/mm/plugin/taskbar/ui/TaskBarAnimController", "onClose")
+            },
+        )
 
-    private val methodUpdateTabUnread by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-            usingEqStrings("MicroMsg.LauncherUITabView", "updateMainTabUnread %d")
-        },
-    )
+    private val methodUpdateTabUnread by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+                usingEqStrings("MicroMsg.LauncherUITabView", "updateMainTabUnread %d")
+            },
+        )
 
-    private val methodChangeTab by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.MainTabUI"
-            usingEqStrings("change tab to %d, cur tab %d, has init tab %B, tab cache size %d")
-        },
-    )
+    private val methodChangeTab by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.MainTabUI"
+                usingEqStrings("change tab to %d, cur tab %d, has init tab %B, tab cache size %d")
+            },
+        )
 
-    private val methodUpdateFriendTabUnread by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-            usingEqStrings("[updateFriendTabUnread] unread : ")
-        },
-    )
+    private val methodUpdateFriendTabUnread by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+                usingEqStrings("[updateFriendTabUnread] unread : ")
+            },
+        )
 
-    private val methodShowFriendPoint by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-            usingEqStrings("[showFriendPoint] show : ")
-        },
-    )
+    private val methodShowFriendPoint by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+                usingEqStrings("[showFriendPoint] show : ")
+            },
+        )
 
-    private val methodUpdateContactTabUnread by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
-            usingEqStrings("[updateContactTabUnread] unread : ")
-        },
-    )
+    private val methodUpdateContactTabUnread by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+                usingEqStrings("[updateContactTabUnread] unread : ")
+            },
+        )
 }

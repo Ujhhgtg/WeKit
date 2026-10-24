@@ -38,59 +38,96 @@ object SetProfileNickname : ClickableFeature() {
                 text = {
                     TextField(
                         label = { Text(stringResource(R.string.profile_new_nickname)) },
-                        value = nickname, onValueChange = { nickname = it }, singleLine = false
+                        value = nickname,
+                        onValueChange = { nickname = it },
+                        singleLine = false,
                     )
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val reqBytes = OpLog.encodeSingle(
-                            OpLog.CMD_SET_NICKNAME, SetNicknameProto(nickname = nickname)
-                        )
+                    TextButton(
+                        onClick = {
+                            val reqBytes =
+                                OpLog.encodeSingle(
+                                    OpLog.CMD_SET_NICKNAME,
+                                    SetNicknameProto(nickname = nickname),
+                                )
 
-                        WePacketHelper.sendCgi(
-                            "/cgi-bin/micromsg-bin/oplog",
-                            681, 0, 0,
-                            reqBytes = reqBytes
-                        ) {
-                            onSuccess { bytes ->
-                                val resp = bytes?.let { OpLogRespProto.decode(it) }
-                                WeLogger.i(TAG, "success: ret=${resp?.ret}")
-                                showComposeDialog(context) {
-                                    AlertDialogContent(
-                                        title = { Text(stringResource(R.string.profile_nickname_success)) },
-                                        text = {
-                                            Text(
-                                                stringResource(
-                                                    R.string.profile_nickname_server_code,
-                                                    resp?.ret?.toString() ?: stringResource(R.string.unknown),
+                            WePacketHelper.sendCgi(
+                                "/cgi-bin/micromsg-bin/oplog",
+                                681,
+                                0,
+                                0,
+                                reqBytes = reqBytes,
+                            ) {
+                                onSuccess { bytes ->
+                                    val resp = bytes?.let { OpLogRespProto.decode(it) }
+                                    WeLogger.i(TAG, "success: ret=${resp?.ret}")
+                                    showComposeDialog(context) {
+                                        AlertDialogContent(
+                                            title = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.profile_nickname_success,
+                                                    ),
                                                 )
-                                            )
-                                        },
-                                        confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                                        }
-                                    )
+                                            },
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.profile_nickname_server_code,
+                                                        resp?.ret?.toString()
+                                                            ?: stringResource(R.string.unknown),
+                                                    ),
+                                                )
+                                            },
+                                            confirmButton = {
+                                                TextButton(onClick = onDismiss) {
+                                                    Text(stringResource(R.string.dialog_close))
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
-                            }
 
-                            onFailure { type, code, msg ->
-                                showComposeDialog(context) {
-                                    AlertDialogContent(
-                                        title = { Text(stringResource(R.string.profile_nickname_failure)) },
-                                        text = {
-                                            Text(stringResource(R.string.profile_nickname_failure_details, type, code, msg))
-                                        },
-                                        confirmButton = {
-                                            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                                        }
-                                    )
+                                onFailure { type, code, msg ->
+                                    showComposeDialog(context) {
+                                        AlertDialogContent(
+                                            title = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.profile_nickname_failure,
+                                                    ),
+                                                )
+                                            },
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        R.string.profile_nickname_failure_details,
+                                                        type,
+                                                        code,
+                                                        msg,
+                                                    ),
+                                                )
+                                            },
+                                            confirmButton = {
+                                                TextButton(onClick = onDismiss) {
+                                                    Text(stringResource(R.string.dialog_close))
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
+            )
         }
     }
 

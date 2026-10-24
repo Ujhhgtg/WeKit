@@ -26,10 +26,12 @@ object KillHostProcess : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777015, localizedHomeMenuString(R.string.home_menu_force_stop), CancelIcon
+                777015,
+                localizedHomeMenuString(R.string.home_menu_force_stop),
+                CancelIcon,
             ) {
                 killHost()
-            }
+            },
         )
     }
 }

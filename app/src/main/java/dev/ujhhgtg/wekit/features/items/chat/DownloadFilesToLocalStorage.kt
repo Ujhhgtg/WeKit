@@ -16,7 +16,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-object DownloadFilesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
+object DownloadFilesToLocalStorage :
+    SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "文件下载到本地"
     override val nameRes = R.string.feature_download_files_to_local_storage_name
@@ -40,18 +41,22 @@ object DownloadFilesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuAp
                 localizedChatString(R.string.chat_action_download),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
-                { msgInfo -> msgInfo.type == MessageType.FILE }
+                { msgInfo -> msgInfo.type == MessageType.FILE },
             ) { _, _, msgInfo ->
                 showToast(localizedChatString(R.string.chat_file_download_preparing))
                 CoroutineScope(Dispatchers.IO).launch {
-                    val path = WeMessageApi.downloadFile(msgInfo.instance) ?: run {
-                        WeLogger.e(TAG, "failed to cache & download file")
-                        showToastSuspend(localizedChatString(R.string.chat_file_download_failed))
-                        return@launch
-                    }
+                    val path =
+                        WeMessageApi.downloadFile(msgInfo.instance)
+                            ?: run {
+                                WeLogger.e(TAG, "failed to cache & download file")
+                                showToastSuspend(
+                                    localizedChatString(R.string.chat_file_download_failed),
+                                )
+                                return@launch
+                            }
                     showToastSuspend(localizedChatString(R.string.chat_file_download_success, path))
                 }
-            }
+            },
         )
     }
 }

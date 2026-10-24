@@ -14,10 +14,11 @@ import java.lang.ref.WeakReference
  * and native release path instead of a reimplementation.
  *
  * Events go straight to the layout's `dispatchTouchEvent` in its local coordinates. The engine only
- * captures a DOWN inside its 20 dp left edge that is followed by a MOVE past touch slop; once it has
- * captured, children see just that DOWN and an immediate CANCEL.
+ * captures a DOWN inside its 20 dp left edge that is followed by a MOVE past touch slop; once it
+ * has captured, children see just that DOWN and an immediate CANCEL.
  */
-class ChatSwipeDriver private constructor(
+class ChatSwipeDriver
+private constructor(
     private val layout: ViewGroup,
     private val content: View,
 ) {
@@ -44,12 +45,12 @@ class ChatSwipeDriver private constructor(
     fun commit() = release(stepPx)
 
     /**
-     * Releases back to the start. After the platform springs progress to 0 the chat is already there
-     * and a plain UP settles it; a cancel that skipped the spring gets a leftward fling first.
+     * Releases back to the start. After the platform springs progress to 0 the chat is already
+     * there and a plain UP settles it; a cancel that skipped the spring gets a leftward fling
+     * first.
      */
     fun cancel() {
-        if (content.left > 0) release(-stepPx)
-        else end(MotionEvent.ACTION_UP)
+        if (content.left > 0) release(-stepPx) else end(MotionEvent.ACTION_UP)
     }
 
     private fun start(): Boolean {
@@ -114,7 +115,9 @@ class ChatSwipeDriver private constructor(
         /** Whether [layout] is being driven, so real touches must not reach its engine. */
         fun isDriving(layout: View): Boolean = session?.get() === layout
 
-        /** Captures [content] in [layout]'s engine, or returns null when the engine did not drag. */
+        /**
+         * Captures [content] in [layout]'s engine, or returns null when the engine did not drag.
+         */
         fun start(layout: ViewGroup, content: View): ChatSwipeDriver? =
             ChatSwipeDriver(layout, content).takeIf { it.start() }
     }

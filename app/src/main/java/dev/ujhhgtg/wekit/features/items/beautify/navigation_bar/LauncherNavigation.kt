@@ -6,8 +6,10 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import java.util.WeakHashMap
 
-/** Optional coordination between the replacement bar and the conversation home, without
- * making either feature depend on the other's Dex targets. All callers run on the UI thread. */
+/**
+ * Optional coordination between the replacement bar and the conversation home, without making
+ * either feature depend on the other's Dex targets. All callers run on the UI thread.
+ */
 object LauncherNavigation {
     private val nativeTabs = listOf(TAB_HOME, TAB_CONTACTS, TAB_DISCOVER, TAB_ME)
     private val barOverrides = WeakHashMap<Activity, MutableState<Boolean?>>()

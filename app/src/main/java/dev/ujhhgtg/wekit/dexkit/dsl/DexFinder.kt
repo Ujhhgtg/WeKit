@@ -125,7 +125,6 @@ internal fun DexFieldDelegate.find(
         recordFailure = ::recordUnexpectedFailure,
     )
 
-
 internal fun <T> resolveMatcher(
     key: String,
     kind: String,

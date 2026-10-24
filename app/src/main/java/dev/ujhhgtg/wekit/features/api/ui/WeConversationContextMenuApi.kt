@@ -49,7 +49,10 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         /** The homepage conversation list. */
         NORMAL,
 
-        /** Conversations inside a folder container (WeChat's conversation box, used by aggregation folders). */
+        /**
+         * Conversations inside a folder container (WeChat's conversation box, used by aggregation
+         * folders).
+         */
         AGGREGATED,
         ALL;
 
@@ -62,7 +65,7 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         val drawable: Drawable?,
         val scope: MenuScope = MenuScope.NORMAL,
         val shouldShow: (context: ConversationContext, itemId: Int) -> Boolean,
-        val onClick: (context: ConversationContext) -> Unit
+        val onClick: (context: ConversationContext) -> Unit,
     )
 
     data class ConversationContext(
@@ -78,50 +81,60 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     )
 
     /** Intent extras a folder container (ConvBoxServiceConversationUI) may carry its id in. */
-    private val CONTAINER_ID_EXTRAS = listOf("Contact_User", "Contact_ChatRoomId", "room_name", "Chat_User")
+    private val CONTAINER_ID_EXTRAS =
+        listOf("Contact_User", "Contact_ChatRoomId", "room_name", "Chat_User")
 
     // Order pushes our items after the container's own items (which use 0).
     private const val AGGREGATED_MENU_ORDER = 1000
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener#onCreateContextMenu
-    private val methodOnCreateMenu by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.conversation")
-            usingStrings("MicroMsg.ConversationLongClickListener", "onCreateContextMenu, contact is null")
-        },
-    )
+    private val methodOnCreateMenu by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.conversation")
+                usingStrings(
+                    "MicroMsg.ConversationLongClickListener",
+                    "onCreateContextMenu, contact is null",
+                )
+            },
+        )
 
     // com.tencent.mm.ui.conversation.ConversationLongClickListener$1#onMMMenuItemSelected
-    private val methodOnItemSelected by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.conversation")
-            usingStrings("yuanbao_set_top", "yuanbao_set_read", "yuanbao_set_no_display")
-        },
-    )
+    private val methodOnItemSelected by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.conversation")
+                usingStrings("yuanbao_set_top", "yuanbao_set_read", "yuanbao_set_no_display")
+            },
+        )
 
-    // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb, x, y)
-    // The folder container (ConvBoxServiceConversationUI) doesn't use ConversationLongClickListener;
+    // com.tencent.mm.ui.widget.menu.MMPopupMenu#showMenu(view, pos, id, onCreateListener, selectCb,
+    // x, y)
+    // The folder container (ConvBoxServiceConversationUI) doesn't use
+    // ConversationLongClickListener;
     // its long-press menu goes through this shared popup, so AGGREGATED items are injected here.
-    private val methodShowPopupMenu by dexMethod(
-        sqlMethod {
-            returnType = "void"
-            paramTypes(
-                "android.view.View",
-                "int",
-                "long",
-                "android.view.View\$OnCreateContextMenuListener",
-                null,
-                "int",
-                "int",
-            )
-            declaredClass {
-                usingStrings("MicroMsg.MMPopupMenu")
-            }
-        },
-        allowFailure = true,
-    )
+    private val methodShowPopupMenu by
+        dexMethod(
+            sqlMethod {
+                returnType = "void"
+                paramTypes(
+                    "android.view.View",
+                    "int",
+                    "long",
+                    "android.view.View\$OnCreateContextMenuListener",
+                    null,
+                    "int",
+                    "int",
+                )
+                declaredClass {
+                    usingStrings("MicroMsg.MMPopupMenu")
+                }
+            },
+            allowFailure = true,
+        )
 
-    private fun items(scope: MenuScope) = menuItemProviders.flatMap { it.getMenuItems() }.filter { it.scope.includes(scope) }
+    private fun items(scope: MenuScope) =
+        menuItemProviders.flatMap { it.getMenuItems() }.filter { it.scope.includes(scope) }
 
     override fun onEnable() {
         methodOnCreateMenu.method.hookAfter {
@@ -137,70 +150,100 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
         }
     }
 
-    /** Wraps the popup's create listener and select callback when it belongs to a folder container. */
+    /**
+     * Wraps the popup's create listener and select callback when it belongs to a folder container.
+     */
     private fun handleAggregatedMenu(param: HookParam) {
         val createListener = param.args[3] as? View.OnCreateContextMenuListener ?: return
         val originalSelect = param.args[4] ?: return
         val position = param.args[1] as Int
         val talker = extractContainerTalker(createListener, position) ?: return
         val activity = (param.args[0] as View).context.findActivity()
-        val context = ConversationContext(
-            activity, talker, null, MenuScope.AGGREGATED, CONTAINER_ID_EXTRAS.firstNotNullOfOrNull(activity.intent::getStringExtra),
-        )
-        val shown = items(MenuScope.AGGREGATED).filter { item ->
-            runCatching { item.shouldShow(context, item.id) }
-                .onFailure { WeLogger.e(TAG, "shouldShow callback failed", it) }.getOrDefault(false)
-        }
+        val context =
+            ConversationContext(
+                activity,
+                talker,
+                null,
+                MenuScope.AGGREGATED,
+                CONTAINER_ID_EXTRAS.firstNotNullOfOrNull(activity.intent::getStringExtra),
+            )
+        val shown =
+            items(MenuScope.AGGREGATED).filter { item ->
+                runCatching { item.shouldShow(context, item.id) }
+                    .onFailure { WeLogger.e(TAG, "shouldShow callback failed", it) }
+                    .getOrDefault(false)
+            }
         if (shown.isEmpty()) return
 
         param.args[3] = View.OnCreateContextMenuListener { menu, view, menuInfo ->
             createListener.onCreateContextMenu(menu, view, menuInfo)
-            shown.forEach { item -> menu.add(0, item.id, AGGREGATED_MENU_ORDER, item.text).icon = item.drawable }
+            shown.forEach { item ->
+                menu.add(0, item.id, AGGREGATED_MENU_ORDER, item.text).icon = item.drawable
+            }
         }
         // The 5th parameter's declared type is the obfuscated select-callback interface (single
         // method onMMMenuItemSelected); proxy it to intercept our own items.
         val selectCallbackInterface = methodShowPopupMenu.method.parameterTypes[4]
-        param.args[4] = Proxy.newProxyInstance(selectCallbackInterface.classLoader, arrayOf(selectCallbackInterface)) { _, method, methodArgs ->
-            val params = methodArgs ?: emptyArray()
-            val clicked = (params.getOrNull(0) as? android.view.MenuItem)?.itemId
-            val item = shown.firstOrNull { it.id == clicked }
-            if (method.name == "onMMMenuItemSelected" && item != null) {
-                runCatching { item.onClick(context) }.onFailure { WeLogger.e(TAG, "onSelect callback failed", it) }
-                null
-            } else {
-                method.invoke(originalSelect, *params)
+        param.args[4] =
+            Proxy.newProxyInstance(
+                selectCallbackInterface.classLoader,
+                arrayOf(selectCallbackInterface),
+            ) { _, method, methodArgs ->
+                val params = methodArgs ?: emptyArray()
+                val clicked = (params.getOrNull(0) as? android.view.MenuItem)?.itemId
+                val item = shown.firstOrNull { it.id == clicked }
+                if (method.name == "onMMMenuItemSelected" && item != null) {
+                    runCatching { item.onClick(context) }
+                        .onFailure { WeLogger.e(TAG, "onSelect callback failed", it) }
+                    null
+                } else {
+                    method.invoke(originalSelect, *params)
+                }
             }
-        }
     }
 
     /**
      * Resolves the long-pressed conversation of a folder container from the menu-create listener:
-     * createListener -> its OnItemLongClickListener -> the container fragment -> its list adapter ->
-     * adapter.getItem(position) (an rconversation row) -> field_username. Null for other popups.
+     * createListener -> its OnItemLongClickListener -> the container fragment -> its list adapter
+     * -> adapter.getItem(position) (an rconversation row) -> field_username. Null for other popups.
      */
     private fun extractContainerTalker(createListener: Any, position: Int): String? {
-        val longClickListener = createListener.reflekt()
-            .firstFieldOrNull { type { it isSubclassOf AdapterView.OnItemLongClickListener::class } }
-            ?.get() ?: return null
+        val longClickListener =
+            createListener
+                .reflekt()
+                .firstFieldOrNull {
+                    type { it isSubclassOf AdapterView.OnItemLongClickListener::class }
+                }
+                ?.get() ?: return null
 
-        val fragment = longClickListener.reflekt()
-            .firstFieldOrNull { type { it.name.endsWith("ConvBoxServiceConversationFmUI") } }
-            ?.get() ?: return null
+        val fragment =
+            longClickListener
+                .reflekt()
+                .firstFieldOrNull { type { it.name.endsWith("ConvBoxServiceConversationFmUI") } }
+                ?.get() ?: return null
 
-        val adapter = fragment.reflekt()
-            .firstFieldOrNull { type { it isSubclassOf android.widget.Adapter::class } }
-            ?.get() as android.widget.Adapter
+        val adapter =
+            fragment
+                .reflekt()
+                .firstFieldOrNull { type { it isSubclassOf android.widget.Adapter::class } }
+                ?.get() as android.widget.Adapter
 
         if (position < 0 || position >= adapter.count) return null
         val conversation = adapter.getItem(position) ?: return null
 
-        return conversation.reflekt()
-            .firstField { name = "field_username"; superclass() }
+        return conversation
+            .reflekt()
+            .firstField {
+                name = "field_username"
+                superclass()
+            }
             .get() as String
     }
 
     private fun Context.findActivity(): Activity =
-        generateSequence(this) { (it as? ContextWrapper)?.baseContext }.filterIsInstance<Activity>().first()
+        generateSequence(this) { (it as? ContextWrapper)?.baseContext }
+            .filterIsInstance<Activity>()
+            .first()
 
     private fun handleCreateMenu(param: HookParam) {
         val menu = param.args.getOrNull(0) as? ContextMenu ?: return
@@ -225,9 +268,11 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
         // thisObject is ConversationLongClickListener$1, which holds the outer
         // ConversationLongClickListener instance in its only field of that type.
-        val listener = param.thisObject!!.reflekt()
-            .firstFieldOrNull { type = methodOnCreateMenu.method.declaringClass }
-            ?.get() ?: return
+        val listener =
+            param.thisObject!!
+                .reflekt()
+                .firstFieldOrNull { type = methodOnCreateMenu.method.declaringClass }
+                ?.get() ?: return
 
         val context = resolveContext(listener) ?: return
 
@@ -246,17 +291,20 @@ object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
     /** Extracts the [ConversationContext] from a ConversationLongClickListener instance. */
     private fun resolveContext(listener: Any): ConversationContext? {
         return listener.reflekt().run {
-            val activity = firstFieldOrNull { type = Activity::class }?.get() as? Activity
-                ?: return null
+            val activity =
+                firstFieldOrNull { type = Activity::class }?.get() as? Activity ?: return null
 
-            val talker = firstFieldOrNull {
-                type = BString
-                modifiers { !it.contains(Modifiers.FINAL) }
-            }?.get() as? String ?: ""
+            val talker =
+                firstFieldOrNull {
+                    type = BString
+                    modifiers { !it.contains(Modifiers.FINAL) }
+                }
+                    ?.get() as? String ?: ""
 
             val conversation = firstFieldOrNull {
                 type { it.name.startsWith("com.tencent.mm.storage") }
-            }?.get()
+            }
+                ?.get()
 
             ConversationContext(activity, talker, conversation)
         }

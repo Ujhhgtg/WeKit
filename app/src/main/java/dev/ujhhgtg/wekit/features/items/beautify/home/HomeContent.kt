@@ -86,13 +86,13 @@ import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.utils.rememberDeviceCornerRadius
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.time.LocalTime
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.time.LocalTime
-import kotlin.math.max
-import kotlin.math.min
 
 private val FrameHorizontalInset = 12.dp
 
@@ -120,24 +120,32 @@ fun HomeContent(
     val localizedContext = LocalWeKitLocalizedContext.current
     val wallpaperSource = HomeWallpaper.source
     val wallpaperRevision = HomeWallpaper.revision
-    val background by produceState<ImageBitmap?>(null, resources, wallpaperSource, wallpaperRevision) {
-        try {
-            value = withContext(Dispatchers.IO) { HomeWallpaper.load(resources, wallpaperSource) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            WeLogger.e("BeautifyHome", "Unable to load home background: $wallpaperSource", error)
-            showToast(localizedContext.getString(R.string.beautify_home_background_load_failed))
-            value = withContext(Dispatchers.IO) {
-                HomeWallpaper.load(resources, HomeWallpaperSource.BUILTIN_SECOND)
+    val background by
+        produceState<ImageBitmap?>(null, resources, wallpaperSource, wallpaperRevision) {
+            try {
+                value =
+                    withContext(Dispatchers.IO) { HomeWallpaper.load(resources, wallpaperSource) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                WeLogger.e(
+                    "BeautifyHome",
+                    "Unable to load home background: $wallpaperSource",
+                    error,
+                )
+                showToast(localizedContext.getString(R.string.beautify_home_background_load_failed))
+                value =
+                    withContext(Dispatchers.IO) {
+                        HomeWallpaper.load(resources, HomeWallpaperSource.BUILTIN_SECOND)
+                    }
             }
         }
-    }
     val wallpaperStyle = HomeWallpaper.style
     val colors = MaterialTheme.colorScheme
     val darkSurface = colors.surface.luminance() < 0.5f
     val surface = lerp(colors.surface.copy(alpha = 1f), colors.primary, 0.025f)
-    val foreground = if (colors.onSurface.luminance() > 0.5f) Color(0xFFD7E2F0) else Color(0xFF29445A)
+    val foreground =
+        if (colors.onSurface.luminance() > 0.5f) Color(0xFFD7E2F0) else Color(0xFF29445A)
     val deviceCorner = rememberDeviceCornerRadius()
     val panelCorner = if (deviceCorner < 16.dp) 24.dp else deviceCorner
     BoxWithConstraints(Modifier.fillMaxSize().background(surface)) {
@@ -151,51 +159,84 @@ fun HomeContent(
                     bitmap = it,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
-                        .requiredSize(this@BoxWithConstraints.maxWidth, this@BoxWithConstraints.maxHeight)
-                        .blur(52.dp),
+                    modifier =
+                        Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
+                            .requiredSize(
+                                this@BoxWithConstraints.maxWidth,
+                                this@BoxWithConstraints.maxHeight,
+                            )
+                            .blur(52.dp),
                 )
             }
-            Box(Modifier.matchParentSize()
-                .background(if (darkSurface) Color.Black.copy(alpha = 0.24f) else colors.surface.copy(alpha = 0.13f))
-                .background(Color.Black.copy(alpha = 0.1f))
-                .background(Brush.horizontalGradient(listOf(
-                    if (darkSurface) Color.Black.copy(alpha = 0.36f) else colors.surface.copy(alpha = 0.23f),
-                    colors.surface.copy(alpha = if (darkSurface) 0.18f else 0.16f),
-                ))))
+            Box(
+                Modifier.matchParentSize()
+                    .background(
+                        if (darkSurface) Color.Black.copy(alpha = 0.24f)
+                        else colors.surface.copy(alpha = 0.13f),
+                    )
+                    .background(Color.Black.copy(alpha = 0.1f))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                if (darkSurface) Color.Black.copy(alpha = 0.36f)
+                                else colors.surface.copy(alpha = 0.23f),
+                                colors.surface.copy(alpha = if (darkSurface) 0.18f else 0.16f),
+                            ),
+                        ),
+                    ),
+            )
         }
         Row(Modifier.fillMaxSize()) {
             HomeRail(
-                time, active, navigationTabs, onNavigate,
+                time,
+                active,
+                navigationTabs,
+                onNavigate,
                 Modifier.width(railWidth).fillMaxHeight().padding(vertical = 24.dp),
             )
             BoxWithConstraints(
-                Modifier.weight(1f).fillMaxHeight()
+                Modifier.weight(1f)
+                    .fillMaxHeight()
                     .clip(RoundedCornerShape(topStart = panelCorner, bottomStart = panelCorner))
                     .background(surface),
             ) {
                 val density = LocalDensity.current
                 val systemPadding = WindowInsets.systemBars.asPaddingValues()
-                val contentHeight = (maxHeight - systemPadding.calculateTopPadding()
-                    - systemPadding.calculateBottomPadding() - 16.dp).coerceAtLeast(0.dp)
+                val contentHeight =
+                    (maxHeight -
+                            systemPadding.calculateTopPadding() -
+                            systemPadding.calculateBottomPadding() -
+                            16.dp)
+                        .coerceAtLeast(0.dp)
                 val titleHeight = with(density) { 54.sp.toDp() }.coerceAtLeast(48.dp)
                 val headerHeight = with(density) { 30.sp.toDp() } + titleHeight + 6.dp + 14.dp
-                val desiredTop = min(contentHeight.value * 0.44f, max(contentHeight.value - 440f, 140f)).dp
+                val desiredTop =
+                    min(contentHeight.value * 0.44f, max(contentHeight.value - 440f, 140f)).dp
                 val maximumTop = (contentHeight - headerHeight - 160.dp).coerceAtLeast(0.dp)
                 val topSpacer = desiredTop.coerceIn(0.dp, maximumTop)
-                val frameTop = maxOf(systemPadding.calculateTopPadding(), with(density) { statusBarTopPx.toDp() })
+                val frameTop =
+                    maxOf(
+                        systemPadding.calculateTopPadding(),
+                        with(density) { statusBarTopPx.toDp() },
+                    )
                 // The frame remains a background layer. The existing header and list
                 // overlap its lower fade instead of being laid out below the picture.
                 val frameHeight = (maxHeight - frameTop).coerceAtLeast(0.dp) * 0.63f
                 HomeBackground(
-                    background, wallpaperStyle, surface, frameTop, frameHeight,
-                    active, onBackgroundLongPress,
+                    background,
+                    wallpaperStyle,
+                    surface,
+                    frameTop,
+                    frameHeight,
+                    active,
+                    onBackgroundLongPress,
                 )
-                val contentHorizontalInset = if (wallpaperStyle == HomeWallpaperStyle.FRAMED) {
-                    FrameHorizontalInset
-                } else {
-                    24.dp
-                }
+                val contentHorizontalInset =
+                    if (wallpaperStyle == HomeWallpaperStyle.FRAMED) {
+                        FrameHorizontalInset
+                    } else {
+                        24.dp
+                    }
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(bottom = 16.dp)) {
                     Spacer(Modifier.height(topSpacer))
                     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -203,8 +244,11 @@ fun HomeContent(
                     }
                     AndroidView(
                         factory = { content },
-                        modifier = Modifier.fillMaxWidth().weight(1f)
-                            .padding(horizontal = contentHorizontalInset).clip(RoundedCornerShape(20.dp)),
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = contentHorizontalInset)
+                                .clip(RoundedCornerShape(20.dp)),
                     )
                 }
             }
@@ -226,43 +270,70 @@ private fun HomeBackground(
     val currentOnLongPress by rememberUpdatedState(onLongPress)
     val haptic = LocalHapticFeedback.current
     // YumeBox's MoeHero: 12dp side insets, a 28dp frame, and a fade inside the image.
-    val imageModifier = if (framed) {
-        Modifier.fillMaxWidth().padding(start = FrameHorizontalInset, end = FrameHorizontalInset, top = statusBarTop)
-            .height(frameHeight).graphicsLayer {
-                shape = RoundedCornerShape(28.dp)
-                clip = true
-                transformOrigin = TransformOrigin(0.5f, 0f)
-            }
-    } else {
-        Modifier.fillMaxWidth().fillMaxHeight(0.6f)
-    }
-    Box(imageModifier.pointerInput(active) {
-        if (active) detectTapGestures(onLongPress = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            currentOnLongPress()
-        })
-    }) {
+    val imageModifier =
+        if (framed) {
+            Modifier.fillMaxWidth()
+                .padding(
+                    start = FrameHorizontalInset,
+                    end = FrameHorizontalInset,
+                    top = statusBarTop,
+                )
+                .height(frameHeight)
+                .graphicsLayer {
+                    shape = RoundedCornerShape(28.dp)
+                    clip = true
+                    transformOrigin = TransformOrigin(0.5f, 0f)
+                }
+        } else {
+            Modifier.fillMaxWidth().fillMaxHeight(0.6f)
+        }
+    Box(
+        imageModifier.pointerInput(active) {
+            if (active)
+                detectTapGestures(
+                    onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentOnLongPress()
+                    },
+                )
+        },
+    ) {
         background?.let {
-            Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+            Image(
+                it,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
         }
         if (framed) {
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                0f to Color.Transparent,
-                0.45f to Color.Transparent,
-                0.78f to surface.copy(alpha = 0.88f),
-                0.90f to surface,
-                1f to surface,
-            )))
+            Box(
+                Modifier.matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.45f to Color.Transparent,
+                            0.78f to surface.copy(alpha = 0.88f),
+                            0.90f to surface,
+                            1f to surface,
+                        ),
+                    ),
+            )
         }
     }
     if (!framed) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            0f to surface.copy(alpha = 0f),
-            0.3f to surface.copy(alpha = 0f),
-            0.43f to surface.copy(alpha = 0.86f),
-            0.56f to surface,
-            1f to surface,
-        )))
+        Box(
+            Modifier.fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to surface.copy(alpha = 0f),
+                        0.3f to surface.copy(alpha = 0f),
+                        0.43f to surface.copy(alpha = 0.86f),
+                        0.56f to surface,
+                        1f to surface,
+                    ),
+                ),
+        )
     }
 }
 
@@ -274,16 +345,21 @@ private fun HomeHeader(
     onSearch: () -> Unit,
     menuItems: () -> List<HomeMenuItem>,
 ) {
-    val greeting = when (time.hour) {
-        in 5..11 -> R.string.beautify_home_good_morning
-        in 12..17 -> R.string.beautify_home_good_afternoon
-        else -> R.string.beautify_home_good_evening
-    }
+    val greeting =
+        when (time.hour) {
+            in 5..11 -> R.string.beautify_home_good_morning
+            in 12..17 -> R.string.beautify_home_good_afternoon
+            else -> R.string.beautify_home_good_evening
+        }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(R.string.beautify_home_brand),
-            modifier = Modifier.weight(1f), color = color,
-            fontSize = 42.sp, lineHeight = 54.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            modifier = Modifier.weight(1f),
+            color = color,
+            fontSize = 42.sp,
+            lineHeight = 54.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
         )
         HomeMenu(active, onSearch, menuItems, color)
     }
@@ -322,12 +398,13 @@ private fun HomeRail(
             navigationTabs.forEachIndexed { index, id ->
                 if (index > 0) RailDivider()
                 val tab = navTab(id)
-                val icon = when (id) {
-                    TAB_CONTACTS -> HomeIcons.Contacts
-                    TAB_DISCOVER -> HomeIcons.Discover
-                    TAB_ME -> HomeIcons.Profile
-                    else -> tab.outlined
-                }
+                val icon =
+                    when (id) {
+                        TAB_CONTACTS -> HomeIcons.Contacts
+                        TAB_DISCOVER -> HomeIcons.Discover
+                        TAB_ME -> HomeIcons.Profile
+                        else -> tab.outlined
+                    }
                 RailDestination(icon, tab.labelRes) { onNavigate(id) }
             }
         }
@@ -353,14 +430,20 @@ private fun RailDivider() {
 @Composable
 private fun RailDestination(icon: ImageVector, title: Int, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick,
-        ),
+        Modifier.size(44.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, stringResource(title), modifier = Modifier.size(30.dp), tint = Color.White.copy(alpha = 0.88f))
+        Icon(
+            icon,
+            stringResource(title),
+            modifier = Modifier.size(30.dp),
+            tint = Color.White.copy(alpha = 0.88f),
+        )
     }
 }
 
@@ -373,15 +456,23 @@ private fun HomeBattery(active: Boolean, modifier: Modifier = Modifier) {
             if (intent == null) return
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-            percentage = if (level < 0 || scale <= 0) null else (level * 100f / scale).toInt().coerceIn(0, 100)
+            percentage =
+                if (level < 0 || scale <= 0) null
+                else (level * 100f / scale).toInt().coerceIn(0, 100)
         }
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) = update(intent)
-        }
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) = update(intent)
+            }
         if (active) {
-            update(ContextCompat.registerReceiver(
-                context, receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED,
-            ))
+            update(
+                ContextCompat.registerReceiver(
+                    context,
+                    receiver,
+                    IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                    ContextCompat.RECEIVER_NOT_EXPORTED,
+                ),
+            )
         }
         onDispose { if (active) context.unregisterReceiver(receiver) }
     }
@@ -394,19 +485,32 @@ private fun HomeBattery(active: Boolean, modifier: Modifier = Modifier) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.width(36.dp).height(16.dp).clip(capsuleShape)
-                    .background(Color.White.copy(alpha = 0.36f)).padding(2.dp),
+                Modifier.width(36.dp)
+                    .height(16.dp)
+                    .clip(capsuleShape)
+                    .background(Color.White.copy(alpha = 0.36f))
+                    .padding(2.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Box(Modifier.fillMaxWidth(fillFraction).fillMaxHeight().clip(capsuleShape)
-                    .background(Color.White.copy(alpha = 0.86f)))
+                Box(
+                    Modifier.fillMaxWidth(fillFraction)
+                        .fillMaxHeight()
+                        .clip(capsuleShape)
+                        .background(Color.White.copy(alpha = 0.86f)),
+                )
             }
-            Box(Modifier.width(3.dp).height(16.dp * 0.46f).clip(capsuleShape)
-                .background(Color.White.copy(alpha = 0.54f)))
+            Box(
+                Modifier.width(3.dp)
+                    .height(16.dp * 0.46f)
+                    .clip(capsuleShape)
+                    .background(Color.White.copy(alpha = 0.54f)),
+            )
         }
         Text(
             percentage?.let { "$it%" } ?: "--%",
-            color = Color.White.copy(alpha = 0.82f), style = TextStyle(fontSize = 12.sp), softWrap = false,
+            color = Color.White.copy(alpha = 0.82f),
+            style = TextStyle(fontSize = 12.sp),
+            softWrap = false,
         )
     }
 }
@@ -422,17 +526,36 @@ private fun HomeMenu(
     var items by remember { mutableStateOf(emptyList<HomeMenuItem>()) }
     LaunchedEffect(active) { if (!active) expanded = false }
     Box {
-        IconButton(onClick = { items = menuItems(); expanded = true }, enabled = active) {
-            Icon(MaterialSymbols.Outlined.More_vert, stringResource(R.string.beautify_home_menu), tint = color)
+        IconButton(
+            onClick = {
+                items = menuItems()
+                expanded = true
+            },
+            enabled = active,
+        ) {
+            Icon(
+                MaterialSymbols.Outlined.More_vert,
+                stringResource(R.string.beautify_home_menu),
+                tint = color,
+            )
         }
         DropdownMenu(expanded && active, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.beautify_home_search)) },
                 leadingIcon = { Icon(MaterialSymbols.Outlined.Search, null) },
-                onClick = { expanded = false; onSearch() },
+                onClick = {
+                    expanded = false
+                    onSearch()
+                },
             )
             for (item in items) {
-                DropdownMenuItem(text = { Text(item.title) }, onClick = { expanded = false; item.click() })
+                DropdownMenuItem(
+                    text = { Text(item.title) },
+                    onClick = {
+                        expanded = false
+                        item.click()
+                    },
+                )
             }
         }
     }

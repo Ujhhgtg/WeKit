@@ -1,13 +1,11 @@
 package dev.ujhhgtg.wekit.features.api.net
 
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import org.json.JSONArray
+import org.json.JSONObject
 
-/**
- * 通用 JSON -> Protobuf 字节流转换器
- */
+/** 通用 JSON -> Protobuf 字节流转换器 */
 object ProtoJsonBuilder {
 
     private const val WIRETYPE_VAR_INT = 0

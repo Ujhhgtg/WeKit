@@ -26,23 +26,28 @@ object WeChatForegroundTracker {
     private var startedCount = 0
     private var registered = false
 
-    private val callbacks = object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityStarted(activity: Activity) {
-            startedCount++
-            if (startedCount == 1) update(true)
-        }
+    private val callbacks =
+        object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: Activity) {
+                startedCount++
+                if (startedCount == 1) update(true)
+            }
 
-        override fun onActivityStopped(activity: Activity) {
-            startedCount = (startedCount - 1).coerceAtLeast(0)
-            if (startedCount == 0) update(false)
-        }
+            override fun onActivityStopped(activity: Activity) {
+                startedCount = (startedCount - 1).coerceAtLeast(0)
+                if (startedCount == 0) update(false)
+            }
 
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-        override fun onActivityResumed(activity: Activity) {}
-        override fun onActivityPaused(activity: Activity) {}
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-        override fun onActivityDestroyed(activity: Activity) {}
-    }
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+
+            override fun onActivityResumed(activity: Activity) {}
+
+            override fun onActivityPaused(activity: Activity) {}
+
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+
+            override fun onActivityDestroyed(activity: Activity) {}
+        }
 
     /** Registers the lifecycle callbacks (idempotent) and seeds the initial state. */
     fun ensureRegistered() {

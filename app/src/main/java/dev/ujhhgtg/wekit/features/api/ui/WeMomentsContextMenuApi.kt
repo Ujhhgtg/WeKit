@@ -9,7 +9,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -45,81 +44,92 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: Drawable,
+        val text: String,
+        val drawable: Drawable,
         val shouldShow: (context: MomentsContext, itemId: Int) -> Boolean,
-        val onClick: (context: MomentsContext) -> Unit
+        val onClick: (context: MomentsContext) -> Unit,
     )
 
     data class MomentsContext(
         val activity: Activity,
         val snsInfo: Any?,
         val timelineObject: Any?,
-        val source: Any? = null
+        val source: Any? = null,
     )
 
-    private val methodOnCreateMenu by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui.listener")
-            usingStrings("MicroMsg.TimelineOnCreateContextMenuListener", "onMMCreateContextMenu error")
-        },
-    )
-    private val methodOnItemSelected by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui.listener")
-            usingStrings(
-                "delete comment fail!!! snsInfo is null",
-                "send photo fail, mediaObj is null",
-                "mediaObj is null, send failed!",
-            )
-        },
-    )
-    private val methodImproveOnItemSelectedRegister2 by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-            returnType = "void"
-            paramCount = 2
-            paramTypes("android.view.MenuItem", "int")
-            usingStrings(
-                "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$2",
-            )
-        },
-        allowFailure = true,
-    )
-    private val methodImproveOnItemSelectedRegister3 by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-            returnType = "void"
-            paramCount = 2
-            paramTypes("android.view.MenuItem", "int")
-            usingStrings(
-                "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$3",
-            )
-        },
-        allowFailure = true,
-    )
-    private val methodImproveMultiPhotoOnItemSelected by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
-            returnType = "void"
-            paramCount = 2
-            paramTypes("android.view.MenuItem", "int")
-            usingStrings(
-                "onMMMenuItemSelected",
-                "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick\$register\$1\$1\$1",
-            )
-        },
-        allowFailure = true,
-    )
-    private val methodSnsInfoStorage by dexMethod(
-        sqlMethod {
-            returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
-            paramCount = 1
-            paramTypes("java.lang.String")
-            usingStrings("getByLocalId", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
-        },
-    )
+    private val methodOnCreateMenu by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui.listener")
+                usingStrings(
+                    "MicroMsg.TimelineOnCreateContextMenuListener",
+                    "onMMCreateContextMenu error",
+                )
+            },
+        )
+    private val methodOnItemSelected by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui.listener")
+                usingStrings(
+                    "delete comment fail!!! snsInfo is null",
+                    "send photo fail, mediaObj is null",
+                    "mediaObj is null, send failed!",
+                )
+            },
+        )
+    private val methodImproveOnItemSelectedRegister2 by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+                returnType = "void"
+                paramCount = 2
+                paramTypes("android.view.MenuItem", "int")
+                usingStrings(
+                    "onMMMenuItemSelected",
+                    "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$2",
+                )
+            },
+            allowFailure = true,
+        )
+    private val methodImproveOnItemSelectedRegister3 by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+                returnType = "void"
+                paramCount = 2
+                paramTypes("android.view.MenuItem", "int")
+                usingStrings(
+                    "onMMMenuItemSelected",
+                    "com.tencent.mm.plugin.sns.ui.improve.item.click.BaseImproveClick\$register\$3",
+                )
+            },
+            allowFailure = true,
+        )
+    private val methodImproveMultiPhotoOnItemSelected by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.sns.ui.improve.item.click")
+                returnType = "void"
+                paramCount = 2
+                paramTypes("android.view.MenuItem", "int")
+                usingStrings(
+                    "onMMMenuItemSelected",
+                    "com.tencent.mm.plugin.sns.ui.improve.item.click.ImproveMultiPhotoClick\$register\$1\$1\$1",
+                )
+            },
+            allowFailure = true,
+        )
+    private val methodSnsInfoStorage by
+        dexMethod(
+            sqlMethod {
+                returnType = "com.tencent.mm.plugin.sns.storage.SnsInfo"
+                paramCount = 1
+                paramTypes("java.lang.String")
+                usingStrings("getByLocalId", "com.tencent.mm.plugin.sns.storage.SnsInfoStorage")
+            },
+        )
+
     override fun onEnable() {
         methodOnCreateMenu.method.hookAfter {
             handleCreateMenu(this)
@@ -140,9 +150,13 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
             target.method.hookAfter {
                 handleSelectMenu(this)
             }
-        }.onFailure {
-            WeLogger.w(TAG, "Improve Moments menu item selected hook unavailable ($label): ${it.message}")
         }
+            .onFailure {
+                WeLogger.w(
+                    TAG,
+                    "Improve Moments menu item selected hook unavailable ($label): ${it.message}",
+                )
+            }
     }
 
     private fun handleCreateMenu(param: HookParam) {
@@ -152,7 +166,8 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         for (item in menuItems.values.flatten()) {
             try {
                 if (context != null && !item.shouldShow(context, item.id)) continue
-                menu.reflekt()
+                menu
+                    .reflekt()
                     .firstMethod {
                         parameters(Int::class, CharSequence::class, Drawable::class)
                     }
@@ -170,7 +185,10 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
         val context = resolveContext(param.thisObject!!)
         if (context == null) {
-            WeLogger.w(TAG, "failed to resolve Moments context, listener=${param.thisObject!!.javaClass.name}, item=$clickedId")
+            WeLogger.w(
+                TAG,
+                "failed to resolve Moments context, listener=${param.thisObject!!.javaClass.name}, item=$clickedId",
+            )
             return
         }
 
@@ -188,23 +206,31 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
     }
 
     private fun resolveContext(listener: Any): MomentsContext? {
-        resolveImproveContext(listener)?.let { return it }
+        resolveImproveContext(listener)?.let {
+            return it
+        }
 
         val reflected = listener.reflekt()
-        val activity = reflected.firstFieldOrNull {
-            type = Activity::class
-        }?.get() as? Activity ?: return null
+        val activity =
+            reflected
+                .firstFieldOrNull {
+                    type = Activity::class
+                }
+                ?.get() as? Activity ?: return null
 
-        val timeLineObject = reflected.firstFieldOrNull {
-            type = "com.tencent.mm.protocal.protobuf.TimeLineObject"
-        }?.get()
+        val timeLineObject =
+            reflected
+                .firstFieldOrNull {
+                    type = "com.tencent.mm.protocal.protobuf.TimeLineObject"
+                }
+                ?.get()
 
         val snsInfo = resolveSnsInfo(listener, timeLineObject)
         if (snsInfo == null) {
             WeLogger.w(
                 TAG,
                 "snsInfo is null, activity=${activity.javaClass.name}, listener=${listener.javaClass.name}, " +
-                        "timeline=${describeTimeline(timeLineObject)}, stringFields=${readStringFields(listener)}"
+                    "timeline=${describeTimeline(timeLineObject)}, stringFields=${readStringFields(listener)}",
             )
         }
         return MomentsContext(activity, snsInfo, timeLineObject, listener)
@@ -212,23 +238,29 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
     private fun resolveImproveContext(listener: Any): MomentsContext? {
         val click = findObjectInFields(listener) { obj -> hasImproveInfoField(obj) } ?: return null
-        val activity = click.reflekt().firstFieldOrNull {
-            type { Context::class.java.isAssignableFrom(it) }
-        }?.get() as? Activity ?: return null
+        val activity =
+            click
+                .reflekt()
+                .firstFieldOrNull {
+                    type { Context::class.java.isAssignableFrom(it) }
+                }
+                ?.get() as? Activity ?: return null
 
-        val info = findObjectInFields(click) { obj ->
-            hasNoArgMethodReturning(obj, "com.tencent.mm.plugin.sns.storage.SnsInfo") &&
+        val info =
+            findObjectInFields(click) { obj ->
+                hasNoArgMethodReturning(obj, "com.tencent.mm.plugin.sns.storage.SnsInfo") &&
                     hasNoArgMethodReturning(obj, "com.tencent.mm.protocal.protobuf.TimeLineObject")
-        } ?: return null
+            } ?: return null
 
         val snsInfo = invokeNoArgReturning(info, "com.tencent.mm.plugin.sns.storage.SnsInfo")
-        val timeLineObject = invokeNoArgReturning(info, "com.tencent.mm.protocal.protobuf.TimeLineObject")
+        val timeLineObject =
+            invokeNoArgReturning(info, "com.tencent.mm.protocal.protobuf.TimeLineObject")
         if (snsInfo == null || timeLineObject == null) {
             WeLogger.w(
                 TAG,
                 "failed to resolve Improve Moments context values, listener=${listener.javaClass.name}, " +
-                        "click=${click.javaClass.name}, info=${info.javaClass.name}, snsInfo=${snsInfo?.javaClass?.name}, " +
-                        "timeline=${timeLineObject?.javaClass?.name}"
+                    "click=${click.javaClass.name}, info=${info.javaClass.name}, snsInfo=${snsInfo?.javaClass?.name}, " +
+                    "timeline=${timeLineObject?.javaClass?.name}",
             )
         }
         return MomentsContext(activity, snsInfo, timeLineObject, listener)
@@ -236,15 +268,21 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
 
     private fun resolveSnsInfo(listener: Any, timeLineObject: Any?): Any? {
         for (localId in readStringFields(listener)) {
-            getSnsInfoByLocalId(localId)?.let { return it }
+            getSnsInfoByLocalId(localId)?.let {
+                return it
+            }
         }
 
         readTimelineSnsId(timeLineObject)?.let { snsId ->
-            WeMomentsApi.getSnsInfoBySnsId(snsId)?.let { return it }
+            WeMomentsApi.getSnsInfoBySnsId(snsId)?.let {
+                return it
+            }
         }
 
         for (snsId in readLongFields(listener)) {
-            WeMomentsApi.getSnsInfoBySnsId(snsId)?.let { return it }
+            WeMomentsApi.getSnsInfoBySnsId(snsId)?.let {
+                return it
+            }
         }
 
         return null
@@ -255,46 +293,61 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         return runCatching {
             val storage = WeMomentsApi.methodGetSnsInfoStorage.method.invoke(null)
             methodSnsInfoStorage.method.invoke(storage, localId)
-        }.getOrElse { error ->
-            WeLogger.e(TAG, "failed to get Moments snsInfo by localId=$localId", error)
-            null
         }
+            .getOrElse { error ->
+                WeLogger.e(TAG, "failed to get Moments snsInfo by localId=$localId", error)
+                null
+            }
     }
 
     private fun readStringFields(target: Any): List<String> {
         return runCatching {
-            target.reflekt().fields {
-                type = BString
-                modifiers { !it.contains(Modifiers.FINAL) && !it.contains(Modifiers.STATIC) }
-            }.mapNotNull { it.get() as? String }
+            target
+                .reflekt()
+                .fields {
+                    type = BString
+                    modifiers { !it.contains(Modifiers.FINAL) && !it.contains(Modifiers.STATIC) }
+                }
+                .mapNotNull { it.get() as? String }
                 .filter { it.isNotBlank() }
                 .distinct()
-        }.getOrElse {
-            WeLogger.e(TAG, "failed to read Moments context string fields", it)
-            emptyList()
         }
+            .getOrElse {
+                WeLogger.e(TAG, "failed to read Moments context string fields", it)
+                emptyList()
+            }
     }
 
     private fun readLongFields(target: Any): List<Long> {
         return runCatching {
-            target.javaClass.declaredFields.mapNotNull { field ->
-                val modifiers = field.modifiers
-                if (Modifier.isFinal(modifiers) || Modifier.isStatic(modifiers)) return@mapNotNull null
-                if (field.type != Long::class.javaPrimitiveType && field.type != Long::class.javaObjectType) return@mapNotNull null
-                field.isAccessible = true
-                (field.get(target) as? Number)?.toLong()?.takeIf { it != 0L }
-            }.distinct()
-        }.getOrElse {
-            WeLogger.e(TAG, "failed to read Moments context long fields", it)
-            emptyList()
+            target.javaClass.declaredFields
+                .mapNotNull { field ->
+                    val modifiers = field.modifiers
+                    if (Modifier.isFinal(modifiers) || Modifier.isStatic(modifiers))
+                        return@mapNotNull null
+                    if (
+                        field.type != Long::class.javaPrimitiveType &&
+                            field.type != Long::class.javaObjectType
+                    )
+                        return@mapNotNull null
+                    field.isAccessible = true
+                    (field.get(target) as? Number)?.toLong()?.takeIf { it != 0L }
+                }
+                .distinct()
         }
+            .getOrElse {
+                WeLogger.e(TAG, "failed to read Moments context long fields", it)
+                emptyList()
+            }
     }
 
     private fun readTimelineSnsId(timeLineObject: Any?): Long? {
         if (timeLineObject == null) return null
-        val id = runCatching {
-            timeLineObject.reflekt().firstFieldOrNull { name = "Id" }?.get() as? String
-        }.getOrNull() ?: return null
+        val id =
+            runCatching {
+                timeLineObject.reflekt().firstFieldOrNull { name = "Id" }?.get() as? String
+            }
+                .getOrNull() ?: return null
         return runCatching { BigInteger(id).toLong() }.getOrNull()
     }
 
@@ -304,10 +357,12 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
             for (field in current.declaredFields) {
                 val modifiers = field.modifiers
                 if (Modifier.isStatic(modifiers)) continue
-                val value = runCatching {
-                    field.isAccessible = true
-                    field.get(target)
-                }.getOrNull() ?: continue
+                val value =
+                    runCatching {
+                        field.isAccessible = true
+                        field.get(target)
+                    }
+                        .getOrNull() ?: continue
                 if (predicate(value)) return value
             }
             current = current.superclass
@@ -318,7 +373,7 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
     private fun hasImproveInfoField(target: Any): Boolean {
         return findObjectInFields(target) { obj ->
             hasNoArgMethodReturning(obj, "com.tencent.mm.plugin.sns.storage.SnsInfo") &&
-                    hasNoArgMethodReturning(obj, "com.tencent.mm.protocal.protobuf.TimeLineObject")
+                hasNoArgMethodReturning(obj, "com.tencent.mm.protocal.protobuf.TimeLineObject")
         } != null
     }
 
@@ -328,24 +383,34 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         }
 
     private fun invokeNoArgReturning(target: Any, returnTypeName: String): Any? =
-        target.javaClass.methods.firstOrNull { method ->
-            method.parameterTypes.isEmpty() && method.returnType.name == returnTypeName
-        }?.let { method ->
-            runCatching {
-                method.isAccessible = true
-                method.invoke(target)
-            }.getOrElse {
-                WeLogger.e(TAG, "failed to invoke Moments context method returning $returnTypeName", it)
-                null
+        target.javaClass.methods
+            .firstOrNull { method ->
+                method.parameterTypes.isEmpty() && method.returnType.name == returnTypeName
             }
-        }
+            ?.let { method ->
+                runCatching {
+                    method.isAccessible = true
+                    method.invoke(target)
+                }
+                    .getOrElse {
+                        WeLogger.e(
+                            TAG,
+                            "failed to invoke Moments context method returning $returnTypeName",
+                            it,
+                        )
+                        null
+                    }
+            }
 
     private fun describeTimeline(timeLineObject: Any?): String {
         if (timeLineObject == null) return "null"
         return runCatching {
-            val id = timeLineObject.reflekt().firstFieldOrNull { name = "Id" }?.get() as? String
-            val desc = timeLineObject.reflekt().firstFieldOrNull { name = "ContentDesc" }?.get() as? String
-            "id=$id, descLen=${desc?.length ?: 0}"
-        }.getOrDefault(timeLineObject.javaClass.name)
+                val id = timeLineObject.reflekt().firstFieldOrNull { name = "Id" }?.get() as? String
+                val desc =
+                    timeLineObject.reflekt().firstFieldOrNull { name = "ContentDesc" }?.get()
+                        as? String
+                "id=$id, descLen=${desc?.length ?: 0}"
+            }
+            .getOrDefault(timeLineObject.javaClass.name)
     }
 }

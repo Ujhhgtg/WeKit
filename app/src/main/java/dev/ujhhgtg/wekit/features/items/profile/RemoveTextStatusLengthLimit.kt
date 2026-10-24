@@ -6,10 +6,10 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 
 object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
 
@@ -18,15 +18,19 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
     override val descriptionRes = R.string.feature_remove_text_status_length_limit_description
 
-    private val methodStatusTextChanged by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.textstatus.ui")
-            name = "afterTextChanged"
-            returnType = "void"
-            paramTypes("android.text.Editable")
-            usingEqStrings("MicroMsg.TextStatus.TextStatusDoWhatActivityV2", "afterTextChanged inputCount:")
-        },
-    )
+    private val methodStatusTextChanged by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.textstatus.ui")
+                name = "afterTextChanged"
+                returnType = "void"
+                paramTypes("android.text.Editable")
+                usingEqStrings(
+                    "MicroMsg.TextStatus.TextStatusDoWhatActivityV2",
+                    "afterTextChanged inputCount:",
+                )
+            },
+        )
     private val fieldStatusTextLengthLimit by dexField()
 
     override fun resolveDex() {
@@ -37,7 +41,7 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
                 .distinctBy { it.descriptor }
                 .single {
                     it.className == STATUS_EDITOR_CLASS && it.typeName == "int"
-                }
+                },
         )
     }
 

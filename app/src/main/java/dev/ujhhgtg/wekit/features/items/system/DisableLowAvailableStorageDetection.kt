@@ -17,29 +17,31 @@ object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
     override val technicalId = "禁用存储空间不足检测"
     override val nameRes = R.string.feature_disable_low_available_storage_detection_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
-    override val descriptionRes = R.string.feature_disable_low_available_storage_detection_description
+    override val descriptionRes =
+        R.string.feature_disable_low_available_storage_detection_description
 
-    private val methodSplashActivitySplashFinished by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.splash.SplashActivity"
-            usingEqStrings("WxSplash.SplashActivity", "Call splashFinished.")
-        },
-    )
-    private val classStaticValuesHolder by dexClass(
-        sqlClass {
-            usingEqStrings("UIPageFragmentActivity", "LuckyMoneyNewPrepareUI", "RemittanceUI")
-        },
-    )
+    private val methodSplashActivitySplashFinished by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.splash.SplashActivity"
+                usingEqStrings("WxSplash.SplashActivity", "Call splashFinished.")
+            },
+        )
+    private val classStaticValuesHolder by
+        dexClass(
+            sqlClass {
+                usingEqStrings("UIPageFragmentActivity", "LuckyMoneyNewPrepareUI", "RemittanceUI")
+            },
+        )
 
     override fun onEnable() {
         methodSplashActivitySplashFinished.hookBefore {
-            classStaticValuesHolder.clazz.reflekt()
-                .firstField { type = Boolean::class }
-                .set(false)
+            classStaticValuesHolder.clazz.reflekt().firstField { type = Boolean::class }.set(false)
         }
 
         "com.tencent.mm.plugin.clean.ui.fileindexui.StorageDisableAlertUI"
-            .toClass().hookAfterOnCreate {
+            .toClass()
+            .hookAfterOnCreate {
                 val activity = thisObject as Activity
                 activity.finish()
             }

@@ -5,8 +5,8 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Edit
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -36,19 +36,24 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
     }
 
     fun isSupported(msgInfo: MessageInfo): Boolean {
-        return msgInfo.type?.isText == true && msgInfo.isSelfSender && now() - Instant.fromEpochMilliseconds(msgInfo.createTime) <= 2.minutes
+        return msgInfo.type?.isText == true &&
+            msgInfo.isSelfSender &&
+            now() - Instant.fromEpochMilliseconds(msgInfo.createTime) <= 2.minutes
     }
 
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777016, localizedChatString(R.string.chat_swipe_action_edit), EditIcon, MaterialSymbols.Outlined.Edit,
+                777016,
+                localizedChatString(R.string.chat_swipe_action_edit),
+                EditIcon,
+                MaterialSymbols.Outlined.Edit,
                 isSupported = { isSupported(it) },
                 // revokes then loads one message's text into the input box; single-message only
-                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported
+                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Unsupported,
             ) { view, _, msgInfo ->
                 quickRevokeAndEdit(view.context, msgInfo)
-            }
+            },
         )
     }
 
@@ -59,7 +64,10 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
             chatFooter.lastText = msgInfo.quoteMsgActualContent ?: ""
             WeMessageApi.setReferringMessage(
                 chatFooter,
-                WeMessageApi.getMsgInfoInstanceByMsgSvrId(msgInfo.toQuoteMessage()!!.svrid, msgInfo.talker)
+                WeMessageApi.getMsgInfoInstanceByMsgSvrId(
+                    msgInfo.toQuoteMessage()!!.svrid,
+                    msgInfo.talker,
+                ),
             )
         } else {
             chatFooter.lastText = msgInfo.actualContent
@@ -68,9 +76,14 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
         chatFooter.setMode(1)
         val toSendEt = chatFooter.reflekt().invokeMethod("getToSendEt")!!
 
-        val etView = toSendEt.reflekt().firstMethod {
-            returnType = View::class
-        }.invoke()!! as View
+        val etView =
+            toSendEt
+                .reflekt()
+                .firstMethod {
+                    returnType = View::class
+                }
+                .invoke()!!
+                as View
 
         etView.requestFocus()
         val im = context.getSystemService<InputMethodManager>()

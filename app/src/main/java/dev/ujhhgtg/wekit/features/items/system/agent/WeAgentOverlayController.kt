@@ -16,12 +16,12 @@ import androidx.annotation.RequiresApi
 import androidx.compose.ui.platform.ComposeView
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.OverlayMode
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.shouldBeVisible
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -66,12 +66,10 @@ object WeAgentOverlayController {
         private set
 
     /** Whether the feature is enabled (user wants the overlay). Distinct from actual attachment. */
-    @Volatile
-    private var desiredVisible = false
+    @Volatile private var desiredVisible = false
 
     /** Which visibility rule the ball follows (§ 界面 setting). */
-    @Volatile
-    private var mode = OverlayMode.DISABLED
+    @Volatile private var mode = OverlayMode.DISABLED
 
     fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(HostInfo.application)
 
@@ -114,15 +112,21 @@ object WeAgentOverlayController {
         WeChatForegroundTracker.ensureRegistered()
     }
 
-    /** True when the ball should currently be attached given desire, mode, permission, and foreground. */
-    private fun shouldBeVisible(): Boolean = when (mode) {
-        OverlayMode.DISABLED -> false
-        OverlayMode.ALWAYS -> desiredVisible && canDrawOverlays()
-        OverlayMode.FOREGROUND_ONLY ->
-            desiredVisible && canDrawOverlays() && WeChatForegroundTracker.isForeground
-    }
+    /**
+     * True when the ball should currently be attached given desire, mode, permission, and
+     * foreground.
+     */
+    private fun shouldBeVisible(): Boolean =
+        when (mode) {
+            OverlayMode.DISABLED -> false
+            OverlayMode.ALWAYS -> desiredVisible && canDrawOverlays()
+            OverlayMode.FOREGROUND_ONLY ->
+                desiredVisible && canDrawOverlays() && WeChatForegroundTracker.isForeground
+        }
 
-    /** Attaches or detaches the ball window to match [shouldBeVisible]. Must run on the main thread. */
+    /**
+     * Attaches or detaches the ball window to match [shouldBeVisible]. Must run on the main thread.
+     */
     private fun reconcile() {
         val want = shouldBeVisible()
         if (want && !isShown) {
@@ -142,47 +146,52 @@ object WeAgentOverlayController {
     // -----------------------------------------------------------------------------------------
 
     private fun addBall() {
-        val params = baseLayoutParams(focusable = false).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = KvStore.getIntOrDef(PREF_BALL_X, 24)
-            y = KvStore.getIntOrDef(PREF_BALL_Y, 240)
-        }
+        val params =
+            baseLayoutParams(focusable = false).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = KvStore.getIntOrDef(PREF_BALL_X, 24)
+                y = KvStore.getIntOrDef(PREF_BALL_Y, 240)
+            }
         ballParams = params
 
         val owner = LifecycleOwnerProvider.lifecycleOwner
-        val view = ComposeView(HostInfo.application).apply {
-            setLifecycleOwner(owner)
-            setContent {
-                InjectedUiTheme {
-                    WeAgentBall(
-                        state = WeAgentService.ballState.value,
-                        onClick = { togglePanel() },
-                        onDragStart = {
-                            ballParams?.let { dragStartX = it.x; dragStartY = it.y }
-                        },
-                        onDrag = { dx, dy ->
-                            val p = ballParams
-                            val v = ballView
-                            if (p != null && v != null) {
-                                p.x = dragStartX + dx.toInt()
-                                p.y = dragStartY + dy.toInt()
-                                runCatching { wm.updateViewLayout(v, p) }
-                            }
-                        },
-                        onDragEnd = {
-                            val p = ballParams ?: return@WeAgentBall
-                            val v = ballView
-                            if (v != null) {
-                                clampToScreen(v, p)
-                                runCatching { wm.updateViewLayout(v, p) }
-                            }
-                            KvStore.putInt(PREF_BALL_X, p.x)
-                            KvStore.putInt(PREF_BALL_Y, p.y)
-                        },
-                    )
+        val view =
+            ComposeView(HostInfo.application).apply {
+                setLifecycleOwner(owner)
+                setContent {
+                    InjectedUiTheme {
+                        WeAgentBall(
+                            state = WeAgentService.ballState.value,
+                            onClick = { togglePanel() },
+                            onDragStart = {
+                                ballParams?.let {
+                                    dragStartX = it.x
+                                    dragStartY = it.y
+                                }
+                            },
+                            onDrag = { dx, dy ->
+                                val p = ballParams
+                                val v = ballView
+                                if (p != null && v != null) {
+                                    p.x = dragStartX + dx.toInt()
+                                    p.y = dragStartY + dy.toInt()
+                                    runCatching { wm.updateViewLayout(v, p) }
+                                }
+                            },
+                            onDragEnd = {
+                                val p = ballParams ?: return@WeAgentBall
+                                val v = ballView
+                                if (v != null) {
+                                    clampToScreen(v, p)
+                                    runCatching { wm.updateViewLayout(v, p) }
+                                }
+                                KvStore.putInt(PREF_BALL_X, p.x)
+                                KvStore.putInt(PREF_BALL_Y, p.y)
+                            },
+                        )
+                    }
                 }
             }
-        }
         ballView = view
         wm.addView(view, params)
     }
@@ -220,33 +229,38 @@ object WeAgentOverlayController {
     }
 
     private fun addPanel() {
-        val params = baseLayoutParams(focusable = true).apply {
-            gravity = Gravity.CENTER
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
-            // Unspecified soft-input mode degrades to pan, which only lifts the window enough to
-            // expose the focused text field's cursor and leaves the send button under the IME.
-            // Resizing shrinks the window above the keyboard; imePadding() in WeAgentPanel covers
-            // devices where overlay windows are not resized.
-            @Suppress("DEPRECATION")
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        }
+        val params =
+            baseLayoutParams(focusable = true).apply {
+                gravity = Gravity.CENTER
+                width = WindowManager.LayoutParams.MATCH_PARENT
+                height = WindowManager.LayoutParams.MATCH_PARENT
+                // Unspecified soft-input mode degrades to pan, which only lifts the window enough
+                // to
+                // expose the focused text field's cursor and leaves the send button under the IME.
+                // Resizing shrinks the window above the keyboard; imePadding() in WeAgentPanel
+                // covers
+                // devices where overlay windows are not resized.
+                @Suppress("DEPRECATION")
+                softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            }
         val owner = LifecycleOwnerProvider.lifecycleOwner
-        val view = WeAgentPanelHost(HostInfo.application).apply {
-            setLifecycleOwner(owner)
-            setBackHandler { removePanel() }
-        }
-        val composeView = ComposeView(HostInfo.application).apply {
-            setLifecycleOwner(owner)
-            setContent {
-                InjectedUiTheme {
-                    WeAgentPanel(
-                        onDismiss = { removePanel() },
-                        onBackHandlerChanged = view::setBackHandler,
-                    )
+        val view =
+            WeAgentPanelHost(HostInfo.application).apply {
+                setLifecycleOwner(owner)
+                setBackHandler { removePanel() }
+            }
+        val composeView =
+            ComposeView(HostInfo.application).apply {
+                setLifecycleOwner(owner)
+                setContent {
+                    InjectedUiTheme {
+                        WeAgentPanel(
+                            onDismiss = { removePanel() },
+                            onBackHandlerChanged = view::setBackHandler,
+                        )
+                    }
                 }
             }
-        }
         view.addView(
             composeView,
             FrameLayout.LayoutParams(
@@ -255,7 +269,8 @@ object WeAgentOverlayController {
             ),
         )
         panelView = view
-        runCatching { wm.addView(view, params) }.onFailure { WeLogger.e(TAG, "failed to add panel", it) }
+        runCatching { wm.addView(view, params) }
+            .onFailure { WeLogger.e(TAG, "failed to add panel", it) }
     }
 
     private fun removePanel() {
@@ -264,11 +279,12 @@ object WeAgentOverlayController {
     }
 
     private fun showOverlayPermissionToast() {
-        val localized = LocalizedContextFactory.create(
-            HostInfo.application,
-            WeKitLocaleController.resolvedLocale,
-            LocaleResourceMode.InjectedHost,
-        )
+        val localized =
+            LocalizedContextFactory.create(
+                HostInfo.application,
+                WeKitLocaleController.resolvedLocale,
+                LocaleResourceMode.InjectedHost,
+            )
         showToast(localized.getString(R.string.agent_overlay_permission_required))
     }
 
@@ -277,7 +293,8 @@ object WeAgentOverlayController {
     @Suppress("DEPRECATION")
     private fun baseLayoutParams(focusable: Boolean): WindowManager.LayoutParams {
         val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        var flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        var flags =
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         if (!focusable) {
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -312,7 +329,9 @@ private class WeAgentPanelHost(context: Context) : FrameLayout(context) {
                 state.startTracking(event, this)
                 return true
             }
-            if (event.action == KeyEvent.ACTION_UP && state.isTracking(event) && !event.isCanceled) {
+            if (
+                event.action == KeyEvent.ACTION_UP && state.isTracking(event) && !event.isCanceled
+            ) {
                 backHandler?.invoke()
                 return true
             }
@@ -323,9 +342,10 @@ private class WeAgentPanelHost(context: Context) : FrameLayout(context) {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (Build.VERSION.SDK_INT >= 33) {
-            systemBackCallback = WeAgentPanelBackApi33.register(this) {
-                backHandler?.invoke()
-            }
+            systemBackCallback =
+                WeAgentPanelBackApi33.register(this) {
+                    backHandler?.invoke()
+                }
         }
     }
 

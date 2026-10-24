@@ -14,15 +14,16 @@ object DisableShareScreenshotToast : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_disable_share_screenshot_toast_description
 
-    private val methodDisplayToast by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.feature.api.screenshot")
-            usingEqStrings(
-                "MicroMsg.ScreenShotShareService",
-                "showShareTongue, shareTongue already showing, reset onClick & countDown",
-            )
-        },
-    )
+    private val methodDisplayToast by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.feature.api.screenshot")
+                usingEqStrings(
+                    "MicroMsg.ScreenShotShareService",
+                    "showShareTongue, shareTongue already showing, reset onClick & countDown",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodDisplayToast.hookBefore {

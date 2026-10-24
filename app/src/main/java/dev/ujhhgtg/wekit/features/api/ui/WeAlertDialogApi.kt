@@ -17,15 +17,14 @@ object WeAlertDialogApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_alert_dialog_api_description
 
-    private val classMmAlert by dexClass(
-        sqlClass {
-            usingEqStrings("MicroMsg.MMAlert")
-        },
-    )
+    private val classMmAlert by
+        dexClass(
+            sqlClass {
+                usingEqStrings("MicroMsg.MMAlert")
+            },
+        )
 
-    /**
-     * NEVER use this API except for the TrollBan feature.
-     */
+    /** NEVER use this API except for the TrollBan feature. */
     fun showAlertDialog(
         context: Context,
         content: String,
@@ -33,14 +32,29 @@ object WeAlertDialogApi : ApiFeature(), IResolveDex {
         onClickOk: (DialogInterface) -> Unit = {},
         onClickCancel: (DialogInterface) -> Unit = {},
         okText: String = "确定",
-        cancelText: String = "取消"
+        cancelText: String = "取消",
     ) {
-        classMmAlert.reflekt()
+        classMmAlert
+            .reflekt()
             .firstMethod {
-                parameters(Context::class, BString, BString, BString, BString, DialogInterface.OnClickListener::class, DialogInterface.OnClickListener::class)
-            }.invoke(
-                context, content, title ?: "", okText, cancelText,
+                parameters(
+                    Context::class,
+                    BString,
+                    BString,
+                    BString,
+                    BString,
+                    DialogInterface.OnClickListener::class,
+                    DialogInterface.OnClickListener::class,
+                )
+            }
+            .invoke(
+                context,
+                content,
+                title ?: "",
+                okText,
+                cancelText,
                 DialogInterface.OnClickListener { di, _ -> onClickOk(di) },
-                DialogInterface.OnClickListener { di, _ -> onClickCancel(di) })
+                DialogInterface.OnClickListener { di, _ -> onClickCancel(di) },
+            )
     }
 }

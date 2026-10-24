@@ -17,16 +17,19 @@ fun CharSequence.groupMemberNicknameRange(): GroupMemberNicknameRange {
     var endExclusive = length
 
     if (this is Spanned) {
-        val roleSpan = getSpans(0, length, GroupMemberRoleSpan::class.java)
-            .firstOrNull { getSpanStart(it) == 0 }
+        val roleSpan =
+            getSpans(0, length, GroupMemberRoleSpan::class.java).firstOrNull {
+                getSpanStart(it) == 0
+            }
         if (roleSpan != null) {
             start = getSpanEnd(roleSpan)
             if (start < length && this[start] == ' ') start++
         }
 
-        val realNameSpan = getSpans(0, length, ForegroundColorSpan::class.java)
-            .filter { getSpanEnd(it) == length && getSpanStart(it) > start }
-            .maxByOrNull { getSpanStart(it) }
+        val realNameSpan =
+            getSpans(0, length, ForegroundColorSpan::class.java)
+                .filter { getSpanEnd(it) == length && getSpanStart(it) > start }
+                .maxByOrNull { getSpanStart(it) }
         if (realNameSpan != null) {
             endExclusive = getSpanStart(realNameSpan)
         }

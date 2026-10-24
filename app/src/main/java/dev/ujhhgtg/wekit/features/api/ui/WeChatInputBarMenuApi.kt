@@ -8,22 +8,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Block
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.LocalSegmentedItemShape
@@ -50,7 +49,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         val label: String,
         val isSupported: (Context, ChatFooter) -> Boolean = { _, _ -> true },
         val onClick: (Context, ChatFooter) -> Unit,
-        val onLongClick: ((Context, ChatFooter) -> Unit)? = null
+        val onLongClick: ((Context, ChatFooter) -> Unit)? = null,
     )
 
     private const val TAG = "WeChatInputBarMenuApi"
@@ -64,53 +63,55 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         providers -= provider
     }
 
-    val methodSendMessage by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-            usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
-        },
-    )
-    val methodAppGridGetView by dexMethod(
-        sqlMethod {
-            name = "getView"
-            usingStrings("MicroMsg.AppGrid", "pos:", "page:")
-        },
-    )
+    val methodSendMessage by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.ui.chat")
+                usingEqStrings("MicroMsg.ChatFooter", "send msg onClick")
+            },
+        )
+    val methodAppGridGetView by
+        dexMethod(
+            sqlMethod {
+                name = "getView"
+                usingStrings("MicroMsg.AppGrid", "pos:", "page:")
+            },
+        )
 
-    /**
-     * 在 ChatFooter 内定位原生发送按钮 (第 0 个子视图中文本为 "发送"/"send" 的 Button)。
-     */
+    /** 在 ChatFooter 内定位原生发送按钮 (第 0 个子视图中文本为 "发送"/"send" 的 Button)。 */
     fun findSendButton(chatFooter: ChatFooter): AndroidButton =
-        chatFooter.findViewByChildIndexes(0)!!
-            .findViewWhich { view ->
-                view.javaClass.name == "android.widget.Button" && run {
+        chatFooter.findViewByChildIndexes(0)!!.findViewWhich { view ->
+            view.javaClass.name == "android.widget.Button" &&
+                run {
                     val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
                     text == "发送" || text.equals("send", ignoreCase = true)
                 }
-            }!! as AndroidButton
+        }!!
+            as AndroidButton
 
     /**
-     * 模拟用户点击原生发送按钮: 取发送按钮上的 OnClickListener
-     * (View 并不把监听器存为自身字段, 而是嵌在 View.ListenerInfo 里:
-     * `mListenerInfo.mOnClickListener`), 直接调用其 onClick(View) 处理器
-     * ([methodSendMessage]), 即用户点击发送键时实际执行的路径,
-     * 保留引用、@ 等全部原生能力。
+     * 模拟用户点击原生发送按钮: 取发送按钮上的 OnClickListener (View 并不把监听器存为自身字段, 而是嵌在 View.ListenerInfo 里:
+     * `mListenerInfo.mOnClickListener`), 直接调用其 onClick(View) 处理器 ([methodSendMessage]),
+     * 即用户点击发送键时实际执行的路径, 保留引用、@ 等全部原生能力。
      */
     fun performSend(chatFooter: ChatFooter) {
         val sendBtn = findSendButton(chatFooter)
-        val listenerInfo = sendBtn.reflekt().firstField {
-            name = "mListenerInfo"
-            superclass()
-        }.get()!!
+        val listenerInfo =
+            sendBtn
+                .reflekt()
+                .firstField {
+                    name = "mListenerInfo"
+                    superclass()
+                }
+                .get()!!
         val sendListener = listenerInfo.reflekt().firstField { name = "mOnClickListener" }.get()!!
 
         methodSendMessage.method.invoke(sendListener, sendBtn)
     }
 
     fun showMenu(context: Context, chatFooter: ChatFooter) {
-        val applicableItems = providers
-            .flatMap { it.getActionItems() }
-            .filter { it.isSupported(context, chatFooter) }
+        val applicableItems =
+            providers.flatMap { it.getActionItems() }.filter { it.isSupported(context, chatFooter) }
 
         showComposeDialog(context) {
             AlertDialogContent(
@@ -121,7 +122,8 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
                             item(key = "no_actions_placeholder") {
                                 BaseWidget(
                                     icon = MaterialSymbols.Outlined.Block,
-                                    title = stringResource(R.string.noncompose_chat_input_no_actions)
+                                    title =
+                                        stringResource(R.string.noncompose_chat_input_no_actions),
                                 )
                             }
                         } else {
@@ -130,13 +132,15 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
                                     item = item,
                                     context = context,
                                     chatFooter = chatFooter,
-                                    onDismiss = { onDismiss() }
+                                    onDismiss = { onDismiss() },
                                 )
                             }
                         }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -147,7 +151,7 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         item: ActionItem,
         context: Context,
         chatFooter: ChatFooter,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         val handleClick = {
             onDismiss()
@@ -158,25 +162,30 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
             }
         }
 
-        val handleLongClick = item.onLongClick?.let { longClick ->
-            {
-                try {
-                    longClick(context, chatFooter)
-                } catch (ex: Throwable) {
-                    WeLogger.e(TAG, "exception occurred while handling long-click event for ${item.id}", ex)
+        val handleLongClick =
+            item.onLongClick?.let { longClick ->
+                {
+                    try {
+                        longClick(context, chatFooter)
+                    } catch (ex: Throwable) {
+                        WeLogger.e(
+                            TAG,
+                            "exception occurred while handling long-click event for ${item.id}",
+                            ex,
+                        )
+                    }
                 }
             }
-        }
 
         BaseWidget(
-            modifier = handleLongClick?.let { longClick ->
-                Modifier
-                    .clip(LocalSegmentedItemShape.current)
-                    .combinedClickable(onClick = handleClick, onLongClick = longClick)
-            } ?: Modifier,
+            modifier =
+                handleLongClick?.let { longClick ->
+                    Modifier.clip(LocalSegmentedItemShape.current)
+                        .combinedClickable(onClick = handleClick, onLongClick = longClick)
+                } ?: Modifier,
             icon = item.icon,
             title = item.label,
-            onClick = if (handleLongClick == null) handleClick else null
+            onClick = if (handleLongClick == null) handleClick else null,
         )
     }
 }

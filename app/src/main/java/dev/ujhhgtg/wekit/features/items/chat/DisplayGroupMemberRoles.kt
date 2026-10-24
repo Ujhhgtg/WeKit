@@ -35,15 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
-import dev.ujhhgtg.wekit.features.items.contacts.GroupMemberRoleSpan
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.features.items.contacts.GroupMemberRoleSpan
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -55,19 +55,20 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlin.math.roundToInt
 
-object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
-    WeChatMessageViewApi.ICreateViewListener {
+object DisplayGroupMemberRoles :
+    ClickableFeature(), IResolveDex, WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "显示群成员身份"
     override val nameRes = R.string.feature_display_group_member_roles_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_display_group_member_roles_description
 
-    private val methodGetChatroomData by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.ChatRoomMember", "getChatroomData hashMap is null!")
-        },
-    )
+    private val methodGetChatroomData by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("MicroMsg.ChatRoomMember", "getChatroomData hashMap is null!")
+            },
+        )
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)
@@ -98,11 +99,14 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
     private var showAdmin by KvStore.prefOption("group_role_show_admin", true)
     private var showMember by KvStore.prefOption("group_role_show_member", true)
 
-    private fun parseColor(value: String, fallback: String): Int =
-        runCatching { value.toColorInt() }.getOrElse { fallback.toColorInt() }
+    private fun parseColor(value: String, fallback: String): Int = runCatching {
+        value.toColorInt()
+    }
+        .getOrElse { fallback.toColorInt() }
 
-    private fun roleText(value: String, defaultRes: Int): String =
-        value.ifBlank { localizedChatString(defaultRes) }
+    private fun roleText(value: String, defaultRes: Int): String = value.ifBlank {
+        localizedChatString(defaultRes)
+    }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
@@ -115,81 +119,95 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             val ownerDefault = stringResource(R.string.chat_group_role_owner)
             val adminDefault = stringResource(R.string.chat_group_role_admin)
             val memberDefault = stringResource(R.string.chat_group_role_member)
-            var ot by remember { mutableStateOf(roleText(ownerText, R.string.chat_group_role_owner)) }
-            var at by remember { mutableStateOf(roleText(adminText, R.string.chat_group_role_admin)) }
-            var mt by remember { mutableStateOf(roleText(memberText, R.string.chat_group_role_member)) }
+            var ot by remember {
+                mutableStateOf(roleText(ownerText, R.string.chat_group_role_owner))
+            }
+            var at by remember {
+                mutableStateOf(roleText(adminText, R.string.chat_group_role_admin))
+            }
+            var mt by remember {
+                mutableStateOf(roleText(memberText, R.string.chat_group_role_member))
+            }
             var showOwn by remember { mutableStateOf(showOwner) }
             var showAdm by remember { mutableStateOf(showAdmin) }
             var showMem by remember { mutableStateOf(showMember) }
             var selectedRole by remember { mutableIntStateOf(0) }
 
             val roleLabels = listOf(ownerDefault, adminDefault, memberDefault)
-            val selectedShow = when (selectedRole) {
-                0 -> showOwn
-                1 -> showAdm
-                else -> showMem
-            }
-            val selectedBackground = when (selectedRole) {
-                0 -> ob
-                1 -> ab
-                else -> mb
-            }
-            val selectedForeground = when (selectedRole) {
-                0 -> of
-                1 -> af
-                else -> mf
-            }
-            val backgroundTitle = stringResource(
+            val selectedShow =
                 when (selectedRole) {
-                    0 -> R.string.chat_group_role_owner_background
-                    1 -> R.string.chat_group_role_admin_background
-                    else -> R.string.chat_group_role_member_background
+                    0 -> showOwn
+                    1 -> showAdm
+                    else -> showMem
                 }
-            )
-            val foregroundTitle = stringResource(
+            val selectedBackground =
                 when (selectedRole) {
-                    0 -> R.string.chat_group_role_owner_foreground
-                    1 -> R.string.chat_group_role_admin_foreground
-                    else -> R.string.chat_group_role_member_foreground
+                    0 -> ob
+                    1 -> ab
+                    else -> mb
                 }
-            )
-            val textTitle = stringResource(
+            val selectedForeground =
                 when (selectedRole) {
-                    0 -> R.string.chat_group_role_owner_text
-                    1 -> R.string.chat_group_role_admin_text
-                    else -> R.string.chat_group_role_member_text
+                    0 -> of
+                    1 -> af
+                    else -> mf
                 }
-            )
-            val selectedText = when (selectedRole) {
-                0 -> ot
-                1 -> at
-                else -> mt
-            }
+            val backgroundTitle =
+                stringResource(
+                    when (selectedRole) {
+                        0 -> R.string.chat_group_role_owner_background
+                        1 -> R.string.chat_group_role_admin_background
+                        else -> R.string.chat_group_role_member_background
+                    },
+                )
+            val foregroundTitle =
+                stringResource(
+                    when (selectedRole) {
+                        0 -> R.string.chat_group_role_owner_foreground
+                        1 -> R.string.chat_group_role_admin_foreground
+                        else -> R.string.chat_group_role_member_foreground
+                    },
+                )
+            val textTitle =
+                stringResource(
+                    when (selectedRole) {
+                        0 -> R.string.chat_group_role_owner_text
+                        1 -> R.string.chat_group_role_admin_text
+                        else -> R.string.chat_group_role_member_text
+                    },
+                )
+            val selectedText =
+                when (selectedRole) {
+                    0 -> ot
+                    1 -> at
+                    else -> mt
+                }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_display_group_member_roles_name)) },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
-                                ButtonGroupDefaults.ConnectedSpaceBetween
-                            ),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement =
+                                androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                    ButtonGroupDefaults.ConnectedSpaceBetween,
+                                ),
                         ) {
                             roleLabels.forEachIndexed { index, label ->
                                 ToggleButton(
                                     checked = selectedRole == index,
                                     onCheckedChange = { selectedRole = index },
-                                    shapes = when (index) {
-                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                        roleLabels.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .semantics { role = Role.RadioButton },
+                                    shapes =
+                                        when (index) {
+                                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                            roleLabels.lastIndex ->
+                                                ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                            else ->
+                                                ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                        },
+                                    modifier =
+                                        Modifier.weight(1f).semantics { role = Role.RadioButton },
                                 ) {
                                     Text(label, maxLines = 1)
                                 }
@@ -256,30 +274,37 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        ownerBg = ob
-                        adminBg = ab
-                        memberBg = mb
-                        ownerFg = of
-                        adminFg = af
-                        memberFg = mf
-                        showOwner = showOwn
-                        showAdmin = showAdm
-                        showMember = showMem
-                        ownerText = ot.takeUnless { it == ownerDefault }.orEmpty()
-                        adminText = at.takeUnless { it == adminDefault }.orEmpty()
-                        memberText = mt.takeUnless { it == memberDefault }.orEmpty()
-                        onDismiss()
-                    }) { Text(stringResource(R.string.action_save)) }
-                })
+                    TextButton(
+                        onClick = {
+                            ownerBg = ob
+                            adminBg = ab
+                            memberBg = mb
+                            ownerFg = of
+                            adminFg = af
+                            memberFg = mf
+                            showOwner = showOwn
+                            showAdmin = showAdm
+                            showMember = showMem
+                            ownerText = ot.takeUnless { it == ownerDefault }.orEmpty()
+                            adminText = at.takeUnless { it == adminDefault }.orEmpty()
+                            memberText = mt.takeUnless { it == memberDefault }.orEmpty()
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
+                },
+            )
         }
     }
 
     override fun onCreateView(
         param: HookParam,
-        view: View
+        view: View,
     ) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         if (!msgInfo.isInGroupChat) return
@@ -288,33 +313,41 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
         val groupId = msgInfo.talker
 
         val group = WeConversationApi.getGroup(groupId)
-        val senderIsGroupOwner = group.reflekt()
-            .firstField {
-                name = "field_roomowner"
-                superclass()
-            }
-            .get() as? String? == sender
-
-        val role = if (senderIsGroupOwner) {
-            1
-        } else {
-            val memberData = methodGetChatroomData.method.invoke(group, sender) ?: return
-            val memberRoleFlags = memberData.reflekt()
+        val senderIsGroupOwner =
+            group
+                .reflekt()
                 .firstField {
-                    type = Int::class
+                    name = "field_roomowner"
+                    superclass()
                 }
-                .get()!! as Int
-            if (memberRoleFlags and 2048 != 0) 2 else 3
-        }
+                .get() as? String? == sender
+
+        val role =
+            if (senderIsGroupOwner) {
+                1
+            } else {
+                val memberData = methodGetChatroomData.method.invoke(group, sender) ?: return
+                val memberRoleFlags =
+                    memberData
+                        .reflekt()
+                        .firstField {
+                            type = Int::class
+                        }
+                        .get()!!
+                        as Int
+                if (memberRoleFlags and 2048 != 0) 2 else 3
+            }
 
         val tag = view.tag
-        val textView = tag.reflekt()
-            .firstField {
-                name = "userTV"
-                superclass()
-            }
-            // might be null and throw NPE, although it doesn't affect functionality, I don't want it to litter the error logs
-            .get() as? TextView? ?: return
+        val textView =
+            tag.reflekt()
+                .firstField {
+                    name = "userTV"
+                    superclass()
+                }
+                // might be null and throw NPE, although it doesn't affect functionality, I don't
+                // want it to litter the error logs
+                .get() as? TextView? ?: return
         // A message view can be rebound more than once without being recreated.  Remove role
         // badges previously injected by this feature before constructing the new value.  Keeping
         // the live Spannable (rather than converting to a String) is important: WeChat uses
@@ -335,42 +368,45 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
             return
         }
 
-        val roleText = when (role) {
-            1 -> roleText(ownerText, R.string.chat_group_role_owner)
-            2 -> roleText(adminText, R.string.chat_group_role_admin)
-            3 -> roleText(memberText, R.string.chat_group_role_member)
-            else -> unreachable()
-        }
+        val roleText =
+            when (role) {
+                1 -> roleText(ownerText, R.string.chat_group_role_owner)
+                2 -> roleText(adminText, R.string.chat_group_role_admin)
+                3 -> roleText(memberText, R.string.chat_group_role_member)
+                else -> unreachable()
+            }
 
         val sb = SpannableStringBuilder()
         sb.append(roleText)
         sb.append(" ")
         sb.append(displayName)
 
-        val bgColor = when (role) {
-            1 -> parseColor(ownerBg, DEFAULT_OWNER_BG)
-            2 -> parseColor(adminBg, DEFAULT_ADMIN_BG)
-            3 -> parseColor(memberBg, DEFAULT_MEMBER_BG)
-            else -> unreachable()
-        }
+        val bgColor =
+            when (role) {
+                1 -> parseColor(ownerBg, DEFAULT_OWNER_BG)
+                2 -> parseColor(adminBg, DEFAULT_ADMIN_BG)
+                3 -> parseColor(memberBg, DEFAULT_MEMBER_BG)
+                else -> unreachable()
+            }
 
-        val fgColor = when (role) {
-            1 -> parseColor(ownerFg, DEFAULT_OWNER_FG)
-            2 -> parseColor(adminFg, DEFAULT_ADMIN_FG)
-            3 -> parseColor(memberFg, DEFAULT_MEMBER_FG)
-            else -> unreachable()
-        }
+        val fgColor =
+            when (role) {
+                1 -> parseColor(ownerFg, DEFAULT_OWNER_FG)
+                2 -> parseColor(adminFg, DEFAULT_ADMIN_FG)
+                3 -> parseColor(memberFg, DEFAULT_MEMBER_FG)
+                else -> unreachable()
+            }
 
         sb.setSpan(
             RoundedBackgroundSpan(
                 backgroundColor = bgColor,
                 textColor = fgColor,
                 cornerRadius = 16f,
-                padding = 10f
+                padding = 10f,
             ),
             0,
             roleText.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
 
         textView.text = sb
@@ -381,31 +417,32 @@ object DisplayGroupMemberRoles : ClickableFeature(), IResolveDex,
  * Removes one or more role prefixes inserted by [DisplayGroupMemberRoles].
  *
  * Recycled message views may contain a badge from an earlier bind (or several badges from older
- * versions of the feature).  Copying those [ReplacementSpan]s into a new text value makes Android
+ * versions of the feature). Copying those [ReplacementSpan]s into a new text value makes Android
  * render them as the replacement object (the dashed `OBJ` box), especially when the nickname also
- * contains a host-provided replacement span.  We identify our prefixes by their span type and
- * delete only the badge text plus its separating space, preserving all nickname spans.  The
- * dedicated [GroupMemberRoleSpan] marker keeps this independent from other host ReplacementSpans.
+ * contains a host-provided replacement span. We identify our prefixes by their span type and delete
+ * only the badge text plus its separating space, preserving all nickname spans. The dedicated
+ * [GroupMemberRoleSpan] marker keeps this independent from other host ReplacementSpans.
  */
 private fun CharSequence.removeInjectedRolePrefixes(): CharSequence {
     val spanned = this as? Spanned ?: return this
     val builder = SpannableStringBuilder(spanned)
 
     while (builder.isNotEmpty()) {
-        val prefixSpan = builder
-            .getSpans(0, builder.length, GroupMemberRoleSpan::class.java)
-            .filter { builder.getSpanStart(it) == 0 }
-            .maxByOrNull { builder.getSpanEnd(it) }
-            ?: break
+        val prefixSpan =
+            builder
+                .getSpans(0, builder.length, GroupMemberRoleSpan::class.java)
+                .filter { builder.getSpanStart(it) == 0 }
+                .maxByOrNull { builder.getSpanEnd(it) } ?: break
         val end = builder.getSpanEnd(prefixSpan)
         // Every injected badge is followed by one separator before the nickname.  An empty
         // nickname is possible for a deleted account, in which case the badge reaches the end.
         if (end <= 0) break
-        val deleteEnd = when {
-            end == builder.length -> end
-            builder[end] == ' ' -> end + 1
-            else -> break
-        }
+        val deleteEnd =
+            when {
+                end == builder.length -> end
+                builder[end] == ' ' -> end + 1
+                else -> break
+            }
         builder.delete(0, deleteEnd)
     }
 
@@ -419,9 +456,7 @@ private fun InlineRoleTextField(value: String, onValueChange: (String) -> Unit) 
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
 }
 
@@ -429,7 +464,7 @@ private class RoundedBackgroundSpan(
     private val backgroundColor: Int,
     private val textColor: Int,
     private val cornerRadius: Float = 12f,
-    private val padding: Float = 16f
+    private val padding: Float = 16f,
 ) : ReplacementSpan(), GroupMemberRoleSpan {
 
     override fun getSize(
@@ -437,9 +472,10 @@ private class RoundedBackgroundSpan(
         text: CharSequence,
         start: Int,
         end: Int,
-        fm: Paint.FontMetricsInt?
+        fm: Paint.FontMetricsInt?,
     ): Int {
-        return (paint.measureText(text.subSequence(start, end).toString()) + padding * 2).roundToInt()
+        return (paint.measureText(text.subSequence(start, end).toString()) + padding * 2)
+            .roundToInt()
     }
 
     override fun draw(
@@ -451,7 +487,7 @@ private class RoundedBackgroundSpan(
         top: Int,
         y: Int,
         bottom: Int,
-        paint: Paint
+        paint: Paint,
     ) {
         val label = text.subSequence(start, end).toString()
         val width = paint.measureText(label)

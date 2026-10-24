@@ -11,12 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.io.File
 import java.util.Locale
 import kotlin.io.path.absolutePathString
@@ -73,11 +72,12 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
             var pathInput by remember { mutableStateOf(currentSaveDir()) }
             val normalizedPath = normalizeSaveDir(pathInput)
             val dir = File(normalizedPath)
-            val statusText = when {
-                dir.isDirectory -> stringResource(R.string.chat_redirect_path_exists)
-                dir.exists() -> stringResource(R.string.chat_redirect_path_not_directory)
-                else -> stringResource(R.string.chat_redirect_path_will_create)
-            }
+            val statusText =
+                when {
+                    dir.isDirectory -> stringResource(R.string.chat_redirect_path_exists)
+                    dir.exists() -> stringResource(R.string.chat_redirect_path_not_directory)
+                    else -> stringResource(R.string.chat_redirect_path_will_create)
+                }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_redirect_download_path_name)) },
@@ -88,98 +88,127 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                             onValueChange = { pathInput = it },
                             modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
                             label = { Text(stringResource(R.string.chat_redirect_save_directory)) },
-                            singleLine = true
+                            singleLine = true,
                         )
-                        Text(stringResource(R.string.chat_redirect_actual_directory, normalizedPath))
+                        Text(
+                            stringResource(R.string.chat_redirect_actual_directory, normalizedPath),
+                        )
                         Text(statusText)
-                        Text(stringResource(R.string.chat_redirect_default_directory_hint, defaultSaveDir()))
+                        Text(
+                            stringResource(
+                                R.string.chat_redirect_default_directory_hint,
+                                defaultSaveDir(),
+                            ),
+                        )
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                    TextButton(onClick = {
-                        pathInput = defaultSaveDir()
-                        saveDir = pathInput
-                        showToast(context, context.localizedChatString(R.string.chat_redirect_default_restored))
-                    }) {
+                    TextButton(
+                        onClick = {
+                            pathInput = defaultSaveDir()
+                            saveDir = pathInput
+                            showToast(
+                                context,
+                                context.localizedChatString(
+                                    R.string.chat_redirect_default_restored,
+                                ),
+                            )
+                        },
+                    ) {
                         Text(stringResource(R.string.chat_redirect_restore_default))
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val saveDir = normalizeSaveDir(pathInput)
-                        this@RedirectDownloadPath.saveDir = saveDir
-                        runCatching { File(saveDir).mkdirs() }
-                        showToast(context, context.localizedChatString(R.string.chat_redirect_saved))
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        onClick = {
+                            val saveDir = normalizeSaveDir(pathInput)
+                            this@RedirectDownloadPath.saveDir = saveDir
+                            runCatching { File(saveDir).mkdirs() }
+                            showToast(
+                                context,
+                                context.localizedChatString(R.string.chat_redirect_saved),
+                            )
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.action_save))
                     }
-                }
+                },
             )
         }
     }
 
-    private val methodDownloadFile by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.vfs")
-            returnType = "java.lang.String"
-            paramTypes("java.lang.String")
-            declaredClass {
-                usingStrings("VFS.VFSStrategy")
-                usingStrings("Found wrong moving file: ")
-                usingStrings("accountSalt")
-            }
-        },
-    )
-    private val methodInitDownloadAttach by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.model.app")
-            returnType = "java.lang.String"
-            paramTypes("long", "java.lang.String", "java.lang.String", "java.lang.String")
-            declaredClass {
-                usingStrings("MicroMsg.AppMsgLogic")
-                usingStrings("summerbig initDownloadAttach msgLocalId[%d], msgXml[%s], downloadPath[%s]")
-                usingStrings(
-                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
+    private val methodDownloadFile by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.vfs")
+                returnType = "java.lang.String"
+                paramTypes("java.lang.String")
+                declaredClass {
+                    usingStrings("VFS.VFSStrategy")
+                    usingStrings("Found wrong moving file: ")
+                    usingStrings("accountSalt")
+                }
+            },
+        )
+    private val methodInitDownloadAttach by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.model.app")
+                returnType = "java.lang.String"
+                paramTypes("long", "java.lang.String", "java.lang.String", "java.lang.String")
+                declaredClass {
+                    usingStrings("MicroMsg.AppMsgLogic")
+                    usingStrings(
+                        "summerbig initDownloadAttach msgLocalId[%d], msgXml[%s], downloadPath[%s]",
+                    )
+                    usingStrings(
+                        "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
+                    )
+                }
+            },
+        )
+    private val methodInsertDownloadAttach by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.pluginsdk.model.app")
+                returnType = "java.lang.String"
+                paramTypes(
+                    "java.lang.String",
+                    "long",
+                    "java.lang.String",
+                    "int",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "long",
+                    "int",
+                    "java.lang.String",
+                    "int",
                 )
-            }
-        },
-    )
-    private val methodInsertDownloadAttach by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.pluginsdk.model.app")
-            returnType = "java.lang.String"
-            paramTypes(
-                "java.lang.String",
-                "long",
-                "java.lang.String",
-                "int",
-                "java.lang.String",
-                "java.lang.String",
-                "long",
-                "int",
-                "java.lang.String",
-                "int",
-            )
-            declaredClass {
-                usingStrings("MicroMsg.AppMsgLogic")
-                usingStrings(
-                    "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
-                )
-            }
-        },
-    )
+                declaredClass {
+                    usingStrings("MicroMsg.AppMsgLogic")
+                    usingStrings(
+                        "summerbig initDownloadAttach ret[%b], rowid[%d], field_totalLen[%d], type[%d], isLargeFile[%d], destFile[%s], msgLocalId[%s], stack[%s]",
+                    )
+                }
+            },
+        )
 
     private fun ensureSaveDir(): String {
         val configured = File(currentSaveDir())
         if (configured.exists() && !configured.isDirectory) {
-            WeLogger.w(TAG, "configured download path is not a directory: ${configured.absolutePath}")
+            WeLogger.w(
+                TAG,
+                "configured download path is not a directory: ${configured.absolutePath}",
+            )
             return createDefaultSaveDir()
         }
 
         runCatching { configured.mkdirs() }
-            .onFailure { WeLogger.w(TAG, "failed to create download path: ${configured.absolutePath}", it) }
+            .onFailure {
+                WeLogger.w(TAG, "failed to create download path: ${configured.absolutePath}", it)
+            }
 
         return configured.absolutePath
     }
@@ -218,28 +247,23 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         if (isUnderSaveDir(currentPath)) return null
         if (!looksLikeWechatAttachPath(currentPath)) return null
 
-        val fileName = currentPath
-            .replace('\\', '/')
-            .substringAfterLast('/')
-            .takeIf { it.isNotBlank() }
-            ?: return null
+        val fileName =
+            currentPath.replace('\\', '/').substringAfterLast('/').takeIf { it.isNotBlank() }
+                ?: return null
 
         return nextAvailableFile(File(ensureSaveDir()), fileName).absolutePath
     }
 
     private fun buildFileName(rawName: String?, rawExt: String?): String {
-        val ext = rawExt.orEmpty()
-            .trim()
-            .trimStart('.')
-            .substringBefore('/')
-            .substringBefore('\\')
-        val baseName = rawName.orEmpty()
-            .trim()
-            .replace('\\', '/')
-            .substringAfterLast('/')
-            .replace(Regex("[\\u0000-\\u001F]"), "")
-            .takeIf { it.isNotBlank() }
-            ?: "da_${System.currentTimeMillis()}"
+        val ext = rawExt.orEmpty().trim().trimStart('.').substringBefore('/').substringBefore('\\')
+        val baseName =
+            rawName
+                .orEmpty()
+                .trim()
+                .replace('\\', '/')
+                .substringAfterLast('/')
+                .replace(Regex("[\\u0000-\\u001F]"), "")
+                .takeIf { it.isNotBlank() } ?: "da_${System.currentTimeMillis()}"
 
         if (ext.isEmpty()) return baseName
         return if (baseName.lowercase(Locale.ROOT).endsWith(".${ext.lowercase(Locale.ROOT)}")) {
@@ -274,9 +298,9 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     private fun looksLikeWechatAttachPath(path: String): Boolean {
         val normalized = path.replace('\\', '/').lowercase()
         return normalized.startsWith("wcf://attachment/") ||
-                normalized.contains("/micromsg/") && normalized.contains("/attachment/") ||
-                normalized.startsWith("/data/data/com.tencent.mm/") ||
-                normalized.startsWith("/data/user/0/com.tencent.mm/")
+            normalized.contains("/micromsg/") && normalized.contains("/attachment/") ||
+            normalized.startsWith("/data/data/com.tencent.mm/") ||
+            normalized.startsWith("/data/user/0/com.tencent.mm/")
     }
 
     private fun extractOriginalFileName(xml: String): String? {
@@ -290,13 +314,13 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     }
 
     private fun extractXmlTag(xml: String, tag: String): String? {
-        val value = Regex("<$tag(?:\\s[^>]*)?>(.*?)</$tag>", RegexOption.DOT_MATCHES_ALL)
-            .find(xml)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: return null
+        val value =
+            Regex("<$tag(?:\\s[^>]*)?>(.*?)</$tag>", RegexOption.DOT_MATCHES_ALL)
+                .find(xml)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return null
         return value
             .replace("&amp;", "&")
             .replace("&lt;", "<")
@@ -306,13 +330,16 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     }
 
     private fun extractXmlAttr(xml: String, attr: String): String? {
-        val value = Regex("""\b$attr\s*=\s*(['"])(.*?)\1""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            .find(xml)
-            ?.groupValues
-            ?.getOrNull(2)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: return null
+        val value =
+            Regex(
+                    """\b$attr\s*=\s*(['"])(.*?)\1""",
+                    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+                )
+                .find(xml)
+                ?.groupValues
+                ?.getOrNull(2)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return null
         return value
             .replace("&amp;", "&")
             .replace("&lt;", "<")

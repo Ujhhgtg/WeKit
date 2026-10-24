@@ -18,51 +18,62 @@ object RemoveSplashAds : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_remove_splash_ads_description
 
-    private val methodIsAdContact by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.AppBrandAdUtils[AppBrandSplashAd]", "isAdContact, appId:%s, canShowAd:%s")
-        },
-    )
-    private val methodCheckCanShowAd by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.appbrand")
-            usingEqStrings(
-                "MicroMsg.AppBrandAdUtils[AppBrandSplashAd]",
-                "checkCanShowAd, show ad (splash ad debug mode open)",
-            )
-        },
-    )
+    private val methodIsAdContact by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.AppBrandAdUtils[AppBrandSplashAd]",
+                    "isAdContact, appId:%s, canShowAd:%s",
+                )
+            },
+        )
+    private val methodCheckCanShowAd by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.appbrand")
+                usingEqStrings(
+                    "MicroMsg.AppBrandAdUtils[AppBrandSplashAd]",
+                    "checkCanShowAd, show ad (splash ad debug mode open)",
+                )
+            },
+        )
     // JsApiAdOperateWXData 的 CGI 回调，作为兜底：阻止广告数据回调写入 worker，
     // 冷启动没有预加载数据时 worker 就拿不到广告素材。
-    private val methodAdDataCallback by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.appbrand.jsapi.auth")
-            usingEqStrings(
-                "MicroMsg.AppBrand.JsApiAdOperateWXData[AppBrandSplashAd]",
-                "cgi callback, callbackId:%s, service not running or preloaded",
-            )
-        },
-    )
+    private val methodAdDataCallback by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.appbrand.jsapi.auth")
+                usingEqStrings(
+                    "MicroMsg.AppBrand.JsApiAdOperateWXData[AppBrandSplashAd]",
+                    "cgi callback, callbackId:%s, service not running or preloaded",
+                )
+            },
+        )
     // AppBrandSplashAdLogic.sendShouldShowAdWhenLaunchIfNeed: 冷启动走 displayMode=1,
     // 热启动/切回前台走 displayMode=2。这里只拦 2，避免把启动以外的逻辑一起截断。
-    private val methodSendShouldShowAd by dexMethod(
-        sqlMethod {
-            usingEqStrings(
-                "MicroMsg.AppBrandSplashAdLogic[AppBrandSplashAd]",
-                "sendShouldShowAdWhenLaunchIfNeed, can not show ad, reason: %d, appId:%s",
-                "sendShouldShowAdIfNeed, displayMode:%s  appId:%s, may show ad, preloadedService:%s",
-            )
-        },
-    )
+    private val methodSendShouldShowAd by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.AppBrandSplashAdLogic[AppBrandSplashAd]",
+                    "sendShouldShowAdWhenLaunchIfNeed, can not show ad, reason: %d, appId:%s",
+                    "sendShouldShowAdIfNeed, displayMode:%s  appId:%s, may show ad, preloadedService:%s",
+                )
+            },
+        )
     // JsApiShowSplashAd 是广告 worker 最终把开屏广告显示出来的回调。把 show 改成 false
     // 再放行原方法，微信会走 "not show splash ad" 分支并调用 closeSplashAdImmediately()
     // 正常收起加载页；直接提前 return 反而会让加载页卡住不消失。
-    private val methodShowSplashAd by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.plugin.appbrand.ad.jsapi")
-            usingEqStrings("MicroMsg.AppBrand.JsApiShowSplashAd[AppBrandSplashAd]", "showSplashAd, show splash ad")
-        },
-    )
+    private val methodShowSplashAd by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.plugin.appbrand.ad.jsapi")
+                usingEqStrings(
+                    "MicroMsg.AppBrand.JsApiShowSplashAd[AppBrandSplashAd]",
+                    "showSplashAd, show splash ad",
+                )
+            },
+        )
 
     override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 

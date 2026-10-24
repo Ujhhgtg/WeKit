@@ -70,34 +70,41 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         // item's onClick is looped over each selected message individually
         data object Auto : MultiSelectSupport
 
-        // the item is hidden from the multi-select menu entirely (only makes sense for a single message)
+        // the item is hidden from the multi-select menu entirely (only makes sense for a single
+        // message)
         data object Unsupported : MultiSelectSupport
 
         // the provider natively handles the whole selection at once
         class Adapted(
             val isSupported: (List<MessageInfo>) -> Boolean,
-            val onClick: (View, ChattingContext, List<MessageInfo>) -> Unit
+            val onClick: (View, ChattingContext, List<MessageInfo>) -> Unit,
         ) : MultiSelectSupport
     }
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: Drawable,
+        val text: String,
+        val drawable: Drawable,
         val imageVector: ImageVector,
         val isSupported: (MessageInfo) -> Boolean,
-        // multi-select behavior; defaults to Auto so existing single-message actions loop transparently
+        // multi-select behavior; defaults to Auto so existing single-message actions loop
+        // transparently
         val multiSelect: MultiSelectSupport = MultiSelectSupport.Auto,
-        val onClick: (View, ChattingContext, MessageInfo) -> Unit
+        val onClick: (View, ChattingContext, MessageInfo) -> Unit,
     )
 
     // for clearer semantics; this simply compiles to Object in JVM bytecode
     @JvmInline
     value class ChattingContext(val instance: Any) {
         val activity: Activity
-            get() = instance.reflekt()
-                .firstMethod {
-                    returnType = Activity::class
-                }.invoke()!! as Activity
+            get() =
+                instance
+                    .reflekt()
+                    .firstMethod {
+                        returnType = Activity::class
+                    }
+                    .invoke()!!
+                    as Activity
     }
 
     private const val TAG = "WeChatMessageContextMenuApi"
@@ -118,38 +125,42 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private fun currentMenuItems(): List<MenuItem> =
         providers.flatMap(IMenuItemsProvider::getMenuItems)
 
-    val methodCreateMenu by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.viewitems")
-            usingEqStrings("MicroMsg.ChattingItem", "msg is null!")
-        },
-    )
-    private val methodSelectMenuItem by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.chatting.viewitems")
-            usingEqStrings("MicroMsg.ChattingItem", "context item select failed, null dataTag")
-        },
-    )
+    val methodCreateMenu by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.viewitems")
+                usingEqStrings("MicroMsg.ChattingItem", "msg is null!")
+            },
+        )
+    private val methodSelectMenuItem by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.chatting.viewitems")
+                usingEqStrings("MicroMsg.ChattingItem", "context item select failed, null dataTag")
+            },
+        )
 
     private const val MULTI_SELECT_BAR = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
 
-    private val methodMultiSetButtonListener by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
-            returnType = "void"
-            paramTypes("int", "android.view.View\$OnClickListener")
-            usingEqStrings("set button listener error button index %d")
-        },
-    )
+    private val methodMultiSetButtonListener by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
+                returnType = "void"
+                paramTypes("int", "android.view.View\$OnClickListener")
+                usingEqStrings("set button listener error button index %d")
+            },
+        )
     private val methodMultiRebuildButtons by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
                 declaredClass = ClassSpec(className = NameSpec(MULTI_SELECT_BAR)),
                 paramCount = 0..0,
                 returnType = ClassSpec(className = NameSpec("void")),
-                invokeMethods = listOf(
-                    MethodSpec(name = NameSpec("removeAllViews"), paramCount = 0..0),
-                ),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(name = NameSpec("removeAllViews"), paramCount = 0..0),
+                    ),
             ),
         )
     }
@@ -159,29 +170,41 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 declaredClass = ClassSpec(className = NameSpec(MULTI_SELECT_BAR)),
                 paramTypes = listOf(TypeSpec("int")),
                 returnType = ClassSpec(className = NameSpec("void")),
-                invokeMethods = listOf(
-                    MethodSpec(name = NameSpec("setEnabled"), paramTypes = listOf(TypeSpec("boolean"))),
-                ),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(
+                            name = NameSpec("setEnabled"),
+                            paramTypes = listOf(TypeSpec("boolean")),
+                        ),
+                    ),
             ),
         )
     }
     private val methodMultiGetSelectedMessages by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    fields = listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec(MULTI_SELECT_BAR))),
+                declaredClass =
+                    ClassSpec(
+                        fields =
+                            listOf(
+                                FieldSpec(type = ClassSpec(className = NameSpec(MULTI_SELECT_BAR))),
+                            ),
                     ),
-                ),
                 paramCount = 0..0,
                 returnType = ClassSpec(className = NameSpec("java.util.List")),
-                invokeMethods = listOf(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("java.util.Collections")),
-                        name = NameSpec("sort"),
-                        paramTypes = listOf(TypeSpec("java.util.List"), TypeSpec("java.util.Comparator")),
+                invokeMethods =
+                    listOf(
+                        MethodSpec(
+                            declaredClass =
+                                ClassSpec(className = NameSpec("java.util.Collections")),
+                            name = NameSpec("sort"),
+                            paramTypes =
+                                listOf(
+                                    TypeSpec("java.util.List"),
+                                    TypeSpec("java.util.Comparator"),
+                                ),
+                        ),
                     ),
-                ),
             ),
             packages = listOf("com.tencent.mm.ui.chatting.component"),
         )
@@ -200,29 +223,38 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private fun hookMenuDismissOnce(menuBuilder: Any) {
         if (menuDismissHooked) return
 
-        val longClickListener = menuBuilder.reflekt()
-            .firstFieldOrNull {
-                type {
-                    it isSubclassOf View.OnLongClickListener::class
+        val longClickListener =
+            menuBuilder
+                .reflekt()
+                .firstFieldOrNull {
+                    type {
+                        it isSubclassOf View.OnLongClickListener::class
+                    }
                 }
-            }
-            ?.get() ?: return
-        val dismissListener = longClickListener.reflekt()
-            .firstFieldOrNull { type = PopupWindow.OnDismissListener::class }
-            ?.get() ?: return
+                ?.get() ?: return
+        val dismissListener =
+            longClickListener
+                .reflekt()
+                .firstFieldOrNull { type = PopupWindow.OnDismissListener::class }
+                ?.get() ?: return
 
         // 先置位，解析失败时也不要每次建菜单都重试并刷日志
         menuDismissHooked = true
 
-        dismissListener.javaClass.reflekt()
-            .firstMethod { name = "onDismiss"; parameterCount = 0 }
+        dismissListener.javaClass
+            .reflekt()
+            .firstMethod {
+                name = "onDismiss"
+                parameterCount = 0
+            }
             .hookAfter {
                 currentViewRef = null
             }
     }
 
     private fun getLongClickListenerFromOnSelectHandler(thisObject: Any): View.OnLongClickListener {
-        return thisObject.reflekt()
+        return thisObject
+            .reflekt()
             .firstField {
                 type {
                     it isSubclassOf View.OnLongClickListener::class
@@ -232,63 +264,88 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     }
 
     private fun getChattingContextFromLongClickListener(
-        viewOnLongClickListener: View.OnLongClickListener
+        viewOnLongClickListener: View.OnLongClickListener,
     ): ChattingContext {
-        val ctx = viewOnLongClickListener.reflekt()
-            .firstField {
-                type = WeMessageApi.classChattingContext.clazz
-                superclass()
-            }
-            .get()!!
+        val ctx =
+            viewOnLongClickListener
+                .reflekt()
+                .firstField {
+                    type = WeMessageApi.classChattingContext.clazz
+                    superclass()
+                }
+                .get()!!
         return ChattingContext(ctx)
     }
 
     private fun finishMenuSelection(viewOnLongClickListener: View.OnLongClickListener) {
-        val cleanupFields = viewOnLongClickListener.reflekt().fields {
-            type { type ->
-                !type.isInterface &&
-                    JavaModifier.isAbstract(type.modifiers) &&
-                    type.declaredMethods.count { JavaModifier.isAbstract(it.modifiers) } == 1 &&
-                    type.declaredMethods.single { JavaModifier.isAbstract(it.modifiers) }.let {
-                        it.parameterCount == 0 && it.returnType == Void.TYPE
-                    }
+        val cleanupFields =
+            viewOnLongClickListener.reflekt().fields {
+                type { type ->
+                    !type.isInterface &&
+                        JavaModifier.isAbstract(type.modifiers) &&
+                        type.declaredMethods.count { JavaModifier.isAbstract(it.modifiers) } == 1 &&
+                        type.declaredMethods
+                            .single { JavaModifier.isAbstract(it.modifiers) }
+                            .let {
+                                it.parameterCount == 0 && it.returnType == Void.TYPE
+                            }
+                }
             }
-        }
         check(cleanupFields.size == 2) {
             "expected two message menu cleanup callbacks, found ${cleanupFields.size}"
         }
         for (field in cleanupFields) {
             val callback = field.get() ?: continue
-            callback.reflekt().firstMethod {
-                parameterCount = 0
-                returnType = Void.TYPE
-            }.invoke()
+            callback
+                .reflekt()
+                .firstMethod {
+                    parameterCount = 0
+                    returnType = Void.TYPE
+                }
+                .invoke()
         }
     }
 
     private fun bindMultiSelectButton(bar: LinearLayout, forwardListener: View.OnClickListener) {
         // The forward listener directly owns ChattingMoreComponent. Its selected-message
         // getter reads the live adapter selection and sorts it in the host's message order.
-        val component = forwardListener.reflekt().firstField {
-            type = methodMultiGetSelectedMessages.method.declaringClass
-        }.get()!!
-        val chattingContext = ChattingContext(component.reflekt().firstField {
-            type = WeMessageApi.classChattingContext.clazz
-            superclass()
-        }.get()!!)
+        val component =
+            forwardListener
+                .reflekt()
+                .firstField {
+                    type = methodMultiGetSelectedMessages.method.declaringClass
+                }
+                .get()!!
+        val chattingContext =
+            ChattingContext(
+                component
+                    .reflekt()
+                    .firstField {
+                        type = WeMessageApi.classChattingContext.clazz
+                        superclass()
+                    }
+                    .get()!!,
+            )
 
-        val button = bar.getTag(R.id.wekit_multi_select_button) as ImageView?
-            ?: (bar.getChildAt(0).javaClass.reflekt().firstConstructor {
-                parameters(Context::class)
-            }.newInstance(bar.context) as ImageView).apply {
-                // Use a fresh drawable: host WeImageButton changes its tint, alpha and callback.
-                setImageDrawable(ExtensionDrawable())
-                scaleType = ImageView.ScaleType.CENTER
-                setBackgroundResource(0)
-                contentDescription = "WeKit"
-                tooltipText = "WeKit"
-                bar.setTag(R.id.wekit_multi_select_button, this)
-            }
+        val button =
+            bar.getTag(R.id.wekit_multi_select_button) as ImageView?
+                ?: (bar.getChildAt(0)
+                        .javaClass
+                        .reflekt()
+                        .firstConstructor {
+                            parameters(Context::class)
+                        }
+                        .newInstance(bar.context) as ImageView)
+                    .apply {
+                        // Use a fresh drawable: host WeImageButton changes its tint, alpha and
+                        // callback.
+                        setImageDrawable(ExtensionDrawable())
+                        scaleType = ImageView.ScaleType.CENTER
+                        setBackgroundResource(0)
+                        contentDescription = "WeKit"
+                        tooltipText = "WeKit"
+                        bar.setTag(R.id.wekit_multi_select_button, this)
+                    }
         button.setOnClickListener { view ->
             if (!view.isEnabled) return@setOnClickListener
             try {
@@ -306,16 +363,22 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         if (button.parent == null) {
             val forwardButton = bar.getChildAt(0)
             bar.addView(
-                button, 0,
-                LinearLayout.LayoutParams(forwardButton.layoutParams as LinearLayout.LayoutParams)
+                button,
+                0,
+                LinearLayout.LayoutParams(forwardButton.layoutParams as LinearLayout.LayoutParams),
             )
             button.isEnabled = forwardButton.isEnabled
             button.isClickable = forwardButton.isClickable
             button.alpha = forwardButton.alpha
         }
-        button.visibility = if (currentMenuItems().any {
-            it.multiSelect !is MultiSelectSupport.Unsupported
-        }) View.VISIBLE else View.GONE
+        button.visibility =
+            if (
+                currentMenuItems().any {
+                    it.multiSelect !is MultiSelectSupport.Unsupported
+                }
+            )
+                View.VISIBLE
+            else View.GONE
     }
 
     override fun onEnable() {
@@ -330,14 +393,13 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             val msgInfoWrapper = MessageInfo(msgInfo)
 
             try {
-                val addMenuItem = menu.reflekt()
-                    .firstMethod {
+                val addMenuItem =
+                    menu.reflekt().firstMethod {
                         parameters(Int::class, CharSequence::class, Drawable::class)
                         returnType = android.view.MenuItem::class
                     }
 
-                val applicableItems = currentMenuItems()
-                    .filter { it.isSupported(msgInfoWrapper) }
+                val applicableItems = currentMenuItems().filter { it.isSupported(msgInfoWrapper) }
 
                 if (MergeChatMessageContextMenuItems.isEnabled) {
                     // collapse everything into a single "WeKit" entry backed by a Compose dialog
@@ -353,7 +415,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 WeLogger.e(
                     TAG,
                     "exception occurred threw while providing menu items",
-                    ex
+                    ex,
                 )
             }
 
@@ -382,8 +444,8 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             val context = getChattingContextFromLongClickListener(longClickListener)
             try {
                 if (menuItem.itemId == MERGED_MENU_ITEM_ID) {
-                    val applicableItems = currentMenuItems()
-                        .filter { it.isSupported(msgInfoWrapper) }
+                    val applicableItems =
+                        currentMenuItems().filter { it.isSupported(msgInfoWrapper) }
                     showMergedMenuDialog(curView, context, msgInfoWrapper, applicableItems)
                     finishMenuSelection(longClickListener)
                     result = null
@@ -402,7 +464,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 WeLogger.e(
                     TAG,
                     "exception occurred while handling click event",
-                    ex
+                    ex,
                 )
             }
         }
@@ -416,12 +478,14 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         methodMultiRebuildButtons.hookAfter {
             val bar = thisObject as LinearLayout
             // The constructor rebuilds before listeners are bound; later rebuilds reuse our button.
-            val button = bar.getTag(R.id.wekit_multi_select_button) as? ImageView? ?: return@hookAfter
+            val button =
+                bar.getTag(R.id.wekit_multi_select_button) as? ImageView? ?: return@hookAfter
             attachMultiSelectButton(bar, button)
         }
         methodMultiUpdateSelection.hookAfter {
             val bar = thisObject as LinearLayout
-            val button = bar.getTag(R.id.wekit_multi_select_button) as? ImageView? ?: return@hookAfter
+            val button =
+                bar.getTag(R.id.wekit_multi_select_button) as? ImageView? ?: return@hookAfter
             val hasSelection = args[0] as Int > 0
             button.isEnabled = hasSelection
             button.isClickable = hasSelection
@@ -435,35 +499,34 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         view: View,
         chattingContext: ChattingContext,
         msgInfo: MessageInfo,
-        items: List<MenuItem>
+        items: List<MenuItem>,
     ) {
         showComposeDialog(view.context) {
             AlertDialogContent(
                 title = { Text(stringResource(R.string.app_name)) },
                 text = {
                     LazyColumn(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.large)
+                        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large),
                     ) {
                         items(items) { item ->
                             ListItem(
-                                modifier = Modifier.clickable {
-                                    onDismiss()
-                                    try {
-                                        item.onClick(view, chattingContext, msgInfo)
-                                    } catch (ex: Throwable) {
-                                        WeLogger.e(
-                                            TAG,
-                                            "exception occurred while handling click event",
-                                            ex
-                                        )
-                                    }
-                                },
+                                modifier =
+                                    Modifier.clickable {
+                                        onDismiss()
+                                        try {
+                                            item.onClick(view, chattingContext, msgInfo)
+                                        } catch (ex: Throwable) {
+                                            WeLogger.e(
+                                                TAG,
+                                                "exception occurred while handling click event",
+                                                ex,
+                                            )
+                                        }
+                                    },
                                 leadingContent = {
                                     Icon(
                                         imageVector = item.imageVector,
-                                        contentDescription = item.text
+                                        contentDescription = item.text,
                                     )
                                 },
                                 content = { Text(item.text) },
@@ -471,7 +534,9 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -480,7 +545,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private class MultiSelectRow(
         val text: String,
         val imageVector: ImageVector,
-        val onClick: () -> Unit
+        val onClick: () -> Unit,
     )
 
     // shows applicable provider items for a multi-message selection, split into two sections:
@@ -489,7 +554,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
     private fun showMultiSelectMenuDialog(
         view: View,
         chattingContext: ChattingContext,
-        msgInfos: List<MessageInfo>
+        msgInfos: List<MessageInfo>,
     ) {
         val allItems = currentMenuItems()
 
@@ -539,7 +604,10 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         if (adaptedRows.isNotEmpty()) {
                             item {
                                 MultiSelectMenuSection(
-                                    title = stringResource(R.string.noncompose_message_menu_adapted_section),
+                                    title =
+                                        stringResource(
+                                            R.string.noncompose_message_menu_adapted_section,
+                                        ),
                                     rows = adaptedRows,
                                     onDismiss = { onDismiss() },
                                 )
@@ -548,7 +616,10 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         if (autoRows.isNotEmpty()) {
                             item {
                                 MultiSelectMenuSection(
-                                    title = stringResource(R.string.noncompose_message_menu_automatic_section),
+                                    title =
+                                        stringResource(
+                                            R.string.noncompose_message_menu_automatic_section,
+                                        ),
                                     rows = autoRows,
                                     onDismiss = { onDismiss() },
                                 )
@@ -556,7 +627,9 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                         }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                confirmButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -583,7 +656,11 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                             try {
                                 row.onClick()
                             } catch (ex: Throwable) {
-                                WeLogger.e(TAG, "exception occurred while handling multi-select click", ex)
+                                WeLogger.e(
+                                    TAG,
+                                    "exception occurred while handling multi-select click",
+                                    ex,
+                                )
                             }
                         },
                     )

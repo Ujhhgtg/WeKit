@@ -56,98 +56,142 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
         }
     }
 
-    private val amountRangeCodec = object : AutomationValueCodec<AmountRangeRule> {
-        override fun write(value: AmountRangeRule, out: AutomationFieldWriter) {
-            out.put("enabled", value.enabled)
-            out.put("minimumYuan", value.minimumYuan)
-            out.put("maximumYuan", value.maximumYuan)
+    private val amountRangeCodec =
+        object : AutomationValueCodec<AmountRangeRule> {
+            override fun write(value: AmountRangeRule, out: AutomationFieldWriter) {
+                out.put("enabled", value.enabled)
+                out.put("minimumYuan", value.minimumYuan)
+                out.put("maximumYuan", value.maximumYuan)
+            }
+
+            override fun read(input: AutomationFieldReader) =
+                AmountRangeRule(
+                    input.boolean("enabled"),
+                    input.string("minimumYuan"),
+                    input.string("maximumYuan"),
+                )
         }
 
-        override fun read(input: AutomationFieldReader) = AmountRangeRule(
-            input.boolean("enabled"), input.string("minimumYuan"), input.string("maximumYuan"),
-        )
-    }
-
-    val accept = AutomationRuleKey("accept", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
-    val timeRange = AutomationRuleKey("timeRange", AutomationCodecs.timeRange, AutomationTimeRangeRule())
+    val accept =
+        AutomationRuleKey("accept", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
+    val timeRange =
+        AutomationRuleKey("timeRange", AutomationCodecs.timeRange, AutomationTimeRangeRule())
     val amountRange = AutomationRuleKey("amountRange", amountRangeCodec, AmountRangeRule())
-    val memoKeyword = AutomationRuleKey("memoKeyword", AutomationCodecs.keyword, AutomationKeywordRule())
+    val memoKeyword =
+        AutomationRuleKey("memoKeyword", AutomationCodecs.keyword, AutomationKeywordRule())
     val delay = AutomationRuleKey("delay", AutomationCodecs.delay, AutomationDelayRule())
-    val notification = AutomationRuleKey("notification", AutomationCodecs.toggle, AutomationToggleRule())
+    val notification =
+        AutomationRuleKey("notification", AutomationCodecs.toggle, AutomationToggleRule())
     val reply = AutomationRuleKey("reply", AutomationCodecs.reply, AutomationReplyRule())
 
-    override val keys = listOf(accept, timeRange, amountRange, memoKeyword, delay, notification, reply)
+    override val keys =
+        listOf(accept, timeRange, amountRange, memoKeyword, delay, notification, reply)
 
-    override val scopeTypes = setOf(
-        AutomationScopeType.GLOBAL, AutomationScopeType.CATEGORY, AutomationScopeType.CONTACT,
-        AutomationScopeType.GROUP_MEMBER, AutomationScopeType.PRESET,
-    )
-    override val categories = listOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.GROUP)
+    override val scopeTypes =
+        setOf(
+            AutomationScopeType.GLOBAL,
+            AutomationScopeType.CATEGORY,
+            AutomationScopeType.CONTACT,
+            AutomationScopeType.GROUP_MEMBER,
+            AutomationScopeType.PRESET,
+        )
+    override val categories =
+        listOf(AutomationTalkerCategory.PRIVATE, AutomationTalkerCategory.GROUP)
 
     override val titleRes = R.string.feature_auto_accept_transfers_name
     override val globalSummaryRes = R.string.payment_transfer_global_summary
 
     val placeholders = AutomationReplyExecutor.BASE_PLACEHOLDERS + $$"$amount"
 
-    override val editors = listOf(
-        toggleEditor(
-            accept, R.string.payment_transfer_accept, R.string.payment_transfer_accept_scope, R.string.payment_transfer_skip_scope,
-            globalTitleRes = R.string.payment_transfer_default_accept,
-        ),
-        timeRangeEditor(timeRange, R.string.payment_transfer_time_range, R.string.payment_transfer_time_unrestricted),
-        AutomationRuleEditor(
-            key = amountRange,
-            titleRes = R.string.payment_transfer_amount_range,
-            summary = { rule ->
-                if (!rule.enabled) stringResource(R.string.payment_transfer_amount_unrestricted)
-                else {
-                    val unrestricted = stringResource(R.string.unrestricted)
-                    stringResource(
-                        R.string.payment_transfer_amount_summary,
-                        rule.minimumYuan.ifBlank { unrestricted },
-                        rule.maximumYuan.ifBlank { unrestricted },
-                    )
-                }
-            },
-            isOn = { it.enabled },
-            setOn = { rule, on -> rule.copy(enabled = on) },
-            sheet = { _, value, onChange ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf(
-                        R.string.payment_transfer_minimum_amount to value.minimumYuan,
-                        R.string.payment_transfer_maximum_amount to value.maximumYuan,
-                    ).forEach { (labelRes, current) ->
-                        OutlinedTextField(
-                            value = current,
-                            onValueChange = { input ->
-                                val amount = sanitizeAmount(input)
-                                onChange(if (labelRes == R.string.payment_transfer_minimum_amount) value.copy(minimumYuan = amount) else value.copy(maximumYuan = amount))
-                            },
-                            label = { Text(stringResource(labelRes)) },
-                            prefix = { Text("¥") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
+    override val editors =
+        listOf(
+            toggleEditor(
+                accept,
+                R.string.payment_transfer_accept,
+                R.string.payment_transfer_accept_scope,
+                R.string.payment_transfer_skip_scope,
+                globalTitleRes = R.string.payment_transfer_default_accept,
+            ),
+            timeRangeEditor(
+                timeRange,
+                R.string.payment_transfer_time_range,
+                R.string.payment_transfer_time_unrestricted,
+            ),
+            AutomationRuleEditor(
+                key = amountRange,
+                titleRes = R.string.payment_transfer_amount_range,
+                summary = { rule ->
+                    if (!rule.enabled) stringResource(R.string.payment_transfer_amount_unrestricted)
+                    else {
+                        val unrestricted = stringResource(R.string.unrestricted)
+                        stringResource(
+                            R.string.payment_transfer_amount_summary,
+                            rule.minimumYuan.ifBlank { unrestricted },
+                            rule.maximumYuan.ifBlank { unrestricted },
                         )
                     }
-                }
-                AutomationSheetNote(stringResource(R.string.payment_transfer_amount_hint))
-            },
-        ),
-        keywordEditor(memoKeyword, R.string.payment_transfer_memo_keywords, R.string.payment_transfer_memo_unrestricted),
-        delayEditor(delay, R.string.payment_transfer_delay, R.string.payment_transfer_immediate),
-        toggleEditor(
-            notification, R.string.payment_transfer_notification,
-            R.string.payment_transfer_notification_enabled, R.string.automation_notification_disabled,
-        ),
-        replyEditor(reply, R.string.payment_transfer_auto_reply, placeholders),
-    )
+                },
+                isOn = { it.enabled },
+                setOn = { rule, on -> rule.copy(enabled = on) },
+                sheet = { _, value, onChange ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        listOf(
+                                R.string.payment_transfer_minimum_amount to value.minimumYuan,
+                                R.string.payment_transfer_maximum_amount to value.maximumYuan,
+                            )
+                            .forEach { (labelRes, current) ->
+                                OutlinedTextField(
+                                    value = current,
+                                    onValueChange = { input ->
+                                        val amount = sanitizeAmount(input)
+                                        onChange(
+                                            if (
+                                                labelRes == R.string.payment_transfer_minimum_amount
+                                            )
+                                                value.copy(minimumYuan = amount)
+                                            else value.copy(maximumYuan = amount),
+                                        )
+                                    },
+                                    label = { Text(stringResource(labelRes)) },
+                                    prefix = { Text("¥") },
+                                    singleLine = true,
+                                    keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                    }
+                    AutomationSheetNote(stringResource(R.string.payment_transfer_amount_hint))
+                },
+            ),
+            keywordEditor(
+                memoKeyword,
+                R.string.payment_transfer_memo_keywords,
+                R.string.payment_transfer_memo_unrestricted,
+            ),
+            delayEditor(
+                delay,
+                R.string.payment_transfer_delay,
+                R.string.payment_transfer_immediate,
+            ),
+            toggleEditor(
+                notification,
+                R.string.payment_transfer_notification,
+                R.string.payment_transfer_notification_enabled,
+                R.string.automation_notification_disabled,
+            ),
+            replyEditor(reply, R.string.payment_transfer_auto_reply, placeholders),
+        )
 
-    override val sections = listOf(
-        AutomationSection(R.string.payment_transfer_section_conditions, listOf(accept, timeRange, amountRange, memoKeyword)),
-        AutomationSection(R.string.payment_transfer_section_method, listOf(delay)),
-        AutomationSection(R.string.payment_transfer_section_after, listOf(notification, reply)),
-    )
+    override val sections =
+        listOf(
+            AutomationSection(
+                R.string.payment_transfer_section_conditions,
+                listOf(accept, timeRange, amountRange, memoKeyword),
+            ),
+            AutomationSection(R.string.payment_transfer_section_method, listOf(delay)),
+            AutomationSection(R.string.payment_transfer_section_after, listOf(notification, reply)),
+        )
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         val amount = rules[amountRange]
@@ -168,10 +212,20 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
             }
         }
         if (validates(keyIds, memoKeyword)) {
-            rules[memoKeyword].validationError(localizedAutomationString(R.string.payment_transfer_memo_keywords))?.let { return it }
+            rules[memoKeyword]
+                .validationError(localizedAutomationString(R.string.payment_transfer_memo_keywords))
+                ?.let {
+                    return it
+                }
         }
-        if (validates(keyIds, delay)) rules[delay].validationError()?.let { return it }
-        if (validates(keyIds, reply)) rules[reply].validationError()?.let { return it }
+        if (validates(keyIds, delay))
+            rules[delay].validationError()?.let {
+                return it
+            }
+        if (validates(keyIds, reply))
+            rules[reply].validationError()?.let {
+                return it
+            }
         return null
     }
 
@@ -190,6 +244,7 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
                 .setScale(0, RoundingMode.UNNECESSARY)
                 .longValueExact()
                 .takeIf { it >= 0L }
-        }.getOrNull()
+        }
+            .getOrNull()
     }
 }

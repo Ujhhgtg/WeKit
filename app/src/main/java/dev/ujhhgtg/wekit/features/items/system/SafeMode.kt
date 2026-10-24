@@ -29,10 +29,14 @@ object SafeMode {
                 title = { Text(stringResource(R.string.system_safe_mode_enable_title)) },
                 text = { Text(stringResource(R.string.system_safe_mode_enable_message)) },
                 confirmButton = {
-                    TextButton(onClick = {
-                        onDismiss()
-                        onConfirmed()
-                    }) { Text(stringResource(R.string.system_safe_mode_enable)) }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            onConfirmed()
+                        },
+                    ) {
+                        Text(stringResource(R.string.system_safe_mode_enable))
+                    }
                 },
                 dismissButton = {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
@@ -45,13 +49,15 @@ object SafeMode {
         if (enabled) {
             runCatching {
                 flagFile.writeText("")
-            }.onFailure {
-                WeLogger.e(TAG, "failed to create safe mode flag", it)
             }
+                .onFailure {
+                    WeLogger.e(TAG, "failed to create safe mode flag", it)
+                }
         } else {
-            runCatching { flagFile.deleteIfExists() }.onFailure {
-                WeLogger.e(TAG, "failed to delete safe mode flag", it)
-            }
+            runCatching { flagFile.deleteIfExists() }
+                .onFailure {
+                    WeLogger.e(TAG, "failed to delete safe mode flag", it)
+                }
         }
         WeLogger.i(TAG, "safe mode flag ${if (enabled) "created" else "deleted"}: $flagFile")
     }

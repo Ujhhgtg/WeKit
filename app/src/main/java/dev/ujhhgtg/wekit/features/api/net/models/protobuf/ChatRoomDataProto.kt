@@ -6,7 +6,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-
 @Serializable
 data class ChatRoomDataProto(
     @ProtoNumber(1) val members: List<ChatRoomMemberProto> = emptyList(),

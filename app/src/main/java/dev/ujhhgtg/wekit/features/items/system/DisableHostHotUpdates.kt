@@ -20,12 +20,13 @@ object DisableHostHotUpdates : SwitchFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_disable_host_hot_updates_description
 
-    private val componentNames = listOf(
-        "com.tencent.tinker.lib.service.TinkerPatchForeService",
-        "com.tencent.tinker.lib.service.TinkerPatchService",
-        $$"com.tencent.tinker.lib.service.TinkerPatchService$InnerService",
-        "com.tencent.tinker.lib.service.DefaultTinkerResultService",
-    )
+    private val componentNames =
+        listOf(
+            "com.tencent.tinker.lib.service.TinkerPatchForeService",
+            "com.tencent.tinker.lib.service.TinkerPatchService",
+            $$"com.tencent.tinker.lib.service.TinkerPatchService$InnerService",
+            "com.tencent.tinker.lib.service.DefaultTinkerResultService",
+        )
 
     @SuppressLint("SdCardPath")
     override fun onEnable() {
@@ -55,10 +56,12 @@ object DisableHostHotUpdates : SwitchFeature() {
             componentNames.forEach {
                 runCatching {
                     ComponentName(
-                        this,
-                        it
-                    ).setEnabled(this, enabled)
-                }.onFailure { WeLogger.e(TAG, "failed to set $enabled state for $it") }
+                            this,
+                            it,
+                        )
+                        .setEnabled(this, enabled)
+                }
+                    .onFailure { WeLogger.e(TAG, "failed to set $enabled state for $it") }
             }
         }
     }

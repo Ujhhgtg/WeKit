@@ -65,12 +65,14 @@ data class BarLayout(
     val step: Float,
     val count: Int,
 ) {
-    val right: Float get() = left + step * count
+    val right: Float
+        get() = left + step * count
 }
 
 /** One logical tab inside WeChat's LauncherUIBottomTabView (layout by5 / by6). */
 class NativeTab(val index: Int, val container: View) {
-    val icon: View = (container as ViewGroup).descendants.first { it.javaClass.name == TAB_ICON_VIEW_CLASS }
+    val icon: View =
+        (container as ViewGroup).descendants.first { it.javaClass.name == TAB_ICON_VIEW_CLASS }
     val iconBox = icon.parent as RelativeLayout
     val unread: View = iconBox.children.first { it is TextView }
     val dot: View = iconBox.children.first { it is ImageView && it !== icon }
@@ -78,7 +80,11 @@ class NativeTab(val index: Int, val container: View) {
     val focusAlpha = mutableIntStateOf(icon.reflekt().fields { type = int }.single().get() as Int)
     var materialHost: ComposeView? = null
 
-    private val setFocusAlpha = icon.reflekt().firstMethod { name = "setFocusAlpha"; parameters(int) }
+    private val setFocusAlpha =
+        icon.reflekt().firstMethod {
+            name = "setFocusAlpha"
+            parameters(int)
+        }
 
     fun applyFocus(fraction: Float, activeColor: Int, inactiveColor: Int) {
         setFocusAlpha.invoke((fraction * 255).toInt())
@@ -95,7 +101,10 @@ class NativeTab(val index: Int, val container: View) {
         val height = bitmaps.maxOf { it.height }
         val focusAlpha = reflected.fields { type = int }.single()
         val originalAlpha = focusAlpha.get() as Int
-        val draw = reflected.firstMethod { name = "onDraw"; parameters(Canvas::class) }
+        val draw = reflected.firstMethod {
+            name = "onDraw"
+            parameters(Canvas::class)
+        }
         fun render(alpha: Int): ImageBitmap {
             focusAlpha.set(alpha)
             val bitmap = createBitmap(width, height)
@@ -120,10 +129,13 @@ class NativeTab(val index: Int, val container: View) {
     // Apply the filter to an opaque white swatch: ColorFilter exposes no public color getter.
     private fun filterColor(paint: Paint): Color {
         val swatch = createBitmap(1, 1)
-        Canvas(swatch).drawPaint(Paint().apply {
-            color = android.graphics.Color.WHITE
-            colorFilter = paint.colorFilter
-        })
+        Canvas(swatch)
+            .drawPaint(
+                Paint().apply {
+                    color = android.graphics.Color.WHITE
+                    colorFilter = paint.colorFilter
+                },
+            )
         return Color(swatch[0, 0]).also { swatch.recycle() }
     }
 }
@@ -152,65 +164,90 @@ class NavBarSession(
 
     var editor by mutableStateOf<NavBarEditor?>(null)
         private set
+
     val homeBarOverride = LauncherNavigation.barOverride(activity)
     private var frostedEnabled: Boolean? = null
     private var previousHomeOverride: Boolean? = null
     private var disposed = false
 
     private val nativeRow = bottomTab.children.first { it is LinearLayout } as LinearLayout
-    val nativeTabs: Map<Int, NativeTab> = nativeRow.children.associate { container ->
-        val index = container.tag as Int
-        index to NativeTab(index, container)
-    }
+    val nativeTabs: Map<Int, NativeTab> =
+        nativeRow.children.associate { container ->
+            val index = container.tag as Int
+            index to NativeTab(index, container)
+        }
 
     // WeChat's own tab listener (q8) with its double-tap state machine and the LiveData
     // event it fires. Double-tapping the Chat tab makes it fire WeChat's "scroll to next
     // unread conversation" event, which MainUI already observes. Replaying two rapid
     // clicks reproduces that behaviour without resolving the obfuscated event class.
-    val nativeTabClickListener = bottomTab.reflekt()
-        .firstField { type = View.OnClickListener::class }
-        .get() as View.OnClickListener
+    val nativeTabClickListener =
+        bottomTab.reflekt().firstField { type = View.OnClickListener::class }.get()
+            as View.OnClickListener
 
-    private val methodOnTabClick = tabsAdapter.reflekt().firstMethod { name = "onTabClick"; parameters(int) }
+    private val methodOnTabClick =
+        tabsAdapter.reflekt().firstMethod {
+            name = "onTabClick"
+            parameters(int)
+        }
 
     @Suppress("UNCHECKED_CAST")
-    private val fragmentCache = mainTabUI.reflekt()
-        .firstField { type = HashMap::class; modifiers { Modifiers.STATIC !in it } }
-        .get() as HashMap<Int, Any>
+    private val fragmentCache =
+        mainTabUI
+            .reflekt()
+            .firstField {
+                type = HashMap::class
+                modifiers { Modifiers.STATIC !in it }
+            }
+            .get() as HashMap<Int, Any>
 
-    val composeBar = ComposeView(activity).apply {
-        setLifecycleOwner(lifecycleOwner)
-        setContent { InjectedUiTheme { NavBarCustomBar(this@NavBarSession) } }
-    }
+    val composeBar =
+        ComposeView(activity).apply {
+            setLifecycleOwner(lifecycleOwner)
+            setContent { InjectedUiTheme { NavBarCustomBar(this@NavBarSession) } }
+        }
 
-    private val frostedMethod = FROSTED_CONTENT_VIEW_CLASS.toClass().firstMethod {
-        parameters { it[0] == bool && it[1] == int }
-    }
+    private val frostedMethod =
+        FROSTED_CONTENT_VIEW_CLASS.toClass().firstMethod {
+            parameters { it[0] == bool && it[1] == int }
+        }
 
     // Native colors don't change for the lifetime of this activity: a theme switch recreates it.
     private var nativeIconCache: Map<Int, WechatTabIcons>? = null
 
     val nativeIcons: Map<Int, WechatTabIcons>
-        get() = nativeIconCache ?: nativeTabs.mapValues { it.value.readIcons() }.also { nativeIconCache = it }
+        get() =
+            nativeIconCache
+                ?: nativeTabs.mapValues { it.value.readIcons() }.also { nativeIconCache = it }
 
     val barLayout: BarLayout?
-        get() = when (BeautifyNavigationBar.config.style) {
-            NavBarStyle.NATIVE -> nativeBarLayout
-            NavBarStyle.DOCKED, NavBarStyle.FLOATING, NavBarStyle.LIQUID_GLASS -> customBarLayout
-            NavBarStyle.HIDDEN -> null
-        }
+        get() =
+            when (BeautifyNavigationBar.config.style) {
+                NavBarStyle.NATIVE -> nativeBarLayout
+                NavBarStyle.DOCKED,
+                NavBarStyle.FLOATING,
+                NavBarStyle.LIQUID_GLASS -> customBarLayout
+                NavBarStyle.HIDDEN -> null
+            }
 
     /** The view that must stay sharp and clickable-looking above the editor veil. */
     val barView: View?
-        get() = when (BeautifyNavigationBar.config.style) {
-            NavBarStyle.NATIVE, NavBarStyle.DOCKED -> bottomTab
-            NavBarStyle.FLOATING, NavBarStyle.LIQUID_GLASS -> composeBar
-            NavBarStyle.HIDDEN -> null
-        }
+        get() =
+            when (BeautifyNavigationBar.config.style) {
+                NavBarStyle.NATIVE,
+                NavBarStyle.DOCKED -> bottomTab
+                NavBarStyle.FLOATING,
+                NavBarStyle.LIQUID_GLASS -> composeBar
+                NavBarStyle.HIDDEN -> null
+            }
 
     init {
-        nativeTabs.values.forEach { BeautifyNavigationBar.registerFocusAlpha(it.icon, it.focusAlpha) }
-        val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateNativeBarLayout() }
+        nativeTabs.values.forEach {
+            BeautifyNavigationBar.registerFocusAlpha(it.icon, it.focusAlpha)
+        }
+        val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updateNativeBarLayout()
+        }
         bottomTab.addOnLayoutChangeListener(layoutListener)
         nativeRow.addOnLayoutChangeListener(layoutListener)
     }
@@ -253,7 +290,8 @@ class NavBarSession(
         barLift = px
         val style = BeautifyNavigationBar.config.style
         // The docked bar lives inside the native container, so both move with it.
-        bottomTab.translationY = if (style == NavBarStyle.NATIVE || style == NavBarStyle.DOCKED) px else 0f
+        bottomTab.translationY =
+            if (style == NavBarStyle.NATIVE || style == NavBarStyle.DOCKED) px else 0f
         composeBar.translationY = if (style.isFloating) px else 0f
     }
 
@@ -271,15 +309,18 @@ class NavBarSession(
         val override = homeBarOverride.value
         val homeHidden = override == true && editor == null
         if (override != null || previousHomeOverride != null || resetStyle) {
-            val nativeContainerVisible = !homeHidden && (style == NavBarStyle.NATIVE || style == NavBarStyle.DOCKED)
+            val nativeContainerVisible =
+                !homeHidden && (style == NavBarStyle.NATIVE || style == NavBarStyle.DOCKED)
             val nativeVisibility = if (nativeContainerVisible) View.VISIBLE else View.GONE
             if (bottomTab.visibility != nativeVisibility) bottomTab.visibility = nativeVisibility
             // Floating bars animate the home override through the same progress as
             // scroll auto-hide. Keep their Compose host visible throughout the animation.
             val floatingVisibility = if (style.isFloating) View.VISIBLE else View.GONE
             // A docked Compose bar follows its native parent, and must remain visible inside it.
-            val composeVisibility = if (style == NavBarStyle.DOCKED) View.VISIBLE else floatingVisibility
-            if (composeBar.visibility != composeVisibility) composeBar.visibility = composeVisibility
+            val composeVisibility =
+                if (style == NavBarStyle.DOCKED) View.VISIBLE else floatingVisibility
+            if (composeBar.visibility != composeVisibility)
+                composeBar.visibility = composeVisibility
         }
         // Once released, leave the host's Recent-page animation in control of its container.
         previousHomeOverride = override
@@ -292,7 +333,8 @@ class NavBarSession(
 
     private fun mountStyle(style: NavBarStyle) {
         val docked = style == NavBarStyle.DOCKED
-        bottomTab.visibility = if (style == NavBarStyle.NATIVE || docked) View.VISIBLE else View.GONE
+        bottomTab.visibility =
+            if (style == NavBarStyle.NATIVE || docked) View.VISIBLE else View.GONE
         // The docked bar takes the native tabs' place inside their own container, so it
         // inherits WeChat's insets and Recent-page hide animation. For every other non-native
         // style the tabs are hidden too: WeChat makes its container visible again on some
@@ -347,13 +389,20 @@ class NavBarSession(
         // Pages only re-run FrostedContentView.a(...) with their current enabled flag, so
         // turning the native blur back on must be pushed explicitly once the bar has a size.
         val apply = {
-            viewPager.children.filter { it.javaClass.name == FROSTED_CONTENT_VIEW_CLASS }.forEach { view ->
-                if (frostedMethod.parameterTypes.size == 3) {
-                    frostedMethod.invoke(view, enabled, bottomTab.height, bottomTab.translationY)
-                } else {
-                    frostedMethod.invoke(view, enabled, bottomTab.height)
+            viewPager.children
+                .filter { it.javaClass.name == FROSTED_CONTENT_VIEW_CLASS }
+                .forEach { view ->
+                    if (frostedMethod.parameterTypes.size == 3) {
+                        frostedMethod.invoke(
+                            view,
+                            enabled,
+                            bottomTab.height,
+                            bottomTab.translationY,
+                        )
+                    } else {
+                        frostedMethod.invoke(view, enabled, bottomTab.height)
+                    }
                 }
-            }
         }
         if (enabled && bottomTab.height == 0) bottomTab.doOnNextLayout { apply() } else apply()
     }
@@ -369,7 +418,8 @@ class NavBarSession(
         }
         val material = config.iconStyle == NavIconStyle.MATERIAL
         nativeTabs.values.forEach { tab ->
-            tab.container.visibility = if (tab.index in config.enabledTabs) View.VISIBLE else View.GONE
+            tab.container.visibility =
+                if (tab.index in config.enabledTabs) View.VISIBLE else View.GONE
             tab.iconBox.visibility = if (config.labelMode.showsIcon) View.VISIBLE else View.GONE
             tab.label.visibility = if (config.labelMode.showsText) View.VISIBLE else View.GONE
             tab.icon.visibility = if (material) View.INVISIBLE else View.VISIBLE
@@ -388,33 +438,33 @@ class NavBarSession(
     private fun createMaterialHost(tab: NativeTab): ComposeView {
         val icons = nativeIcons.getValue(tab.index)
         val item = navTab(tab.index)
-        val host = ComposeView(activity).apply {
-            setLifecycleOwner(lifecycleOwner)
-            setContent {
-                val focus by tab.focusAlpha
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    val fraction = focus / 255f
-                    Icon(
-                        item.outlined,
-                        contentDescription = null,
-                        tint = icons.inactiveColor,
-                        modifier = Modifier
-                            .fillMaxSize(0.86f)
-                            .graphicsLayer { alpha = 1f - fraction },
-                    )
-                    Icon(
-                        item.filled,
-                        contentDescription = null,
-                        tint = icons.activeColor,
-                        modifier = Modifier
-                            .fillMaxSize(0.86f)
-                            .graphicsLayer { alpha = fraction },
-                    )
+        val host =
+            ComposeView(activity).apply {
+                setLifecycleOwner(lifecycleOwner)
+                setContent {
+                    val focus by tab.focusAlpha
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val fraction = focus / 255f
+                        Icon(
+                            item.outlined,
+                            contentDescription = null,
+                            tint = icons.inactiveColor,
+                            modifier =
+                                Modifier.fillMaxSize(0.86f).graphicsLayer { alpha = 1f - fraction },
+                        )
+                        Icon(
+                            item.filled,
+                            contentDescription = null,
+                            tint = icons.activeColor,
+                            modifier =
+                                Modifier.fillMaxSize(0.86f).graphicsLayer { alpha = fraction },
+                        )
+                    }
                 }
             }
-        }
-        val params = RelativeLayout.LayoutParams(tab.icon.layoutParams.width, tab.icon.layoutParams.height)
-            .apply { addRule(RelativeLayout.CENTER_IN_PARENT) }
+        val params =
+            RelativeLayout.LayoutParams(tab.icon.layoutParams.width, tab.icon.layoutParams.height)
+                .apply { addRule(RelativeLayout.CENTER_IN_PARENT) }
         // Directly above the icon, below the unread counter and the dot.
         tab.iconBox.addView(host, tab.iconBox.indexOfChild(tab.icon) + 1, params)
         return host
@@ -428,11 +478,12 @@ class NavBarSession(
         val current = pagerTabs.getOrNull(pagerPosition) ?: return
         val next = pagerTabs.getOrNull(pagerPosition + 1)
         nativeTabs.values.forEach { tab ->
-            val fraction = when (tab.index) {
-                current -> 1f - offset
-                next -> offset
-                else -> 0f
-            }
+            val fraction =
+                when (tab.index) {
+                    current -> 1f - offset
+                    next -> offset
+                    else -> 0f
+                }
             val colors = icons.getValue(tab.index)
             tab.applyFocus(fraction, colors.activeColor.toArgb(), colors.inactiveColor.toArgb())
         }
@@ -446,33 +497,38 @@ class NavBarSession(
         }
         val location = IntArray(2)
         nativeRow.getLocationInWindow(location)
-        nativeBarLayout = BarLayout(
-            left = location[0] + first.left.toFloat(),
-            top = location[1] + first.top - bottomTab.translationY,
-            height = first.height.toFloat(),
-            step = first.width.toFloat(),
-            count = nativeRow.children.count { it.isVisible },
-        )
+        nativeBarLayout =
+            BarLayout(
+                left = location[0] + first.left.toFloat(),
+                top = location[1] + first.top - bottomTab.translationY,
+                height = first.height.toFloat(),
+                step = first.width.toFloat(),
+                count = nativeRow.children.count { it.isVisible },
+            )
     }
 
     // ---------- live page set ----------
 
-    fun fragmentTab(fragment: Any): Int? = fragmentCache.entries.firstOrNull { it.value === fragment }?.key
+    fun fragmentTab(fragment: Any): Int? =
+        fragmentCache.entries.firstOrNull { it.value === fragment }?.key
 
     fun switchAwayFrom(oldTabs: List<Int>, newTabs: List<Int>) {
         val position = viewPager.currentItem
         if (oldTabs[position] in newTabs) return
-        val fallback = (oldTabs.subList(position + 1, oldTabs.size) + oldTabs.subList(0, position).asReversed())
-            .first { it in newTabs }
+        val fallback =
+            (oldTabs.subList(position + 1, oldTabs.size) +
+                    oldTabs.subList(0, position).asReversed())
+                .first { it in newTabs }
         BeautifyNavigationBar.changeTab(mainTabUI, fallback)
     }
 
     /**
-     * Rebuilds FragmentStatePagerAdapter's position-indexed bookkeeping for [BeautifyNavigationBar.pagerTabs].
+     * Rebuilds FragmentStatePagerAdapter's position-indexed bookkeeping for
+     * [BeautifyNavigationBar.pagerTabs].
      *
-     * Hidden pages keep their fragment added (only its view is GONE), so showing them again
-     * reuses the live instance instead of re-adding a removed fragment or restoring saved
-     * state into a shifted position.
+     * Hidden pages keep their fragment added (only its view is GONE), so showing them again reuses
+     * the live instance instead of re-adding a removed fragment or restoring saved state into a
+     * shifted position.
      */
     @Suppress("UNCHECKED_CAST")
     fun syncPager() {
@@ -486,14 +542,31 @@ class NavBarSession(
         fragmentCache.forEach { (tab, fragment) ->
             fragmentView(fragment)?.visibility = if (tab in tabs) View.VISIBLE else View.GONE
         }
-        adapter.firstMethod { name = "notifyDataSetChanged"; superclass() }.invoke()
+        adapter
+            .firstMethod {
+                name = "notifyDataSetChanged"
+                superclass()
+            }
+            .invoke()
     }
 
     private fun isFragmentAdded(fragment: Any): Boolean =
-        fragment.reflekt().firstMethod { name = "isAdded"; superclass() }.invoke() as Boolean
+        fragment
+            .reflekt()
+            .firstMethod {
+                name = "isAdded"
+                superclass()
+            }
+            .invoke() as Boolean
 
     fun fragmentView(fragment: Any): View? =
-        fragment.reflekt().firstMethod { name = "getView"; superclass() }.invoke() as View?
+        fragment
+            .reflekt()
+            .firstMethod {
+                name = "getView"
+                superclass()
+            }
+            .invoke() as View?
 }
 
 private fun lerpArgb(start: Int, stop: Int, fraction: Float): Int {

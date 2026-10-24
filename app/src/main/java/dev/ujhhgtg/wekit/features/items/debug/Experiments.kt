@@ -33,8 +33,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
-import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -49,8 +49,7 @@ object Experiments : ClickableFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
     override val descriptionRes = R.string.feature_experiments_description
 
-    @Suppress("unused")
-    private const val TAG = "Experiments"
+    @Suppress("unused") private const val TAG = "Experiments"
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) { ExperimentDialog() }
@@ -60,29 +59,35 @@ object Experiments : ClickableFeature() {
 
     private sealed interface Phase {
         data object Idle : Phase
+
         data object Running : Phase
+
         data class Done(
             /** beforetransfer 的完整 protobuf 响应 */
             val beforeTransfer: ResultText,
             /** transferplaceorder 的完整 JSON 响应 */
-            val placeOrder: ResultText?
+            val placeOrder: ResultText?,
         ) : Phase
     }
 
     private sealed interface ResultText {
         data class Raw(val value: String) : ResultText
+
         data class Exception(val detail: String) : ResultText
+
         data object RequestFailed : ResultText
+
         data object TimedOut : ResultText
     }
 
     @Composable
-    private fun ResultText.asDisplayText(): String = when (this) {
-        is ResultText.Raw -> value
-        is ResultText.Exception -> stringResource(R.string.debug_experiments_exception, detail)
-        ResultText.RequestFailed -> stringResource(R.string.debug_experiments_request_failed)
-        ResultText.TimedOut -> stringResource(R.string.debug_experiments_request_timed_out)
-    }
+    private fun ResultText.asDisplayText(): String =
+        when (this) {
+            is ResultText.Raw -> value
+            is ResultText.Exception -> stringResource(R.string.debug_experiments_exception, detail)
+            ResultText.RequestFailed -> stringResource(R.string.debug_experiments_request_failed)
+            ResultText.TimedOut -> stringResource(R.string.debug_experiments_request_timed_out)
+        }
 
     // ── Dialog ───────────────────────────────────────────────────────────────
 
@@ -100,34 +105,47 @@ object Experiments : ClickableFeature() {
                     val id = selectedWxId!!
                     val result = runCatching {
                         val beforeTransfer = fetchBeforeTransfer(id, null)
-                        val beforeStr = if (beforeTransfer != null) {
-                            ResultText.Raw(buildString {
-                                appendLine("maskedRealName: ${beforeTransfer.maskedRealName}")
-                                append("key: ${beforeTransfer.key}")
-                            })
-                        } else {
-                            ResultText.RequestFailed
-                        }
+                        val beforeStr =
+                            if (beforeTransfer != null) {
+                                ResultText.Raw(
+                                    buildString {
+                                        appendLine(
+                                            "maskedRealName: ${beforeTransfer.maskedRealName}",
+                                        )
+                                        append("key: ${beforeTransfer.key}")
+                                    },
+                                )
+                            } else {
+                                ResultText.RequestFailed
+                            }
 
-                        val placeOrderStr = if (beforeTransfer?.key != null) {
-                            val ctx = WeTransferApi.TransferContext(
-                                memberId = id,
-                                groupId = null,
-                                maskedRealName = beforeTransfer.maskedRealName ?: "",
-                                truenameExtend = beforeTransfer.key,
-                                nickname = id,
-                                amountYuan = 100000.0,
-                                placeorderReserves = System.currentTimeMillis().toString()
-                            )
-                            val resp = sendPlaceOrder(ctx, inputName = null, checknameSign = null)
-                            if (resp != null) ResultText.Raw(resp.toString(2)) else ResultText.TimedOut
-                        } else null
+                        val placeOrderStr =
+                            if (beforeTransfer?.key != null) {
+                                val ctx =
+                                    WeTransferApi.TransferContext(
+                                        memberId = id,
+                                        groupId = null,
+                                        maskedRealName = beforeTransfer.maskedRealName ?: "",
+                                        truenameExtend = beforeTransfer.key,
+                                        nickname = id,
+                                        amountYuan = 100000.0,
+                                        placeorderReserves = System.currentTimeMillis().toString(),
+                                    )
+                                val resp =
+                                    sendPlaceOrder(ctx, inputName = null, checknameSign = null)
+                                if (resp != null) ResultText.Raw(resp.toString(2))
+                                else ResultText.TimedOut
+                            } else null
 
                         Phase.Done(beforeStr, placeOrderStr)
-                    }.getOrElse { e ->
-                        WeLogger.e(TAG, "发包失败", e)
-                        Phase.Done(ResultText.Exception(e.message ?: e.javaClass.simpleName), null)
                     }
+                        .getOrElse { e ->
+                            WeLogger.e(TAG, "发包失败", e)
+                            Phase.Done(
+                                ResultText.Exception(e.message ?: e.javaClass.simpleName),
+                                null,
+                            )
+                        }
 
                     if (phase is Phase.Running) {
                         phase = result
@@ -148,37 +166,42 @@ object Experiments : ClickableFeature() {
                             Spacer(Modifier.height(8.dp))
 
                             OutlinedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
+                                modifier =
+                                    Modifier.fillMaxWidth().clickable {
                                         showComposeDialog(context) {
                                             SingleContactSelector(
-                                                title = stringResource(R.string.debug_experiments_select_contact),
+                                                title =
+                                                    stringResource(
+                                                        R.string.debug_experiments_select_contact,
+                                                    ),
                                                 contacts = contacts,
                                                 initialSelectedWxId = selectedWxId,
                                                 onDismiss = onDismiss,
                                                 onConfirm = { wxId ->
                                                     selectedWxId = wxId
                                                     onDismiss()
-                                                }
+                                                },
                                             )
                                         }
                                     },
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        text = selectedWxId
-                                            ?: stringResource(R.string.debug_experiments_tap_to_select_contact),
-                                        color = if (selectedWxId != null) {
-                                            MaterialTheme.colorScheme.onSurface
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
+                                        text =
+                                            selectedWxId
+                                                ?: stringResource(
+                                                    R.string
+                                                        .debug_experiments_tap_to_select_contact,
+                                                ),
+                                        color =
+                                            if (selectedWxId != null) {
+                                                MaterialTheme.colorScheme.onSurface
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
                                     )
                                 }
                             }
@@ -191,17 +214,18 @@ object Experiments : ClickableFeature() {
 
                         is Phase.Done -> {
                             Text(
-                                text = stringResource(
-                                    R.string.debug_experiments_phase_one_result,
-                                    current.beforeTransfer.asDisplayText(),
-                                ),
-                                fontFamily = FontFamily.Monospace
+                                text =
+                                    stringResource(
+                                        R.string.debug_experiments_phase_one_result,
+                                        current.beforeTransfer.asDisplayText(),
+                                    ),
+                                fontFamily = FontFamily.Monospace,
                             )
                             if (current.placeOrder != null) {
                                 Text(stringResource(R.string.debug_experiments_phase_two_title))
                                 Text(
                                     text = current.placeOrder.asDisplayText(),
-                                    fontFamily = FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace,
                                 )
                             }
                         }
@@ -215,23 +239,31 @@ object Experiments : ClickableFeature() {
                             onClick = {
                                 if (selectedWxId != null) phase = Phase.Running
                             },
-                            enabled = selectedWxId != null
-                        ) { Text(stringResource(R.string.debug_experiments_start)) }
+                            enabled = selectedWxId != null,
+                        ) {
+                            Text(stringResource(R.string.debug_experiments_start))
+                        }
                     }
 
-                    is Phase.Done -> TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }
+                    is Phase.Done ->
+                        TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }
                     else -> {}
                 }
             },
             dismissButton = {
                 when (phase) {
-                    is Phase.Running -> TextButton(onClick = {
-                        dialog.setCancelable(true)
-                        phase = Phase.Idle
-                    }) { Text(stringResource(R.string.debug_experiments_stop)) }
+                    is Phase.Running ->
+                        TextButton(
+                            onClick = {
+                                dialog.setCancelable(true)
+                                phase = Phase.Idle
+                            },
+                        ) {
+                            Text(stringResource(R.string.debug_experiments_stop))
+                        }
                     else -> {}
                 }
-            }
+            },
         )
     }
 }

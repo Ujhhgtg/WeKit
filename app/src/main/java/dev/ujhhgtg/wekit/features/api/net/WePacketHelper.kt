@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.net
 
-import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import com.tencent.mm.network.v0
@@ -19,7 +18,10 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeMatchType
 import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -38,10 +40,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-
 
 object WePacketHelper : ApiFeature(), IResolveDex {
 
@@ -50,46 +48,51 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
 
     // 核心 Protobuf 类
-    private val classProtoBase by dexClass(
-        sqlClass {
-            usingEqStrings("Cannot use this method")
-            method {
-                name = "op"
-                paramTypes("int", "java.lang.Object[]")
-            }
-        },
-    )
+    private val classProtoBase by
+        dexClass(
+            sqlClass {
+                usingEqStrings("Cannot use this method")
+                method {
+                    name = "op"
+                    paramTypes("int", "java.lang.Object[]")
+                }
+            },
+        )
     private val classRawReq by dexClassQuery {
         uniqueClass(
             ClassSpec(
                 fields = listOf(FieldSpec(type = ClassSpec(className = NameSpec("byte[]")))),
                 fieldCount = 1..1,
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("<init>"),
-                        paramTypes = listOf(TypeSpec("byte[]")),
-                    ),
-                    MethodSpec(
-                        name = NameSpec("op"),
-                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                        returnType = ClassSpec(className = NameSpec("int")),
-                        opcodes = OpcodeSpec(
-                            names = emptyList(),
-                            matchType = OpcodeMatchType.Contains,
-                            count = 0..10,
+                methods =
+                    listOf(
+                        MethodSpec(
+                            name = NameSpec("<init>"),
+                            paramTypes = listOf(TypeSpec("byte[]")),
+                        ),
+                        MethodSpec(
+                            name = NameSpec("op"),
+                            paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                            returnType = ClassSpec(className = NameSpec("int")),
+                            opcodes =
+                                OpcodeSpec(
+                                    names = emptyList(),
+                                    matchType = OpcodeMatchType.Contains,
+                                    count = 0..10,
+                                ),
+                        ),
+                        MethodSpec(
+                            name = NameSpec("toByteArray"),
+                            returnType = ClassSpec(className = NameSpec("byte[]")),
+                            invokeMethods =
+                                listOf(
+                                    MethodSpec(
+                                        declaredClass =
+                                            ClassSpec(className = NameSpec("java.lang.System")),
+                                        name = NameSpec("arraycopy"),
+                                    ),
+                                ),
                         ),
                     ),
-                    MethodSpec(
-                        name = NameSpec("toByteArray"),
-                        returnType = ClassSpec(className = NameSpec("byte[]")),
-                        invokeMethods = listOf(
-                            MethodSpec(
-                                declaredClass = ClassSpec(className = NameSpec("java.lang.System")),
-                                name = NameSpec("arraycopy"),
-                            ),
-                        ),
-                    ),
-                ),
             ),
         )
     }
@@ -97,36 +100,40 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         uniqueClass(
             ClassSpec(
                 fieldCount = 0..1,
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("<init>"),
-                        opcodes = OpcodeSpec(
-                            names = listOf("new-instance"),
-                            matchType = OpcodeMatchType.Contains,
+                methods =
+                    listOf(
+                        MethodSpec(
+                            name = NameSpec("<init>"),
+                            opcodes =
+                                OpcodeSpec(
+                                    names = listOf("new-instance"),
+                                    matchType = OpcodeMatchType.Contains,
+                                ),
+                        ),
+                        MethodSpec(
+                            name = NameSpec("op"),
+                            paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                            returnType = ClassSpec(className = NameSpec("int")),
+                            opcodes =
+                                OpcodeSpec(
+                                    names = emptyList(),
+                                    matchType = OpcodeMatchType.Contains,
+                                    count = 0..10,
+                                ),
                         ),
                     ),
-                    MethodSpec(
-                        name = NameSpec("op"),
-                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                        returnType = ClassSpec(className = NameSpec("int")),
-                        opcodes = OpcodeSpec(
-                            names = emptyList(),
-                            matchType = OpcodeMatchType.Contains,
-                            count = 0..10,
-                        ),
-                    ),
-                ),
             ),
         )
     }
     private val classConfigBuilder by dexClassQuery {
         uniqueClass(
             ClassSpec(
-                fields = listOf(
-                    FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
-                    FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
-                    FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
-                ),
+                fields =
+                    listOf(
+                        FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
+                        FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
+                        FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
+                    ),
                 fieldCount = 10..Int.MAX_VALUE,
             ),
             packages = listOf("com.tencent.mm.modelbase"),
@@ -138,17 +145,18 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     val classOplogReq by dexClass()
 
     // 网络
-    val classNetScenePat by dexClass(
-        sqlClass {
-            superClass(WeMessageApi.classNetSceneBase.data.name)
-            usingStrings("/cgi-bin/micromsg-bin/sendpat")
-            method {
-                name = "getType"
-                returnType = "int"
-                usingNumbers(849L)
-            }
-        },
-    )
+    val classNetScenePat by
+        dexClass(
+            sqlClass {
+                superClass(WeMessageApi.classNetSceneBase.data.name)
+                usingStrings("/cgi-bin/micromsg-bin/sendpat")
+                method {
+                    name = "getType"
+                    returnType = "int"
+                    usingNumbers(849L)
+                }
+            },
+        )
     private val classNetDispatcher by dexClass()
     private val classIOnSceneEnd by dexClassQuery {
         uniqueClass(
@@ -156,49 +164,60 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 modifiers = java.lang.reflect.Modifier.INTERFACE,
                 interfaceCount = 0..0,
                 methodCount = 1..1,
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("onSceneEnd"),
-                        paramCount = 4..4,
-                        paramTypes = listOf(
-                            TypeSpec("int"),
-                            TypeSpec("int"),
-                            TypeSpec("java.lang.String"),
-                            TypeSpec(WeMessageApi.classNetSceneBase.data.name),
+                methods =
+                    listOf(
+                        MethodSpec(
+                            name = NameSpec("onSceneEnd"),
+                            paramCount = 4..4,
+                            paramTypes =
+                                listOf(
+                                    TypeSpec("int"),
+                                    TypeSpec("int"),
+                                    TypeSpec("java.lang.String"),
+                                    TypeSpec(WeMessageApi.classNetSceneBase.data.name),
+                                ),
+                            returnType = ClassSpec(className = NameSpec("void")),
                         ),
-                        returnType = ClassSpec(className = NameSpec("void")),
                     ),
-                ),
-            )
+            ),
         )
     }
-    private val classCallbackIface by dexClass(
-        sqlClass {
-            modifiers = 1536
-            method {
-                returnType = "int"
-                paramCount = 5
-                paramTypes("int", "int", "java.lang.String", null, WeMessageApi.classNetSceneBase.data.name)
-            }
-        },
-    )
+    private val classCallbackIface by
+        dexClass(
+            sqlClass {
+                modifiers = 1536
+                method {
+                    returnType = "int"
+                    paramCount = 5
+                    paramTypes(
+                        "int",
+                        "int",
+                        "java.lang.String",
+                        null,
+                        WeMessageApi.classNetSceneBase.data.name,
+                    )
+                }
+            },
+        )
     private val classReqResp by dexClass()
 
     // 关键方法 //
-    private val methodGetNetQueue by dexMethod(
-        sqlMethod {
-            val kernelName = WeDatabaseApi.classMmKernel.data.name
-            val queueName = WeMessageApi.classNetSceneQueue.data.name
-            declaredClass = kernelName
-            returnType = queueName
-            modifiers = 9
-        },
-    )
-//    private val methodNetDispatch by dexMethod()
+    private val methodGetNetQueue by
+        dexMethod(
+            sqlMethod {
+                val kernelName = WeDatabaseApi.classMmKernel.data.name
+                val queueName = WeMessageApi.classNetSceneQueue.data.name
+                declaredClass = kernelName
+                returnType = queueName
+                modifiers = 9
+            },
+        )
+    //    private val methodNetDispatch by dexMethod()
 
     private val cgiReqClassMap = mutableMapOf<Int, Class<*>>()
 
-    private val signers get() = WePacketSigner.signers
+    private val signers
+        get() = WePacketSigner.signers
 
     private const val TAG = "WePacketHelper"
 
@@ -210,27 +229,37 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
     override fun resolveDex() {
         val wrapperName = classRawReq.data.superClass!!.name
-        val candidates = DexResolutionContext.matcher.findClasses(
-            ClassSpec(
-                superClass = ClassSpec(className = NameSpec(wrapperName)),
-                fieldCount = 2..2,
-                fields = listOf(
-                    FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                    FieldSpec(type = ClassSpec(className = NameSpec("java.util.LinkedList"))),
+        val candidates =
+            DexResolutionContext.matcher.findClasses(
+                ClassSpec(
+                    superClass = ClassSpec(className = NameSpec(wrapperName)),
+                    fieldCount = 2..2,
+                    fields =
+                        listOf(
+                            FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                            FieldSpec(
+                                type = ClassSpec(className = NameSpec("java.util.LinkedList")),
+                            ),
+                        ),
                 ),
-            ),
-        )
+            )
 
         for (candidate in candidates) {
-            val isMsgReq = DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(candidate.name)),
-                    name = NameSpec("op"),
-                    usingFields = listOf(
-                        UsingFieldSpec(field = FieldSpec(name = NameSpec("BaseRequest"))),
-                    ),
-                ),
-            ).isEmpty()
+            val isMsgReq =
+                DexResolutionContext.matcher
+                    .findMethods(
+                        MethodSpec(
+                            declaredClass = ClassSpec(className = NameSpec(candidate.name)),
+                            name = NameSpec("op"),
+                            usingFields =
+                                listOf(
+                                    UsingFieldSpec(
+                                        field = FieldSpec(name = NameSpec("BaseRequest")),
+                                    ),
+                                ),
+                        ),
+                    )
+                    .isEmpty()
 
             if (isMsgReq) {
                 classNewSendMsgReq.setDescriptor(candidate.name)
@@ -239,86 +268,106 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         }
 
         val cbIface = classCallbackIface.data.name
-        val callbackMethod = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(cbIface)),
-                paramCount = 5..5,
-            ),
-        ).first()
+        val callbackMethod =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        declaredClass = ClassSpec(className = NameSpec(cbIface)),
+                        paramCount = 5..5,
+                    ),
+                )
+                .first()
 
         val reqRespName = callbackMethod.paramTypeNames[3]
         classReqResp.setDescriptor(reqRespName)
 
         WeLogger.i(TAG, "found ReqResp base class: $reqRespName")
 
-        val dispatchMethod = DexResolutionContext.matcher.findMethods(
-            MethodSpec(
-                modifiers = Modifier.STATIC or Modifier.PUBLIC,
-                paramCount = 3..3,
-                paramTypes = listOf(
-                    TypeSpec(reqRespName),
-                    TypeSpec(cbIface),
-                    TypeSpec("boolean"),
-                ),
-            ),
-        ).firstOrNull()
+        val dispatchMethod =
+            DexResolutionContext.matcher
+                .findMethods(
+                    MethodSpec(
+                        modifiers = Modifier.STATIC or Modifier.PUBLIC,
+                        paramCount = 3..3,
+                        paramTypes =
+                            listOf(
+                                TypeSpec(reqRespName),
+                                TypeSpec(cbIface),
+                                TypeSpec("boolean"),
+                            ),
+                    ),
+                )
+                .firstOrNull()
 
         if (dispatchMethod != null) {
             classNetDispatcher.setDescriptor(dispatchMethod.declaredClassName)
         }
 
-        val directOplogReq = DexResolutionContext.matcher.findClasses(
-            ClassSpec(
-                superClass = ClassSpec(className = NameSpec(classProtoBase.data.name)),
-                usingStrings = listOf(StringSpec("/cgi-bin/micromsg-bin/oplog")),
-                fieldCount = 1..1,
-                methods = listOf(
-                    MethodSpec(
-                        name = NameSpec("op"),
-                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                    ),
+        val directOplogReq =
+            DexResolutionContext.matcher.findClasses(
+                ClassSpec(
+                    superClass = ClassSpec(className = NameSpec(classProtoBase.data.name)),
+                    usingStrings = listOf(StringSpec("/cgi-bin/micromsg-bin/oplog")),
+                    fieldCount = 1..1,
+                    methods =
+                        listOf(
+                            MethodSpec(
+                                name = NameSpec("op"),
+                                paramTypes =
+                                    listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                            ),
+                        ),
                 ),
-            ),
-        )
+            )
 
         when (directOplogReq.size) {
             1 -> classOplogReq.setDescriptor(directOplogReq.single())
             0 -> {
-                val wrapperClassData = DexResolutionContext.matcher.findClasses(
-                    ClassSpec(
-                        methods = listOf(
-                            MethodSpec(
-                                name = NameSpec("getFuncId"),
-                                returnType = ClassSpec(className = NameSpec("int")),
-                                usingNumbers = listOf<Number>(681),
+                val wrapperClassData =
+                    DexResolutionContext.matcher
+                        .findClasses(
+                            ClassSpec(
+                                methods =
+                                    listOf(
+                                        MethodSpec(
+                                            name = NameSpec("getFuncId"),
+                                            returnType = ClassSpec(className = NameSpec("int")),
+                                            usingNumbers = listOf<Number>(681),
+                                        ),
+                                        MethodSpec(
+                                            name = NameSpec("toProtoBuf"),
+                                            returnType = ClassSpec(className = NameSpec("byte[]")),
+                                        ),
+                                    ),
                             ),
-                            MethodSpec(
-                                name = NameSpec("toProtoBuf"),
-                                returnType = ClassSpec(className = NameSpec("byte[]")),
-                            ),
-                        ),
-                    ),
-                ).firstOrNull()
-                    ?: throw NoSuchElementException("failed to locate wrapper class based on FuncId 681")
+                        )
+                        .firstOrNull()
+                        ?: throw NoSuchElementException(
+                            "failed to locate wrapper class based on FuncId 681",
+                        )
 
                 val protoBaseName = classProtoBase.data.name
-                val realProtoClass = wrapperClassData.fields
-                    .mapNotNull { field ->
-                        DexResolutionContext.metadata.classInfoByName(field.typeName)
-                    }
-                    .firstOrNull { fieldType ->
-                        generateSequence(fieldType) { it.superClass }
-                            .any { it.name == protoBaseName }
-                    }
-                    ?: throw NoSuchElementException("failed to find protobuf field in FuncId 681 wrapper")
+                val realProtoClass =
+                    wrapperClassData.fields
+                        .mapNotNull { field ->
+                            DexResolutionContext.metadata.classInfoByName(field.typeName)
+                        }
+                        .firstOrNull { fieldType ->
+                            generateSequence(fieldType) { it.superClass }
+                                .any { it.name == protoBaseName }
+                        }
+                        ?: throw NoSuchElementException(
+                            "failed to find protobuf field in FuncId 681 wrapper",
+                        )
 
                 WeLogger.i(TAG, "located oplog successfully: ${realProtoClass.name}")
                 classOplogReq.setDescriptor(realProtoClass)
             }
 
-            else -> error(
-                "multiple direct oplog request classes found: ${directOplogReq.joinToString { it.name }}"
-            )
+            else ->
+                error(
+                    "multiple direct oplog request classes found: ${directOplogReq.joinToString { it.name }}",
+                )
         }
     }
 
@@ -328,7 +377,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         funcId: Int,
         routeId: Int,
         reqJson: String,
-        dslBlock: WeRequestDsl.() -> Unit
+        dslBlock: WeRequestDsl.() -> Unit,
     ) {
         val dsl = WeRequestDsl().apply(dslBlock)
         sendCgi(uri, cgiId, funcId, routeId, reqJson, dsl)
@@ -338,9 +387,9 @@ object WePacketHelper : ApiFeature(), IResolveDex {
      * Send a CGI with a pre-built protobuf request body.
      *
      * Use this when the request proto is complex enough that the JSON->protobuf shortcut
-     * ([ProtoJsonBuilder]) can't express it (e.g. nested length-prefixed byte buffers such
-     * as the oplog operations). The bytes are dispatched through the generic request path;
-     * signer-based CGIs are not supported here.
+     * ([ProtoJsonBuilder]) can't express it (e.g. nested length-prefixed byte buffers such as the
+     * oplog operations). The bytes are dispatched through the generic request path; signer-based
+     * CGIs are not supported here.
      */
     fun sendCgi(
         uri: String,
@@ -348,7 +397,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         funcId: Int,
         routeId: Int,
         reqBytes: ByteArray,
-        dslBlock: WeRequestDsl.() -> Unit
+        dslBlock: WeRequestDsl.() -> Unit,
     ) {
         val dsl = WeRequestDsl().apply(dslBlock)
         sendCgi(uri, cgiId, funcId, routeId, reqBytes, dsl)
@@ -360,14 +409,16 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         funcId: Int,
         routeId: Int,
         reqBytes: ByteArray,
-        callback: WeRequestCallback? = null
+        callback: WeRequestCallback? = null,
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 sendGenericCgi(uri, cgiId, funcId, routeId, reqBytes, callback, null)
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "[$cgiId] failed to send cgi", e)
-                Handler(Looper.getMainLooper()).post { callback?.onFailure(-1, -1, e.message ?: "") }
+                Handler(Looper.getMainLooper()).post {
+                    callback?.onFailure(-1, -1, e.message ?: "")
+                }
             }
         }
     }
@@ -378,7 +429,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         funcId: Int,
         routeId: Int,
         jsonPayload: String,
-        callback: WeRequestCallback? = null
+        callback: WeRequestCallback? = null,
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             val cl = ClassLoaders.HOST
@@ -398,41 +449,51 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
                 // 发送逻辑
                 if (nativeNetScene != null) {
-                    val netQueue = WeDatabaseApi.classMmKernel.clazz.reflekt().invokeMethod(
-                        methodGetNetQueue.method.name, superclass = true
-                    )!!
-                    val cgiType = nativeNetScene.reflekt().invokeMethod("getType", superclass = true) as Int
+                    val netQueue =
+                        WeDatabaseApi.classMmKernel.clazz
+                            .reflekt()
+                            .invokeMethod(
+                                methodGetNetQueue.method.name,
+                                superclass = true,
+                            )!!
+                    val cgiType =
+                        nativeNetScene.reflekt().invokeMethod("getType", superclass = true) as Int
 
-                    val callbackProxy = Proxy.newProxyInstance(
-                        cl,
-                        arrayOf(classIOnSceneEnd.clazz)
-                    ) { proxy, method, args ->
-                        when (method.name) {
-                            "hashCode" -> return@newProxyInstance System.identityHashCode(proxy)
-                            "equals" -> return@newProxyInstance proxy === args?.get(0)
-                            "toString" -> return@newProxyInstance "WeKitNativeCallback@${
+                    val callbackProxy =
+                        Proxy.newProxyInstance(
+                            cl,
+                            arrayOf(classIOnSceneEnd.clazz),
+                        ) { proxy, method, args ->
+                            when (method.name) {
+                                "hashCode" -> return@newProxyInstance System.identityHashCode(proxy)
+                                "equals" -> return@newProxyInstance proxy === args?.get(0)
+                                "toString" ->
+                                    return@newProxyInstance "WeKitNativeCallback@${
                                 Integer.toHexString(
-                                    System.identityHashCode(proxy)
+                                    System.identityHashCode(proxy),
                                 )
                             }"
-                        }
-
-                        if (method.name == "onSceneEnd" && args != null) {
-                            try {
-                                netQueue.reflekt().invokeMethod("q", cgiType, proxy, superclass = true)
-                            } catch (e: Throwable) {
-                                WeLogger.w(TAG, "failed to unregister native callback", e)
                             }
 
-                            NativeResponseHandler(callback, successAction).invoke(
-                                proxy,
-                                method,
-                                args
-                            )
-                        }
+                            if (method.name == "onSceneEnd" && args != null) {
+                                try {
+                                    netQueue
+                                        .reflekt()
+                                        .invokeMethod("q", cgiType, proxy, superclass = true)
+                                } catch (e: Throwable) {
+                                    WeLogger.w(TAG, "failed to unregister native callback", e)
+                                }
 
-                        return@newProxyInstance null
-                    }
+                                NativeResponseHandler(callback, successAction)
+                                    .invoke(
+                                        proxy,
+                                        method,
+                                        args,
+                                    )
+                            }
+
+                            return@newProxyInstance null
+                        }
 
                     // 注册并入队
                     netQueue.reflekt().apply {
@@ -440,7 +501,10 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                         invokeMethod("g", nativeNetScene, superclass = true)
                     }
 
-                    WeLogger.i(TAG, "[$cgiId] native mode: successfully registered listener and added to queue")
+                    WeLogger.i(
+                        TAG,
+                        "[$cgiId] native mode: successfully registered listener and added to queue",
+                    )
                 } else {
                     // 通用发包模式
                     val bytes = ProtoJsonBuilder.makeBytes(jsonObj)
@@ -448,7 +512,9 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 }
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "[$cgiId] failed to send cgi", e)
-                Handler(Looper.getMainLooper()).post { callback?.onFailure(-1, -1, e.message ?: "") }
+                Handler(Looper.getMainLooper()).post {
+                    callback?.onFailure(-1, -1, e.message ?: "")
+                }
             }
         }
     }
@@ -463,7 +529,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         routeId: Int,
         bytes: ByteArray,
         callback: WeRequestCallback?,
-        successAction: (() -> Unit)?
+        successAction: (() -> Unit)?,
     ) {
         val cl = ClassLoaders.HOST
         val finalReqObject: Any
@@ -494,28 +560,32 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         }
 
         val rr = builder.reflekt().invokeMethod("a", superclass = true)
-        val cbProxy = Proxy.newProxyInstance(
-            cl,
-            arrayOf(classCallbackIface.clazz),
-            ResponseHandler(callback, successAction)
-        )
+        val cbProxy =
+            Proxy.newProxyInstance(
+                cl,
+                arrayOf(classCallbackIface.clazz),
+                ResponseHandler(callback, successAction),
+            )
 
         WeLogger.i(TAG, "[$cgiId] sending cgi...")
 
-        classNetDispatcher.reflekt().firstMethod {
-            name = "d"
-            parameters(
-                classReqResp.clazz,
-                classCallbackIface.clazz,
-                bool
-            )
-        }.invoke(rr, cbProxy, false)
+        classNetDispatcher
+            .reflekt()
+            .firstMethod {
+                name = "d"
+                parameters(
+                    classReqResp.clazz,
+                    classCallbackIface.clazz,
+                    bool,
+                )
+            }
+            .invoke(rr, cbProxy, false)
     }
 
     // 处理原生 NetScene 的回调
     private class NativeResponseHandler(
         val userCallback: WeRequestCallback?,
-        val successAction: (() -> Unit)?
+        val successAction: (() -> Unit)?,
     ) : InvocationHandler {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any? {
             if (method.declaringClass == Any::class.java) return null
@@ -535,23 +605,37 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
                         try {
                             val v0Class = v0::class.java
-                            val rrField = netScene.reflekt().firstFieldOrNull {
-                                type { it isSubclassOf v0Class }
-                            }
+                            val rrField =
+                                netScene.reflekt().firstFieldOrNull {
+                                    type { it isSubclassOf v0Class }
+                                }
 
-                            val rrObj = if (rrField != null) {
-                                rrField.get()
-                            } else {
-                                netScene.reflekt().getField("d", superclass = true)
-                            }
+                            val rrObj =
+                                if (rrField != null) {
+                                    rrField.get()
+                                } else {
+                                    netScene.reflekt().getField("d", superclass = true)
+                                }
 
                             if (rrObj != null) {
                                 val respWrapper = rrObj.reflekt().getField("b", superclass = true)!!
-                                val protoObj = respWrapper.reflekt().getField("a", superclass = true)!!
-                                bytes = protoObj.reflekt().firstMethod { name = "toByteArray"; superclass() }.invoke() as? ByteArray
+                                val protoObj =
+                                    respWrapper.reflekt().getField("a", superclass = true)!!
+                                bytes =
+                                    protoObj
+                                        .reflekt()
+                                        .firstMethod {
+                                            name = "toByteArray"
+                                            superclass()
+                                        }
+                                        .invoke() as? ByteArray
                             }
                         } catch (e: Throwable) {
-                            WeLogger.w("NativeResponseHandler", "failed to extract response bytes", e)
+                            WeLogger.w(
+                                "NativeResponseHandler",
+                                "failed to extract response bytes",
+                                e,
+                            )
                         }
 
                         userCallback?.onSuccess(bytes)
@@ -567,7 +651,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     // 处理通用发包的回调
     private class ResponseHandler(
         val userCallback: WeRequestCallback?,
-        val successAction: (() -> Unit)?
+        val successAction: (() -> Unit)?,
     ) : InvocationHandler {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any? {
             if (method.declaringClass == Any::class.java) return null
@@ -581,14 +665,19 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                         val respWrapper = reqResp.reflekt().getField("b", superclass = true)!!
                         val yd = respWrapper.reflekt().getField("a", superclass = true)!!
                         val bytes = runCatching {
-                            yd.reflekt().invokeMethod("initialProtobufBytes", superclass = true) as? ByteArray
-                        }.getOrElse { yd.reflekt().invokeMethod("toByteArray", superclass = true) as? ByteArray }
+                            yd.reflekt().invokeMethod("initialProtobufBytes", superclass = true)
+                                as? ByteArray
+                        }
+                            .getOrElse {
+                                yd.reflekt().invokeMethod("toByteArray", superclass = true)
+                                    as? ByteArray
+                            }
                         userCallback?.onSuccess(bytes)
                     } else {
                         userCallback?.onFailure(
                             errType,
                             errCode,
-                            args[2] as? String ?: "null (No Error Message)"
+                            args[2] as? String ?: "null (No Error Message)",
                         )
                     }
                 }

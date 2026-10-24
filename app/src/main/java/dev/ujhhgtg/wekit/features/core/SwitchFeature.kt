@@ -6,7 +6,9 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
 
-    /** Optional order override within each concrete settings category. Lower values appear first. */
+    /**
+     * Optional order override within each concrete settings category. Lower values appear first.
+     */
     open val displayOrder: Int? = null
 
     /**
@@ -30,8 +32,7 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     /** Cached user preference (desired state). Distinct from [isActive], the runtime truth. */
-    @Suppress("PropertyName")
-    protected var _isEnabled = false
+    @Suppress("PropertyName") protected var _isEnabled = false
 
     var isEnabled
         get() = _isEnabled

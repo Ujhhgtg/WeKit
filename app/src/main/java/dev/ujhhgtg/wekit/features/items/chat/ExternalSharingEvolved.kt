@@ -14,11 +14,11 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
 
 object ExternalSharingEvolved : ClickableFeature() {
 
@@ -57,26 +57,28 @@ object ExternalSharingEvolved : ClickableFeature() {
         val shortcuts = topFriends.map { (friend, _) ->
             val displayName = friend.remarkName.ifEmpty { friend.nickname }
 
-            val contact = Person.Builder()
-                .setName(displayName)
-                .setKey(friend.wxId)
-                .setImportant(true)
-                .build()
+            val contact =
+                Person.Builder().setName(displayName).setKey(friend.wxId).setImportant(true).build()
 
-            val builder = ShortcutInfo.Builder(ctx, "sharing_target_${friend.wxId}")
-                .setShortLabel(displayName)
-                // 绑定到微信内置的系统分享匹配规则（通常对应其 shortcuts.xml 内置定义的 category）
-                .setCategories(setOf("android.intent.category.DEFAULT"))
-                .setIntent(
-                    Intent(Intent.ACTION_SEND).apply {
-                        component = ComponentName("com.tencent.mm", "com.tencent.mm.ui.tools.ShareImgUI")
-                        type = "*/*"
-                        // 核心：携带微信内部定向路由联系人的特定 Extra 字段，让 ShareImgUI 能够直接绕过选择人界面
-                        putExtra("Select_Conv_User", friend.wxId)
-                        putExtra("I_am_from_share_msg", true)
-                        putExtra("Intent_Direct_Share", true)
-                    }
-                )
+            val builder =
+                ShortcutInfo.Builder(ctx, "sharing_target_${friend.wxId}")
+                    .setShortLabel(displayName)
+                    // 绑定到微信内置的系统分享匹配规则（通常对应其 shortcuts.xml 内置定义的 category）
+                    .setCategories(setOf("android.intent.category.DEFAULT"))
+                    .setIntent(
+                        Intent(Intent.ACTION_SEND).apply {
+                            component =
+                                ComponentName(
+                                    "com.tencent.mm",
+                                    "com.tencent.mm.ui.tools.ShareImgUI",
+                                )
+                            type = "*/*"
+                            // 核心：携带微信内部定向路由联系人的特定 Extra 字段，让 ShareImgUI 能够直接绕过选择人界面
+                            putExtra("Select_Conv_User", friend.wxId)
+                            putExtra("I_am_from_share_msg", true)
+                            putExtra("Intent_Direct_Share", true)
+                        },
+                    )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 builder.setPerson(contact).setLongLived(true)
             }

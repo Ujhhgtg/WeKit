@@ -20,10 +20,14 @@ class ConversationAdapterSnapshotReader {
         fun read(adapter: Any): List<Any?>? {
             val holder = holderField?.get(adapter) ?: adapter
             val rows = listField.get(holder) as? List<*> ?: return null
-            return if (itemField == null) rows else object : AbstractList<Any?>() {
-                override val size: Int get() = rows.size
-                override fun get(index: Int): Any? = rows[index]?.let(itemField::get)
-            }
+            return if (itemField == null) rows
+            else
+                object : AbstractList<Any?>() {
+                    override val size: Int
+                        get() = rows.size
+
+                    override fun get(index: Int): Any? = rows[index]?.let(itemField::get)
+                }
         }
     }
 
@@ -33,36 +37,47 @@ class ConversationAdapterSnapshotReader {
 
     fun read(adapter: Any, expectedCount: Int?, originalItemAt: (Int) -> Any?): List<Any?>? {
         plans[adapter.javaClass]?.let { plan ->
-            runCatching { plan.read(adapter) }.getOrNull()
+            runCatching { plan.read(adapter) }
+                .getOrNull()
                 ?.takeIf { expectedCount == null || it.size == expectedCount }
-                ?.let { return it }
+                ?.let {
+                    return it
+                }
         }
         if (expectedCount != null && expectedCount <= 0) return emptyList()
 
         val sampleIndex = 0
         val expected = originalItemAt(sampleIndex)
-        val plan = candidates(adapter).firstNotNullOfOrNull { candidate ->
-            val rows = runCatching { candidate.listField.get(candidate.holder) as? List<*> }
-                .getOrNull() ?: return@firstNotNullOfOrNull null
-            if (rows.isEmpty() || expectedCount != null && rows.size != expectedCount) {
-                return@firstNotNullOfOrNull null
-            }
-            val row = rows[sampleIndex]
-            when {
-                row === expected -> AccessPlan(candidate.holderField, candidate.listField, null)
-                row == null -> null
-                else -> instanceFields(row.javaClass).firstOrNull { field ->
-                    runCatching { field.get(row) === expected }.getOrDefault(false)
-                }?.let { itemField ->
-                    AccessPlan(candidate.holderField, candidate.listField, itemField)
+        val plan =
+            candidates(adapter).firstNotNullOfOrNull { candidate ->
+                val rows =
+                    runCatching { candidate.listField.get(candidate.holder) as? List<*> }
+                        .getOrNull() ?: return@firstNotNullOfOrNull null
+                if (rows.isEmpty() || expectedCount != null && rows.size != expectedCount) {
+                    return@firstNotNullOfOrNull null
+                }
+                val row = rows[sampleIndex]
+                when {
+                    row === expected -> AccessPlan(candidate.holderField, candidate.listField, null)
+                    row == null -> null
+                    else ->
+                        instanceFields(row.javaClass)
+                            .firstOrNull { field ->
+                                runCatching { field.get(row) === expected }.getOrDefault(false)
+                            }
+                            ?.let { itemField ->
+                                AccessPlan(candidate.holderField, candidate.listField, itemField)
+                            }
                 }
             }
-        }
         if (plan != null) {
             plans[adapter.javaClass] = plan
-            runCatching { plan.read(adapter) }.getOrNull()
+            runCatching { plan.read(adapter) }
+                .getOrNull()
                 ?.takeIf { expectedCount == null || it.size == expectedCount }
-                ?.let { return it }
+                ?.let {
+                    return it
+                }
         }
 
         return null
@@ -94,5 +109,8 @@ class ConversationAdapterSnapshotReader {
     }
 
     private fun isLeafType(type: Class<*>): Boolean =
-        type.isArray || type.isEnum || type.name.startsWith("java.") || type.name.startsWith("kotlin.")
+        type.isArray ||
+            type.isEnum ||
+            type.name.startsWith("java.") ||
+            type.name.startsWith("kotlin.")
 }

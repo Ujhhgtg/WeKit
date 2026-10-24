@@ -14,11 +14,15 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -31,10 +35,7 @@ import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import java.util.IdentityHashMap
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.find
+
 object BeautifyHome : SwitchFeature(), IResolveDex {
 
     override val technicalId = "美化首页"
@@ -42,35 +43,43 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_beautify_home_description
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
 
-    private val methodConversationReady by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            returnType = "void"
-            paramTypes("android.os.Bundle")
-            usingEqStrings("MicroMsg.MainUI", "main ui init view")
-        },
-    )
-    private val methodListMargins by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            returnType = "void"
-            paramTypes("int", "int")
-            usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
-        },
-    )
+    private val methodConversationReady by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+                returnType = "void"
+                paramTypes("android.os.Bundle")
+                usingEqStrings("MicroMsg.MainUI", "main ui init view")
+            },
+        )
+    private val methodListMargins by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+                returnType = "void"
+                paramTypes("int", "int")
+                usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
+            },
+        )
     val methodNativeTitleView by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
                 paramCount = 0..0,
                 returnType = ClassSpec(className = NameSpec("android.view.View")),
-                callerMethods = listOf(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
-                        usingStrings = listOf(
-                            StringSpec("[initActionBar] mActionBar == null", NameMatch.Equals),
+                callerMethods =
+                    listOf(
+                        MethodSpec(
+                            declaredClass =
+                                ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
+                            usingStrings =
+                                listOf(
+                                    StringSpec(
+                                        "[initActionBar] mActionBar == null",
+                                        NameMatch.Equals,
+                                    ),
+                                ),
                         ),
                     ),
-                ),
             ),
             packages = listOf("androidx.appcompat.app"),
         )
@@ -78,84 +87,100 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     val methodStatusBarHeight by dexMethodQuery {
         uniqueMethod(
             MethodSpec(
-                declaredClass = ClassSpec(
-                    superClass = ClassSpec(className = NameSpec("android.widget.FrameLayout")),
-                    usingStrings = listOf(StringSpec("MicroMsg.DrawStatusBarFrameLayout", NameMatch.Equals)),
-                    methods = listOf(
-                        MethodSpec(
-                            name = NameSpec("getDrawnStatusBarHeight"),
-                            paramCount = 0..0,
-                            returnType = ClassSpec(className = NameSpec("int")),
-                        ),
+                declaredClass =
+                    ClassSpec(
+                        superClass = ClassSpec(className = NameSpec("android.widget.FrameLayout")),
+                        usingStrings =
+                            listOf(
+                                StringSpec("MicroMsg.DrawStatusBarFrameLayout", NameMatch.Equals),
+                            ),
+                        methods =
+                            listOf(
+                                MethodSpec(
+                                    name = NameSpec("getDrawnStatusBarHeight"),
+                                    paramCount = 0..0,
+                                    returnType = ClassSpec(className = NameSpec("int")),
+                                ),
+                            ),
                     ),
-                ),
                 paramTypes = listOf(TypeSpec("int")),
                 returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(StringSpec("applyStatusBarHeight setPadding e=%s", NameMatch.Equals)),
-            )
+                usingStrings =
+                    listOf(StringSpec("applyStatusBarHeight setPadding e=%s", NameMatch.Equals)),
+            ),
         )
     }
-    val fieldListActionBar by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
-            type = "android.view.View"
-            readMethod {
-                usingEqStrings("resetActionBarView")
-            }
-        },
-    )
+    val fieldListActionBar by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
+                type = "android.view.View"
+                readMethod {
+                    usingEqStrings("resetActionBarView")
+                }
+            },
+        )
     val fieldListSpacer by dexField()
-    val fieldMainStatusMask by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            type = "android.view.View"
-            readMethod {
-                usingEqStrings("setListMargin isInMultiWindowMode: %b")
-            }
-        },
-    )
+    val fieldMainStatusMask by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+                type = "android.view.View"
+                readMethod {
+                    usingEqStrings("setListMargin isInMultiWindowMode: %b")
+                }
+            },
+        )
 
-    val classRecyclerView by dexClass(
-        sqlClass {
-            className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView"
-        },
-        allowFailure = true,
-    )
+    val classRecyclerView by
+        dexClass(
+            sqlClass {
+                className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView"
+            },
+            allowFailure = true,
+        )
     val fieldRecyclerActionBar by dexField()
     val fieldRecyclerSpacer by dexField()
 
-    private val fieldPlusItem by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.ui.HomeUI"
-            type = "android.view.MenuItem"
-            readMethod {
-                usingEqStrings("bindPlusItemActionView plusActionView")
-            }
-        },
-    )
+    private val fieldPlusItem by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.ui.HomeUI"
+                type = "android.view.MenuItem"
+                readMethod {
+                    usingEqStrings("bindPlusItemActionView plusActionView")
+                }
+            },
+        )
     val fieldSearchItem by dexField()
     val methodShowPlusMenu by dexMethod()
 
     override fun resolveDex() {
         fieldListSpacer.setDescriptor(
-            DexResolutionContext.matcher.findFields(
-                FieldSpec(
-                    declaredClass = ClassSpec(
-                        className = NameSpec("com.tencent.mm.ui.conversation.ConversationListView"),
-                    ),
-                    type = ClassSpec(className = NameSpec("android.view.View")),
-                    writeMethods = listOf(
-                        MethodSpec(
-                            usingStrings = listOf(
-                                StringSpec(
-                                    "initActionBarView check multiWindowMode %b",
-                                    NameMatch.Equals,
+            DexResolutionContext.matcher
+                .findFields(
+                    FieldSpec(
+                        declaredClass =
+                            ClassSpec(
+                                className =
+                                    NameSpec("com.tencent.mm.ui.conversation.ConversationListView"),
+                            ),
+                        type = ClassSpec(className = NameSpec("android.view.View")),
+                        writeMethods =
+                            listOf(
+                                MethodSpec(
+                                    usingStrings =
+                                        listOf(
+                                            StringSpec(
+                                                "initActionBarView check multiWindowMode %b",
+                                                NameMatch.Equals,
+                                            ),
+                                        ),
                                 ),
                             ),
-                        ),
                     ),
-                ),
-            ).single { it.descriptor != fieldListActionBar.data.descriptor },
+                )
+                .single { it.descriptor != fieldListActionBar.data.descriptor },
         )
 
         if (classRecyclerView.isFound) {
@@ -163,32 +188,42 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
                 FieldSpec(
                     declaredClass = ClassSpec(className = NameSpec(classRecyclerView.data.name)),
                     type = ClassSpec(className = NameSpec("android.view.View")),
-                    readMethods = listOf(
-                        MethodSpec(
-                            usingStrings = listOf(
-                                StringSpec("resetActionBarView\$app_release", NameMatch.Equals),
+                    readMethods =
+                        listOf(
+                            MethodSpec(
+                                usingStrings =
+                                    listOf(
+                                        StringSpec(
+                                            "resetActionBarView\$app_release",
+                                            NameMatch.Equals,
+                                        ),
+                                    ),
                             ),
                         ),
-                    ),
                 ),
             )
             fieldRecyclerSpacer.setDescriptor(
-                DexResolutionContext.matcher.findFields(
-                    FieldSpec(
-                        declaredClass = ClassSpec(className = NameSpec(classRecyclerView.data.name)),
-                        type = ClassSpec(className = NameSpec("android.view.View")),
-                        writeMethods = listOf(
-                            MethodSpec(
-                                usingStrings = listOf(
-                                    StringSpec(
-                                        "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
-                                        NameMatch.Equals,
+                DexResolutionContext.matcher
+                    .findFields(
+                        FieldSpec(
+                            declaredClass =
+                                ClassSpec(className = NameSpec(classRecyclerView.data.name)),
+                            type = ClassSpec(className = NameSpec("android.view.View")),
+                            writeMethods =
+                                listOf(
+                                    MethodSpec(
+                                        usingStrings =
+                                            listOf(
+                                                StringSpec(
+                                                    "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
+                                                    NameMatch.Equals,
+                                                ),
+                                            ),
                                     ),
                                 ),
-                            ),
                         ),
-                    ),
-                ).single { it.descriptor != fieldRecyclerActionBar.data.descriptor },
+                    )
+                    .single { it.descriptor != fieldRecyclerActionBar.data.descriptor },
             )
         } else {
             fieldRecyclerActionBar.markExpectedFailure()
@@ -198,27 +233,31 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         // Across both layouts HomeUI has a search and a plus MenuItem. Identify the plus item
         // by its binding method, rather than relying on the newer contacts-search alpha log.
         fieldSearchItem.setDescriptor(
-            DexResolutionContext.matcher.findFields(
-                FieldSpec(
-                    declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
-                    type = ClassSpec(className = NameSpec("android.view.MenuItem")),
-                ),
-            ).single { it.descriptor != fieldPlusItem.data.descriptor },
+            DexResolutionContext.matcher
+                .findFields(
+                    FieldSpec(
+                        declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
+                        type = ClassSpec(className = NameSpec("android.view.MenuItem")),
+                    ),
+                )
+                .single { it.descriptor != fieldPlusItem.data.descriptor },
         )
 
         val buildMenu = WeHomeScreenPopupMenuApi.methodAddItem.data
         val plusMenuClass = WeHomeScreenPopupMenuApi.methodHandleItemClick.data.declaredClass!!
         val caller = MethodSpec(descriptor = buildMenu.descriptor)
-        val baseSpec = MethodSpec(
-            declaredClass = ClassSpec(className = NameSpec(plusMenuClass.superClass!!.name)),
-            returnType = ClassSpec(className = NameSpec("boolean")),
-            callerMethods = listOf(caller),
-        )
-        val plusMenuSpec = if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
-            baseSpec.copy(paramTypes = listOf(TypeSpec("int")))
-        } else {
-            baseSpec.copy(paramCount = 0..0)
-        }
+        val baseSpec =
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(plusMenuClass.superClass!!.name)),
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                callerMethods = listOf(caller),
+            )
+        val plusMenuSpec =
+            if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
+                baseSpec.copy(paramTypes = listOf(TypeSpec("int")))
+            } else {
+                baseSpec.copy(paramCount = 0..0)
+            }
         methodShowPlusMenu.find(plusMenuSpec)
     }
 
@@ -230,11 +269,14 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     override fun onEnable() {
         HomeWallpaper.initialize()
         methodConversationReady.hookAfter { scheduleInstall(thisObject!!) }
-        methodConversationReady.method.declaringClass.reflekt().firstMethod {
-            superclass()
-            name = "onDestroyView"
-            parameters()
-        }.hookBefore { detach(thisObject!!) }
+        methodConversationReady.method.declaringClass
+            .reflekt()
+            .firstMethod {
+                superclass()
+                name = "onDestroyView"
+                parameters()
+            }
+            .hookBefore { detach(thisObject!!) }
         methodListMargins.hookBefore {
             if (sessions.containsKey(thisObject)) {
                 args[0] = 0
@@ -250,33 +292,51 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         methodShowPlusMenu.hookBefore {
             if (thisObject === suppressedMenu) result = false
         }
-        WeMainActivityBeautifyApi.addListener(this, object : WeMainActivityBeautifyApi.Listener {
-            override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
-                refreshNavigation(home)
-                home.fragment(TAB_HOME)?.let(::scheduleInstall)
-            }
-            override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
-                if (tab != TAB_HOME) forActivity(home.activity) { it.restoreStatusBar() }
-            }
-            override fun onPageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
-                forActivity(home.activity) {
-                    it.conversationSelected = tab == TAB_HOME
-                    it.applyLayout()
+        WeMainActivityBeautifyApi.addListener(
+            this,
+            object : WeMainActivityBeautifyApi.Listener {
+                override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
+                    refreshNavigation(home)
+                    home.fragment(TAB_HOME)?.let(::scheduleInstall)
                 }
-            }
-            override fun onTabsChanged(home: WeMainActivityBeautifyApi.Home) = refreshNavigation(home)
-            override fun onBeforeChatting(activity: Activity) = forActivity(activity) { it.onHomeLeaving() }
-            override fun onChatTransition(activity: Activity) = forActivity(activity) { it.applyLayout() }
-            override fun onResume(activity: Activity) {
-                HomeWallpaper.refreshSystemWallpaper()
-                forActivity(activity) { it.onResume() }
-            }
-            override fun onPause(activity: Activity) = forActivity(activity) { it.onPause() }
-            override fun onStop(activity: Activity) = forActivity(activity) { it.onStop() }
-            override fun onDestroy(activity: Activity) {
-                sessions.entries.filter { it.value.activity === activity }.map { it.key }.forEach(::detach)
-            }
-        })
+
+                override fun onBeforePageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                    if (tab != TAB_HOME) forActivity(home.activity) { it.restoreStatusBar() }
+                }
+
+                override fun onPageSelected(home: WeMainActivityBeautifyApi.Home, tab: Int) {
+                    forActivity(home.activity) {
+                        it.conversationSelected = tab == TAB_HOME
+                        it.applyLayout()
+                    }
+                }
+
+                override fun onTabsChanged(home: WeMainActivityBeautifyApi.Home) =
+                    refreshNavigation(home)
+
+                override fun onBeforeChatting(activity: Activity) =
+                    forActivity(activity) { it.onHomeLeaving() }
+
+                override fun onChatTransition(activity: Activity) =
+                    forActivity(activity) { it.applyLayout() }
+
+                override fun onResume(activity: Activity) {
+                    HomeWallpaper.refreshSystemWallpaper()
+                    forActivity(activity) { it.onResume() }
+                }
+
+                override fun onPause(activity: Activity) = forActivity(activity) { it.onPause() }
+
+                override fun onStop(activity: Activity) = forActivity(activity) { it.onStop() }
+
+                override fun onDestroy(activity: Activity) {
+                    sessions.entries
+                        .filter { it.value.activity === activity }
+                        .map { it.key }
+                        .forEach(::detach)
+                }
+            },
+        )
     }
 
     private fun refreshNavigation(home: WeMainActivityBeautifyApi.Home) {
@@ -321,9 +381,13 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         return menu
     }
 
-    fun homeUI(activity: Activity): Any = activity.reflekt().firstField {
-        type = "com.tencent.mm.ui.HomeUI"
-    }.get()!!
+    fun homeUI(activity: Activity): Any =
+        activity
+            .reflekt()
+            .firstField {
+                type = "com.tencent.mm.ui.HomeUI"
+            }
+            .get()!!
 
     fun detach(mainUI: Any) {
         pendingInstall.remove(mainUI)?.let(handler::removeCallbacks)
@@ -335,20 +399,29 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         val install = Runnable {
             pendingInstall.remove(mainUI)
             if (!isActive || sessions.containsKey(mainUI)) return@Runnable
-            val activity = mainUI.reflekt().firstMethod {
-                superclass()
-                name = "getContext"
-                parameters()
-            }.invoke() as? Activity ?: return@Runnable
+            val activity =
+                mainUI
+                    .reflekt()
+                    .firstMethod {
+                        superclass()
+                        name = "getContext"
+                        parameters()
+                    }
+                    .invoke() as? Activity ?: return@Runnable
             if (activity.isFinishing || activity.isDestroyed) return@Runnable
-            val root = mainUI.reflekt().firstMethod {
-                superclass()
-                name = "getView"
-                parameters()
-            }.invoke() as? ViewGroup ?: return@Runnable
-            val mainView = root.allViews.first {
-                it.javaClass.name == "com.tencent.mm.ui.conversation.MainUIView"
-            } as ViewGroup
+            val root =
+                mainUI
+                    .reflekt()
+                    .firstMethod {
+                        superclass()
+                        name = "getView"
+                        parameters()
+                    }
+                    .invoke() as? ViewGroup ?: return@Runnable
+            val mainView =
+                root.allViews.first {
+                    it.javaClass.name == "com.tencent.mm.ui.conversation.MainUIView"
+                } as ViewGroup
             val session = HomeSession(mainUI, activity, mainView, mainView.parent as FrameLayout)
             val home = WeMainActivityBeautifyApi.homeFor(activity)!!
             session.navigationTabs = home.tabs.filter { it != TAB_HOME }
@@ -364,5 +437,4 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         pendingInstall[mainUI] = install
         handler.post(install)
     }
-
 }

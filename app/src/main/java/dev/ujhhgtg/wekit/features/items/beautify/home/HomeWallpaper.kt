@@ -42,14 +42,14 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.moveTo
 import kotlin.io.path.outputStream
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class HomeWallpaperSource(val key: String, @StringRes val titleRes: Int) {
     // https://www.pixiv.net/artworks/137041477
@@ -70,19 +70,26 @@ object HomeWallpaper {
     private var savedStyle by prefOption("beautify_home_background_style", "full_bleed")
     var source by mutableStateOf(HomeWallpaperSource.BUILTIN_SECOND)
         private set
+
     var revision by mutableIntStateOf(0)
         private set
+
     var style by mutableStateOf(HomeWallpaperStyle.FULL_BLEED)
         private set
 
-    private val imageDirectory by lazy { (KnownPaths.moduleAssets / "beautify_home").createDirsSafe() }
-    private val customImage get() = imageDirectory / "background.image"
+    private val imageDirectory by lazy {
+        (KnownPaths.moduleAssets / "beautify_home").createDirsSafe()
+    }
+    private val customImage
+        get() = imageDirectory / "background.image"
 
     fun initialize() {
-        source = HomeWallpaperSource.entries.firstOrNull { it.key == savedSource }
-            ?: HomeWallpaperSource.BUILTIN_SECOND
-        style = HomeWallpaperStyle.entries.firstOrNull { it.key == savedStyle }
-            ?: HomeWallpaperStyle.FULL_BLEED
+        source =
+            HomeWallpaperSource.entries.firstOrNull { it.key == savedSource }
+                ?: HomeWallpaperSource.BUILTIN_SECOND
+        style =
+            HomeWallpaperStyle.entries.firstOrNull { it.key == savedStyle }
+                ?: HomeWallpaperStyle.FULL_BLEED
     }
 
     private fun select(selected: HomeWallpaperSource) {
@@ -102,23 +109,25 @@ object HomeWallpaper {
 
     /** Called on the IO dispatcher; ImageDecoder also applies the image's EXIF orientation. */
     fun load(resources: Resources, selected: HomeWallpaperSource): ImageBitmap {
-        val imageSource = when (selected) {
-            HomeWallpaperSource.BUILTIN_FIRST ->
-                ImageDecoder.createSource(resources, R.drawable.beautify_home_background_1)
-            HomeWallpaperSource.BUILTIN_SECOND ->
-                ImageDecoder.createSource(resources, R.drawable.beautify_home_background_2)
-            HomeWallpaperSource.CUSTOM -> ImageDecoder.createSource(customImage.toFile())
-            HomeWallpaperSource.SYSTEM -> {
-                val file = KnownPaths.moduleCache / "beautify-home-system-wallpaper.image"
-                val descriptor = WallpaperManager.getInstance(HostInfo.application)
-                    .getWallpaperFile(WallpaperManager.FLAG_SYSTEM)
-                    ?: error("The system wallpaper has no readable image")
-                ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
-                    file.outputStream().use { output -> input.copyTo(output) }
+        val imageSource =
+            when (selected) {
+                HomeWallpaperSource.BUILTIN_FIRST ->
+                    ImageDecoder.createSource(resources, R.drawable.beautify_home_background_1)
+                HomeWallpaperSource.BUILTIN_SECOND ->
+                    ImageDecoder.createSource(resources, R.drawable.beautify_home_background_2)
+                HomeWallpaperSource.CUSTOM -> ImageDecoder.createSource(customImage.toFile())
+                HomeWallpaperSource.SYSTEM -> {
+                    val file = KnownPaths.moduleCache / "beautify-home-system-wallpaper.image"
+                    val descriptor =
+                        WallpaperManager.getInstance(HostInfo.application)
+                            .getWallpaperFile(WallpaperManager.FLAG_SYSTEM)
+                            ?: error("The system wallpaper has no readable image")
+                    ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                        file.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    ImageDecoder.createSource(file.toFile())
                 }
-                ImageDecoder.createSource(file.toFile())
             }
-        }
         return decode(resources, imageSource).asImageBitmap()
     }
 
@@ -131,7 +140,9 @@ object HomeWallpaper {
             if (longestSide > maximumSize) {
                 decoder.setTargetSize(
                     (info.size.width.toLong() * maximumSize / longestSide).toInt().coerceAtLeast(1),
-                    (info.size.height.toLong() * maximumSize / longestSide).toInt().coerceAtLeast(1),
+                    (info.size.height.toLong() * maximumSize / longestSide)
+                        .toInt()
+                        .coerceAtLeast(1),
                 )
             }
         }
@@ -160,25 +171,37 @@ object HomeWallpaper {
             var importing by remember { mutableStateOf(false) }
             val pickImage = {
                 TransparentActivity.launch(activity) {
-                    val launcher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-                        finish()
-                        if (uri != null) {
-                            scope.launch {
-                                importing = true
-                                try {
-                                    importImage(activity, uri)
-                                } catch (error: CancellationException) {
-                                    throw error
-                                } catch (error: Exception) {
-                                    WeLogger.e("BeautifyHome", "Unable to import home background", error)
-                                    showToast(localizedContext.getString(R.string.beautify_home_background_import_failed))
-                                } finally {
-                                    importing = false
+                    val launcher =
+                        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri
+                            ->
+                            finish()
+                            if (uri != null) {
+                                scope.launch {
+                                    importing = true
+                                    try {
+                                        importImage(activity, uri)
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (error: Exception) {
+                                        WeLogger.e(
+                                            "BeautifyHome",
+                                            "Unable to import home background",
+                                            error,
+                                        )
+                                        showToast(
+                                            localizedContext.getString(
+                                                R.string.beautify_home_background_import_failed,
+                                            ),
+                                        )
+                                    } finally {
+                                        importing = false
+                                    }
                                 }
                             }
                         }
-                    }
-                    launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    launcher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
                 }
             }
             AlertDialogContent(
@@ -197,14 +220,21 @@ object HomeWallpaper {
                                     if (option == HomeWallpaperSource.CUSTOM) {
                                         RadioButtonWidget(
                                             title = stringResource(option.titleRes),
-                                            description = stringResource(if (importing) R.string.beautify_home_background_importing
-                                                else R.string.beautify_home_background_custom_summary),
+                                            description =
+                                                stringResource(
+                                                    if (importing)
+                                                        R.string.beautify_home_background_importing
+                                                    else
+                                                        R.string
+                                                            .beautify_home_background_custom_summary,
+                                                ),
                                             selected = source == option,
                                             enabled = !importing,
                                             trailingDivider = true,
                                             onClick = pickImage,
                                             onSelect = {
-                                                if (customImage.toFile().isFile) select(option) else pickImage()
+                                                if (customImage.toFile().isFile) select(option)
+                                                else pickImage()
                                             },
                                         )
                                     } else {
@@ -234,7 +264,9 @@ object HomeWallpaper {
                         }
                     }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) } },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

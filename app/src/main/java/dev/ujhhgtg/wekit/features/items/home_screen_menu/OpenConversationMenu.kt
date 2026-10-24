@@ -27,10 +27,12 @@ object OpenConversationMenu : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuIte
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777025, localizedHomeMenuString(R.string.home_menu_open_conversation), ChatInfoIcon
+                777025,
+                localizedHomeMenuString(R.string.home_menu_open_conversation),
+                ChatInfoIcon,
             ) {
                 showOpenConversationDialog(LauncherUI.getInstance()!!)
-            }
+            },
         )
     }
 }

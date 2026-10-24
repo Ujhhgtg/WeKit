@@ -1,14 +1,13 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import dev.ujhhgtg.wekit.R
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +27,8 @@ import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
 import com.tencent.mm.ui.widget.imageview.WeImageView
 import com.tencent.mm.view.recyclerview.WxRecyclerView
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
@@ -37,7 +38,6 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -79,34 +79,40 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
     private const val PH_SNS_ID = $$"$snsId"
     private const val PH_USER_NAME = $$"$userName"
 
-    private val TIMESTAMP_REGEX = Regex(
-        """^\d+分钟前$|^\d+小时前$|^\d+天前$|^刚刚$|^昨天$|^\d+\s*mins?\s*ago$|^\d+\s*hrs?\s*ago$|^\d+\s*days?\s*ago$|^yesterday$""",
-        RegexOption.IGNORE_CASE
-    )
+    private val TIMESTAMP_REGEX =
+        Regex(
+            """^\d+分钟前$|^\d+小时前$|^\d+天前$|^刚刚$|^昨天$|^\d+\s*mins?\s*ago$|^\d+\s*hrs?\s*ago$|^\d+\s*days?\s*ago$|^yesterday$""",
+            RegexOption.IGNORE_CASE,
+        )
 
     override fun onEnable() {
         listOf(
-            ImproveSnsTimelineUI::class.java,
-            SnsUserUI::class.java
-        ).forEach { clazz ->
-            clazz.reflekt().firstMethod {
-                name = "onCreate"
-                parameters(Bundle::class)
-            }.hookAfter {
-                val activity = thisObject as Activity
-                scheduleAttach(activity)
+                ImproveSnsTimelineUI::class.java,
+                SnsUserUI::class.java,
+            )
+            .forEach { clazz ->
+                clazz
+                    .reflekt()
+                    .firstMethod {
+                        name = "onCreate"
+                        parameters(Bundle::class)
+                    }
+                    .hookAfter {
+                        val activity = thisObject as Activity
+                        scheduleAttach(activity)
+                    }
             }
-        }
 
-        if (methodGetTimeString.isFound) methodGetTimeString.hookAfter {
-            val snsInfo = thisObject
-            val snsId = (fieldSnsId.field.get(snsInfo) as? Number)?.toLong() ?: return@hookAfter
-            val userName = (fieldUserName.field.get(snsInfo) as? String).orEmpty()
-            val createTime = (fieldCreateTime.field.get(snsInfo) as? Number)?.toInt() ?: 0
-            val type = (fieldType.field.get(snsInfo) as? Number)?.toInt() ?: 0
-            val originalText = result as? String ?: ""
-            result = buildBottomText(snsId, userName, createTime, type, originalText)
-        }
+        if (methodGetTimeString.isFound)
+            methodGetTimeString.hookAfter {
+                val snsInfo = thisObject
+                val snsId = (fieldSnsId.field.get(snsInfo) as? Number)?.toLong() ?: return@hookAfter
+                val userName = (fieldUserName.field.get(snsInfo) as? String).orEmpty()
+                val createTime = (fieldCreateTime.field.get(snsInfo) as? Number)?.toInt() ?: 0
+                val type = (fieldType.field.get(snsInfo) as? Number)?.toInt() ?: 0
+                val originalText = result as? String ?: ""
+                result = buildBottomText(snsId, userName, createTime, type, originalText)
+            }
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -121,7 +127,8 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                     SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                         item {
                             BaseSupportingWidget(
-                                title = stringResource(R.string.moments_display_details_text_format),
+                                title =
+                                    stringResource(R.string.moments_display_details_text_format),
                             ) {
                                 Column {
                                     OutlinedTextField(
@@ -131,17 +138,28 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                                             textFormat = it.text.ifBlank { DEFAULT_TEXT_FORMAT }
                                         },
                                         singleLine = true,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .onFocusChanged { isTextFormatFocused = it.isFocused },
+                                        modifier =
+                                            Modifier.fillMaxWidth()
+                                                .padding(horizontal = 16.dp)
+                                                .onFocusChanged {
+                                                    isTextFormatFocused = it.isFocused
+                                                },
                                     )
                                     Text(
-                                        stringResource(R.string.moments_custom_details_insert_placeholder),
+                                        stringResource(
+                                            R.string.moments_custom_details_insert_placeholder,
+                                        ),
                                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                                     )
                                     PlaceholderChips(
-                                        placeholders = listOf(PH_ORIGINAL, PH_TIME, PH_TYPE, PH_SNS_ID, PH_USER_NAME),
+                                        placeholders =
+                                            listOf(
+                                                PH_ORIGINAL,
+                                                PH_TIME,
+                                                PH_TYPE,
+                                                PH_SNS_ID,
+                                                PH_USER_NAME,
+                                            ),
                                         value = textFormatValue,
                                         isFieldFocused = isTextFormatFocused,
                                         onValueChange = {
@@ -155,7 +173,8 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                         }
                         item {
                             BaseSupportingWidget(
-                                title = stringResource(R.string.moments_display_details_time_format),
+                                title =
+                                    stringResource(R.string.moments_display_details_time_format),
                             ) {
                                 OutlinedTextField(
                                     value = timeFormatValue,
@@ -164,16 +183,17 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
                                         timeFormat = it.ifBlank { DEFAULT_TIME_FORMAT }
                                     },
                                     singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                 )
                             }
                         }
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(R.string.moments_display_details_hide_visibility_icon),
+                                title =
+                                    stringResource(
+                                        R.string.moments_display_details_hide_visibility_icon,
+                                    ),
                                 checked = hideIcon,
                                 onCheckedChange = {
                                     hideIcon = it
@@ -193,15 +213,20 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
     private fun scheduleAttach(activity: Activity) {
         val root = activity.rootView
         intArrayOf(0, 200, 800, 2000).forEach { delay ->
-            root.postDelayed({
-                runCatching { attachToLists(root) }
-                    .onFailure { WeLogger.w(TAG, "attach failed, delay=${delay}ms", it) }
-            }, delay.toLong())
+            root.postDelayed(
+                {
+                    runCatching { attachToLists(root) }
+                        .onFailure { WeLogger.w(TAG, "attach failed, delay=${delay}ms", it) }
+                },
+                delay.toLong(),
+            )
         }
     }
 
     private fun attachToLists(root: ViewGroup) {
-        val container = root.findViewWhich { it is WxRecyclerView } as WxRecyclerView? ?: error("RecyclerView not found")
+        val container =
+            root.findViewWhich { it is WxRecyclerView } as WxRecyclerView?
+                ?: error("RecyclerView not found")
         // scheduleAttach retries four times, and every attempt that finds the list would otherwise
         // register its own layout listener, multiplying the per-item reflection/regex work.
         synchronized(attachedRoots) {
@@ -226,31 +251,38 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
 
         val timeText = formatEpoch(createTime.toLong() * 1000, timeFormat)
         val itemGroup = itemView as ViewGroup
-        val timeTextView = itemGroup.findViewWhich { view ->
-            if (view !is TextView || !view.isVisible) return@findViewWhich false
-            val text = view.text?.toString().orEmpty()
-            TIMESTAMP_REGEX.matches(text.trim()) || timeText.isNotEmpty() && text.contains(timeText)
-        } as? TextView? ?: return
+        val timeTextView =
+            itemGroup.findViewWhich { view ->
+                if (view !is TextView || !view.isVisible) return@findViewWhich false
+                val text = view.text?.toString().orEmpty()
+                TIMESTAMP_REGEX.matches(text.trim()) ||
+                    timeText.isNotEmpty() && text.contains(timeText)
+            } as? TextView? ?: return
 
-        // The getTimeString hook keeps the time view on the detail text; only fill the bare relative-time gap here.
+        // The getTimeString hook keeps the time view on the detail text; only fill the bare
+        // relative-time gap here.
         val originalText = timeTextView.text?.toString().orEmpty()
         if (TIMESTAMP_REGEX.matches(originalText.trim())) {
-            val built = buildBottomText(
-                snsId = snsId,
-                userName = userName,
-                createTime = createTime,
-                type = type,
-                originalText = originalText
-            )
+            val built =
+                buildBottomText(
+                    snsId = snsId,
+                    userName = userName,
+                    createTime = createTime,
+                    type = type,
+                    originalText = originalText,
+                )
             if (originalText != built) {
                 timeTextView.text = built
             }
         }
 
         if (hideGroupIcon) {
-            val buttons = (timeTextView.parent as? ViewGroup).findViewsWhich {
-                it is WeImageView
-            }.toList()
+            val buttons =
+                (timeTextView.parent as? ViewGroup)
+                    .findViewsWhich {
+                        it is WeImageView
+                    }
+                    .toList()
             if (buttons.size > 1) {
                 WeLogger.i(TAG, "hid visibility button")
                 buttons[0].isVisible = false
@@ -268,11 +300,12 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
         val timeText = formatEpoch(createTime.toLong() * 1000, timeFormat)
         val typeText = "0x" + type.toString(16).uppercase(Locale.ROOT)
 
-        val format = if (CustomDetails.isEnabled) {
-            CustomDetails.getCustomText(snsId) ?: textFormat
-        } else {
-            textFormat
-        }
+        val format =
+            if (CustomDetails.isEnabled) {
+                CustomDetails.getCustomText(snsId) ?: textFormat
+            } else {
+                textFormat
+            }
         return format
             .replace(PH_ORIGINAL, originalText)
             .replace(PH_TIME, timeText)
@@ -281,46 +314,52 @@ object DisplayDetails : ClickableFeature(), IResolveDex {
             .replace(PH_USER_NAME, userName)
     }
 
-    private val fieldSnsId by dexField(
-        sqlField {
-            name = "field_snsId"
-            declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-        },
-    )
+    private val fieldSnsId by
+        dexField(
+            sqlField {
+                name = "field_snsId"
+                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+            },
+        )
 
-    private val fieldUserName by dexField(
-        sqlField {
-            name = "field_userName"
-            declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-        },
-    )
+    private val fieldUserName by
+        dexField(
+            sqlField {
+                name = "field_userName"
+                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+            },
+        )
 
-    private val fieldCreateTime by dexField(
-        sqlField {
-            name = "field_createTime"
-            declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-        },
-    )
+    private val fieldCreateTime by
+        dexField(
+            sqlField {
+                name = "field_createTime"
+                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+            },
+        )
 
-    private val fieldType by dexField(
-        sqlField {
-            name = "field_type"
-            declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
-        },
-    )
+    private val fieldType by
+        dexField(
+            sqlField {
+                name = "field_type"
+                declaredClass(WeMomentsApi.classImproveSnsInfo.data.superClass!!.name)
+            },
+        )
 
-    private val methodGetTimeString by dexMethod(
-        sqlMethod {
-            declaredClass(WeMomentsApi.classImproveSnsInfo.data.name)
-            usingEqStrings("getTimeString")
-        },
-        allowFailure = true,
-    )
+    private val methodGetTimeString by
+        dexMethod(
+            sqlMethod {
+                declaredClass(WeMomentsApi.classImproveSnsInfo.data.name)
+                usingEqStrings("getTimeString")
+            },
+            allowFailure = true,
+        )
 
     private fun locateSnsInfo(itemView: View): Any? {
-        val interactionView = itemView.findViewWhich {
-            WeMomentsApi.classImproveInteractionLayout.clazz.isInstance(it)
-        } ?: return null
+        val interactionView =
+            itemView.findViewWhich {
+                WeMomentsApi.classImproveInteractionLayout.clazz.isInstance(it)
+            } ?: return null
 
         return WeMomentsApi.fieldInteractionSnsInfo.field.get(interactionView)
     }

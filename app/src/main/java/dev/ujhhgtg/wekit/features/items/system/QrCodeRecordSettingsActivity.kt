@@ -40,8 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Check
+import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.History
 import com.composables.icons.materialsymbols.outlined.Home
@@ -139,7 +139,9 @@ private fun QrCodeRecordSettingsScreen(
                                     contentDescription = null,
                                 )
                             },
-                            text = { Text(stringResource(R.string.qr_code_record_home_menu_enabled)) },
+                            text = {
+                                Text(stringResource(R.string.qr_code_record_home_menu_enabled))
+                            },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             shapes = MenuDefaults.itemShape(0, 1),
                         )
@@ -153,8 +155,14 @@ private fun QrCodeRecordSettingsScreen(
                 item {
                     BaseWidget(
                         icon = MaterialSymbols.Outlined.History,
-                        title = pluralStringResource(R.plurals.qr_code_record_count, records.size, records.size),
-                        description = stringResource(R.string.qr_code_record_native_open_description),
+                        title =
+                            pluralStringResource(
+                                R.plurals.qr_code_record_count,
+                                records.size,
+                                records.size,
+                            ),
+                        description =
+                            stringResource(R.string.qr_code_record_native_open_description),
                         selected = true,
                         trailingContent = {
                             IconButton(
@@ -234,13 +242,15 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
     var expanded by rememberSaveable(record.url, record.time) { mutableStateOf(false) }
     var truncated by remember(record.url) { mutableStateOf(false) }
     val uri = remember(record.url) { record.url.toUri() }
-    val (icon, typeRes) = when {
-        uri.host.equals("u.wechat.com", ignoreCase = true) ->
-            MaterialSymbols.Outlined.Person to R.string.qr_code_record_type_contact
-        uri.host.equals("wx.tenpay.com", ignoreCase = true) || record.url.startsWith("weixin://wxpay") ->
-            MaterialSymbols.Outlined.Shopping_cart to R.string.qr_code_record_type_payment
-        else -> MaterialSymbols.Outlined.Info to R.string.qr_code_record_type_other
-    }
+    val (icon, typeRes) =
+        when {
+            uri.host.equals("u.wechat.com", ignoreCase = true) ->
+                MaterialSymbols.Outlined.Person to R.string.qr_code_record_type_contact
+            uri.host.equals("wx.tenpay.com", ignoreCase = true) ||
+                record.url.startsWith("weixin://wxpay") ->
+                MaterialSymbols.Outlined.Shopping_cart to R.string.qr_code_record_type_payment
+            else -> MaterialSymbols.Outlined.Info to R.string.qr_code_record_type_other
+        }
 
     SegmentedColumn {
         item {
@@ -254,7 +264,8 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
                         IconButton({ uri.openInSystem(context, true) }) {
                             Icon(
                                 MaterialSymbols.Outlined.Open_in_new,
-                                contentDescription = stringResource(R.string.system_qr_code_record_open_in_system),
+                                contentDescription =
+                                    stringResource(R.string.system_qr_code_record_open_in_system),
                             )
                         }
                     }
@@ -280,7 +291,12 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
                     }
                     if (truncated || expanded) {
                         TextButton(onClick = { expanded = !expanded }) {
-                            Text(stringResource(if (expanded) R.string.qr_code_record_collapse else R.string.qr_code_record_expand))
+                            Text(
+                                stringResource(
+                                    if (expanded) R.string.qr_code_record_collapse
+                                    else R.string.qr_code_record_expand,
+                                ),
+                            )
                         }
                     }
                     Row(
@@ -293,11 +309,17 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
                             onClick = {
                                 runCatching { QrCodeRecord.openInWeChat(activity, record) }
                                     .onFailure {
-                                        WeLogger.e("QrCodeRecord", "Failed to open native scan handler", it)
+                                        WeLogger.e(
+                                            "QrCodeRecord",
+                                            "Failed to open native scan handler",
+                                            it,
+                                        )
                                         showToast(context, openFailedMessage)
                                     }
                             },
-                        ) { Text(stringResource(R.string.system_qr_code_record_open)) }
+                        ) {
+                            Text(stringResource(R.string.system_qr_code_record_open))
+                        }
                         TextButton(
                             modifier = Modifier.weight(1f),
                             onClick = {
@@ -305,7 +327,11 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
                                 showToast(context, copiedMessage)
                             },
                         ) {
-                            Icon(MaterialSymbols.Outlined.Content_copy, null, modifier = Modifier.size(18.dp))
+                            Icon(
+                                MaterialSymbols.Outlined.Content_copy,
+                                null,
+                                modifier = Modifier.size(18.dp),
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.system_qr_code_record_copy))
                         }

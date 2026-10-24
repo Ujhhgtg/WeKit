@@ -22,10 +22,14 @@ object UseLegacyOfficialAccountsView : SwitchFeature(), WeStartActivityApi.IStar
     private const val LEGACY_OFFICIAL_ACCOUNTS_UI =
         "${PackageNames.WECHAT}.ui.conversation.NewBizConversationUI"
 
-    private val hasLegacyOfficialAccountsUI by lazy { LEGACY_OFFICIAL_ACCOUNTS_UI.toClassOrNull() != null }
+    private val hasLegacyOfficialAccountsUI by lazy {
+        LEGACY_OFFICIAL_ACCOUNTS_UI.toClassOrNull() != null
+    }
 
     override val declaredErrors
-        get() = if (hasLegacyOfficialAccountsUI) emptyList() else listOf(R.string.feature_error_host_version_unsupported)
+        get() =
+            if (hasLegacyOfficialAccountsUI) emptyList()
+            else listOf(R.string.feature_error_host_version_unsupported)
 
     override fun onEnable() {
         WeStartActivityApi.addListener(this)
@@ -37,8 +41,10 @@ object UseLegacyOfficialAccountsView : SwitchFeature(), WeStartActivityApi.IStar
 
     override fun onStartActivity(param: HookParam, intent: Intent) {
         val className = intent.component?.className
-        if (className == "${PackageNames.WECHAT}.plugin.brandservice.ui.flutter.BizFlutterTLFlutterViewActivity" ||
-            className == "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.BizTimeLineUI"
+        if (
+            className ==
+                "${PackageNames.WECHAT}.plugin.brandservice.ui.flutter.BizFlutterTLFlutterViewActivity" ||
+                className == "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.BizTimeLineUI"
         ) {
             WeLogger.d("UseLegacyOfficialAccountsView", "redirected $className")
             intent.component = ComponentName(HostInfo.packageName, LEGACY_OFFICIAL_ACCOUNTS_UI)

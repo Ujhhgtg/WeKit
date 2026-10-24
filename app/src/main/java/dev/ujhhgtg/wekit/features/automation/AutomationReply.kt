@@ -1,6 +1,8 @@
 package dev.ujhhgtg.wekit.features.automation
 
-/** One outgoing action of a reply sequence; see [AutomationReplyExecutor] for each kind's content. */
+/**
+ * One outgoing action of a reply sequence; see [AutomationReplyExecutor] for each kind's content.
+ */
 data class AutomationReplyStep(
     val kind: AutomationReplyStepKind = AutomationReplyStepKind.TEXT,
     val content: String = "",
@@ -40,7 +42,8 @@ data class AutomationReplyRule(
 ) {
     fun validationError(): String? {
         if (!enabled) return null
-        if (steps.isEmpty()) return localizedAutomationString(dev.ujhhgtg.wekit.R.string.automation_reply_required)
+        if (steps.isEmpty())
+            return localizedAutomationString(dev.ujhhgtg.wekit.R.string.automation_reply_required)
         return null
     }
 }

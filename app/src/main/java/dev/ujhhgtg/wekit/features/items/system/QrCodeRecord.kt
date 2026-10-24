@@ -5,6 +5,8 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -12,14 +14,13 @@ import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.home_screen_menu.localizedHomeMenuString
-import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.utils.QrCodeIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.nul
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
+
 object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
     override val technicalId = "二维码扫描记录"
@@ -90,10 +91,11 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         // lifecycle. Unlike WebViewUI, it routes friend, group, payment and mini-program codes
         // through WeChat's native scanner handlers. Keep the complete original payload.
         activity.startActivity(
-            Intent().setClassName(
-                HostInfo.packageName,
-                "com.tencent.mm.plugin.webview.stub.WebviewScanImageActivity",
-            )
+            Intent()
+                .setClassName(
+                    HostInfo.packageName,
+                    "com.tencent.mm.plugin.webview.stub.WebviewScanImageActivity",
+                )
                 .putExtra("key_string_for_scan", record.url)
                 .putExtra("key_codetype_for_scan", record.codeType)
                 .putExtra("key_codeversion_for_scan", record.codeVersion)
@@ -122,12 +124,12 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         KvStore.remove(KEY_RECORDS)
     }
 
-    val methodQBarString by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
-        },
-    )
+    val methodQBarString by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
+            },
+        )
 
-    override fun resolveDex() {
-    }
+    override fun resolveDex() {}
 }

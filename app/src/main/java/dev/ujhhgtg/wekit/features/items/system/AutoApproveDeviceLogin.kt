@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.dp
 import com.tencent.mm.plugin.webwx.ui.ExtDeviceWXLoginUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -56,26 +56,34 @@ object AutoApproveDeviceLogin : ClickableFeature() {
             activity.intent.putExtra("intent.key.need.show.privacy.agreement", false)
         }
 
-        targetClass.reflekt().firstMethod { name = "initView" }.hookAfter {
-            val instance = thisObject!!.reflekt()
+        targetClass
+            .reflekt()
+            .firstMethod { name = "initView" }
+            .hookAfter {
+                val instance = thisObject!!.reflekt()
 
-            // 同步消息的勾选框除了 AUTO_SYNC_MESSAGES 位以外还要求 USERINFO_MSG_SYNCHRONIZE_BOOLEAN
-            // 为 true, 而用户上次取消勾选时微信会把它写成 false, 于是只设置 flag 并不会让它勾上,
-            // 这里直接勾选界面上可见的勾选框。
-            // 自动登录的勾选框此时要么已被 AUTO_LOGIN_DEVICE 位勾上 (勾了也是空操作), 要么整行不可见,
-            // 所以无需区分二者
-            if (syncMessages) {
-                instance.fields { type = CheckBox::class }
-                    .mapNotNull { it.get() as CheckBox? }
-                    .filter { it.isEffectivelyVisible() }
-                    .forEach { it.isChecked = true }
+                // 同步消息的勾选框除了 AUTO_SYNC_MESSAGES 位以外还要求 USERINFO_MSG_SYNCHRONIZE_BOOLEAN
+                // 为 true, 而用户上次取消勾选时微信会把它写成 false, 于是只设置 flag 并不会让它勾上,
+                // 这里直接勾选界面上可见的勾选框。
+                // 自动登录的勾选框此时要么已被 AUTO_LOGIN_DEVICE 位勾上 (勾了也是空操作), 要么整行不可见,
+                // 所以无需区分二者
+                if (syncMessages) {
+                    instance
+                        .fields { type = CheckBox::class }
+                        .mapNotNull { it.get() as CheckBox? }
+                        .filter { it.isEffectivelyVisible() }
+                        .forEach { it.isChecked = true }
+                }
+
+                val button =
+                    instance
+                        .firstField {
+                            type = Button::class
+                        }
+                        .get()!!
+                        as Button
+                button.performClick()
             }
-
-            val button = instance.firstField {
-                type = Button::class
-            }.get()!! as Button
-            button.performClick()
-        }
     }
 
     // 此时界面还未附加到窗口, isShown() 不可用
@@ -101,7 +109,8 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.system_auto_approve_sync),
-                                description = stringResource(R.string.system_auto_approve_sync_summary),
+                                description =
+                                    stringResource(R.string.system_auto_approve_sync_summary),
                                 checked = syncMessagesInput,
                                 onCheckedChange = {
                                     syncMessagesInput = it
@@ -113,7 +122,8 @@ object AutoApproveDeviceLogin : ClickableFeature() {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.system_auto_approve_auto_login),
-                                description = stringResource(R.string.system_auto_approve_auto_login_summary),
+                                description =
+                                    stringResource(R.string.system_auto_approve_auto_login_summary),
                                 checked = autoLoginDeviceInput,
                                 onCheckedChange = {
                                     autoLoginDeviceInput = it

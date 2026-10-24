@@ -2,19 +2,29 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 sealed interface HomeSidePanelRoute {
     data object Home : HomeSidePanelRoute
+
     data object PanelSettings : HomeSidePanelRoute
+
     data object EditHome : HomeSidePanelRoute
+
     sealed interface EditorDetail : HomeSidePanelRoute
+
     data class DateTimeSettings(val cardId: String) : EditorDetail
+
     data class WeatherSettings(val cardId: String) : EditorDetail
+
     data class WalletSettings(val cardId: String) : EditorDetail
+
     data class HitokotoSettings(val cardId: String) : EditorDetail
+
     data object AddCard : EditorDetail
+
     data class AddAction(val cardId: String) : EditorDetail
 }
 
 sealed interface HomeSidePanelEditCommit {
     data class Retained(val failure: Throwable) : HomeSidePanelEditCommit
+
     data class Committed(
         val layout: HomeSidePanelLayout,
         val promotionFailure: Throwable?,
@@ -26,12 +36,15 @@ inline fun commitHomeSidePanelEdit(
     persist: (HomeSidePanelLayout) -> Result<Unit>,
     promote: (HomeSidePanelLayout) -> Unit,
 ): HomeSidePanelEditCommit {
-    val layout = runCatching(editor::committedLayout).getOrElse {
-        return HomeSidePanelEditCommit.Retained(it)
-    }
-    runCatching { persist(layout).getOrThrow() }.exceptionOrNull()?.let {
-        return HomeSidePanelEditCommit.Retained(it)
-    }
+    val layout =
+        runCatching(editor::committedLayout).getOrElse {
+            return HomeSidePanelEditCommit.Retained(it)
+        }
+    runCatching { persist(layout).getOrThrow() }
+        .exceptionOrNull()
+        ?.let {
+            return HomeSidePanelEditCommit.Retained(it)
+        }
     return HomeSidePanelEditCommit.Committed(
         layout = layout,
         promotionFailure = runCatching { promote(layout) }.exceptionOrNull(),
@@ -139,13 +152,17 @@ class HomeSidePanelEditSession(
 
     private fun actionCount(cardId: String): Int = actionCard(cardId).actions.size
 
-    private fun card(cardId: String): HomeSidePanelCardConfig = draft.cards.firstOrNull {
-        it.id == cardId
-    } ?: throw IllegalArgumentException("Card '$cardId' does not exist")
+    private fun card(cardId: String): HomeSidePanelCardConfig =
+        draft.cards.firstOrNull {
+            it.id == cardId
+        } ?: throw IllegalArgumentException("Card '$cardId' does not exist")
 
-    private fun cardIndex(cardId: String): Int = draft.cards.indexOfFirst { it.id == cardId }.also {
-        require(it >= 0) { "Card '$cardId' does not exist" }
-    }
+    private fun cardIndex(cardId: String): Int =
+        draft.cards
+            .indexOfFirst { it.id == cardId }
+            .also {
+                require(it >= 0) { "Card '$cardId' does not exist" }
+            }
 
     private fun actionCard(cardId: String): ActionCardConfig {
         val card = card(cardId)
@@ -160,31 +177,37 @@ class HomeSidePanelEditSession(
         draft = draft.copy(cards = draft.cards.toMutableList().also { it[index] = updated })
     }
 
-    private fun newCard(type: HomeSidePanelCardType): HomeSidePanelCardConfig = when (type) {
-        HomeSidePanelCardType.DATE_TIME -> DateTimeCardConfig(idGenerator.nextId())
-        HomeSidePanelCardType.WEATHER -> WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY)
-        HomeSidePanelCardType.WALLET -> WalletCardConfig(idGenerator.nextId())
-        HomeSidePanelCardType.HITOKOTO -> HitokotoCardConfig(idGenerator.nextId())
-        HomeSidePanelCardType.IMAGE -> ImageCardConfig(idGenerator.nextId())
-        HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HorizontalActionsCardConfig(idGenerator.nextId(), emptyList())
-        HomeSidePanelCardType.VERTICAL_ACTIONS -> VerticalActionsCardConfig(idGenerator.nextId(), emptyList())
-    }
+    private fun newCard(type: HomeSidePanelCardType): HomeSidePanelCardConfig =
+        when (type) {
+            HomeSidePanelCardType.DATE_TIME -> DateTimeCardConfig(idGenerator.nextId())
+            HomeSidePanelCardType.WEATHER ->
+                WeatherCardConfig(idGenerator.nextId(), DEFAULT_WEATHER_CITY)
+            HomeSidePanelCardType.WALLET -> WalletCardConfig(idGenerator.nextId())
+            HomeSidePanelCardType.HITOKOTO -> HitokotoCardConfig(idGenerator.nextId())
+            HomeSidePanelCardType.IMAGE -> ImageCardConfig(idGenerator.nextId())
+            HomeSidePanelCardType.HORIZONTAL_ACTIONS ->
+                HorizontalActionsCardConfig(idGenerator.nextId(), emptyList())
+            HomeSidePanelCardType.VERTICAL_ACTIONS ->
+                VerticalActionsCardConfig(idGenerator.nextId(), emptyList())
+        }
 
     private class ActionCardConfig(card: HomeSidePanelCardConfig) {
-        val actions: List<HomeSidePanelActionConfig> = when (card) {
-            is HorizontalActionsCardConfig -> card.actions
-            is VerticalActionsCardConfig -> card.actions
-            else -> error("ActionCardConfig requires an action card")
-        }
+        val actions: List<HomeSidePanelActionConfig> =
+            when (card) {
+                is HorizontalActionsCardConfig -> card.actions
+                is VerticalActionsCardConfig -> card.actions
+                else -> error("ActionCardConfig requires an action card")
+            }
 
         private val id = card.id
         private val type = card.type
 
-        fun withActions(actions: List<HomeSidePanelActionConfig>): HomeSidePanelCardConfig = when (type) {
-            HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HorizontalActionsCardConfig(id, actions)
-            HomeSidePanelCardType.VERTICAL_ACTIONS -> VerticalActionsCardConfig(id, actions)
-            else -> error("ActionCardConfig has non-action type $type")
-        }
+        fun withActions(actions: List<HomeSidePanelActionConfig>): HomeSidePanelCardConfig =
+            when (type) {
+                HomeSidePanelCardType.HORIZONTAL_ACTIONS -> HorizontalActionsCardConfig(id, actions)
+                HomeSidePanelCardType.VERTICAL_ACTIONS -> VerticalActionsCardConfig(id, actions)
+                else -> error("ActionCardConfig has non-action type $type")
+            }
     }
 
     private fun requireElementIndex(index: Int, size: Int, subject: String) {
@@ -200,8 +223,9 @@ class HomeSidePanelEditSession(
     }
 }
 
-fun isWholeCardDeleteVisible(card: HomeSidePanelCardConfig): Boolean = when (card) {
-    is HorizontalActionsCardConfig -> card.actions.isEmpty()
-    is VerticalActionsCardConfig -> card.actions.isEmpty()
-    else -> false
-}
+fun isWholeCardDeleteVisible(card: HomeSidePanelCardConfig): Boolean =
+    when (card) {
+        is HorizontalActionsCardConfig -> card.actions.isEmpty()
+        is VerticalActionsCardConfig -> card.actions.isEmpty()
+        else -> false
+    }

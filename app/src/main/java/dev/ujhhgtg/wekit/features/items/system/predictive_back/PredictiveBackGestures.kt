@@ -32,7 +32,16 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
+import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlField
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -42,26 +51,18 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.system.predictive_back.PredictiveBackGestures.nonConsumingUics
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.baseActivity
-import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
-import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.util.ArrayDeque
 import java.util.WeakHashMap
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
+
 /**
  * Predictive back for WeKit's own pages and for WeChat activities.
  * - Module activities (Compose) are opted in and handle predictive back themselves.
  * - WeChat activities (see [PredictiveBackController] and [BackHost]):
- *   - LauncherUI and `BaseConversationUI` host a chat in-window; a plain chat follows the gesture
- *     with WeChat's own swipe, everything else keeps its legacy key semantics.
- *   - Other WeChat activities without back handling of their own (or only the verified
- *     [leavingBackHandlers]) get the platform's cross-activity animation. Activities that handle
- *     back themselves are not opted in.
+ *     - LauncherUI and `BaseConversationUI` host a chat in-window; a plain chat follows the gesture
+ *       with WeChat's own swipe, everything else keeps its legacy key semantics.
+ *     - Other WeChat activities without back handling of their own (or only the verified
+ *       [leavingBackHandlers]) get the platform's cross-activity animation. Activities that handle
+ *       back themselves are not opted in.
  *
  * Every question "would WeChat consume this back?" is answered with the exact predicates WeChat's
  * own key chains evaluate — `LauncherUI.dispatchKeyEvent`, `MainUI.onKeyDown`, the chat
@@ -74,14 +75,18 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_predictive_back_gestures_description
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
 
-    /** Until first toggled, carry over the theme setting that used to switch the module pages' predictive back. */
+    /**
+     * Until first toggled, carry over the theme setting that used to switch the module pages'
+     * predictive back.
+     */
     override val defaultEnabled: Boolean
         get() = KvStore.getBoolOrFalse(Preferences.THEME_PREDICTIVE_BACK_ENABLED)
 
     override val declaredErrors: List<Int>
-        get() = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            listOf(R.string.feature_error_requires_android_14)
-        } else emptyList()
+        get() =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                listOf(R.string.feature_error_requires_android_14)
+            } else emptyList()
 
     private const val TAG = "PredictiveBackGestures"
 
@@ -97,19 +102,31 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     private const val MM_FRAGMENT = "com.tencent.mm.ui.MMFragment"
     private const val MAIN_UI = "com.tencent.mm.ui.conversation.MainUI"
     private const val MORE_TAB_UI = "com.tencent.mm.ui.MoreTabUI"
-    private const val BASE_CHATTING_UI_FRAGMENT = "com.tencent.mm.ui.chatting.BaseChattingUIFragment"
+    private const val BASE_CHATTING_UI_FRAGMENT =
+        "com.tencent.mm.ui.chatting.BaseChattingUIFragment"
     private const val MULTITASK_UIC = "com.tencent.mm.plugin.multitask.ui.uic.MultiTaskUIC"
     private const val CHATBOT_UIC = "com.tencent.mm.plugin.multitask.ui.uic.MultiTaskChatbotUIC"
     private const val CHAT_FOOTER = "com.tencent.mm.pluginsdk.ui.chat.ChatFooter"
     private const val MORE_BTN_BAR = "com.tencent.mm.ui.chatting.ChattingFooterMoreBtnBar"
-    private const val LANGUAGE_CHOICE_LAYOUT = "com.tencent.mm.plugin.transvoice.ui.LanguageChoiceLayout"
+    private const val LANGUAGE_CHOICE_LAYOUT =
+        "com.tencent.mm.plugin.transvoice.ui.LanguageChoiceLayout"
     private const val SWIPE_BACK_LAYOUT = "com.tencent.mm.ui.widget.SwipeBackLayout"
-    private const val SNS_HEADER_UIC = "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC"
-    private const val SNS_COVER_LAYOUT = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
+    private const val SNS_HEADER_UIC =
+        "com.tencent.mm.plugin.sns.ui.improve.component.header.ImproveHeaderUIC"
+    private const val SNS_COVER_LAYOUT =
+        "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
     private const val APP_COMPAT_ACTIVITY = "androidx.appcompat.app.AppCompatActivity"
 
     /** Activity/UIC methods through which a class can take BACK away from the default chain. */
-    private val backHandlerNames = setOf("onBackPressed", "onKeyDown", "onKeyUp", "dispatchKeyEvent", "onKeyLongPress", "onKeyMultiple")
+    private val backHandlerNames =
+        setOf(
+            "onBackPressed",
+            "onKeyDown",
+            "onKeyUp",
+            "dispatchKeyEvent",
+            "onKeyLongPress",
+            "onKeyMultiple",
+        )
 
     /**
      * WeChat bases whose back handlers are modelled by [areStandardConsumersIdle]: MMActivity's
@@ -121,21 +138,23 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * UICs whose `onBackPressed` only hides their comment footer and returns `UIComponent`'s false
      * (verified on 8.0.65–8.0.79): the page still leaves.
      */
-    private val nonConsumingUics = setOf(
-        "com.tencent.mm.plugin.sns.ui.improve.component.ImproveInputUIC",
-        "com.tencent.mm.plugin.sns.ui.improve.component.SnsWsFoldInputUIC",
-    )
+    private val nonConsumingUics =
+        setOf(
+            "com.tencent.mm.plugin.sns.ui.improve.component.ImproveInputUIC",
+            "com.tencent.mm.plugin.sns.ui.improve.component.SnsWsFoldInputUIC",
+        )
 
     // --- Dex: LauncherUI.dispatchKeyEvent and the predicates it checks before HomeUI ---
 
-    private val methodLauncherDispatchKeyEvent by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.LauncherUI"
-            name = "dispatchKeyEvent"
-            returnType = "boolean"
-            paramTypes("android.view.KeyEvent")
-        },
-    )
+    private val methodLauncherDispatchKeyEvent by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.LauncherUI"
+                name = "dispatchKeyEvent"
+                returnType = "boolean"
+                paramTypes("android.view.KeyEvent")
+            },
+        )
 
     /** `VASLauncher.r7()`: a VAS pane is shown and takes every key. */
     private val methodVasPaneVisible by dexMethod()
@@ -155,7 +174,10 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     /** `MultiTaskUIC.S7()`: the multitask panel is open. */
     private val methodMultiTaskPanelOpen by dexMethod()
 
-    /** `MultiTaskChatbotUIC.P7()`: the chatbot panel is open; absent where LauncherUI does not route BACK to it (before 8.0.77). */
+    /**
+     * `MultiTaskChatbotUIC.P7()`: the chatbot panel is open; absent where LauncherUI does not route
+     * BACK to it (before 8.0.77).
+     */
     private val methodChatbotPanelOpen by dexMethod()
 
     /** `MainTabUI.g()`: the current home tab, asked for `onKeyDown` before moving the task back. */
@@ -163,16 +185,20 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: MainUI.onKeyDown closes the conversation list's pull-down header ---
 
-    private val methodMainUiOnKeyDown by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.ui.conversation.MainUI"
-            name = "onKeyDown"
-            returnType = "boolean"
-            paramTypes("int", "android.view.KeyEvent")
-        },
-    )
+    private val methodMainUiOnKeyDown by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.ui.conversation.MainUI"
+                name = "onKeyDown"
+                returnType = "boolean"
+                paramTypes("int", "android.view.KeyEvent")
+            },
+        )
 
-    /** MainUI's conversation list host (a ConversationListView, or the list-host interface on 8.0.78+). */
+    /**
+     * MainUI's conversation list host (a ConversationListView, or the list-host interface on
+     * 8.0.78+).
+     */
     private val fieldMainUiListHost by dexField()
 
     /** The list host's `isHeaderOpen()`. */
@@ -180,21 +206,26 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     // --- Dex: the chat FootComponent's key handler, the only chat component that takes BACK ---
 
-    private val classFootComponent by dexClass(
-        sqlClass {
-            searchPackages("com.tencent.mm.ui.chatting.component")
-            usingEqStrings("MicroMsg.ChattingUI.FootComponent", "onNotifyChange event %s talker %s")
-        },
-    )
+    private val classFootComponent by
+        dexClass(
+            sqlClass {
+                searchPackages("com.tencent.mm.ui.chatting.component")
+                usingEqStrings(
+                    "MicroMsg.ChattingUI.FootComponent",
+                    "onNotifyChange event %s talker %s",
+                )
+            },
+        )
 
-    private val methodFootKeyHandler by dexMethod(
-        sqlMethod {
-            declaredClass(classFootComponent.data.name)
-            returnType = "boolean"
-            paramTypes("int", "android.view.KeyEvent")
-            usingEqStrings("chatting onKeyDown, code:%d action:%d")
-        },
-    )
+    private val methodFootKeyHandler by
+        dexMethod(
+            sqlMethod {
+                declaredClass(classFootComponent.data.name)
+                returnType = "boolean"
+                paramTypes("int", "android.view.KeyEvent")
+                usingEqStrings("chatting onKeyDown, code:%d action:%d")
+            },
+        )
 
     /** `ChatFooter`'s voice-input (speech-to-text) panel flag. */
     private val fieldFooterVoiceInput by dexField()
@@ -205,29 +236,33 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     /** The full-screen edit helper's `isActive()`. */
     private val methodFullScreenEditActive by dexMethod()
 
-    // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after pop-out) ---
+    // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after
+    // pop-out) ---
 
-    private val fieldSwipeBackGestureEnabled by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
-            type = "boolean"
-            writeMethod {
+    private val fieldSwipeBackGestureEnabled by
+        dexField(
+            sqlField {
                 declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
-                name = "setEnableGesture"
-            }
-        },
-    )
+                type = "boolean"
+                writeMethod {
+                    declaredClass = "com.tencent.mm.ui.widget.SwipeBackLayout"
+                    name = "setEnableGesture"
+                }
+            },
+        )
 
-    // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK ---
+    // --- Dex: MMActivity.onKeyDown's controller collapses an expanded action-bar search on BACK
+    // ---
 
-    private val methodControllerKeyDown by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui")
-            returnType = "boolean"
-            paramTypes("int", "android.view.KeyEvent")
-            usingEqStrings("MicroMsg.MMActivityController", "dancy onKeyDown ++")
-        },
-    )
+    private val methodControllerKeyDown by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui")
+                returnType = "boolean"
+                paramTypes("int", "android.view.KeyEvent")
+                usingEqStrings("MicroMsg.MMActivityController", "dancy onKeyDown ++")
+            },
+        )
 
     /** The controller's action-bar search helper. */
     private val fieldControllerSearchHelper by dexField()
@@ -235,7 +270,8 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     /** The search helper's expanded flag, which its BACK handler checks. */
     private val fieldSearchExpanded by dexField()
 
-    // --- Dex: the UIC every GloUIComponentActivity imports only forwards BACK to registered children ---
+    // --- Dex: the UIC every GloUIComponentActivity imports only forwards BACK to registered
+    // children ---
 
     /**
      * The global UIC's children by tag. Children (text status and Finder previews) register and
@@ -244,88 +280,121 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     private val fieldGlobalUicChildren by dexFieldQuery {
         uniqueField(
             FieldSpec(
-                declaredClass = ClassSpec(
-                    superClass = ClassSpec(className = NameSpec(UI_COMPONENT)),
-                ),
+                declaredClass =
+                    ClassSpec(
+                        superClass = ClassSpec(className = NameSpec(UI_COMPONENT)),
+                    ),
                 type = ClassSpec(className = NameSpec("java.util.HashMap")),
-                readMethods = listOf(
-                    MethodSpec(
-                        name = NameSpec("onBackPressed"),
-                        paramCount = 0..0,
-                        returnType = ClassSpec(className = NameSpec("boolean")),
+                readMethods =
+                    listOf(
+                        MethodSpec(
+                            name = NameSpec("onBackPressed"),
+                            paramCount = 0..0,
+                            returnType = ClassSpec(className = NameSpec("boolean")),
+                        ),
+                        MethodSpec(
+                            paramTypes = listOf(TypeSpec(MM_FRAGMENT_ACTIVITY)),
+                            returnType = ClassSpec(className = NameSpec("void")),
+                        ),
                     ),
-                    MethodSpec(
-                        paramTypes = listOf(TypeSpec(MM_FRAGMENT_ACTIVITY)),
-                        returnType = ClassSpec(className = NameSpec("void")),
-                    ),
-                ),
-            )
+            ),
         )
     }
 
     // --- Dex: the Moments timeline header collapses its pulled-down cover on BACK ---
 
     /**
-     * The cover's stage: 1 collapsed, 2 pulled down, 3 animating. Read by the cover's `onBackPressed`
-     * (inlined into `ImproveHeaderUIC.onBackPressed`) and set to 3 by `updateViewHeight`.
+     * The cover's stage: 1 collapsed, 2 pulled down, 3 animating. Read by the cover's
+     * `onBackPressed` (inlined into `ImproveHeaderUIC.onBackPressed`) and set to 3 by
+     * `updateViewHeight`.
      */
-    private val fieldSnsCoverStage by dexField(
-        sqlField {
-            declaredClass = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
-            type = "int"
-            readMethod {
-                usingEqStrings("onBackPressed", "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout")
-            }
-            writeMethod {
-                usingEqStrings("updateViewHeight", "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout")
-            }
-        },
-    )
+    private val fieldSnsCoverStage by
+        dexField(
+            sqlField {
+                declaredClass = "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout"
+                type = "int"
+                readMethod {
+                    usingEqStrings(
+                        "onBackPressed",
+                        "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
+                    )
+                }
+                writeMethod {
+                    usingEqStrings(
+                        "updateViewHeight",
+                        "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
+                    )
+                }
+            },
+        )
 
     override fun resolveDex() {
-        val dispatchInvokes = methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }
-        methodVasPaneVisible.setDescriptor(dispatchInvokes.single {
-            it.declaredClassName == VAS_LAUNCHER && it.isNoArgBoolean()
-        })
-        methodChatForeground.setDescriptor(dispatchInvokes.single {
-            it.declaredClassName == NEW_CHATTING_TAB_UI && it.isNoArgBoolean()
-        })
-        methodMultiTaskKeyHandler.setDescriptor(dispatchInvokes.single {
-            it.declaredClassName == MULTITASK_UIC &&
-                it.paramTypeNames == listOf("android.view.KeyEvent") &&
-                it.returnTypeName == "boolean"
-        })
+        val dispatchInvokes =
+            methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }
+        methodVasPaneVisible.setDescriptor(
+            dispatchInvokes.single {
+                it.declaredClassName == VAS_LAUNCHER && it.isNoArgBoolean()
+            },
+        )
+        methodChatForeground.setDescriptor(
+            dispatchInvokes.single {
+                it.declaredClassName == NEW_CHATTING_TAB_UI && it.isNoArgBoolean()
+            },
+        )
+        methodMultiTaskKeyHandler.setDescriptor(
+            dispatchInvokes.single {
+                it.declaredClassName == MULTITASK_UIC &&
+                    it.paramTypeNames == listOf("android.view.KeyEvent") &&
+                    it.returnTypeName == "boolean"
+            },
+        )
         methodMultiTaskPanelOpen.setDescriptor(
-            methodMultiTaskKeyHandler.data.invokes.distinctBy { it.descriptor }.single {
-                it.declaredClassName == MULTITASK_UIC && it.isNoArgBoolean()
-            }
+            methodMultiTaskKeyHandler.data.invokes
+                .distinctBy { it.descriptor }
+                .single {
+                    it.declaredClassName == MULTITASK_UIC && it.isNoArgBoolean()
+                },
         )
         // Older LauncherUIs (with or without the class) never ask the chatbot panel about BACK.
         if (dispatchInvokes.none { it.declaredClassName == CHATBOT_UIC }) {
             methodChatbotPanelOpen.markExpectedFailure()
         } else {
-            methodChatbotPanelOpen.setDescriptor(dispatchInvokes.single {
-                it.declaredClassName == CHATBOT_UIC && it.name != "onBackPressed" && it.isNoArgBoolean()
-            })
+            methodChatbotPanelOpen.setDescriptor(
+                dispatchInvokes.single {
+                    it.declaredClassName == CHATBOT_UIC &&
+                        it.name != "onBackPressed" &&
+                        it.isNoArgBoolean()
+                },
+            )
         }
-        methodCurrentTabFragment.setDescriptor(dispatchInvokes.single {
-            it.declaredClassName == MAIN_TAB_UI && it.paramCount == 0 && it.returnTypeName == MM_FRAGMENT
-        })
+        methodCurrentTabFragment.setDescriptor(
+            dispatchInvokes.single {
+                it.declaredClassName == MAIN_TAB_UI &&
+                    it.paramCount == 0 &&
+                    it.returnTypeName == MM_FRAGMENT
+            },
+        )
 
         val chatForegroundReads = methodChatForeground.data.readFields()
-        val chattingContext = chatForegroundReads.single { it.declaredClassName == BASE_CHATTING_UI_FRAGMENT }
+        val chattingContext = chatForegroundReads.single {
+            it.declaredClassName == BASE_CHATTING_UI_FRAGMENT
+        }
         fieldFragmentChattingContext.setDescriptor(chattingContext)
-        fieldChattingContextForeground.setDescriptor(chatForegroundReads.single {
-            it.declaredClassName == chattingContext.typeName && it.typeName == "boolean"
-        })
+        fieldChattingContextForeground.setDescriptor(
+            chatForegroundReads.single {
+                it.declaredClassName == chattingContext.typeName && it.typeName == "boolean"
+            },
+        )
 
         val mainUiOnKeyDown = methodMainUiOnKeyDown.data
         val listHost = mainUiOnKeyDown.readFields().single { it.declaredClassName == MAIN_UI }
         fieldMainUiListHost.setDescriptor(listHost)
         methodListHostHeaderOpen.setDescriptor(
-            mainUiOnKeyDown.invokes.distinctBy { it.descriptor }.single {
-                it.declaredClassName == listHost.typeName && it.isNoArgBoolean()
-            }
+            mainUiOnKeyDown.invokes
+                .distinctBy { it.descriptor }
+                .single {
+                    it.declaredClassName == listHost.typeName && it.isNoArgBoolean()
+                },
         )
 
         val footKeyHandler = methodFootKeyHandler.data
@@ -336,39 +405,55 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             footInvokes.any { it.declaredClassName == field.typeName && it.isNoArgBoolean() }
         }
         fieldFooterFullScreenEdit.setDescriptor(fullScreenEdit)
-        methodFullScreenEditActive.setDescriptor(footInvokes.single {
-            it.declaredClassName == fullScreenEdit.typeName && it.isNoArgBoolean()
-        })
+        methodFullScreenEditActive.setDescriptor(
+            footInvokes.single {
+                it.declaredClassName == fullScreenEdit.typeName && it.isNoArgBoolean()
+            },
+        )
 
         val controllerKeyDown = methodControllerKeyDown.data
-        val controllerFields = controllerKeyDown.readFields().filter {
-            it.declaredClassName == controllerKeyDown.declaredClassName
-        }
+        val controllerFields =
+            controllerKeyDown.readFields().filter {
+                it.declaredClassName == controllerKeyDown.declaredClassName
+            }
         // Older versions also call static volume-key listeners with the same signature; the search
         // helper is the key handler held in one of the controller's own fields.
-        val searchKeyHandler = controllerKeyDown.invokes.distinctBy { it.descriptor }.single { invoke ->
-            invoke.paramTypeNames == listOf("int", "android.view.KeyEvent") &&
-                invoke.returnTypeName == "boolean" &&
-                controllerFields.any { it.typeName == invoke.declaredClassName }
-        }
-        fieldControllerSearchHelper.setDescriptor(controllerFields.single {
-            it.typeName == searchKeyHandler.declaredClassName
-        })
-        fieldSearchExpanded.setDescriptor(searchKeyHandler.readFields().single {
-            it.declaredClassName == searchKeyHandler.declaredClassName && it.typeName == "boolean"
-        })
+        val searchKeyHandler =
+            controllerKeyDown.invokes
+                .distinctBy { it.descriptor }
+                .single { invoke ->
+                    invoke.paramTypeNames == listOf("int", "android.view.KeyEvent") &&
+                        invoke.returnTypeName == "boolean" &&
+                        controllerFields.any { it.typeName == invoke.declaredClassName }
+                }
+        fieldControllerSearchHelper.setDescriptor(
+            controllerFields.single {
+                it.typeName == searchKeyHandler.declaredClassName
+            },
+        )
+        fieldSearchExpanded.setDescriptor(
+            searchKeyHandler.readFields().single {
+                it.declaredClassName == searchKeyHandler.declaredClassName &&
+                    it.typeName == "boolean"
+            },
+        )
     }
 
     private fun DexMethodInfo.isNoArgBoolean() = paramCount == 0 && returnTypeName == "boolean"
 
-    private fun DexMethodInfo.readFields(): List<DexFieldInfo> = usingFields
-        .filter { it.usingType == FieldUsingType.Read }
-        .map { it.field }
-        .distinctBy { it.descriptor }
+    private fun DexMethodInfo.readFields(): List<DexFieldInfo> =
+        usingFields
+            .filter { it.usingType == FieldUsingType.Read }
+            .map { it.field }
+            .distinctBy { it.descriptor }
 
     // --- Which activities are opted in ---
 
-    enum class HostKind { LAUNCHER, CONVERSATION, STANDARD }
+    enum class HostKind {
+        LAUNCHER,
+        CONVERSATION,
+        STANDARD,
+    }
 
     private val hostKinds = HashMap<String, HostKind?>()
 
@@ -387,15 +472,20 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     private fun classify(className: String): HostKind? {
         if (className == LAUNCHER_UI) return HostKind.LAUNCHER
         val chain = generateSequence(className.toClassOrNull()) { it.superclass }.toList()
-        val modelledBase = chain.indexOfFirst { it.name == BASE_CONVERSATION_UI || it.name == MM_FRAGMENT_ACTIVITY }
+        val modelledBase = chain.indexOfFirst {
+            it.name == BASE_CONVERSATION_UI || it.name == MM_FRAGMENT_ACTIVITY
+        }
         if (modelledBase < 0) return null
         val ownClasses = chain.subList(0, modelledBase).filter { it.name !in modelledBases }
-        val handler = if (className in leavingBackHandlers) null else ownClasses.firstOrNull { it.declaresBackHandler() }
+        val handler =
+            if (className in leavingBackHandlers) null
+            else ownClasses.firstOrNull { it.declaresBackHandler() }
         if (handler != null) {
             WeLogger.d(TAG, "$className stays legacy: ${handler.name} handles back itself")
             return null
         }
-        return if (chain[modelledBase].name == BASE_CONVERSATION_UI) HostKind.CONVERSATION else HostKind.STANDARD
+        return if (chain[modelledBase].name == BASE_CONVERSATION_UI) HostKind.CONVERSATION
+        else HostKind.STANDARD
     }
 
     private fun Class<*>.declaresBackHandler(): Boolean =
@@ -442,16 +532,23 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     /** LauncherUI's chat SwipeBackLayout when a BACK would leave the chat right now. */
     @RequiresApi(Build.VERSION_CODES.R)
     fun readyLauncherChatSwipeLayout(activity: Activity): SwipeBackLayout? {
-        if (isVasPaneVisible(activity) || isMultiTaskPanelOpen(activity) || isChatbotPanelOpen(activity) ||
-            WeLauncherBackApi.hasActiveHandler(activity)
-        ) return null
+        if (
+            isVasPaneVisible(activity) ||
+                isMultiTaskPanelOpen(activity) ||
+                isChatbotPanelOpen(activity) ||
+                WeLauncherBackApi.hasActiveHandler(activity)
+        )
+            return null
         val chattingTab = chattingTabUi(activity)
         if (!(methodChatForeground.method.invoke(chattingTab) as Boolean)) return null
-        val fragment = chattingTab.reflekt().firstField { type = BASE_CHATTING_UI_FRAGMENT }.get() as MMFragment
+        val fragment =
+            chattingTab.reflekt().firstField { type = BASE_CHATTING_UI_FRAGMENT }.get()
+                as MMFragment
         return readyChatSwipeLayout(activity, fragment)
     }
 
-    private fun chattingTabUi(activity: Activity): Any = activity.reflekt().getField("chattingTabUI")!!
+    private fun chattingTabUi(activity: Activity): Any =
+        activity.reflekt().getField("chattingTabUI")!!
 
     private fun isVasPaneVisible(activity: Activity): Boolean =
         methodVasPaneVisible.method.invoke(activity) as Boolean
@@ -478,7 +575,8 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         return false
     }
 
-    // --- BaseConversationUI: `dispatchKeyEvent` = isAnimating → MultiTask → chat → default chain ---
+    // --- BaseConversationUI: `dispatchKeyEvent` = isAnimating → MultiTask → chat → default chain
+    // ---
 
     /** Null until the first chat is opened. */
     private fun conversationChat(activity: Activity): MMFragment? =
@@ -522,7 +620,8 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         val layout = fragment.swipeBackLayout
         if (!fieldSwipeBackGestureEnabled.field.getBoolean(layout)) return null
         if (layout.targetContentView.left != 0) return null
-        if (activity.window.decorView.rootWindowInsets!!.isVisible(WindowInsets.Type.ime())) return null
+        if (activity.window.decorView.rootWindowInsets!!.isVisible(WindowInsets.Type.ime()))
+            return null
         val root = fragment.view as ViewGroup
         val footer = root.findFirst { it is ChatFooter } as ChatFooter?
         if (footer != null) {
@@ -530,7 +629,8 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             val fullScreenEdit = fieldFooterFullScreenEdit.field.get(footer)!!
             if (methodFullScreenEditActive.method.invoke(fullScreenEdit) as Boolean) return null
         }
-        if (root.findFirst { it.isShown && it.javaClass.isNamed(LANGUAGE_CHOICE_LAYOUT) } != null) return null
+        if (root.findFirst { it.isShown && it.javaClass.isNamed(LANGUAGE_CHOICE_LAYOUT) } != null)
+            return null
         if (root.findFirst { it.isShown && it.javaClass.isNamed(MORE_BTN_BAR) } != null) return null
         return layout
     }
@@ -568,18 +668,31 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         return methodChatbotPanelOpen.method.invoke(uic) as Boolean
     }
 
-    /** MMFragmentActivity swallows BACK while its own swipe-back is settling. Null when swipe-back is off. */
+    /**
+     * MMFragmentActivity swallows BACK while its own swipe-back is settling. Null when swipe-back
+     * is off.
+     */
     private fun isActivitySwipeSettling(activity: Activity): Boolean {
-        val layout = activity.reflekt().firstMethod {
-            name = "getSwipeBackLayout"
-            superclass()
-        }.invoke() as? SwipeBackLayout? ?: return false
+        val layout =
+            activity
+                .reflekt()
+                .firstMethod {
+                    name = "getSwipeBackLayout"
+                    superclass()
+                }
+                .invoke() as? SwipeBackLayout? ?: return false
         return layout.targetContentView.left != 0
     }
 
     private fun isVasMode(activity: Activity): Boolean =
         vasActivityClass.isInstance(activity) &&
-            activity.reflekt().firstMethod { name = "isVASValid"; superclass() }.invoke() as Boolean
+            activity
+                .reflekt()
+                .firstMethod {
+                    name = "isVASValid"
+                    superclass()
+                }
+                .invoke() as Boolean
 
     private fun hasBackListeners(activity: Activity): Boolean =
         mmActivityClass.isInstance(activity) &&
@@ -602,16 +715,21 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * never consume. Any other UIC that overrides a back handler counts as consuming.
      */
     private fun backHandlingUic(activity: Activity): Any? {
-        val uics = activity.reflekt().firstMethod {
-            name = "getUiComponents"
-            superclass()
-        }.invoke() as Collection<*>
+        val uics =
+            activity
+                .reflekt()
+                .firstMethod {
+                    name = "getUiComponents"
+                    superclass()
+                }
+                .invoke() as Collection<*>
         return uics.firstOrNull { uic ->
             val clazz = uic!!.javaClass
             when {
                 clazz.isNamed(MULTITASK_UIC) -> false
                 clazz.isNamed(CHATBOT_UIC) && methodChatbotPanelOpen.isFound -> false
-                clazz == globalUicClass -> (fieldGlobalUicChildren.field.get(uic) as Map<*, *>).isNotEmpty()
+                clazz == globalUicClass ->
+                    (fieldGlobalUicChildren.field.get(uic) as Map<*, *>).isNotEmpty()
                 clazz.isNamed(SNS_HEADER_UIC) -> isSnsCoverOpen(uic)
                 clazz.name in nonConsumingUics -> false
                 else -> uicHandlesBack.getOrPut(clazz) { clazz.uicDeclaresBackHandler() }
@@ -621,10 +739,14 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 
     /** `ImproveHeaderUIC.onBackPressed` takes BACK unless the cover is collapsed (stage 1). */
     private fun isSnsCoverOpen(headerUic: Any): Boolean {
-        val cover = headerUic.reflekt().firstMethod {
-            returnType = SNS_COVER_LAYOUT
-            parameters()
-        }.invoke()!!
+        val cover =
+            headerUic
+                .reflekt()
+                .firstMethod {
+                    returnType = SNS_COVER_LAYOUT
+                    parameters()
+                }
+                .invoke()!!
         return fieldSnsCoverStage.field.getInt(cover) != 1
     }
 
@@ -639,18 +761,29 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         return false
     }
 
-    /** WeChat's androidx `OnBackPressedDispatcher`, whose enabled callbacks run before Activity's default. */
+    /**
+     * WeChat's androidx `OnBackPressedDispatcher`, whose enabled callbacks run before Activity's
+     * default.
+     */
     private fun hasEnabledAndroidxBackCallback(activity: Activity): Boolean {
-        val dispatcher = activity.reflekt().firstMethod {
-            name = "getOnBackPressedDispatcher"
-            superclass()
-        }.invoke()!!
-        val callbacks = dispatcher.reflekt().firstField { type = ArrayDeque::class }.get() as ArrayDeque<*>
+        val dispatcher =
+            activity
+                .reflekt()
+                .firstMethod {
+                    name = "getOnBackPressedDispatcher"
+                    superclass()
+                }
+                .invoke()!!
+        val callbacks =
+            dispatcher.reflekt().firstField { type = ArrayDeque::class }.get() as ArrayDeque<*>
         return callbacks.any { callback ->
-            callback!!.reflekt().firstMethod {
-                name = "isEnabled"
-                superclass()
-            }.invoke() as Boolean
+            callback!!
+                .reflekt()
+                .firstMethod {
+                    name = "isEnabled"
+                    superclass()
+                }
+                .invoke() as Boolean
         }
     }
 
@@ -667,7 +800,9 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         if (predicate(this)) return this
         if (this !is ViewGroup) return null
         for (i in 0 until childCount) {
-            getChildAt(i).findFirst(predicate)?.let { return it }
+            getChildAt(i).findFirst(predicate)?.let {
+                return it
+            }
         }
         return null
     }
@@ -679,26 +814,30 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         ApplicationInfo::class.reflekt()
             .firstConstructor {
                 parameters(ApplicationInfo::class.java)
-            }.hookAfter {
+            }
+            .hookAfter {
                 val info = args[0] as ApplicationInfo
                 val field = info.reflekt().firstField { name = "privateFlagsExt" }
-                field.set(field.get() as Int or PredictiveBackFlags.PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK)
+                field.set(
+                    field.get() as Int or
+                        PredictiveBackFlags.PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK,
+                )
             }
 
-        ActivityInfo::class.reflekt()
-            .firstConstructor()
-            .hookAfter {
-                val info = thisObject as ActivityInfo
-                if (isModuleActivity(info)) PredictiveBackFlags.enable(info)
-            }
+        ActivityInfo::class.reflekt().firstConstructor().hookAfter {
+            val info = thisObject as ActivityInfo
+            if (isModuleActivity(info)) PredictiveBackFlags.enable(info)
+        }
 
         ActivityThread::class.reflekt()
             .firstMethod { name = "handleLaunchActivity" }
             .hookBefore {
                 val record = args[0]!!
-                val info = record.reflekt().firstField { name = "activityInfo" }.get() as ActivityInfo
+                val info =
+                    record.reflekt().firstField { name = "activityInfo" }.get() as ActivityInfo
                 val intent = record.reflekt().firstField { name = "intent" }.get() as Intent?
-                if (isModuleActivity(info, intent) || hostKindOf(info.name) != null) PredictiveBackFlags.enable(info)
+                if (isModuleActivity(info, intent) || hostKindOf(info.name) != null)
+                    PredictiveBackFlags.enable(info)
             }
 
         Activity::class.reflekt()
@@ -709,26 +848,34 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             .hookAfter {
                 val activity = thisObject as Activity
                 val kind = hostKindOf(activity.javaClass.name) ?: return@hookAfter
-                val host = when (kind) {
-                    HostKind.LAUNCHER -> LauncherBackHost(activity)
-                    HostKind.CONVERSATION -> ConversationBackHost(activity)
-                    HostKind.STANDARD -> StandardBackHost(activity)
-                }
+                val host =
+                    when (kind) {
+                        HostKind.LAUNCHER -> LauncherBackHost(activity)
+                        HostKind.CONVERSATION -> ConversationBackHost(activity)
+                        HostKind.STANDARD -> StandardBackHost(activity)
+                    }
                 val controller = PredictiveBackController.attachTo(activity, host)
-                WeLogger.d(TAG, "${activity.javaClass.name}: ${if (controller != null) "$kind predictive back" else "not opted in by the platform"}")
+                WeLogger.d(
+                    TAG,
+                    "${activity.javaClass.name}: ${if (controller != null) "$kind predictive back" else "not opted in by the platform"}",
+                )
                 if (controller != null) controllers[activity] = controller
             }
 
-        Activity::class.reflekt().firstMethod { name = "performDestroy" }.hookBefore {
-            controllers.remove(thisObject as Activity)?.detach()
-        }
+        Activity::class.reflekt()
+            .firstMethod { name = "performDestroy" }
+            .hookBefore {
+                controllers.remove(thisObject as Activity)?.detach()
+            }
 
-        MULTITASK_UIC.toClass().reflekt()
+        MULTITASK_UIC.toClass()
+            .reflekt()
             .firstConstructor { parameters(APP_COMPAT_ACTIVITY) }
             .hookAfter { multiTaskUics[args[0] as Activity] = thisObject }
 
         if (methodChatbotPanelOpen.isFound) {
-            CHATBOT_UIC.toClass().reflekt()
+            CHATBOT_UIC.toClass()
+                .reflekt()
                 .firstConstructor { parameters(APP_COMPAT_ACTIVITY) }
                 .hookAfter { chatbotUics[args[0] as Activity] = thisObject }
         }
@@ -740,7 +887,8 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             }
             .hookBefore { controllers[thisObject as Activity]?.onLeaving() }
 
-        // Activity's own default back (reached when a legacy chain falls through to Activity.onBackPressed).
+        // Activity's own default back (reached when a legacy chain falls through to
+        // Activity.onBackPressed).
         Activity::class.reflekt()
             .firstMethod {
                 name = "onBackInvoked"
@@ -748,11 +896,13 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             }
             .hookBefore { controllers[thisObject as Activity]?.onLeaving() }
 
-        val dispatchTouchEvent = SwipeBackLayout::class.reflekt().firstMethod { name = "dispatchTouchEvent" }
+        val dispatchTouchEvent =
+            SwipeBackLayout::class.reflekt().firstMethod { name = "dispatchTouchEvent" }
         dispatchTouchEvent.hookBefore {
             // Real touches must not reach an engine we are driving (on 15+ the gesture's own
             // CANCEL arrives right after onBackStarted; the synthetic DOWN already reset children).
-            if (!ChatSwipeDriver.injecting && ChatSwipeDriver.isDriving(thisObject as View)) result = true
+            if (!ChatSwipeDriver.injecting && ChatSwipeDriver.isDriving(thisObject as View))
+                result = true
         }
         dispatchTouchEvent.hookAfter {
             if (ChatSwipeDriver.injecting) return@hookAfter
@@ -764,16 +914,19 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             // Real touches reach the app until the gesture is recognized, and WeChat's own swipe
             // (in-window chats and activity-level swipe-back alike) would race it; 3-button nav
             // has no inset, so WeChat's swipe keeps working there.
-            val insetLeft = layout.rootWindowInsets!!.getInsets(WindowInsets.Type.systemGestures()).left
+            val insetLeft =
+                layout.rootWindowInsets!!.getInsets(WindowInsets.Type.systemGestures()).left
             val location = IntArray(2)
             layout.getLocationInWindow(location)
             if (location[0] + event.x < insetLeft) layout.setOnceDisEnableGesture(true)
         }
 
-        Dialog::class.reflekt().firstMethod { name = "show" }.hookAfter {
-            val dialog = thisObject as Dialog
-            if (dialog.isShowing) DialogBackBridge.onDialogShowing(dialog)
-        }
+        Dialog::class.reflekt()
+            .firstMethod { name = "show" }
+            .hookAfter {
+                val dialog = thisObject as Dialog
+                if (dialog.isShowing) DialogBackBridge.onDialogShowing(dialog)
+            }
 
         Dialog::class.reflekt()
             .firstMethod {
@@ -794,9 +947,10 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     }
 
     /**
-     * [dev.ujhhgtg.wekit.loader.utils.ActivityProxy] recovers the target Intent before ActivityThread
-     * launches a module Activity, but must keep the host stub's ActivityInfo. Inspect the recovered
-     * component as well, so the host ActivityInfo receives the flags for the Activity it will instantiate.
+     * [dev.ujhhgtg.wekit.loader.utils.ActivityProxy] recovers the target Intent before
+     * ActivityThread launches a module Activity, but must keep the host stub's ActivityInfo.
+     * Inspect the recovered component as well, so the host ActivityInfo receives the flags for the
+     * Activity it will instantiate.
      */
     private fun isModuleActivity(info: ActivityInfo, intent: Intent? = null): Boolean =
         info.name?.startsWith(PackageNames.MODULE) == true ||

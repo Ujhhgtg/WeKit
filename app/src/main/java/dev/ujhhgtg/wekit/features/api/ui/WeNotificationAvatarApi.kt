@@ -31,21 +31,27 @@ object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
 
     // WeChat's notification avatar loader. The declaring class is obfuscated and changes between
     // host versions, so it is resolved by the stable NotificationAvatar implementation markers.
-    private val methodLoadNotificationAvatar by dexMethod(
-        sqlMethod {
-            returnType = "android.graphics.Bitmap"
-            paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
-            usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
-        },
-    )
+    private val methodLoadNotificationAvatar by
+        dexMethod(
+            sqlMethod {
+                returnType = "android.graphics.Bitmap"
+                paramTypes("android.content.Context", "java.lang.String", "java.lang.String")
+                usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
+            },
+        )
 
-    private data class CachedAvatar(val bitmap: Bitmap, val expiresAt: Long, val customAvatarKey: String)
+    private data class CachedAvatar(
+        val bitmap: Bitmap,
+        val expiresAt: Long,
+        val customAvatarKey: String,
+    )
 
     private val lock = Any()
     private val cache = LruCache<String, CachedAvatar>(maxLimit = 64)
 
     private val loader by lazy {
-        methodLoadNotificationAvatar.method.declaringClass.reflekt()
+        methodLoadNotificationAvatar.method.declaringClass
+            .reflekt()
             .firstConstructor { parameters(Context::class) }
             .newInstance(HostInfo.application)
     }
@@ -62,16 +68,21 @@ object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
         val customAvatarKey = CustomLocalFriendAvatars.notificationAvatarCacheKey(wxId)
         synchronized(lock) {
             cache[wxId]?.let { cached ->
-                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey) return cached.bitmap
+                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey)
+                    return cached.bitmap
                 cache.remove(wxId)
             }
         }
 
-        val bitmap = runCatching {
-            methodLoadNotificationAvatar.method.invoke(loader, HostInfo.application, wxId, "") as Bitmap?
-        }.onFailure {
-            WeLogger.w(TAG, "failed to load notification avatar for $wxId", it)
-        }.getOrNull() ?: return null
+        val bitmap =
+            runCatching {
+                methodLoadNotificationAvatar.method.invoke(loader, HostInfo.application, wxId, "")
+                    as Bitmap?
+            }
+                .onFailure {
+                    WeLogger.w(TAG, "failed to load notification avatar for $wxId", it)
+                }
+                .getOrNull() ?: return null
 
         synchronized(lock) {
             cache[wxId] = CachedAvatar(bitmap, now + CACHE_TTL_MILLIS, customAvatarKey)

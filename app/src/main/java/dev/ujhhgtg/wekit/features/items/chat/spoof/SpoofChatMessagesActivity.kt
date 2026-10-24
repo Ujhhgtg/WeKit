@@ -66,11 +66,11 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /** Lists every spoofed message, filtered by kind or searched, for editing and removal. */
 @Keep
@@ -91,11 +91,13 @@ class SpoofChatMessagesActivity : ComponentActivity() {
 @Composable
 private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
     val spoofs by SpoofedMessageStore.all.collectAsState()
-    val chatNames by produceState(emptyMap<String, String>(), spoofs) {
-        value = withContext(Dispatchers.IO) {
-            spoofs.map { it.talker }.distinct().associateWith(WeDatabaseApi::getDisplayName)
+    val chatNames by
+        produceState(emptyMap<String, String>(), spoofs) {
+            value =
+                withContext(Dispatchers.IO) {
+                    spoofs.map { it.talker }.distinct().associateWith(WeDatabaseApi::getDisplayName)
+                }
         }
-    }
     var query by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf<SpoofKind?>(null) }
     var editing by remember { mutableStateOf<SpoofedChatMessageEntity?>(null) }
@@ -107,22 +109,31 @@ private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
     val scope = rememberCoroutineScope()
     val failedMessage = stringResource(R.string.spoof_message_save_failed)
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        val key = SpoofKey(pickingTalker!!, pickingMsgId)
-        pickingTalker = null
-        // The spoof may have been removed from a chat while the picker was open.
-        val spoof = SpoofedMessageStore[key] ?: return@rememberLauncherForActivityResult
-        if (uri != null) SpoofMessageEditor.importMedia(SpoofTarget.of(spoof), uri)
-    }
-
-    val filtered = remember(spoofs, chatNames, query, kindFilter) {
-        val needle = query.trim()
-        spoofs.filter { spoof ->
-            (kindFilter == null || spoof.spoofKind == kindFilter) && (needle.isEmpty() ||
-                listOfNotNull(chatNames[spoof.talker], spoof.talker, spoof.text, spoof.original, spoof.amount)
-                    .any { it.contains(needle, ignoreCase = true) })
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            val key = SpoofKey(pickingTalker!!, pickingMsgId)
+            pickingTalker = null
+            // The spoof may have been removed from a chat while the picker was open.
+            val spoof = SpoofedMessageStore[key] ?: return@rememberLauncherForActivityResult
+            if (uri != null) SpoofMessageEditor.importMedia(SpoofTarget.of(spoof), uri)
         }
-    }
+
+    val filtered =
+        remember(spoofs, chatNames, query, kindFilter) {
+            val needle = query.trim()
+            spoofs.filter { spoof ->
+                (kindFilter == null || spoof.spoofKind == kindFilter) &&
+                    (needle.isEmpty() ||
+                        listOfNotNull(
+                                chatNames[spoof.talker],
+                                spoof.talker,
+                                spoof.text,
+                                spoof.original,
+                                spoof.amount,
+                            )
+                            .any { it.contains(needle, ignoreCase = true) })
+            }
+        }
 
     fun launch(action: suspend () -> Unit) {
         scope.launch {
@@ -191,7 +202,8 @@ private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
                 editing = null
                 launch {
                     val target = SpoofTarget.of(spoof)
-                    if (spoof.spoofKind == SpoofKind.TEXT) SpoofedMessageStore.saveText(target, value)
+                    if (spoof.spoofKind == SpoofKind.TEXT)
+                        SpoofedMessageStore.saveText(target, value)
                     else SpoofedMessageStore.saveAmount(target, normalizeSpoofAmount(value)!!)
                 }
             },
@@ -244,9 +256,7 @@ private fun LazyListScope.spoofList(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier
-                .padding(top = 12.dp, start = 16.dp, end = 16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp).fillMaxWidth(),
             label = { Text(stringResource(R.string.spoof_messages_search_hint)) },
             singleLine = true,
             leadingIcon = {
@@ -273,15 +283,15 @@ private fun LazyListScope.spoofList(
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         ) {
             item {
                 FilterChip(
                     selected = kindFilter == null,
                     onClick = { onKindFilterChange(null) },
-                    label = { Text(stringResource(R.string.spoof_messages_filter_all, spoofs.size)) },
+                    label = {
+                        Text(stringResource(R.string.spoof_messages_filter_all, spoofs.size))
+                    },
                 )
             }
             items(SpoofKind.entries) { kind ->
@@ -297,7 +307,9 @@ private fun LazyListScope.spoofList(
                             ),
                         )
                     },
-                    leadingIcon = { Icon(kind.icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    leadingIcon = {
+                        Icon(kind.icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
                 )
             }
         }
@@ -305,9 +317,7 @@ private fun LazyListScope.spoofList(
     if (filtered.isEmpty()) {
         item {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 48.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -338,24 +348,31 @@ private fun SpoofRow(
     onRemove: () -> Unit,
 ) {
     val kind = spoof.spoofKind
-    val summary = when (kind) {
-        SpoofKind.TEXT -> spoof.text!!.replace('\n', ' ').let { if (it.length > 60) it.take(60) + "…" else it }
-        SpoofKind.TRANSFER -> stringResource(
-            R.string.spoof_messages_amount_summary,
-            spoof.original!!,
-            formatSpoofAmount(spoof.original, spoof.amount!!),
-        )
-        SpoofKind.IMAGE -> stringResource(R.string.spoof_kind_image)
-        SpoofKind.VIDEO -> stringResource(
-            R.string.spoof_messages_video_summary,
-            formatSpoofDuration(spoof.videoDurationSeconds!!),
-        )
-    }
+    val summary =
+        when (kind) {
+            SpoofKind.TEXT ->
+                spoof.text!!.replace('\n', ' ').let {
+                    if (it.length > 60) it.take(60) + "…" else it
+                }
+            SpoofKind.TRANSFER ->
+                stringResource(
+                    R.string.spoof_messages_amount_summary,
+                    spoof.original!!,
+                    formatSpoofAmount(spoof.original, spoof.amount!!),
+                )
+            SpoofKind.IMAGE -> stringResource(R.string.spoof_kind_image)
+            SpoofKind.VIDEO ->
+                stringResource(
+                    R.string.spoof_messages_video_summary,
+                    formatSpoofDuration(spoof.videoDurationSeconds!!),
+                )
+        }
     BaseWidget(
         icon = kind.icon,
-        leadingContent = if (kind.isMedia) {
-            { SpoofPreview(spoof) }
-        } else null,
+        leadingContent =
+            if (kind.isMedia) {
+                { SpoofPreview(spoof) }
+            } else null,
         title = chatName,
         description = "$summary\n${formatEpoch(spoof.createTime, true)}",
         onClick = onClick,
@@ -374,17 +391,16 @@ private fun SpoofRow(
 @Composable
 private fun SpoofPreview(spoof: SpoofedChatMessageEntity) {
     // Materializing may copy the media out of Room, so it stays off the main thread.
-    val file by produceState<File?>(null, spoof.updatedAt) {
-        value = withContext(Dispatchers.IO) { SpoofedMessageStore.previewFile(spoof) }
-    }
+    val file by
+        produceState<File?>(null, spoof.updatedAt) {
+            value = withContext(Dispatchers.IO) { SpoofedMessageStore.previewFile(spoof) }
+        }
     AsyncImage(
         model = file,
         contentDescription = null,
         contentScale = ContentScale.Crop,
         imageLoader = GlobalImageLoader,
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(8.dp)),
+        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
     )
 }
 
@@ -395,7 +411,10 @@ private fun SpoofValueDialog(
     onSave: (String) -> Unit,
 ) {
     val kind = spoof.spoofKind
-    var draft by remember(spoof) { mutableStateOf(if (kind == SpoofKind.TEXT) spoof.text!! else spoof.amount!!) }
+    var draft by
+        remember(spoof) {
+            mutableStateOf(if (kind == SpoofKind.TEXT) spoof.text!! else spoof.amount!!)
+        }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(kind.titleRes)) },

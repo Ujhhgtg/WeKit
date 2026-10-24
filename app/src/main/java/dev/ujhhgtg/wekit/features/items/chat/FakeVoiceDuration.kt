@@ -9,12 +9,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -27,15 +27,16 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_fake_voice_duration_description
 
-    private val methodVoiceRecorderGetLength by dexMethod(
-        sqlMethod {
-            returnType = "long"
-            declaredClass {
-                usingEqStrings("MicroMsg.SceneVoice.Recorder")
-                usingEqStrings("Stop file success: ")
-            }
-        },
-    )
+    private val methodVoiceRecorderGetLength by
+        dexMethod(
+            sqlMethod {
+                returnType = "long"
+                declaredClass {
+                    usingEqStrings("MicroMsg.SceneVoice.Recorder")
+                    usingEqStrings("Stop file success: ")
+                }
+            },
+        )
     private const val KEY_DURATION = "fake_voice_duration"
 
     override fun onEnable() {
@@ -46,30 +47,40 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var durationInput by remember { mutableStateOf(KvStore.getLongOrDef(KEY_DURATION, 0).toString()) }
+            var durationInput by remember {
+                mutableStateOf(KvStore.getLongOrDef(KEY_DURATION, 0).toString())
+            }
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_fake_voice_duration_name)) },
                 text = {
                     TextField(
                         value = durationInput,
                         onValueChange = { durationInput = it.filter { c -> c.isDigit() } },
-                        label = { Text(stringResource(R.string.chat_fake_voice_duration_millis)) })
+                        label = { Text(stringResource(R.string.chat_fake_voice_duration_millis)) },
+                    )
                 },
                 dismissButton = {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val durationMs = durationInput.toLongOrNull()
-                        if (durationMs == null) {
-                            showToast(localizedChatString(R.string.chat_fake_voice_duration_invalid))
-                            return@TextButton
-                        }
+                    TextButton(
+                        onClick = {
+                            val durationMs = durationInput.toLongOrNull()
+                            if (durationMs == null) {
+                                showToast(
+                                    localizedChatString(R.string.chat_fake_voice_duration_invalid),
+                                )
+                                return@TextButton
+                            }
 
-                        KvStore.putLong(KEY_DURATION, durationMs)
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
-                })
+                            KvStore.putLong(KEY_DURATION, durationMs)
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
+                },
+            )
         }
     }
 }

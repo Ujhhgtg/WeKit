@@ -20,13 +20,15 @@ object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
             val inputBytes = args[0] as? ByteArray? ?: return@hookBefore
             val magicBytes = "wxgf".toByteArray()
 
-            val isWxgf = inputBytes.size >= magicBytes.size &&
+            val isWxgf =
+                inputBytes.size >= magicBytes.size &&
                     magicBytes.indices.all { i -> inputBytes[i] == magicBytes[i] }
 
             if (isWxgf && inputBytes.size >= 11) {
                 // Read 16-bit Big-Endian integers for width (bytes 7-8) and height (bytes 9-10)
                 val width = inputBytes[7].toInt() and 0xFF shl 8 or (inputBytes[8].toInt() and 0xFF)
-                val height = inputBytes[9].toInt() and 0xFF shl 8 or (inputBytes[10].toInt() and 0xFF)
+                val height =
+                    inputBytes[9].toInt() and 0xFF shl 8 or (inputBytes[10].toInt() and 0xFF)
 
                 // If raw pixel data size (width * height * 4 bytes per pixel) exceeds 50MB
                 if (width.toLong() * height.toLong() * 4L > 52_428_800L) {
@@ -42,10 +44,14 @@ object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val ctorMmWxgfDrawable by dexConstructor(
-        sqlConstructor {
-            searchPackages("com.tencent.mm.plugin.gif")
-            usingEqStrings("MicroMsg.GIF.MMWXGFDrawable", "Cpan WXGF get option failed. result:%d")
-        },
-    )
+    private val ctorMmWxgfDrawable by
+        dexConstructor(
+            sqlConstructor {
+                searchPackages("com.tencent.mm.plugin.gif")
+                usingEqStrings(
+                    "MicroMsg.GIF.MMWXGFDrawable",
+                    "Cpan WXGF get option failed. result:%d",
+                )
+            },
+        )
 }

@@ -17,7 +17,7 @@ data class WeContact(
     val nicknamePinyin: String,
     override val avatarUrl: String,
     val encryptedUsername: String,
-    val type: Int
+    val type: Int,
 ) : IWeContact {
     override val displayName: String
         get() = if (remarkName.isNotBlank()) "$remarkName ($nickname)" else nickname
@@ -29,7 +29,7 @@ data class WeGroup(
     override val nickname: String,
     val nicknameShortPinyin: String,
     val nicknamePinyin: String,
-    override val avatarUrl: String
+    override val avatarUrl: String,
 ) : IWeContact {
     override val displayName: String
         get() = nickname
@@ -39,7 +39,7 @@ data class WeGroup(
 data class WeOfficialAccount(
     override val wxId: String,
     override val nickname: String,
-    override val avatarUrl: String
+    override val avatarUrl: String,
 ) : IWeContact {
     override val displayName: String
         get() = nickname
@@ -53,7 +53,7 @@ data class WeMessage(
     val content: String,
     val typeCode: Int,
     val createTime: Long,
-    val isSend: Int
+    val isSend: Int,
 ) {
     val type = MessageType.fromCode(typeCode)
 }

@@ -33,46 +33,75 @@ object ForwardFavoriteVoices : SwitchFeature() {
     override val descriptionRes = R.string.feature_forward_favorite_voices_description
 
     override fun onEnable() {
-        "com.tencent.mm.plugin.fav.ui.FavSelectUI".toClass().reflekt().firstMethod { name = "onItemClick" }.hookBefore {
-            val view = args[1] as View
+        "com.tencent.mm.plugin.fav.ui.FavSelectUI"
+            .toClass()
+            .reflekt()
+            .firstMethod { name = "onItemClick" }
+            .hookBefore {
+                val view = args[1] as View
 
-            val tag = view.tag
+                val tag = view.tag
 
-            val a = tag.reflekt().firstField { name = "a"; superclass() }.get()!!
+                val a =
+                    tag.reflekt()
+                        .firstField {
+                            name = "a"
+                            superclass()
+                        }
+                        .get()!!
 
-            val voice = WeFavoriteApi.voiceOf(a) ?: return@hookBefore
+                val voice = WeFavoriteApi.voiceOf(a) ?: return@hookBefore
 
-            val ctx = thisObject as Activity
+                val ctx = thisObject as Activity
 
-            showComposeDialog(ctx) {
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.feature_forward_favorite_voices_name)) },
-                    text = {
-                        Text(
-                            stringResource(R.string.chat_forward_favorite_voice_confirm, voice.filePath)
-                        )
-                    },
-                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-                    confirmButton = {
-                        TextButton({
-                            WeMessageApi.sendVoice(
-                                WeCurrentConversationApi.value,
-                                voice.filePath,
-                                voice.durationMs
+                showComposeDialog(ctx) {
+                    AlertDialogContent(
+                        title = {
+                            Text(stringResource(R.string.feature_forward_favorite_voices_name))
+                        },
+                        text = {
+                            Text(
+                                stringResource(
+                                    R.string.chat_forward_favorite_voice_confirm,
+                                    voice.filePath,
+                                ),
                             )
-                            showToast(ctx, ctx.localizedChatString(R.string.chat_sent))
-                            onDismiss()
-                            getTopMostActivity()?.finish()
-                        }) { Text(stringResource(R.string.dialog_confirm)) }
-                        TextButton({
-                            copyToClipboard(ctx, voice.filePath)
-                            showToast(ctx, ctx.localizedChatString(R.string.chat_path_copied))
-                        }) { Text(stringResource(R.string.chat_copy_path)) }
-                    })
-            }
+                        },
+                        dismissButton = {
+                            TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                {
+                                    WeMessageApi.sendVoice(
+                                        WeCurrentConversationApi.value,
+                                        voice.filePath,
+                                        voice.durationMs,
+                                    )
+                                    showToast(ctx, ctx.localizedChatString(R.string.chat_sent))
+                                    onDismiss()
+                                    getTopMostActivity()?.finish()
+                                },
+                            ) {
+                                Text(stringResource(R.string.dialog_confirm))
+                            }
+                            TextButton(
+                                {
+                                    copyToClipboard(ctx, voice.filePath)
+                                    showToast(
+                                        ctx,
+                                        ctx.localizedChatString(R.string.chat_path_copied),
+                                    )
+                                },
+                            ) {
+                                Text(stringResource(R.string.chat_copy_path))
+                            }
+                        },
+                    )
+                }
 
-            result = null
-        }
+                result = null
+            }
 
         val favIndexClass = "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI".toClass()
         favIndexClass.reflekt().apply {
@@ -81,56 +110,71 @@ object ForwardFavoriteVoices : SwitchFeature() {
                 returnType = bool
                 parameters { args ->
                     args.size in 4..5 &&
-                            args[0] == List::class.java &&
-                            args[1] == Context::class.java &&
-                            args[2] == DialogInterface.OnClickListener::class.java &&
-                            args.drop(3).all { it == bool }
-                }
-            }.hookBefore {
-                val context = args[1] as Context
-                if (!favIndexClass.isInstance(context)) return@hookBefore
-
-                val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
-                if (WeFavoriteApi.voiceOf(favorite) != null) {
-                    result = true
+                        args[0] == List::class.java &&
+                        args[1] == Context::class.java &&
+                        args[2] == DialogInterface.OnClickListener::class.java &&
+                        args.drop(3).all { it == bool }
                 }
             }
+                .hookBefore {
+                    val context = args[1] as Context
+                    if (!favIndexClass.isInstance(context)) return@hookBefore
+
+                    val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
+                    if (WeFavoriteApi.voiceOf(favorite) != null) {
+                        result = true
+                    }
+                }
 
             firstMethod {
                 parameters(List::class.java, BString, BString, bool)
                 returnType = void
-            }.hookBefore {
-                val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
-                val voice = WeFavoriteApi.voiceOf(favorite) ?: return@hookBefore
-                val recipients = (args[2] as String)
-                    .split(',')
-                    .map(String::trim)
-                    .filter(String::isNotEmpty)
-                    .distinct()
-                if (recipients.isEmpty()) return@hookBefore
-
-                // WeChat filters type 3 into an empty send list and shows "所选内容不可转发".
-                result = null
-                val customText = args[1] as? String
-                var successCount = 0
-                recipients.forEach { wxId ->
-                    if (WeMessageApi.sendVoice(wxId, voice.filePath, voice.durationMs)) {
-                        successCount++
-                    }
-                    if (!customText.isNullOrBlank()) {
-                        WeMessageApi.sendText(wxId, customText)
-                    }
-                }
-                val context = thisObject as Context
-                showToast(
-                    context,
-                    when (successCount) {
-                        recipients.size if recipients.size == 1 -> context.localizedChatString(R.string.chat_sent)
-                        recipients.size -> context.localizedChatQuantity(R.plurals.chat_forwarded_to_recipients, recipients.size, recipients.size)
-                        else -> context.localizedChatQuantity(R.plurals.chat_forwarded_partial_recipients, recipients.size, successCount, recipients.size)
-                    }
-                )
             }
+                .hookBefore {
+                    val favorite = (args[0] as List<*>).singleOrNull() ?: return@hookBefore
+                    val voice = WeFavoriteApi.voiceOf(favorite) ?: return@hookBefore
+                    val recipients =
+                        (args[2] as String)
+                            .split(',')
+                            .map(String::trim)
+                            .filter(String::isNotEmpty)
+                            .distinct()
+                    if (recipients.isEmpty()) return@hookBefore
+
+                    // WeChat filters type 3 into an empty send list and shows "所选内容不可转发".
+                    result = null
+                    val customText = args[1] as? String
+                    var successCount = 0
+                    recipients.forEach { wxId ->
+                        if (WeMessageApi.sendVoice(wxId, voice.filePath, voice.durationMs)) {
+                            successCount++
+                        }
+                        if (!customText.isNullOrBlank()) {
+                            WeMessageApi.sendText(wxId, customText)
+                        }
+                    }
+                    val context = thisObject as Context
+                    showToast(
+                        context,
+                        when (successCount) {
+                            recipients.size if recipients.size == 1 ->
+                                context.localizedChatString(R.string.chat_sent)
+                            recipients.size ->
+                                context.localizedChatQuantity(
+                                    R.plurals.chat_forwarded_to_recipients,
+                                    recipients.size,
+                                    recipients.size,
+                                )
+                            else ->
+                                context.localizedChatQuantity(
+                                    R.plurals.chat_forwarded_partial_recipients,
+                                    recipients.size,
+                                    successCount,
+                                    recipients.size,
+                                )
+                        },
+                    )
+                }
         }
     }
 }

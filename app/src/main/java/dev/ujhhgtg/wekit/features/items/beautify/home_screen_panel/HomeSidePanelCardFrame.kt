@@ -3,11 +3,11 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -65,9 +65,7 @@ fun HomeSidePanelCardFrame(
                 content()
             }
             Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp),
+                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
             ) {
                 if (badgeContent != null) {
                     badgeContent()
@@ -158,7 +156,7 @@ fun HomeSidePanelBadgeButton(
         }
     } else {
         Box(
-            modifier = modifier.clearAndSetSemantics { },
+            modifier = modifier.clearAndSetSemantics {},
             contentAlignment = Alignment.Center,
         ) {
             Icon(

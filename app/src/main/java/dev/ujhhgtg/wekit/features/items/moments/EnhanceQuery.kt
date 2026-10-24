@@ -40,9 +40,9 @@ object EnhanceQuery : SwitchFeature(), WeDatabaseListenerApi.IQueryListener {
         var newSql = sql
 
         if (sql.contains("WHERE SnsInfo.userName=", false)) {
-            newSql = sql
-                .replace(SOURCE_TYPE_FILTER, SOURCE_TYPE_FILTER_ENHANCED)
-                .replace("(snsId >= ", "(1=1 or snsId >= ")
+            newSql =
+                sql.replace(SOURCE_TYPE_FILTER, SOURCE_TYPE_FILTER_ENHANCED)
+                    .replace("(snsId >= ", "(1=1 or snsId >= ")
         }
 
         return newSql.replace("(sourceType & 2 != 0 )", "(1=1)")

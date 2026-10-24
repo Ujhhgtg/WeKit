@@ -17,14 +17,16 @@ object PowerSaver : SwitchFeature() {
         PowerManager.WakeLock::class.reflekt().apply {
             methods {
                 name = "acquire"
-            }.forEach {
-                it.hookBefore { result = null }
             }
+                .forEach {
+                    it.hookBefore { result = null }
+                }
 
             firstMethod {
                 name = "release"
                 parameterCount = 1
-            }.hookBefore { result = null }
+            }
+                .hookBefore { result = null }
         }
     }
 }

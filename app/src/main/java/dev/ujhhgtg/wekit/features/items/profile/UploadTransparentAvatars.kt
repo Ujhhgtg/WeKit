@@ -18,34 +18,38 @@ object UploadTransparentAvatars : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
     override val descriptionRes = R.string.feature_upload_transparent_avatars_description
 
-    private val TRIGGER_PATTERNS = listOf(
-        "com.tencent.mm.modelavatar",
-        "PhotoCropActivity"
-    )
+    private val TRIGGER_PATTERNS =
+        listOf(
+            "com.tencent.mm.modelavatar",
+            "PhotoCropActivity",
+        )
 
-    private val classMediaTailor by dexClass(
-        sqlClass {
-            usingEqStrings("Rect width or height contains zero. contentRect: ")
-        },
-    )
+    private val classMediaTailor by
+        dexClass(
+            sqlClass {
+                usingEqStrings("Rect width or height contains zero. contentRect: ")
+            },
+        )
 
     override fun onEnable() {
-        Bitmap::class.reflekt().firstMethod {
-            name = "compress"
-            parameters(Bitmap.CompressFormat::class, int, OutputStream::class)
-        }.hookBefore {
-            val stack = captureStackTrace()
-
-            val inAvatarContext = TRIGGER_PATTERNS.any { pattern ->
-                stack.contains(pattern)
+        Bitmap::class.reflekt()
+            .firstMethod {
+                name = "compress"
+                parameters(Bitmap.CompressFormat::class, int, OutputStream::class)
             }
+            .hookBefore {
+                val stack = captureStackTrace()
 
-            val inUploadContext = classMediaTailor.clazz.name.let { stack.contains(it) }
+                val inAvatarContext = TRIGGER_PATTERNS.any { pattern ->
+                    stack.contains(pattern)
+                }
 
-            if (inAvatarContext || inUploadContext) {
-                args[0] = Bitmap.CompressFormat.PNG
+                val inUploadContext = classMediaTailor.clazz.name.let { stack.contains(it) }
+
+                if (inAvatarContext || inUploadContext) {
+                    args[0] = Bitmap.CompressFormat.PNG
+                }
             }
-        }
     }
 
     private fun captureStackTrace(): String {

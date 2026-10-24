@@ -36,14 +36,14 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
 
@@ -68,7 +68,7 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
         val msgType: Int,
         val channelId: Int,
         val headImg: String = "",
-        val nickName: String = ""
+        val nickName: String = "",
     )
 
     private data class HistoryLog(
@@ -90,11 +90,19 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
 
             thread(name = "OpenHistoryRedPacketThread") {
                 try {
-                    val openReq = WePaymentApi.classOpenLuckyMoney.clazz.createInstance(
-                        info.msgType, info.channelId, info.sendId, info.nativeUrl,
-                        info.headImg, info.nickName, info.talker,
-                        "v1.0", timingIdentifier, ""
-                    )
+                    val openReq =
+                        WePaymentApi.classOpenLuckyMoney.clazz.createInstance(
+                            info.msgType,
+                            info.channelId,
+                            info.sendId,
+                            info.nativeUrl,
+                            info.headImg,
+                            info.nickName,
+                            info.talker,
+                            "v1.0",
+                            timingIdentifier,
+                            "",
+                        )
                     WeNetSceneApi.sendNetScene(openReq)
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "failed to open request", e)
@@ -122,12 +130,17 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
                 2 -> {
                     val amount = json.optInt("amount", 0)
                     val displayAmount = amount / 100.0
-                    updateLog(R.string.payment_history_receive_success, info.nickName, displayAmount)
+                    updateLog(
+                        R.string.payment_history_receive_success,
+                        info.nickName,
+                        displayAmount,
+                    )
                 }
 
                 3 -> updateLog(R.string.payment_history_expired, info.nickName)
                 4 -> updateLog(R.string.payment_history_empty, info.nickName)
-                else -> updateLog(R.string.payment_history_unknown_status, info.nickName, receiveStatus)
+                else ->
+                    updateLog(R.string.payment_history_unknown_status, info.nickName, receiveStatus)
             }
         }
     }
@@ -137,23 +150,25 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
         currentRedPacketMap.clear()
     }
 
-    override fun getContactInfoItem(activity: Activity): List<WeContactPrefsScreenApi.PreferenceItem> {
+    override fun getContactInfoItem(
+        activity: Activity,
+    ): List<WeContactPrefsScreenApi.PreferenceItem> {
         val convId = WeCurrentConversationApi.value
         if (convId.isEmpty()) return emptyList()
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                title = activity.localizedPaymentString(R.string.feature_open_history_red_packets_name),
+                title =
+                    activity.localizedPaymentString(R.string.feature_open_history_red_packets_name),
                 position = 1,
                 onClick = onClick@{ activity ->
-                    val clickedConvId = WeCurrentConversationApi.value
-                    if (clickedConvId.isEmpty()) return@onClick
-                    showProgressDialog(activity, clickedConvId)
-                },
-            )
+                        val clickedConvId = WeCurrentConversationApi.value
+                        if (clickedConvId.isEmpty()) return@onClick
+                        showProgressDialog(activity, clickedConvId)
+                    },
+            ),
         )
     }
-
 
     private suspend fun scanConversation(convId: String): Int {
         var pageIndex = 1
@@ -216,19 +231,27 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
                 updateLog(R.string.payment_history_found, nickName)
             }
 
-            currentRedPacketMap[sendId] = RedPacketInfo(
-                sendId = sendId,
-                nativeUrl = nativeUrl,
-                talker = msg.talker,
-                msgType = msgType,
-                channelId = channelId,
-                headImg = headImg,
-                nickName = nickName
-            )
+            currentRedPacketMap[sendId] =
+                RedPacketInfo(
+                    sendId = sendId,
+                    nativeUrl = nativeUrl,
+                    talker = msg.talker,
+                    msgType = msgType,
+                    channelId = channelId,
+                    headImg = headImg,
+                    nickName = nickName,
+                )
 
-            val req = WePaymentApi.classReceiveLuckyMoney.clazz.createInstance(
-                msgType, channelId, sendId, nativeUrl, 1, "v1.0", msg.talker
-            )
+            val req =
+                WePaymentApi.classReceiveLuckyMoney.clazz.createInstance(
+                    msgType,
+                    channelId,
+                    sendId,
+                    nativeUrl,
+                    1,
+                    "v1.0",
+                    msg.talker,
+                )
             WeNetSceneApi.sendNetScene(req)
         } catch (e: Throwable) {
             WeLogger.e(TAG, "failed to parse history red packet message", e)
@@ -260,9 +283,10 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
 
             LaunchedEffect(convId) {
                 try {
-                    val completionMessage = withContext(Dispatchers.Default) {
-                        scanConversation(convId)
-                    }
+                    val completionMessage =
+                        withContext(Dispatchers.Default) {
+                            scanConversation(convId)
+                        }
                     logList.add(HistoryLog(completionMessage))
                 } catch (e: CancellationException) {
                     throw e
@@ -290,13 +314,12 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
                 text = {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier
-                            .fillMaxWidth(0.96f)
-                            .fillMaxHeight(0.92f),
+                        modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f),
                     ) {
                         items(logList) { log ->
                             Text(
-                                text = stringResource(log.messageRes, *log.formatArgs.toTypedArray()),
+                                text =
+                                    stringResource(log.messageRes, *log.formatArgs.toTypedArray()),
                                 modifier = Modifier.padding(vertical = 2.dp),
                             )
                         }
@@ -304,13 +327,15 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
                 },
                 dismissButton = {
                     if (!isScanning) {
-                        TextButton(onClick = {
-                            onDismiss()
-                        }) {
+                        TextButton(
+                            onClick = {
+                                onDismiss()
+                            },
+                        ) {
                             Text(stringResource(R.string.dialog_close))
                         }
                     }
-                }
+                },
             )
         }
     }

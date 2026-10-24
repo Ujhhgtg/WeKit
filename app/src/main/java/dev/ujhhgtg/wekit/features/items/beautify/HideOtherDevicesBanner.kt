@@ -15,14 +15,18 @@ object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_hide_other_devices_banner_description
 
-    private val methodSetOtherOnlineBannerVisibility by dexMethod(
-        sqlMethod {
-            searchPackages("com.tencent.mm.ui.conversation.banner")
-            returnType = "void"
-            paramTypes("int")
-            usingEqStrings("com/tencent/mm/ui/conversation/banner/OtherOnlineBanner", "setVisibility")
-        },
-    )
+    private val methodSetOtherOnlineBannerVisibility by
+        dexMethod(
+            sqlMethod {
+                searchPackages("com.tencent.mm.ui.conversation.banner")
+                returnType = "void"
+                paramTypes("int")
+                usingEqStrings(
+                    "com/tencent/mm/ui/conversation/banner/OtherOnlineBanner",
+                    "setVisibility",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodSetOtherOnlineBannerVisibility.hookBefore {
@@ -32,4 +36,3 @@ object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
         }
     }
 }
-

@@ -14,18 +14,19 @@ object DisableResumeWatchingToast : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_disable_resume_watching_toast_description
 
-    private val methodShowRecoveryToast by dexMethod(
-        sqlMethod {
-            paramCount = 0
-            usingEqStrings(
-                "MicroMsg.RecoveryHelper",
-                "topActivity == null or isFinishing or isDestroyed",
-                "recoveryObj == null ",
-                "toast_button",
-                "view_exp",
-            )
-        },
-    )
+    private val methodShowRecoveryToast by
+        dexMethod(
+            sqlMethod {
+                paramCount = 0
+                usingEqStrings(
+                    "MicroMsg.RecoveryHelper",
+                    "topActivity == null or isFinishing or isDestroyed",
+                    "recoveryObj == null ",
+                    "toast_button",
+                    "view_exp",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodShowRecoveryToast.hookBefore {

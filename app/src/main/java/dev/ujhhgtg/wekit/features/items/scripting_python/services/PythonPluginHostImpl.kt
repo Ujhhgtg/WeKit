@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
-import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
+import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.python.api.PythonDexHost
 import dev.ujhhgtg.wekit.python.api.PythonHookHost
 import dev.ujhhgtg.wekit.python.api.PythonLogger
@@ -18,8 +18,11 @@ class PythonPluginHostImpl(
     private val tasks = PythonTaskHostImpl(scope)
 
     override fun logger(pluginId: String): PythonLogger = checked(pluginId, logger)
+
     override fun hooks(pluginId: String): PythonHookHost = checked(pluginId, hooks)
+
     override fun dex(pluginId: String): PythonDexHost = checked(pluginId, dex)
+
     override fun tasks(pluginId: String): PythonTaskHost = checked(pluginId, tasks)
 
     override fun beginExecution(pluginId: String, phase: String): Long {
@@ -28,7 +31,9 @@ class PythonPluginHostImpl(
     }
 
     override fun finishExecution(pluginId: String, token: Long) {
-        require(pluginId == this.pluginId) { "Host service belongs to ${this.pluginId}, not $pluginId" }
+        require(pluginId == this.pluginId) {
+            "Host service belongs to ${this.pluginId}, not $pluginId"
+        }
         PythonCrashGuard.finish(token)
     }
 

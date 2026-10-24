@@ -34,73 +34,85 @@ data class HomeSidePanelActionSpec(
     val icon: ImageVector,
 )
 
-fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePanelActionSpec = when (kind) {
-    HomeSidePanelActionKind.ADD_FRIEND -> HomeSidePanelActionSpec(
-        kind,
-        R.string.home_side_panel_action_add_friend,
-        MaterialSymbols.OutlinedFilled.Person_add,
-    )
+fun homeSidePanelActionSpec(kind: HomeSidePanelActionKind): HomeSidePanelActionSpec =
+    when (kind) {
+        HomeSidePanelActionKind.ADD_FRIEND ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.home_side_panel_action_add_friend,
+                MaterialSymbols.OutlinedFilled.Person_add,
+            )
 
-    HomeSidePanelActionKind.SCAN -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_scan,
-        MaterialSymbols.OutlinedFilled.Qr_code_scanner,
-    )
+        HomeSidePanelActionKind.SCAN ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_scan,
+                MaterialSymbols.OutlinedFilled.Qr_code_scanner,
+            )
 
-    HomeSidePanelActionKind.MOMENTS -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_moments,
-        MaterialSymbols.OutlinedFilled.Camera,
-    )
+        HomeSidePanelActionKind.MOMENTS ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_moments,
+                MaterialSymbols.OutlinedFilled.Camera,
+            )
 
-    HomeSidePanelActionKind.WALLET -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_wallet,
-        MaterialSymbols.OutlinedFilled.Wallet,
-    )
+        HomeSidePanelActionKind.WALLET ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_wallet,
+                MaterialSymbols.OutlinedFilled.Wallet,
+            )
 
-    HomeSidePanelActionKind.CHANNELS -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_channels,
-        MaterialSymbols.OutlinedFilled.Movie,
-    )
+        HomeSidePanelActionKind.CHANNELS ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_channels,
+                MaterialSymbols.OutlinedFilled.Movie,
+            )
 
-    HomeSidePanelActionKind.WECHAT_SETTINGS -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_settings,
-        MaterialSymbols.OutlinedFilled.Settings,
-    )
+        HomeSidePanelActionKind.WECHAT_SETTINGS ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_settings,
+                MaterialSymbols.OutlinedFilled.Settings,
+            )
 
-    HomeSidePanelActionKind.FAVORITES -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_favorites,
-        MaterialSymbols.OutlinedFilled.Favorite,
-    )
+        HomeSidePanelActionKind.FAVORITES ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_favorites,
+                MaterialSymbols.OutlinedFilled.Favorite,
+            )
 
-    HomeSidePanelActionKind.WEKIT_SETTINGS -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_module_settings,
-        MaterialSymbols.OutlinedFilled.Extension,
-    )
+        HomeSidePanelActionKind.WEKIT_SETTINGS ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_module_settings,
+                MaterialSymbols.OutlinedFilled.Extension,
+            )
 
-    HomeSidePanelActionKind.RESTART_WECHAT -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_restart_wechat,
-        MaterialSymbols.OutlinedFilled.Update,
-    )
+        HomeSidePanelActionKind.RESTART_WECHAT ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_restart_wechat,
+                MaterialSymbols.OutlinedFilled.Update,
+            )
 
-    HomeSidePanelActionKind.FORCE_STOP_WECHAT -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_force_stop,
-        MaterialSymbols.OutlinedFilled.Cancel,
-    )
+        HomeSidePanelActionKind.FORCE_STOP_WECHAT ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_force_stop,
+                MaterialSymbols.OutlinedFilled.Cancel,
+            )
 
-    HomeSidePanelActionKind.MARK_ALL_READ -> HomeSidePanelActionSpec(
-        kind,
-        R.string.fab_default_mark_all_read,
-        MaterialSymbols.OutlinedFilled.Mark_chat_read,
-    )
-}
+        HomeSidePanelActionKind.MARK_ALL_READ ->
+            HomeSidePanelActionSpec(
+                kind,
+                R.string.fab_default_mark_all_read,
+                MaterialSymbols.OutlinedFilled.Mark_chat_read,
+            )
+    }
 
 class HomeSidePanelActionExecutor(
     private val activity: Activity,
@@ -120,11 +132,13 @@ class HomeSidePanelActionExecutor(
 
     fun openPaymentCode() {
         closePanel {
-            val opened = tryStartActivity(
-                Intent().setClassName(activity.packageName, PAYMENT_CODE_CLASS),
-            ) || tryStartActivity(
-                Intent().setClassName(activity.packageName, PAYMENT_CODE_FALLBACK_CLASS),
-            )
+            val opened =
+                tryStartActivity(
+                    Intent().setClassName(activity.packageName, PAYMENT_CODE_CLASS),
+                ) ||
+                    tryStartActivity(
+                        Intent().setClassName(activity.packageName, PAYMENT_CODE_FALLBACK_CLASS),
+                    )
             if (!opened) {
                 publishMessage(beautifyText(R.string.home_side_panel_action_launch_failed))
             }
@@ -163,17 +177,19 @@ class HomeSidePanelActionExecutor(
                 startWeChatActivity("com.tencent.mm.plugin.fav.ui.FavoriteIndexUI")
             }
 
-            HomeSidePanelActionKind.WEKIT_SETTINGS -> startActivity(
-                Intent(activity, SettingsActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            HomeSidePanelActionKind.WEKIT_SETTINGS ->
+                startActivity(
+                    Intent(activity, SettingsActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
 
             HomeSidePanelActionKind.RESTART_WECHAT -> restartHost()
             HomeSidePanelActionKind.FORCE_STOP_WECHAT -> killHost()
-            HomeSidePanelActionKind.MARK_ALL_READ -> scope.launch(Dispatchers.IO) {
-                WeConversationApi.markAllAsRead()
-                publishMessage(beautifyText(R.string.fab_all_marked_read))
-            }
+            HomeSidePanelActionKind.MARK_ALL_READ ->
+                scope.launch(Dispatchers.IO) {
+                    WeConversationApi.markAllAsRead()
+                    publishMessage(beautifyText(R.string.fab_all_marked_read))
+                }
         }
     }
 
@@ -200,9 +216,7 @@ class HomeSidePanelActionExecutor(
     }
 
     private companion object {
-        const val PAYMENT_CODE_CLASS =
-            "com.tencent.mm.plugin.offline.ui.WalletOfflineCoinPurseUI"
-        const val PAYMENT_CODE_FALLBACK_CLASS =
-            "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"
+        const val PAYMENT_CODE_CLASS = "com.tencent.mm.plugin.offline.ui.WalletOfflineCoinPurseUI"
+        const val PAYMENT_CODE_FALLBACK_CLASS = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"
     }
 }

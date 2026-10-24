@@ -4,10 +4,10 @@ import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.DexSqlQueryResult
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Relation data needed by matcher evaluation that metadata documents do not inline.

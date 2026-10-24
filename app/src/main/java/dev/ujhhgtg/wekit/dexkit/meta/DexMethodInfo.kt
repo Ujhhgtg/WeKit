@@ -105,11 +105,16 @@ internal constructor(
 
     /** Fields read by this method (DexKit MethodData.readFields() equivalent). */
     val readFields: List<DexFieldInfo>
-        get() = usingFields.filter { it.usingType.isRead }.map { it.field }.distinctBy { it.descriptor }
+        get() =
+            usingFields.filter { it.usingType.isRead }.map { it.field }.distinctBy { it.descriptor }
 
     /** Fields written by this method. */
     val writeFields: List<DexFieldInfo>
-        get() = usingFields.filter { it.usingType.isWrite }.map { it.field }.distinctBy { it.descriptor }
+        get() =
+            usingFields
+                .filter { it.usingType.isWrite }
+                .map { it.field }
+                .distinctBy { it.descriptor }
 
     override fun toString(): String = descriptor
 }

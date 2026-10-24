@@ -23,8 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-object ForwardMessages : SwitchFeature(),
-    WeChatMessageContextMenuApi.IMenuItemsProvider {
+object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "转发消息"
     override val nameRes = R.string.feature_forward_messages_name
@@ -50,19 +49,20 @@ object ForwardMessages : SwitchFeature(),
                 MaterialSymbols.Outlined.Forward,
                 isSupported = { true },
                 // forward every selected message to every chosen contact
-                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
-                    isSupported = { true },
-                    onClick = { view, _, msgInfos ->
-                        showForwardDialog(view) { selectedWxIds ->
-                            forwardMessages(msgInfos, selectedWxIds)
-                        }
-                    }
-                )
+                multiSelect =
+                    WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
+                        isSupported = { true },
+                        onClick = { view, _, msgInfos ->
+                            showForwardDialog(view) { selectedWxIds ->
+                                forwardMessages(msgInfos, selectedWxIds)
+                            }
+                        },
+                    ),
             ) { view, _, msgInfo ->
                 showForwardDialog(view) { selectedWxIds ->
                     forwardMessages(listOf(msgInfo), selectedWxIds)
                 }
-            }
+            },
         )
     }
 
@@ -80,13 +80,15 @@ object ForwardMessages : SwitchFeature(),
                         onDismiss = onDismiss,
                         onConfirm = { selectedWxIds ->
                             if (selectedWxIds.isEmpty()) {
-                                showToast(localizedChatString(R.string.chat_forward_select_at_least_one))
+                                showToast(
+                                    localizedChatString(R.string.chat_forward_select_at_least_one),
+                                )
                                 return@ContactsSelector
                             }
 
                             onDismiss()
                             onConfirm(selectedWxIds)
-                        }
+                        },
                     )
                 }
             }
@@ -113,8 +115,19 @@ object ForwardMessages : SwitchFeature(),
             }
 
             showToastSuspend(
-                if (success == total) localizedChatQuantity(R.plurals.chat_forwarded_to_recipients, wxIds.size, wxIds.size)
-                else localizedChatQuantity(R.plurals.chat_forwarded_partial_messages, total, success, total)
+                if (success == total)
+                    localizedChatQuantity(
+                        R.plurals.chat_forwarded_to_recipients,
+                        wxIds.size,
+                        wxIds.size,
+                    )
+                else
+                    localizedChatQuantity(
+                        R.plurals.chat_forwarded_partial_messages,
+                        total,
+                        success,
+                        total,
+                    ),
             )
         }
     }
@@ -126,19 +139,28 @@ object ForwardMessages : SwitchFeature(),
                 MessageType.TEXT -> WeMessageApi.sendText(toUser, msgInfo.actualContent)
                 MessageType.IMAGE -> forwardImage(toUser, msgInfo)
                 MessageType.VOICE -> forwardVoice(toUser, msgInfo)
-                MessageType.VIDEO, MessageType.MICRO_VIDEO -> forwardVideo(toUser, msgInfo)
-                MessageType.STICKER, MessageType.SO_GOU_EMOJI -> forwardEmoji(toUser, msgInfo)
+                MessageType.VIDEO,
+                MessageType.MICRO_VIDEO -> forwardVideo(toUser, msgInfo)
+                MessageType.STICKER,
+                MessageType.SO_GOU_EMOJI -> forwardEmoji(toUser, msgInfo)
                 MessageType.APP -> WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 MessageType.QUOTE -> WeMessageApi.sendText(toUser, msgInfo.quoteMsgActualContent!!)
                 else -> {
-                    showToastSuspend(localizedChatString(R.string.chat_forward_untested_type_warning))
+                    showToastSuspend(
+                        localizedChatString(R.string.chat_forward_untested_type_warning),
+                    )
                     WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
                 }
             }
-        }.getOrElse {
-            WeLogger.e(TAG, "failed to forward message to $toUser: type=${msgInfo.typeCode}", it)
-            false
         }
+            .getOrElse {
+                WeLogger.e(
+                    TAG,
+                    "failed to forward message to $toUser: type=${msgInfo.typeCode}",
+                    it,
+                )
+                false
+            }
     }
 
     private fun forwardImage(toUser: String, msgInfo: MessageInfo): Boolean {

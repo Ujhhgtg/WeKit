@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.reflection.bool
 
 object DisableMessageCollapsing : SwitchFeature(), IResolveDex {
 
@@ -15,12 +14,13 @@ object DisableMessageCollapsing : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_disable_message_collapsing_description
 
-    private val methodFoldMsg by dexMethod(
-        sqlMethod {
-            paramTypes(null, "java.lang.CharSequence", null, "boolean", null, null)
-            usingStrings(".msgsource.sec_msg_node.clip-len")
-        },
-    )
+    private val methodFoldMsg by
+        dexMethod(
+            sqlMethod {
+                paramTypes(null, "java.lang.CharSequence", null, "boolean", null, null)
+                usingStrings(".msgsource.sec_msg_node.clip-len")
+            },
+        )
 
     override fun onEnable() {
         methodFoldMsg.hookBefore {

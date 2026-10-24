@@ -13,8 +13,9 @@ fun localizedDebugString(@StringRes id: Int, vararg args: Any): String =
 fun Context.localizedDebugString(@StringRes id: Int, vararg args: Any): String =
     debugLocalizedContext().getString(id, *args)
 
-private fun Context.debugLocalizedContext(): Context = LocalizedContextFactory.create(
-    this,
-    WeKitLocaleController.resolvedLocale,
-    LocaleResourceMode.InjectedHost,
-)
+private fun Context.debugLocalizedContext(): Context =
+    LocalizedContextFactory.create(
+        this,
+        WeKitLocaleController.resolvedLocale,
+        LocaleResourceMode.InjectedHost,
+    )

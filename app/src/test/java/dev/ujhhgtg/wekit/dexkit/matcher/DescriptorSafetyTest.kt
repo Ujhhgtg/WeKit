@@ -298,13 +298,12 @@ class DescriptorSafetyTest {
 
     @Test
     fun invalidArrayDescriptorsAreSkippedBeforeMetadataLookup() {
-        val throwingProvider =
-            DexMetadataProvider { kind, descriptor ->
-                if (descriptor.startsWith("[")) {
-                    throw IllegalArgumentException("malformed class descriptor $descriptor")
-                }
-                MatcherFixtures.provider.query(kind, descriptor)
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (descriptor.startsWith("[")) {
+                throw IllegalArgumentException("malformed class descriptor $descriptor")
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val methodQuery = RecordingDescriptorQuery {
             listOf("[Lcom/x/Y;", "[B", MatcherFixtures.ALPHA_HELPER)
@@ -358,15 +357,14 @@ class DescriptorSafetyTest {
     @Test
     fun nativeMethodDocumentFailureSkipsCandidateInsteadOfAborting() {
         val failingDescriptor = MatcherFixtures.ALPHA_RUN
-        val throwingProvider =
-            DexMetadataProvider { kind, descriptor ->
-                if (kind == DexMetadataKind.Method && descriptor == failingDescriptor) {
-                    throw DexSqlException(
-                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
-                    )
-                }
-                MatcherFixtures.provider.query(kind, descriptor)
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (kind == DexMetadataKind.Method && descriptor == failingDescriptor) {
+                throw DexSqlException(
+                    "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                )
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery {
             listOf(MatcherFixtures.ALPHA_RUN, MatcherFixtures.ALPHA_HELPER)
@@ -384,16 +382,15 @@ class DescriptorSafetyTest {
     @Test
     fun classStringsEvaluationNeverReadsNativeMethodDocuments() {
         var methodDocumentQueries = 0
-        val throwingProvider =
-            DexMetadataProvider { kind, descriptor ->
-                if (kind == DexMetadataKind.Method) {
-                    methodDocumentQueries++
-                    throw DexSqlException(
-                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
-                    )
-                }
-                MatcherFixtures.provider.query(kind, descriptor)
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (kind == DexMetadataKind.Method) {
+                methodDocumentQueries++
+                throw DexSqlException(
+                    "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                )
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {
@@ -424,16 +421,15 @@ class DescriptorSafetyTest {
     @Test
     fun classBaseSettingItemShapeMapsCandidatesWithoutMethodDocuments() {
         var methodDocumentQueries = 0
-        val throwingProvider =
-            DexMetadataProvider { kind, descriptor ->
-                if (kind == DexMetadataKind.Method) {
-                    methodDocumentQueries++
-                    throw DexSqlException(
-                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
-                    )
-                }
-                MatcherFixtures.provider.query(kind, descriptor)
+        val throwingProvider = DexMetadataProvider { kind, descriptor ->
+            if (kind == DexMetadataKind.Method) {
+                methodDocumentQueries++
+                throw DexSqlException(
+                    "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                )
             }
+            MatcherFixtures.provider.query(kind, descriptor)
+        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {

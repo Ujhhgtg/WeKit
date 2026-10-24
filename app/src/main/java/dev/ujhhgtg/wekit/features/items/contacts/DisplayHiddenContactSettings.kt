@@ -18,16 +18,24 @@ object DisplayHiddenContactSettings : SwitchFeature() {
         ProfileSettingUI::class.reflekt()
             .firstMethod {
                 name = "initView"
-            }.hookAfter {
-                val prefScreen = thisObject!!.reflekt()
-                    .firstMethod {
-                        name = "getPreferenceScreen"
-                        superclass()
-                    }.invoke()!!
-                val hiddenSet = prefScreen.reflekt()
-                    .firstField {
-                        type = HashSet::class
-                    }.get()!! as HashSet<*>
+            }
+            .hookAfter {
+                val prefScreen =
+                    thisObject!!
+                        .reflekt()
+                        .firstMethod {
+                            name = "getPreferenceScreen"
+                            superclass()
+                        }
+                        .invoke()!!
+                val hiddenSet =
+                    prefScreen
+                        .reflekt()
+                        .firstField {
+                            type = HashSet::class
+                        }
+                        .get()!!
+                        as HashSet<*>
                 hiddenSet.clear()
                 (prefScreen as BaseAdapter).notifyDataSetChanged()
             }

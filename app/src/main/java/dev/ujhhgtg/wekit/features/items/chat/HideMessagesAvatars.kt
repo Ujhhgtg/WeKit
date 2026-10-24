@@ -13,10 +13,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -52,17 +52,20 @@ object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateVie
         val tag = view.tag
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
 
-        val hide = if (msgInfo.isSelfSender) {
-            hideOutgoing
-        } else {
-            !msgInfo.isInGroupChat && hideIncoming
-        }
+        val hide =
+            if (msgInfo.isSelfSender) {
+                hideOutgoing
+            } else {
+                !msgInfo.isInGroupChat && hideIncoming
+            }
 
-        val avatar = tag.reflekt()
-            .firstField {
-                name = "avatarIV"
-                superclass()
-            }.get() as? View? ?: return
+        val avatar =
+            tag.reflekt()
+                .firstField {
+                    name = "avatarIV"
+                    superclass()
+                }
+                .get() as? View? ?: return
 
         val parent = avatar.parent as? ViewGroup ?: return
 
@@ -109,7 +112,8 @@ object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateVie
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.chat_hide_avatar_incoming),
-                                description = stringResource(R.string.chat_hide_avatar_incoming_description),
+                                description =
+                                    stringResource(R.string.chat_hide_avatar_incoming_description),
                                 checked = incoming,
                                 onCheckedChange = {
                                     incoming = it
@@ -121,7 +125,8 @@ object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateVie
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.chat_hide_avatar_outgoing),
-                                description = stringResource(R.string.chat_hide_avatar_outgoing_description),
+                                description =
+                                    stringResource(R.string.chat_hide_avatar_outgoing_description),
                                 checked = outgoing,
                                 onCheckedChange = {
                                     outgoing = it

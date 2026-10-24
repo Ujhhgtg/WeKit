@@ -15,17 +15,22 @@ object DisableWebViewSafetyWarnings : SwitchFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_disable_web_view_safety_warnings_description
 
-    private val methodGetIsInterceptEnabled by dexMethod(
-        sqlMethod {
-            usingEqStrings("MicroMsg.WebViewHighRiskAdH5Interceptor", "isInterceptEnabled, expt=")
-        },
-    )
-    private val methodGetIsUrlSafe by dexMethod(
-        sqlMethod {
-            declaredClass(methodGetIsInterceptEnabled.data.declaredClassName)
-            usingEqStrings("http", "https")
-        },
-    )
+    private val methodGetIsInterceptEnabled by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "MicroMsg.WebViewHighRiskAdH5Interceptor",
+                    "isInterceptEnabled, expt=",
+                )
+            },
+        )
+    private val methodGetIsUrlSafe by
+        dexMethod(
+            sqlMethod {
+                declaredClass(methodGetIsInterceptEnabled.data.declaredClassName)
+                usingEqStrings("http", "https")
+            },
+        )
 
     override fun onEnable() {
         methodGetIsInterceptEnabled.hookBefore {

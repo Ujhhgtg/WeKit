@@ -25,7 +25,11 @@ data class AutomationTimeRangeRule(
     /** True when the rule is disabled or [now] falls inside the (possibly overnight) range. */
     fun matches(now: Calendar = Calendar.getInstance()): Boolean {
         if (!enabled) return true
-        return containsSecond(now.get(Calendar.HOUR_OF_DAY) * 3600 + now.get(Calendar.MINUTE) * 60 + now.get(Calendar.SECOND))
+        return containsSecond(
+            now.get(Calendar.HOUR_OF_DAY) * 3600 +
+                now.get(Calendar.MINUTE) * 60 +
+                now.get(Calendar.SECOND),
+        )
     }
 
     /** Like [matches] but false when disabled: "is this window currently active". */
@@ -64,9 +68,12 @@ data class AutomationKeywordRule(
         return when (mode) {
             AutomationKeywordMode.STRING_LIST -> keywords.any { text.contains(it, ignoreCase) }
             AutomationKeywordMode.EXACT -> keywords.any { text.equals(it, ignoreCase) }
-            AutomationKeywordMode.REGEX -> runCatching {
-                Regex(regex, if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()).containsMatchIn(text)
-            }.getOrDefault(false)
+            AutomationKeywordMode.REGEX ->
+                runCatching {
+                        Regex(regex, if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet())
+                            .containsMatchIn(text)
+                    }
+                    .getOrDefault(false)
         }
     }
 
@@ -76,17 +83,23 @@ data class AutomationKeywordRule(
     fun validationError(label: String): String? {
         if (!enabled) return null
         return when (mode) {
-            AutomationKeywordMode.STRING_LIST, AutomationKeywordMode.EXACT ->
+            AutomationKeywordMode.STRING_LIST,
+            AutomationKeywordMode.EXACT ->
                 if (strings.none(String::isNotBlank)) {
                     localizedAutomationString(R.string.automation_keyword_list_required, label)
                 } else null
 
-            AutomationKeywordMode.REGEX -> when {
-                regex.isBlank() -> localizedAutomationString(R.string.automation_regex_required, label)
-                runCatching { Regex(regex) }.isFailure ->
-                    localizedAutomationString(R.string.automation_regex_invalid_for_label, label)
-                else -> null
-            }
+            AutomationKeywordMode.REGEX ->
+                when {
+                    regex.isBlank() ->
+                        localizedAutomationString(R.string.automation_regex_required, label)
+                    runCatching { Regex(regex) }.isFailure ->
+                        localizedAutomationString(
+                            R.string.automation_regex_invalid_for_label,
+                            label,
+                        )
+                    else -> null
+                }
         }
     }
 }
@@ -108,8 +121,10 @@ data class AutomationDelayRule(
 
     fun validationError(): String? {
         if (!enabled) return null
-        if (baseMs.toLongOrNull() == null) return localizedAutomationString(R.string.automation_invalid_base_delay)
-        if (randomRangeMs.toLongOrNull() == null) return localizedAutomationString(R.string.automation_invalid_random_delay)
+        if (baseMs.toLongOrNull() == null)
+            return localizedAutomationString(R.string.automation_invalid_base_delay)
+        if (randomRangeMs.toLongOrNull() == null)
+            return localizedAutomationString(R.string.automation_invalid_random_delay)
         return null
     }
 }
@@ -127,16 +142,28 @@ enum class AutomationTalkerCategory {
     OFFICIAL;
 
     companion object {
-        fun of(talker: String): AutomationTalkerCategory = when {
-            talker.endsWith("@chatroom") || talker.endsWith("@im.chatroom") -> GROUP
-            talker.startsWith("gh_") || talker.endsWith("@app") || talker == "newsapp" -> OFFICIAL
-            else -> PRIVATE
-        }
+        fun of(talker: String): AutomationTalkerCategory =
+            when {
+                talker.endsWith("@chatroom") || talker.endsWith("@im.chatroom") -> GROUP
+                talker.startsWith("gh_") || talker.endsWith("@app") || talker == "newsapp" ->
+                    OFFICIAL
+                else -> PRIVATE
+            }
 
-        private val SYSTEM_TALKERS = setOf(
-            "filehelper", "fmessage", "tmessage", "qqmail", "weixin", "floatbottle",
-            "medianote", "medianote@chatroom", "masssend", "feedsapp", "blogapp",
-        )
+        private val SYSTEM_TALKERS =
+            setOf(
+                "filehelper",
+                "fmessage",
+                "tmessage",
+                "qqmail",
+                "weixin",
+                "floatbottle",
+                "medianote",
+                "medianote@chatroom",
+                "masssend",
+                "feedsapp",
+                "blogapp",
+            )
 
         fun isSystemTalker(talker: String): Boolean = talker.trim() in SYSTEM_TALKERS
     }
@@ -155,26 +182,36 @@ data class AutomationTargetRule(
     val exclude: Set<String> = emptySet(),
     val excludeMembers: Set<String> = emptySet(),
 ) {
-    enum class Mode { ALL, CATEGORIES, SPECIFIC }
+    enum class Mode {
+        ALL,
+        CATEGORIES,
+        SPECIFIC,
+    }
 
     fun matches(talker: String, sender: String): Boolean {
         val group = AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
         val memberToken = "$talker/$sender"
-        if (talker in exclude || sender in exclude || (group && memberToken in exclude)) return false
+        if (talker in exclude || sender in exclude || (group && memberToken in exclude))
+            return false
         if (group && (sender in excludeMembers || memberToken in excludeMembers)) return false
         return when (mode) {
             Mode.ALL -> true
             Mode.CATEGORIES -> AutomationTalkerCategory.of(talker) in categories
-            Mode.SPECIFIC -> talker in include ||
+            Mode.SPECIFIC ->
+                talker in include ||
                     (!group && sender in include) ||
-                    (group && (memberToken in include || memberToken in includeMembers || sender in includeMembers))
+                    (group &&
+                        (memberToken in include ||
+                            memberToken in includeMembers ||
+                            sender in includeMembers))
         }
     }
 }
 
 fun localizedAutomationString(resourceId: Int, vararg formatArgs: Any): String =
     LocalizedContextFactory.create(
-        HostInfo.application,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    ).getString(resourceId, *formatArgs)
+            HostInfo.application,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
+        .getString(resourceId, *formatArgs)

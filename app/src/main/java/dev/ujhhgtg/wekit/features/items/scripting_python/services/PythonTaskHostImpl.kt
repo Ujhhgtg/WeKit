@@ -3,19 +3,19 @@ package dev.ujhhgtg.wekit.features.items.scripting_python.services
 import android.os.Handler
 import android.os.Looper
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
-import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLimits
+import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.python.api.PythonTaskHandle
 import dev.ujhhgtg.wekit.python.api.PythonTaskHost
 import dev.ujhhgtg.wekit.utils.WeLogger
-import java.util.concurrent.Executors
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Future
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.TimeUnit
 
 class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost {
     override fun main(task: Callable<Any?>): PythonTaskHandle {
@@ -31,7 +31,8 @@ class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost 
         val wrapped = Runnable {
             started.set(true)
             try {
-                if (!scope.isClosed) result.set(PythonRuntimeLoader.withLookupClassLoader(task::call))
+                if (!scope.isClosed)
+                    result.set(PythonRuntimeLoader.withLookupClassLoader(task::call))
             } catch (error: Throwable) {
                 failure.set(error)
             } finally {
@@ -50,15 +51,17 @@ class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost 
         val done = AtomicBoolean(false)
         val started = AtomicBoolean(false)
         val completed = CountDownLatch(1)
-        val future = executor.submit<Any?> {
-            started.set(true)
-            try {
-                if (!scope.isClosed) PythonRuntimeLoader.withLookupClassLoader(task::call) else null
-            } finally {
-                done.set(true)
-                completed.countDown()
+        val future =
+            executor.submit<Any?> {
+                started.set(true)
+                try {
+                    if (!scope.isClosed) PythonRuntimeLoader.withLookupClassLoader(task::call)
+                    else null
+                } finally {
+                    done.set(true)
+                    completed.countDown()
+                }
             }
-        }
         return FutureTaskHandle(future, done, started, completed).also(::own)
     }
 
@@ -87,7 +90,9 @@ class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost 
             }
             awaitDrain(completed)
         }
+
         override fun isDone(): Boolean = done.get()
+
         override fun awaitResult(): Any? {
             completed.await()
             failure.get()?.let { throw it }
@@ -108,17 +113,22 @@ class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost 
             }
             awaitDrain(completed)
         }
+
         override fun isDone(): Boolean = done.get() || future.isDone
-        override fun awaitResult(): Any? = try {
-            future.get()
-        } catch (error: ExecutionException) {
-            throw error.cause ?: error
-        }
+
+        override fun awaitResult(): Any? =
+            try {
+                future.get()
+            } catch (error: ExecutionException) {
+                throw error.cause ?: error
+            }
     }
 
     private class CompletedTaskHandle(private val result: Any?) : PythonTaskHandle {
         override fun cancel() = Unit
+
         override fun isDone(): Boolean = true
+
         override fun awaitResult(): Any? = result
     }
 
@@ -130,7 +140,9 @@ class PythonTaskHostImpl(private val scope: PythonPluginScope) : PythonTaskHost 
         }
 
         fun awaitDrain(completed: CountDownLatch) {
-            if (!completed.await(PythonRuntimeLimits.TASK_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            if (
+                !completed.await(PythonRuntimeLimits.TASK_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            ) {
                 WeLogger.w(TAG, "Python plugin task leaked past the drain window")
             }
         }

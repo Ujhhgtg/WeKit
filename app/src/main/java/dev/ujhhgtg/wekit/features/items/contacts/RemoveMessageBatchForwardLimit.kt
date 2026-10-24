@@ -18,14 +18,15 @@ object RemoveMessageBatchForwardLimit : SwitchFeature() {
 
     override fun onEnable() {
         listOf(
-            "com.tencent.mm.ui.mvvm.MvvmSelectContactUI",
-            "com.tencent.mm.ui.mvvm.MvvmContactListUI"
-        ).forEach {
-            it.toClassOrNull()?.hookBeforeOnCreate {
-                val activity = thisObject as Activity
-                activity.intent.putExtra("max_limit_num", 999)
-                WeLogger.i(TAG, "removed batch forward limit for $it")
+                "com.tencent.mm.ui.mvvm.MvvmSelectContactUI",
+                "com.tencent.mm.ui.mvvm.MvvmContactListUI",
+            )
+            .forEach {
+                it.toClassOrNull()?.hookBeforeOnCreate {
+                    val activity = thisObject as Activity
+                    activity.intent.putExtra("max_limit_num", 999)
+                    WeLogger.i(TAG, "removed batch forward limit for $it")
+                }
             }
-        }
     }
 }

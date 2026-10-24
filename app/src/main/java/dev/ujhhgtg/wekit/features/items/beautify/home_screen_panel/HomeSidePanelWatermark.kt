@@ -8,8 +8,8 @@ import androidx.compose.ui.graphics.Path
 import java.nio.charset.StandardCharsets
 
 /**
- * The side panel carries an opaque, error-correcting watermark so an administrator can attribute
- * a screenshot without displaying an account identifier in the UI. New frames contain only the
+ * The side panel carries an opaque, error-correcting watermark so an administrator can attribute a
+ * screenshot without displaying an account identifier in the UI. New frames contain only the
  * unguessable initialization token; the server maps it to identity after the authenticated trace
  * request. The older RSA frame remains supported by the WebUI decoder for migration.
  *
@@ -48,14 +48,17 @@ private const val WATERMARK_LAYOUT_SEED = 0x6A09E667
  * account identity.
  */
 fun homeSidePanelWatermarkToken(token: String?): ByteArray? {
-    val value = token?.takeIf { it.length == WATERMARK_TOKEN_BYTES && it.all { c -> c.isLetterOrDigit() || c == '_' || c == '-' } }
-        ?: return null
+    val value =
+        token?.takeIf {
+            it.length == WATERMARK_TOKEN_BYTES &&
+                it.all { c -> c.isLetterOrDigit() || c == '_' || c == '-' }
+        } ?: return null
     return value.toByteArray(StandardCharsets.US_ASCII)
 }
 
 /**
- * Draws the watermark after the panel contents without adding a pointer-intercepting layer.
- * `token` is normally memoized by the caller for the lifetime of an account/session.
+ * Draws the watermark after the panel contents without adding a pointer-intercepting layer. `token`
+ * is normally memoized by the caller for the lifetime of an account/session.
  */
 fun Modifier.homeSidePanelWatermark(token: ByteArray?): Modifier {
     if (token == null) return this
@@ -133,15 +136,18 @@ private data class WatermarkPair(
 )
 
 private fun homeSidePanelWatermarkLayout(): Array<WatermarkPair> {
-    val frameBits = WATERMARK_MAGIC.toByteArray(StandardCharsets.US_ASCII).size * Byte.SIZE_BITS +
-        Short.SIZE_BITS + WATERMARK_TOKEN_BYTES * Byte.SIZE_BITS +
-        WATERMARK_CHECKSUM_BYTES * Byte.SIZE_BITS
+    val frameBits =
+        WATERMARK_MAGIC.toByteArray(StandardCharsets.US_ASCII).size * Byte.SIZE_BITS +
+            Short.SIZE_BITS +
+            WATERMARK_TOKEN_BYTES * Byte.SIZE_BITS +
+            WATERMARK_CHECKSUM_BYTES * Byte.SIZE_BITS
     val pairCount = frameBits * WATERMARK_REPETITIONS
-    val anchors = IntArray(WATERMARK_BLOCKS_PER_SIDE * (WATERMARK_BLOCKS_PER_SIDE - 1)) {
-        val row = it / (WATERMARK_BLOCKS_PER_SIDE - 1)
-        val column = it % (WATERMARK_BLOCKS_PER_SIDE - 1)
-        row * WATERMARK_BLOCKS_PER_SIDE + column
-    }
+    val anchors =
+        IntArray(WATERMARK_BLOCKS_PER_SIDE * (WATERMARK_BLOCKS_PER_SIDE - 1)) {
+            val row = it / (WATERMARK_BLOCKS_PER_SIDE - 1)
+            val column = it % (WATERMARK_BLOCKS_PER_SIDE - 1)
+            row * WATERMARK_BLOCKS_PER_SIDE + column
+        }
     val random = WatermarkPrng(WATERMARK_LAYOUT_SEED)
     for (index in anchors.lastIndex downTo 1) {
         val swap = random.nextInt(index + 1)
@@ -161,11 +167,16 @@ private fun homeSidePanelWatermarkLayout(): Array<WatermarkPair> {
         val columnSpan = if (vertical) width else width * 2
         val rowOffset = random.nextInt(WATERMARK_BLOCK_SIZE - rowSpan + 1)
         val columnOffset = random.nextInt(WATERMARK_BLOCK_SIZE - columnSpan + 1)
-        val first = (blockRow * WATERMARK_BLOCK_SIZE + rowOffset) * WATERMARK_GRID_SIZE +
-            blockColumn * WATERMARK_BLOCK_SIZE + columnOffset
+        val first =
+            (blockRow * WATERMARK_BLOCK_SIZE + rowOffset) * WATERMARK_GRID_SIZE +
+                blockColumn * WATERMARK_BLOCK_SIZE +
+                columnOffset
         WatermarkPair(
             first = first,
-            second = first + if (vertical) WATERMARK_MARK_WIDTH * WATERMARK_GRID_SIZE else WATERMARK_MARK_WIDTH,
+            second =
+                first +
+                    if (vertical) WATERMARK_MARK_WIDTH * WATERMARK_GRID_SIZE
+                    else WATERMARK_MARK_WIDTH,
             reversed = random.nextInt(2) == 1,
             vertical = vertical,
         )
@@ -210,11 +221,12 @@ private fun watermarkCrc32(bytes: ByteArray, offset: Int, length: Int): Long {
     for (index in offset until offset + length) {
         crc = crc xor (bytes[index].toInt() and 0xFF).toLong()
         repeat(Byte.SIZE_BITS) {
-            crc = if ((crc and 1L) != 0L) {
-                (crc ushr 1) xor 0xEDB88320L
-            } else {
-                crc ushr 1
-            }
+            crc =
+                if ((crc and 1L) != 0L) {
+                    (crc ushr 1) xor 0xEDB88320L
+                } else {
+                    crc ushr 1
+                }
         }
     }
     return crc xor 0xFFFF_FFFFL

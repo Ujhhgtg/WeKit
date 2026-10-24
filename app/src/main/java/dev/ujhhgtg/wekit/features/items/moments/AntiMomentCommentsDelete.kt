@@ -18,8 +18,8 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
 /**
  * Keeps comments that were deleted under a moment, marking text comments with [INTERCEPT_MARKER].
  *
- * The comments shown under a moment live in `SnsInfo.attrBuf` (`SnsObject.CommentUserList`), not
- * in the SnsComment table (which only feeds the notification list). They are removed by:
+ * The comments shown under a moment live in `SnsInfo.attrBuf` (`SnsObject.CommentUserList`), not in
+ * the SnsComment table (which only feeds the notification list). They are removed by:
  * - `processCommentDelAction`, the sync push for a deleted comment, which also flags the
  *   notification row. It's skipped entirely, so the notification entry survives too.
  * - every refresh of the moment, which replaces attrBuf with the server's copy. WeChat's own
@@ -39,26 +39,37 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
     private const val COMMENT_CONTENT = 5
     private const val COMMENT_CREATE_TIME = 6
     private const val COMMENT_ID = 7
-    /** Set by WeChat on your own comment that the moment's author deleted; WeChat shows its own tip. */
+    /**
+     * Set by WeChat on your own comment that the moment's author deleted; WeChat shows its own tip.
+     */
     private const val COMMENT_DELETE_FLAG = 13
 
     // SnsActionInfo (sync action) field numbers
     private const val ACTION_FROM_USERNAME = 1
     private const val ACTION_COMMENT_ID = 10
 
-    // NetSceneSnsSync.processCommentDelAction(action, actionInfo, snsId, parentId, clientId, handler)
-    private val methodProcessCommentDelAction by dexMethod(
-        sqlMethod {
-            usingEqStrings("processCommentDelAction", "com.tencent.mm.plugin.sns.model.NetSceneSnsSync")
-        },
-    )
+    // NetSceneSnsSync.processCommentDelAction(action, actionInfo, snsId, parentId, clientId,
+    // handler)
+    private val methodProcessCommentDelAction by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "processCommentDelAction",
+                    "com.tencent.mm.plugin.sns.model.NetSceneSnsSync",
+                )
+            },
+        )
 
     // SnsInfoStorageLogic.checkLocalDeletedComment(SnsInfo local, SnsObject incoming)
-    private val methodCheckLocalDeletedComment by dexMethod(
-        sqlMethod {
-            usingEqStrings("checkLocalDeletedComment", "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic")
-        },
-    )
+    private val methodCheckLocalDeletedComment by
+        dexMethod(
+            sqlMethod {
+                usingEqStrings(
+                    "checkLocalDeletedComment",
+                    "com.tencent.mm.plugin.sns.model.SnsInfoStorageLogic",
+                )
+            },
+        )
 
     override fun onEnable() {
         methodProcessCommentDelAction.hookBefore {
@@ -81,7 +92,8 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
     private fun markComment(snsId: Long, commentId: Int) {
         val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: return
         val reflekt = snsInfo.reflekt()
-        val snsObject = parseSnsObject(reflekt.getField("field_attrBuf", true) as? ByteArray? ?: return)
+        val snsObject =
+            parseSnsObject(reflekt.getField("field_attrBuf", true) as? ByteArray? ?: return)
         val comments = snsObject.CommentUserList
         val index = comments.indexOfFirst { it.commentId == commentId }
         if (index < 0) return
@@ -94,34 +106,46 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
     private fun restoreMissingComments(local: Any, incoming: SnsObject) {
         val localBuf = local.reflekt().getField("field_attrBuf", true) as? ByteArray? ?: return
         val incomingIds = incoming.CommentUserList.mapTo(HashSet()) { it.commentId }
-        val missing = parseSnsObject(localBuf).CommentUserList.filter {
-            val id = it.commentId
-            id != 0 && id !in incomingIds && ProtoWire.varint(it.toProtoBytes(), COMMENT_DELETE_FLAG) ?: 0L == 0L
-        }
+        val missing =
+            parseSnsObject(localBuf).CommentUserList.filter {
+                val id = it.commentId
+                id != 0 &&
+                    id !in incomingIds &&
+                    ProtoWire.varint(it.toProtoBytes(), COMMENT_DELETE_FLAG) ?: 0L == 0L
+            }
         if (missing.isEmpty()) return
 
         incoming.CommentUserList.addAll(missing.map { markedCopy(it) ?: it })
-        incoming.CommentUserList.sortBy { ProtoWire.varint(it.toProtoBytes(), COMMENT_CREATE_TIME) ?: 0L }
+        incoming.CommentUserList.sortBy {
+            ProtoWire.varint(it.toProtoBytes(), COMMENT_CREATE_TIME) ?: 0L
+        }
         WeLogger.i(TAG, "restored ${missing.size} deleted comment(s)")
     }
 
     /**
      * Returns a copy of [comment] with [INTERCEPT_MARKER] prepended to its text, or null when it's
-     * already marked or has no text (sticker comments, which may render differently with text added).
+     * already marked or has no text (sticker comments, which may render differently with text
+     * added).
      */
     private fun markedCopy(comment: Any): Any? {
         val bytes = comment.toProtoBytes()
         val content = ProtoWire.string(bytes, COMMENT_CONTENT)
         if (content.isNullOrEmpty() || content.contains(INTERCEPT_MARKER)) return null
         return comment.javaClass.createInstance().apply {
-            reflekt().invokeMethod("parseFrom", ProtoWire.withString(bytes, COMMENT_CONTENT, "$INTERCEPT_MARKER $content"), superclass = true)
+            reflekt()
+                .invokeMethod(
+                    "parseFrom",
+                    ProtoWire.withString(bytes, COMMENT_CONTENT, "$INTERCEPT_MARKER $content"),
+                    superclass = true,
+                )
         }
     }
 
     private fun parseSnsObject(bytes: ByteArray) =
         SnsObject().apply { reflekt().invokeMethod("parseFrom", bytes, superclass = true) }
 
-    private fun Any.toProtoBytes() = reflekt().invokeMethod("toByteArray", superclass = true) as ByteArray
+    private fun Any.toProtoBytes() =
+        reflekt().invokeMethod("toByteArray", superclass = true) as ByteArray
 
     private val Any.commentId: Int
         get() = ProtoWire.varint(toProtoBytes(), COMMENT_ID)?.toInt() ?: 0

@@ -12,16 +12,21 @@ import kotlin.math.roundToInt
 
 /**
  * A temporary sibling of the native conversation list. The outgoing page is captured once; the
- * incoming page is drawn from the same native list after its new group has finished binding.
- * The caller owns gesture arbitration, data readiness, positioning after layout, and removal.
+ * incoming page is drawn from the same native list after its new group has finished binding. The
+ * caller owns gesture arbitration, data readiness, positioning after layout, and removal.
  */
 class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.context) {
     sealed interface BeginResult {
         data object Started : BeginResult
+
         data object AlreadyActive : BeginResult
+
         data object SourceNotReady : BeginResult
+
         data object InvalidParent : BeginResult
+
         data class AllocationFailed(val cause: Throwable) : BeginResult
+
         data class CaptureFailed(val cause: Throwable) : BeginResult
     }
 
@@ -54,20 +59,25 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
     fun begin(): BeginResult {
         if (isActive) return BeginResult.AlreadyActive
         if (parent == null || parent !== sourceView.parent) return BeginResult.InvalidParent
-        if (!sourceView.isAttachedToWindow || !sourceView.isShown || sourceView.alpha <= 0f ||
-            sourceView.width <= 0 || sourceView.height <= 0
+        if (
+            !sourceView.isAttachedToWindow ||
+                !sourceView.isShown ||
+                sourceView.alpha <= 0f ||
+                sourceView.width <= 0 ||
+                sourceView.height <= 0
         ) {
             return BeginResult.SourceNotReady
         }
         if (!alignToSource()) return BeginResult.SourceNotReady
 
-        val bitmap = try {
-            createBitmap(sourceView.width, sourceView.height)
-        } catch (error: OutOfMemoryError) {
-            return BeginResult.AllocationFailed(error)
-        } catch (error: IllegalArgumentException) {
-            return BeginResult.AllocationFailed(error)
-        }
+        val bitmap =
+            try {
+                createBitmap(sourceView.width, sourceView.height)
+            } catch (error: OutOfMemoryError) {
+                return BeginResult.AllocationFailed(error)
+            } catch (error: IllegalArgumentException) {
+                return BeginResult.AllocationFailed(error)
+            }
         try {
             drawSource(Canvas(bitmap))
         } catch (error: RuntimeException) {
@@ -109,14 +119,19 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         invalidate()
     }
 
-    /** Aligns only this overlay. No listener, source translation, scrolling, or reparenting is used. */
+    /**
+     * Aligns only this overlay. No listener, source translation, scrolling, or reparenting is used.
+     */
     fun alignToSource(): Boolean {
         val parentView = parent as? ViewGroup ?: return false
         if (parentView !== sourceView.parent || sourceView.width <= 0 || sourceView.height <= 0) {
             return false
         }
         val bitmap = outgoingBitmap
-        if (bitmap != null && (bitmap.width != sourceView.width || bitmap.height != sourceView.height)) {
+        if (
+            bitmap != null &&
+                (bitmap.width != sourceView.width || bitmap.height != sourceView.height)
+        ) {
             // A frozen capture cannot represent a resized source; the controller must cancel it.
             return false
         }
@@ -193,7 +208,8 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
             canvas.clipRect(0, 0, sourceView.width, sourceView.height)
             sourceView.clipBounds?.let(canvas::clipRect)
             // Public View.draw does not apply the scroll transform or root alpha normally added
-            // by its parent. Keep native coordinates intact and apply those here, like ViewBackdrop.
+            // by its parent. Keep native coordinates intact and apply those here, like
+            // ViewBackdrop.
             canvas.translate(-sourceView.scrollX.toFloat(), -sourceView.scrollY.toFloat())
             sourceView.draw(canvas)
         } finally {

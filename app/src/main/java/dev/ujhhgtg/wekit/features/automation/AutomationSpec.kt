@@ -38,24 +38,38 @@ data class AutomationScope(
             when (type) {
                 AutomationScopeType.GLOBAL -> scopeId.isEmpty() && memberId.isEmpty()
                 AutomationScopeType.CATEGORY ->
-                    AutomationTalkerCategory.entries.any { it.name == scopeId } && memberId.isEmpty()
+                    AutomationTalkerCategory.entries.any { it.name == scopeId } &&
+                        memberId.isEmpty()
                 AutomationScopeType.GROUP_MEMBER ->
-                    AutomationTalkerCategory.of(scopeId) == AutomationTalkerCategory.GROUP && memberId.isNotEmpty()
-                AutomationScopeType.CONTACT, AutomationScopeType.PRESET, AutomationScopeType.ITEM ->
-                    scopeId.isNotEmpty() && memberId.isEmpty()
-            }
-        ) { "Invalid automation scope $type/$scopeId/$memberId" }
+                    AutomationTalkerCategory.of(scopeId) == AutomationTalkerCategory.GROUP &&
+                        memberId.isNotEmpty()
+                AutomationScopeType.CONTACT,
+                AutomationScopeType.PRESET,
+                AutomationScopeType.ITEM -> scopeId.isNotEmpty() && memberId.isEmpty()
+            },
+        ) {
+            "Invalid automation scope $type/$scopeId/$memberId"
+        }
     }
 
     val category: AutomationTalkerCategory?
-        get() = if (type == AutomationScopeType.CATEGORY) AutomationTalkerCategory.valueOf(scopeId) else null
+        get() =
+            if (type == AutomationScopeType.CATEGORY) AutomationTalkerCategory.valueOf(scopeId)
+            else null
 
     companion object {
         val Global = AutomationScope(AutomationScopeType.GLOBAL)
-        fun category(category: AutomationTalkerCategory) = AutomationScope(AutomationScopeType.CATEGORY, category.name)
+
+        fun category(category: AutomationTalkerCategory) =
+            AutomationScope(AutomationScopeType.CATEGORY, category.name)
+
         fun contact(wxId: String) = AutomationScope(AutomationScopeType.CONTACT, wxId)
-        fun member(groupId: String, memberId: String) = AutomationScope(AutomationScopeType.GROUP_MEMBER, groupId, memberId)
+
+        fun member(groupId: String, memberId: String) =
+            AutomationScope(AutomationScopeType.GROUP_MEMBER, groupId, memberId)
+
         fun preset(id: String) = AutomationScope(AutomationScopeType.PRESET, id)
+
         fun item(id: String) = AutomationScope(AutomationScopeType.ITEM, id)
     }
 }
@@ -67,14 +81,22 @@ class AutomationRuleValues(val values: Map<String, Any> = emptyMap()) {
 
     operator fun contains(key: AutomationRuleKey<*>): Boolean = key.id in values
 
-    fun <T : Any> with(key: AutomationRuleKey<T>, value: T) = AutomationRuleValues(values + (key.id to value))
+    fun <T : Any> with(key: AutomationRuleKey<T>, value: T) =
+        AutomationRuleValues(values + (key.id to value))
+
     fun without(key: AutomationRuleKey<*>) = AutomationRuleValues(values - key.id)
 
-    val keyIds: Set<String> get() = values.keys
-    val size: Int get() = values.size
+    val keyIds: Set<String>
+        get() = values.keys
+
+    val size: Int
+        get() = values.size
+
     fun isEmpty(): Boolean = values.isEmpty()
 
-    override fun equals(other: Any?): Boolean = other is AutomationRuleValues && other.values == values
+    override fun equals(other: Any?): Boolean =
+        other is AutomationRuleValues && other.values == values
+
     override fun hashCode(): Int = values.hashCode()
 }
 
@@ -84,10 +106,14 @@ class AutomationRules(private val values: Map<String, Any>) {
     operator fun <T : Any> get(key: AutomationRuleKey<T>): T = values[key.id] as T? ?: key.default
 
     fun overlay(overrides: AutomationRuleValues?): AutomationRules =
-        if (overrides == null || overrides.isEmpty()) this else AutomationRules(values + overrides.values)
+        if (overrides == null || overrides.isEmpty()) this
+        else AutomationRules(values + overrides.values)
 
-    /** Copies the effective value of [key] into [overrides] (activating an override in the editor). */
-    fun <T : Any> copyInto(key: AutomationRuleKey<T>, overrides: AutomationRuleValues) = overrides.with(key, get(key))
+    /**
+     * Copies the effective value of [key] into [overrides] (activating an override in the editor).
+     */
+    fun <T : Any> copyInto(key: AutomationRuleKey<T>, overrides: AutomationRuleValues) =
+        overrides.with(key, get(key))
 
     companion object {
         val Defaults = AutomationRules(emptyMap())
@@ -98,8 +124,8 @@ class AutomationRules(private val values: Map<String, Any>) {
 class AutomationSection(@param:StringRes val titleRes: Int?, val keys: List<AutomationRuleKey<*>>)
 
 /**
- * Describes one automation feature's rules. The same description drives resolution, storage and
- * the generic scope editor in [dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity].
+ * Describes one automation feature's rules. The same description drives resolution, storage and the
+ * generic scope editor in [dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity].
  */
 abstract class AutomationSpec(val id: String) {
     abstract val keys: List<AutomationRuleKey<*>>
@@ -132,10 +158,15 @@ abstract class AutomationSpec(val id: String) {
 
     abstract val editors: List<dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor<*>>
 
-    /** Groups [editors] by concern on the editor screens; a rule listed in no section isn't shown. */
+    /**
+     * Groups [editors] by concern on the editor screens; a rule listed in no section isn't shown.
+     */
     abstract val sections: List<AutomationSection>
 
-    /** ITEM enable switch, shown on the rule list and at the top of each item's editor. Must be in [keys]. */
+    /**
+     * ITEM enable switch, shown on the rule list and at the top of each item's editor. Must be in
+     * [keys].
+     */
     open val itemSwitch: AutomationRuleKey<AutomationToggleRule>? = null
 
     /** Rules summarized as chips on ITEM rows when they differ from their default. */
@@ -156,7 +187,9 @@ abstract class AutomationSpec(val id: String) {
     open fun validate(rules: AutomationRules, keyIds: Set<String>?): String? = null
 
     /** User-facing error of rule [key] alone. */
-    fun ruleError(rules: AutomationRules, key: AutomationRuleKey<*>): String? = validate(rules, setOf(key.id))
+    fun ruleError(rules: AutomationRules, key: AutomationRuleKey<*>): String? =
+        validate(rules, setOf(key.id))
 
-    protected fun validates(keyIds: Set<String>?, key: AutomationRuleKey<*>) = keyIds == null || key.id in keyIds
+    protected fun validates(keyIds: Set<String>?, key: AutomationRuleKey<*>) =
+        keyIds == null || key.id in keyIds
 }

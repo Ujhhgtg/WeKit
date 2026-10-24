@@ -40,7 +40,12 @@ object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
             val adJsonStr = field2.optString("3") ?: return null
 
             // 解析广告JSON
-            val adJson = runCatching { JSONObject(adJsonStr) }.getOrElse { return null }
+            val adJson = runCatching {
+                JSONObject(adJsonStr)
+            }
+                .getOrElse {
+                    return null
+                }
             // 清空广告字段
             var modified = false
 
@@ -69,12 +74,15 @@ object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
 
             // 清空广告响应
             if (adJson.has("check_ad_resp")) {
-                adJson.put("check_ad_resp", JSONObject().apply {
-                    put("aid", "0")
-                    put("del_aid", JSONArray())
-                    put("offline_aid", JSONArray())
-                    put("online_aid", JSONArray())
-                })
+                adJson.put(
+                    "check_ad_resp",
+                    JSONObject().apply {
+                        put("aid", "0")
+                        put("del_aid", JSONArray())
+                        put("offline_aid", JSONArray())
+                        put("online_aid", JSONArray())
+                    },
+                )
                 modified = true
             }
 
@@ -85,7 +93,6 @@ object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
                 WeLogger.d(TAG, "cleared article ads")
                 return data.toPacketBytes()
             }
-
         } catch (e: Exception) {
             WeLogger.e(TAG, "onResponse failed", e)
         }

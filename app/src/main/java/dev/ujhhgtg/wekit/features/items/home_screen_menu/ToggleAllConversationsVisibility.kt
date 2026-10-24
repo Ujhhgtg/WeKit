@@ -9,7 +9,8 @@ import dev.ujhhgtg.wekit.ui.utils.VisibilityIcon
 import dev.ujhhgtg.wekit.ui.utils.VisibilityOffIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 
-object ToggleAllConversationsVisibility : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvider {
+object ToggleAllConversationsVisibility :
+    SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
     override val technicalId = "显隐全部对话"
     override val nameRes = R.string.feature_toggle_all_conversations_visibility_name
@@ -27,12 +28,16 @@ object ToggleAllConversationsVisibility : SwitchFeature(), WeHomeScreenPopupMenu
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777010, localizedHomeMenuString(R.string.home_menu_show_conversations), VisibilityIcon
+                777010,
+                localizedHomeMenuString(R.string.home_menu_show_conversations),
+                VisibilityIcon,
             ) {
                 WeConversationApi.setAllConversationVisibility(true)
             },
             WeHomeScreenPopupMenuApi.MenuItem(
-                777011, localizedHomeMenuString(R.string.home_menu_hide_conversations), VisibilityOffIcon
+                777011,
+                localizedHomeMenuString(R.string.home_menu_hide_conversations),
+                VisibilityOffIcon,
             ) {
                 WeConversationApi.setAllConversationVisibility(false)
             },

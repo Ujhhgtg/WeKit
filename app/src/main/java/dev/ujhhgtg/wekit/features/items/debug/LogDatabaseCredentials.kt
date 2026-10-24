@@ -21,19 +21,29 @@ object LogDatabaseCredentials : SwitchFeature() {
     private const val TAG = "LogDatabaseCredentials"
 
     override fun onEnable() {
-        SQLiteDatabase::class.reflekt().firstMethod {
-            name = "openDatabase"
-            parameters(BString, ByteArray::class, SQLiteCipherSpec::class, SQLiteDatabase.CursorFactory::class, int, DatabaseErrorHandler::class, int)
-        }.hookBefore {
-            val cipherSpec = args[2] as SQLiteCipherSpec?
-            WeLogger.d(
-                TAG,
-                "openDatabase() called with: name=${args[0] as String?}, password=${String(args[1] as? ByteArray? ?: return@hookBefore)}, cipherSpec=${
+        SQLiteDatabase::class.reflekt()
+            .firstMethod {
+                name = "openDatabase"
+                parameters(
+                    BString,
+                    ByteArray::class,
+                    SQLiteCipherSpec::class,
+                    SQLiteDatabase.CursorFactory::class,
+                    int,
+                    DatabaseErrorHandler::class,
+                    int,
+                )
+            }
+            .hookBefore {
+                val cipherSpec = args[2] as SQLiteCipherSpec?
+                WeLogger.d(
+                    TAG,
+                    "openDatabase() called with: name=${args[0] as String?}, password=${String(args[1] as? ByteArray? ?: return@hookBefore)}, cipherSpec=${
                     cipherSpec.run {
                         "${this?.hmacAlgorithm},${this?.hmacEnabled},${this?.kdfAlgorithm},${this?.kdfIteration},${this?.pageSize}"
                     }
-                }"
-            )
-        }
+                }",
+                )
+            }
     }
 }

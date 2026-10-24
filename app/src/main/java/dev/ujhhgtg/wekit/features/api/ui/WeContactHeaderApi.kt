@@ -31,22 +31,24 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
     private val providers = CopyOnWriteArrayList<Provider>()
     private const val ROW_TAG = "wekit_contact_header_row"
 
-    private val bindHeader by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.profile.ui.NormalProfileHeaderPreference"
-            returnType = "void"
-            paramTypes("android.view.View")
-            usingStrings("[onBindView] never attach!")
-        },
-    )
+    private val bindHeader by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.plugin.profile.ui.NormalProfileHeaderPreference"
+                returnType = "void"
+                paramTypes("android.view.View")
+                usingStrings("[onBindView] never attach!")
+            },
+        )
 
-    private val bindBizHeader by dexMethod(
-        sqlMethod {
-            declaredClass = "com.tencent.mm.plugin.profile.ui.BizInfoHeaderPreference"
-            returnType = "void"
-            paramTypes("android.view.View")
-        },
-    )
+    private val bindBizHeader by
+        dexMethod(
+            sqlMethod {
+                declaredClass = "com.tencent.mm.plugin.profile.ui.BizInfoHeaderPreference"
+                returnType = "void"
+                paramTypes("android.view.View")
+            },
+        )
 
     fun addProvider(provider: Provider) {
         providers.addIfAbsent(provider)
@@ -61,9 +63,12 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
             val root = args[0] as View
             // The host only creates its ViewHolder after the preference is attached.
             if (root.tag == null) return@hookAfter
-            root.findViewsWhich { it.tag == ROW_TAG }.toList().forEach {
-                (it.parent as ViewGroup).removeView(it)
-            }
+            root
+                .findViewsWhich { it.tag == ROW_TAG }
+                .toList()
+                .forEach {
+                    (it.parent as ViewGroup).removeView(it)
+                }
             if (providers.isEmpty()) return@hookAfter
 
             var context = root.context
@@ -74,81 +79,117 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
             // The native ViewHolder binds the header itself to the nickname, alias,
             // WeChat number and location TextViews. These share one vertical container.
             // Use that actual listener identity, not translated text or obfuscated IDs.
-            val templates = root.findViewsWhich { view ->
-                view is TextView && view.reflekt().getField("mListenerInfo", true)?.let {
-                    it.reflekt().getField("mOnLongClickListener") === header
-                } == true
-            }.map { it as TextView }.toList()
+            val templates =
+                root
+                    .findViewsWhich { view ->
+                        view is TextView &&
+                            view.reflekt().getField("mListenerInfo", true)?.let {
+                                it.reflekt().getField("mOnLongClickListener") === header
+                            } == true
+                    }
+                    .map { it as TextView }
+                    .toList()
             val parent = templates.map { it.parent }.distinct().single() as LinearLayout
             check(parent.orientation == LinearLayout.VERTICAL)
             val template = templates.first()
-            val touch = template.reflekt().getField("mListenerInfo", true)!!
-                .reflekt().getField("mOnTouchListener") as View.OnTouchListener
+            val touch =
+                template
+                    .reflekt()
+                    .getField("mListenerInfo", true)!!
+                    .reflekt()
+                    .getField("mOnTouchListener") as View.OnTouchListener
 
             for (provider in providers) {
                 val headerText = provider.getHeaderText(activity) ?: continue
-                val row = TextView(template.context).apply {
-                    id = View.generateViewId()
-                    tag = ROW_TAG
-                    layoutParams = LinearLayout.LayoutParams(template.layoutParams as LinearLayout.LayoutParams)
-                    setTextSize(TypedValue.COMPLEX_UNIT_PX, template.textSize)
-                    setTextColor(template.textColors)
-                    typeface = template.typeface
-                    gravity = template.gravity
-                    includeFontPadding = template.includeFontPadding
-                    textDirection = template.textDirection
-                    setPaddingRelative(template.paddingStart, template.paddingTop, template.paddingEnd, template.paddingBottom)
-                    setLineSpacing(template.lineSpacingExtra, template.lineSpacingMultiplier)
-                    text = headerText
-                    // This also sets the native touch-coordinate tag used to anchor its popup.
-                    setOnTouchListener(touch)
-                    setOnLongClickListener {
-                        val ownId = id
-                        try {
-                            // Native onLongClick dispatches by the source row's ID, but
-                            // reads/highlights this TextView and restores it on dismissal.
-                            id = template.id
-                            header.onLongClick(this)
-                        } finally {
-                            id = ownId
+                val row =
+                    TextView(template.context).apply {
+                        id = View.generateViewId()
+                        tag = ROW_TAG
+                        layoutParams =
+                            LinearLayout.LayoutParams(
+                                template.layoutParams as LinearLayout.LayoutParams,
+                            )
+                        setTextSize(TypedValue.COMPLEX_UNIT_PX, template.textSize)
+                        setTextColor(template.textColors)
+                        typeface = template.typeface
+                        gravity = template.gravity
+                        includeFontPadding = template.includeFontPadding
+                        textDirection = template.textDirection
+                        setPaddingRelative(
+                            template.paddingStart,
+                            template.paddingTop,
+                            template.paddingEnd,
+                            template.paddingBottom,
+                        )
+                        setLineSpacing(template.lineSpacingExtra, template.lineSpacingMultiplier)
+                        text = headerText
+                        // This also sets the native touch-coordinate tag used to anchor its popup.
+                        setOnTouchListener(touch)
+                        setOnLongClickListener {
+                            val ownId = id
+                            try {
+                                // Native onLongClick dispatches by the source row's ID, but
+                                // reads/highlights this TextView and restores it on dismissal.
+                                id = template.id
+                                header.onLongClick(this)
+                            } finally {
+                                id = ownId
+                            }
                         }
                     }
-                }
                 parent.addView(row)
             }
         }
 
         bindBizHeader.hookAfter {
             val root = args[0] as View
-            root.findViewsWhich { it.tag == ROW_TAG }.toList().forEach {
-                (it.parent as ViewGroup).removeView(it)
-            }
+            root
+                .findViewsWhich { it.tag == ROW_TAG }
+                .toList()
+                .forEach {
+                    (it.parent as ViewGroup).removeView(it)
+                }
             if (providers.isEmpty()) return@hookAfter
 
             var context = root.context
             while (context is ContextWrapper && context !is Activity) context = context.baseContext
             val activity = context as Activity
-            val template = root.findViewsWhich { view ->
-                view is TextView && (view.parent as? LinearLayout)?.orientation == LinearLayout.VERTICAL &&
-                    view.layoutParams.width == ViewGroup.LayoutParams.MATCH_PARENT
-            }.map { it as TextView }.first()
+            val template =
+                root
+                    .findViewsWhich { view ->
+                        view is TextView &&
+                            (view.parent as? LinearLayout)?.orientation == LinearLayout.VERTICAL &&
+                            view.layoutParams.width == ViewGroup.LayoutParams.MATCH_PARENT
+                    }
+                    .map { it as TextView }
+                    .first()
             val parent = template.parent as LinearLayout
             for (provider in providers) {
                 val headerText = provider.getHeaderText(activity) ?: continue
-                parent.addView(TextView(template.context).apply {
-                    id = View.generateViewId()
-                    tag = ROW_TAG
-                    layoutParams = LinearLayout.LayoutParams(template.layoutParams as LinearLayout.LayoutParams)
-                    setTextSize(TypedValue.COMPLEX_UNIT_PX, template.textSize)
-                    setTextColor(template.textColors)
-                    typeface = template.typeface
-                    gravity = template.gravity
-                    includeFontPadding = template.includeFontPadding
-                    textDirection = template.textDirection
-                    setPaddingRelative(template.paddingStart, template.paddingTop, template.paddingEnd, template.paddingBottom)
-                    setLineSpacing(template.lineSpacingExtra, template.lineSpacingMultiplier)
-                    text = headerText
-                })
+                parent.addView(
+                    TextView(template.context).apply {
+                        id = View.generateViewId()
+                        tag = ROW_TAG
+                        layoutParams =
+                            LinearLayout.LayoutParams(
+                                template.layoutParams as LinearLayout.LayoutParams,
+                            )
+                        setTextSize(TypedValue.COMPLEX_UNIT_PX, template.textSize)
+                        setTextColor(template.textColors)
+                        typeface = template.typeface
+                        gravity = template.gravity
+                        includeFontPadding = template.includeFontPadding
+                        textDirection = template.textDirection
+                        setPaddingRelative(
+                            template.paddingStart,
+                            template.paddingTop,
+                            template.paddingEnd,
+                            template.paddingBottom,
+                        )
+                        setLineSpacing(template.lineSpacingExtra, template.lineSpacingMultiplier)
+                        text = headerText
+                    },
+                )
             }
         }
     }
