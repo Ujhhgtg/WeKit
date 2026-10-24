@@ -124,8 +124,11 @@ internal fun addClassCandidateParts(spec: ClassSpec, classAlias: String, parts: 
     for (interfaceSpec in spec.interfaces) {
         val interfaceName = interfaceSpec.className ?: continue
         val alias = parts.nextAlias("ci")
-        parts.joins += "JOIN class_interfaces " + alias + " ON " + alias + ".file_id = " +
-            classAlias + ".file_id AND " + alias + ".class_idx = " + classAlias + ".class_idx"
+        // The engine only accepts one equality in a JOIN ON condition; extra
+        // scoping conditions are equivalent predicates in WHERE.
+        parts.joins += "JOIN class_interfaces " + alias + " ON " + alias + ".class_idx = " +
+            classAlias + ".class_idx"
+        parts.where += alias + ".file_id = " + classAlias + ".file_id"
         parts.where += descriptorNameCondition(alias + ".interface_descriptor", interfaceName)
     }
     for (fieldSpec in spec.fields) {
@@ -146,9 +149,10 @@ internal fun addClassCandidateParts(spec: ClassSpec, classAlias: String, parts: 
         val stringAlias = parts.nextAlias("cmsv")
         parts.joins += "JOIN methods " + methodAlias + " ON " + methodAlias +
             ".class_descriptor = " + classAlias + ".descriptor"
-        parts.joins += "JOIN method_strings " + stringAlias + " ON " + stringAlias + ".method = " +
-            methodAlias + ".descriptor AND " + stringAlias + ".file_id = " + methodAlias +
-            ".file_id AND " + stringAlias + ".method_idx = " + methodAlias + ".method_idx"
+        parts.joins += "JOIN method_strings " + stringAlias + " ON " + stringAlias +
+            ".method = " + methodAlias + ".descriptor"
+        parts.where += stringAlias + ".file_id = " + methodAlias + ".file_id"
+        parts.where += stringAlias + ".method_idx = " + methodAlias + ".method_idx"
         parts.where += stringCondition(stringAlias + ".value", stringSpec)
     }
 }
@@ -179,9 +183,10 @@ internal fun addMethodCandidateParts(spec: MethodSpec, methodAlias: String, part
     }
     for (stringSpec in spec.usingStrings) {
         val alias = parts.nextAlias("ms")
-        parts.joins += "JOIN method_strings " + alias + " ON " + alias + ".method = " +
-            methodAlias + ".descriptor AND " + alias + ".file_id = " + methodAlias +
-            ".file_id AND " + alias + ".method_idx = " + methodAlias + ".method_idx"
+        parts.joins += "JOIN method_strings " + alias + " ON " + alias +
+            ".method = " + methodAlias + ".descriptor"
+        parts.where += alias + ".file_id = " + methodAlias + ".file_id"
+        parts.where += alias + ".method_idx = " + methodAlias + ".method_idx"
         parts.where += stringCondition(alias + ".value", stringSpec)
     }
     spec.declaredClass?.let { classSpec ->
@@ -239,8 +244,10 @@ private fun addFieldAccessCandidateParts(
         val accessAlias = parts.nextAlias("fa")
         val methodAlias = parts.nextAlias("fam")
         parts.joins += "JOIN method_field_accesses " + accessAlias + " ON " + accessAlias +
-            ".field = " + fieldAlias + ".descriptor AND " + accessAlias + ".using_type = " +
-            sqlLiteral(usingType)
+            ".field = " + fieldAlias + ".descriptor"
+        parts.where += accessAlias + ".using_type = " + sqlLiteral(usingType)
+        parts.where += accessAlias + ".file_id = " + fieldAlias + ".file_id"
+        parts.where += accessAlias + ".field_idx = " + fieldAlias + ".field_idx"
         parts.joins += "JOIN methods " + methodAlias + " ON " + methodAlias +
             ".descriptor = " + accessAlias + ".method"
         addMethodCandidateParts(methodSpec, methodAlias, parts)
