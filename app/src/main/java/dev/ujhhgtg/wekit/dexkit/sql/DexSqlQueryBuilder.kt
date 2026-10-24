@@ -233,6 +233,7 @@ private class MethodProperties(
     val paramTypes: List<Any?>?,
     val paramCount: Int? = null,
     val paramCountRange: IntRange? = null,
+    val opcodeCountRange: IntRange? = null,
     /** Access-flag mask emitted after the properties: add for nested method matchers only. */
     val modifiers: Int? = null,
 )
@@ -245,7 +246,8 @@ private class MethodJoinResult(
 
 private fun MethodProperties.hasPredicates(): Boolean =
     name != null || classNameMatch != null || returnTypeMatch != null ||
-        paramCount != null || paramCountRange != null || paramTypes != null || modifiers != null
+        paramCount != null || paramCountRange != null || paramTypes != null ||
+        opcodeCountRange != null || modifiers != null
 
 /** One existential method unit of a class query. */
 private class ClassUnit(
@@ -266,6 +268,7 @@ private fun SqlMethodQuery.toMethodProperties(includeModifiers: Boolean = false)
         paramTypes = paramTypes,
         paramCount = paramCount,
         paramCountRange = paramCountRange,
+        opcodeCountRange = opcodeCountRange,
         modifiers = if (includeModifiers) modifiers else null,
     )
 
@@ -296,6 +299,14 @@ private fun methodJoins(
         }
         properties.returnTypeMatch?.let {
             where += nameMatchCondition(baseAlias + ".return_descriptor", it, SqlNameLiteralKind.JavaType)
+        }
+        properties.opcodeCountRange?.let { range ->
+            if (range.first == range.last) {
+                where += baseAlias + ".opcode_count = " + range.first
+            } else {
+                where += baseAlias + ".opcode_count >= " + range.first
+                where += baseAlias + ".opcode_count <= " + range.last
+            }
         }
         val range = properties.paramCountRange
         if (range != null) {
@@ -470,6 +481,7 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
             paramTypes = query.paramTypes,
             paramCount = query.paramCount,
             paramCountRange = query.paramCountRange,
+            opcodeCountRange = query.opcodeCountRange,
         )
     } else {
         properties = query.toMethodProperties()

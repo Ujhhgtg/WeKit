@@ -108,6 +108,9 @@ class SqlMethodQuery internal constructor() {
     /** Inclusive parameter-count range; emitted as two comparisons (equality when min == max). */
     internal var paramCountRange: IntRange? = null
 
+    /** Inclusive instruction-count range (m.opcode_count); null means unconstrained. */
+    internal var opcodeCountRange: IntRange? = null
+
     /**
      * Access-flag mask (decimal), emitted as ((m.access_flags & mask) = mask); DexKit modifiers
      * semantics require every masked bit to be set. Assign this property or call [modifiers].
@@ -173,6 +176,17 @@ class SqlMethodQuery internal constructor() {
 
     /** Inclusive parameter count range; same as [paramCount] with two bounds. */
     fun paramCount(range: IntRange) = paramCount(range.first, range.last)
+
+    /** Inclusive instruction-count range (m.opcode_count). */
+    fun opcodeCount(min: Int, max: Int) {
+        require(min >= 0 && min <= max) {
+            "DexSQL opcodeCount range must satisfy 0 <= min <= max, was " + min + ".." + max
+        }
+        opcodeCountRange = min..max
+    }
+
+    /** Inclusive instruction-count range; same as [opcodeCount] with two bounds. */
+    fun opcodeCount(range: IntRange) = opcodeCount(range.first, range.last)
 
     /**
      * Positional parameter types (m.param_descriptors). A null entry matches exactly one parameter

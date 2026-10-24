@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.dexkit.matcher
 
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
+import dev.ujhhgtg.wekit.dexkit.DexSqlQueryResult
 import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
@@ -48,6 +49,7 @@ class DexMatcherSession(
 
     @Volatile
     private var closed = false
+
 
     fun findClasses(
         spec: ClassSpec,

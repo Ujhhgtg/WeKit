@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MatcherSessionCache internal constructor() {
     private val candidateRowsBySql = ConcurrentHashMap<String, List<String>>()
     private val rawDocuments = ConcurrentHashMap<String, JsonObject>()
-    private val classStrings = ConcurrentHashMap<String, Boolean>()
+    private val stringClassesByLiteral = ConcurrentHashMap<String, Set<String>>()
 
     /** Memoized candidate SQL rows (only small enough result sets). */
     fun candidateRows(sql: String, load: () -> List<String>): List<String> {
@@ -39,17 +39,26 @@ class MatcherSessionCache internal constructor() {
         return document
     }
 
-    /** Memoized class-level usingStrings evaluation (class descriptor + literal). */
-    fun classString(key: String, load: () -> Boolean): Boolean {
-        classStrings[key]?.let { return it }
-        val result = load()
-        if (classStrings.size < MAX_ENTRIES) classStrings.putIfAbsent(key, result)
-        return result
+    /**
+     * Classes whose methods contain a given string literal, keyed by match mode + literal.
+     * One canonical method_strings query populates the whole set: class-level usingStrings
+     * evaluation then becomes an O(1) descriptor lookup instead of one SQL query per candidate
+     * class. Empty and negative results are cached too (the empty set is the negative result).
+     */
+    fun stringClasses(key: String): Set<String>? = stringClassesByLiteral[key]
+
+    fun cacheStringClasses(key: String, classes: Set<String>) {
+        if (classes.isEmpty() || classes.size <= MAX_CACHED_STRING_CLASSES) {
+            if (stringClassesByLiteral.size < MAX_ENTRIES) {
+                stringClassesByLiteral.putIfAbsent(key, classes)
+            }
+        }
     }
 
     companion object {
         private const val MAX_ENTRIES = 2048
         private const val MAX_CACHED_DESCRIPTORS = 4096
+        private const val MAX_CACHED_STRING_CLASSES = 100_000
 
         private val bySession = WeakHashMap<Any, MatcherSessionCache>()
 

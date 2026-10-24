@@ -22,6 +22,17 @@ interface DexMatcherRelations {
 
     /** Methods accessing a field with the given SQL using_type ('get' for read, 'put' for write). */
     fun fieldAccessMethods(fieldDescriptor: String, usingType: String): List<DexMethodInfo>
+
+    /**
+     * Batched variant: one relation lookup for many candidate fields. The default implementation
+     * keeps fake/test relations simple; the production bridge overrides it with one bounded query.
+     */
+    fun fieldAccessMethods(
+        fieldDescriptors: Collection<String>,
+        usingType: String,
+    ): Map<String, List<DexMethodInfo>> = fieldDescriptors.associateWith {
+        fieldAccessMethods(it, usingType)
+    }
 }
 
 /**
@@ -49,6 +60,37 @@ class BridgeMatcherRelations(
             lazy { fetchFieldAccessMethods(fieldDescriptor, usingType) }
         }.value
 
+    /**
+     * Fetches access methods for many candidate fields. Each candidate uses the engine's fast
+     * method-base field-access shape (one field descriptor literal, single-equality joins). The
+     * old IN (...) batch shape falls back to the generic streaming executor and costs ~1-2 s per
+     * candidate set, so per-field fast lookups are substantially cheaper after candidate
+     * intersection (the usual case is 1-3 fields). Results fill the per-field cache, making the
+     * evaluator's subsequent single-field calls O(1).
+     */
+    override fun fieldAccessMethods(
+        fieldDescriptors: Collection<String>,
+        usingType: String,
+    ): Map<String, List<DexMethodInfo>> {
+        val valid = fieldDescriptors
+            .filter(::isRealFieldDescriptor)
+            .distinct()
+        if (valid.isEmpty()) return emptyMap()
+        val result = LinkedHashMap<String, List<DexMethodInfo>>(valid.size)
+        for (descriptor in valid) {
+            val key = descriptor + "|" + usingType
+            val cached = fieldAccessCache[key]?.value
+            if (cached != null) {
+                result[descriptor] = cached
+                continue
+            }
+            val methods = fetchFieldAccessMethods(descriptor, usingType)
+            result[descriptor] = methods
+            fieldAccessCache.putIfAbsent(key, lazyOf(methods))
+        }
+        return result
+    }
+
     private fun parseCallers(callers: JsonElement?): List<DexMethodInfo> {
         val array = callers as? JsonArray ?: return emptyList()
         return array.mapNotNull { element ->
@@ -63,15 +105,13 @@ class BridgeMatcherRelations(
         // descriptor: metadata.methodInfo(fieldDescriptor) is null and would silently yield no
         // read/write methods (fieldGlobalUicChildren regression).
         if (!isRealFieldDescriptor(fieldDescriptor)) return emptyList()
-        val sql = "SELECT DISTINCT fm0.descriptor AS descriptor FROM fields f " +
-            "JOIN method_field_accesses fa0 ON fa0.field = f.descriptor " +
-            "JOIN methods fm0 ON fm0.descriptor = fa0.method " +
-            "WHERE f.descriptor = " + sqlQuote(fieldDescriptor) +
-            " AND fa0.file_id = f.file_id" +
-            " AND fa0.field_idx = f.field_idx" +
-            " AND fm0.file_id = fa0.file_id" +
+        val sql = "SELECT DISTINCT m.descriptor AS method FROM methods m " +
+            "JOIN method_field_accesses fa0 ON fa0.method = m.descriptor " +
+            "WHERE fa0.field = " + sqlQuote(fieldDescriptor) +
+            " AND fa0.file_id = m.file_id" +
+            " AND fa0.method_idx = m.method_idx" +
             " AND fa0.using_type = " + sqlQuote(usingType) +
-            " ORDER BY fm0.descriptor;"
+            " ORDER BY m.descriptor;"
         val rows = try {
             query(sql).rows
         } catch (e: DexSqlException) {

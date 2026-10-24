@@ -286,6 +286,10 @@ class QueryMatcherTest {
     fun classCandidateQueryUsesClassNameAndUsingStrings() {
         val query = RecordingDescriptorQuery { sql ->
             when {
+                // Batched class-level usingStrings lookup: method_strings -> method descriptors.
+                !sql.contains("class_descriptor = '") && sql.contains("JOIN method_strings") ->
+                    if (sql.contains("'alpha marker'")) listOf(MatcherFixtures.ALPHA_RUN)
+                    else MatcherFixtures.methodDescriptors()
                 !sql.contains("class_descriptor = '") -> MatcherFixtures.classDescriptors()
                 sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
                 else -> emptyList()

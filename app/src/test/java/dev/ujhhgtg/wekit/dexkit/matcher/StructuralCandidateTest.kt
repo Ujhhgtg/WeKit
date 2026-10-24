@@ -82,14 +82,13 @@ class StructuralCandidateTest {
 
     @Test
     fun declaredClassUsingStringsCandidateUsesCanonicalLiteralUnits() {
-        // Candidate generation uses the canonical class-literal-unit shape; the class-level
-        // usingStrings evaluation afterwards is a class-scoped query (class name predicate), so the
-        // fake must scope it to the fixture class that actually carries the literal (Alpha).
+        // Candidate generation keeps the canonical class-literal-unit shape. Class-level strings
+        // evaluation uses the batched literal->class set, so the fake must answer the global
+        // method_strings query with the methods that actually carry the literal.
         val query = RecordingDescriptorQuery { sql ->
             when {
-                !sql.contains("class_descriptor = '") -> MatcherFixtures.methodDescriptors()
-                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
-                else -> emptyList()
+                sql.contains("class_descriptor = '") -> MatcherFixtures.methodDescriptors()
+                else -> globalClassStringRows(sql)
             }
         }
         val scope = scopeFor(query)
@@ -125,13 +124,8 @@ class StructuralCandidateTest {
     @Test
     fun classUsingStringsCandidateResolvesInTwoCanonicalSteps() {
         val query = RecordingDescriptorQuery { sql ->
-            when {
-                // Candidate two-step lookups have no class-name constraint.
-                !sql.contains("class_descriptor = '") -> MatcherFixtures.methodDescriptors()
-                // Class-level usingStrings evaluation is class-scoped: only Alpha has matches.
-                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
-                else -> emptyList()
-            }
+            // Candidate generation and evaluation share the batched literal->class set.
+            globalClassStringRows(sql)
         }
         val scope = scopeFor(query)
         val results = scope.findClasses(
@@ -213,12 +207,17 @@ class StructuralCandidateTest {
         assertTrue(sql.contains("m.name = 'op'"), sql)
         assertTrue(sql.contains("m.param_descriptors = 'I,[Ljava/lang/Object;'"), sql)
         assertTrue(sql.contains("m.return_descriptor = 'I'"), sql)
+        assertTrue(sql.contains("m.opcode_count >= 0"), sql)
+        assertTrue(sql.contains("m.opcode_count <= 10"), sql)
         assertFalse(sql.contains("<init>"), sql)
     }
 
     @Test
     fun classRawReqShapeDrivesFromOpMethodNotConstructor() {
-        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("c.field_count")) MatcherFixtures.classDescriptors()
+            else MatcherFixtures.methodDescriptors()
+        }
         scopeFor(query).findClasses(
             classSpec {
                 field { type { className("byte[]") } }
@@ -239,10 +238,13 @@ class StructuralCandidateTest {
                 }
             },
         )
-        val sql = query.queries.single()
+        val sql = query.queries.first { it.contains("m.name = 'op'") }
         assertTrue(sql.contains("m.name = 'op'"), sql)
         assertFalse(sql.contains("<init>"), sql)
         assertFalse(sql.contains("toByteArray"), sql)
+        // fieldCount is pushed into a separate canonical classes.field_count intersection.
+        assertTrue(query.queries.any { it.contains("c.field_count >= 1") }, query.queries.joinToString())
+        assertTrue(query.queries.any { it.contains("c.field_count <= 1") }, query.queries.joinToString())
     }
 
     @Test
@@ -367,8 +369,12 @@ class StructuralCandidateTest {
             },
         )
         // Candidate generation (no class-name constraint) must only use the non-empty literal.
+        // Class-level string evaluation may add its own batched literal query; exclude it too so
+        // this test keeps asserting the candidate shape.
         val candidateSql = query.queries.filter {
-            it.contains("JOIN method_strings") && !it.contains("class_descriptor = '")
+            it.contains("JOIN method_strings") &&
+                !it.contains("class_descriptor = '") &&
+                it.contains("instr(ms0.value, 'alpha marker')")
         }
         assertTrue(candidateSql.isNotEmpty(), query.queries.joinToString(" | "))
         for (sql in candidateSql) {
@@ -596,7 +602,10 @@ class StructuralCandidateTest {
             packages = listOf("com.test"),
         )
         val sql = query.queries.single()
-        assertTrue(sql.contains("instr(c.descriptor, 'Lcom/test/') = 1"), sql)
+        // The fieldCount constraint is now a canonical classes.field_count candidate and wins over
+        // the package-only scan; weak field types stay non-driving.
+        assertTrue(sql.contains("c.field_count >= 2"), sql)
+        assertTrue(sql.contains("c.field_count <= 2"), sql)
         assertFalse(sql.contains("FROM fields"), sql)
         assertFalse(sql.contains("FROM methods"), sql)
         assertTrue(results.isEmpty())
@@ -820,7 +829,7 @@ class StructuralCandidateTest {
             }
         }
         scope.findMethods(spec)
-        val sql = query.queries.single()
+        val sql = query.queries.first { it.contains("m.return_descriptor = 'Z'") }
         assertFalse(sql.contains("JOIN classes"), sql)
         assertTrue(sql.contains("m.return_descriptor = 'Z'"), sql)
         assertTrue(sql.contains("m.param_descriptors = 'Ljava/lang/String;'"), sql)
@@ -957,5 +966,51 @@ class StructuralCandidateTest {
             val offset = Regex("OFFSET (\\d+)").find(sql)?.groupValues?.get(1)?.toInt() ?: 0
             return rows.drop(offset).take(limit)
         }
+    }
+
+
+    @Test
+    fun classStringLiteralLookupIsBatchedAndCachedAcrossScopes() {
+        var literalQueries = 0
+        var missingQueries = 0
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                sql.contains("alpha marker") -> {
+                    literalQueries++
+                    listOf(MatcherFixtures.ALPHA_RUN)
+                }
+                sql.contains("missing literal") -> {
+                    missingQueries++
+                    emptyList()
+                }
+                else -> MatcherFixtures.methodDescriptors()
+            }
+        }
+        val session = Any()
+        val sessionCache = MatcherSessionCache.forSession(session)
+        fun scope() = QueryMatcherScope(
+            metadata = metadata,
+            query = query,
+            relations = relations,
+            rawMetadata = MatcherFixtures.provider::query,
+            sessionCache = sessionCache,
+        )
+        val spec = classSpec { usingString("alpha marker") }
+        assertEquals(listOf(MatcherFixtures.ALPHA), scope().findClasses(spec).map { it.descriptor })
+        assertEquals(1, literalQueries)
+        // A second scope for the same DexSQL session reuses the literal->class set: no second query.
+        assertEquals(listOf(MatcherFixtures.ALPHA), scope().findClasses(spec).map { it.descriptor })
+        assertEquals(1, literalQueries)
+        // Negative (empty) results are cached as well.
+        val missing = classSpec { usingString("missing literal") }
+        assertTrue(scope().findClasses(missing).isEmpty())
+        assertTrue(scope().findClasses(missing).isEmpty())
+        assertEquals(1, missingQueries)
+    }
+
+    private fun globalClassStringRows(sql: String): List<String> = when {
+        sql.contains("alpha marker") -> listOf(MatcherFixtures.ALPHA_RUN)
+        sql.contains("'other'") -> listOf(MatcherFixtures.ALPHA_HELPER)
+        else -> MatcherFixtures.methodDescriptors()
     }
 }

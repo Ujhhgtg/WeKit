@@ -286,10 +286,11 @@ class DescriptorSafetyTest {
         )
         val methods = relations.fieldAccessMethods(MatcherFixtures.ALPHA_COUNT_FIELD, "get")
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), methods.map { it.descriptor })
-        assertTrue(capturedSql.contains("SELECT DISTINCT fm0.descriptor AS descriptor"), capturedSql)
-        assertFalse(capturedSql.contains("SELECT DISTINCT f.descriptor"), capturedSql)
-        assertTrue(capturedSql.contains("fa0.file_id = f.file_id"), capturedSql)
-        assertTrue(capturedSql.contains("fa0.field_idx = f.field_idx"), capturedSql)
+        assertTrue(capturedSql.contains("SELECT DISTINCT m.descriptor AS method"), capturedSql)
+        assertFalse(capturedSql.contains("SELECT DISTINCT fm0.descriptor"), capturedSql)
+        assertTrue(capturedSql.contains("JOIN method_field_accesses fa0 ON fa0.method = m.descriptor"), capturedSql)
+        assertTrue(capturedSql.contains("fa0.file_id = m.file_id"), capturedSql)
+        assertTrue(capturedSql.contains("fa0.method_idx = m.method_idx"), capturedSql)
     }
 
     @Test

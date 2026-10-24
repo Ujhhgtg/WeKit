@@ -105,7 +105,8 @@ class QueryMatcherScope(
     /** Cross-delegate session caches (null in unit tests: per-scope caches are used instead). */
     private val sessionCache: MatcherSessionCache? = null,
 ) {
-    private val classUsingStringCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val localStringClasses = HashMap<String, Set<String>>()
+    private val classMatchCache = HashMap<Pair<String, ClassSpec>, Boolean>()
 
     // Candidate queries are executed at most once per resolution scope for small result sets; the
     // two-step field-access lookups are re-used by class/field evaluation paths.
@@ -123,10 +124,16 @@ class QueryMatcherScope(
         false
     }
 
-    private fun matchesClassSafely(info: DexClassInfo, spec: ClassSpec): Boolean = try {
-        evaluator.matchesClass(info, spec)
-    } catch (e: DexSqlException) {
-        false
+    private fun matchesClassSafely(info: DexClassInfo, spec: ClassSpec): Boolean {
+        val key = info.descriptor to spec
+        classMatchCache[key]?.let { return it }
+        val result = try {
+            evaluator.matchesClass(info, spec)
+        } catch (e: DexSqlException) {
+            false
+        }
+        if (classMatchCache.size < 2048) classMatchCache[key] = result
+        return result
     }
 
     private fun matchesFieldSafely(info: DexFieldInfo, spec: FieldSpec): Boolean = try {
@@ -136,38 +143,48 @@ class QueryMatcherScope(
     }
 
     /**
-     * Class-level usingStrings evaluation backed by the canonical class-scoped method_strings query
-     * (declaredClass literal => method_strings unit). This keeps class/return-type/interface string
-     * semantics out of the native method-document builder (array-class method refs there throw).
+     * Class-level usingStrings evaluation is a set-membership test. The set of classes containing a
+     * literal is materialized once by a canonical query (method_strings value -> method descriptors
+     * -> declared class descriptors) and cached in the session cache. This turns candidate
+     * evaluation from one SQL query per candidate class into one query per distinct literal, then
+     * O(1) per class. Nested class specs (declaredClass/returnType/superClass) use the same sets
+     * through the evaluator callback.
      */
     private fun classUsingString(info: DexClassInfo, spec: StringSpec): Boolean {
-        val dotted = dottedClassNameOrNull(info.descriptor) ?: return false
-        val key = info.descriptor + "\u0000" + spec.match.name + "\u0000" + spec.value
-        val compute = { computeClassUsingString(dotted, spec) }
-        return sessionCache?.classString(key, compute)
-            ?: classUsingStringCache.getOrPut(key, compute)
+        val descriptor = info.descriptor
+        if (dottedClassNameOrNull(descriptor) == null) return false
+        return descriptor in classesUsingString(spec)
     }
 
-    private fun computeClassUsingString(dottedClassName: String, spec: StringSpec): Boolean {
+    private fun classesUsingString(spec: StringSpec): Set<String> {
+        val key = spec.match.name + "\u0000" + spec.value
+        localStringClasses[key]?.let { return it }
+        sessionCache?.stringClasses(key)?.let {
+            localStringClasses[key] = it
+            return it
+        }
+        val classes = computeClassesUsingString(spec)
+        localStringClasses[key] = classes
+        sessionCache?.cacheStringClasses(key, classes)
+        return classes
+    }
+
+    private fun computeClassesUsingString(spec: StringSpec): Set<String> {
         val sql = try {
-            sqlMethod {
-                declaredClass {
-                    className(dottedClassName)
-                    when (spec.match) {
-                        NameMatch.Equals -> usingEqStrings(spec.value)
-                        NameMatch.StartsWith -> usingPrefixStrings(spec.value)
-                        NameMatch.Contains -> usingStrings(spec.value)
-                        NameMatch.EndsWith -> usingSuffixStrings(spec.value)
-                    }
-                }
-            }.toSql()
+            sqlMethod { addMethodStringPredicate(this, spec) }.toSql()
         } catch (e: IllegalArgumentException) {
-            return false
+            return emptySet()
         }
         return try {
-            query.descriptors(sql).isNotEmpty()
+            val classes = linkedSetOf<String>()
+            query.descriptors(sql).forEach { methodDescriptor ->
+                if (!isRealMethodDescriptor(methodDescriptor)) return@forEach
+                val declaredClass = declaredClassNameOfMethod(methodDescriptor) ?: return@forEach
+                classDescriptorOrNull(declaredClass)?.let { classes += it }
+            }
+            classes
         } catch (e: DexSqlException) {
-            false
+            emptySet()
         }
     }
 
@@ -193,8 +210,8 @@ class QueryMatcherScope(
         val sources = methodCandidateSources(spec, packages) ?: unsupportedCandidate("method")
         return queryDescriptors(sources).asSequence()
             .filterNot { it.startsWith("[") }
+            .filter { methodDescriptorInPackages(it, packages, excludePackages) }
             .mapNotNull { loadMethod(it, spec) }
-            .filter { matchesPackages(it.declaredClassName, packages, excludePackages) }
             .filter { matchesMethodSafely(it, spec) }
             .toList()
     }
@@ -205,12 +222,13 @@ class QueryMatcherScope(
         excludePackages: List<String> = emptyList(),
     ): List<DexClassInfo> {
         val sources = classCandidateSources(spec, packages) ?: unsupportedCandidate("class")
-        return queryDescriptors(sources).asSequence()
+        val candidates = queryDescriptors(sources).asSequence()
             .filterNot { it.startsWith("[") }
+            .filter { classDescriptorInPackages(it, packages, excludePackages) }
             .mapNotNull { loadClass(it, spec) }
-            .filter { matchesPackages(it.name, packages, excludePackages) }
-            .filter { matchesClassSafely(it, spec) }
             .toList()
+        preloadClassFieldAccessRelations(candidates, spec)
+        return candidates.filter { matchesClassSafely(it, spec) }
     }
 
     fun findFields(
@@ -219,10 +237,13 @@ class QueryMatcherScope(
         excludePackages: List<String> = emptyList(),
     ): List<DexFieldInfo> {
         val sources = fieldCandidateSources(spec, packages) ?: unsupportedCandidate("field")
-        return queryDescriptors(sources).asSequence()
+        val candidates = queryDescriptors(sources).asSequence()
             .filterNot { it.startsWith("[") }
+            .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
+            .toList()
+        preloadFieldAccessRelations(candidates, spec)
+        return candidates.asSequence()
             .mapNotNull { loadField(it, spec) }
-            .filter { matchesPackages(it.declaredClassName, packages, excludePackages) }
             .filter { matchesFieldSafely(it, spec) }
             .toList()
     }
@@ -270,10 +291,11 @@ class QueryMatcherScope(
         val matches = mutableListOf<DexMethodInfo>()
         val matchedDescriptors = HashSet<String>(4)
         forEachCandidateDescriptor(sources) { descriptor ->
-            if (!descriptor.startsWith("[")) {
+            if (!descriptor.startsWith("[") &&
+                methodDescriptorInPackages(descriptor, packages, excludePackages)
+            ) {
                 val info = loadMethod(descriptor, spec)
                 if (info != null &&
-                    matchesPackages(info.declaredClassName, packages, excludePackages) &&
                     matchesMethodSafely(info, spec) &&
                     matchedDescriptors.add(info.descriptor)
                 ) {
@@ -294,10 +316,11 @@ class QueryMatcherScope(
         val matches = mutableListOf<DexClassInfo>()
         val matchedDescriptors = HashSet<String>(4)
         forEachCandidateDescriptor(sources) { descriptor ->
-            if (!descriptor.startsWith("[")) {
+            if (!descriptor.startsWith("[") &&
+                classDescriptorInPackages(descriptor, packages, excludePackages)
+            ) {
                 val info = loadClass(descriptor, spec)
                 if (info != null &&
-                    matchesPackages(info.name, packages, excludePackages) &&
                     matchesClassSafely(info, spec) &&
                     matchedDescriptors.add(info.descriptor)
                 ) {
@@ -315,20 +338,22 @@ class QueryMatcherScope(
         excludePackages: List<String>,
     ): List<DexFieldInfo> {
         val sources = fieldCandidateSources(spec, packages) ?: unsupportedCandidate("field")
+        val candidates = queryDescriptors(sources).asSequence()
+            .filterNot { it.startsWith("[") }
+            .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
+            .toList()
+        preloadFieldAccessRelations(candidates, spec)
         val matches = mutableListOf<DexFieldInfo>()
         val matchedDescriptors = HashSet<String>(4)
-        forEachCandidateDescriptor(sources) { descriptor ->
-            if (!descriptor.startsWith("[")) {
-                val info = loadField(descriptor, spec)
-                if (info != null &&
-                    matchesPackages(info.declaredClassName, packages, excludePackages) &&
-                    matchesFieldSafely(info, spec) &&
-                    matchedDescriptors.add(info.descriptor)
-                ) {
-                    matches += info
-                }
+        for (descriptor in candidates) {
+            val info = loadField(descriptor, spec)
+            if (info != null &&
+                matchesFieldSafely(info, spec) &&
+                matchedDescriptors.add(info.descriptor)
+            ) {
+                matches += info
             }
-            matches.size >= 2
+            if (matches.size >= 2) break
         }
         return matches
     }
@@ -524,6 +549,7 @@ class QueryMatcherScope(
             }
         }
         spec.paramCount?.let { range -> steps += { q -> q.paramCount(range.first, range.last) } }
+        spec.opcodes?.count?.let { range -> steps += { q -> q.opcodeCount(range) } }
         spec.paramTypes
             ?.takeIf { types -> types.all { it == null || it.match == NameMatch.Equals } }
             ?.let { types ->
@@ -561,14 +587,9 @@ class QueryMatcherScope(
             // class sets is a necessary condition and drastically narrows the evaluation set.
             var classDescriptors: LinkedHashSet<String>? = null
             for (stringSpec in nonEmptyClassStrings) {
-                val literalClasses = linkedSetOf<String>()
-                val sql = sqlMethod { addMethodStringPredicate(this, stringSpec) }.toSql()
-                query.descriptors(sql).forEach { methodDescriptor ->
-                    if (!isRealMethodDescriptor(methodDescriptor)) return@forEach
-                    val declaredClass = declaredClassNameOfMethod(methodDescriptor) ?: return@forEach
-                    classDescriptorOrNull(declaredClass)?.let { literalClasses += it }
-                }
-                classDescriptors = classDescriptors?.apply { retainAll(literalClasses) } ?: literalClasses
+                val literalClasses = classesUsingString(stringSpec)
+                classDescriptors = classDescriptors?.apply { retainAll(literalClasses) }
+                    ?: LinkedHashSet(literalClasses)
                 if (classDescriptors!!.isEmpty()) break
             }
             return listOf(CandidateSource.Descriptors(classDescriptors.orEmpty().toList()))
@@ -594,6 +615,7 @@ class QueryMatcherScope(
                     }
                 }
                 if (candidates != null) {
+                    candidates = intersectFieldCount(spec, candidates!!)
                     return listOf(CandidateSource.Descriptors(candidates!!.toList()))
                 }
             }
@@ -619,6 +641,7 @@ class QueryMatcherScope(
                     }
                 }
                 if (candidates != null) {
+                    candidates = intersectFieldCount(spec, candidates!!)
                     return listOf(CandidateSource.Descriptors(candidates!!.toList()))
                 }
             }
@@ -640,7 +663,11 @@ class QueryMatcherScope(
             }.toSql()
             return listOf(CandidateSource.Sql(sql))
         }
-        // 7) Package-only canonical class scan.
+        // 7) Field count constraint: canonical bare-class scan over classes.field_count.
+        spec.fieldCount?.let { range ->
+            return listOf(CandidateSource.Sql(classFieldCountSql(range)))
+        }
+        // 8) Package-only canonical class scan.
         if (packages.isNotEmpty()) {
             val sql = sqlClass { searchPackages(*packages.toTypedArray()) }.toSql()
             return listOf(CandidateSource.Sql(sql))
@@ -765,11 +792,25 @@ class QueryMatcherScope(
     }
 
     private fun fieldCandidateSources(spec: FieldSpec, packages: List<String>): List<CandidateSource>? {
-        // 1) readMethods/writeMethods two-step (with every pushable field predicate as a conjunct):
-        //    the most selective source for fieldGlobalUicChildren-style specs.
-        fieldAccessCandidateSources(spec, packages)?.let { return it }
-        // 2) Selective base predicates (name / declaring class / narrow type / packages).
+        // 1) readMethods/writeMethods access units (with every pushable field predicate as a
+        //    conjunct) are selective. When the spec ALSO has a selective base predicate (name /
+        //    declaring class / narrow type), intersect both cheap candidate sets instead of letting
+        //    the broader one drive evaluation; this keeps relation evaluation to a small set.
+        val accessSources = fieldAccessCandidateSources(spec, packages)
         val selectiveSteps = fieldPredicateSteps(spec, packages, includeBroadType = false)
+        if (accessSources != null) {
+            if (selectiveSteps.isEmpty()) return accessSources
+            val accessDescriptors = queryDescriptors(accessSources)
+            val baseDescriptors = queryDescriptors(
+                listOf(CandidateSource.Sql(sqlField { selectiveSteps.forEach { step -> step(this) } }.toSql())),
+            ).toHashSet()
+            return listOf(
+                CandidateSource.Descriptors(
+                    accessDescriptors.filter { it in baseDescriptors }.distinct(),
+                ),
+            )
+        }
+        // 2) Selective base predicates (name / declaring class / narrow type / packages).
         if (selectiveSteps.isNotEmpty()) {
             return listOf(
                 CandidateSource.Sql(
@@ -909,6 +950,83 @@ class QueryMatcherScope(
         if (!isRealFieldDescriptor(descriptor)) return null
         val classDescriptor = descriptor.substring(0, descriptor.indexOf("->"))
         return dottedClassNameOrNull(classDescriptor)
+    }
+
+    /**
+     * Intersect a class candidate set with the canonical classes.field_count scan. Class specs
+     * with a fieldCount constraint would otherwise load metadata for every class declaring a
+     * candidate member (e.g. 9k classes for a common method signature).
+     */
+    private fun intersectFieldCount(
+        spec: ClassSpec,
+        candidates: LinkedHashSet<String>,
+    ): LinkedHashSet<String> {
+        val range = spec.fieldCount ?: return candidates
+        val allowed = queryDescriptors(
+            listOf(CandidateSource.Sql(classFieldCountSql(range))),
+        ).toHashSet()
+        return candidates.filterTo(LinkedHashSet()) { it in allowed }
+    }
+
+    private fun classFieldCountSql(range: IntRange): String =
+        "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+            "WHERE c.field_count >= " + range.first +
+            " AND c.field_count <= " + range.last +
+            " ORDER BY c.descriptor;"
+
+    /** Batch-fetch read/write access data for the direct field constraints of candidate classes. */
+    private fun preloadClassFieldAccessRelations(classes: List<DexClassInfo>, spec: ClassSpec) {
+        val relations = relations ?: return
+        if (classes.isEmpty()) return
+        if (spec.fields.none { it.readMethods.isNotEmpty() || it.writeMethods.isNotEmpty() }) return
+        val fields = classes.flatMap { info -> info.fields.map { it.descriptor } }.distinct()
+        if (fields.isEmpty()) return
+        if (spec.fields.any { it.readMethods.isNotEmpty() }) relations.fieldAccessMethods(fields, "get")
+        if (spec.fields.any { it.writeMethods.isNotEmpty() }) relations.fieldAccessMethods(fields, "put")
+    }
+
+    /** Batch-fetch read/write relation data for every candidate field once (cache-backed). */
+    private fun preloadFieldAccessRelations(fieldDescriptors: List<String>, spec: FieldSpec) {
+        val relations = relations ?: return
+        if (fieldDescriptors.isEmpty()) return
+        if (spec.readMethods.isNotEmpty()) relations.fieldAccessMethods(fieldDescriptors, "get")
+        if (spec.writeMethods.isNotEmpty()) relations.fieldAccessMethods(fieldDescriptors, "put")
+    }
+
+    /**
+     * Package filters are applied to the descriptor before loading the metadata document. This is
+     * important for broad candidate sets (e.g. class-level string sets): classes outside the
+     * requested packages must never cost a native metadata read.
+     */
+    private fun methodDescriptorInPackages(
+        descriptor: String,
+        packages: List<String>,
+        excludePackages: List<String>,
+    ): Boolean {
+        if (packages.isEmpty() && excludePackages.isEmpty()) return true
+        val name = declaredClassNameOfMethod(descriptor) ?: return false
+        return matchesPackages(name, packages, excludePackages)
+    }
+
+    private fun fieldDescriptorInPackages(
+        descriptor: String,
+        packages: List<String>,
+        excludePackages: List<String>,
+    ): Boolean {
+        if (packages.isEmpty() && excludePackages.isEmpty()) return true
+        val name = declaredClassNameOfField(descriptor) ?: return false
+        return matchesPackages(name, packages, excludePackages)
+    }
+
+    private fun classDescriptorInPackages(
+        descriptor: String,
+        packages: List<String>,
+        excludePackages: List<String>,
+    ): Boolean {
+        if (packages.isEmpty() && excludePackages.isEmpty()) return true
+        if (descriptor.startsWith("[")) return false
+        val name = dottedClassNameOrNull(descriptor) ?: return false
+        return matchesPackages(name, packages, excludePackages)
     }
 
     private fun unsupportedCandidate(kind: String): Nothing = throw UnsupportedOperationException(
