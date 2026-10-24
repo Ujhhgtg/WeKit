@@ -54,7 +54,6 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.luckypray.dexkit.DexKitBridge
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.abs
@@ -124,7 +123,7 @@ object SwipeMessageOperations : ClickableFeature(), IResolveDex,
 
     private val methodHideChatInput by dexMethod()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         methodHideChatInput.setDescriptor(
             methodChatListOnTouch.data.invokes
                 .distinctBy { it.descriptor }

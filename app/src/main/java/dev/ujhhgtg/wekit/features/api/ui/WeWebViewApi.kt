@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.tracked
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import org.luckypray.dexkit.query.enums.StringMatchType
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.CountDownLatch

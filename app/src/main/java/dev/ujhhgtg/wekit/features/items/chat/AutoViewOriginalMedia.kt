@@ -13,8 +13,14 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
-import org.luckypray.dexkit.DexKitBridge
-
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     override val technicalId = "自动查看原图"
@@ -39,46 +45,62 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
         "查看原视频", "Original quality", "View Full Video",
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val results = dexKit.findMethod {
-            matcher {
-                declaredClass = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
-                usingEqStrings("setHdImageActionDownloadable")
-            }
-        }.ifEmpty {
-            dexKit.findMethod {
-                matcher {
-                    declaredClass = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
-                    usingEqStrings("setImageHdImgBtnVisibility")
-                }
-            }
+    override fun resolveDex() {
+        val results = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+                ),
+                usingStrings = listOf(
+                    StringSpec("setHdImageActionDownloadable", NameMatch.Equals),
+                ),
+            ),
+        ).ifEmpty {
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(
+                        className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+                    ),
+                    usingStrings = listOf(
+                        StringSpec("setImageHdImgBtnVisibility", NameMatch.Equals),
+                    ),
+                ),
+            )
         }
         methodSetImageHdImgBtnVisibility.setDescriptor(results.single())
 
-        methodCheckNeedShowOriginVideoBtn.find(dexKit) {
-            matcher {
-                declaredClass = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
-                usingEqStrings("checkNeedShowOriginVideoBtn")
-            }
-        }
+        methodCheckNeedShowOriginVideoBtn.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
+                ),
+                usingStrings = listOf(
+                    StringSpec("checkNeedShowOriginVideoBtn", NameMatch.Equals),
+                ),
+            ),
+        )
 
-        classMediaGalleryVideoBottomBarLayer.find(dexKit) {
-            matcher {
-                usingEqStrings("MediaGallery.VideoBottomBarLayer")
-            }
-        }
+        classMediaGalleryVideoBottomBarLayer.find(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MediaGallery.VideoBottomBarLayer", NameMatch.Equals),
+                ),
+            ),
+        )
 
-        val chatLiveBottomBarLayers = dexKit.findClass {
-            matcher {
-                methods {
-                    add {
-                        name = "<init>"
-                        paramCount = 1
-                        usingEqStrings("MediaGallery.ChatLiveBottomBarLayer")
-                    }
-                }
-            }
-        }
+        val chatLiveBottomBarLayers = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("<init>"),
+                        paramCount = 1..1,
+                        usingStrings = listOf(
+                            StringSpec("MediaGallery.ChatLiveBottomBarLayer", NameMatch.Equals),
+                        ),
+                    ),
+                ),
+            ),
+        )
 
         when (chatLiveBottomBarLayers.size) {
             0 -> {
@@ -98,23 +120,32 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             )
         }
 
-        methodBindMediaGalleryChatLiveBottomBar.find(dexKit) {
-            matcher {
-                declaredClass(classMediaGalleryChatLiveBottomBarLayer.data.name)
-                paramCount = 1
-                returnType = "void"
-                usingEqStrings("bindContext", "msgInfo")
-            }
-        }
+        methodBindMediaGalleryChatLiveBottomBar.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(classMediaGalleryChatLiveBottomBarLayer.data.name),
+                ),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(
+                    StringSpec("bindContext", NameMatch.Equals),
+                    StringSpec("msgInfo", NameMatch.Equals),
+                ),
+            ),
+        )
 
-        val updateVideoOriginButtonMethods = dexKit.findMethod {
-            matcher {
-                declaredClass(classMediaGalleryVideoBottomBarLayer.data.name)
-                paramTypes("java.lang.String", "boolean")
-                returnType = "void"
-                usingEqStrings("getString(...)")
-            }
-        }
+        val updateVideoOriginButtonMethods = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(classMediaGalleryVideoBottomBarLayer.data.name),
+                ),
+                paramTypes = listOf(TypeSpec("java.lang.String"), TypeSpec("boolean")),
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(
+                    StringSpec("getString(...)", NameMatch.Equals),
+                ),
+            ),
+        )
 
         when (updateVideoOriginButtonMethods.size) {
             0 -> methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()

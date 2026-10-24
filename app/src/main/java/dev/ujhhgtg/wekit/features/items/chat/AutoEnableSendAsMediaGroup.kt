@@ -15,9 +15,15 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
-import org.luckypray.dexkit.DexKitBridge
 import java.util.Collections
 import java.util.WeakHashMap
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
@@ -89,13 +95,15 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
     private val localPickerStateVisible = Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
     private val forceMediaGroupChecked = ThreadLocal<Boolean>()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         // Probe: only hosts with the half-screen chat picker have this state class
-        val states = dexKit.findClass {
-            matcher {
-                usingEqStrings("ChattingLocalMediaPickerState(selection=")
-            }
-        }
+        val states = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("ChattingLocalMediaPickerState(selection=", NameMatch.Equals),
+                ),
+            ),
+        )
         if (states.isEmpty()) {
             classLocalPickerState.markExpectedFailure()
             methodLocalPickerSelectionReducer.markExpectedFailure()
@@ -104,13 +112,13 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
         val state = states.single()
         classLocalPickerState.setDescriptor(state)
         methodLocalPickerSelectionReducer.setDescriptor(
-            dexKit.findMethod {
-                matcher {
-                    returnType = state.name
-                    paramTypes(state.name, null)
-                    usingNumbers(3)
-                }
-            }.single()
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    returnType = ClassSpec(className = NameSpec(state.name)),
+                    paramTypes = listOf(TypeSpec(state.name), null),
+                    usingNumbers = listOf<Number>(3),
+                ),
+            ).single(),
         )
     }
 

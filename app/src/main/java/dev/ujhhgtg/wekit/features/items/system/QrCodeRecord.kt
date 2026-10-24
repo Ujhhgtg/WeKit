@@ -20,8 +20,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.nul
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
-import org.luckypray.dexkit.DexKitBridge
-
 object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
     override val technicalId = "二维码扫描记录"
@@ -130,6 +128,6 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         },
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
     }
 }

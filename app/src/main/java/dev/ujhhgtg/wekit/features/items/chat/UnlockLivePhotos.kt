@@ -38,9 +38,12 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.livephoto.WeKitLivePhotoBackend
 import org.json.JSONObject
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldUsingType
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 
 /** Supplies the missing local media adapter while retaining WeChat's validation and remux. */
 object UnlockLivePhotos : ClickableFeature(), IResolveDex {
@@ -128,15 +131,15 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         },
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         val fields = classWrapper.data.fields.filter { Modifier.isStatic(it.modifiers) }
         fieldCore.setDescriptor(fields.single { it.typeName == CORE })
         fieldCoreVersion.setDescriptor(fields.single { it.typeName == "int" })
         fieldSysVersion.setDescriptor(fields.single { it.typeName == "java.lang.String" })
         fieldSupport.setDescriptor(fields.single { it.typeName == "boolean" })
-        val saveReads = dexKit.findMethod {
-            matcher { usingEqStrings("enableSaveLivePhoto") }
-        }.asSequence().flatMap { it.usingFields }
+        val saveReads = DexResolutionContext.matcher.findMethods(
+            MethodSpec(usingStrings = listOf(StringSpec("enableSaveLivePhoto", NameMatch.Equals))),
+        ).asSequence().flatMap { it.usingFields }
             .filter { it.usingType == FieldUsingType.Read }
             .map { it.field }
             .filter { it.declaredClassName == methodSnsPublish.data.declaredClassName && it.typeName == "boolean" }

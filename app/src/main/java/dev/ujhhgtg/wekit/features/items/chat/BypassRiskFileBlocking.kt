@@ -6,8 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import org.luckypray.dexkit.DexKitBridge
-
 /**
  * 绕过被投诉风险文件的接收/打开拦截。
  *

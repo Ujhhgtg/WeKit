@@ -5,8 +5,10 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import org.luckypray.dexkit.DexKitBridge
-
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
 
     override val technicalId = "禁止上传正在输入状态"
@@ -25,15 +27,19 @@ object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
             }
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        classMmTypingSendReq.find(dexKit, allowFailure = true) {
-            searchPackages("com.tencent.mm.modelsimple")
-            matcher {
-                usingEqStrings(
-                    "null cannot be cast to non-null type com.tencent.mm.protocal.MMTypingSend.Req",
-                    "autoAuth"
-                )
-            }
-        }
+    override fun resolveDex() {
+        classMmTypingSendReq.find(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec(
+                        "null cannot be cast to non-null type com.tencent.mm.protocal.MMTypingSend.Req",
+                        NameMatch.Equals,
+                    ),
+                    StringSpec("autoAuth", NameMatch.Equals),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.modelsimple"),
+            allowFailure = true,
+        )
     }
 }

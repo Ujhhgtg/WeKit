@@ -30,9 +30,11 @@ import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_HOME
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
-import org.luckypray.dexkit.DexKitBridge
 import java.util.IdentityHashMap
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 object BeautifyHome : SwitchFeature(), IResolveDex {
 
     override val technicalId = "美化首页"
@@ -134,32 +136,60 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     val fieldSearchItem by dexField()
     val methodShowPlusMenu by dexMethod()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        fieldListSpacer.setDescriptor(dexKit.findField {
-            matcher {
-                declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
-                type = "android.view.View"
-                addWriteMethod { usingEqStrings("initActionBarView check multiWindowMode %b") }
-            }
-        }.single { it.descriptor != fieldListActionBar.data.descriptor })
+    override fun resolveDex() {
+        fieldListSpacer.setDescriptor(
+            DexResolutionContext.matcher.findFields(
+                FieldSpec(
+                    declaredClass = ClassSpec(
+                        className = NameSpec("com.tencent.mm.ui.conversation.ConversationListView"),
+                    ),
+                    type = ClassSpec(className = NameSpec("android.view.View")),
+                    writeMethods = listOf(
+                        MethodSpec(
+                            usingStrings = listOf(
+                                StringSpec(
+                                    "initActionBarView check multiWindowMode %b",
+                                    NameMatch.Equals,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ).single { it.descriptor != fieldListActionBar.data.descriptor },
+        )
 
         if (classRecyclerView.isFound) {
-            fieldRecyclerActionBar.find(dexKit) {
-                matcher {
-                    declaredClass(classRecyclerView.data.name)
-                    type = "android.view.View"
-                    addReadMethod { usingEqStrings($$"resetActionBarView$app_release") }
-                }
-            }
-            fieldRecyclerSpacer.setDescriptor(dexKit.findField {
-                matcher {
-                    declaredClass(classRecyclerView.data.name)
-                    type = "android.view.View"
-                    addWriteMethod {
-                        usingEqStrings("[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)")
-                    }
-                }
-            }.single { it.descriptor != fieldRecyclerActionBar.data.descriptor })
+            fieldRecyclerActionBar.find(
+                FieldSpec(
+                    declaredClass = ClassSpec(className = NameSpec(classRecyclerView.data.name)),
+                    type = ClassSpec(className = NameSpec("android.view.View")),
+                    readMethods = listOf(
+                        MethodSpec(
+                            usingStrings = listOf(
+                                StringSpec("resetActionBarView\$app_release", NameMatch.Equals),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+            fieldRecyclerSpacer.setDescriptor(
+                DexResolutionContext.matcher.findFields(
+                    FieldSpec(
+                        declaredClass = ClassSpec(className = NameSpec(classRecyclerView.data.name)),
+                        type = ClassSpec(className = NameSpec("android.view.View")),
+                        writeMethods = listOf(
+                            MethodSpec(
+                                usingStrings = listOf(
+                                    StringSpec(
+                                        "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
+                                        NameMatch.Equals,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ).single { it.descriptor != fieldRecyclerActionBar.data.descriptor },
+            )
         } else {
             fieldRecyclerActionBar.markExpectedFailure()
             fieldRecyclerSpacer.markExpectedFailure()
@@ -167,26 +197,29 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
 
         // Across both layouts HomeUI has a search and a plus MenuItem. Identify the plus item
         // by its binding method, rather than relying on the newer contacts-search alpha log.
-        fieldSearchItem.setDescriptor(dexKit.findField {
-            matcher {
-                declaredClass = "com.tencent.mm.ui.HomeUI"
-                type = "android.view.MenuItem"
-            }
-        }.single { it.descriptor != fieldPlusItem.data.descriptor })
+        fieldSearchItem.setDescriptor(
+            DexResolutionContext.matcher.findFields(
+                FieldSpec(
+                    declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
+                    type = ClassSpec(className = NameSpec("android.view.MenuItem")),
+                ),
+            ).single { it.descriptor != fieldPlusItem.data.descriptor },
+        )
 
         val buildMenu = WeHomeScreenPopupMenuApi.methodAddItem.data
         val plusMenuClass = WeHomeScreenPopupMenuApi.methodHandleItemClick.data.declaredClass!!
-        methodShowPlusMenu.find(dexKit) {
-            matcher {
-                declaredClass(plusMenuClass.superClass!!.name)
-                returnType = "boolean"
-                // Older menu classes build data in their zero-argument show override; newer
-                // HomeUI prepares it before calling the superclass show method with an offset.
-                if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") paramTypes("int")
-                else paramCount = 0
-                addCaller(buildMenu.descriptor)
-            }
+        val caller = MethodSpec(descriptor = buildMenu.descriptor)
+        val baseSpec = MethodSpec(
+            declaredClass = ClassSpec(className = NameSpec(plusMenuClass.superClass!!.name)),
+            returnType = ClassSpec(className = NameSpec("boolean")),
+            callerMethods = listOf(caller),
+        )
+        val plusMenuSpec = if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
+            baseSpec.copy(paramTypes = listOf(TypeSpec("int")))
+        } else {
+            baseSpec.copy(paramCount = 0..0)
         }
+        methodShowPlusMenu.find(plusMenuSpec)
     }
 
     private val handler by lazy { Handler(Looper.getMainLooper()) }

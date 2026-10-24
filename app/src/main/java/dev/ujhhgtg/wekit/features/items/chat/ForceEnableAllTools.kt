@@ -9,8 +9,12 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import org.luckypray.dexkit.DexKitBridge
-
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 object ForceEnableAllTools : SwitchFeature(), IResolveDex {
 
     override val technicalId = "强制启用所有功能"
@@ -36,30 +40,33 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val refreshMethod = dexKit.findMethod {
-            searchPackages(APP_PANEL_PACKAGE)
-            matcher {
-                declaredClass = APP_PANEL_CLASS
-                usingEqStrings("MicroMsg.AppPanel", "roomEnable:%s, hideRoomLive:%s")
-                paramCount = 0
-                returnType = "void"
-            }
-        }.single()
+    override fun resolveDex() {
+        val refreshMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(APP_PANEL_CLASS)),
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.AppPanel", NameMatch.Equals),
+                    StringSpec("roomEnable:%s, hideRoomLive:%s", NameMatch.Equals),
+                ),
+                paramCount = 0..0,
+                returnType = ClassSpec(className = NameSpec("void")),
+            ),
+            packages = listOf(APP_PANEL_PACKAGE),
+        ).single()
         methodRefreshAppPanel.setDescriptor(refreshMethod)
 
         val usedFields = refreshMethod.usingFields.map { it.field }.distinct()
         val firstFlag = usedFields.first { field ->
-            field.modifiers and Modifiers.FINAL != 0 &&
-                field.type.fields.count { it.typeName == "boolean" } == 1
+            val fieldType = DexResolutionContext.metadata.classInfoByName(field.typeName)!!
+            field.modifiers and java.lang.reflect.Modifier.FINAL != 0 &&
+                fieldType.fields.count { it.typeName == "boolean" } == 1
         }
-        val configClass = firstFlag.declaredClass
+        val configClass = firstFlag.declaredClass!!
         val appPanelConfig = usedFields.single { field ->
             field.className == APP_PANEL_CLASS && field.typeName == configClass.name
         }
-        val flagEnabled = firstFlag.type.fields.single {
-            it.typeName == "boolean"
-        }
+        val flagEnabled = DexResolutionContext.metadata.classInfoByName(firstFlag.typeName)!!
+            .fields.single { it.typeName == "boolean" }
 
         classAppPanelConfig.setDescriptor(configClass)
         fieldAppPanelConfig.setDescriptor(appPanelConfig)

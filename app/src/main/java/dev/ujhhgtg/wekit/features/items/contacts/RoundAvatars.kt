@@ -25,8 +25,10 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
-import org.luckypray.dexkit.DexKitBridge
-
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 object RoundAvatars : ClickableFeature(), IResolveDex {
 
     override val technicalId = "圆角头像"
@@ -68,18 +70,21 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
         notifyCustomContactAvatarChanged()
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val modifyMethods = dexKit.findMethod {
-            matcher {
-                usingEqStrings("workerScope", "username")
-            }
-        }.filter { it.methodName != "<init>" }
+    override fun resolveDex() {
+        val modifyMethods = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                usingStrings = listOf(
+                    StringSpec("workerScope", NameMatch.Equals),
+                    StringSpec("username", NameMatch.Equals),
+                ),
+            ),
+        ).filter { it.name != "<init>" }
 
         val modifyMethod = modifyMethods.singleOrNull()
         if (modifyMethod == null) {
             methodAvatarModify.markExpectedFailure()
         } else {
-            methodAvatarModify.setDescriptor(modifyMethod)
+            methodAvatarModify.setDescriptor(modifyMethod.descriptor)
         }
     }
 

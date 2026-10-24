@@ -46,7 +46,6 @@ import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
-import org.luckypray.dexkit.DexKitBridge
 import java.io.File
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
@@ -146,7 +145,7 @@ object SpoofChatMessages : ClickableFeature(), IResolveDex, WeChatMessageContext
     private val methodImageServiceGetter by dexMethod()
     private val classImageSizeService by dexClass()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         val invokes = methodImageViewBind.data.invokes.distinctBy { it.descriptor }
         val size = invokes.single { method ->
             method.paramTypeNames == listOf("int", "int") && method.returnTypeName != "void" &&

@@ -100,9 +100,8 @@ import kotlin.io.path.setLastModifiedTime
 import kotlin.io.path.writeBytes
 import kotlin.random.Random
 import org.json.JSONObject
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
-import org.luckypray.dexkit.result.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 
 
@@ -546,18 +545,19 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     )
 
     @SuppressLint("NonUniqueDexKitData")
-    override fun resolveDex(dexKit: DexKitBridge) {
-        // The shared matcher matches two identical implementations and contains a
-        // static-flag bitmask that DexSQL cannot express, so pick the first match
+    override fun resolveDex() {
+        // The shared matcher matches two identical implementations; pick the first match
         // explicitly instead of relaxing the matcher.
         methodGetSendMsgObject.setDescriptor(
-            dexKit.findMethod {
-                matcher {
-                    paramCount = 0
-                    returnType = classNetSceneObserverOwner.data.name
-                    modifiers(AccessFlagsMatcher(Modifier.STATIC))
-                }
-            }.first()
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    paramCount = 0..0,
+                    returnType = ClassSpec(
+                        className = NameSpec(classNetSceneObserverOwner.data.name),
+                    ),
+                    modifiers = Modifier.STATIC,
+                ),
+            ).first(),
         )
 
         val quoteCompose = methodQuoteCompose.data
@@ -600,25 +600,30 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         )
 
-        val quoteRelation = dexKit.findClass {
-            matcher { usingStrings("MsgQute{field_msgId=", "field_quotedMsgTalker=") }
-        }.single()
+        val quoteRelation = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MsgQute{field_msgId="),
+                    StringSpec("field_quotedMsgTalker="),
+                ),
+            ),
+        ).single()
         classQuoteRelation.setDescriptor(quoteRelation)
-        val quoteStorage = dexKit.findClass {
-            matcher {
-                usingStrings(
-                    "MicroMsg.msgquote.MsgQuoteStorage",
-                    "getMsgQuteByMsgId:%s",
-                )
-            }
-        }.single()
+        val quoteStorage = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.msgquote.MsgQuoteStorage"),
+                    StringSpec("getMsgQuteByMsgId:%s"),
+                ),
+            ),
+        ).single()
 
         methodQuoteRelationInsert.setDescriptor(
             quoteStorage.methods.single { candidate ->
                 candidate.paramTypeNames == listOf(quoteRelation.name) &&
                     candidate.returnTypeName == "boolean" &&
                     candidate.usingFields.any {
-                        it.usingType == FieldUsingType.Write &&
+                        it.usingType == MetaFieldUsingType.Write &&
                             it.field.name == "field_status"
                     }
             }
@@ -631,69 +636,76 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
         )
 
-        classImageSender.find(dexKit, allowFailure = true) {
-            matcher {
-                usingStrings(
-                    "MicroMsg.ImgUpload.MsgImgSyncSendFSC",
-                    "/cgi-bin/micromsg-bin/uploadmsgimg"
-                )
-            }
-        }
+        classImageSender.find(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.ImgUpload.MsgImgSyncSendFSC"),
+                    StringSpec("/cgi-bin/micromsg-bin/uploadmsgimg"),
+                ),
+            ),
+            allowFailure = true,
+        )
 
-        methodImageSendEntry.find(dexKit) {
-            matcher {
-                declaredClass(classImageSender.data.name)
-                modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
-                paramCount(4, 5)
-                usingEqStrings("send_mid_size", "send_hevc_mid_size")
-            }
-        }
+        methodImageSendEntry.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classImageSender.data.name)),
+                modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL,
+                paramCount = 4..5,
+                usingStrings = listOf(
+                    StringSpec("send_mid_size", NameMatch.Equals),
+                    StringSpec("send_hevc_mid_size", NameMatch.Equals),
+                ),
+            ),
+        )
 
         val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
         classImageTask.setDescriptor(taskClassName)
 
-        val imageFeatureServiceNewPathProbes = dexKit.findMethod {
-            matcher {
-                usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
-            }
-        }
+        val imageFeatureServiceNewPathProbes = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                usingStrings = listOf(
+                    StringSpec("sendRawImgAsyncWithPreBuild[", NameMatch.Equals),
+                    StringSpec("send_group_id", NameMatch.Equals),
+                ),
+            ),
+        )
 
         when (imageFeatureServiceNewPathProbes.size) {
             1 -> {
                 methodImgUploadFeatureServiceNewPathProbe.setDescriptor(
                     imageFeatureServiceNewPathProbes.single()
                 )
-                methodImgUploadFeatureServiceSendImage.find(dexKit) {
-                    matcher {
-                        declaredClass {
-                            usingEqStrings(
-                                "MicroMsg.ImgUpload.MsgImgFeatureService",
-                                "taskListener",
-                                "params",
-                            )
-                        }
-                        paramCount(1)
-                        usingEqStrings("params")
-                    }
-                }
-                methodAppInfoSetAppId.find(dexKit) {
-                    matcher {
-                        declaredClass {
-                            usingEqStrings(
-                                "appinfo",
-                                "appid",
-                                "version",
-                                "appname",
-                                "isforceupdate",
-                                "messageaction",
-                                "messageext",
-                                "mediatagname",
-                            )
-                        }
-                        paramTypes(BString)
-                        usingNumbers(0)
-                    }
-                }
+                methodImgUploadFeatureServiceSendImage.find(
+                    MethodSpec(
+                        declaredClass = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("MicroMsg.ImgUpload.MsgImgFeatureService", NameMatch.Equals),
+                                StringSpec("taskListener", NameMatch.Equals),
+                                StringSpec("params", NameMatch.Equals),
+                            ),
+                        ),
+                        paramCount = 1..1,
+                        usingStrings = listOf(StringSpec("params", NameMatch.Equals)),
+                    ),
+                )
+                methodAppInfoSetAppId.find(
+                    MethodSpec(
+                        declaredClass = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("appinfo", NameMatch.Equals),
+                                StringSpec("appid", NameMatch.Equals),
+                                StringSpec("version", NameMatch.Equals),
+                                StringSpec("appname", NameMatch.Equals),
+                                StringSpec("isforceupdate", NameMatch.Equals),
+                                StringSpec("messageaction", NameMatch.Equals),
+                                StringSpec("messageext", NameMatch.Equals),
+                                StringSpec("mediatagname", NameMatch.Equals),
+                            ),
+                        ),
+                        paramTypes = listOf(TypeSpec("java.lang.String")),
+                        usingNumbers = listOf<Number>(0),
+                    ),
+                )
                 ctorNetSceneUploadMsgImg.markExpectedFailure()
             }
 
@@ -701,31 +713,31 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 methodImgUploadFeatureServiceNewPathProbe.markExpectedFailure()
                 methodImgUploadFeatureServiceSendImage.markExpectedFailure()
                 methodAppInfoSetAppId.markExpectedFailure()
-                ctorNetSceneUploadMsgImg.find(dexKit) {
-                    searchPackages("com.tencent.mm.modelimage")
-                    matcher {
-                        name = "<init>"
-                        declaredClass {
-                            usingEqStrings(
-                                "MicroMsg.NetSceneUploadMsgImg",
-                                "/cgi-bin/micromsg-bin/uploadmsgimg",
-                            )
-                        }
-                        paramTypes(
-                            int,
-                            BString,
-                            BString,
-                            BString,
-                            int,
+                ctorNetSceneUploadMsgImg.find(
+                    MethodSpec(
+                        name = NameSpec("<init>"),
+                        declaredClass = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("MicroMsg.NetSceneUploadMsgImg", NameMatch.Equals),
+                                StringSpec("/cgi-bin/micromsg-bin/uploadmsgimg", NameMatch.Equals),
+                            ),
+                        ),
+                        paramTypes = listOf(
+                            TypeSpec("int"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("int"),
                             null,
-                            int,
-                            BString,
-                            BString,
-                            bool,
-                            int,
-                        )
-                    }
-                }
+                            TypeSpec("int"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("boolean"),
+                            TypeSpec("int"),
+                        ),
+                    ),
+                    packages = listOf("com.tencent.mm.modelimage"),
+                )
             }
 
             else -> error(

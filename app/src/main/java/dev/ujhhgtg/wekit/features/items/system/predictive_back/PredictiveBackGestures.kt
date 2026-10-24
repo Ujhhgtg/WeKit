@@ -42,7 +42,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.system.predictive_back.PredictiveBackGestures.nonConsumingUics
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.baseActivity
-import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
@@ -283,7 +282,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
         },
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         val dispatchInvokes = methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }
         methodVasPaneVisible.setDescriptor(dispatchInvokes.single {
             it.declaredClassName == VAS_LAUNCHER && it.isNoArgBoolean()

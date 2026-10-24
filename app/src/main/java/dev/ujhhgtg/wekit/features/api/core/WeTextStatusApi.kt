@@ -19,13 +19,17 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.MethodData
 import java.lang.reflect.Modifier
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 
 sealed interface TextStatusResult {
     data class Ready(val status: TextStatus) : TextStatusResult
@@ -105,7 +109,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         methodTextStatusIconHelperAccessor.method.invoke(null)!!
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         val latestStatusMethod = methodLatestStatusByUsername.data
         val storageInterface = latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
             candidate.methods.any { method ->
@@ -114,12 +118,12 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
                     method.returnTypeName == latestStatusMethod.returnTypeName
             }
         }
-        val storageAccessor = dexKit.findMethod {
-            matcher {
-                paramTypes()
-                returnType(storageInterface.name)
-            }
-        }.single { candidate ->
+        val storageAccessor = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                paramTypes = emptyList(),
+                returnType = ClassSpec(className = NameSpec(storageInterface.name)),
+            ),
+        ).single { candidate ->
             candidate.declaredClass!!.fields.any { field ->
                 field.typeName == candidate.declaredClassName &&
                     Modifier.isStatic(field.modifiers)
@@ -129,31 +133,31 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         val topicInfoMethod = methodTextStatusTopicInfo.data
         val setIconMethod = methodSetTextStatusIcon.data
         val iconHelperType = setIconMethod.paramTypeNames.first()
-        val iconHelperAccessor = dexKit.findMethod {
-            matcher {
-                paramTypes()
-                returnType(iconHelperType)
-                modifiers(Modifier.STATIC)
-            }
-        }.single()
-        val statusDescriptionMethod = dexKit.findMethod {
-            matcher {
-                declaredClass(iconHelperType)
-                paramTypes(topicInfoMethod.returnTypeName)
-                returnType(String::class.java)
-            }
-        }.single()
+        val iconHelperAccessor = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                paramTypes = emptyList(),
+                returnType = ClassSpec(className = NameSpec(iconHelperType)),
+                modifiers = Modifier.STATIC,
+            ),
+        ).single()
+        val statusDescriptionMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(iconHelperType)),
+                paramTypes = listOf(TypeSpec(topicInfoMethod.returnTypeName)),
+                returnType = ClassSpec(className = NameSpec(String::class.java.name)),
+            ),
+        ).single()
         val statusType = latestStatusMethod.returnTypeName
-        val currentStatusActionsMethod = dexKit.findMethod {
-            matcher {
-                paramTypes(Context::class.java.name, statusType)
-                returnType(Void.TYPE)
-                usingEqStrings(
-                    "MicroMsg.MMSubMenuHelper",
-                    "show, menu empty",
-                )
-            }
-        }.single { candidate ->
+        val currentStatusActionsMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                paramTypes = listOf(TypeSpec(Context::class.java.name), TypeSpec(statusType)),
+                returnType = ClassSpec(className = NameSpec(Void.TYPE.name)),
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.MMSubMenuHelper", NameMatch.Equals),
+                    StringSpec("show, menu empty", NameMatch.Equals),
+                ),
+            ),
+        ).single { candidate ->
             candidate.usesFieldThroughDirectInvoke("field_UserName")
         }
 
@@ -273,7 +277,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
     )
 }
 
-private fun MethodData.usesFieldThroughDirectInvoke(fieldName: String): Boolean =
+private fun DexMethodInfo.usesFieldThroughDirectInvoke(fieldName: String): Boolean =
     usingFields.any { it.field.fieldName == fieldName } ||
         invokes.any { invoked ->
             invoked.usingFields.any { it.field.fieldName == fieldName }

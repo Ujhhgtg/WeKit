@@ -11,9 +11,12 @@ import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.FieldUsingType
 import java.util.LinkedList
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 
 object WeContactLabelApi : ApiFeature(), IResolveDex {
 
@@ -155,17 +158,17 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
      */
     private val classContactLabelPb by dexClass()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val candidates = dexKit.findMethod {
-            matcher {
-                usingEqStrings("UserLabelInfoList")
-            }
-        }.asSequence()
+    override fun resolveDex() {
+        val candidates = DexResolutionContext.matcher.findMethods(
+            MethodSpec(usingStrings = listOf(StringSpec("UserLabelInfoList", NameMatch.Equals))),
+        ).asSequence()
             .flatMap { it.usingFields.asSequence() }
             .filter { it.usingType == FieldUsingType.Read }
             .map { it.field }
             .filter { it.typeName == "java.lang.String" }
-            .map { it.declaredClass }
+            .map { field ->
+                DexResolutionContext.metadata.classInfoByName(field.declaredClassName)!!
+            }
             .filter { clazz ->
                 val fields = clazz.fields
                 fields.size == 2 && fields.all { it.typeName == "java.lang.String" }

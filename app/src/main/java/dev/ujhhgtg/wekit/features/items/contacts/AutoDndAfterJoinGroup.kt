@@ -20,10 +20,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.luckypray.dexkit.DexKitBridge
 import java.util.IdentityHashMap
 import java.util.LinkedHashMap
 import java.util.Locale
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
@@ -49,14 +53,17 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
         val selfWxId: String,
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val matches = dexKit.findMethod {
-            matcher {
-                returnType = "boolean"
-                paramCount(10, 11)
-                usingStrings("MicroMsg.ChatroomMembersLogic", "SyncAddChatroomMember")
-            }
-        }.filter { method ->
+    override fun resolveDex() {
+        val matches = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                paramCount = 10..11,
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.ChatroomMembersLogic"),
+                    StringSpec("SyncAddChatroomMember"),
+                ),
+            ),
+        ).filter { method ->
             val params = method.paramTypeNames
             params[0] == "java.lang.String" &&
                 params[1] == "java.lang.String" &&
@@ -75,7 +82,7 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
             "expected one ChatroomMembersLogic sync method, found ${matches.size}: " +
                 matches.joinToString { it.descriptor }
         }
-        methodSyncChatroomMembers.setDescriptor(matches.single())
+        methodSyncChatroomMembers.setDescriptor(matches.single().descriptor)
     }
 
     override fun onEnable() {

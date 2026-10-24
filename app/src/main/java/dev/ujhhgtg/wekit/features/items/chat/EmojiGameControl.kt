@@ -62,7 +62,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.int
-import org.luckypray.dexkit.query.enums.MatchType
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt

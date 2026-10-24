@@ -170,7 +170,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
@@ -186,6 +185,14 @@ import kotlin.time.Duration.Companion.milliseconds
 import dev.ujhhgtg.wekit.data.structured.ConversationGroup as ChatGroup
 import dev.ujhhgtg.wekit.data.structured.ConversationGroupType as GroupType
 import java.lang.reflect.Modifier as ReflectModifier
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object ConversationGrouping : ClickableFeature(), IResolveDex {
 
@@ -1199,7 +1206,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         },
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         DexResolutionContext.ensureResolved(WeConversationListViewApi.classConversationRecyclerAdapter)
         if (!WeConversationListViewApi.classConversationRecyclerAdapter.isFound) {
             classRecyclerDataSource.markExpectedFailure()
@@ -1217,43 +1224,46 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             return
         }
 
-        classRecyclerDataSource.find(dexKit) {
-            matcher {
-                usingEqStrings(
-                    "MicroMsg.ConversationAdapter.ConvRecyclerDataSource",
-                    "syncFoldExpandStatus: isShowPlaceTop=",
-                )
-            }
-        }
-        methodRecyclerQueryPage.find(dexKit) {
-            matcher {
-                paramCount = 1
-                usingEqStrings(
-                    "getConvList: may getContact error, size mismatch",
-                    "getConvList ",
-                )
-            }
-        }
-        fieldRecyclerPageItems.find(dexKit) {
-            matcher {
-                declaredClass(methodRecyclerQueryPage.data.returnTypeName)
-                type = "java.util.ArrayList"
-            }
-        }
+        classRecyclerDataSource.find(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.ConversationAdapter.ConvRecyclerDataSource", NameMatch.Equals),
+                    StringSpec("syncFoldExpandStatus: isShowPlaceTop=", NameMatch.Equals),
+                ),
+            ),
+        )
+        methodRecyclerQueryPage.find(
+            MethodSpec(
+                paramCount = 1..1,
+                usingStrings = listOf(
+                    StringSpec("getConvList: may getContact error, size mismatch", NameMatch.Equals),
+                    StringSpec("getConvList ", NameMatch.Equals),
+                ),
+            ),
+        )
+        fieldRecyclerPageItems.find(
+            FieldSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodRecyclerQueryPage.data.returnTypeName),
+                ),
+                type = ClassSpec(className = NameSpec("java.util.ArrayList")),
+            ),
+        )
 
         val conversationClassName = WeConversationListViewApi.methodAdapterGetItem.data.returnTypeName
         val rowBuilders = methodRecyclerQueryPage.data.invokes.distinctBy { it.descriptor }
             .filter { candidate ->
                 candidate.paramTypeNames.firstOrNull() == conversationClassName &&
-                    dexKit.getClassData(candidate.returnTypeName)?.fields?.any {
-                        it.typeName == conversationClassName
-                    } == true
+                    DexResolutionContext.metadata.classInfoByName(candidate.returnTypeName)
+                        ?.fields?.any { it.typeName == conversationClassName } == true
             }
         require(rowBuilders.size == 1) {
             "expected one conversation RecyclerView row builder, found: " +
                 rowBuilders.joinToString { it.descriptor }
         }
-        val recyclerRow = dexKit.getClassData(rowBuilders.single().returnTypeName)!!
+        val recyclerRow = DexResolutionContext.metadata.classInfoByName(
+            rowBuilders.single().returnTypeName,
+        )!!
         classRecyclerRow.setDescriptor(recyclerRow)
         fieldRecyclerRowConversation.setDescriptor(recyclerRow.fields.single {
             it.typeName == conversationClassName
@@ -1268,36 +1278,51 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val recyclerMvvmListField = recyclerAdapterBase.fields.single()
         fieldRecyclerMvvmList.setDescriptor(recyclerMvvmListField)
 
-        methodRecyclerSubmitUiChange.find(dexKit) {
-            matcher {
-                declaredClass(recyclerMvvmListField.typeName)
-                paramCount = 1
-                returnType = "void"
-                usingEqStrings(
-                    "submitUIChange callback:",
-                    " currentDataListVersion:",
-                )
-            }
-        }
-        fieldRecyclerPendingItems.find(dexKit) {
-            matcher {
-                declaredClass(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
-                type = "java.util.List"
-                addReadMethod {
-                    declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
-                    paramTypes(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
-                    usingEqStrings("submitUIChange callback:", " currentDataListVersion:")
-                }
-            }
-        }
-        methodRecyclerEmitToUi.find(dexKit) {
-            matcher {
-                declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
-                paramCount = 2
-                returnType = "void"
-                usingStrings("emitToUI: frozen, skip all (type=")
-            }
-        }
+        methodRecyclerSubmitUiChange.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(recyclerMvvmListField.typeName)),
+                paramCount = 1..1,
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(
+                    StringSpec("submitUIChange callback:", NameMatch.Equals),
+                    StringSpec(" currentDataListVersion:", NameMatch.Equals),
+                ),
+            ),
+        )
+        fieldRecyclerPendingItems.find(
+            FieldSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodRecyclerSubmitUiChange.data.paramTypeNames.single()),
+                ),
+                type = ClassSpec(className = NameSpec("java.util.List")),
+                readMethods = listOf(
+                    MethodSpec(
+                        declaredClass = ClassSpec(
+                            className = NameSpec(
+                                methodRecyclerSubmitUiChange.data.declaredClassName,
+                            ),
+                        ),
+                        paramTypes = listOf(
+                            TypeSpec(methodRecyclerSubmitUiChange.data.paramTypeNames.single()),
+                        ),
+                        usingStrings = listOf(
+                            StringSpec("submitUIChange callback:", NameMatch.Equals),
+                            StringSpec(" currentDataListVersion:", NameMatch.Equals),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        methodRecyclerEmitToUi.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodRecyclerSubmitUiChange.data.declaredClassName),
+                ),
+                paramCount = 2..2,
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(StringSpec("emitToUI: frozen, skip all (type=")),
+            ),
+        )
         // emitToUI reads two ArrayLists: the actor snapshot it diffs from, and the UI list that
         // submitUIChange replaces. The snapshot is the one submitUIChange never touches.
         val uiListFields = methodRecyclerSubmitUiChange.data.usingFields.mapTo(mutableSetOf()) {
@@ -1316,32 +1341,42 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 actorItems.joinToString { it.descriptor }
         }
         fieldRecyclerActorItems.setDescriptor(actorItems.single())
-        methodRecyclerRefreshAll.find(dexKit) {
-            matcher {
-                declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
-                modifiers(ReflectModifier.STATIC)
-                paramTypes(
-                    methodRecyclerSubmitUiChange.data.declaredClassName,
+        methodRecyclerRefreshAll.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodRecyclerSubmitUiChange.data.declaredClassName),
+                ),
+                modifiers = ReflectModifier.STATIC,
+                paramTypes = listOf(
+                    TypeSpec(methodRecyclerSubmitUiChange.data.declaredClassName),
                     null,
-                    "int",
-                    "java.lang.Object",
-                )
-                returnType = "void"
-                usingEqStrings("submitRefreshAll")
-            }
-        }
-        fieldRecyclerLoading.find(dexKit) {
-            matcher {
-                declaredClass(methodRecyclerSubmitUiChange.data.declaredClassName)
-                type = "boolean"
-                addReadMethod { usingStrings("already loading, ignore StartLoad type=") }
-                addWriteMethod {
-                    name = "onStateChanged"
-                    paramCount = 2
-                    returnType = "void"
-                }
-            }
-        }
+                    TypeSpec("int"),
+                    TypeSpec("java.lang.Object"),
+                ),
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(StringSpec("submitRefreshAll", NameMatch.Equals)),
+            ),
+        )
+        fieldRecyclerLoading.find(
+            FieldSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodRecyclerSubmitUiChange.data.declaredClassName),
+                ),
+                type = ClassSpec(className = NameSpec("boolean")),
+                readMethods = listOf(
+                    MethodSpec(
+                        usingStrings = listOf(StringSpec("already loading, ignore StartLoad type=")),
+                    ),
+                ),
+                writeMethods = listOf(
+                    MethodSpec(
+                        name = NameSpec("onStateChanged"),
+                        paramCount = 2..2,
+                        returnType = ClassSpec(className = NameSpec("void")),
+                    ),
+                ),
+            ),
+        )
     }
 
     // ----------------------------------------------------------------------------------------------

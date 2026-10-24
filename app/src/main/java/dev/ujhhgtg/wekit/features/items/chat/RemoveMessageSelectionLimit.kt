@@ -12,12 +12,13 @@ import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.utils.HookCallback
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.hookDirectly
@@ -86,20 +87,20 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private val selectedMessageCountOverride = ThreadLocal<Int>()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val candidates = dexKit.findMethod {
-            matcher {
-                declaredClass(classChatItemQuickSelect.data.name)
-                usingNumbers(SELECTION_LIMIT)
-                paramTypes(bool)
-                returnType(void)
-            }
-        }
+    override fun resolveDex() {
+        val candidates = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classChatItemQuickSelect.data.name)),
+                usingNumbers = listOf<Number>(SELECTION_LIMIT),
+                paramTypes = listOf(TypeSpec("boolean")),
+                returnType = ClassSpec(className = NameSpec("void")),
+            ),
+        )
         check(candidates.size >= 2) {
-            "DexKit: Expected two quick-select setter candidates, found ${candidates.size}"
+            "DexSQL: Expected two quick-select setter candidates, found ${candidates.size}"
         }
-        methodSetQuickSelectViewEnabled1.setDescriptor(candidates[0])
-        methodSetQuickSelectViewEnabled2.setDescriptor(candidates[1])
+        methodSetQuickSelectViewEnabled1.setDescriptor(candidates[0].descriptor)
+        methodSetQuickSelectViewEnabled2.setDescriptor(candidates[1].descriptor)
     }
 
     override fun onEnable() {

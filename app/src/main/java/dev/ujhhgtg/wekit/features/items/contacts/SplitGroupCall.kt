@@ -53,13 +53,20 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.unsafe.TheUnsafe
-import org.luckypray.dexkit.DexKitBridge
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.random.Random
 import androidx.compose.ui.Modifier as UiModifier
 import java.lang.reflect.Modifier as ReflectModifier
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
@@ -165,12 +172,15 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         },
     )
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val subCoreMultiTalkClasses = dexKit.findClass {
-            matcher {
-                usingStrings("MicroMsg.SubCoreMultiTalk", "add , is running , forbid add")
-            }
-        }
+    override fun resolveDex() {
+        val subCoreMultiTalkClasses = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.SubCoreMultiTalk"),
+                    StringSpec("add , is running , forbid add"),
+                ),
+            ),
+        )
 
         when (subCoreMultiTalkClasses.size) {
             1 -> classSubCoreMultiTalk.setDescriptor(subCoreMultiTalkClasses.single())
@@ -198,112 +208,117 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
             )
         }
 
-        methodExitMultiTalk.find(dexKit) {
-            matcher {
-                usingStrings(
-                    "exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b"
-                )
-            }
-        }
+        methodExitMultiTalk.find(
+            MethodSpec(
+                usingStrings = listOf(
+                    StringSpec("exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b"),
+                ),
+            ),
+        )
 
-        classILinkService.find(dexKit) {
-            matcher {
-                usingStrings(
-                    "steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b " +
-                        "mCurrentStatus %d mIsJoiningRoom %b"
-                )
-            }
-        }
+        classILinkService.find(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec(
+                        "steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b " +
+                            "mCurrentStatus %d mIsJoiningRoom %b",
+                    ),
+                ),
+            ),
+        )
 
-        classILinkMember.find(dexKit) {
-            matcher {
-                usingStrings("ILinkMember{memberId=")
-            }
-        }
+        classILinkMember.find(
+            ClassSpec(usingStrings = listOf(StringSpec("ILinkMember{memberId="))),
+        )
 
-        classInviteTask.find(dexKit) {
-            matcher {
-                usingStrings("enter inviteSync. %s, %s, %d, %b")
-            }
-        }
+        classInviteTask.find(
+            ClassSpec(usingStrings = listOf(StringSpec("enter inviteSync. %s, %s, %d, %b"))),
+        )
 
-        methodGetMultiTalkManager.find(dexKit) {
-            matcher {
-                declaredClass = classSubCoreMultiTalk.data.name
-                modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
-                returnType = methodExitMultiTalk.data.declaredClassName
-            }
-        }
+        methodGetMultiTalkManager.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classSubCoreMultiTalk.data.name)),
+                modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC,
+                returnType = ClassSpec(
+                    className = NameSpec(methodExitMultiTalk.data.declaredClassName),
+                ),
+            ),
+        )
 
-        methodSetStatus.find(dexKit) {
-            matcher {
-                declaredClass = methodExitMultiTalk.data.declaredClassName
-                paramCount = 1
-                usingStrings("onChangeMultiTalkStatus is %s")
-            }
-        }
+        methodSetStatus.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodExitMultiTalk.data.declaredClassName),
+                ),
+                paramCount = 1..1,
+                usingStrings = listOf(StringSpec("onChangeMultiTalkStatus is %s")),
+            ),
+        )
 
-        methodSetMtSdkMode.find(dexKit) {
-            matcher {
-                declaredClass = methodExitMultiTalk.data.declaredClassName
-                paramCount = 2
-                usingStrings("setCurrentMTSDKMode groupid:%s, mode:%d")
-            }
-        }
+        methodSetMtSdkMode.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(methodExitMultiTalk.data.declaredClassName),
+                ),
+                paramCount = 2..2,
+                usingStrings = listOf(StringSpec("setCurrentMTSDKMode groupid:%s, mode:%d")),
+            ),
+        )
 
-        methodSetName.find(dexKit) {
-            matcher {
-                declaredClass = classILinkService.data.name
-                paramCount = 2
-                usingStrings("set name=%s, uin=%d")
-            }
-        }
+        methodSetName.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classILinkService.data.name)),
+                paramCount = 2..2,
+                usingStrings = listOf(StringSpec("set name=%s, uin=%d")),
+            ),
+        )
 
-        methodPostTask.find(dexKit) {
-            matcher {
-                declaredClass = classILinkService.data.name
-                paramCount = 1
-                paramTypes("java.lang.Runnable")
-            }
-        }
+        methodPostTask.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classILinkService.data.name)),
+                paramCount = 1..1,
+                paramTypes = listOf(TypeSpec("java.lang.Runnable")),
+            ),
+        )
 
-        ctorInviteTask.find(dexKit) {
-            matcher {
-                declaredClass = classInviteTask.data.name
-                paramCount = 3
-                paramTypes(
-                    classILinkService.data.name,
-                    "java.util.ArrayList",
-                    "java.lang.String",
-                )
-            }
-        }
+        ctorInviteTask.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classInviteTask.data.name)),
+                paramCount = 3..3,
+                paramTypes = listOf(
+                    TypeSpec(classILinkService.data.name),
+                    TypeSpec("java.util.ArrayList"),
+                    TypeSpec("java.lang.String"),
+                ),
+            ),
+        )
 
-        ctorHangupTask.find(dexKit) {
-            matcher {
-                declaredClass {
-                    usingStrings("Hangup ret:")
-                }
-                paramCount = 2
-                paramTypes(classILinkService.data.name, "int")
-            }
-        }
+        ctorHangupTask.find(
+            MethodSpec(
+                declaredClass = ClassSpec(usingStrings = listOf(StringSpec("Hangup ret:"))),
+                paramCount = 2..2,
+                paramTypes = listOf(
+                    TypeSpec(classILinkService.data.name),
+                    TypeSpec("int"),
+                ),
+            ),
+        )
 
-        fieldILinkInstance.find(dexKit) {
-            matcher {
-                declaredClass = classILinkService.data.name
-                type = classILinkService.data.name
-                modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
-            }
-        }
+        fieldILinkInstance.find(
+            FieldSpec(
+                declaredClass = ClassSpec(className = NameSpec(classILinkService.data.name)),
+                type = ClassSpec(className = NameSpec(classILinkService.data.name)),
+                modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL,
+            ),
+        )
 
         val iLinkServiceName = classILinkService.data.name
-        val readerMethod = dexKit.findMethod {
-            matcher {
-                declaredClass = classILinkService.data.name
-                usingStrings("start audio device failed")
-            }
-        }.single()
+        val readerMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classILinkService.data.name)),
+                usingStrings = listOf(StringSpec("start audio device failed")),
+            ),
+        ).single()
         val roomIdField = readerMethod.usingFields
             .map { it.field }
             .single { it.className == iLinkServiceName && it.typeName == "java.lang.String" }

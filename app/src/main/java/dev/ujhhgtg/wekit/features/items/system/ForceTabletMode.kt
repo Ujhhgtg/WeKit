@@ -16,8 +16,13 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import org.luckypray.dexkit.DexKitBridge
-
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 object ForceTabletMode : SwitchFeature(), IResolveDex {
 
     override val technicalId = "强制平板模式"
@@ -42,25 +47,31 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
 //        }
 //    }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val modernTabletMethods = dexKit.findMethod {
-            matcher {
-                returnType = "boolean"
-                usingEqStrings(
-                    "MicroMsg.UIUtils",
-                    "inTabletEnv, no tablet condition matched, return false",
-                )
-            }
-        }
+    override fun resolveDex() {
+        val modernTabletMethods = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.UIUtils", NameMatch.Equals),
+                    StringSpec(
+                        "inTabletEnv, no tablet condition matched, return false",
+                        NameMatch.Equals,
+                    ),
+                ),
+            ),
+        )
 
         when (modernTabletMethods.size) {
             1 -> methodIsTablet.setDescriptor(modernTabletMethods.single())
-            0 -> methodIsTablet.find(dexKit) {
-                matcher {
-                    returnType = "boolean"
-                    usingEqStrings("Lenovo TB-9707F", "eebbk")
-                }
-            }
+            0 -> methodIsTablet.find(
+                MethodSpec(
+                    returnType = ClassSpec(className = NameSpec("boolean")),
+                    usingStrings = listOf(
+                        StringSpec("Lenovo TB-9707F", NameMatch.Equals),
+                        StringSpec("eebbk", NameMatch.Equals),
+                    ),
+                ),
+            )
 
             else -> error(
                 "multiple modern tablet environment methods found: " +

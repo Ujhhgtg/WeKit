@@ -11,9 +11,15 @@ import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object WeAppMsgApi : ApiFeature(), IResolveDex {
 
@@ -41,34 +47,34 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeAppMsgApi"
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         methodParseXml.setDescriptor(
-            dexKit.findMethod {
-                matcher {
-                    declaredClass = classAppMsgContent.data.name
-                    modifiers = Modifier.PUBLIC or Modifier.STATIC
-                    paramTypes(String::class.java.name)
-                    returnType = classAppMsgContent.data.name
-                    usingStrings("parse msg failed")
-                }
-            }.first()
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(className = NameSpec(classAppMsgContent.data.name)),
+                    modifiers = Modifier.PUBLIC or Modifier.STATIC,
+                    paramTypes = listOf(TypeSpec(String::class.java.name)),
+                    returnType = ClassSpec(className = NameSpec(classAppMsgContent.data.name)),
+                    usingStrings = listOf(StringSpec("parse msg failed")),
+                ),
+            ).first(),
         )
 
-        methodSendAppMsg.find(dexKit) {
-            matcher {
-                declaredClass = classAppMsgLogic.data.name
-                modifiers = Modifier.STATIC
-                paramCount = 6
-                paramTypes(
-                    classAppMsgContent.data.name,
-                    "java.lang.String",
+        methodSendAppMsg.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classAppMsgLogic.data.name)),
+                modifiers = Modifier.STATIC,
+                paramCount = 6..6,
+                paramTypes = listOf(
+                    TypeSpec(classAppMsgContent.data.name),
+                    TypeSpec("java.lang.String"),
                     null,
                     null,
                     null,
-                    null
-                )
-            }
-        }
+                    null,
+                ),
+            ),
+        )
 
         val quoteItemField = classAppMsgContent.data.fields.single {
             it.typeName == "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"

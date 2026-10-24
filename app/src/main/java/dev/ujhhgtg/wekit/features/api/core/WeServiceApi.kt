@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
@@ -24,6 +23,9 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 object WeServiceApi : ApiFeature(), IResolveDex {
 
@@ -275,26 +277,32 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         ) as String
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        methodMmKernelGetServiceImpl.find(dexKit) {
-            matcher {
-                declaredClass = classMmKernel.data.name
-                paramTypes(Class::class.java)
-            }
-        }
+    override fun resolveDex() {
+        methodMmKernelGetServiceImpl.find(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classMmKernel.data.name)),
+                paramTypes = listOf(TypeSpec(Class::class.java.name)),
+            ),
+        )
 
-        val results = dexKit.findMethod {
-            // >= 8.0.61
-            matcher {
-                usingEqStrings("MicroMsg.C2CVideoPathFeatureService", "success restore file, from ", ".mp4")
-            }
-        }.ifEmpty {
-            // < 8.0.61
-            dexKit.findMethod {
-                matcher {
-                    usingEqStrings("MicroMsg.VideoInfoStorage", "success restore file, from ", ".mp4")
-                }
-            }
+        val results = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.C2CVideoPathFeatureService", NameMatch.Equals),
+                    StringSpec("success restore file, from ", NameMatch.Equals),
+                    StringSpec(".mp4", NameMatch.Equals),
+                ),
+            ),
+        ).ifEmpty {
+            DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    usingStrings = listOf(
+                        StringSpec("MicroMsg.VideoInfoStorage", NameMatch.Equals),
+                        StringSpec("success restore file, from ", NameMatch.Equals),
+                        StringSpec(".mp4", NameMatch.Equals),
+                    ),
+                ),
+            )
         }
         methodVideoPathFeatureServiceRestoreMp4Path.setDescriptor(results.single())
     }

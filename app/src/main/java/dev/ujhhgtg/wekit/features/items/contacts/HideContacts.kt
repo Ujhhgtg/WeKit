@@ -75,9 +75,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.enums.MatchType
-import org.luckypray.dexkit.query.matchers.MethodMatcher
+import dev.ujhhgtg.wekit.dexkit.dsl.find
 
 
 
@@ -960,22 +958,28 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     /** `v0.G(MultiTalkGroup)` — MultiTalkManager.onInviteMultiTalk. */
     val methodMultiTalkOnInvite by dexMethod()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         // Declared on MultiTalkManager, which exists only with the legacy MultiTalk stack.
         DexResolutionContext.ensureResolved(SplitGroupCall.methodExitMultiTalk)
         if (!SplitGroupCall.methodExitMultiTalk.isFound) {
             methodMultiTalkOnInvite.markExpectedFailure()
             return
         }
-        methodMultiTalkOnInvite.find(dexKit, allowFailure = true) {
-            matcher {
-                declaredClass(SplitGroupCall.methodExitMultiTalk.data.declaredClassName)
-                usingEqStrings(
-                    "MicroMsg.MT.MultiTalkManager",
-                    "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
-                )
-            }
-        }
+        methodMultiTalkOnInvite.find(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec(SplitGroupCall.methodExitMultiTalk.data.declaredClassName),
+                ),
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.MT.MultiTalkManager", NameMatch.Equals),
+                    StringSpec(
+                        "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
+                        NameMatch.Equals,
+                    ),
+                ),
+            ),
+            allowFailure = true,
+        )
     }
 
     /**

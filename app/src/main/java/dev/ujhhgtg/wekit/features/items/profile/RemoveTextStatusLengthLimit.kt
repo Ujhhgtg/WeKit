@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import org.luckypray.dexkit.DexKitBridge
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 
 object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
@@ -30,7 +29,7 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
     )
     private val fieldStatusTextLengthLimit by dexField()
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         fieldStatusTextLengthLimit.setDescriptor(
             methodStatusTextChanged.data.usingFields
                 .filter { it.usingType == FieldUsingType.Read }

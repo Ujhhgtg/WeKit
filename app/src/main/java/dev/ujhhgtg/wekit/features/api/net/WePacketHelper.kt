@@ -38,9 +38,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.enums.OpCodeMatchType
-import org.luckypray.dexkit.query.matchers.base.IntRange
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 
 
 object WePacketHelper : ApiFeature(), IResolveDex {
@@ -209,27 +209,29 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     }
 
     @SuppressLint("NonUniqueDexKitData")
-    override fun resolveDex(dexKit: DexKitBridge) {
+    override fun resolveDex() {
         val wrapperName = classRawReq.data.superClass!!.name
-        val candidates = dexKit.findClass {
-            matcher {
-                superClass = wrapperName
-                fields {
-                    count(2)
-                    add { type = "int" }
-                    add { type = "java.util.LinkedList" }
-                }
-            }
-        }
+        val candidates = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                superClass = ClassSpec(className = NameSpec(wrapperName)),
+                fieldCount = 2..2,
+                fields = listOf(
+                    FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                    FieldSpec(type = ClassSpec(className = NameSpec("java.util.LinkedList"))),
+                ),
+            ),
+        )
 
         for (candidate in candidates) {
-            val isMsgReq = dexKit.findMethod {
-                searchInClass(listOf(candidate))
-                matcher {
-                    name = "op"
-                    addUsingField { name = "BaseRequest" }
-                }
-            }.isEmpty()
+            val isMsgReq = DexResolutionContext.matcher.findMethods(
+                MethodSpec(
+                    declaredClass = ClassSpec(className = NameSpec(candidate.name)),
+                    name = NameSpec("op"),
+                    usingFields = listOf(
+                        UsingFieldSpec(field = FieldSpec(name = NameSpec("BaseRequest"))),
+                    ),
+                ),
+            ).isEmpty()
 
             if (isMsgReq) {
                 classNewSendMsgReq.setDescriptor(candidate.name)
@@ -238,72 +240,73 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         }
 
         val cbIface = classCallbackIface.data.name
-        val callbackMethod = dexKit.findMethod {
-            searchInClass(listOf(classCallbackIface.getClassData(dexKit)))
-            matcher {
-                paramCount = 5
-            }
-        }.first()
+        val callbackMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(cbIface)),
+                paramCount = 5..5,
+            ),
+        ).first()
 
-        val reqRespName = callbackMethod.paramTypes[3]
+        val reqRespName = callbackMethod.paramTypeNames[3]
         classReqResp.setDescriptor(reqRespName)
 
         WeLogger.i(TAG, "found ReqResp base class: $reqRespName")
 
-        val dispatchMethod = dexKit.findMethod {
-            matcher {
-                modifiers = Modifier.STATIC or Modifier.PUBLIC
-                paramCount = 3
-                paramTypes(reqRespName.name, cbIface, "boolean")
-            }
-        }.firstOrNull()
+        val dispatchMethod = DexResolutionContext.matcher.findMethods(
+            MethodSpec(
+                modifiers = Modifier.STATIC or Modifier.PUBLIC,
+                paramCount = 3..3,
+                paramTypes = listOf(
+                    TypeSpec(reqRespName),
+                    TypeSpec(cbIface),
+                    TypeSpec("boolean"),
+                ),
+            ),
+        ).firstOrNull()
 
         if (dispatchMethod != null) {
             classNetDispatcher.setDescriptor(dispatchMethod.className)
-//            methodNetDispatch.setDescriptor(
-//                dispatchMethod.className,
-//                dispatchMethod.methodName,
-//                dispatchMethod.methodSign
-//            )
         }
 
-        val directOplogReq = dexKit.findClass {
-            matcher {
-                superClass = classProtoBase.data.name
-                usingStrings("/cgi-bin/micromsg-bin/oplog")
-                fields { count(1) }
-                methods {
-                    add {
-                        name = "op"
-                        paramTypes("int", "java.lang.Object[]")
-                    }
-                }
-            }
-        }
+        val directOplogReq = DexResolutionContext.matcher.findClasses(
+            ClassSpec(
+                superClass = ClassSpec(className = NameSpec(classProtoBase.data.name)),
+                usingStrings = listOf(StringSpec("/cgi-bin/micromsg-bin/oplog")),
+                fieldCount = 1..1,
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("op"),
+                        paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
+                    ),
+                ),
+            ),
+        )
 
         when (directOplogReq.size) {
             1 -> classOplogReq.setDescriptor(directOplogReq.single())
             0 -> {
-                val wrapperClassData = dexKit.findClass {
-                    matcher {
-                        methods {
-                            add {
-                                name = "getFuncId"
-                                returnType = "int"
-                                usingNumbers(681)
-                            }
-                            add {
-                                name = "toProtoBuf"
-                                returnType = "byte[]"
-                            }
-                        }
-                    }
-                }.firstOrNull()
+                val wrapperClassData = DexResolutionContext.matcher.findClasses(
+                    ClassSpec(
+                        methods = listOf(
+                            MethodSpec(
+                                name = NameSpec("getFuncId"),
+                                returnType = ClassSpec(className = NameSpec("int")),
+                                usingNumbers = listOf<Number>(681),
+                            ),
+                            MethodSpec(
+                                name = NameSpec("toProtoBuf"),
+                                returnType = ClassSpec(className = NameSpec("byte[]")),
+                            ),
+                        ),
+                    ),
+                ).firstOrNull()
                     ?: throw NoSuchElementException("failed to locate wrapper class based on FuncId 681")
 
                 val protoBaseName = classProtoBase.data.name
                 val realProtoClass = wrapperClassData.fields
-                    .map { it.type }
+                    .mapNotNull { field ->
+                        DexResolutionContext.metadata.classInfoByName(field.typeName)
+                    }
                     .firstOrNull { fieldType ->
                         generateSequence(fieldType) { it.superClass }
                             .any { it.name == protoBaseName }
