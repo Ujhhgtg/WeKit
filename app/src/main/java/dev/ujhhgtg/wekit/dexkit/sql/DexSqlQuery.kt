@@ -484,6 +484,14 @@ internal class SqlFieldQuery internal constructor() {
     fun offset(value: Int) = literals.setOffset(value)
 }
 
+/** One class annotation constraint (type descriptor, visibility, optional array element). */
+internal class SqlAnnotationConstraint(
+    val type: String,
+    val visibility: Int? = null,
+    val elementName: String? = null,
+    val values: List<String> = emptyList(),
+)
+
 /** Build and validate one [SqlClassLiteralConstraint] block. */
 private fun classLiteralConstraint(
     owner: String,
@@ -493,9 +501,10 @@ private fun classLiteralConstraint(
     require(
         constraint.calls.isNotEmpty() ||
             constraint.classNameMatch != null ||
-            constraint.superClassMatch != null,
+            constraint.superClassMatch != null ||
+            constraint.annotations.isNotEmpty(),
     ) {
-        "sql* $owner { } requires at least one literal or name-match call"
+        "sql* $owner { } requires at least one literal, name-match or annotation call"
     }
     return constraint
 }
@@ -511,8 +520,23 @@ private fun classLiteralConstraint(
  */
 internal class SqlClassLiteralConstraint internal constructor() {
     internal val calls = mutableListOf<SqlLiteralCall>()
+    internal val annotations = mutableListOf<SqlAnnotationConstraint>()
     internal var classNameMatch: SqlNameMatch? = null
     internal var superClassMatch: SqlNameMatch? = null
+
+    /**
+     * Require one annotation on the constrained class. [type] is the annotation type descriptor;
+     * [visibility] is the raw DEX visibility (0 build / 1 runtime / 2 system); [elementName] with
+     * [values] additionally requires an array-valued element with exactly these ordered strings.
+     */
+    fun annotation(
+        type: String,
+        visibility: Int? = null,
+        elementName: String? = null,
+        values: List<String> = emptyList(),
+    ) {
+        annotations += SqlAnnotationConstraint(type, visibility, elementName, values)
+    }
 
     /** Match the constrained class name (hoisted to the anchor class descriptor). */
     fun className(mode: SqlStringMatchMode, value: String) {

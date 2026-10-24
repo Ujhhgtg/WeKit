@@ -1,5 +1,8 @@
 package dev.ujhhgtg.wekit.dexkit.sql
 
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationValue
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
@@ -76,16 +79,63 @@ private fun StringSpec.toSqlClassConstraintLiteral(constraint: SqlClassLiteralCo
     }
 }
 
+/** Convert one annotation matcher to the SQL annotation IR, or null when not expressible. */
+private fun AnnotationSpec.toSqlAnnotationConstraintOrNull(): SqlAnnotationConstraint? {
+    if (elements.size > 1) return null
+    val annotationType = type ?: return null
+    if (annotationType.match != NameMatch.Equals) return null
+    val annotationVisibility =
+        when (visibility) {
+            null -> null
+            AnnotationVisibility.Build -> 0
+            AnnotationVisibility.Runtime -> 1
+            AnnotationVisibility.System -> 2
+            AnnotationVisibility.Unknown -> return null
+        }
+    if (elements.isEmpty()) {
+        return SqlAnnotationConstraint(annotationType.value, annotationVisibility)
+    }
+    val element = elements.single()
+    if (element.name.match != NameMatch.Equals) return null
+    val values =
+        when (val value = element.value) {
+            is AnnotationValue.ListValue ->
+                value.values.map { item ->
+                    (item as? AnnotationValue.Text)?.value ?: return null
+                }
+            else -> return null
+        }
+    if (values.isEmpty()) return null
+    return SqlAnnotationConstraint(
+        annotationType.value,
+        annotationVisibility,
+        element.name.value,
+        values,
+    )
+}
+
+private fun AnnotationSpec.isSqlAnnotationExpressible(): Boolean =
+    toSqlAnnotationConstraintOrNull() != null
+
 /** Apply an expressible class spec to the shared class-literal constraint IR. */
 private fun ClassSpec.applyToSqlClassLiteralConstraint(constraint: SqlClassLiteralConstraint) {
     className?.let { constraint.className(it.match.toSqlMode(), it.value) }
     usingStrings.forEach { it.toSqlClassConstraintLiteral(constraint) }
     if (usingNumbers.isNotEmpty()) constraint.usingNumbers(*usingNumbers.toTypedArray())
+    annotations.forEach { annotation ->
+        val lowered = annotation.toSqlAnnotationConstraintOrNull() ?: return
+        constraint.annotation(
+            lowered.type,
+            lowered.visibility,
+            lowered.elementName,
+            lowered.values,
+        )
+    }
 }
 
 /** Constraint form (extra methods joins) vs the plain class-property form. */
 private fun ClassSpec.hasClassLiteralCalls(): Boolean =
-    usingStrings.isNotEmpty() || usingNumbers.isNotEmpty()
+    usingStrings.isNotEmpty() || usingNumbers.isNotEmpty() || annotations.isNotEmpty()
 
 private fun ClassSpec.isNameOnly(): Boolean =
     className != null &&
@@ -118,10 +168,14 @@ private fun ClassSpec.isClassLiteralConstraintExpressible(): Boolean =
         methodCount == null &&
         interfaceCount == null &&
         modifiers == null &&
-        annotations.isEmpty() &&
+        annotations.size <= 1 &&
+        annotations.all(AnnotationSpec::isSqlAnnotationExpressible) &&
         searchPackages.isEmpty() &&
         excludePackages.isEmpty() &&
-        (className != null || usingStrings.isNotEmpty() || usingNumbers.isNotEmpty()) &&
+        (className != null ||
+            usingStrings.isNotEmpty() ||
+            usingNumbers.isNotEmpty() ||
+            annotations.isNotEmpty()) &&
         usingStrings.none(StringSpec::isEmptyNonEquality)
 
 private fun StringSpec.isEmptyNonEquality(): Boolean = value.isEmpty() && match != NameMatch.Equals
@@ -158,7 +212,9 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     declaredClass?.let { classSpec ->
         if (!classSpec.isClassLiteralConstraintExpressible()) return null
         val simpleClassProperty =
-            classSpec.usingStrings.isEmpty() && classSpec.usingNumbers.isEmpty()
+            classSpec.usingStrings.isEmpty() &&
+                classSpec.usingNumbers.isEmpty() &&
+                classSpec.annotations.isEmpty()
         // Nested method matchers in class/field units only carry scalar method properties; the
         // class-literal constraint form (extra methods joins) is not part of that shape.
         if (nested && !simpleClassProperty) return null
@@ -228,6 +284,8 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
     className?.let { query.className(it.match.toSqlMode(), it.value) }
     superClass?.let { superSpec ->
         if (!superSpec.isClassLiteralConstraintExpressible()) return null
+        // superClass {} annotations have no SQL class-literal form yet.
+        if (superSpec.annotations.isNotEmpty()) return null
         if (superSpec.hasClassLiteralCalls()) {
             // Structural superclass constraint: same join/EXISTS shape the legacy sqlClass
             // superClass {} block emitted (class-level literal units over the superclass' methods).

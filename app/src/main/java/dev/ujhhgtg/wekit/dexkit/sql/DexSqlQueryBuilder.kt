@@ -493,6 +493,12 @@ private fun appendDeclaredClassConstraint(
             unitIndex++
         }
     }
+    appendAnnotationConstraints(
+        constraint.annotations,
+        "$baseAlias.class_descriptor",
+        joins,
+        where,
+    )
     constraint.classNameMatch?.let {
         where += nameMatchCondition("$baseAlias.class_descriptor", it, SqlNameLiteralKind.Class)
     }
@@ -504,6 +510,49 @@ private fun appendDeclaredClassConstraint(
         where += nameMatchCondition("$alias.superclass_descriptor", match, SqlNameLiteralKind.Class)
     }
     return index
+}
+
+/**
+ * Append class annotation constraints: annotation_elements_resolved joins on the anchor class plus
+ * annotation_elements/dex_files/strings joins for ordered array element values.
+ */
+private fun appendAnnotationConstraints(
+    constraints: List<SqlAnnotationConstraint>,
+    anchorColumn: String,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+) {
+    constraints.forEachIndexed { index, constraint ->
+        val alias = "ar" + index
+        joins += "JOIN annotation_elements_resolved $alias ON $alias.owner = $anchorColumn"
+        where += alias + ".owner_kind = 'class'"
+        where += alias + ".annotation = " + sqlQuote(classDescriptor(constraint.type))
+        constraint.visibility?.let { where += alias + ".visibility = " + it }
+        constraint.elementName?.let { name ->
+            where += alias + ".element_name = " + sqlQuote(name)
+            where += alias + ".value_kind = 'array'"
+            constraint.values.forEachIndexed { ordinal, value ->
+                val element = "ae" + index + "_" + ordinal
+                val dexFile = "d" + index + "_" + ordinal
+                val strings = "s" + index + "_" + ordinal
+                joins +=
+                    "JOIN annotation_elements " + element + " ON " + element +
+                        ".annotation_off = " + alias + ".annotation_off"
+                joins +=
+                    "JOIN dex_files " + dexFile + " ON " + dexFile + ".file_id = " + element +
+                        ".file_id"
+                joins +=
+                    "JOIN strings " + strings + " ON " + strings +
+                        ".string_idx = " + element + ".value_index"
+                where += element + ".file_id = " + alias + ".file_id"
+                where += element + ".depth = 1"
+                where += element + ".ordinal = " + ordinal
+                where += element + ".value_kind = 'string'"
+                where += strings + ".string_pool_id = " + dexFile + ".string_pool_id"
+                where += strings + ".value = " + sqlQuote(value)
+            }
+        }
+    }
 }
 
 /** Stable alias for a classes join matching a unit anchor's superclass (avoids c/cc clashes). */

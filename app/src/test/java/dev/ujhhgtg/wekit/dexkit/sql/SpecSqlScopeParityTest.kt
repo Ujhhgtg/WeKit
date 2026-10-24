@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.dexkit.sql
 
+import dev.ujhhgtg.wekit.dexkit.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSpecJson
@@ -494,6 +495,46 @@ class SpecSqlScopeParityTest {
                     name("count")
                     searchPackages("com.test")
                     excludePackages("com.test.ui")
+                }
+                .toSqlOrNull(),
+        )
+    }
+
+    @Test
+    fun declaredClassAnnotationEmitsAnnotationJoins() {
+        assertEquals(
+"SELECT DISTINCT m.descriptor AS method FROM methods m " +
+    "JOIN annotation_elements_resolved ar0 ON ar0.owner = m.class_descriptor " +
+    "JOIN annotation_elements ae0_0 ON ae0_0.annotation_off = ar0.annotation_off " +
+    "JOIN dex_files d0_0 ON d0_0.file_id = ae0_0.file_id " +
+    "JOIN strings s0_0 ON s0_0.string_idx = ae0_0.value_index " +
+    "JOIN annotation_elements ae0_1 ON ae0_1.annotation_off = ar0.annotation_off " +
+    "JOIN dex_files d0_1 ON d0_1.file_id = ae0_1.file_id " +
+    "JOIN strings s0_1 ON s0_1.string_idx = ae0_1.value_index " +
+    "WHERE m.name = 'callback' AND m.return_descriptor = 'Z' " +
+    "AND m.param_count = 1 AND ar0.owner_kind = 'class' " +
+    "AND ar0.annotation = 'Ldalvik/annotation/Signature;' " +
+    "AND ar0.visibility = 2 AND ar0.element_name = 'value' " +
+    "AND ar0.value_kind = 'array' AND ae0_0.file_id = ar0.file_id " +
+    "AND ae0_0.depth = 1 AND ae0_0.ordinal = 0 " +
+    "AND ae0_0.value_kind = 'string' " +
+    "AND s0_0.string_pool_id = d0_0.string_pool_id " +
+    "AND s0_0.value = 'Ljava/lang/Object;' " +
+    "AND ae0_1.file_id = ar0.file_id AND ae0_1.depth = 1 " +
+    "AND ae0_1.ordinal = 1 AND ae0_1.value_kind = 'string' " +
+    "AND s0_1.string_pool_id = d0_1.string_pool_id AND s0_1.value = '>;' " +
+    "ORDER BY m.descriptor;",
+            methodSpec {
+                    name("callback")
+                    returnType = "boolean"
+                    paramCount = 1
+                    declaredClass {
+                        annotation {
+                            type = "dalvik.annotation.Signature"
+                            visibility = AnnotationVisibility.System
+                            elements("value", "Ljava/lang/Object;", ">;")
+                        }
+                    }
                 }
                 .toSqlOrNull(),
         )
