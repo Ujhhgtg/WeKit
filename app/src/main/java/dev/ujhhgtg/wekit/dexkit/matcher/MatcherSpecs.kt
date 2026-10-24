@@ -132,11 +132,11 @@ data class MethodSpec(
     val paramTypes: List<TypeSpec?>? = null,
     val paramCount: IntRange? = null,
     val usingStrings: List<StringSpec> = emptyList(),
-    /** TODO(T4): metadata does not expose usingNumbers yet; non-empty lists fail loudly. */
+    /** Numeric operands used by the method; matched injectively against `using_numbers`. */
     val usingNumbers: List<Number> = emptyList(),
     val usingFields: List<UsingFieldSpec> = emptyList(),
     val invokeMethods: List<MethodSpec> = emptyList(),
-    /** TODO(T4): metadata does not expose callers yet; non-empty lists fail loudly. */
+    /** Injective caller specs, resolved lazily through [DexMatcherRelations]. */
     val callerMethods: List<MethodSpec> = emptyList(),
     val anyOf: List<MethodSpec> = emptyList(),
     val allOf: List<MethodSpec> = emptyList(),
@@ -203,8 +203,7 @@ data class ClassSpec(
  * Field matcher (DexKit FieldMatcher replacement).
  *
  * readMethods/writeMethods are DexKit MethodsMatcher constraints over the methods that access the
- * field; the metadata API does not expose those relation lists yet, so non-empty lists fail loudly
- * (TODO(T4)).
+ * field, resolved lazily through [DexMatcherRelations.fieldAccessMethods].
  */
 data class FieldSpec(
     val name: NameSpec? = null,
