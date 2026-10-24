@@ -63,7 +63,7 @@ class DexMatcherSession(
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
         val matcher = ClassMatcher().apply(block)
-        return findClasses(matcher.build(), emptyList(), matcher.excludePackages.toList())
+        return findClasses(matcher.build(), emptyList(), emptyList())
     }
 
     fun findMethods(
@@ -79,7 +79,7 @@ class DexMatcherSession(
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
         val matcher = MethodMatcher().apply(block)
-        return findMethods(matcher.build(), emptyList(), matcher.excludePackages.toList())
+        return findMethods(matcher.build(), emptyList(), emptyList())
     }
 
     fun findFields(
@@ -95,7 +95,7 @@ class DexMatcherSession(
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findFields(block: FieldMatcher.() -> Unit): List<DexFieldInfo> {
         val matcher = FieldMatcher().apply(block)
-        return findFields(matcher.build(), emptyList(), matcher.excludePackages.toList())
+        return findFields(matcher.build(), emptyList(), emptyList())
     }
 
     /** Callers of a method descriptor (DexKit order); fetched lazily from the bridge. */

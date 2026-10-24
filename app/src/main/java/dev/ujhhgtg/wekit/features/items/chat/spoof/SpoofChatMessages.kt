@@ -31,11 +31,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -102,24 +97,14 @@ object SpoofChatMessages :
         paramTypes(WeMessageApi.classMsgInfo.data.name, null)
         usingEqStrings("get previewPath img not completed")
     }
-    private val methodGalleryCachedPath by dexMethodQuery {
+    private val methodGalleryCachedPath by dexMethod {
         val target = methodGalleryImagePath.data
-        uniqueMethod(
-            MethodSpec(
-                declaredClass = ClassSpec(className = NameSpec(target.declaredClassName)),
-                returnType = ClassSpec(className = NameSpec("java.lang.String")),
-                paramTypes =
-                    listOf(
-                        TypeSpec(WeMessageApi.classMsgInfo.data.name),
-                        null,
-                        TypeSpec("boolean"),
-                    ),
-                invokeMethods =
-                    listOf(
-                        MethodSpec(descriptor = methodGalleryImagePath.data.descriptor),
-                    ),
-            ),
-        )
+        declaredClass = target.declaredClassName
+        returnType = "java.lang.String"
+        paramTypes(WeMessageApi.classMsgInfo.data.name, null, "boolean")
+        invokeMethod {
+            descriptor = methodGalleryImagePath.data.descriptor
+        }
     }
     private val methodGalleryInitImage by dexMethod {
         declaredClass(methodGalleryImagePath.data.declaredClassName)

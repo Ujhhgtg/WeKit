@@ -6,13 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -32,32 +25,17 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
 
     private const val SELECTION_LIMIT = 100
 
-    private val methodGetSelectedMessageCount by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(WeMessageApi.classChattingDataAdapter.data.name),
-                    ),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("int")),
-                usingFields =
-                    listOf(
-                        UsingFieldSpec(
-                            field =
-                                FieldSpec(
-                                    type =
-                                        ClassSpec(
-                                            className =
-                                                NameSpec(
-                                                    "java.util.concurrent.CopyOnWriteArraySet",
-                                                ),
-                                        ),
-                                ),
-                        ),
-                    ),
-            ),
-        )
+    private val methodGetSelectedMessageCount by dexMethod {
+        declaredClass {
+            className = WeMessageApi.classChattingDataAdapter.data.name
+        }
+        paramCount = 0
+        returnType = "int"
+        usingField {
+            type {
+                className = "java.util.concurrent.CopyOnWriteArraySet"
+            }
+        }
     }
 
     private val classChatItemQuickSelect by dexClass {
@@ -93,16 +71,12 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
     private val selectedMessageCountOverride = ThreadLocal<Int>()
 
     override fun resolveDex() {
-        val candidates =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass =
-                        ClassSpec(className = NameSpec(classChatItemQuickSelect.data.name)),
-                    usingNumbers = listOf<Number>(SELECTION_LIMIT),
-                    paramTypes = listOf(TypeSpec("boolean")),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                ),
-            )
+        val candidates = DexResolutionContext.findMethods {
+            declaredClass = classChatItemQuickSelect.data.name
+            usingNumbers(SELECTION_LIMIT)
+            paramTypes("boolean")
+            returnType = "void"
+        }
         check(candidates.size >= 2) {
             "DexSQL: Expected two quick-select setter candidates, found ${candidates.size}"
         }

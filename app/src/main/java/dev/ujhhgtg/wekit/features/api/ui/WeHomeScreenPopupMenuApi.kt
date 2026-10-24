@@ -12,14 +12,8 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookHandle
@@ -77,37 +71,36 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
         searchPackages("com.tencent.mm.ui")
         usingEqStrings("MicroMsg.PlusSubMenuHelper", "processOnItemClick")
     }
-    private val classMenuItemData by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fields =
-                    listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
-                    ),
-                fieldCount = 5..5,
-                methods =
-                    listOf(MethodSpec(usingStrings = listOf(StringSpec("", NameMatch.Equals)))),
-            ),
-            packages = listOf("com.tencent.mm.ui"),
-        )
+    private val classMenuItemData by dexClass {
+        searchPackages("com.tencent.mm.ui")
+        field {
+            type = "java.lang.String"
+        }
+        field {
+            type = "int"
+        }
+        field {
+            type = "int"
+        }
+        field {
+            type = "int"
+        }
+        field {
+            type = "java.lang.String"
+        }
+        fieldCount = 5
+        method {
+            usingEqString("")
+        }
     }
-    private val classMenuItemWrapper by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fields =
-                    listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec("boolean"))),
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec(classMenuItemData.data.name)),
-                        ),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.ui"),
-        )
+    private val classMenuItemWrapper by dexClass {
+        searchPackages("com.tencent.mm.ui")
+        field {
+            type = "boolean"
+        }
+        field {
+            type = classMenuItemData.data.name
+        }
     }
 
     // adapter 只有在菜单构建时才能拿到，所以 getView 的 Hook 没法在 onEnable 里注册；

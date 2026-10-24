@@ -34,14 +34,7 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -770,17 +763,12 @@ object HideContacts :
      * `FinderItem` is an unobfuscated (kept) class, so that method name is stable across versions.
      */
     val methodFinderLikeDrawerLoadMore by
-        dexMethodQuery(allowFailure = true) {
-            uniqueMethod(
-                MethodSpec(
-                    usingStrings =
-                        listOf(
-                            StringSpec("Finder.DrawerPresenter", NameMatch.Equals),
-                            StringSpec("[loadMoreData] empty!", NameMatch.Equals),
-                        ),
-                    invokeMethods = listOf(MethodSpec(name = NameSpec("getUnsignedId"))),
-                ),
-            )
+        dexMethod(allowFailure = true) {
+            usingEqString("Finder.DrawerPresenter")
+            usingEqString("[loadMoreData] empty!")
+            invokeMethod {
+                name = "getUnsignedId"
+            }
         }
 
     /**
@@ -945,48 +933,19 @@ object HideContacts :
     }
 
     /** `mp5.q2.Ii(String toUser, ...)` — VoIPMP call-record insertion (未接听 / 已取消 / duration). */
-    val methodVoipMpInsertMsg by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                paramTypes =
-                    listOf(
-                        TypeSpec("java.lang.String"),
-                        TypeSpec("boolean"),
-                        TypeSpec("int"),
-                        TypeSpec("long"),
-                        TypeSpec("long"),
-                        TypeSpec("long"),
-                        TypeSpec("int"),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-                anyOf =
-                    listOf(
-                        MethodSpec(
-                            usingStrings =
-                                listOf(
-                                    StringSpec("MicroMsg.VoIPMP.Launcher", NameMatch.Equals),
-                                    StringSpec(
-                                        "insertMsg() called with: toUser = ",
-                                        NameMatch.Equals,
-                                    ),
-                                ),
-                        ),
-                        MethodSpec(
-                            declaredClass =
-                                ClassSpec(
-                                    usingStrings =
-                                        listOf(
-                                            StringSpec(
-                                                "MicroMsg.VoIPMP.Launcher",
-                                                NameMatch.Equals,
-                                            ),
-                                            StringSpec("closeReceiverBanner", NameMatch.Equals),
-                                        ),
-                                ),
-                        ),
-                    ),
-            ),
-        )
+    val methodVoipMpInsertMsg by dexMethod {
+        paramTypes("java.lang.String", "boolean", "int", "long", "long", "long", "int")
+        returnType = "void"
+        anyOf {
+            usingEqString("MicroMsg.VoIPMP.Launcher")
+            usingEqString("insertMsg() called with: toUser = ")
+        }
+        anyOf {
+            declaredClass {
+                usingEqString("MicroMsg.VoIPMP.Launcher")
+                usingEqString("closeReceiverBanner")
+            }
+        }
     }
 
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────
@@ -1001,24 +960,15 @@ object HideContacts :
             methodMultiTalkOnInvite.markExpectedFailure()
             return
         }
-        methodMultiTalkOnInvite.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className =
-                            NameSpec(SplitGroupCall.methodExitMultiTalk.data.declaredClassName),
-                    ),
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.MT.MultiTalkManager", NameMatch.Equals),
-                        StringSpec(
-                            "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
-                            NameMatch.Equals,
-                        ),
-                    ),
-            ),
-            allowFailure = true,
-        )
+        methodMultiTalkOnInvite.find(allowFailure = true) {
+            declaredClass {
+                className = SplitGroupCall.methodExitMultiTalk.data.declaredClassName
+            }
+            usingEqString("MicroMsg.MT.MultiTalkManager")
+            usingEqString(
+                "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
+            )
+        }
     }
 
     /**

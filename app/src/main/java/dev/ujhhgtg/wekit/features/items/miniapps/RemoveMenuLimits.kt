@@ -2,11 +2,8 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -40,39 +37,33 @@ object RemoveMenuLimits : SwitchFeature(), IResolveDex {
             }
     }
 
-    private val methodGetMenuItemVisibility1 by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
-                        methods = listOf(MethodSpec(usingNumbers = listOf<Number>(39))),
-                    ),
-                returnType =
-                    ClassSpec(
-                        className =
-                            NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.plugin.appbrand.menu"),
-        )
+    private val methodGetMenuItemVisibility1 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.menu")
+        declaredClass {
+            superClass {
+                modifiers = java.lang.reflect.Modifier.ABSTRACT
+            }
+            method {
+                usingNumbers(39)
+            }
+        }
+        returnType {
+            className("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains)
+        }
     }
 
-    private val methodGetMenuItemVisibility2 by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        superClass = ClassSpec(modifiers = java.lang.reflect.Modifier.ABSTRACT),
-                        methods = listOf(MethodSpec(usingNumbers = listOf<Number>(30))),
-                    ),
-                returnType =
-                    ClassSpec(
-                        className =
-                            NameSpec("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.plugin.appbrand.menu"),
-        )
+    private val methodGetMenuItemVisibility2 by dexMethod {
+        searchPackages("com.tencent.mm.plugin.appbrand.menu")
+        declaredClass {
+            superClass {
+                modifiers = java.lang.reflect.Modifier.ABSTRACT
+            }
+            method {
+                usingNumbers(30)
+            }
+        }
+        returnType {
+            className("com.tencent.mm.plugin.appbrand.menu", NameMatch.Contains)
+        }
     }
 }

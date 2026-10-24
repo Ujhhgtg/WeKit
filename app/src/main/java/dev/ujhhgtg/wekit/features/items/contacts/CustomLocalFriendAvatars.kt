@@ -51,12 +51,9 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -246,61 +243,27 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         }
 
     private val methodRoundBitmap by
-        dexMethodQuery(allowFailure = true) {
-            uniqueMethod(
-                MethodSpec(
-                    paramTypes =
-                        listOf(
-                            TypeSpec("android.graphics.Bitmap"),
-                            TypeSpec("boolean"),
-                            TypeSpec("float"),
-                        ),
-                    returnType = ClassSpec(className = NameSpec("android.graphics.Bitmap")),
-                    invokeMethods =
-                        listOf(
-                            MethodSpec(
-                                usingStrings =
-                                    listOf(
-                                        StringSpec("MicroMsg.BitmapUtil", NameMatch.Equals),
-                                        StringSpec(
-                                            "getRoundedCornerBitmap in bitmap is null",
-                                            NameMatch.Equals,
-                                        ),
-                                    ),
-                            ),
-                        ),
-                ),
-                packages = listOf("com.tencent.mm.sdk.platformtools"),
-            )
+        dexMethod(allowFailure = true) {
+            searchPackages("com.tencent.mm.sdk.platformtools")
+            paramTypes("android.graphics.Bitmap", "boolean", "float")
+            returnType = "android.graphics.Bitmap"
+            invokeMethod {
+                usingEqString("MicroMsg.BitmapUtil")
+                usingEqString("getRoundedCornerBitmap in bitmap is null")
+            }
         }
 
     // com.tencent.mm.pluginsdk.ui.u.b
-    val methodConversationAvatar by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                paramTypes =
-                    listOf(
-                        TypeSpec("android.widget.ImageView"),
-                        TypeSpec("java.lang.String"),
-                        TypeSpec("float"),
-                        TypeSpec("boolean"),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.AvatarDrawable", NameMatch.Equals),
-                        StringSpec("imageView is null", NameMatch.Equals),
-                    ),
-                invokeMethods =
-                    listOf(
-                        MethodSpec(
-                            declaredClass = ClassSpec(className = NameSpec("android.view.View")),
-                            name = NameSpec("invalidate"),
-                        ),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.pluginsdk.ui"),
-        )
+    val methodConversationAvatar by dexMethod {
+        searchPackages("com.tencent.mm.pluginsdk.ui")
+        paramTypes("android.widget.ImageView", "java.lang.String", "float", "boolean")
+        returnType = "void"
+        usingEqString("MicroMsg.AvatarDrawable")
+        usingEqString("imageView is null")
+        invokeMethod {
+            declaredClass = "android.view.View"
+            name = "invalidate"
+        }
     }
 
     @Volatile private var avatarUsernamesCache: Set<String>? = null

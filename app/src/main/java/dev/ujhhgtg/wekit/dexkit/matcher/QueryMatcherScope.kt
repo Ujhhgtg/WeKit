@@ -1255,9 +1255,7 @@ private fun matchesPackages(
     packages: List<String>,
     excludePackages: List<String>,
 ): Boolean {
-    if (
-        packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith("$it.") }
-    ) {
+    if (packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith("$it.") }) {
         return false
     }
     if (excludePackages.any { javaName == it || javaName.startsWith("$it.") }) {

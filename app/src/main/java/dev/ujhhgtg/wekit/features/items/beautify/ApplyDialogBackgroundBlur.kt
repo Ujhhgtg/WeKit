@@ -20,10 +20,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -54,40 +50,35 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
     private val classMmProgressDialog by dexClass {
         usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
     }
-    private val classMmQuickDialog by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                superClass = ClassSpec(className = NameSpec("android.app.Dialog")),
-                fields =
-                    listOf(
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec("android.widget.TextView")),
-                        ),
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec("int")),
-                            modifiers =
-                                java.lang.reflect.Modifier.STATIC or
-                                    java.lang.reflect.Modifier.FINAL,
-                        ),
-                        FieldSpec(
-                            type =
-                                ClassSpec(
-                                    className =
-                                        NameSpec("com.tencent.mm.ui.widget.imageview.WeImageView"),
-                                ),
-                        ),
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec("android.widget.ProgressBar")),
-                        ),
-                        FieldSpec(type = ClassSpec(className = NameSpec("android.view.View"))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec("boolean")),
-                            modifiers = java.lang.reflect.Modifier.FINAL,
-                        ),
-                    ),
-            ),
-        )
+    private val classMmQuickDialog by dexClass {
+        superClass {
+            className = "android.app.Dialog"
+        }
+        field {
+            type = "android.widget.TextView"
+        }
+        field {
+            type = "int"
+            modifiers = java.lang.reflect.Modifier.STATIC or java.lang.reflect.Modifier.FINAL
+        }
+        field {
+            type {
+                className = "com.tencent.mm.ui.widget.imageview.WeImageView"
+            }
+        }
+        field {
+            type = "android.widget.ProgressBar"
+        }
+        field {
+            type = "android.view.View"
+        }
+        field {
+            type = "int"
+        }
+        field {
+            type = "boolean"
+            modifiers = java.lang.reflect.Modifier.FINAL
+        }
     }
 
     override fun onEnable() {

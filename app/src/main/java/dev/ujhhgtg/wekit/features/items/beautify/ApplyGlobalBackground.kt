@@ -38,10 +38,7 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
@@ -74,25 +71,16 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ApplyGlobalBackground"
 
-    private val methodInitImageView by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec("com.tencent.mm.ui.base.MultiTouchImageView"),
-                    ),
-                modifiers = java.lang.reflect.Modifier.FINAL,
-                returnType = ClassSpec(className = NameSpec("void")),
-                invokeMethods =
-                    listOf(
-                        MethodSpec(
-                            declaredClass =
-                                ClassSpec(className = NameSpec("android.widget.ImageView")),
-                            name = NameSpec("setScaleType"),
-                        ),
-                    ),
-            ),
-        )
+    private val methodInitImageView by dexMethod {
+        declaredClass {
+            className = "com.tencent.mm.ui.base.MultiTouchImageView"
+        }
+        modifiers = java.lang.reflect.Modifier.FINAL
+        returnType = "void"
+        invokeMethod {
+            declaredClass = "android.widget.ImageView"
+            name = "setScaleType"
+        }
     }
 
     private var backgroundUri by prefOption("global_bg_uri", nul<String>())

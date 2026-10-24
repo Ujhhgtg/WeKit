@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.find
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
@@ -52,54 +51,30 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         paramTypes("int", "int")
         usingEqStrings("MicroMsg.MainUI", "setListMargin isInMultiWindowMode: %b")
     }
-    val methodNativeTitleView by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("android.view.View")),
-                callerMethods =
-                    listOf(
-                        MethodSpec(
-                            declaredClass =
-                                ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
-                            usingStrings =
-                                listOf(
-                                    StringSpec(
-                                        "[initActionBar] mActionBar == null",
-                                        NameMatch.Equals,
-                                    ),
-                                ),
-                        ),
-                    ),
-            ),
-            packages = listOf("androidx.appcompat.app"),
-        )
+    val methodNativeTitleView by dexMethod {
+        searchPackages("androidx.appcompat.app")
+        paramCount = 0
+        returnType = "android.view.View"
+        callerMethod {
+            declaredClass = "com.tencent.mm.ui.HomeUI"
+            usingEqString("[initActionBar] mActionBar == null")
+        }
     }
-    val methodStatusBarHeight by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        superClass = ClassSpec(className = NameSpec("android.widget.FrameLayout")),
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.DrawStatusBarFrameLayout", NameMatch.Equals),
-                            ),
-                        methods =
-                            listOf(
-                                MethodSpec(
-                                    name = NameSpec("getDrawnStatusBarHeight"),
-                                    paramCount = 0..0,
-                                    returnType = ClassSpec(className = NameSpec("int")),
-                                ),
-                            ),
-                    ),
-                paramTypes = listOf(TypeSpec("int")),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings =
-                    listOf(StringSpec("applyStatusBarHeight setPadding e=%s", NameMatch.Equals)),
-            ),
-        )
+    val methodStatusBarHeight by dexMethod {
+        declaredClass {
+            superClass {
+                className = "android.widget.FrameLayout"
+            }
+            usingEqString("MicroMsg.DrawStatusBarFrameLayout")
+            method {
+                name = "getDrawnStatusBarHeight"
+                paramCount = 0
+                returnType = "int"
+            }
+        }
+        paramTypes("int")
+        returnType = "void"
+        usingEqString("applyStatusBarHeight setPadding e=%s")
     }
     val fieldListActionBar by dexField {
         declaredClass = "com.tencent.mm.ui.conversation.ConversationListView"
@@ -163,24 +138,13 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         )
 
         if (classRecyclerView.isFound) {
-            fieldRecyclerActionBar.find(
-                FieldSpec(
-                    declaredClass = ClassSpec(className = NameSpec(classRecyclerView.data.name)),
-                    type = ClassSpec(className = NameSpec("android.view.View")),
-                    readMethods =
-                        listOf(
-                            MethodSpec(
-                                usingStrings =
-                                    listOf(
-                                        StringSpec(
-                                            "resetActionBarView\$app_release",
-                                            NameMatch.Equals,
-                                        ),
-                                    ),
-                            ),
-                        ),
-                ),
-            )
+            fieldRecyclerActionBar.find {
+                declaredClass = classRecyclerView.data.name
+                type = "android.view.View"
+                readMethod {
+                    usingEqString("resetActionBarView\$app_release")
+                }
+            }
             fieldRecyclerSpacer.setDescriptor(
                 DexResolutionContext.matcher
                     .findFields(

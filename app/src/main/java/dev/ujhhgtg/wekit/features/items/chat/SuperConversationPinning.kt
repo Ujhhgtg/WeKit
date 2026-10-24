@@ -18,12 +18,6 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
@@ -209,27 +203,15 @@ object SuperConversationPinning :
         )
     }
 
-    private val classMvvmConversationAdapter by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                superClass =
-                    ClassSpec(
-                        usingStrings =
-                            listOf(
-                                StringSpec(
-                                    "null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem",
-                                    NameMatch.Equals,
-                                ),
-                            ),
-                    ),
-                fields =
-                    listOf(
-                        FieldSpec(
-                            type = ClassSpec(className = NameSpec(classConversation.data.name)),
-                        ),
-                    ),
-            ),
-        )
+    private val classMvvmConversationAdapter by dexClass {
+        superClass {
+            usingEqString(
+                "null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem",
+            )
+        }
+        field {
+            type = classConversation.data.name
+        }
     }
 
     private fun hookMvvmConversationComparator() {

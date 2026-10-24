@@ -19,11 +19,7 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -42,26 +38,17 @@ object CustomDpi : ClickableFeature(), IResolveDex {
         listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_custom_dpi_description
 
-    private val methodGetDisplayMetrics by dexMethodQuery {
-        uniqueMethod(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.MMDensityManager"),
-                                StringSpec("screenResolution_target_field"),
-                            ),
-                    ),
-                modifiers = java.lang.reflect.Modifier.PUBLIC,
-                returnType = ClassSpec(className = NameSpec("android.util.DisplayMetrics")),
-                paramCount = 0..0,
-                invokeMethods =
-                    listOf(
-                        MethodSpec(returnType = ClassSpec(className = NameSpec("boolean"))),
-                    ),
-            ),
-        )
+    private val methodGetDisplayMetrics by dexMethod {
+        declaredClass {
+            usingString("MicroMsg.MMDensityManager")
+            usingString("screenResolution_target_field")
+        }
+        modifiers = java.lang.reflect.Modifier.PUBLIC
+        returnType = "android.util.DisplayMetrics"
+        paramCount = 0
+        invokeMethod {
+            returnType = "boolean"
+        }
     }
 
     private var customDpi by prefOption("custom_dpi", 360)

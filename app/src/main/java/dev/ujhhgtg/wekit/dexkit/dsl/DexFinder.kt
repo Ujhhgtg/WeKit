@@ -28,7 +28,7 @@ fun DexClassDelegate.find(
     block: ClassMatcher.() -> Unit,
 ): Boolean {
     val matcher = ClassMatcher().apply(block)
-    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+    return find(matcher.build(), emptyList(), allowFailure)
 }
 
 fun DexMethodDelegate.find(
@@ -36,7 +36,7 @@ fun DexMethodDelegate.find(
     block: MethodMatcher.() -> Unit,
 ): Boolean {
     val matcher = MethodMatcher().apply(block)
-    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+    return find(matcher.build(), emptyList(), allowFailure)
 }
 
 fun DexConstructorDelegate.find(
@@ -44,7 +44,7 @@ fun DexConstructorDelegate.find(
     block: MethodMatcher.() -> Unit,
 ): Boolean {
     val matcher = MethodMatcher().apply(block)
-    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+    return find(matcher.build(), emptyList(), allowFailure)
 }
 
 fun DexFieldDelegate.find(
@@ -52,7 +52,7 @@ fun DexFieldDelegate.find(
     block: FieldMatcher.() -> Unit,
 ): Boolean {
     val matcher = FieldMatcher().apply(block)
-    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+    return find(matcher.build(), emptyList(), allowFailure)
 }
 
 internal fun DexClassDelegate.find(

@@ -72,7 +72,7 @@ class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
         val spec = MatcherSpecJson.methodSpec(specJson)
         session
             .findMethods(
-                spec.copy(name = dev.ujhhgtg.wekit.dexkit.matcher.NameSpec("<init>")),
+                spec.copy(name = NameSpec("<init>")),
                 searchPackages,
                 excludePackages,
             )

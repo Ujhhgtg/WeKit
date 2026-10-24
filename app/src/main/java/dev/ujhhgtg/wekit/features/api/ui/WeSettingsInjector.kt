@@ -22,14 +22,11 @@ import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -62,36 +59,18 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
             }
         }
     private val classBaseSettingItem by
-        dexClassQuery(allowFailure = true) {
-            uniqueClass(
-                ClassSpec(
-                    usingStrings =
-                        listOf(
-                            StringSpec("", NameMatch.Equals),
-                            StringSpec("activity", NameMatch.Equals),
-                            StringSpec("context", NameMatch.Equals),
-                            StringSpec("intent", NameMatch.Equals),
-                        ),
-                    methods =
-                        listOf(
-                            MethodSpec(
-                                name = NameSpec("<init>"),
-                                paramTypes =
-                                    listOf(TypeSpec("androidx.appcompat.app.AppCompatActivity")),
-                            ),
-                        ),
-                    interfaces =
-                        listOf(
-                            ClassSpec(
-                                className =
-                                    NameSpec(
-                                        "com.tencent.mm.plugin.newtips.model",
-                                        NameMatch.StartsWith,
-                                    ),
-                            ),
-                        ),
-                ),
-            )
+        dexClass(allowFailure = true) {
+            usingEqString("")
+            usingEqString("activity")
+            usingEqString("context")
+            usingEqString("intent")
+            method {
+                name = "<init>"
+                paramTypes("androidx.appcompat.app.AppCompatActivity")
+            }
+            interfaceSpec {
+                className("com.tencent.mm.plugin.newtips.model", NameMatch.StartsWith)
+            }
         }
     private val classBaseSettingSwitchItem by
         dexClass(allowFailure = true) {
@@ -154,39 +133,30 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 )
                 .single()
 
-        val setKeyCandidates =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                    paramTypes = listOf(TypeSpec("java.lang.String")),
-                    usingStrings = listOf(StringSpec("Preference")),
-                ),
-                packages = listOf("com.tencent.mm.ui.base.preference"),
-            )
+        val setKeyCandidates = DexResolutionContext.findMethods {
+            searchPackages("com.tencent.mm.ui.base.preference")
+            declaredClass = PREFERENCE_CLASS_NAME
+            returnType = "void"
+            paramTypes("java.lang.String")
+            usingString("Preference")
+        }
         check(setKeyCandidates.isNotEmpty()) { "DexSQL: No method found for key: methodSetKey" }
         methodSetKey.setDescriptor(setKeyCandidates.first())
 
-        val setTitleCandidates =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                    paramTypes = listOf(TypeSpec("java.lang.CharSequence")),
-                ),
-            )
+        val setTitleCandidates = DexResolutionContext.findMethods {
+            declaredClass = prefClass.name
+            returnType = "void"
+            paramTypes("java.lang.CharSequence")
+        }
         if (setTitleCandidates.isNotEmpty()) {
             methodSetTitle.setDescriptor(setTitleCandidates.last())
         }
 
-        val getKeyCandidates =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass = ClassSpec(className = NameSpec(prefClass.name)),
-                    paramCount = 0..0,
-                    returnType = ClassSpec(className = NameSpec("java.lang.String")),
-                ),
-            )
+        val getKeyCandidates = DexResolutionContext.findMethods {
+            declaredClass = prefClass.name
+            paramCount = 0
+            returnType = "java.lang.String"
+        }
 
         val targetGetKey = getKeyCandidates.firstOrNull { it.name != "toString" }
 
@@ -217,15 +187,12 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                 .singleOrNull()
 
         if (adapterClass != null) {
-            val addPrefCandidates =
-                DexResolutionContext.matcher.findMethods(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec(adapterClass.name)),
-                        paramTypes = listOf(TypeSpec(PREFERENCE_CLASS_NAME), TypeSpec("int")),
-                        returnType = ClassSpec(className = NameSpec("void")),
-                    ),
-                    packages = listOf("com.tencent.mm.ui.base.preference"),
-                )
+            val addPrefCandidates = DexResolutionContext.findMethods {
+                searchPackages("com.tencent.mm.ui.base.preference")
+                declaredClass = adapterClass.name
+                paramTypes(PREFERENCE_CLASS_NAME, "int")
+                returnType = "void"
+            }
             check(addPrefCandidates.isNotEmpty()) {
                 "DexSQL: No method found for key: methodAddPref"
             }

@@ -172,7 +172,6 @@ class ClassMatcher internal constructor() {
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
     val packages = mutableListOf<String>()
-    val excludePackages = mutableListOf<String>()
 
     /**
      * DexKit annotation constraints (evaluation-only keywords; candidate generation ignores them).
@@ -436,7 +435,6 @@ class MethodMatcher internal constructor() {
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
     val packages = mutableListOf<String>()
-    val excludePackages = mutableListOf<String>()
     val usingFields = mutableListOf<UsingFieldSpec>()
     val invokeMethods = mutableListOf<MethodSpec>()
     val callerMethods = mutableListOf<MethodSpec>()
@@ -617,15 +615,6 @@ class MethodMatcher internal constructor() {
     /** Alias of [searchPackages]. */
     fun packages(values: List<String>) = searchPackages(values)
 
-    /** Excluded packages; only the fallback matcher evaluation applies them. */
-    fun excludePackages(vararg values: String) {
-        excludePackages += values
-    }
-
-    fun excludePackages(values: List<String>) {
-        excludePackages += values
-    }
-
     fun usingField(spec: UsingFieldSpec) {
         usingFields += spec
     }
@@ -763,7 +752,6 @@ class FieldMatcher internal constructor() {
     val readMethods = mutableListOf<MethodSpec>()
     val writeMethods = mutableListOf<MethodSpec>()
     val packages = mutableListOf<String>()
-    val excludePackages = mutableListOf<String>()
 
     fun name(value: String, match: NameMatch = NameMatch.Equals) {
         name = NameSpec(value, match)
@@ -834,15 +822,6 @@ class FieldMatcher internal constructor() {
 
     /** Alias of [searchPackages]. */
     fun packages(values: List<String>) = searchPackages(values)
-
-    /** Excluded packages; only the fallback matcher evaluation applies them. */
-    fun excludePackages(vararg values: String) {
-        excludePackages += values
-    }
-
-    fun excludePackages(values: List<String>) {
-        excludePackages += values
-    }
 
     fun applyBase(base: FieldSpec) {
         name = base.name
