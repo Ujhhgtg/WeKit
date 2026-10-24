@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.utils.monet
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty
-import org.luckypray.dexkit.DexKitBridge
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import java.io.File
 
 /**
@@ -19,7 +19,6 @@ import java.io.File
 class MonetRuntimeResolutionCorpusTest {
     @Test
     fun `runtime resolution is complete and consistent with the device-verified build`() {
-        System.load(File("../.wekit/dex-test/native/2.3.0/x86_64/cmake/libdexkit.so").canonicalPath)
         val samples = (System.getProperty("wekit.monetRuntime.samples") ?: "8078,8078_3180").split(',')
         val reference = resolve(REFERENCE)
         if (System.getProperty("wekit.monetRuntime.dump") == "true") {
@@ -51,7 +50,7 @@ class MonetRuntimeResolutionCorpusTest {
         val apk = File("/home/ujhhgtg/coding/wechat_$sample.apk")
         val graph = MonetApkResourceGraphLoader.load(listOf(apk), "com.tencent.mm")
         // Path-based like `./x dex-test`; the in-memory byte-array bridge crashes natively here.
-        val resolution = DexKitBridge.create(apk.path).use { bridge ->
+        val resolution = DexSqlBridge.open(listOf(apk.path)).use { bridge ->
             MonetStructureMatcher.resolveAvailable(graph, { MonetDexEvidenceCollector.collect(bridge, it) })
         }
         val tints = MonetResourceResolver.brandTints(graph, resolution.resolved.values.mapTo(hashSetOf()) { it.id })

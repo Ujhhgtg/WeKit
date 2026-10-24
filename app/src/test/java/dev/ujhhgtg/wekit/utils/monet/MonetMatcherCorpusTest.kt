@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty
-import org.luckypray.dexkit.DexKitBridge
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.zip.ZipFile
@@ -105,7 +105,6 @@ class MonetMatcherCorpusTest {
 
     @Test
     fun `production matcher resolves the complete local APK corpus with live Dex evidence`() {
-        System.load(File("../.wekit/dex-test/native/2.3.0/x86_64/cmake/libdexkit.so").canonicalPath)
         val samples = listOf("8065", "8067", "8069", "8074", "8076", "8077", "8078", "8069_3020_play").map {
             File("/home/ujhhgtg/coding/wechat_$it.apk")
         } + PLAY_APKS
@@ -115,7 +114,8 @@ class MonetMatcherCorpusTest {
             val extracted = if (sample.extension == "apks") extractApks(sample) else null
             try {
                 val graph = MonetApkResourceGraphLoader.load(extracted?.second ?: listOf(sample), "com.tencent.mm")
-                DexKitBridge.create(dexBytes(sample).toTypedArray()).use { bridge ->
+                val bridgePaths = extracted?.second?.map { it.path } ?: listOf(sample.path)
+                DexSqlBridge.open(bridgePaths).use { bridge ->
                     val dexProvider = MonetDexEvidenceProvider { candidates ->
                         MonetDexEvidenceCollector.collect(bridge, candidates)
                     }
@@ -152,9 +152,14 @@ class MonetMatcherCorpusTest {
     }
 
     private fun auditResources(apk: File, graph: MonetResourceGraph): Map<String, List<MonetResourceNode>> {
-        System.load(File("../.wekit/dex-test/native/2.3.0/x86_64/cmake/libdexkit.so").canonicalPath)
-        return DexKitBridge.create(dexBytes(apk).toTypedArray()).use { bridge ->
-            MonetStructureMatcher.audit(graph) { candidates -> MonetDexEvidenceCollector.collect(bridge, candidates) }
+        val extracted = if (apk.extension == "apks") extractApks(apk) else null
+        try {
+            val paths = extracted?.second?.map { it.path } ?: listOf(apk.path)
+            return DexSqlBridge.open(paths).use { bridge ->
+                MonetStructureMatcher.audit(graph) { candidates -> MonetDexEvidenceCollector.collect(bridge, candidates) }
+            }
+        } finally {
+            extracted?.first?.deleteRecursively()
         }
     }
 
@@ -170,8 +175,7 @@ class MonetMatcherCorpusTest {
             val installedApks = extracted.second.filter { it.name in installedNames }
             assertEquals(installedNames, installedApks.map { it.name }.toSet())
             val graph = MonetApkResourceGraphLoader.load(installedApks, "com.tencent.mm")
-            System.load(File("../.wekit/dex-test/native/2.3.0/x86_64/cmake/libdexkit.so").canonicalPath)
-            DexKitBridge.create(installedApks.flatMap(::dexBytes).toTypedArray()).use { bridge ->
+            DexSqlBridge.open(installedApks.map { it.path }).use { bridge ->
                 val resolved = MonetStructureMatcher.resolveAll(
                     graph,
                     MonetDexEvidenceProvider { candidates -> MonetDexEvidenceCollector.collect(bridge, candidates) },
