@@ -36,7 +36,6 @@ object BootstrapNativeLibraries {
                 !it.isDirectory && it.name.startsWith("lib/arm64-v8a/") && it.name.endsWith(".so") &&
                     it.name != "lib/arm64-v8a/libwekit_zygisk.so"
             }.toList()
-            check(entries.any { it.name.endsWith("/libdexkit.so") }) { "bootstrap is missing DexKit JNI" }
             check(entries.any { it.name.endsWith("/libwekit_loader.so") }) { "bootstrap is missing loader JNI" }
             check(entries.any { it.name.endsWith("/libandroidx.graphics.path.so") }) { "bootstrap is missing graphics JNI" }
             for (entry in entries) {
@@ -57,7 +56,7 @@ object BootstrapNativeLibraries {
             }
         }
         // Load the tiny native verifier directly from the freshly extracted copy.
-        // It must run before DexKit or any other bootstrap JNI is accepted.
+        // It must run before any other bootstrap JNI is accepted.
         LoaderNatives.initialize(File(directory, "libwekit_loader.so"))
         check(LoaderNatives.verifyBootstrap(application, bootstrapApk.absolutePath)) {
             "bootstrap APK/process verification failed"
@@ -65,10 +64,10 @@ object BootstrapNativeLibraries {
         val owner = BootstrapNativeLibraries::class.java.classLoader as BaseDexClassLoader
         // LibXposed's module loader supplies its own APK lookup and namespace path.
         // Zygisk's plain memory loader needs a path before its first native load.
-        if (listOf("dexkit", "wekit_loader", "androidx.graphics.path").any { owner.findLibrary(it) == null }) {
+        if (listOf("wekit_loader", "androidx.graphics.path").any { owner.findLibrary(it) == null }) {
             installNativeSearchPath(owner, directory)
         }
-        for (name in listOf("dexkit", "wekit_loader", "androidx.graphics.path")) {
+        for (name in listOf("wekit_loader", "androidx.graphics.path")) {
             System.loadLibrary(name)
         }
         loadedDirectory = directory
@@ -90,7 +89,7 @@ object BootstrapNativeLibraries {
             parameters(List::class.java)
         }.invoke(directories + systemDirectories)
         paths.setField("nativeLibraryPathElements", elements)
-        for (name in listOf("dexkit", "wekit_loader", "androidx.graphics.path")) {
+        for (name in listOf("wekit_loader", "androidx.graphics.path")) {
             val resolved = checkNotNull(owner.findLibrary(name)) {
                 val linkerPath = owner.reflekt().firstMethod {
                     this.name = "getLdLibraryPath"

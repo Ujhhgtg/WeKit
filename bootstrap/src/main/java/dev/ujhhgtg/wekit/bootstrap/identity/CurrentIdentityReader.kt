@@ -1,42 +1,37 @@
 package dev.ujhhgtg.wekit.bootstrap.identity
 
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.bootstrap.BootstrapLog
-import org.luckypray.dexkit.DexKitBridge
+import android.app.Application
+import android.content.Context
 
 data class CurrentIdentity(val wxId: String?, val alias: String?, val readState: String, val ready: Boolean)
 
-/** Reads live host identity during startup and later account checks, without business features. */
-class CurrentIdentityReader(private val hostClassLoader: ClassLoader) {
-    private var core: CoreIdentityTargets? = null
-    private var alias: StaticMethodTarget? = null
-    private var resolved = false
-
+/**
+ * Reads the live WeChat identity during bootstrap startup without DexKit or DEX scanning.
+ *
+ * The account name (wxid) and WeChat alias are persisted by WeChat's stable login preference layer
+ * in the host's default "<package>_preferences" SharedPreferences file:
+ * - "login_user_name" = current account wxid
+ * - "login_weixin_username" = current account's WeChat alias (when set)
+ *
+ * These keys are stable across the supported 8.0.65-8.0.79 range (verified in the decompiled host
+ * sources: the account preference wrapper reads/writes exactly these keys and commits them to the
+ * SharedPreferences file before caching them in MMKV). The bootstrap process runs inside WeChat, so
+ * the host application context can read the same file directly.
+ */
+class CurrentIdentityReader(private val application: Application) {
     fun read(): CurrentIdentity {
-        if (!resolved) {
-            DexKitBridge.create(hostClassLoader, true).use { bridge ->
-                core = IdentityTargets.resolveCore(bridge)
-                try { alias = IdentityTargets.resolveAlias(bridge) }
-                catch (error: Exception) { BootstrapLog.e("Identity", "Current alias lookup failed", error) }
-            }
-            resolved = true
-        }
-        val targets = core!!
-        if (!(invoke(targets.ready) as Boolean)) return CurrentIdentity(null, null, "NOT_READY", false)
-        val wxId = (invoke(targets.wxId) as String?).takeUnless { it.isNullOrEmpty() }
-            ?: error("Current WeChat identity is unavailable despite live-ready state")
-        var currentAlias: String? = null
-        val aliasTarget = alias
-        if (aliasTarget != null) {
-            try { currentAlias = (invoke(aliasTarget) as String?).takeUnless { it.isNullOrEmpty() } }
-            catch (error: Exception) { BootstrapLog.e("Identity", "Current alias read failed", error) }
-        }
-        return CurrentIdentity(wxId, currentAlias, if (currentAlias == null) "ALIAS_UNAVAILABLE" else "CURRENT", true)
+        val preferences = application.getSharedPreferences(
+            application.packageName + "_preferences",
+            Context.MODE_PRIVATE,
+        )
+        val wxId = preferences.getString("login_user_name", "")?.takeUnless(String::isEmpty)
+            ?: return CurrentIdentity(null, null, "NOT_READY", false)
+        val alias = preferences.getString("login_weixin_username", "")?.takeUnless(String::isEmpty)
+        return CurrentIdentity(
+            wxId = wxId,
+            alias = alias,
+            readState = if (alias == null) "ALIAS_UNAVAILABLE" else "CURRENT",
+            ready = true,
+        )
     }
-
-    private fun invoke(target: StaticMethodTarget): Any? =
-        Class.forName(target.className, false, hostClassLoader).reflekt().firstMethod {
-            name = target.methodName
-            parameters()
-        }.invoke()
 }

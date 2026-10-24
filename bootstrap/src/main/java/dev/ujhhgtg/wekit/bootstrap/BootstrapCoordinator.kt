@@ -100,7 +100,7 @@ object BootstrapCoordinator {
         hookBridge = bridge; injectionMode = mode; telegramRootAccess = rootAccess
         mainProcess = Application.getProcessName() == hostApplication.packageName
         store = InstallationStore(hostApplication)
-        identityReader = CurrentIdentityReader(hostClassLoader)
+        identityReader = CurrentIdentityReader(hostApplication)
         if (mainProcess) hostApplication.registerActivityLifecycleCallbacks(Lifecycle())
         initialized = true
         // Finish installing business hooks before returning to the host's startup callback.

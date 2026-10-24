@@ -280,8 +280,6 @@ private class PayloadParentClassLoader(parent: ClassLoader) : ClassLoader(parent
         "dev.ujhhgtg.wekit.loader.api.",
         "dev.ujhhgtg.wekit.bootstrap.",
         "dev.ujhhgtg.reflekt.",
-        "org.luckypray.dexkit.",
-        "com.google.flatbuffers.",
     )
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
@@ -326,7 +324,7 @@ class ApkResourceClassLoader(parent: ClassLoader, private val archive: ZipFile, 
         private val SHARED_RESOURCES = listOf(
             "java/", "javax/", "android/", "kotlin/",
             "dev/ujhhgtg/wekit/loader/api/", "dev/ujhhgtg/wekit/loader/abc/",
-            "dev/ujhhgtg/reflekt/", "org/luckypray/dexkit/", "com/google/flatbuffers/",
+            "dev/ujhhgtg/reflekt/",
         )
     }
 }

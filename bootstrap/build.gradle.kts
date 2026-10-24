@@ -146,7 +146,6 @@ dependencies {
     implementation(project(":libs:common:reflekt"))
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
-    implementation(libs.dexkit)
     implementation(libs.hiddenapibypass)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
