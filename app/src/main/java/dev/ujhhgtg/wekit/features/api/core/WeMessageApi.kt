@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType as MetaFieldUsingType
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -499,6 +498,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val quoteRelation =
             DexResolutionContext.findClasses {
                     usingString("MsgQute{field_msgId=")
+                    usingString("field_quotedMsgTalker=")
                 }
                 .single()
         classQuoteRelation.setDescriptor(quoteRelation)
@@ -545,7 +545,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         classImageTask.setDescriptor(taskClassName)
 
         val imageFeatureServiceNewPathProbes = DexResolutionContext.findMethods {
-            usingString("sendRawImgAsyncWithPreBuild[", NameMatch.Equals)
+            usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
         }
 
         when (imageFeatureServiceNewPathProbes.size) {
