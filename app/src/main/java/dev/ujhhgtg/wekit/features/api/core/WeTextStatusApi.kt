@@ -9,10 +9,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
@@ -20,7 +18,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -63,48 +60,44 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
     private const val TAG = "WeTextStatusApi"
 
     private val classTextStatusService by dexClass()
-    private val classTextStatusRecord by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fields =
-                    listOf(
-                        FieldSpec(name = NameSpec("field_UserName")),
-                        FieldSpec(name = NameSpec("field_StatusID")),
-                        FieldSpec(name = NameSpec("field_IconID")),
-                        FieldSpec(name = NameSpec("field_Description")),
-                        FieldSpec(name = NameSpec("field_ExpireTime")),
-                        FieldSpec(name = NameSpec("field_EmojiInfo")),
-                    ),
-            ),
-        )
+    private val classTextStatusRecord by dexClass {
+        field {
+            name = "field_UserName"
+        }
+        field {
+            name = "field_StatusID"
+        }
+        field {
+            name = "field_IconID"
+        }
+        field {
+            name = "field_Description"
+        }
+        field {
+            name = "field_ExpireTime"
+        }
+        field {
+            name = "field_EmojiInfo"
+        }
     }
     private val methodTextStatusStorageAccessor by dexMethod()
-    private val methodLatestStatusByUsername by
-        dexMethod(
-            sqlMethod {
-                paramTypes("java.lang.String")
-                usingEqStrings(
-                    "MicroMsg.TextStatus.StatusInfoAffStorage",
-                    "getLatestStatusByUserName: failed",
-                )
-            },
+    private val methodLatestStatusByUsername by dexMethod {
+        paramTypes("java.lang.String")
+        usingEqStrings(
+            "MicroMsg.TextStatus.StatusInfoAffStorage",
+            "getLatestStatusByUserName: failed",
         )
-    private val methodTextStatusTopicInfo by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "Super calls with default arguments not supported in this target, function: getTopicInfo",
-                )
-            },
+    }
+    private val methodTextStatusTopicInfo by dexMethod {
+        usingEqStrings(
+            "Super calls with default arguments not supported in this target, function: getTopicInfo",
         )
-    private val methodSetTextStatusIcon by
-        dexMethod(
-            sqlMethod {
-                usingEqStrings(
-                    "Super calls with default arguments not supported in this target, function: setIcon",
-                )
-            },
+    }
+    private val methodSetTextStatusIcon by dexMethod {
+        usingEqStrings(
+            "Super calls with default arguments not supported in this target, function: setIcon",
         )
+    }
     private val methodTextStatusIconHelperAccessor by dexMethod()
     private val methodTextStatusDescription by dexMethod()
     private val methodCurrentStatusActions by dexMethod()
