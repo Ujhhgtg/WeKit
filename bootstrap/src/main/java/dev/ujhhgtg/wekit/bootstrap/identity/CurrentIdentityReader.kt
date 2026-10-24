@@ -6,7 +6,7 @@ import android.content.Context
 data class CurrentIdentity(val wxId: String?, val alias: String?, val readState: String, val ready: Boolean)
 
 /**
- * Reads the live WeChat identity during bootstrap startup without DexKit or DEX scanning.
+ * Reads the live WeChat identity during bootstrap startup without DEX scanning.
  *
  * The account name (wxid) and WeChat alias are persisted by WeChat's stable login preference layer
  * in the host's default "<package>_preferences" SharedPreferences file:

@@ -165,7 +165,7 @@ class FeaturesScanner(
                     ClassName("kotlin.collections", "List").parameterizedBy(entryType),
                 ).initializer(entries).build(),
             )
-            .addKdoc("Auto-generated lazy registry for desktop DexKit tests.\n")
+            .addKdoc("Auto-generated lazy registry for desktop Dex tests.\n")
             .build()
         FileSpec.builder(FEATURES_CORE_PACKAGE, "DexResolutionTestRegistry")
             .addType(entryClass)

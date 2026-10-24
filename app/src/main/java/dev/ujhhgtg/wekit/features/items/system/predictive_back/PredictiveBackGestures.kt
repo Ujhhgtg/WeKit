@@ -65,7 +65,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
  *
  * Every question "would WeChat consume this back?" is answered with the exact predicates WeChat's
  * own key chains evaluate — `LauncherUI.dispatchKeyEvent`, `MainUI.onKeyDown`, the chat
- * FootComponent's key handler and MMActivity's controller — resolved from their DexKit metadata.
+ * FootComponent's key handler and MMActivity's controller — resolved from their Dex metadata.
  */
 object PredictiveBackGestures : SwitchFeature(), IResolveDex {
 

@@ -208,7 +208,6 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         cgiReqClassMap[681] = classOplogReq.clazz
     }
 
-    @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex() {
         val wrapperName = classRawReq.data.superClass!!.name
         val candidates = DexResolutionContext.matcher.findClasses(

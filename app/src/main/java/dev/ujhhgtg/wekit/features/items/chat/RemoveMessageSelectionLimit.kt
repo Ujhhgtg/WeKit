@@ -69,7 +69,7 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
      * Two structurally identical setter overloads exist in the quick-select component.
      * The matcher cannot be expressed as a single-row DexSQL query (it targets a class
      * resolved at runtime), so resolve all candidates once and assign them explicitly
-     * instead of relaxing uniqueness. Ordering is DexKit's deterministic result order.
+     * instead of relaxing uniqueness. Ordering is the previous resolver's deterministic result order.
      */
     private val methodSetQuickSelectViewEnabled1 by dexMethod()
     private val methodSetQuickSelectViewEnabled2 by dexMethod()

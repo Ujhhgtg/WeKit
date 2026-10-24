@@ -141,14 +141,14 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
             method_lookup: true,
             method_strings: true,
             method_numbers: true,
-            // Metadata reads expose invokes/callers for the DexKit *Data replacement.
+            // Metadata reads expose invokes/callers for the delegate .data API.
             method_calls: true,
             method_field_accesses: true,
             method_used_types: false,
         },
         eager_code_items: true,
         // Opcode lists and annotations are only available when the loader keeps full code items
-        // and the raw DEX payloads, so the query matcher can evaluate DexKit opNames/annotation
+        // and the raw DEX payloads, so the query matcher can evaluate opNames/annotation
         // constraints.
         full_code_items: true,
         retain_classes: true,

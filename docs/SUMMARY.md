@@ -7,7 +7,7 @@
 * [⚙️ 配置指南](configuration.md)
 * [🔧 模块设置说明](module-settings.md)
 * [🛠️ 开发指南](development/README.md)
-  * [DexKit 解析器测试](development/linux-dex-test.md)
+  * [Dex 解析器测试](development/linux-dex-test.md)
   * [国际化开发指南](development/i18n.md)
 * [❓ 常见问题](faq.md)
 * [🐛 问题反馈指南](bug-report-guide.md)

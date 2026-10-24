@@ -1,6 +1,6 @@
-# Linux DexKit 解析器测试
+# Linux Dex 解析器测试
 
-本仓库提供了一个桌面端兼容性测试工具，用于运行与 Android 缓存流程相同的 DexKit/DexSQL
+本仓库提供了一个桌面端兼容性测试工具，用于运行与 Android 缓存流程相同的 DexSQL
 解析器代码。它不会安装微信或执行 Hook，只会检查当前源码中的匹配器或 SQL 查询能否在
 各 APK 的 DEX 文件中解析出目标。
 
@@ -19,7 +19,7 @@
 拆分包的全部 DEX 都位于 `base.apk` 中，工具会将其提取到 `target/dex-test-bundles/`（按拆分包 SHA-256 缓存）后再测试。
 每个 APK 都会在独立的 JVM 工作进程中运行。默认情况下，报告会写入
 `dex-test-results/<run-id>/`（也可使用指定的输出目录），每个 APK 对应一个 JSON 文件，
-并生成汇总文件 `summary.json`。DexKit 源码和原生构建缓存保存在 `.wekit/dex-test/` 下。
+并生成汇总文件 `summary.json`。引擎源码缓存保存在 `.wekit/dex-test/` 下。
 
 委托项的状态如下：
 
@@ -34,9 +34,8 @@
 源码解析报告通过，并不能证明 Hook 在实体设备上运行时的行为正确。
 
 首次运行需要 JDK 21 环境、Android SDK `apkanalyzer`、CMake、Ninja、Git，以及用于拉取
-固定版本 DexKit 源码的网络连接。固定版本的 Linux 原生库根据
-`gradle/libs.versions.toml` 中的 DexKit 版本构建；复用缓存前，工具会验证缓存检出内容的
-版本。
+固定版本 DexSQL 引擎源码的网络连接。固定版本的 Linux 原生库根据 xtask 中的引擎固定
+版本构建。
 
 ## 离线比较版本报告
 
@@ -103,7 +102,7 @@ CI 使用以下命令将该文档转换为清单：
 文档、下载器和清单实现共同派生的键进行缓存。匹配的缓存 APK 及其 SHA-256 辅助文件会被
 复用。测试前，APKMirror 拆分包会使用固定版本的 APKEditor 进行合并。
 
-CI 仅缓存 `.wekit/dex-test/source` 下经过验证的 DexKit 源码检出内容；原生库会在每次运行时
+CI 仅缓存 `.wekit/dex-test/source` 下经过验证的 DexSQL 引擎源码检出内容；原生库会在每次运行时
 重新构建，避免 CMake 复用旧运行器镜像中已经失效的 JDK 绝对包含路径。
 
 每次 CI 事件都会将完整的运行目录上传为 `wekit-dex-test-reports` Actions 构件，其中包括

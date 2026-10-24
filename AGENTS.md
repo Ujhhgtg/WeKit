@@ -57,16 +57,21 @@
   `displayOrder`. Both are auto-discovered by KSP from their source subtype at compile time.
 - Base classes: `SwitchFeature` (toggle), `ClickableFeature` (toggle + onClick), `ApiFeature`
   (always-on), `BaseFeature` (abstract base, do not use directly)
-- DEX analysis is migrating from DexKit matchers to DexSQL queries. Both paths live behind
-  `IResolveDex` delegates; resolver bodies and delegate blocks are MD5-hashed as the cache key
-  (`GenerateMethodHashesTask`). The embedded `dexsql` Rust crate only executes read-only SQL —
-  row selection and resolver-state classification are WeKit responsibilities.
+- DEX analysis uses DexSQL queries plus the WeKit query matcher; DexKit has been removed, so
+  every target lives behind an `IResolveDex` delegate. Resolver bodies and delegate blocks are
+  MD5-hashed as the cache key (`GenerateMethodHashesTask`). The embedded `dexsql` Rust crate only
+  executes read-only SQL — row selection and resolver-state classification are WeKit
+  responsibilities.
 - If any started feature needs Dex resolution, no feature starts (in any process); the dialog
   resolves and restarts WeChat. Failures are persisted per resolver hash. A feature with
   `BaseFeature.errors` (own/transitive-dependency Dex state or `declaredErrors`) never starts
   and can't be enabled — declare host restrictions via `declaredErrors`, not toasts in `onEnable`
 - DEX-resolved targets DSL: `val methodTarget by dexMethod()` / `val classTarget by dexClass()` →
   `methodTarget.hookBefore { ... }`, `methodTarget.method`, `classTarget.clazz`
+- Extension scripts resolve DEX through the same query matcher: Python plugins use the
+  query-backed `wekit.dex` module (spec builders plus `find_methods`/`find_classes`/`find_fields`),
+  and BeanShell exposes `findClassList`/`findMemberList` as matcher-backed string searches. The old
+  DexKit-backed `wekit.dexkit` module was removed without a compatibility shim.
 - SQL query delegates use the matcher-shaped builder instead of a raw SQL string:
   `by dexMethod(sqlMethod { declaredClass = "..."; returnType = "void"; usingEqStrings("...") })`
   (also `sqlClass`/`sqlField`/`sqlConstructor`). The builder emits canonical DexSQL text; a
@@ -76,20 +81,20 @@
   Write the query so it selects a single member (use `limit`/`offset` for deterministic
   candidate selection). There is no `allowMultiple`/`resultIndex` delegate option.
   A class query with several nested method matchers emits pairwise distinctness
-  conditions because DexKit matches those methods injectively (each nested matcher
+  conditions because the compatibility semantics bind nested methods injectively (each nested matcher
   must bind a different method); do not remove them. Class-literal constraints
   (method/constructor declaredClass { } and class superClass { }) are existential
   over the constraint class's methods with one unit per literal value. Access-flag
   constraints use modifiers(...) or modifiers = ... and compile to
-  (alias.access_flags & mask) = mask (DexKit Contains semantics). Literal LIKE
-  matchers are case-sensitive like DexKit: contains compiles to instr(col, lit) > 0,
+  (alias.access_flags & mask) = mask (Contains semantics: every requested bit must be set). Literal LIKE
+  matchers are case-sensitive: contains compiles to instr(col, lit) > 0,
   prefix to instr(col, lit) = 1, suffix to substr(col, -N) = lit, and class packages to
   instr(descriptor, 'Lpkg/') = 1; equality stays plain and an empty literal with a
   non-equals mode falls back to equals. The builder block is LAZY: it executes when the
   delegate is resolved, inside the DexResolutionContext, so matcher arguments may read
   another delegate's metadata directly, e.g. declaredClass = classFoo.data.name or
-  paramTypes(methodX.data.returnTypeName, "boolean"), exactly like DexKit matcher
-  blocks; no wrapper is needed and dependencies resolve on demand.
+  paramTypes(methodX.data.returnTypeName, "boolean"); no wrapper is needed and dependencies
+  resolve on demand.
 - UI: Jetpack Compose + Material 3; dialogs via `showComposeDialog` and `AlertDialogContent`;
   settings screens follow Material 3 UI Standards below
 - Storage: everything lives in the host's private `filesDir/wekit/`; the Room database
@@ -98,9 +103,9 @@
   external/private roots) is not imported.
 - Logging: via `WeLogger`
 
-## Desktop DexKit Validation
+## Desktop Dex validation
 
-- `./x dex-test` runs the same `IResolveDex`/DexKit resolution as `DexCacheManager.kt` against
+- `./x dex-test` runs the same `IResolveDex`/DexSQL resolution as `DexCacheManager.kt` against
   WeChat APKs on the desktop. Only the supported range **8.0.65–8.0.79** is a compatibility gate;
   other APKs are for investigation only.
 - `--workers 4` exercises the shared batch scheduler used by Android resolution; `--workers 1` is
@@ -119,8 +124,8 @@
   returning with pending delegates is `INCOMPLETE`. Initialization, worker, native-library, APK
   metadata, report, unexpected, blocked, or incomplete failures must stay visible and fail the command.
 - Desktop testing is expensive. Rerun only the affected supported APKs after changing `dexMethod`,
-  `dexClass`, `dexField`, SQL queries/DSL expressions, inline matchers, or
-  `resolveDex`/`resolveInlineDex` logic; don't rerun a passed version for unrelated changes.
+  `dexClass`, `dexField`, SQL queries/DSL expressions, or `resolveDex` logic; don't rerun a
+  passed version for unrelated changes.
 - The desktop worker only loads DexSQL when `./x dex-test` can build the host `libwekit_native.so`;
   the task always runs the incremental host build before starting workers, so the library cannot
   be silently stale.
@@ -129,8 +134,8 @@
 
 ### Desktop-safe Dex resolver rules
 
-- `resolveDex`, `resolveInlineDex`, and inline matcher blocks share one `DexResolutionContext`.
-  To use an already-resolved delegate in a later query, read its DexKit metadata
+- All `resolveDex` bodies share one `DexResolutionContext`.
+  To use an already-resolved delegate in a later query, read its Dex metadata
   (`delegate.data.name`, `.declaredClassName`, `.returnTypeName`, `.paramTypeNames`,
   `.superClass`, `.interfaces`, etc.), never JVM reflection (`.clazz`, `.method`, `.constructor`,
   `.field`, `asClass`, reflection-derived types): desktop workers cannot reliably load
@@ -147,7 +152,7 @@
 
 ### `allowFailure` and host compatibility paths
 
-- `allowFailure` on `dexMethod`/`dexClass`/`dexField` (DexKit or SQL) is ONLY for structures
+- `allowFailure` on `dexMethod`/`dexClass`/`dexField` is ONLY for structures
   whose existence differs across supported versions. If a resolution should succeed on every
   supported version, don't set it — failure must be loud, not a silent no-op. Never turn
   exceptions or uncertain matches into expected failures to get a green report. Expected
@@ -170,7 +175,7 @@
 ## Testing Strategy
 
 - Automated tests (and TDD) are allowed only for core logic that lives entirely in WeKit and does
-  not depend on WeChat host classes, runtime state, UI, or behavior. Host hooks, reflection/DexKit
+  not depend on WeChat host classes, runtime state, UI, or behavior. Host hooks, reflection/matcher
   glue, and host UI are normally excluded.
 - Don't test logic that is easy to verify statically (constants, direct mappings, boolean
   expressions, identity functions, simple arithmetic), and don't add tests merely to satisfy a
@@ -206,9 +211,9 @@
   (`thisObject as Activity`, `args[0] as View`), not `as?`, `args.getOrNull(0)`, `?:`, `?.` guards:
   wrong code must throw loudly into `HookUtils`' or the code's own exception handler instead of
   being silently swallowed. Genuinely reasonable guards stay.
-- You are NOT familiar with `DexKit`, `reflekt`, or the DexSQL schema/DSL. Read their code
-  (`dexkit/dsl/`, `dexkit/sql/`, and the dexsql repo's schema/tools) before using them; don't
-  hallucinate APIs.
+- You are NOT familiar with `reflekt`, the DexSQL schema/DSL, or the WeKit query matcher. Read
+  their code (`dexkit/dsl/`, `dexkit/matcher/`, `dexkit/sql/`, and the dexsql repo's
+  schema/tools) before using them; don't hallucinate APIs.
 - In Compose, `LocalContext` is always the platform context and is never localized by WeKit. Use
   standard Compose resource APIs for composable text and `LocalWeKitLocalizedContext` only for
   imperative WeKit resource reads; mixed platform/resource operations read both. Use

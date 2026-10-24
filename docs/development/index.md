@@ -2,7 +2,7 @@
 
 本页介绍 WeKit 的开发环境、构建命令和产物。专题说明请参阅：
 
-- [DexKit 解析器测试](linux-dex-test.md)
+- [Dex 解析器测试](linux-dex-test.md)
 - [国际化开发指南](i18n.md)
 - [文档站维护](documentation-site.md)
 - [翻译贡献](../translations/index.md)
@@ -98,7 +98,7 @@ exec cargo xtask "$@"
 | `./x check` | 对 Rust native 库执行 `cargo check` |
 | `./x clippy` | 对 Rust native 库执行 `cargo clippy -- -D warnings` |
 | `./x i18n-check` | 校验 Android 国际化资源目录 |
-| `./x dex-test` | 在桌面测试 DexKit 解析器 |
+| `./x dex-test` | 在桌面测试 Dex 解析器 |
 | `./x dex-report-diff <report...>` | 离线比较版本报告中的方法和构造函数签名 |
 | `./x extensions` | 构建和管理按需下载的扩展包 |
 

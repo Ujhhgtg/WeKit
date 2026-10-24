@@ -544,7 +544,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val height: Int,
     )
 
-    @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex() {
         // The shared matcher matches two identical implementations; pick the first match
         // explicitly instead of relaxing the matcher.

@@ -99,7 +99,7 @@ object HideContactsNotifications : ApiFeature(), IResolveDex {
      * talker further down (`"... talker: %s, tipsFlag: %s "`).
      *
      * The anchor occurs exactly once per tree, and in both cases the target method is the last
-     * declaration before it, so the string is inside the method DexKit will return — which is what
+     * declaration before it, so the string is inside the method the matcher will return — which is what
      * makes this matcher safe, not `allowFailure`. `allowFailure` covers **only the 0-hit case**:
      * `DexMethodDelegate.find` (`dexkit/dsl/DexDelegates.kt`) `error()`s on a multi-hit regardless of
      * it. It is set here purely for the 0-hit case: only 8.0.76 and 8.0.69 could be inspected, and on

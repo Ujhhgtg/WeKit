@@ -56,7 +56,7 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
         methodRefreshAppPanel.setDescriptor(refreshMethod)
 
         val usedFields = refreshMethod.usingFields.map { it.field }.distinctBy { it.descriptor }
-        // DexKit skipped non-final fields before resolving their type, so an external or
+        // The previous resolver skipped non-final fields before resolving their type, so an external or
         // primitive type (classInfoByName -> null) must count as "no boolean fields".
         val firstFlag = usedFields.first { field ->
             field.modifiers and java.lang.reflect.Modifier.FINAL != 0 &&

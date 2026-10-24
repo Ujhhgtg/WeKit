@@ -21,7 +21,7 @@ import java.util.concurrent.Executors
  *
  * Each query acquires the shared runtime DexSQL lease ([withDexSql]), creates a
  * [DexMatcherSession] over that bridge/metadata, converts the results to plain descriptor data,
- * and releases the lease. Queries are serialized on one daemon thread; no DexKit matcher objects
+ * and releases the lease. Queries are serialized on one daemon thread; no matcher objects
  * are involved.
  */
 class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {

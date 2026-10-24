@@ -146,7 +146,6 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     private const val PREFS_KEY = "wekit_settings_entry"
     private const val PREFERENCE_CLASS_NAME = "com.tencent.mm.ui.base.preference.Preference"
 
-    @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex() {
         val prefClass = DexResolutionContext.matcher.findClasses(
             ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),

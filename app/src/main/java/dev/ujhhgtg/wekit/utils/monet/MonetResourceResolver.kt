@@ -6,7 +6,7 @@ import java.security.MessageDigest
 
 /**
  * Resolves Monet semantic roles to WeChat resource IDs and caches the result per loaded WeChat
- * resource set. The analysis (full ARSC/XML graph + DexKit) is far too heavy to repeat on every
+ * resource set. The analysis (full ARSC/XML graph + DEX) is far too heavy to repeat on every
  * theme change. Host resource changes and resolver revisions invalidate the binding fingerprint.
  */
 object MonetResourceResolver {

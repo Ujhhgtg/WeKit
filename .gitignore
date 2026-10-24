@@ -52,3 +52,7 @@ dist/
 
 # cf CLI local cache.
 /.cloudflare/
+
+# Python bytecode caches (build/CI helper scripts).
+__pycache__/
+*.py[cod]
