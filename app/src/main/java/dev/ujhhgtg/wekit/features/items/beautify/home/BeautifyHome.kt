@@ -32,7 +32,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import org.luckypray.dexkit.DexKitBridge
 import java.util.IdentityHashMap
-
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 object BeautifyHome : SwitchFeature(), IResolveDex {
 
     override val technicalId = "美化首页"
@@ -73,21 +73,25 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
             packages = listOf("androidx.appcompat.app"),
         )
     }
-    val methodStatusBarHeight by dexMethod {
-        matcher {
-            declaredClass {
-                superClass = "android.widget.FrameLayout"
-                usingEqStrings("MicroMsg.DrawStatusBarFrameLayout")
-                addMethod {
-                    name = "getDrawnStatusBarHeight"
-                    paramCount = 0
-                    returnType = "int"
-                }
-            }
-            paramTypes("int")
-            returnType = "void"
-            usingEqStrings("applyStatusBarHeight setPadding e=%s")
-        }
+    val methodStatusBarHeight by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    superClass = ClassSpec(className = NameSpec("android.widget.FrameLayout")),
+                    usingStrings = listOf(StringSpec("MicroMsg.DrawStatusBarFrameLayout", NameMatch.Equals)),
+                    methods = listOf(
+                        MethodSpec(
+                            name = NameSpec("getDrawnStatusBarHeight"),
+                            paramCount = 0..0,
+                            returnType = ClassSpec(className = NameSpec("int")),
+                        ),
+                    ),
+                ),
+                paramTypes = listOf(TypeSpec("int")),
+                returnType = ClassSpec(className = NameSpec("void")),
+                usingStrings = listOf(StringSpec("applyStatusBarHeight setPadding e=%s", NameMatch.Equals)),
+            )
+        )
     }
     val fieldListActionBar by dexField(
         sqlField {

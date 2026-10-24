@@ -6,12 +6,16 @@ import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
 object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
 
     override val technicalId = "单击不关闭视频播放器"
@@ -40,24 +44,27 @@ object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val fieldSeekBarController by dexField {
-        matcher {
-            declaredClass = "com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity"
-            // Identify ISnsVideoSeekBar by its init signature, independent of field order.
-            type {
-                methods {
-                    add {
-                        returnType = "void"
-                        paramTypes(
-                            "android.app.Activity",
-                            "android.view.ViewStub",
-                            "com.tencent.mm.plugin.sns.ui.OnlineVideoView",
-                            null
-                        )
-                    }
-                }
-            }
-        }
+    private val fieldSeekBarController by dexFieldQuery {
+        uniqueField(
+            FieldSpec(
+                declaredClass = ClassSpec(
+                    className = NameSpec("com.tencent.mm.plugin.sns.ui.SnsOnlineVideoActivity"),
+                ),
+                type = ClassSpec(
+                    methods = listOf(
+                        MethodSpec(
+                            returnType = ClassSpec(className = NameSpec("void")),
+                            paramTypes = listOf(
+                                TypeSpec("android.app.Activity"),
+                                TypeSpec("android.view.ViewStub"),
+                                TypeSpec("com.tencent.mm.plugin.sns.ui.OnlineVideoView"),
+                                null,
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
     }
 
     private val methodVideoOnTouchListenerOnTouch by dexMethod(

@@ -32,6 +32,10 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
@@ -55,23 +59,31 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
             usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
         },
     )
-    private val classMmQuickDialog by dexClass {
-        matcher {
-            superClass("android.app.Dialog")
-            addField {
-                type = "int"
-                modifiers(Modifier.STATIC or Modifier.FINAL)
-            }
-            addFieldForType("android.widget.TextView")
-            addFieldForType("com.tencent.mm.ui.widget.imageview.WeImageView")
-            addFieldForType("android.widget.ProgressBar")
-            addFieldForType("android.view.View")
-            addFieldForType("int")
-            addField {
-                type = "boolean"
-                modifiers(Modifier.FINAL)
-            }
-        }
+    private val classMmQuickDialog by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                superClass = ClassSpec(className = NameSpec("android.app.Dialog")),
+                fields = listOf(
+                    FieldSpec(type = ClassSpec(className = NameSpec("android.widget.TextView"))),
+                    FieldSpec(
+                        type = ClassSpec(className = NameSpec("int")),
+                        modifiers = java.lang.reflect.Modifier.STATIC or java.lang.reflect.Modifier.FINAL,
+                    ),
+                    FieldSpec(
+                        type = ClassSpec(
+                            className = NameSpec("com.tencent.mm.ui.widget.imageview.WeImageView"),
+                        ),
+                    ),
+                    FieldSpec(type = ClassSpec(className = NameSpec("android.widget.ProgressBar"))),
+                    FieldSpec(type = ClassSpec(className = NameSpec("android.view.View"))),
+                    FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+                    FieldSpec(
+                        type = ClassSpec(className = NameSpec("boolean")),
+                        modifiers = java.lang.reflect.Modifier.FINAL,
+                    ),
+                ),
+            )
+        )
     }
 
     override fun onEnable() {

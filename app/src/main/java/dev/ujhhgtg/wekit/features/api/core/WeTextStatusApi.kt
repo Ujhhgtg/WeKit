@@ -22,6 +22,10 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 sealed interface TextStatusResult {
     data class Ready(val status: TextStatus) : TextStatusResult
@@ -54,15 +58,19 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
     private const val TAG = "WeTextStatusApi"
 
     private val classTextStatusService by dexClass()
-    private val classTextStatusRecord by dexClass {
-        matcher {
-            addFieldForName("field_UserName")
-            addFieldForName("field_StatusID")
-            addFieldForName("field_IconID")
-            addFieldForName("field_Description")
-            addFieldForName("field_ExpireTime")
-            addFieldForName("field_EmojiInfo")
-        }
+    private val classTextStatusRecord by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                fields = listOf(
+                    FieldSpec(name = NameSpec("field_UserName")),
+                    FieldSpec(name = NameSpec("field_StatusID")),
+                    FieldSpec(name = NameSpec("field_IconID")),
+                    FieldSpec(name = NameSpec("field_Description")),
+                    FieldSpec(name = NameSpec("field_ExpireTime")),
+                    FieldSpec(name = NameSpec("field_EmojiInfo")),
+                ),
+            )
+        )
     }
     private val methodTextStatusStorageAccessor by dexMethod()
     private val methodLatestStatusByUsername by dexMethod(

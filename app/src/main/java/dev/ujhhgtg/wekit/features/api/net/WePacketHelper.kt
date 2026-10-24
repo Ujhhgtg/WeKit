@@ -33,6 +33,12 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object WePacketHelper : ApiFeature(), IResolveDex {
 
@@ -111,17 +117,18 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             }
         }
     }
-    private val classConfigBuilder by dexClass {
-        searchPackages("com.tencent.mm.modelbase")
-
-        matcher {
-            fields {
-                countMin(10)
-                add { type(classProtoBase.data.name) }
-                add { type(classProtoBase.data.name) }
-                add { type = "java.lang.String" }
-            }
-        }
+    private val classConfigBuilder by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                fields = listOf(
+                    FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
+                    FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
+                    FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
+                ),
+                fieldCount = 10..Int.MAX_VALUE,
+            ),
+            packages = listOf("com.tencent.mm.modelbase"),
+        )
     }
 
     // 业务特定请求类
@@ -141,21 +148,27 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         },
     )
     private val classNetDispatcher by dexClass()
-    private val classIOnSceneEnd by dexClass {
-        matcher {
-            modifiers = Modifier.INTERFACE
-            interfaceCount(0)
-
-            methods {
-                count = 1
-                add {
-                    name = "onSceneEnd"
-                    paramCount = 4
-                    paramTypes("int", "int", "java.lang.String", WeMessageApi.classNetSceneBase.data.name)
-                    returnType = "void"
-                }
-            }
-        }
+    private val classIOnSceneEnd by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                modifiers = java.lang.reflect.Modifier.INTERFACE,
+                interfaceCount = 0..0,
+                methodCount = 1..1,
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("onSceneEnd"),
+                        paramCount = 4..4,
+                        paramTypes = listOf(
+                            TypeSpec("int"),
+                            TypeSpec("int"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec(WeMessageApi.classNetSceneBase.data.name),
+                        ),
+                        returnType = ClassSpec(className = NameSpec("void")),
+                    ),
+                ),
+            )
+        )
     }
     private val classCallbackIface by dexClass(
         sqlClass {

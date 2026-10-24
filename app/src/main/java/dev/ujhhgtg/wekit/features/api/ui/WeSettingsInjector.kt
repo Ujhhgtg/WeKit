@@ -38,6 +38,13 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener {
 
@@ -60,19 +67,26 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         },
         allowFailure = true,
     )
-    private val classBaseSettingItem by dexClass(allowFailure = true) {
-        matcher {
-            usingEqStrings("", "activity", "context", "intent")
-
-            addMethod {
-                name = "<init>"
-                paramTypes("androidx.appcompat.app.AppCompatActivity")
-            }
-
-            addInterface {
-                className("com.tencent.mm.plugin.newtips.model", StringMatchType.StartsWith)
-            }
-        }
+    private val classBaseSettingItem by dexClassQuery(allowFailure = true) {
+        uniqueClass(
+            ClassSpec(
+                usingStrings = listOf(
+                    StringSpec("", NameMatch.Equals),
+                    StringSpec("activity", NameMatch.Equals),
+                    StringSpec("context", NameMatch.Equals),
+                    StringSpec("intent", NameMatch.Equals),
+                ),
+                methods = listOf(
+                    MethodSpec(
+                        name = NameSpec("<init>"),
+                        paramTypes = listOf(TypeSpec("androidx.appcompat.app.AppCompatActivity")),
+                    ),
+                ),
+                interfaces = listOf(
+                    ClassSpec(className = NameSpec("com.tencent.mm.plugin.newtips.model", NameMatch.StartsWith)),
+                ),
+            )
+        )
     }
     private val classBaseSettingSwitchItem by dexClass(
         sqlClass {

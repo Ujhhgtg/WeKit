@@ -8,12 +8,17 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
-
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 object RemoveSignatureLimits : SwitchFeature(), IResolveDex {
 
     override val technicalId = "移除个性签名限制"
@@ -63,34 +68,50 @@ object RemoveSignatureLimits : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val methodTextWatcherAfterTextChanged by dexMethod {
-        searchPackages("${PackageNames.WECHAT}.plugin.setting.ui.setting")
-        matcher {
-            declaredClass {
-                addMethod {
-                    name = "<init>"
-                    paramTypes("${PackageNames.WECHAT}.plugin.setting.ui.setting.EditSignatureUI", "java.lang.String")
-                }
-                addInterface { className = "android.text.TextWatcher" }
-            }
-
-            name = "afterTextChanged"
-        }
+    private val methodTextWatcherAfterTextChanged by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    methods = listOf(
+                        MethodSpec(
+                            name = NameSpec("<init>"),
+                            paramTypes = listOf(
+                                TypeSpec("com.tencent.mm.plugin.setting.ui.setting.EditSignatureUI"),
+                                TypeSpec("java.lang.String"),
+                            ),
+                        ),
+                    ),
+                    interfaces = listOf(ClassSpec(className = NameSpec("android.text.TextWatcher"))),
+                ),
+                name = NameSpec("afterTextChanged"),
+            ),
+            packages = listOf("com.tencent.mm.plugin.setting.ui.setting"),
+        )
     }
 
-    private val methodConfirmButtonOnClickListenerOnClick by dexMethod {
-        searchPackages("${PackageNames.WECHAT}.plugin.setting.ui.setting")
-        matcher {
-            declaredClass {
-                addMethod {
-                    name = "<init>"
-                    paramTypes("${PackageNames.WECHAT}.plugin.setting.ui.setting.EditSignatureUI")
-                }
-                addInterface { className = $$"android.view.MenuItem$OnMenuItemClickListener" }
-            }
-
-            name = "onMenuItemClick"
-            usingEqStrings(".*[", "].*")
-        }
+    private val methodConfirmButtonOnClickListenerOnClick by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    methods = listOf(
+                        MethodSpec(
+                            name = NameSpec("<init>"),
+                            paramTypes = listOf(
+                                TypeSpec("com.tencent.mm.plugin.setting.ui.setting.EditSignatureUI"),
+                            ),
+                        ),
+                    ),
+                    interfaces = listOf(
+                        ClassSpec(className = NameSpec("android.view.MenuItem\$OnMenuItemClickListener")),
+                    ),
+                ),
+                name = NameSpec("onMenuItemClick"),
+                usingStrings = listOf(
+                    StringSpec(".*[", NameMatch.Equals),
+                    StringSpec("].*", NameMatch.Equals),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.plugin.setting.ui.setting"),
+        )
     }
 }

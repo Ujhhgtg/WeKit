@@ -48,7 +48,12 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import java.util.ArrayDeque
 import java.util.WeakHashMap
-
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexFieldQuery
 /**
  * Predictive back for WeKit's own pages and for WeChat activities.
  * - Module activities (Compose) are opted in and handle predictive back themselves.
@@ -237,20 +242,26 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * The global UIC's children by tag. Children (text status and Finder previews) register and
      * unregister through their interface's `(MMFragmentActivity)` default methods.
      */
-    private val fieldGlobalUicChildren by dexField {
-        matcher {
-            declaredClass { superClass = UI_COMPONENT }
-            type = "java.util.HashMap"
-            addReadMethod {
-                name = "onBackPressed"
-                paramCount = 0
-                returnType = "boolean"
-            }
-            addReadMethod {
-                paramTypes(MM_FRAGMENT_ACTIVITY)
-                returnType = "void"
-            }
-        }
+    private val fieldGlobalUicChildren by dexFieldQuery {
+        uniqueField(
+            FieldSpec(
+                declaredClass = ClassSpec(
+                    superClass = ClassSpec(className = NameSpec(UI_COMPONENT)),
+                ),
+                type = ClassSpec(className = NameSpec("java.util.HashMap")),
+                readMethods = listOf(
+                    MethodSpec(
+                        name = NameSpec("onBackPressed"),
+                        paramCount = 0..0,
+                        returnType = ClassSpec(className = NameSpec("boolean")),
+                    ),
+                    MethodSpec(
+                        paramTypes = listOf(TypeSpec(MM_FRAGMENT_ACTIVITY)),
+                        returnType = ClassSpec(className = NameSpec("void")),
+                    ),
+                ),
+            )
+        )
     }
 
     // --- Dex: the Moments timeline header collapses its pulled-down cover on BACK ---

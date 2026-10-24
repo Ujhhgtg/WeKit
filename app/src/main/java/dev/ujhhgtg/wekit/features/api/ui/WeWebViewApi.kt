@@ -6,7 +6,6 @@ import android.webkit.ValueCallback
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.evaluateJavascript
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.loadUrl
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.reload
@@ -19,7 +18,13 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 /**
  * 主进程 WebView 追踪服务。
  *
@@ -56,31 +61,42 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
     /** A snapshot of all currently-live tracked WebViews (dead entries already evicted by GC). */
     fun snapshot(): List<Any> = synchronized(lock) { tracked.filterNotNull() }
 
-    val xwebOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                usingEqStrings(
-                    "MicroMsg.AppBrandWebView",
-                    "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d"
-                )
-                superClass {
-                    className("com.tencent.xweb", StringMatchType.StartsWith)
-                }
-            }
-            paramTypes("com.tencent.xweb.WebView", "java.lang.String", "android.graphics.Bitmap")
-            returnType = "void"
-        }
+    val xwebOnPageFinished by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    usingStrings = listOf(
+                        StringSpec("MicroMsg.AppBrandWebView", NameMatch.Equals),
+                        StringSpec(
+                            "onReceivedHttpError, WebResourceRequest url = %s, ErrWebResourceResponse mimeType = %s, status = %d",
+                            NameMatch.Equals,
+                        ),
+                    ),
+                    superClass = ClassSpec(
+                        className = NameSpec("com.tencent.xweb", NameMatch.StartsWith),
+                    ),
+                ),
+                paramTypes = listOf(
+                    TypeSpec("com.tencent.xweb.WebView"),
+                    TypeSpec("java.lang.String"),
+                    TypeSpec("android.graphics.Bitmap"),
+                ),
+                returnType = ClassSpec(className = NameSpec("void")),
+            ),
+            packages = listOf("com.tencent.mm.plugin.appbrand.page"),
+        )
     }
-    val androidOnPageFinished by dexMethod {
-        searchPackages("com.tencent.mm.plugin.appbrand.page")
-        matcher {
-            declaredClass {
-                superClass = "android.webkit.WebViewClient"
-            }
-            paramCount = 2
-            returnType = "void"
-        }
+    val androidOnPageFinished by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(
+                    superClass = ClassSpec(className = NameSpec("android.webkit.WebViewClient")),
+                ),
+                paramCount = 2..2,
+                returnType = ClassSpec(className = NameSpec("void")),
+            ),
+            packages = listOf("com.tencent.mm.plugin.appbrand.page"),
+        )
     }
 
     override fun onEnable() {

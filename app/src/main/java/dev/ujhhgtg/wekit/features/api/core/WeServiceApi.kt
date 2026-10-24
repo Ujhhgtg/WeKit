@@ -17,6 +17,13 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object WeServiceApi : ApiFeature(), IResolveDex {
 
@@ -40,25 +47,36 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             }
         },
     )
-    private val classStorageFeatureService by dexClass {
-        searchPackages("com.tencent.mm.plugin.messenger.foundation")
-        matcher {
-            addMethod {
-                returnType {
-                    usingEqStrings("PRAGMA table_info( contact_ext )")
-                }
-            }
-            addMethod {
-                returnType {
-                    usingEqStrings("MicroMsg.MsgInfoStorage", "deleted dirty msg ,count is %d")
-                }
-            }
-            addMethod {
-                returnType {
-                    usingEqStrings("PRAGMA table_info( rconversation)")
-                }
-            }
-        }
+    private val classStorageFeatureService by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                methods = listOf(
+                    MethodSpec(
+                        returnType = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("PRAGMA table_info( contact_ext )", NameMatch.Equals),
+                            ),
+                        ),
+                    ),
+                    MethodSpec(
+                        returnType = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("MicroMsg.MsgInfoStorage", NameMatch.Equals),
+                                StringSpec("deleted dirty msg ,count is %d", NameMatch.Equals),
+                            ),
+                        ),
+                    ),
+                    MethodSpec(
+                        returnType = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("PRAGMA table_info( rconversation)", NameMatch.Equals),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            packages = listOf("com.tencent.mm.plugin.messenger.foundation"),
+        )
     }
     private val classChatroomService by dexClass(
         sqlClass {
@@ -75,11 +93,21 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             usingEqStrings("ModelImage.DownloadImgService", "] add failed, task already done")
         },
     )
-    val classImageFeatureService by dexClass {
-        matcher {
-            addFieldForType(classImageInfoStorage.data.name)
-            addFieldForType(methodDownloadImageServiceDownloadImage.data.declaredClassName)
-        }
+    val classImageFeatureService by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                fields = listOf(
+                    FieldSpec(type = ClassSpec(className = NameSpec(classImageInfoStorage.data.name))),
+                    FieldSpec(
+                        type = ClassSpec(
+                            className = NameSpec(
+                                methodDownloadImageServiceDownloadImage.data.declaredClassName,
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
     }
     private val methodApiManagerGetApi by dexMethod(
         sqlMethod {

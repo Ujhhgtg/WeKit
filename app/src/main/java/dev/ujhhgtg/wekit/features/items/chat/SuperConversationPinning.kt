@@ -31,6 +31,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.util.concurrent.atomic.AtomicBoolean
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 
 object SuperConversationPinning : SwitchFeature(),
     WeConversationContextMenuApi.IMenuItemsProvider,
@@ -191,16 +197,22 @@ object SuperConversationPinning : SwitchFeature(),
         },
     )
 
-    private val classMvvmConversationAdapter by dexClass {
-        matcher {
-            superClass {
-                usingEqStrings("null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem")
-            }
-
-            addField {
-                type(classConversation.data.name)
-            }
-        }
+    private val classMvvmConversationAdapter by dexClassQuery {
+        uniqueClass(
+            ClassSpec(
+                superClass = ClassSpec(
+                    usingStrings = listOf(
+                        StringSpec(
+                            "null cannot be cast to non-null type T of com.tencent.mm.plugin.mvvmlist.BaseMvvmListItem",
+                            NameMatch.Equals,
+                        ),
+                    ),
+                ),
+                fields = listOf(
+                    FieldSpec(type = ClassSpec(className = NameSpec(classConversation.data.name))),
+                ),
+            )
+        )
     }
 
     private fun hookMvvmConversationComparator() {
