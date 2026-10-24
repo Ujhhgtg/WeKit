@@ -138,6 +138,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
     // code items, and the shared Rayon pool uses the host's default width.
     let options = EngineOptions {
         index_needs: IndexNeeds {
+            method_lookup: true,
             method_strings: true,
             method_numbers: true,
             // Metadata reads expose invokes/callers for the DexKit *Data replacement.

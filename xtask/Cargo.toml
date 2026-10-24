@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-dexsql = { git = "https://github.com/Ujhhgtg/dexsql.git", rev = "d63ac350b231f4c1f16fa2edb0d9688e4a809707" }
+dexsql = { git = "https://github.com/Ujhhgtg/dexsql.git", rev = "c4f6410dab9354daea8b5a4b827d2ce7b666307e" }
 regex = "1"
 roxmltree = "0.20"
 serde = { version = "1", features = ["derive"] }
