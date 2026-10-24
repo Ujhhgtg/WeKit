@@ -278,4 +278,75 @@ class StructuralCandidateTest {
             ),
         )
     }
+
+    @Test
+    fun structuralCandidateJoinsUseSingleEqualityOnConditions() {
+        // The DexSQL executor only supports one equality in a JOIN ON clause; the extra scoping
+        // predicates (file_id/method_idx/field_idx/using_type) must live in WHERE.
+        val (classMatcher, classSqlQuery) = classScope()
+        classMatcher.findClasses(
+            classSpec {
+                interfaceSpec { className("com.test.I1") }
+                field { name("count") }
+                method { name("run") }
+                usingString("alpha marker")
+            },
+        )
+        val (methodMatcher, methodSqlQuery) = methodScope()
+        methodMatcher.findMethods(
+            methodSpec {
+                declaredClass {
+                    superClass { className("com.test.Base") }
+                    usingString("x")
+                }
+                returnType { modifiers = 1 }
+                usingStrings("one", "two")
+            },
+        )
+        val (fieldMatcher, fieldSqlQuery) = fieldScope()
+        fieldMatcher.findFields(
+            fieldSpec {
+                name("count")
+                readMethod { name("run") }
+            },
+        )
+
+        val sqls = classSqlQuery.queries + methodSqlQuery.queries + fieldSqlQuery.queries
+        assertTrue(sqls.isNotEmpty())
+        sqls.forEach(::assertEveryJoinOnIsSingleEquality)
+        val allSql = sqls.joinToString(" ")
+        assertTrue(allSql.contains(".file_id = "), allSql)
+        assertTrue(allSql.contains(".method_idx = "), allSql)
+        assertTrue(allSql.contains(".field_idx = "), allSql)
+        assertTrue(allSql.contains(".using_type = 'get'"), allSql)
+    }
+
+    private fun assertEveryJoinOnIsSingleEquality(sql: String) {
+        var searchFrom = 0
+        var joinCount = 0
+        while (true) {
+            val joinIndex = sql.indexOf(" JOIN ", searchFrom)
+            if (joinIndex < 0) break
+            joinCount++
+            val onIndex = sql.indexOf(" ON ", joinIndex)
+            assertTrue(onIndex > joinIndex, "JOIN without ON condition: " + sql)
+            val clauseEnds = listOf(
+                sql.indexOf(" JOIN ", onIndex + 4),
+                sql.indexOf(" WHERE ", onIndex + 4),
+                sql.indexOf(" ORDER ", onIndex + 4),
+            ).filter { it >= 0 }
+            val end = clauseEnds.minOrNull() ?: sql.length
+            val onClause = sql.substring(onIndex + 4, end).trim()
+            assertFalse(
+                onClause.contains(" AND "),
+                "multiple conditions in ON clause: " + onClause + " [" + sql + "]",
+            )
+            assertTrue(
+                onClause.contains(" = "),
+                "non-equality ON clause: " + onClause + " [" + sql + "]",
+            )
+            searchFrom = onIndex + 4
+        }
+        assertTrue(joinCount > 0, "expected at least one JOIN in: " + sql)
+    }
 }
