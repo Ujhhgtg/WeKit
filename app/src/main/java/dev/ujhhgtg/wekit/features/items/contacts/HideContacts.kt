@@ -23,20 +23,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
-import dev.ujhhgtg.wekit.R
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -55,11 +59,9 @@ import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installVoipHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.rewriteMomentsFeedSql
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.showSchedulesDialog
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.uninstallSchedules
-import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -69,13 +71,14 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.now
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.enums.MatchType
-import org.luckypray.dexkit.query.matchers.MethodMatcher
 import java.lang.ref.WeakReference
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
+import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.query.enums.MatchType
+import org.luckypray.dexkit.query.matchers.MethodMatcher
+
 
 
 object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener,
@@ -919,32 +922,37 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     )
 
     /** `mp5.q2.Ii(String toUser, ...)` — VoIPMP call-record insertion (未接听 / 已取消 / duration). */
-    val methodVoipMpInsertMsg by dexMethod {
-        matcher {
-            paramTypes(
-                "java.lang.String",
-                "boolean",
-                "int",
-                "long",
-                "long",
-                "long",
-                "int",
-            )
-            returnType("void")
-            anyOf(
-                MethodMatcher().apply {
-                    usingEqStrings(
-                        "MicroMsg.VoIPMP.Launcher",
-                        "insertMsg() called with: toUser = ",
-                    )
-                },
-                MethodMatcher().apply {
-                    declaredClass {
-                        usingEqStrings("MicroMsg.VoIPMP.Launcher", "closeReceiverBanner")
-                    }
-                },
-            )
-        }
+    val methodVoipMpInsertMsg by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                paramTypes = listOf(
+                    TypeSpec("java.lang.String"),
+                    TypeSpec("boolean"),
+                    TypeSpec("int"),
+                    TypeSpec("long"),
+                    TypeSpec("long"),
+                    TypeSpec("long"),
+                    TypeSpec("int"),
+                ),
+                returnType = ClassSpec(className = NameSpec("void")),
+                anyOf = listOf(
+                    MethodSpec(
+                        usingStrings = listOf(
+                            StringSpec("MicroMsg.VoIPMP.Launcher", NameMatch.Equals),
+                            StringSpec("insertMsg() called with: toUser = ", NameMatch.Equals),
+                        ),
+                    ),
+                    MethodSpec(
+                        declaredClass = ClassSpec(
+                            usingStrings = listOf(
+                                StringSpec("MicroMsg.VoIPMP.Launcher", NameMatch.Equals),
+                                StringSpec("closeReceiverBanner", NameMatch.Equals),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
 
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────

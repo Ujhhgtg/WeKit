@@ -30,14 +30,19 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructorQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethodQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType as MetaFieldUsingType
 import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.dexkit.sql.sqlConstructor
 import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
@@ -62,11 +67,6 @@ import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
-import org.json.JSONObject
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
-import org.luckypray.dexkit.result.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType as MetaFieldUsingType
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -99,6 +99,11 @@ import kotlin.io.path.readBytes
 import kotlin.io.path.setLastModifiedTime
 import kotlin.io.path.writeBytes
 import kotlin.random.Random
+import org.json.JSONObject
+import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.query.matchers.base.AccessFlagsMatcher
+import org.luckypray.dexkit.result.FieldUsingType
+
 
 
 @SuppressLint("DiscouragedApi")
@@ -175,17 +180,38 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.NetSceneRevokeMsg")
         },
     )
-    private val ctorNetSceneSendMsg by dexConstructor {
-        matcher {
-            declaredClass = classNetSceneSendMsg.data.name
-            usingEqStrings("MicroMsg.NetSceneSendMsg", "[mergeMsgSource] rawSource:%s args is null:%s flag:%s")
-            addAnyOf {
-                paramTypes("java.lang.String", "java.lang.String", "int", "int", "java.lang.Object")
-            }
-            addAnyOf {
-                paramTypes("java.lang.String", "java.lang.String", "int", "int", "java.lang.Object", "java.lang.String")
-            }
-        }
+    private val ctorNetSceneSendMsg by dexConstructorQuery {
+        uniqueMethod(
+            MethodSpec(
+                name = NameSpec("<init>"),
+                declaredClass = ClassSpec(className = NameSpec(classNetSceneSendMsg.data.name)),
+                usingStrings = listOf(
+                    StringSpec("MicroMsg.NetSceneSendMsg", NameMatch.Equals),
+                    StringSpec("[mergeMsgSource] rawSource:%s args is null:%s flag:%s", NameMatch.Equals),
+                ),
+                anyOf = listOf(
+                    MethodSpec(
+                        paramTypes = listOf(
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("int"),
+                            TypeSpec("int"),
+                            TypeSpec("java.lang.Object"),
+                        ),
+                    ),
+                    MethodSpec(
+                        paramTypes = listOf(
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("int"),
+                            TypeSpec("int"),
+                            TypeSpec("java.lang.Object"),
+                            TypeSpec("java.lang.String"),
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
     /** 8.0.79+ VideoMsgSendFeatureService.forwardVideo(VideoSendElement, toUser). */
     private val methodForwardVideo by dexMethod(
@@ -391,16 +417,33 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
         },
     )
-    private val methodSetVoice by dexMethod {
-        matcher {
-            declaredClass = classVoiceLogic.data.name
-            modifiers = Modifier.STATIC
-            returnType = "boolean"
-            addAnyOf { paramTypes("java.lang.String", "int", "int", classMsgInfo.data.name) }
-            addAnyOf {
-                paramTypes("java.lang.String", "int", "int", classMsgInfo.data.name, "java.lang.String")
-            }
-        }
+    private val methodSetVoice by dexMethodQuery {
+        uniqueMethod(
+            MethodSpec(
+                declaredClass = ClassSpec(className = NameSpec(classVoiceLogic.data.name)),
+                modifiers = java.lang.reflect.Modifier.STATIC,
+                returnType = ClassSpec(className = NameSpec("boolean")),
+                anyOf = listOf(
+                    MethodSpec(
+                        paramTypes = listOf(
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("int"),
+                            TypeSpec("int"),
+                            TypeSpec(classMsgInfo.data.name),
+                        ),
+                    ),
+                    MethodSpec(
+                        paramTypes = listOf(
+                            TypeSpec("java.lang.String"),
+                            TypeSpec("int"),
+                            TypeSpec("int"),
+                            TypeSpec(classMsgInfo.data.name),
+                            TypeSpec("java.lang.String"),
+                        ),
+                    ),
+                ),
+            ),
+        )
     }
     private val methodGetAmrFullPath by dexMethod(
         sqlMethod {

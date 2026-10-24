@@ -12,10 +12,10 @@ import org.junit.jupiter.api.Test
  * Runtime-value declarations are intentionally excluded from canonical parity: 4 declaration(s)
  * read other delegates' .data metadata, so they have no static canonical SQL text.
  *
- * Query-matcher-backed declarations are excluded from canonical parity: 38 declaration(s)
+ * Query-matcher-backed declarations are excluded from canonical parity: 41 declaration(s)
  * (custom Kotlin resolvers; validated by the dex-test matrix).
  *
- * Intentionally remaining T5/T6 inline: 7 declaration(s) (2 opNames + 5 annotation-blocked voip).
+ * Intentionally remaining inline after T7: 7 declaration(s) (2 opNames + 5 annotation-blocked voip).
  */
 class GeneratedSqlDslParityTest {
     private fun assertParity(expected: String, actual: DexSqlQuery) {
