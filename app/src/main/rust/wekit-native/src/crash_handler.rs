@@ -25,6 +25,22 @@ const SIGNALS: &[c_int] = &[SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS, SIGTRAP];
 const MAX_SIGNALS: usize = 32;
 const MAX_FRAMES: usize = 128;
 
+/// Anonymous mapping name bionic gives the abort message (`prctl(PR_SET_VMA_ANON_NAME)` in
+/// `android_set_abort_message()`).
+const ABORT_MESSAGE_VMA_NAME: &[u8] = b"[anon:abort message]";
+/// Leading 128-bit magic of bionic's in-memory abort message (see
+/// `bionic/libc/bionic/android_set_abort_message.cpp`). It keeps tools from mistaking an
+/// arbitrary anonymous mapping for the message blob.
+const ABORT_MESSAGE_MAGIC1: u64 = 0xb18e40886ac388f0;
+const ABORT_MESSAGE_MAGIC2: u64 = 0xc6dfba755a1de0b5;
+/// Header of bionic's `magic_abort_msg_t` up to the message bytes: two magic words + `size_t size`.
+const ABORT_MESSAGE_HEADER_LEN: usize = 24;
+/// Copy at most this many bytes of the message into the report. ART thread-list dumps can be
+/// hundreds of KiB; their head (e.g. `Thread suspend timeout` + mutator-lock owner line) is what
+/// makes a report actionable, and keeping the rest out keeps both the log file and its UI preview
+/// manageable.
+const ABORT_MESSAGE_MAX_LEN: usize = 64 * 1024;
+
 static mut G_CRASH_LOG_DIR: [u8; 512] = [0u8; 512];
 /// Crash-log file-name prefix, handed over by `CrashLogsManager` at install time so both
 /// writers agree on one naming scheme. Null-terminated.
@@ -371,6 +387,218 @@ impl Writer {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// bionic/ART abort message (`[anon:abort message]`)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ART and other native `LOG(FATAL)` paths call `android_set_abort_message()` before aborting. That
+// is the only place the *reason* survives a SIGABRT when the tombstone pipeline is unavailable
+// (e.g. the device's `crash_dump64` is broken): the message text is never written to our own report
+// otherwise. bionic stores it in a self-owned anonymous mapping named `[anon:abort message]` with
+// the layout `{ u64 magic1, u64 magic2, size_t size, char msg[] }`, where `size` counts the whole
+// blob including the 24-byte header and the trailing NUL. Everything below sticks to
+// async-signal-safe syscalls; unknown/unreadable memory is probed through a throwaway pipe exactly
+// like the frame-pointer walk above does.
+
+fn hex_digit(b: u8) -> Option<usize> {
+    match b {
+        b'0'..=b'9' => Some((b - b'0') as usize),
+        b'a'..=b'f' => Some((b - b'a') as usize + 10),
+        b'A'..=b'F' => Some((b - b'A') as usize + 10),
+        _ => None,
+    }
+}
+
+/// Parses one `/proc/self/maps` line; returns `(start, end)` when it describes the readable abort
+/// message VMA, otherwise `None`.
+fn parse_abort_message_vma_line(line: &[u8]) -> Option<(usize, usize)> {
+    if !line
+        .windows(ABORT_MESSAGE_VMA_NAME.len())
+        .any(|window| window == ABORT_MESSAGE_VMA_NAME)
+    {
+        return None;
+    }
+
+    let mut i = 0usize;
+    let mut start = 0usize;
+    while i < line.len() && line[i] != b'-' {
+        start = start.checked_mul(16)?.checked_add(hex_digit(line[i])?)?;
+        i += 1;
+    }
+    if i == 0 || i >= line.len() {
+        return None;
+    }
+    i += 1;
+
+    let mut end = 0usize;
+    while i < line.len() && line[i] != b' ' {
+        end = end.checked_mul(16)?.checked_add(hex_digit(line[i])?)?;
+        i += 1;
+    }
+    if end <= start {
+        return None;
+    }
+
+    while i < line.len() && line[i] == b' ' {
+        i += 1;
+    }
+    if i + 4 > line.len() || line[i] != b'r' {
+        return None;
+    }
+
+    Some((start, end))
+}
+
+/// Copies up to `out.len()` bytes from `addr`, using the write end of a pipe as a readability
+/// oracle so an unmapped/partially mapped range cannot raise a second SIGSEGV inside the handler.
+/// Returns the number of bytes copied.
+unsafe fn probe_copy(probe_r: c_int, probe_w: c_int, addr: usize, out: &mut [u8]) -> usize {
+    const CHUNK: usize = 1024;
+
+    let mut copied = 0usize;
+    while copied < out.len() {
+        let chunk = (out.len() - copied).min(CHUNK);
+        let n = unsafe { write(probe_w, (addr + copied) as *const c_void, chunk) };
+        if n <= 0 {
+            break;
+        }
+
+        let mut received = 0usize;
+        while received < n as usize {
+            let r = unsafe {
+                read(
+                    probe_r,
+                    out.as_mut_ptr().add(copied + received) as *mut c_void,
+                    n as usize - received,
+                )
+            };
+            if r <= 0 {
+                return copied;
+            }
+            received += r as usize;
+        }
+        copied += received;
+        if received < n as usize {
+            break;
+        }
+    }
+    copied
+}
+
+/// Scans `/proc/self/maps` for the `[anon:abort message]` VMA and returns its `(start, end)`.
+unsafe fn find_abort_message_vma() -> Option<(usize, usize)> {
+    let maps_fd = unsafe { open(c"/proc/self/maps".as_ptr(), O_RDONLY) };
+    if maps_fd < 0 {
+        return None;
+    }
+
+    let mut found = None;
+    let mut line = [0u8; 256];
+    let mut line_len = 0usize;
+    let mut buf = [0u8; 2048];
+    'outer: loop {
+        let n = unsafe { read(maps_fd, buf.as_mut_ptr() as *mut c_void, buf.len()) };
+        if n <= 0 {
+            break;
+        }
+        for &b in &buf[..n as usize] {
+            if b == b'\n' {
+                if let Some(vma) = parse_abort_message_vma_line(&line[..line_len]) {
+                    found = Some(vma);
+                    break 'outer;
+                }
+                line_len = 0;
+            } else if line_len < line.len() {
+                line[line_len] = b;
+                line_len += 1;
+            }
+        }
+    }
+    unsafe { close(maps_fd) };
+    found
+}
+
+/// Appends an `Abort Message` section with the bionic abort message, if the process has one.
+///
+/// This is the reason text ART prints for e.g. `Thread suspend timeout` (see
+/// `UnsafeLogFatalForThreadSuspendAllTimeout`), `Check failed: ...` (JNI/ART CHECKs) and other
+/// `LOG(FATAL)` sites, and is often the only actionable diagnostic in a SIGABRT report.
+unsafe fn write_abort_message(w: &Writer) {
+    unsafe {
+        let Some((start, end)) = find_abort_message_vma() else {
+            return;
+        };
+
+        let mut fds = [-1 as c_int; 2];
+        if pipe(fds.as_mut_ptr()) != 0 {
+            return;
+        }
+        let (probe_r, probe_w) = (fds[0], fds[1]);
+
+        let mut header = [0u8; ABORT_MESSAGE_HEADER_LEN];
+        if probe_copy(probe_r, probe_w, start, &mut header) != ABORT_MESSAGE_HEADER_LEN {
+            close(probe_r);
+            close(probe_w);
+            return;
+        }
+        let magic1 = u64::from_le_bytes(header[0..8].try_into().unwrap_or([0u8; 8]));
+        let magic2 = u64::from_le_bytes(header[8..16].try_into().unwrap_or([0u8; 8]));
+        if magic1 != ABORT_MESSAGE_MAGIC1 || magic2 != ABORT_MESSAGE_MAGIC2 {
+            close(probe_r);
+            close(probe_w);
+            return;
+        }
+
+        let size = u64::from_le_bytes(header[16..24].try_into().unwrap_or([0u8; 8])) as usize;
+        // `size` covers the header and the trailing NUL; guard against overflow/garbage.
+        let Some(message_len) = size.checked_sub(ABORT_MESSAGE_HEADER_LEN + 1) else {
+            close(probe_r);
+            close(probe_w);
+            return;
+        };
+        let Some(vma_len) = end.checked_sub(start) else {
+            close(probe_r);
+            close(probe_w);
+            return;
+        };
+        if message_len == 0 || size > vma_len {
+            close(probe_r);
+            close(probe_w);
+            return;
+        }
+
+        let to_copy = message_len.min(ABORT_MESSAGE_MAX_LEN);
+        w.sep("Abort Message");
+        let mut copied = 0usize;
+        let mut chunk_buf = [0u8; 1024];
+        while copied < to_copy {
+            let chunk = (to_copy - copied).min(chunk_buf.len());
+            let n = probe_copy(
+                probe_r,
+                probe_w,
+                start + ABORT_MESSAGE_HEADER_LEN + copied,
+                &mut chunk_buf[..chunk],
+            );
+            if n == 0 {
+                break;
+            }
+            w.bytes(&chunk_buf[..n]);
+            copied += n;
+            if n < chunk {
+                break;
+            }
+        }
+        if copied < message_len {
+            w.s("\n[abort message truncated]\n\n");
+        } else {
+            w.s("\n");
+        }
+
+        close(probe_r);
+        close(probe_w);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helper: write a decimal u64 zero-padded to `width` into a raw byte slice.
 // Returns the number of bytes written.  Used only for filename/timestamp
 // building inside the signal handler where format! is avoided.
@@ -527,6 +755,9 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
         w.s("Fault Address: ");
         w.ptr((*info).si_addr() as *const c_void);
         w.s("\n\n");
+
+        // ── Abort message (bionic `android_set_abort_message`, set by ART/JNI LOG(FATAL)) ──
+        write_abort_message(&w);
 
         // ── Register state ────────────────────────────────────────────────────────
         if !ctx.is_null() {
