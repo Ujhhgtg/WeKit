@@ -72,6 +72,7 @@ object MatcherSpecJson {
                     parseAnnotation(it.asObject())
                 },
             searchPackages = json.stringList("search_packages"),
+            excludePackages = json.stringList("exclude_packages"),
         )
 
     private fun parseClass(json: JsonObject): ClassSpec =
@@ -94,6 +95,7 @@ object MatcherSpecJson {
                 },
             usingNumbers = json.arrayOrNull("using_numbers").orEmpty().map(::parseNumber),
             searchPackages = json.stringList("search_packages"),
+            excludePackages = json.stringList("exclude_packages"),
         )
 
     private fun parseField(json: JsonObject): FieldSpec =
@@ -109,6 +111,7 @@ object MatcherSpecJson {
             writeMethods =
                 json.arrayOrNull("write_methods").orEmpty().map { parseMethod(it.asObject()) },
             searchPackages = json.stringList("search_packages"),
+            excludePackages = json.stringList("exclude_packages"),
         )
 
     // ------------------------------------------------------------------

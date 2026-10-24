@@ -44,7 +44,7 @@ internal class DexMatcherEvaluator(
             // External classes have no dataset metadata: DexKit only matches their names; any
             // structural/count/member constraint cannot be satisfied.
             return spec.className != null &&
-                matchesPackages(info.name, spec.searchPackages) &&
+                matchesPackages(info.name, spec) &&
                 spec.superClass == null &&
                 spec.interfaces.isEmpty() &&
                 spec.fields.isEmpty() &&
@@ -57,7 +57,7 @@ internal class DexMatcherEvaluator(
                 spec.usingNumbers.isEmpty() &&
                 spec.annotations.isEmpty()
         }
-        if (!matchesPackages(info.name, spec.searchPackages)) return false
+        if (!matchesPackages(info.name, spec)) return false
         spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.interfaceCount?.let { if (info.interfaces.size !in it) return false }
         spec.methodCount?.let { if (info.methods.size !in it) return false }
@@ -154,7 +154,7 @@ internal class DexMatcherEvaluator(
                 }
             }
         }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages)) return false
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) return false
         spec.declaredClass?.let { classSpec ->
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
                 return false
@@ -207,7 +207,7 @@ internal class DexMatcherEvaluator(
 
     fun matchesField(info: DexFieldInfo, spec: FieldSpec): Boolean {
         spec.name?.let { if (!it.matches(info.name)) return false }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages)) return false
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) return false
         spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.type?.let { typeSpec ->
             if (!matchesFieldType(info.typeName, typeSpec)) return false
@@ -432,7 +432,7 @@ internal class DexMatcherEvaluator(
         // External/non-dataset class: only the name is available (mirrors DexKit's name-only path).
         val nameSpec = spec.className ?: return false
         return nameSpecMatchesJavaName(nameSpec, fallbackName) &&
-            matchesPackages(fallbackName, spec.searchPackages) &&
+            matchesPackages(fallbackName, spec) &&
             spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
@@ -446,10 +446,22 @@ internal class DexMatcherEvaluator(
     }
 
     /**
-     * DexSQL searchPackages semantics: class name equals one of [packages] or starts with it + '.'.
+     * DexSQL searchPackages semantics: class name equals one of [searchPackages] or starts with it
+     * + '.'. [excludePackages] uses the same prefix semantics and rejects a matching candidate.
      */
-    private fun matchesPackages(javaName: String, packages: List<String>): Boolean =
-        packages.isEmpty() || packages.any { javaName == it || javaName.startsWith("$it.") }
+    private fun matchesPackages(
+        javaName: String,
+        searchPackages: List<String>,
+        excludePackages: List<String>,
+    ): Boolean =
+        (searchPackages.isEmpty() ||
+            searchPackages.any { javaName == it || javaName.startsWith("$it.") }) &&
+            (excludePackages.isEmpty() ||
+                excludePackages.none { javaName == it || javaName.startsWith("$it.") })
+
+    /** Package filters of a class spec applied to a dotted Java class name. */
+    private fun matchesPackages(javaName: String, spec: ClassSpec): Boolean =
+        matchesPackages(javaName, spec.searchPackages, spec.excludePackages)
 
     /** True when this instance is the shallow fallback produced for a non-dataset class. */
     private fun isShallow(info: DexClassInfo): Boolean = metadata.classInfo(info.descriptor) == null

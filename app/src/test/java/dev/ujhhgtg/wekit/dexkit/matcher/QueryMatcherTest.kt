@@ -354,6 +354,37 @@ class QueryMatcherTest {
     }
 
     @Test
+    fun excludePackagesRejectCandidates() {
+        val scope = scope()
+        val withoutGamma =
+            scope.findMethods(
+                MethodSpec(
+                    paramCount = 0..10,
+                    searchPackages = listOf("com.test"),
+                    excludePackages = listOf("com.test.Gamma"),
+                ),
+            )
+        assertTrue(withoutGamma.isNotEmpty())
+        assertTrue(withoutGamma.none { it.declaredClassName == "com.test.Gamma" })
+        val fullyExcluded =
+            scope.findMethods(
+                MethodSpec(
+                    paramCount = 0..10,
+                    searchPackages = listOf("com.test"),
+                    excludePackages = listOf("com.test"),
+                ),
+            )
+        assertTrue(fullyExcluded.isEmpty())
+        // Evaluation applies the same exclusion (nested/matcher-fallback path).
+        assertFalse(
+            evaluator.matchesMethod(run(), MethodSpec(excludePackages = listOf("com.test.Alpha"))),
+        )
+        assertTrue(
+            evaluator.matchesMethod(run(), MethodSpec(excludePackages = listOf("com.test.Other"))),
+        )
+    }
+
+    @Test
     fun classCandidateQueryUsesClassNameAndUsingStrings() {
         val query = RecordingDescriptorQuery { sql ->
             when {

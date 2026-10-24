@@ -221,6 +221,7 @@ class ClassMatcher internal constructor() {
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
     val searchPackages = mutableListOf<String>()
+    val excludePackages = mutableListOf<String>()
 
     /**
      * DexKit annotation constraints (evaluation-only keywords; candidate generation ignores them).
@@ -386,6 +387,14 @@ class ClassMatcher internal constructor() {
         searchPackages += values
     }
 
+    fun excludePackages(vararg values: String) {
+        excludePackages += values
+    }
+
+    fun excludePackages(values: List<String>) {
+        excludePackages += values
+    }
+
     fun annotation(spec: AnnotationSpec) {
         annotations = annotations + spec
     }
@@ -413,6 +422,7 @@ class ClassMatcher internal constructor() {
         annotations = base.annotations
         usingNumbers.addAll(base.usingNumbers)
         searchPackages.addAll(base.searchPackages)
+        excludePackages.addAll(base.excludePackages)
     }
 
     fun build(): ClassSpec =
@@ -430,6 +440,7 @@ class ClassMatcher internal constructor() {
             annotations = annotations,
             usingNumbers = usingNumbers.toList(),
             searchPackages = searchPackages.toList(),
+            excludePackages = excludePackages.toList(),
             annotationCount = annotationCountRange,
         )
 }
@@ -488,6 +499,7 @@ class MethodMatcher internal constructor() {
     val usingStrings = mutableListOf<StringSpec>()
     val usingNumbers = mutableListOf<Number>()
     val searchPackages = mutableListOf<String>()
+    val excludePackages = mutableListOf<String>()
     val usingFields = mutableListOf<UsingFieldSpec>()
     val invokeMethods = mutableListOf<MethodSpec>()
     val callerMethods = mutableListOf<MethodSpec>()
@@ -666,6 +678,14 @@ class MethodMatcher internal constructor() {
         searchPackages += values
     }
 
+    fun excludePackages(vararg values: String) {
+        excludePackages += values
+    }
+
+    fun excludePackages(values: List<String>) {
+        excludePackages += values
+    }
+
     fun usingField(spec: UsingFieldSpec) {
         usingFields += spec
     }
@@ -738,6 +758,7 @@ class MethodMatcher internal constructor() {
         usingStrings.addAll(base.usingStrings)
         usingNumbers.addAll(base.usingNumbers)
         searchPackages.addAll(base.searchPackages)
+        excludePackages.addAll(base.excludePackages)
         usingFields.addAll(base.usingFields)
         invokeMethods.addAll(base.invokeMethods)
         callerMethods.addAll(base.callerMethods)
@@ -766,6 +787,7 @@ class MethodMatcher internal constructor() {
             opcodes = opcodes,
             annotations = annotations,
             searchPackages = searchPackages.toList(),
+            excludePackages = excludePackages.toList(),
         )
 }
 
@@ -803,6 +825,7 @@ class FieldMatcher internal constructor() {
     val readMethods = mutableListOf<MethodSpec>()
     val writeMethods = mutableListOf<MethodSpec>()
     val searchPackages = mutableListOf<String>()
+    val excludePackages = mutableListOf<String>()
 
     fun name(value: String, match: NameMatch = NameMatch.Equals) {
         name = NameSpec(value, match)
@@ -868,6 +891,14 @@ class FieldMatcher internal constructor() {
         searchPackages += values
     }
 
+    fun excludePackages(vararg values: String) {
+        excludePackages += values
+    }
+
+    fun excludePackages(values: List<String>) {
+        excludePackages += values
+    }
+
     fun applyBase(base: FieldSpec) {
         name = base.name
         modifiers = base.modifiers
@@ -876,6 +907,7 @@ class FieldMatcher internal constructor() {
         readMethods.addAll(base.readMethods)
         writeMethods.addAll(base.writeMethods)
         searchPackages.addAll(base.searchPackages)
+        excludePackages.addAll(base.excludePackages)
     }
 
     fun build(): FieldSpec =
@@ -887,5 +919,6 @@ class FieldMatcher internal constructor() {
             readMethods = readMethods.toList(),
             writeMethods = writeMethods.toList(),
             searchPackages = searchPackages.toList(),
+            excludePackages = excludePackages.toList(),
         )
 }

@@ -10,6 +10,22 @@ class MatcherBuildersTest {
     private val metadata = MatcherFixtures.metadata
 
     @Test
+    fun specBuildersCarryPackageFilters() {
+        val method = methodSpec {
+            searchPackages("com.tencent.mm")
+            excludePackages("com.tencent.mm.ui.conversation")
+        }
+        assertEquals(listOf("com.tencent.mm"), method.searchPackages)
+        assertEquals(listOf("com.tencent.mm.ui.conversation"), method.excludePackages)
+
+        val klass = classSpec { excludePackages("com.tencent.mm.ui") }
+        assertEquals(listOf("com.tencent.mm.ui"), klass.excludePackages)
+
+        val field = fieldSpec { excludePackages("com.a.b", "com.a.c") }
+        assertEquals(listOf("com.a.b", "com.a.c"), field.excludePackages)
+    }
+
+    @Test
     fun classSpecBuilderNestsStructuralConstraints() {
         val spec = classSpec {
             className("com.test.Alpha")

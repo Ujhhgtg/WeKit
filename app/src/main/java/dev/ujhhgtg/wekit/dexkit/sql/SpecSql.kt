@@ -99,7 +99,8 @@ private fun ClassSpec.isNameOnly(): Boolean =
         usingStrings.isEmpty() &&
         annotations.isEmpty() &&
         usingNumbers.isEmpty() &&
-        searchPackages.isEmpty()
+        searchPackages.isEmpty() &&
+        excludePackages.isEmpty()
 
 /**
  * True when this class spec is fully representable by a [SqlClassLiteralConstraint] (a method
@@ -118,6 +119,7 @@ private fun ClassSpec.isClassLiteralConstraintExpressible(): Boolean =
         modifiers == null &&
         annotations.isEmpty() &&
         searchPackages.isEmpty() &&
+        excludePackages.isEmpty() &&
         (className != null || usingStrings.isNotEmpty() || usingNumbers.isNotEmpty()) &&
         usingStrings.none(StringSpec::isEmptyNonEquality)
 
@@ -128,6 +130,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     nested: Boolean = false,
 ): SqlMethodQuery? {
     if (descriptor != null) return null
+    if (excludePackages.isNotEmpty()) return null
     if (nested && searchPackages.isNotEmpty()) return null
     if (
         usingFields.isNotEmpty() ||
@@ -184,6 +187,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
 }
 
 internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
+    if (excludePackages.isNotEmpty()) return null
     if (
         interfaces.isNotEmpty() ||
             fields.isNotEmpty() ||
@@ -247,7 +251,8 @@ private fun MethodSpec.hasMatcherPredicates(): Boolean =
         opcodes?.count != null ||
         usingStrings.isNotEmpty() ||
         usingNumbers.isNotEmpty() ||
-        searchPackages.isNotEmpty()
+        searchPackages.isNotEmpty() ||
+        excludePackages.isNotEmpty()
 
 private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
     name != null ||
@@ -262,6 +267,7 @@ private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
         literals.searchPackages.isNotEmpty()
 
 internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
+    if (excludePackages.isNotEmpty()) return null
     val query = SqlFieldQuery()
     name?.let {
         if (it.match != NameMatch.Equals) return null

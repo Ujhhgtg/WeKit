@@ -401,18 +401,51 @@ class SpecSqlScopeParityTest {
     fun jsonCodecParsesScopeExtensions() {
         val method =
             MatcherSpecJson.methodSpec(
-                """{"name":"run","search_packages":["com.tencent.mm","com.tencent.mm.ui"]}""",
+                """{"name":"run","search_packages":["com.tencent.mm","com.tencent.mm.ui"],""" +
+                    """"exclude_packages":["com.tencent.mm.ui.conversation"]}""",
             )
         assertEquals(listOf("com.tencent.mm", "com.tencent.mm.ui"), method.searchPackages)
+        assertEquals(listOf("com.tencent.mm.ui.conversation"), method.excludePackages)
 
         val classSpec =
             MatcherSpecJson.classSpec(
-                """{"search_packages":["com.tencent.mm"],"using_numbers":[42,0.5]}""",
+                """{"search_packages":["com.tencent.mm"],"using_numbers":[42,0.5],""" +
+                    """"exclude_packages":["com.tencent.mm.ui"]}""",
             )
         assertEquals(listOf("com.tencent.mm"), classSpec.searchPackages)
+        assertEquals(listOf("com.tencent.mm.ui"), classSpec.excludePackages)
         assertEquals(listOf<Number>(42L, 0.5), classSpec.usingNumbers)
 
-        val field = MatcherSpecJson.fieldSpec("""{"search_packages":["com.tencent.mm"]}""")
+        val field =
+            MatcherSpecJson.fieldSpec(
+                """{"search_packages":["com.tencent.mm"],"exclude_packages":["com.tencent.mm.ui"]}""",
+            )
         assertEquals(listOf("com.tencent.mm"), field.searchPackages)
+        assertEquals(listOf("com.tencent.mm.ui"), field.excludePackages)
+    }
+
+    @Test
+    fun packageExclusionDegradesToMatcherFallback() {
+        assertNull(
+            methodSpec {
+                    searchPackages("com.tencent.mm")
+                    excludePackages("com.tencent.mm.ui")
+                }
+                .toSqlOrNull(),
+        )
+        assertNull(
+            classSpec {
+                    className("com.tencent.mm.SomeClass")
+                    excludePackages("com.tencent.mm.ui")
+                }
+                .toSqlOrNull(),
+        )
+        assertNull(
+            fieldSpec {
+                    name("someField")
+                    excludePackages("com.tencent.mm.ui")
+                }
+                .toSqlOrNull(),
+        )
     }
 }

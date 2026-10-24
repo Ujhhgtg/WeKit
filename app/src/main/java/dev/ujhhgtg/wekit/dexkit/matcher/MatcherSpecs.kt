@@ -150,6 +150,12 @@ data class MethodSpec(
      * starts with the package plus '.'.
      */
     val searchPackages: List<String> = emptyList(),
+    /**
+     * Declaring-class packages to reject (dotted, prefix semantics like [searchPackages]): a
+     * candidate whose class is in one of these packages (or their subpackages) never matches.
+     * Mirrors the DexKit-style delegate-block excludePackages(...) prefilter.
+     */
+    val excludePackages: List<String> = emptyList(),
 )
 
 /** One field access matcher (DexKit UsingFieldMatcher); null [usingType] means any direction. */
@@ -193,6 +199,12 @@ data class ClassSpec(
      */
     val searchPackages: List<String> = emptyList(),
     /**
+     * Class packages to reject (dotted, prefix semantics like [searchPackages]): a candidate in one
+     * of these packages (or their subpackages) never matches. Mirrors the DexKit-style
+     * delegate-block excludePackages(...) prefilter.
+     */
+    val excludePackages: List<String> = emptyList(),
+    /**
      * Bound on the number of annotations declared on the class (DexKit annotationCount). Stored as
      * an inclusive range; builders accept both an Int and an IntRange assignment.
      */
@@ -219,4 +231,6 @@ data class FieldSpec(
      * starts with the package plus '.'.
      */
     val searchPackages: List<String> = emptyList(),
+    /** Declaring-class packages to reject (dotted, prefix semantics like [searchPackages]). */
+    val excludePackages: List<String> = emptyList(),
 )

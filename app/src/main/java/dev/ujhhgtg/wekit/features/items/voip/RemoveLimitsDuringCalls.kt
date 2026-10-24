@@ -132,6 +132,10 @@ object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
     private val methodMultiTalkCallBackV2 by
         dexMethod(allowFailure = true) {
             searchPackages("com.tencent.mm.voipmp.v2")
+            // searchPackages is prefix-matched, so it also hits the nested listener
+            // MultiTalkSelectContactUI$3 in multitalk.ui; that one must not be hooked (its
+            // pre-8.0.77 counterpart in com.tencent.mm.plugin.multitalk.ui was never matched).
+            excludePackages("com.tencent.mm.voipmp.v2.multitalk")
             declaredClass {
                 annotation {
                     type = "dalvik.annotation.Signature"

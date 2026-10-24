@@ -223,7 +223,7 @@ class QueryMatcherScope(
         return queryDescriptors(sources)
             .asSequence()
             .filterNot { it.startsWith("[") }
-            .filter { methodDescriptorInPackages(it, spec.searchPackages) }
+            .filter { methodDescriptorInPackages(it, spec.searchPackages, spec.excludePackages) }
             .mapNotNull { loadMethod(it, spec) }
             .filter { matchesMethodSafely(it, spec) }
             .toList()
@@ -238,7 +238,7 @@ class QueryMatcherScope(
             queryDescriptors(sources)
                 .asSequence()
                 .filterNot { it.startsWith("[") }
-                .filter { classDescriptorInPackages(it, spec.searchPackages) }
+                .filter { classDescriptorInPackages(it, spec.searchPackages, spec.excludePackages) }
                 .mapNotNull { loadClass(it, spec) }
                 .toList()
         preloadClassFieldAccessRelations(candidates, spec)
@@ -254,7 +254,7 @@ class QueryMatcherScope(
             queryDescriptors(sources)
                 .asSequence()
                 .filterNot { it.startsWith("[") }
-                .filter { fieldDescriptorInPackages(it, spec.searchPackages) }
+                .filter { fieldDescriptorInPackages(it, spec.searchPackages, spec.excludePackages) }
                 .toList()
         preloadFieldAccessRelations(candidates, spec)
         return candidates
@@ -305,7 +305,7 @@ class QueryMatcherScope(
         forEachCandidateDescriptor(sources) { descriptor ->
             if (
                 !descriptor.startsWith("[") &&
-                    methodDescriptorInPackages(descriptor, spec.searchPackages)
+                    methodDescriptorInPackages(descriptor, spec.searchPackages, spec.excludePackages)
             ) {
                 val info = loadMethod(descriptor, spec)
                 if (
@@ -331,7 +331,7 @@ class QueryMatcherScope(
         forEachCandidateDescriptor(sources) { descriptor ->
             if (
                 !descriptor.startsWith("[") &&
-                    classDescriptorInPackages(descriptor, spec.searchPackages)
+                    classDescriptorInPackages(descriptor, spec.searchPackages, spec.excludePackages)
             ) {
                 val info = loadClass(descriptor, spec)
                 if (
@@ -356,7 +356,7 @@ class QueryMatcherScope(
             queryDescriptors(sources)
                 .asSequence()
                 .filterNot { it.startsWith("[") }
-                .filter { fieldDescriptorInPackages(it, spec.searchPackages) }
+                .filter { fieldDescriptorInPackages(it, spec.searchPackages, spec.excludePackages) }
                 .toList()
         preloadFieldAccessRelations(candidates, spec)
         val matches = mutableListOf<DexFieldInfo>()
@@ -1142,29 +1142,32 @@ class QueryMatcherScope(
     private fun methodDescriptorInPackages(
         descriptor: String,
         searchPackages: List<String>,
+        excludePackages: List<String>,
     ): Boolean {
-        if (searchPackages.isEmpty()) return true
+        if (searchPackages.isEmpty() && excludePackages.isEmpty()) return true
         val name = declaredClassNameOfMethod(descriptor) ?: return false
-        return matchesPackages(name, searchPackages)
+        return matchesPackages(name, searchPackages, excludePackages)
     }
 
     private fun fieldDescriptorInPackages(
         descriptor: String,
         searchPackages: List<String>,
+        excludePackages: List<String>,
     ): Boolean {
-        if (searchPackages.isEmpty()) return true
+        if (searchPackages.isEmpty() && excludePackages.isEmpty()) return true
         val name = declaredClassNameOfField(descriptor) ?: return false
-        return matchesPackages(name, searchPackages)
+        return matchesPackages(name, searchPackages, excludePackages)
     }
 
     private fun classDescriptorInPackages(
         descriptor: String,
         searchPackages: List<String>,
+        excludePackages: List<String>,
     ): Boolean {
-        if (searchPackages.isEmpty()) return true
+        if (searchPackages.isEmpty() && excludePackages.isEmpty()) return true
         if (descriptor.startsWith("[")) return false
         val name = dottedClassNameOrNull(descriptor) ?: return false
-        return matchesPackages(name, searchPackages)
+        return matchesPackages(name, searchPackages, excludePackages)
     }
 
     private fun unsupportedCandidate(kind: String): Nothing =
@@ -1224,13 +1227,18 @@ private fun classSpecIsNameOnly(spec: ClassSpec): Boolean =
         spec.modifiers == null &&
         spec.usingStrings.isEmpty() &&
         spec.usingNumbers.isEmpty() &&
-        spec.searchPackages.isEmpty()
+        spec.searchPackages.isEmpty() &&
+        spec.excludePackages.isEmpty()
 
 private fun matchesPackages(
     javaName: String,
     searchPackages: List<String>,
+    excludePackages: List<String> = emptyList(),
 ): Boolean =
-    searchPackages.isEmpty() || searchPackages.any { javaName == it || javaName.startsWith("$it.") }
+    (searchPackages.isEmpty() ||
+        searchPackages.any { javaName == it || javaName.startsWith("$it.") }) &&
+        (excludePackages.isEmpty() ||
+            excludePackages.none { javaName == it || javaName.startsWith("$it.") })
 
 // ---------------------------------------------------------------------------
 // Paging and cheap raw-document prefiltering
@@ -1251,16 +1259,20 @@ private fun JsonObject.stringList(key: String): List<String> =
 
 private fun JsonObject.objectValue(key: String): JsonObject? = this[key] as? JsonObject
 
-/** searchPackages semantics on one raw document name field (dotted Java names). */
-private fun JsonObject.nameMatchesPackages(key: String, searchPackages: List<String>): Boolean {
-    if (searchPackages.isEmpty()) return true
+/** searchPackages/excludePackages semantics on one raw document name field (dotted Java names). */
+private fun JsonObject.nameMatchesPackages(
+    key: String,
+    searchPackages: List<String>,
+    excludePackages: List<String>,
+): Boolean {
+    if (searchPackages.isEmpty() && excludePackages.isEmpty()) return true
     val name = stringValue(key) ?: return false
-    return searchPackages.any { name == it || name.startsWith("$it.") }
+    return matchesPackages(name, searchPackages, excludePackages)
 }
 
 /** Cheap necessary-condition prefilter on the raw method document (no model construction). */
 private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages)) return false
+    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)) return false
     spec.descriptor?.let { if (json.stringValue("descriptor") != it) return false }
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
@@ -1312,7 +1324,7 @@ private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw class document. */
 private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
-    if (!json.nameMatchesPackages("name", spec.searchPackages)) return false
+    if (!json.nameMatchesPackages("name", spec.searchPackages, spec.excludePackages)) return false
     spec.className?.let {
         val name = json.stringValue("name") ?: return@let
         if (!nameSpecMatchesJavaName(it, name)) return false
@@ -1355,7 +1367,7 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw field document. */
 private fun fieldPrefilter(json: JsonObject, spec: FieldSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages)) return false
+    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)) return false
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
         ?.let {
