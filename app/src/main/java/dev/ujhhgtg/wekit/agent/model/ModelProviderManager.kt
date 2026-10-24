@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.agent.model
 
+import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
@@ -7,6 +8,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -28,6 +30,9 @@ import kotlinx.serialization.json.jsonPrimitive
 object ModelProviderManager {
 
     private val httpClient = HttpClient(CIO) {
+        install(UserAgent) {
+            agent = "WeAgent/${BuildConfig.VERSION_NAME}"
+        }
         install(HttpTimeout) {
             requestTimeoutMillis = 600_000
             socketTimeoutMillis = 600_000
@@ -80,6 +85,7 @@ object ModelProviderManager {
         model: ModelEntity,
         messages: List<LlmMessage>,
         tools: List<LlmToolSpec>,
+        sessionId: String,
         stream: Boolean = true,
     ): LlmRequest {
         val effort = model.reasoningEffort?.takeIf { it.isNotBlank() && it != "off" }
@@ -89,6 +95,7 @@ object ModelProviderManager {
         return LlmRequest(
             modelIdRemote = model.modelIdRemote,
             messages = messages,
+            sessionId = sessionId,
             tools = tools,
             reasoningEffort = effort,
             customJsonOverride = override,

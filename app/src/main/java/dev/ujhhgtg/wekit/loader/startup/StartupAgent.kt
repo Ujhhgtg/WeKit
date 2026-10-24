@@ -11,8 +11,13 @@ import dev.ujhhgtg.wekit.loader.entry.zygisk.ArtHookBridge
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
+import dev.ujhhgtg.wekit.data.LegacyDocumentMigration
+import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.fs.LegacyStorageMigration
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.io.File
 import java.lang.reflect.Field
@@ -57,11 +62,24 @@ object StartupAgent {
         }
 
         HostInfo.init(application)
-        NativeLoader.init(application)
+        NativeLoader.init()
+        // Legacy storage and document migrations are one-shot writers.  Only the main WeChat
+        // process owns that responsibility; push/worker processes may still open Room later,
+        // but must not race the migration or initialize it from an isolated process.
+        if (TargetProcesses.isInMain) {
+            LegacyStorageMigration.run(application)
+            LegacyDocumentMigration.run(application)
+            JsonDataMigration.run()
+        }
         if (hookBridge is ArtHookBridge) {
             hideModuleLibraries(hookBridge)
         }
-        WeLauncher.init(application)
+        // Isolated processes have no module features and must never touch the shared Room file.
+        // In particular, FeaturesLoader would otherwise initialize DexCache/Room while the main
+        // process is still relocating the legacy database.
+        if (TargetProcesses.currentType != TargetProcess.ISOLATED) {
+            WeLauncher.init(application)
+        }
 
         runCatching {
             application.dataDir.toPath().resolve("app_qqprotect").deleteRecursively()

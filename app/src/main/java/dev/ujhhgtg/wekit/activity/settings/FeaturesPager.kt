@@ -36,7 +36,7 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -53,7 +53,7 @@ import java.util.Locale
 private fun featureChecked(item: BaseFeature): Boolean {
     val revision = FeatureCategoryState.revision
     return remember(item.technicalId, revision) {
-        WePrefs.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
+        KvStore.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
     }
 }
 

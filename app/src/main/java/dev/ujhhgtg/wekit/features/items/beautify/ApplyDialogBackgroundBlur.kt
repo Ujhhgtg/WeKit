@@ -21,7 +21,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -104,7 +104,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
             }
 
             addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            attributes.blurBehindRadius = WePrefs.getIntOrDef(KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS)
+            attributes.blurBehindRadius = KvStore.getIntOrDef(KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS)
         }
     }
 
@@ -112,7 +112,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var blurRadius by remember {
                 mutableIntStateOf(
-                    WePrefs.getIntOrDef(
+                    KvStore.getIntOrDef(
                         KEY_BLUR_RADIUS, DEFAULT_BLUR_RADIUS
                     )
                 )
@@ -141,7 +141,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
                                     valueSuffix = "px",
                                     onValueChange = {
                                         blurRadius = it
-                                        WePrefs.putInt(KEY_BLUR_RADIUS, it)
+                                        KvStore.putInt(KEY_BLUR_RADIUS, it)
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                             window.attributes.blurBehindRadius = it
                                             window.attributes = window.attributes // trigger onWindowAttributesChanged

@@ -35,6 +35,7 @@ object AutoLikeMoments : AutoMomentsBase(),
     private var lastActionSentAt = 0L
 
     override fun onEnable() {
+        MomentsAutomationSettings.Like.requireReady()
         startAutomation()
         handledSnsIds.clear()
         lastAttemptAt.clear()

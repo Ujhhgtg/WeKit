@@ -1,14 +1,18 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.app.Activity
+import android.view.View
 import android.widget.CheckBox
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
+import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.utils.reflection.bool
 
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
@@ -20,6 +24,9 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
     private const val ALBUM_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.AlbumPreviewUI"
     private const val IMAGE_PREVIEW_UI = "com.tencent.mm.plugin.gallery.ui.ImagePreviewUI"
     private const val KEY_SEND_AS_MEDIA_GROUP = "key_send_as_media_group"
+    private const val LOCAL_PICKER_MEDIA_GROUP_BAR =
+        "com.tencent.mm.plugin.picker.chrome.LocalMediaPickerMediaGroupBarView"
+    private const val MEDIA_TAB_ALBUM_UI = "com.tencent.mm.plugin.gallery.ui.MediaTabAlbumUI"
 
     /**
      * 「发送后合并展示」是 8.0.69+ 才有的选项（AlbumPreviewUI/ImagePreviewUI 中均包含
@@ -92,10 +99,50 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
             }
         }
 
+        // MediaTabPickerUI hosts MediaTabAlbumUI as an embedded VAS activity;
+        // initialize the same state after that activity's view is inflated.
+        MEDIA_TAB_ALBUM_UI.toClassOrNull()
+            ?.reflekt()
+            ?.firstMethodOrNull { name = "initView" }
+            ?.hookAfter {
+                val activity = thisObject as Activity
+                sendAsMediaGroupField.field.set(activity, true)
+                (sendAsMediaGroupCheckBoxField.field.get(activity) as CheckBox).setChecked(true)
+            }
+
         // ImagePreviewUI 在 initView 中读取该 extra 初始化勾选框
         IMAGE_PREVIEW_UI.toClass().hookBeforeOnCreate {
             val activity = thisObject as Activity
             activity.intent.putExtra(KEY_SEND_AS_MEDIA_GROUP, true)
         }
+
+        // The 8.0.78 local chat picker stores this option in its StateCenter;
+        // it has no AlbumPreviewUI field or CheckBox for the old hook to touch.
+        // Trigger the native click callback so the reducer and send plan stay
+        // in sync with the visible control.
+        LOCAL_PICKER_MEDIA_GROUP_BAR.toClassOrNull()
+            ?.reflekt()
+            ?.firstMethodOrNull {
+                name = "setMediaGroupChecked"
+                parameters(bool)
+            }
+            ?.hookAfter {
+                if (args[0] as Boolean) return@hookAfter
+                val view = thisObject as View
+                view.post {
+                    if (view.visibility != View.VISIBLE) return@post
+                    val callback = view.reflekt()
+                        .firstMethodOrNull {
+                            name = "getOnMediaGroupClicked"
+                            parameters()
+                        }
+                        ?.invoke()
+                        ?: return@post
+                    callback.reflekt().firstMethod {
+                        name = "invoke"
+                        parameters()
+                    }.invoke()
+                }
+            }
     }
 }

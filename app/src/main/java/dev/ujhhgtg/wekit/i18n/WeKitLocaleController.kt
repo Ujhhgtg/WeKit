@@ -16,7 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.wekit.constants.Preferences
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import java.util.Locale
 
 object WeKitLocaleController : ComponentCallbacks {
@@ -52,7 +52,7 @@ object WeKitLocaleController : ComponentCallbacks {
         this.application = application
         hostPreferencesAvailable = useHostPreferences
         selection = if (useHostPreferences) {
-            LanguageSelection.fromStored(WePrefs.getString(Preferences.UI_LANGUAGE))
+            LanguageSelection.fromStored(KvStore.getString(Preferences.UI_LANGUAGE))
         } else {
             LanguageSelection.SYSTEM
         }
@@ -69,7 +69,7 @@ object WeKitLocaleController : ComponentCallbacks {
 
     fun updateSelection(value: LanguageSelection) {
         if (hostPreferencesAvailable) {
-            WePrefs.putString(Preferences.UI_LANGUAGE, value.storedValue)
+            KvStore.putString(Preferences.UI_LANGUAGE, value.storedValue)
         }
         selection = value
     }
