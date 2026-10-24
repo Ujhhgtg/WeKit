@@ -707,7 +707,7 @@ dependencies = [
 [[package]]
 name = "dexsql"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "dexsql-cache",
  "dexsql-query",
@@ -717,12 +717,12 @@ dependencies = [
 [[package]]
 name = "dexsql-ast"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 
 [[package]]
 name = "dexsql-cache"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "crc32fast",
  "dexsql-inflate",
@@ -736,7 +736,7 @@ dependencies = [
 [[package]]
 name = "dexsql-exec"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "dexsql-ir",
 ]
@@ -744,7 +744,7 @@ dependencies = [
 [[package]]
 name = "dexsql-inflate"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "flate2",
  "memmap2",
@@ -754,12 +754,12 @@ dependencies = [
 [[package]]
 name = "dexsql-ir"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 
 [[package]]
 name = "dexsql-lower"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "dexsql-ir",
  "sqlparser",
@@ -768,12 +768,12 @@ dependencies = [
 [[package]]
 name = "dexsql-mutf8"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 
 [[package]]
 name = "dexsql-optimizer"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "dexsql-ir",
 ]
@@ -781,7 +781,7 @@ dependencies = [
 [[package]]
 name = "dexsql-query"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 dependencies = [
  "dexsql-ast",
  "dexsql-cache",
@@ -797,7 +797,7 @@ dependencies = [
 [[package]]
 name = "dexsql-schema"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=c4f6410dab9354daea8b5a4b827d2ce7b666307e#c4f6410dab9354daea8b5a4b827d2ce7b666307e"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?rev=21e36925267610ee2d9c78f0681cd2b5ada6973b#21e36925267610ee2d9c78f0681cd2b5ada6973b"
 
 [[package]]
 name = "digest"
@@ -3759,7 +3759,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "dexsql",
  "regex",
  "roxmltree 0.20.0",
  "serde",
