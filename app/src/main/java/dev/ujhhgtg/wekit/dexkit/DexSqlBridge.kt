@@ -40,6 +40,10 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
     private val lifecycleLock = ReentrantReadWriteLock()
     private var nativeHandle = handle
 
+    /** True while the native session is open. */
+    val isOpen: Boolean
+        get() = lifecycleLock.read { nativeHandle != 0L }
+
     /** Execute a read-only SQL statement and decode its structured result. */
     fun query(sql: String): DexSqlQueryResult = withHandle { handle ->
         decodeQuery(DexSqlNative.query(handle, sql))
