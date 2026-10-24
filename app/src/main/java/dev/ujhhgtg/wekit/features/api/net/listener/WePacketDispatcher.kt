@@ -7,10 +7,7 @@ import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -29,14 +26,13 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
 
     private const val TAG = "WePacketDispatcher"
 
-    private val classOnGYNetEnd by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                methodCount = 1..1,
-                methods = listOf(MethodSpec(name = NameSpec("onGYNetEnd"), paramCount = 6..6)),
-            ),
-            packages = listOf("com.tencent.mm.network"),
-        )
+    private val classOnGYNetEnd by dexClass {
+        searchPackages("com.tencent.mm.network")
+        methodCount = 1
+        method {
+            name = "onGYNetEnd"
+            paramCount = 6
+        }
     }
 
     private val recentRequests = ConcurrentHashMap<String, Long>()

@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClassQuery
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
@@ -18,12 +17,9 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeMatchType
 import dev.ujhhgtg.wekit.dexkit.matcher.OpcodeSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.UsingFieldSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
@@ -48,96 +44,76 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
 
     // 核心 Protobuf 类
-    private val classProtoBase by
-        dexClass(
-            sqlClass {
-                usingEqStrings("Cannot use this method")
-                method {
-                    name = "op"
-                    paramTypes("int", "java.lang.Object[]")
-                }
-            },
-        )
-    private val classRawReq by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fields = listOf(FieldSpec(type = ClassSpec(className = NameSpec("byte[]")))),
-                fieldCount = 1..1,
-                methods =
-                    listOf(
-                        MethodSpec(
-                            name = NameSpec("<init>"),
-                            paramTypes = listOf(TypeSpec("byte[]")),
-                        ),
-                        MethodSpec(
-                            name = NameSpec("op"),
-                            paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                            returnType = ClassSpec(className = NameSpec("int")),
-                            opcodes =
-                                OpcodeSpec(
-                                    names = emptyList(),
-                                    matchType = OpcodeMatchType.Contains,
-                                    count = 0..10,
-                                ),
-                        ),
-                        MethodSpec(
-                            name = NameSpec("toByteArray"),
-                            returnType = ClassSpec(className = NameSpec("byte[]")),
-                            invokeMethods =
-                                listOf(
-                                    MethodSpec(
-                                        declaredClass =
-                                            ClassSpec(className = NameSpec("java.lang.System")),
-                                        name = NameSpec("arraycopy"),
-                                    ),
-                                ),
-                        ),
-                    ),
-            ),
-        )
+    private val classProtoBase by dexClass {
+        usingEqStrings("Cannot use this method")
+        method {
+            name = "op"
+            paramTypes("int", "java.lang.Object[]")
+        }
     }
-    private val classGenericResp by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fieldCount = 0..1,
-                methods =
-                    listOf(
-                        MethodSpec(
-                            name = NameSpec("<init>"),
-                            opcodes =
-                                OpcodeSpec(
-                                    names = listOf("new-instance"),
-                                    matchType = OpcodeMatchType.Contains,
-                                ),
-                        ),
-                        MethodSpec(
-                            name = NameSpec("op"),
-                            paramTypes = listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                            returnType = ClassSpec(className = NameSpec("int")),
-                            opcodes =
-                                OpcodeSpec(
-                                    names = emptyList(),
-                                    matchType = OpcodeMatchType.Contains,
-                                    count = 0..10,
-                                ),
-                        ),
-                    ),
-            ),
-        )
+    private val classRawReq by dexClass {
+        field {
+            type = "byte[]"
+        }
+        fieldCount = 1
+        method {
+            name = "<init>"
+            paramTypes("byte[]")
+        }
+        method {
+            name = "op"
+            paramTypes("int", "java.lang.Object[]")
+            returnType = "int"
+            opcodes =
+                OpcodeSpec(
+                    names = emptyList(),
+                    matchType = OpcodeMatchType.Contains,
+                    count = 0..10,
+                )
+        }
+        method {
+            name = "toByteArray"
+            returnType = "byte[]"
+            invokeMethod {
+                declaredClass = "java.lang.System"
+                name = "arraycopy"
+            }
+        }
     }
-    private val classConfigBuilder by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                fields =
-                    listOf(
-                        FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
-                        FieldSpec(type = ClassSpec(className = NameSpec(classProtoBase.data.name))),
-                        FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
-                    ),
-                fieldCount = 10..Int.MAX_VALUE,
-            ),
-            packages = listOf("com.tencent.mm.modelbase"),
-        )
+    private val classGenericResp by dexClass {
+        fieldCount = 0..1
+        method {
+            name = "<init>"
+            opcodes =
+                OpcodeSpec(
+                    names = listOf("new-instance"),
+                    matchType = OpcodeMatchType.Contains,
+                )
+        }
+        method {
+            name = "op"
+            paramTypes("int", "java.lang.Object[]")
+            returnType = "int"
+            opcodes =
+                OpcodeSpec(
+                    names = emptyList(),
+                    matchType = OpcodeMatchType.Contains,
+                    count = 0..10,
+                )
+        }
+    }
+    private val classConfigBuilder by dexClass {
+        searchPackages("com.tencent.mm.modelbase")
+        field {
+            type = classProtoBase.data.name
+        }
+        field {
+            type = classProtoBase.data.name
+        }
+        field {
+            type = "java.lang.String"
+        }
+        fieldCount = 10..Int.MAX_VALUE
     }
 
     // 业务特定请求类
@@ -145,74 +121,50 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     val classOplogReq by dexClass()
 
     // 网络
-    val classNetScenePat by
-        dexClass(
-            sqlClass {
-                superClass(WeMessageApi.classNetSceneBase.data.name)
-                usingStrings("/cgi-bin/micromsg-bin/sendpat")
-                method {
-                    name = "getType"
-                    returnType = "int"
-                    usingNumbers(849L)
-                }
-            },
-        )
-    private val classNetDispatcher by dexClass()
-    private val classIOnSceneEnd by dexClassQuery {
-        uniqueClass(
-            ClassSpec(
-                modifiers = java.lang.reflect.Modifier.INTERFACE,
-                interfaceCount = 0..0,
-                methodCount = 1..1,
-                methods =
-                    listOf(
-                        MethodSpec(
-                            name = NameSpec("onSceneEnd"),
-                            paramCount = 4..4,
-                            paramTypes =
-                                listOf(
-                                    TypeSpec("int"),
-                                    TypeSpec("int"),
-                                    TypeSpec("java.lang.String"),
-                                    TypeSpec(WeMessageApi.classNetSceneBase.data.name),
-                                ),
-                            returnType = ClassSpec(className = NameSpec("void")),
-                        ),
-                    ),
-            ),
-        )
+    val classNetScenePat by dexClass {
+        superClass(WeMessageApi.classNetSceneBase.data.name)
+        usingStrings("/cgi-bin/micromsg-bin/sendpat")
+        method {
+            name = "getType"
+            returnType = "int"
+            usingNumbers(849L)
+        }
     }
-    private val classCallbackIface by
-        dexClass(
-            sqlClass {
-                modifiers = 1536
-                method {
-                    returnType = "int"
-                    paramCount = 5
-                    paramTypes(
-                        "int",
-                        "int",
-                        "java.lang.String",
-                        null,
-                        WeMessageApi.classNetSceneBase.data.name,
-                    )
-                }
-            },
-        )
+    private val classNetDispatcher by dexClass()
+    private val classIOnSceneEnd by dexClass {
+        modifiers = java.lang.reflect.Modifier.INTERFACE
+        interfaceCount = 0
+        methodCount = 1
+        method {
+            name = "onSceneEnd"
+            paramCount = 4
+            paramTypes("int", "int", "java.lang.String", WeMessageApi.classNetSceneBase.data.name)
+            returnType = "void"
+        }
+    }
+    private val classCallbackIface by dexClass {
+        modifiers = 1536
+        method {
+            returnType = "int"
+            paramCount = 5
+            paramTypes(
+                "int",
+                "int",
+                "java.lang.String",
+                null,
+                WeMessageApi.classNetSceneBase.data.name,
+            )
+        }
+    }
     private val classReqResp by dexClass()
 
-    // 关键方法 //
-    private val methodGetNetQueue by
-        dexMethod(
-            sqlMethod {
-                val kernelName = WeDatabaseApi.classMmKernel.data.name
-                val queueName = WeMessageApi.classNetSceneQueue.data.name
-                declaredClass = kernelName
-                returnType = queueName
-                modifiers = 9
-            },
-        )
-    //    private val methodNetDispatch by dexMethod()
+    private val methodGetNetQueue by dexMethod {
+        val kernelName = WeDatabaseApi.classMmKernel.data.name
+        val queueName = WeMessageApi.classNetSceneQueue.data.name
+        declaredClass = kernelName
+        returnType = queueName
+        modifiers = 9
+    }
 
     private val cgiReqClassMap = mutableMapOf<Int, Class<*>>()
 
@@ -229,20 +181,18 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
     override fun resolveDex() {
         val wrapperName = classRawReq.data.superClass!!.name
-        val candidates =
-            DexResolutionContext.matcher.findClasses(
-                ClassSpec(
-                    superClass = ClassSpec(className = NameSpec(wrapperName)),
-                    fieldCount = 2..2,
-                    fields =
-                        listOf(
-                            FieldSpec(type = ClassSpec(className = NameSpec("int"))),
-                            FieldSpec(
-                                type = ClassSpec(className = NameSpec("java.util.LinkedList")),
-                            ),
-                        ),
-                ),
-            )
+        val candidates = DexResolutionContext.findClasses {
+            superClass {
+                className = wrapperName
+            }
+            fieldCount = 2
+            field {
+                type = "int"
+            }
+            field {
+                type = "java.util.LinkedList"
+            }
+        }
 
         for (candidate in candidates) {
             val isMsgReq =
@@ -303,22 +253,17 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             classNetDispatcher.setDescriptor(dispatchMethod.declaredClassName)
         }
 
-        val directOplogReq =
-            DexResolutionContext.matcher.findClasses(
-                ClassSpec(
-                    superClass = ClassSpec(className = NameSpec(classProtoBase.data.name)),
-                    usingStrings = listOf(StringSpec("/cgi-bin/micromsg-bin/oplog")),
-                    fieldCount = 1..1,
-                    methods =
-                        listOf(
-                            MethodSpec(
-                                name = NameSpec("op"),
-                                paramTypes =
-                                    listOf(TypeSpec("int"), TypeSpec("java.lang.Object[]")),
-                            ),
-                        ),
-                ),
-            )
+        val directOplogReq = DexResolutionContext.findClasses {
+            superClass {
+                className = classProtoBase.data.name
+            }
+            usingString("/cgi-bin/micromsg-bin/oplog")
+            fieldCount = 1
+            method {
+                name = "op"
+                paramTypes("int", "java.lang.Object[]")
+            }
+        }
 
         when (directOplogReq.size) {
             1 -> classOplogReq.setDescriptor(directOplogReq.single())
