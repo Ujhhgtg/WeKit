@@ -207,9 +207,9 @@ mod tests {
             start: 0x1000,
             end: 0x2000,
             prot: libc::PROT_READ,
-            path: "/data/app/libdexkit.so".to_string(),
+            path: "/data/app/libwekit_native.so".to_string(),
         };
-        assert!(entry.path.contains("libdexkit.so"));
+        assert!(entry.path.contains("libwekit_native.so"));
         assert!(!entry.path.contains("libwekit.so"));
     }
 

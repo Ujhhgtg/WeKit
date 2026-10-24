@@ -141,7 +141,7 @@ android {
         }
         jniLibs {
             useLegacyPackaging = true
-            excludes += setOf("**/libwekit_zygisk.so", "**/libwekit_loader.so", "**/libdexkit.so")
+            excludes += setOf("**/libwekit_zygisk.so", "**/libwekit_loader.so")
         }
         resources.excludes += listOf(
             "kotlin/**",
@@ -346,13 +346,9 @@ dependencies {
 
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
-    compileOnly(libs.dexkit)
-    // DexKit exposes FlatBufferBuilder in public methods, but declares it runtime-only in its POM.
-    compileOnly(libs.flatbuffers)
     compileOnly(kotlin("reflect"))
     compileOnly(project(":libs:loader-api"))
     testImplementation(project(":libs:loader-api"))
-    testImplementation(libs.dexkit)
     implementation(libs.hiddenapibypass)
     compileOnly(project(":libs:common:reflekt"))
     testImplementation(project(":libs:common:reflekt"))
@@ -407,11 +403,10 @@ dependencies {
 
 val dexTestWorkerProperties = listOf(
     "wekit.dexTest.apk",
-    "wekit.dexTest.nativeLibrary",
     "wekit.dexTest.dexSqlNativeLibrary",
     "wekit.dexTest.report",
-    "wekit.dexTest.dexKitVersion",
-    "wekit.dexTest.dexKitRevision",
+    "wekit.dexTest.engineVersion",
+    "wekit.dexTest.engineRevision",
     "wekit.dexTest.versionCode",
     "wekit.dexTest.versionName",
     "wekit.dexTest.buildTag",
@@ -420,12 +415,6 @@ val dexTestWorkerProperties = listOf(
     "wekit.dexTest.workers",
 )
 val dexTestWorker = providers.gradleProperty("dexTestWorker").map(String::toBoolean).orElse(false)
-// Temporary Phase 0 tool for the DexKit-removal migration; removed together with DexKit.
-val dexKitSnapshotProperties = listOf(
-    "wekit.dexSnapshot.manifest",
-    "wekit.dexSnapshot.nativeLibrary",
-)
-val dexKitSnapshot = providers.gradleProperty("dexKitSnapshot").map(String::toBoolean).orElse(false)
 val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBoolean).orElse(false)
 
 tasks.withType<Test>().configureEach {
@@ -435,15 +424,7 @@ tasks.withType<Test>().configureEach {
     // workers) only need the smaller cap. Keep worker heaps low so a batched run cannot exhaust
     // host memory.
     maxHeapSize = if (monetCorpus.get()) "4g" else "2g"
-    if (dexKitSnapshot.get()) {
-        filter {
-            includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexKitDataSnapshotTest")
-        }
-        dexKitSnapshotProperties.forEach { propertyName ->
-            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
-        }
-        outputs.upToDateWhen { false }
-    } else if (dexTestWorker.get()) {
+    if (dexTestWorker.get()) {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
         }
@@ -480,6 +461,4 @@ configurations.matching { it.name == "debugRuntimeClasspath" || it.name == "rele
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-reflect")
-        exclude(group = "org.luckypray", module = "dexkit")
-        exclude(group = "com.google.flatbuffers", module = "flatbuffers-java")
     }

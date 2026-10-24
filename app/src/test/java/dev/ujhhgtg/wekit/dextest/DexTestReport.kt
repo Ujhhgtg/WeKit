@@ -69,8 +69,8 @@ internal enum class DexTestApkOutcome {
 
 @Serializable
 internal data class DexTestEnvironment(
-    val dexKitVersion: String,
-    val dexKitRevision: String,
+    val engineVersion: String,
+    val engineRevision: String,
     val architecture: String,
     val jvmVersion: String,
 )

@@ -593,7 +593,7 @@ mod tests {
             "schemaVersion": 3, "workerPid": 1, "apkPath": "/wechat.apk", "fileName": "wechat.apk",
             "label": "wechat", "apkSize": 1, "apkSha256": "hash", "versionCode": 3160,
             "versionName": "8.0.77", "buildTag": "#7637", "isGooglePlay": false, "dexCount": 1,
-            "environment": {"dexKitVersion":"2.2.0", "dexKitRevision":"rev", "architecture":"x86_64", "jvmVersion":"21"},
+            "environment": {"engineVersion":"dexsql", "engineRevision":"rev", "architecture":"x86_64", "jvmVersion":"21"},
             "startedAt":"2026-09-05", "finishedAt":"2026-09-05", "elapsedMillis":1, "outcome":"PASS",
             "counts":{"success":1,"expectedFailure":0,"unexpectedFailure":0,"blocked":0,"incomplete":0},
             "features":[{"className":"test.Feature", "displayName":"Test", "technicalId":"test", "methodHash":"same",

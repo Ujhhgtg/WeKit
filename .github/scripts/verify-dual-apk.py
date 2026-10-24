@@ -22,7 +22,7 @@ REQUIRED = (
     "META-INF/com/google/android/updater-script",
     "webroot/index.html", "webroot/css/app.css", "webroot/js/bridge.js",
     "webroot/js/app.js", "webroot/js/kernelsu.js",
-    "lib/arm64-v8a/libwekit_loader.so", "lib/arm64-v8a/libdexkit.so", "lib/arm64-v8a/libwekit_zygisk.so",
+    "lib/arm64-v8a/libwekit_loader.so", "lib/arm64-v8a/libwekit_zygisk.so",
     "lib/arm64-v8a/libandroidx.graphics.path.so",
 )
 EXPECTED_BOOTSTRAP_CERT_SHA256 = "6bc3be50d46327b8c66b564ff946a9c51bbb72a198fc7cd651e9726901584315"
@@ -35,7 +35,7 @@ def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, e
         assert archive.testzip() is None, "ZIP CRC failed"
         for name in REQUIRED:
             assert archive.getinfo(name).file_size > 0 or name == "sepolicy.rule", f"missing or empty: {name}"
-        for name in ("lib/arm64-v8a/libdexkit.so", "lib/arm64-v8a/libwekit_loader.so",
+        for name in ("lib/arm64-v8a/libwekit_loader.so",
                      "lib/arm64-v8a/libandroidx.graphics.path.so"):
             assert archive.getinfo(name).compress_type == zipfile.ZIP_STORED, f"framework native lookup requires STORED: {name}"
         assert not any(name.endswith((".apk", "dex.list")) or name.startswith(("payload/", "zygisk/")) for name in names), "nested payload or duplicated loader"
@@ -62,8 +62,8 @@ def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, e
                      "Ldev/ujhhgtg/wekit/loader/api/AuthorizationControls;",
                      "Ldev/ujhhgtg/wekit/loader/abc/IHookBridge;",
                      "Ldev/ujhhgtg/wekit/loader/abc/ILoaderService;",
-                     "Ldev/ujhhgtg/reflekt/ReflektKt;", "Lorg/luckypray/dexkit/DexKitBridge;",
-                     "Lcom/google/flatbuffers/FlatBufferBuilder;", "Lkotlin/jvm/internal/Intrinsics;",
+                     "Ldev/ujhhgtg/reflekt/ReflektKt;",
+                     "Lkotlin/jvm/internal/Intrinsics;",
                      "Lkotlin/reflect/jvm/ReflectJvmMapping;"):
             assert definitions[name] == 1, f"missing/duplicate shared definition: {name}"
 

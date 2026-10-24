@@ -1,6 +1,6 @@
-//! Desktop DexKit resolver orchestration.
+//! Desktop DexSQL resolver orchestration.
 //!
-//! The Rust command owns APK discovery, the pinned Linux DexKit build, and one
+//! The Rust command owns APK discovery, the host native-library build, and one
 //! Gradle/JVM worker per APK. The worker itself lives in the app's JVM test
 //! source set so it executes the production Kotlin resolver code.
 
@@ -23,8 +23,9 @@ use crate::workspace_root;
 #[path = "dex_report_diff.rs"]
 pub mod diff;
 
-const DEXKIT_REPOSITORY: &str = "https://github.com/LuckyPray/DexKit.git";
-const DEXKIT_REVISION: &str = "c9cd12a14b75409bebd2f73e4dfc5ff575df3eb8";
+const ENGINE_VERSION: &str = "dexsql";
+// Keep in sync with the dexsql dependency pin in xtask/Cargo.toml.
+const ENGINE_REVISION: &str = "d63ac350b231f4c1f16fa2edb0d9688e4a809707";
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {
@@ -49,9 +50,9 @@ pub struct DexTestArgs {
     #[arg(long)]
     pub verbose: bool,
 
-    /// Resolution engine. `dexkit` runs the existing Kotlin/JVM worker;
-    /// `dexsql` executes the supplied SQL statements directly in Rust.
-    #[arg(long, value_enum, default_value_t = DexTestEngine::Dexkit)]
+    /// Resolution engine. `dexsql` executes the supplied SQL statements directly in Rust;
+    /// `dexkit` keeps the legacy worker selection name and runs the Kotlin/JVM DexSQL worker.
+    #[arg(long, value_enum, default_value_t = DexTestEngine::Dexsql)]
     pub engine: DexTestEngine,
 
     /// SQL statement for the `dexsql` engine. Repeat for a multi-query smoke
@@ -71,14 +72,6 @@ pub enum DexTestEngine {
 pub struct ApkIdentity {
     pub path: PathBuf,
     pub sha256: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct DexKitNative {
-    pub version: String,
-    pub revision: String,
-    pub library_path: PathBuf,
-    pub architecture: String,
 }
 
 #[derive(Clone, Debug)]
@@ -136,8 +129,8 @@ struct Counts {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Environment {
-    dex_kit_version: String,
-    dex_kit_revision: String,
+    engine_version: String,
+    engine_revision: String,
     architecture: String,
     jvm_version: String,
 }
@@ -235,7 +228,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         })
         .unwrap_or_else(|| root.join("dex-test-results"));
     let run_dir = create_run_dir(&output_root)?;
-    let native = ensure_linux_dexkit(&root)?;
     let dex_sql_native = ensure_linux_wekit_native(&root)?;
     let identities = apks
         .iter()
@@ -247,10 +239,10 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let report_names = report_file_names(&identities);
 
     println!(
-        "dex-test: {} APK(s), native {} ({})",
+        "dex-test: {} APK(s), engine {} ({})",
         apks.len(),
-        native.version,
-        native.library_path.display()
+        ENGINE_VERSION,
+        ENGINE_REVISION
     );
     let mut reports = Vec::with_capacity(apks.len());
     for (index, apk) in apks.iter().enumerate() {
@@ -258,7 +250,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         let metadata = match read_apk_metadata(&root, apk) {
             Ok(metadata) => metadata,
             Err(error) => {
-                let report = infrastructure_report(apk, &native, &error);
+                let report = infrastructure_report(apk, &error);
                 write_json_atomic(&report_path, &report)?;
                 render_apk(&report, &report_path, args.verbose);
                 reports.push((report, report_path));
@@ -275,7 +267,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             &root,
             apk,
             &metadata,
-            &native,
             &report_path,
             args.features.as_deref(),
             args.workers,
@@ -285,10 +276,9 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             (_, Ok(report)) => report,
             (Ok(status), Err(error)) => infrastructure_report(
                 apk,
-                &native,
                 &anyhow::anyhow!("worker exited {status}; report unavailable: {error}"),
             ),
-            (Err(error), _) => infrastructure_report(apk, &native, &error),
+            (Err(error), _) => infrastructure_report(apk, &error),
         };
         if !matches!(report.outcome, ApkOutcome::InfrastructureFailure)
             && report.apk_sha256.is_empty()
@@ -351,7 +341,7 @@ struct DexSqlApkReport {
 }
 
 /// Run direct Rust SQL queries against the same APK inputs accepted by the
-/// legacy DexKit worker. This is intentionally a separate report shape: it
+/// legacy JVM worker. This is intentionally a separate report shape: it
 /// validates the published facade without pretending that the Kotlin feature
 /// resolver graph has already been migrated.
 fn task_dexsql_test(args: &DexTestArgs, root: &Path) -> Result<()> {
@@ -359,7 +349,7 @@ fn task_dexsql_test(args: &DexTestArgs, root: &Path) -> Result<()> {
         bail!("--engine dexsql requires at least one --sql statement")
     }
     if args.features.is_some() || args.workers.is_some() {
-        bail!("--features/--workers are only supported by the dexkit engine")
+        bail!("--features/--workers are only supported by the JVM worker engine")
     }
     let paths = if args.apks.is_empty() {
         discover_apks()?
@@ -678,98 +668,11 @@ pub fn report_file_names(identities: &[ApkIdentity]) -> Vec<String> {
         .collect()
 }
 
-fn ensure_linux_dexkit(root: &Path) -> Result<DexKitNative> {
-    if env::consts::OS != "linux" {
-        bail!(
-            "dex-test currently supports Linux only (detected {})",
-            env::consts::OS
-        )
-    }
-    let architecture = match env::consts::ARCH {
-        "x86_64" => "x86_64",
-        "aarch64" => "aarch64",
-        other => bail!("unsupported Linux architecture for DexKit native build: {other}"),
-    }
-    .to_string();
-    let versions = fs::read_to_string(root.join("gradle/libs.versions.toml"))?;
-    let catalog: crate::GradleVersionCatalog = toml::from_str(&versions)?;
-    let version = catalog
-        .versions
-        .dexkit
-        .context("versions.dexkit is missing")?;
-    let cache_root = root.join(".wekit/dex-test");
-    let source_dir = cache_root.join("source").join(format!("DexKit-{version}"));
-    if source_dir.exists() {
-        validate_dexkit_source(&source_dir, &version)?;
-    } else {
-        fs::create_dir_all(source_dir.parent().unwrap())?;
-        let temp = source_dir.with_extension(format!("tmp-{}", std::process::id()));
-        if temp.exists() {
-            bail!("stale DexKit temporary checkout exists: {}", temp.display());
-        }
-        run_command(
-            Command::new("git")
-                .args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    "--branch",
-                    &version,
-                    DEXKIT_REPOSITORY,
-                ])
-                .arg(&temp),
-            "clone DexKit",
-        )?;
-        validate_dexkit_source(&temp, &version)?;
-        fs::rename(&temp, &source_dir)?;
-    }
-    let build_dir = cache_root
-        .join("native")
-        .join(&version)
-        .join(&architecture)
-        .join("cmake");
-    fs::create_dir_all(&build_dir)?;
-    let source_cpp = source_dir.join("dexkit/src/main/cpp");
-    run_command(
-        Command::new("cmake").args([
-            "-S",
-            source_cpp.to_str().context("non-utf8 DexKit source path")?,
-            "-B",
-            build_dir.to_str().context("non-utf8 DexKit build path")?,
-            "-G",
-            "Ninja",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG",
-            "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG",
-            "-DDEXKIT_ENABLE_INTERNAL_METRICS=OFF",
-            "-DDEXKIT_ENABLE_INTERNAL_METRICS_API=OFF",
-        ]),
-        "configure DexKit with CMake",
-    )?;
-    run_command(
-        Command::new("cmake").args([
-            "--build",
-            build_dir.to_str().context("non-utf8 DexKit build path")?,
-            "--target",
-            "dexkit",
-        ]),
-        "build DexKit native library",
-    )?;
-    let library_path = find_named_file(&build_dir, "libdexkit.so")
-        .context("DexKit build did not produce libdexkit.so")?;
-    Ok(DexKitNative {
-        version,
-        revision: DEXKIT_REVISION.to_string(),
-        library_path,
-        architecture,
-    })
-}
-
 /// Build and locate the host (Linux x86_64) copy of WeKit's JNI library.
 ///
-/// The desktop worker still runs the Kotlin/DexKit resolver.  This library is
+/// The desktop worker runs the Kotlin/DexSQL resolver. This library is
 /// loaded only when the selected feature set contains a DexSQL delegate, so a
-/// missing host toolchain does not make legacy DexKit-only runs unavailable.
+/// missing host toolchain does not make JVM-worker runs unavailable.
 fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
     if env::consts::OS != "linux" {
         return Ok(None);
@@ -805,37 +708,6 @@ fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
         );
     }
     Ok(Some(fs::canonicalize(library)?))
-}
-
-fn validate_dexkit_source(source: &Path, version: &str) -> Result<()> {
-    let head = command_output(
-        Command::new("git").args(["-C", source.to_str().unwrap(), "rev-parse", "HEAD"]),
-        "read DexKit revision",
-    )?;
-    if head.trim() != DEXKIT_REVISION {
-        bail!(
-            "cached DexKit {version} revision is {}, expected {DEXKIT_REVISION}; remove only {} and retry",
-            head.trim(),
-            source.display()
-        )
-    }
-    let tag = command_output(
-        Command::new("git").args([
-            "-C",
-            source.to_str().unwrap(),
-            "describe",
-            "--tags",
-            "--exact-match",
-        ]),
-        "read DexKit tag",
-    )?;
-    if tag.trim() != version {
-        bail!(
-            "cached DexKit checkout tag is {}, expected {version}",
-            tag.trim()
-        )
-    }
-    Ok(())
 }
 
 fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
@@ -934,7 +806,6 @@ fn run_worker(
     root: &Path,
     apk: &Path,
     metadata: &ApkMetadata,
-    native: &DexKitNative,
     report: &Path,
     features: Option<&str>,
     workers: Option<u16>,
@@ -943,13 +814,9 @@ fn run_worker(
     let gradle = root.join("gradlew");
     let mut properties = vec![
         ("wekit.dexTest.apk", apk.to_string_lossy().to_string()),
-        (
-            "wekit.dexTest.nativeLibrary",
-            native.library_path.to_string_lossy().to_string(),
-        ),
         ("wekit.dexTest.report", report.to_string_lossy().to_string()),
-        ("wekit.dexTest.dexKitVersion", native.version.clone()),
-        ("wekit.dexTest.dexKitRevision", native.revision.clone()),
+        ("wekit.dexTest.engineVersion", ENGINE_VERSION.to_string()),
+        ("wekit.dexTest.engineRevision", ENGINE_REVISION.to_string()),
         (
             "wekit.dexTest.versionCode",
             metadata.version_code.to_string(),
@@ -993,7 +860,7 @@ fn read_report(path: &Path) -> Result<ApkReport> {
     serde_json::from_str(&text).with_context(|| format!("parse worker report {}", path.display()))
 }
 
-fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Error) -> ApkReport {
+fn infrastructure_report(apk: &Path, error: &anyhow::Error) -> ApkReport {
     ApkReport {
         schema_version: 3,
         worker_pid: 0,
@@ -1018,9 +885,9 @@ fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Erro
         is_google_play: false,
         dex_count: 0,
         environment: Environment {
-            dex_kit_version: native.version.clone(),
-            dex_kit_revision: native.revision.clone(),
-            architecture: native.architecture.clone(),
+            engine_version: ENGINE_VERSION.to_string(),
+            engine_revision: ENGINE_REVISION.to_string(),
+            architecture: env::consts::ARCH.to_string(),
             jvm_version: String::new(),
         },
         started_at: now_rfc3339(),

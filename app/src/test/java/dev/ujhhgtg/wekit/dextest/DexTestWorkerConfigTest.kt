@@ -15,7 +15,12 @@ class DexTestWorkerConfigTest {
         assertEquals("8.0.69", config.versionName)
         assertFalse(config.isGooglePlay)
         assertNull(config.featureSelectors)
-        assertNull(config.dexSqlNativeLibrary)
+        assertEquals(
+            java.nio.file.Paths.get("/tmp/libwekit_native.so").toAbsolutePath().normalize(),
+            config.dexSqlNativeLibrary,
+        )
+        assertEquals("dexsql", config.engineVersion)
+        assertEquals("revision", config.engineRevision)
     }
 
     @Test
@@ -31,15 +36,13 @@ class DexTestWorkerConfigTest {
     }
 
     @Test
-    fun parsesOptionalDexSqlNativeLibrary() {
+    fun requiresDexSqlNativeLibrary() {
         val properties = properties().apply {
-            setProperty("wekit.dexTest.dexSqlNativeLibrary", "../target/release/libwekit_native.so")
+            remove("wekit.dexTest.dexSqlNativeLibrary")
         }
-
-        assertEquals(
-            java.nio.file.Paths.get("../target/release/libwekit_native.so").toAbsolutePath().normalize(),
-            DexTestWorkerConfig.fromSystemProperties(properties).dexSqlNativeLibrary,
-        )
+        assertThrows(IllegalStateException::class.java) {
+            DexTestWorkerConfig.fromSystemProperties(properties)
+        }
     }
 
     @Test
@@ -56,10 +59,10 @@ class DexTestWorkerConfigTest {
 
     private fun properties() = Properties().apply {
         setProperty("wekit.dexTest.apk", "/tmp/wechat.apk")
-        setProperty("wekit.dexTest.nativeLibrary", "/tmp/libdexkit.so")
+        setProperty("wekit.dexTest.dexSqlNativeLibrary", "/tmp/libwekit_native.so")
         setProperty("wekit.dexTest.report", "/tmp/report.json")
-        setProperty("wekit.dexTest.dexKitVersion", "2.2.0")
-        setProperty("wekit.dexTest.dexKitRevision", "revision")
+        setProperty("wekit.dexTest.engineVersion", "dexsql")
+        setProperty("wekit.dexTest.engineRevision", "revision")
         setProperty("wekit.dexTest.versionCode", "3040")
         setProperty("wekit.dexTest.versionName", "8.0.69")
         setProperty("wekit.dexTest.buildTag", "Android_Wechat_RELEASE")

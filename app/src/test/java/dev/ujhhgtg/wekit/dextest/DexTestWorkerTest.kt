@@ -1,25 +1,23 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Properties
 import org.junit.jupiter.api.Test
-import org.luckypray.dexkit.DexKitBridge
 
 internal data class DexTestWorkerConfig(
     val apk: Path,
-    val nativeLibrary: Path,
-    val dexSqlNativeLibrary: Path?,
+    val dexSqlNativeLibrary: Path,
     val report: Path,
-    val dexKitVersion: String,
-    val dexKitRevision: String,
+    val engineVersion: String,
+    val engineRevision: String,
     val versionCode: Long,
     val versionName: String,
     val buildTag: String,
@@ -30,22 +28,20 @@ internal data class DexTestWorkerConfig(
     companion object {
         fun fromSystemProperties(properties: Properties): DexTestWorkerConfig {
             fun required(key: String) = properties.getProperty(key)?.takeIf(String::isNotBlank)
-                ?: error("missing required system property: $key")
+                ?: error("missing required system property: " + key)
             val isGooglePlay = required("wekit.dexTest.isGooglePlay").let { raw ->
                 raw.toBooleanStrictOrNull()
-                    ?: error("wekit.dexTest.isGooglePlay must be true or false, was $raw")
+                    ?: error("wekit.dexTest.isGooglePlay must be true or false, was " + raw)
             }
             return DexTestWorkerConfig(
                 apk = required("wekit.dexTest.apk").asPath.toAbsolutePath().normalize(),
-                nativeLibrary = required("wekit.dexTest.nativeLibrary").asPath.toAbsolutePath().normalize(),
-                dexSqlNativeLibrary = properties.getProperty("wekit.dexTest.dexSqlNativeLibrary")
-                    ?.takeIf(String::isNotBlank)
-                    ?.asPath
-                    ?.toAbsolutePath()
-                    ?.normalize(),
+                dexSqlNativeLibrary = required("wekit.dexTest.dexSqlNativeLibrary")
+                    .asPath
+                    .toAbsolutePath()
+                    .normalize(),
                 report = required("wekit.dexTest.report").asPath.toAbsolutePath().normalize(),
-                dexKitVersion = required("wekit.dexTest.dexKitVersion"),
-                dexKitRevision = required("wekit.dexTest.dexKitRevision"),
+                engineVersion = required("wekit.dexTest.engineVersion"),
+                engineRevision = required("wekit.dexTest.engineRevision"),
                 versionCode = required("wekit.dexTest.versionCode").toLongOrNull()
                     ?: error("wekit.dexTest.versionCode must be a long"),
                 versionName = required("wekit.dexTest.versionName"),
@@ -79,8 +75,8 @@ class DexTestWorkerTest {
         val started = Instant.now()
         val startedNanos = System.nanoTime()
         val environment = DexTestEnvironment(
-            dexKitVersion = config.dexKitVersion,
-            dexKitRevision = config.dexKitRevision,
+            engineVersion = config.engineVersion,
+            engineRevision = config.engineRevision,
             architecture = System.getProperty("os.arch").orEmpty(),
             jvmVersion = System.getProperty("java.version").orEmpty(),
         )
@@ -90,38 +86,29 @@ class DexTestWorkerTest {
                 DexResolutionTestRegistry.ITEMS,
                 config.featureSelectors,
             )
-            require(Files.isRegularFile(config.apk)) { "APK is not a regular file: ${config.apk}" }
-            require(Files.isRegularFile(config.nativeLibrary)) { "DexKit native library is not a regular file: ${config.nativeLibrary}" }
-            config.dexSqlNativeLibrary?.let {
-                require(Files.isRegularFile(it)) { "DexSQL native library is not a regular file: $it" }
-                System.load(it.toString())
+            require(Files.isRegularFile(config.apk)) { "APK is not a regular file: " + config.apk }
+            require(Files.isRegularFile(config.dexSqlNativeLibrary)) {
+                "DexSQL native library is not a regular file: " + config.dexSqlNativeLibrary
             }
-            System.load(config.nativeLibrary.toString())
-            DexKitBridge.create(config.apk.toString()).use { dexKit ->
-                val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
-                val classLoader = javaClass.classLoader ?: error("worker class loader is null")
-                // The DexKit *Data replacement reads metadata through DexSQL, so the dataset is
-                // required for every worker, not only for feature sets with SQL query delegates.
-                val dexSql = if (config.dexSqlNativeLibrary != null) {
-                    DexSqlBridge.open(listOf(config.apk.toString()))
-                } else null
-                try {
-                    val features = if (config.workers != null) {
-                        runDexBatchFeatures(entries, dexKit, host, classLoader, config.workers, dexSql)
-                    } else entries.map { entry ->
-                        runDexFeature(entry, dexKit, host, classLoader, dexSql = dexSql)
+            System.load(config.dexSqlNativeLibrary.toString())
+            val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
+            val classLoader = javaClass.classLoader ?: error("worker class loader is null")
+            DexSqlBridge.open(listOf(config.apk.toString())).use { dexSql ->
+                val features = if (config.workers != null) {
+                    runDexBatchFeatures(entries, host, classLoader, config.workers, dexSql)
+                } else {
+                    entries.map { entry ->
+                        runDexFeature(entry, host, classLoader, dexSql)
                     }
-                    buildReport(
-                        config = config,
-                        environment = environment,
-                        dexCount = dexKit.getDexNum(),
-                        started = started,
-                        elapsedMillis = elapsedMillis(startedNanos),
-                        features = features,
-                    )
-                } finally {
-                    dexSql?.close()
                 }
+                buildReport(
+                    config = config,
+                    environment = environment,
+                    dexCount = 0,
+                    started = started,
+                    elapsedMillis = elapsedMillis(startedNanos),
+                    features = features,
+                )
             }
         } catch (error: Throwable) {
             DexTestApkReport(
@@ -157,9 +144,9 @@ internal fun selectDexTestEntries(
         } else {
             entries.filter { it.className.substringAfterLast('.') == selector }
         }
-        require(matches.isNotEmpty()) { "unknown Dex resolver feature: $selector" }
+        require(matches.isNotEmpty()) { "unknown Dex resolver feature: " + selector }
         require(matches.size == 1) {
-            "ambiguous Dex resolver feature $selector; use its fully qualified name: " +
+            "ambiguous Dex resolver feature " + selector + "; use its fully qualified name: " +
                 matches.map(DexResolutionTestEntry::className).sorted().joinToString()
         }
         matches.single()
@@ -183,7 +170,8 @@ private fun buildReport(
         incomplete = delegates.count { it.status.name == "INCOMPLETE" },
     )
     val outcome = if (features.all {
-            it.outcome == DexTestFeatureOutcome.PASS || it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
+            it.outcome == DexTestFeatureOutcome.PASS ||
+                it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
         }
     ) DexTestApkOutcome.PASS else DexTestApkOutcome.FAIL
     return DexTestApkReport(

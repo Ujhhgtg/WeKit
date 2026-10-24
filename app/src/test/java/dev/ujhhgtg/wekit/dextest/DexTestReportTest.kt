@@ -40,7 +40,7 @@ class DexTestReportTest {
             apkPath = "/tmp/wechat_8069.apk",
             fileName = "wechat_8069.apk",
             label = "wechat_8069",
-            environment = DexTestEnvironment("2.2.0", "revision", "x86_64", "21"),
+            environment = DexTestEnvironment("dexsql", "workspace", "x86_64", "21"),
             startedAt = "2026-08-04T00:00:00Z",
             finishedAt = "2026-08-04T00:00:01Z",
             elapsedMillis = 1000,

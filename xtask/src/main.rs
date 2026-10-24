@@ -9,7 +9,7 @@
 //!   payload publish      Build the private release payload and publish it locally.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
-//!   dex-test [OPTIONS]   Resolve WeKit DexKit targets against desktop APKs.
+//!   dex-test [OPTIONS]   Resolve WeKit DexSQL targets against desktop APKs.
 //!   dex-report-diff      Compare member signatures in existing per-APK reports.
 //!   dex-test-ci          Prepare APK sources and mutable Dex-Test Release assets.
 //!   i18n-check           Validate the Android English and Chinese resource catalogs.
@@ -103,7 +103,7 @@ enum Cmd {
     /// Run `cargo clippy` on the native library for each target ABI.
     Clippy(NativeArgs),
 
-    /// Run DexKit resolvers against one or more WeChat APKs on this Linux desktop.
+    /// Run DexSQL resolvers against one or more WeChat APKs on this Linux desktop.
     DexTest(dex_test::DexTestArgs),
 
     /// Compare adjacent per-APK Dex reports in the supplied order; no APK/JVM required.
@@ -1044,8 +1044,6 @@ struct GradleVersionCatalog {
 #[derive(Deserialize)]
 struct GradleVersions {
     ndk: String,
-    #[serde(default)]
-    dexkit: Option<String>,
 }
 
 fn parse_pinned_ndk_version(text: &str, path: &Path) -> Result<String> {
@@ -1209,7 +1207,6 @@ fn validate_module_apk(path: &Path) -> Result<()> {
         "META-INF/com/google/android/updater-script",
         "lib/arm64-v8a/libwekit_zygisk.so",
         "lib/arm64-v8a/libwekit_loader.so",
-        "lib/arm64-v8a/libdexkit.so",
         "lib/arm64-v8a/libandroidx.graphics.path.so",
     ] {
         let mut entry = archive.by_name(name).with_context(|| {

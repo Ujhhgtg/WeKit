@@ -19,7 +19,7 @@ with zipfile.ZipFile(args.apk) as apk:
     for name in ("AndroidManifest.xml", "classes.dex", "resources.arsc", "lib/arm64-v8a/libwekit_native.so"):
         assert apk.getinfo(name).file_size > 0, f"missing business content: {name}"
     assert not any(name.startswith("META-INF/xposed/") or name in ("module.prop", "customize.sh") for name in names), "public injection content in private APK"
-    assert not any(name.endswith(("/libwekit_zygisk.so", "/libwekit_loader.so", "/libdexkit.so", "/libinvoke_tool.so", "/libproot.so")) for name in names), "nonbusiness native in payload"
+    assert not any(name.endswith(("/libwekit_zygisk.so", "/libwekit_loader.so", "/libinvoke_tool.so", "/libproot.so")) for name in names), "nonbusiness native in payload"
     assert sum(entry.file_size for entry in apk.infolist()) <= 256 * 1024 * 1024, "expanded ZIP exceeds client limit"
     assert sum(entry.file_size for entry in apk.infolist() if re.fullmatch(r"classes(?:\d+)?\.dex", entry.filename)) <= 128 * 1024 * 1024, "expanded DEX exceeds client limit"
     assert sum(entry.file_size for entry in apk.infolist() if entry.filename.startswith("lib/") and entry.filename.endswith(".so")) <= 64 * 1024 * 1024, "native exceeds client limit"
@@ -43,7 +43,7 @@ with zipfile.ZipFile(args.apk) as apk:
     resources = subprocess.check_output([str(tools / "aapt2"), "dump", "resources", str(args.apk)], text=True)
     assert re.search(r"^Package name=dev\.ujhhgtg\.wekit id=69$", resources, re.M), "wrong payload resource package ID"
     definitions = dex_definitions(apk, tools)
-    shared = ("Lkotlin/", "Lorg/luckypray/dexkit/", "Lcom/google/flatbuffers/", "Ldev/ujhhgtg/reflekt/",
+    shared = ("Lkotlin/", "Ldev/ujhhgtg/reflekt/",
               "Ldev/ujhhgtg/wekit/loader/api/", "Ldev/ujhhgtg/wekit/loader/abc/", "Ldev/ujhhgtg/wekit/bootstrap/")
     duplicated = [name for name in definitions if name.startswith(shared)]
     assert not duplicated, f"shared runtime duplicated in payload: {duplicated[:8]}"
