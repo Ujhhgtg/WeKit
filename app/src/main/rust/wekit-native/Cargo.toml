@@ -8,7 +8,7 @@ name = "wekit_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-dexsql = { git = "https://github.com/Ujhhgtg/dexsql.git", rev = "e1a1bcae83eae8c14d87f5a74895a427e6a4c080" }
+dexsql = { git = "https://github.com/Ujhhgtg/dexsql.git", rev = "d63ac350b231f4c1f16fa2edb0d9688e4a809707" }
 jni = { version = "0.22", default-features = false }
 libc = "0.2"
 markdown = "1"
