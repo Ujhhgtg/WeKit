@@ -671,9 +671,11 @@ fn run_worker(
         properties.push(("wekit.dexTest.workers", workers.to_string()));
     }
     let mut command = Command::new(&gradle);
-    command
-        .current_dir(root)
-        .args([":app:testStandardDebugUnitTest", "-PdexTestWorker=true"]);
+    command.current_dir(root).args([
+        ":app:testStandardDebugUnitTest",
+        "-PdexTestWorker=true",
+        "-Pprotect=false",
+    ]);
     for (key, value) in properties {
         command.arg(format!("-P{key}={value}"));
     }

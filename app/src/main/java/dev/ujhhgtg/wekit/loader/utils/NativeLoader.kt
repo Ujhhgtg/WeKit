@@ -1,15 +1,11 @@
 package dev.ujhhgtg.wekit.loader.utils
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Process
-import com.tencent.mmkv.MMKV
+import android.os.ParcelFileDescriptor
+import dev.ujhhgtg.lsparanoid.generated.LspBootstrap
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.File
-import kotlin.io.path.div
-import kotlin.io.path.exists
 
 /** Initializes bundled native libraries and resolves the APK's executable artifacts. */
 object NativeLoader {
@@ -19,6 +15,9 @@ object NativeLoader {
     private var zygiskNativeLibraries: Map<String, File> = emptyMap()
     private var installedNativeLibraryDir: File? = null
     private var nativeLibrariesLoaded = false
+    // Native verification discovers this descriptor independently through /proc/self/fd.
+    // Keep it alive for in-memory LSPosed/Zygisk dex loaders, which need not map the APK.
+    private var decoderApkDescriptor: ParcelFileDescriptor? = null
 
     /** Configures the copied Zygisk APK before module startup reaches [init]. */
     @JvmStatic
@@ -31,22 +30,32 @@ object NativeLoader {
         zygiskPayload = ZygiskNativePayload(apk, appDataDir)
     }
 
+    /** Loads the string decoder before startup or feature classes execute protected literals. */
+    fun initDecoder(modulePath: String) = synchronized(nativeLoadLock) {
+        if (LspBootstrap.libraryFileName.isEmpty() || LspBootstrap.isLoaded()) return@synchronized
+        val payload = zygiskPayload
+        if (decoderApkDescriptor == null) {
+            decoderApkDescriptor = ParcelFileDescriptor.open(payload?.apk ?: File(modulePath), ParcelFileDescriptor.MODE_READ_ONLY)
+        }
+        val decoder = if (payload == null) {
+            val instructionSet = if (Process.is64Bit()) "arm64" else "arm"
+            val directory = File(requireNotNull(File(modulePath).parentFile), "lib/$instructionSet")
+            File(directory, LspBootstrap.libraryFileName)
+        } else {
+            payload.decoderLibrary(LspBootstrap.libraryFileName)
+        }
+        LspBootstrap.loadAbsolute(decoder)
+    }
+
     /** The module APK used as the class path for standalone child processes. */
     fun bootstrapApk(): File = synchronized(nativeLoadLock) {
         zygiskPayload?.apk ?: File(StartupInfo.modulePath)
     }
 
-    fun init(hostCtx: Context) {
-        val libLoader = synchronized(nativeLoadLock) {
+    fun init() {
+        synchronized(nativeLoadLock) {
             ensureNativeLibrariesLoaded()
-            mmkvLibLoader()
         }
-        val mmkvDir = hostCtx.filesDir.toPath() / "mmkv"
-        if (!mmkvDir.exists()) {
-            mmkvDir.createDirsSafe()
-        }
-        MMKV.initialize(hostCtx, mmkvDir.toString(), libLoader)
-        MMKV.mmkvWithID(WePrefs.PREFS_NAME, MMKV.MULTI_PROCESS_MODE)
     }
 
     // Called under nativeLoadLock. Publish success only after all startup libraries load.
@@ -70,20 +79,6 @@ object NativeLoader {
             zygiskNativeLibraries = payload.loadLibraries()
         }
         nativeLibrariesLoaded = true
-    }
-
-    @SuppressLint("UnsafeDynamicallyLoadedCode")
-    private fun mmkvLibLoader(): MMKV.LibLoader = if (zygiskPayload == null) {
-        MMKV.LibLoader { name -> System.load(installedNativeLibrary(name).absolutePath) }
-    } else {
-        MMKV.LibLoader { name ->
-            val library = zygiskNativeLibraries[name]
-            if (library != null) {
-                System.load(library.absolutePath)
-            } else {
-                System.loadLibrary(name)
-            }
-        }
     }
 
     fun invokeToolExecutable(): File = bundledExecutable("invoke_tool")

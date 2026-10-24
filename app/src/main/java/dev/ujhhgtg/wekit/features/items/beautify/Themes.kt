@@ -80,7 +80,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -107,7 +107,7 @@ import kotlin.math.roundToInt
 /**
  * 主题功能 —— 从 cherrywechat_deobf 忠实移植。
  *
- * 目录结构（`moduleData/themes/<主题ID>/`）：
+ * 目录结构（`filesDir/wekit/themes/<主题ID>/`）：
  * - `manifest.json`：名称/作者/版本/描述；
  * - `colors.json` / `strings.json`：颜色/字符串键值（键名按场景分组）；
  * - `home/`、`chat/`、`chat/bubbles/`、`chat/emoji_tabs/`、`plus/`、`settings/`、`splash/`：图片。
@@ -129,7 +129,7 @@ object Themes : ClickableFeature(), IResolveDex {
     private const val TAG = "Themes"
 
     /** 与 cherrywechat 一致：主题根目录位于模块数据目录下 */
-    private val THEMES_PATH by lazy { (KnownPaths.moduleData / "themes").createDirsSafe() }
+    private val THEMES_PATH by lazy { (KnownPaths.moduleRoot / "themes").createDirsSafe() }
 
     private const val KEY_CURRENT_THEME = "themes_current_id"
 
@@ -1433,7 +1433,10 @@ object Themes : ClickableFeature(), IResolveDex {
 
     private val classSmileyTabAdapter by dexClass {
         matcher {
-            usingStrings("MicroMsg.emoji.SmileyPanel.SmileyTabAdapter", "setSelection: %s")
+            usingStrings(
+                "MicroMsg.emoji.SmileyPanel.SmileyTabAdapter",
+                "emoji group info is null. position:%d",
+            )
         }
     }
 
@@ -1635,7 +1638,7 @@ object Themes : ClickableFeature(), IResolveDex {
                     "com.tencent.mm.ui.LauncherUI" -> {
                         val chattingUiLayout = contentView.findViewWhich {
                             it.javaClass.name == "com.tencent.mm.pluginsdk.ui.chat.ChattingUILayout"
-                        } as ViewGroup? ?: return@hookAfter
+                        } as? ViewGroup? ?: return@hookAfter
                         themedDrawable("chat/actionbar/background.png")?.let { d ->
                             val parent = chattingUiLayout.parent as? ViewGroup ?: return@let
                             parent.addView(
