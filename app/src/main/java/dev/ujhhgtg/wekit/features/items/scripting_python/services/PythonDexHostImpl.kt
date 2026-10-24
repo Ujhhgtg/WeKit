@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
+import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
 import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
 import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSpecJson
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
@@ -15,7 +16,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
 
 /**
  * Executes Python `wekit.dex` spec queries through the standalone matcher session.

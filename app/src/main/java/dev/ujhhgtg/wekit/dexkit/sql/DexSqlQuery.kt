@@ -151,7 +151,11 @@ internal class SqlMethodQuery internal constructor() {
     }
 
     /** Add one method-to-field access matcher on the access-method side. */
-    fun usingField(fieldName: String? = null, fieldType: String? = null, usingType: String? = null) {
+    fun usingField(
+        fieldName: String? = null,
+        fieldType: String? = null,
+        usingType: String? = null,
+    ) {
         usingFields += SqlUsingField(fieldName, fieldType, usingType)
     }
 
@@ -269,8 +273,7 @@ internal class SqlMethodQuery internal constructor() {
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Reject declaring-class packages (prefix semantics, DexKit excludePackages). */
-    fun excludePackages(vararg excludePackages: String) =
-        literals.excludePackages(*excludePackages)
+    fun excludePackages(vararg excludePackages: String) = literals.excludePackages(*excludePackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
@@ -333,7 +336,11 @@ internal class SqlClassQuery internal constructor() {
     internal val literals = DexSqlLiterals()
     internal val methods = mutableListOf<SqlMethodQuery>()
     internal val fields = mutableListOf<SqlClassFieldUnit>()
+
+    /** Directly-declared interface units; units match injectively (DexKit interfaces { }). */
+    internal val interfaceMatches = mutableListOf<SqlNameMatch>()
     internal var fieldCountRange: IntRange? = null
+    internal var methodCountRange: IntRange? = null
     internal var interfaceCountRange: IntRange? = null
 
     /** Inclusive declared-field count range; min == max keeps the equality form. */
@@ -350,6 +357,20 @@ internal class SqlClassQuery internal constructor() {
     /** Inclusive declared-field count range. */
     fun fieldCount(range: IntRange) = fieldCount(range.first, range.last)
 
+    /** Inclusive declared-method count range; min == max keeps the equality form. */
+    fun methodCount(count: Int) {
+        methodCountRange = count..count
+    }
+
+    /** Inclusive declared-method count range. */
+    fun methodCount(min: Int, max: Int) {
+        require(min in 0..max) { "DexSQL methodCount range must satisfy 0 <= min <= max" }
+        methodCountRange = min..max
+    }
+
+    /** Inclusive declared-method count range. */
+    fun methodCount(range: IntRange) = methodCount(range.first, range.last)
+
     /** Inclusive direct-interface count range; min == max keeps the equality form. */
     fun interfaceCount(count: Int) {
         interfaceCountRange = count..count
@@ -363,6 +384,16 @@ internal class SqlClassQuery internal constructor() {
 
     /** Inclusive direct-interface count range. */
     fun interfaceCount(range: IntRange) = interfaceCount(range.first, range.last)
+
+    /** Match one directly-declared interface name case-sensitively (DexKit interfaceSpec). */
+    fun interfaceSpec(mode: SqlStringMatchMode, value: String) {
+        interfaceMatches += SqlNameMatch(mode, value)
+    }
+
+    /** Match one directly-declared interface name exactly (DexKit interfaceSpec). */
+    fun interfaceSpec(value: String) {
+        interfaceMatches += SqlNameMatch(SqlStringMatchMode.Equals, value)
+    }
 
     /** Set the class descriptor; same as assigning [className]. */
     fun className(value: String) {
@@ -424,8 +455,7 @@ internal class SqlClassQuery internal constructor() {
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Reject packages, emitted as NOT (prefix match) against the class descriptor column. */
-    fun excludePackages(vararg excludePackages: String) =
-        literals.excludePackages(*excludePackages)
+    fun excludePackages(vararg excludePackages: String) = literals.excludePackages(*excludePackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
@@ -482,8 +512,7 @@ internal class SqlFieldQuery internal constructor() {
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
     /** Reject declaring-class packages (prefix semantics). */
-    fun excludePackages(vararg excludePackages: String) =
-        literals.excludePackages(*excludePackages)
+    fun excludePackages(vararg excludePackages: String) = literals.excludePackages(*excludePackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)

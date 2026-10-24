@@ -154,7 +154,8 @@ internal class DexMatcherEvaluator(
                 }
             }
         }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) return false
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages))
+            return false
         spec.declaredClass?.let { classSpec ->
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
                 return false
@@ -207,7 +208,8 @@ internal class DexMatcherEvaluator(
 
     fun matchesField(info: DexFieldInfo, spec: FieldSpec): Boolean {
         spec.name?.let { if (!it.matches(info.name)) return false }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) return false
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages))
+            return false
         spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.type?.let { typeSpec ->
             if (!matchesFieldType(info.typeName, typeSpec)) return false

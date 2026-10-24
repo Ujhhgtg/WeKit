@@ -177,11 +177,7 @@ private fun appendClassFieldUnits(
         unit.name?.let { where += alias + ".field_name = " + sqlQuote(it) }
         unit.fieldType?.let {
             where +=
-                "instr(" +
-                    alias +
-                    ".field_descriptor, " +
-                    sqlQuote(":" + javaType(it)) +
-                    ") > 0"
+                "instr(" + alias + ".field_descriptor, " + sqlQuote(":" + javaType(it)) + ") > 0"
         }
         unit.modifiers?.let { mask -> where += "(($alias.access_flags & $mask) = $mask)" }
     }
@@ -536,14 +532,29 @@ private fun appendAnnotationConstraints(
                 val dexFile = "d" + index + "_" + ordinal
                 val strings = "s" + index + "_" + ordinal
                 joins +=
-                    "JOIN annotation_elements " + element + " ON " + element +
-                        ".annotation_off = " + alias + ".annotation_off"
+                    "JOIN annotation_elements " +
+                        element +
+                        " ON " +
+                        element +
+                        ".annotation_off = " +
+                        alias +
+                        ".annotation_off"
                 joins +=
-                    "JOIN dex_files " + dexFile + " ON " + dexFile + ".file_id = " + element +
+                    "JOIN dex_files " +
+                        dexFile +
+                        " ON " +
+                        dexFile +
+                        ".file_id = " +
+                        element +
                         ".file_id"
                 joins +=
-                    "JOIN strings " + strings + " ON " + strings +
-                        ".string_idx = " + element + ".value_index"
+                    "JOIN strings " +
+                        strings +
+                        " ON " +
+                        strings +
+                        ".string_idx = " +
+                        element +
+                        ".value_index"
                 where += element + ".file_id = " + alias + ".file_id"
                 where += element + ".depth = 1"
                 where += element + ".ordinal = " + ordinal
@@ -776,7 +787,9 @@ internal fun emitClass(query: SqlClassQuery): String {
             where += "((c.access_flags & $mask) = $mask)"
         }
         if (
-            (query.fieldCountRange != null || query.interfaceCountRange != null) && !classesJoined
+            (query.fieldCountRange != null ||
+                query.methodCountRange != null ||
+                query.interfaceCountRange != null) && !classesJoined
         ) {
             joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
             where += "c.file_id = cm.file_id"
@@ -784,8 +797,11 @@ internal fun emitClass(query: SqlClassQuery): String {
             classesJoined = true
         }
         query.fieldCountRange?.let { where += countConditions("c.field_count", it) }
+        query.methodCountRange?.let { where += countConditions("c.method_count", it) }
         query.interfaceCountRange?.let { where += countConditions("c.interface_count", it) }
         where += methodMatcherDistinctnessConditions(nestedMethodAliases)
+        val interfaceAliases = appendClassInterfaceUnits(query.interfaceMatches, "cm", joins, where)
+        where += interfaceDistinctnessConditions(interfaceAliases)
         query.superClassConstraint?.let {
             appendSuperClassConstraint(it, "cm", nextIndex, joins, where)
         }
@@ -812,7 +828,9 @@ internal fun emitClass(query: SqlClassQuery): String {
             superClassConstraint != null ||
             query.modifiers != null ||
             query.fieldCountRange != null ||
+            query.methodCountRange != null ||
             query.interfaceCountRange != null ||
+            query.interfaceMatches.isNotEmpty() ||
             query.fields.isNotEmpty(),
     ) {
         "sqlClass requires at least one predicate"
@@ -829,7 +847,10 @@ internal fun emitClass(query: SqlClassQuery): String {
         where += "((c.access_flags & $mask) = $mask)"
     }
     query.fieldCountRange?.let { where += countConditions("c.field_count", it) }
+    query.methodCountRange?.let { where += countConditions("c.method_count", it) }
     query.interfaceCountRange?.let { where += countConditions("c.interface_count", it) }
+    val interfaceAliases = appendClassInterfaceUnits(query.interfaceMatches, "c", joins, where)
+    where += interfaceDistinctnessConditions(interfaceAliases)
     appendClassFieldUnits(query.fields, "c.descriptor", joins, where)
     superClassConstraint?.let {
         appendSuperClassConstraint(it, null, 0, joins, where)
@@ -899,6 +920,48 @@ internal fun emitField(query: SqlFieldQuery): String {
  * index: every nested method matcher must bind a different method row (same file_id and method_idx
  * means the same method).
  */
+private fun appendClassInterfaceUnits(
+    matches: List<SqlNameMatch>,
+    anchorAlias: String,
+    joins: MutableList<String>,
+    where: MutableList<String>,
+): List<String> {
+    val aliases = mutableListOf<String>()
+    matches.forEachIndexed { index, match ->
+        val alias = "ci$index"
+        joins += "JOIN class_interfaces $alias ON $alias.class_idx = $anchorAlias.class_idx"
+        where += "$alias.file_id = $anchorAlias.file_id"
+        where += nameMatchCondition("$alias.interface_descriptor", match, SqlNameLiteralKind.Class)
+        aliases += alias
+    }
+    return aliases
+}
+
+/**
+ * Pairwise distinctness for injectively matched class interface units: both aliases join the same
+ * matched class, so an equal ordinal means the same interface row.
+ */
+private fun interfaceDistinctnessConditions(aliases: List<String>): List<String> {
+    val conditions = mutableListOf<String>()
+    for (leftIndex in aliases.indices) {
+        for (rightIndex in leftIndex + 1 until aliases.size) {
+            val left = aliases[leftIndex]
+            val right = aliases[rightIndex]
+            conditions +=
+                "NOT (" +
+                    left +
+                    ".file_id = " +
+                    right +
+                    ".file_id AND " +
+                    left +
+                    ".ordinal = " +
+                    right +
+                    ".ordinal)"
+        }
+    }
+    return conditions
+}
+
 private fun methodMatcherDistinctnessConditions(aliases: List<String>): List<String> {
     val conditions = mutableListOf<String>()
     for (leftIndex in aliases.indices) {

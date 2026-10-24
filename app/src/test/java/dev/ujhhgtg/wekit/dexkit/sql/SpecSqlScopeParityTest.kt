@@ -448,10 +448,10 @@ class SpecSqlScopeParityTest {
                 "AND NOT (instr(m.class_descriptor, 'Lcom/test/ui/') = 1) " +
                 "ORDER BY m.descriptor;",
             methodSpec {
-                    name("run")
-                    searchPackages("com.test")
-                    excludePackages("com.test.ui")
-                }
+                name("run")
+                searchPackages("com.test")
+                excludePackages("com.test.ui")
+            }
                 .toSqlOrNull(),
         )
         assertEquals(
@@ -461,9 +461,9 @@ class SpecSqlScopeParityTest {
                 "AND uf0.method_idx = m.method_idx AND uf0.field_type = 'I' " +
                 "ORDER BY m.descriptor;",
             methodSpec {
-                    name("run")
-                    usingField { type = "int" }
-                }
+                name("run")
+                usingField { type = "int" }
+            }
                 .toSqlOrNull(),
         )
         assertEquals(
@@ -471,9 +471,9 @@ class SpecSqlScopeParityTest {
                 "WHERE c.descriptor = 'Lcom/test/A;' AND c.field_count = 2 " +
                 "ORDER BY c.descriptor;",
             classSpec {
-                    className("com.test.A")
-                    fieldCount = 2
-                }
+                className("com.test.A")
+                fieldCount = 2
+            }
                 .toSqlOrNull(),
         )
         assertEquals(
@@ -481,9 +481,9 @@ class SpecSqlScopeParityTest {
                 "WHERE c.descriptor = 'Lcom/test/A;' AND c.interface_count = 0 " +
                 "ORDER BY c.descriptor;",
             classSpec {
-                    className("com.test.A")
-                    interfaceCount = 0
-                }
+                className("com.test.A")
+                interfaceCount = 0
+            }
                 .toSqlOrNull(),
         )
         assertEquals(
@@ -492,10 +492,10 @@ class SpecSqlScopeParityTest {
                 "AND NOT (instr(f.class_descriptor, 'Lcom/test/ui/') = 1) " +
                 "ORDER BY f.descriptor;",
             fieldSpec {
-                    name("count")
-                    searchPackages("com.test")
-                    excludePackages("com.test.ui")
-                }
+                name("count")
+                searchPackages("com.test")
+                excludePackages("com.test.ui")
+            }
                 .toSqlOrNull(),
         )
     }
@@ -508,10 +508,10 @@ class SpecSqlScopeParityTest {
                 "OR param_types_match(m.param_descriptors, 'Ljava/lang/String;,I') = 1) " +
                 "ORDER BY m.descriptor;",
             methodSpec {
-                    name("run")
-                    anyOf { paramTypes("java.lang.String") }
-                    anyOf { paramTypes("java.lang.String", "int") }
-                }
+                name("run")
+                anyOf { paramTypes("java.lang.String") }
+                anyOf { paramTypes("java.lang.String", "int") }
+            }
                 .toSqlOrNull(),
         )
     }
@@ -519,39 +519,39 @@ class SpecSqlScopeParityTest {
     @Test
     fun declaredClassAnnotationEmitsAnnotationJoins() {
         assertEquals(
-"SELECT DISTINCT m.descriptor AS method FROM methods m " +
-    "JOIN annotation_elements_resolved ar0 ON ar0.owner = m.class_descriptor " +
-    "JOIN annotation_elements ae0_0 ON ae0_0.annotation_off = ar0.annotation_off " +
-    "JOIN dex_files d0_0 ON d0_0.file_id = ae0_0.file_id " +
-    "JOIN strings s0_0 ON s0_0.string_idx = ae0_0.value_index " +
-    "JOIN annotation_elements ae0_1 ON ae0_1.annotation_off = ar0.annotation_off " +
-    "JOIN dex_files d0_1 ON d0_1.file_id = ae0_1.file_id " +
-    "JOIN strings s0_1 ON s0_1.string_idx = ae0_1.value_index " +
-    "WHERE m.name = 'callback' AND m.return_descriptor = 'Z' " +
-    "AND m.param_count = 1 AND ar0.owner_kind = 'class' " +
-    "AND ar0.annotation = 'Ldalvik/annotation/Signature;' " +
-    "AND ar0.visibility = 2 AND ar0.element_name = 'value' " +
-    "AND ar0.value_kind = 'array' AND ae0_0.file_id = ar0.file_id " +
-    "AND ae0_0.depth = 1 AND ae0_0.ordinal = 0 " +
-    "AND ae0_0.value_kind = 'string' " +
-    "AND s0_0.string_pool_id = d0_0.string_pool_id " +
-    "AND s0_0.value = 'Ljava/lang/Object;' " +
-    "AND ae0_1.file_id = ar0.file_id AND ae0_1.depth = 1 " +
-    "AND ae0_1.ordinal = 1 AND ae0_1.value_kind = 'string' " +
-    "AND s0_1.string_pool_id = d0_1.string_pool_id AND s0_1.value = '>;' " +
-    "ORDER BY m.descriptor;",
+            "SELECT DISTINCT m.descriptor AS method FROM methods m " +
+                "JOIN annotation_elements_resolved ar0 ON ar0.owner = m.class_descriptor " +
+                "JOIN annotation_elements ae0_0 ON ae0_0.annotation_off = ar0.annotation_off " +
+                "JOIN dex_files d0_0 ON d0_0.file_id = ae0_0.file_id " +
+                "JOIN strings s0_0 ON s0_0.string_idx = ae0_0.value_index " +
+                "JOIN annotation_elements ae0_1 ON ae0_1.annotation_off = ar0.annotation_off " +
+                "JOIN dex_files d0_1 ON d0_1.file_id = ae0_1.file_id " +
+                "JOIN strings s0_1 ON s0_1.string_idx = ae0_1.value_index " +
+                "WHERE m.name = 'callback' AND m.return_descriptor = 'Z' " +
+                "AND m.param_count = 1 AND ar0.owner_kind = 'class' " +
+                "AND ar0.annotation = 'Ldalvik/annotation/Signature;' " +
+                "AND ar0.visibility = 2 AND ar0.element_name = 'value' " +
+                "AND ar0.value_kind = 'array' AND ae0_0.file_id = ar0.file_id " +
+                "AND ae0_0.depth = 1 AND ae0_0.ordinal = 0 " +
+                "AND ae0_0.value_kind = 'string' " +
+                "AND s0_0.string_pool_id = d0_0.string_pool_id " +
+                "AND s0_0.value = 'Ljava/lang/Object;' " +
+                "AND ae0_1.file_id = ar0.file_id AND ae0_1.depth = 1 " +
+                "AND ae0_1.ordinal = 1 AND ae0_1.value_kind = 'string' " +
+                "AND s0_1.string_pool_id = d0_1.string_pool_id AND s0_1.value = '>;' " +
+                "ORDER BY m.descriptor;",
             methodSpec {
-                    name("callback")
-                    returnType = "boolean"
-                    paramCount = 1
-                    declaredClass {
-                        annotation {
-                            type = "dalvik.annotation.Signature"
-                            visibility = AnnotationVisibility.System
-                            elements("value", "Ljava/lang/Object;", ">;")
-                        }
+                name("callback")
+                returnType = "boolean"
+                paramCount = 1
+                declaredClass {
+                    annotation {
+                        type = "dalvik.annotation.Signature"
+                        visibility = AnnotationVisibility.System
+                        elements("value", "Ljava/lang/Object;", ">;")
                     }
                 }
+            }
                 .toSqlOrNull(),
         )
     }
@@ -568,15 +568,85 @@ class SpecSqlScopeParityTest {
                 "AND NOT (cf0.file_id = cf1.file_id AND cf0.field_idx = cf1.field_idx) " +
                 "ORDER BY c.descriptor;",
             classSpec {
-                    className("com.test.A")
-                    field {
-                        name = "field_UserName"
-                        type = "java.lang.String"
-                        modifiers = 8
-                    }
-                    field { name = "field_StatusID" }
+                className("com.test.A")
+                field {
+                    name = "field_UserName"
+                    type = "java.lang.String"
+                    modifiers = 8
                 }
+                field { name = "field_StatusID" }
+            }
                 .toSqlOrNull(),
+        )
+    }
+
+    @Test
+    fun classInterfacesEmitInjectiveInterfaceUnits() {
+        val spec = classSpec {
+            usingStrings("activity")
+            interfaceSpec { className = "android.app.Activity" }
+            interfaceSpec { className = "android.view.ViewOnClickListener" }
+        }
+        assertEquals(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm " +
+                "JOIN method_strings ms0 ON ms0.method = cm.descriptor " +
+                "JOIN class_interfaces ci0 ON ci0.class_idx = cm.class_idx " +
+                "JOIN class_interfaces ci1 ON ci1.class_idx = cm.class_idx " +
+                "WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx " +
+                "AND instr(ms0.value, 'activity') > 0 " +
+                "AND ci0.file_id = cm.file_id " +
+                "AND ci0.interface_descriptor = 'Landroid/app/Activity;' " +
+                "AND ci1.file_id = cm.file_id " +
+                "AND ci1.interface_descriptor = 'Landroid/view/ViewOnClickListener;' " +
+                "AND NOT (ci0.file_id = ci1.file_id AND ci0.ordinal = ci1.ordinal) " +
+                "ORDER BY cm.class_descriptor;",
+            spec.toSqlOrNull(),
+        )
+        assertTrue(spec.isSqlExpressible())
+        assertClassParity(
+            sqlClass {
+                usingStrings("activity")
+                interfaceSpec("android.app.Activity")
+                interfaceSpec("android.view.ViewOnClickListener")
+            },
+            spec,
+        )
+    }
+
+    @Test
+    fun classMethodCountEmitsCountPredicateOnBothClassShapes() {
+        val bare = classSpec {
+            className("com.tencent.mm.ui.LauncherUI")
+            methodCount(1)
+        }
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                "WHERE c.descriptor = 'Lcom/tencent/mm/ui/LauncherUI;' " +
+                "AND c.method_count = 1 ORDER BY c.descriptor;",
+            bare.toSqlOrNull(),
+        )
+        assertTrue(bare.isSqlExpressible())
+        val units = classSpec {
+            usingStrings("activity")
+            methodCount = 1..1
+        }
+        assertEquals(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm " +
+                "JOIN method_strings ms0 ON ms0.method = cm.descriptor " +
+                "JOIN classes c ON c.descriptor = cm.class_descriptor " +
+                "WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx " +
+                "AND instr(ms0.value, 'activity') > 0 " +
+                "AND c.file_id = cm.file_id AND c.class_idx = cm.class_idx " +
+                "AND c.method_count = 1 ORDER BY cm.class_descriptor;",
+            units.toSqlOrNull(),
+        )
+        assertTrue(units.isSqlExpressible())
+        assertClassParity(
+            sqlClass {
+                className("com.tencent.mm.ui.LauncherUI")
+                methodCount(1)
+            },
+            bare,
         )
     }
 
@@ -584,23 +654,23 @@ class SpecSqlScopeParityTest {
     fun packageExclusionsAreEmittedForEveryKind() {
         assertTrue(
             methodSpec {
-                    searchPackages("com.tencent.mm")
-                    excludePackages("com.tencent.mm.ui")
-                }
+                searchPackages("com.tencent.mm")
+                excludePackages("com.tencent.mm.ui")
+            }
                 .isSqlExpressible(),
         )
         assertTrue(
             classSpec {
-                    className("com.tencent.mm.SomeClass")
-                    excludePackages("com.tencent.mm.ui")
-                }
+                className("com.tencent.mm.SomeClass")
+                excludePackages("com.tencent.mm.ui")
+            }
                 .isSqlExpressible(),
         )
         assertTrue(
             fieldSpec {
-                    name("someField")
-                    excludePackages("com.tencent.mm.ui")
-                }
+                name("someField")
+                excludePackages("com.tencent.mm.ui")
+            }
                 .isSqlExpressible(),
         )
     }

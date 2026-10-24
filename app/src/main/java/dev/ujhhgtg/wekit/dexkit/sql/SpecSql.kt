@@ -285,8 +285,12 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
 }
 
 internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
-    if (interfaces.isNotEmpty() || methodCount != null || annotations.isNotEmpty()) {
-        return null
+    if (annotations.isNotEmpty()) return null
+    val interfaceSpecs = mutableListOf<SqlNameMatch>()
+    for (interfaceSpec in interfaces) {
+        if (!interfaceSpec.isNameOnly()) return null
+        val nameSpec = interfaceSpec.className ?: return null
+        interfaceSpecs += SqlNameMatch(nameSpec.match.toSqlMode(), nameSpec.value)
     }
     if (usingStrings.any(StringSpec::isEmptyNonEquality)) return null
     val query = SqlClassQuery()
@@ -310,7 +314,9 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
     if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
     if (excludePackages.isNotEmpty()) query.excludePackages(*excludePackages.toTypedArray())
     fieldCount?.let { query.fieldCount(it) }
+    methodCount?.let { query.methodCount(it) }
     interfaceCount?.let { query.interfaceCount(it) }
+    interfaceSpecs.forEach { query.interfaceSpec(it.mode, it.value) }
     methods.forEach { methodSpec ->
         val nestedQuery = methodSpec.toSqlMethodQueryOrNull(nested = true) ?: return null
         if (
@@ -361,7 +367,9 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
             searchPackages.isEmpty() &&
             excludePackages.isEmpty() &&
             fieldCount == null &&
+            methodCount == null &&
             interfaceCount == null &&
+            interfaces.isEmpty() &&
             fields.isEmpty() &&
             methods.isEmpty()
     ) {

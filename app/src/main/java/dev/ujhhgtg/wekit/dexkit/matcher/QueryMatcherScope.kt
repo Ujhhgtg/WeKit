@@ -305,7 +305,11 @@ class QueryMatcherScope(
         forEachCandidateDescriptor(sources) { descriptor ->
             if (
                 !descriptor.startsWith("[") &&
-                    methodDescriptorInPackages(descriptor, spec.searchPackages, spec.excludePackages)
+                    methodDescriptorInPackages(
+                        descriptor,
+                        spec.searchPackages,
+                        spec.excludePackages,
+                    )
             ) {
                 val info = loadMethod(descriptor, spec)
                 if (
@@ -1272,7 +1276,8 @@ private fun JsonObject.nameMatchesPackages(
 
 /** Cheap necessary-condition prefilter on the raw method document (no model construction). */
 private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)) return false
+    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages))
+        return false
     spec.descriptor?.let { if (json.stringValue("descriptor") != it) return false }
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
@@ -1367,7 +1372,8 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw field document. */
 private fun fieldPrefilter(json: JsonObject, spec: FieldSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)) return false
+    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages))
+        return false
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
         ?.let {
