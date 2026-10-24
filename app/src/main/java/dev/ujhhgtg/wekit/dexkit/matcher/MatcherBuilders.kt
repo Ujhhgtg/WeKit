@@ -54,6 +54,9 @@ class ClassSpecBuilder internal constructor() {
     val methods = mutableListOf<MethodSpec>()
     val usingStrings = mutableListOf<StringSpec>()
 
+    /** DexKit annotation constraints (evaluation-only keywords; candidate generation ignores them). */
+    var annotations: List<AnnotationSpec> = emptyList()
+
     fun className(value: String, match: NameMatch = NameMatch.Equals) {
         className = NameSpec(value, match)
     }
@@ -111,6 +114,7 @@ class ClassSpecBuilder internal constructor() {
         interfaceCount = interfaceCount,
         modifiers = modifiers,
         usingStrings = usingStrings.toList(),
+        annotations = annotations,
     )
 }
 
@@ -132,6 +136,12 @@ class MethodSpecBuilder internal constructor() {
     val callerMethods = mutableListOf<MethodSpec>()
     val anyOf = mutableListOf<MethodSpec>()
     val allOf = mutableListOf<MethodSpec>()
+
+    /** DexKit opcode constraint (evaluation-only). */
+    var opcodes: OpcodeSpec? = null
+
+    /** DexKit annotation constraints (evaluation-only). */
+    var annotations: List<AnnotationSpec> = emptyList()
 
     fun name(value: String, match: NameMatch = NameMatch.Equals) {
         name = NameSpec(value, match)
@@ -256,6 +266,8 @@ class MethodSpecBuilder internal constructor() {
         callerMethods = callerMethods.toList(),
         anyOf = anyOf.toList(),
         allOf = allOf.toList(),
+        opcodes = opcodes,
+        annotations = annotations,
     )
 }
 

@@ -6,8 +6,11 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
 /**
  * Pure evaluator for [ClassSpec]/[MethodSpec]/[FieldSpec] over the DexSQL metadata API, mirroring
@@ -48,7 +51,8 @@ internal class DexMatcherEvaluator(
                 spec.methodCount == null &&
                 spec.interfaceCount == null &&
                 spec.modifiers == null &&
-                spec.usingStrings.isEmpty()
+                spec.usingStrings.isEmpty() &&
+                spec.annotations.isEmpty()
         }
         spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
         spec.interfaceCount?.let { if (info.interfaces.size !in it) return false }
@@ -79,6 +83,11 @@ internal class DexMatcherEvaluator(
                     classMethodUsingStrings(method).any { stringSpec.matches(it) }
                 }
             if (!matched) return false
+        }
+        if (spec.annotations.isNotEmpty() &&
+            !matchesAnnotations(info.rawJson["annotations"], spec.annotations)
+        ) {
+            return false
         }
         return true
     }
@@ -168,6 +177,14 @@ internal class DexMatcherEvaluator(
         }
         for (child in spec.allOf) if (!matchesMethod(info, child)) return false
         if (spec.anyOf.isNotEmpty() && spec.anyOf.none { matchesMethod(info, it) }) return false
+        spec.opcodes?.let { opcodeSpec ->
+            if (!matchesOpcodes(fullMethodJson(info), opcodeSpec)) return false
+        }
+        if (spec.annotations.isNotEmpty() &&
+            !matchesAnnotations(fullMethodJson(info)["annotations"], spec.annotations)
+        ) {
+            return false
+        }
         return true
     }
 
@@ -223,10 +240,19 @@ internal class DexMatcherEvaluator(
      * method-document failure (array-class method refs inside invokes) must not abort resolution:
      * treat the relations as unavailable instead.
      */
-    private fun numbersJson(info: DexMethodInfo): kotlinx.serialization.json.JsonObject {
+    private fun numbersJson(info: DexMethodInfo): JsonObject = fullMethodJson(info)
+
+    /**
+     * Top-level method JSON (relations/opcodes/annotations). Shallow class-member refs only carry
+     * scalars, so the full document is fetched on demand; an unreadable document degrades to the
+     * shallow object (constraints that need the full data then cleanly do not match).
+     */
+    private fun fullMethodJson(info: DexMethodInfo): JsonObject {
         val shallow = info.rawJson
-        if (shallow.containsKey("using_numbers") ||
+        if (shallow.containsKey("annotations") ||
+            shallow.containsKey("opcode_count") ||
             shallow.containsKey("invokes") ||
+            shallow.containsKey("using_numbers") ||
             shallow.containsKey("using_fields") ||
             shallow.containsKey("using_strings")
         ) {
@@ -236,6 +262,87 @@ internal class DexMatcherEvaluator(
             metadata.methodInfo(info.descriptor)?.rawJson ?: shallow
         } catch (e: DexSqlException) {
             shallow
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Opcodes / annotations (additive metadata keys; missing data = non-match)
+    // ------------------------------------------------------------------
+
+    private fun matchesOpcodes(json: JsonObject, spec: OpcodeSpec): Boolean {
+        val count = (json["opcode_count"] as? JsonPrimitive)?.intOrNull ?: return false
+        spec.count?.let { if (count !in it) return false }
+        if (spec.names.isEmpty()) return true
+        val names = (json["opcodes"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            ?: emptyList()
+        return when (spec.matchType) {
+            OpcodeMatchType.Contains -> spec.names.all { requested -> names.contains(requested) }
+            OpcodeMatchType.Equals -> names == spec.names
+        }
+    }
+
+    private fun matchesAnnotations(actual: JsonElement?, specs: List<AnnotationSpec>): Boolean {
+        val array = actual as? JsonArray ?: return false
+        val annotations = array.mapNotNull { it as? JsonObject }
+        return injectiveMatch(specs, annotations) { spec, annotation ->
+            matchesAnnotation(annotation, spec)
+        }
+    }
+
+    private fun matchesAnnotation(annotation: JsonObject, spec: AnnotationSpec): Boolean {
+        spec.type?.let { typeSpec ->
+            val typeName = (annotation["type_name"] as? JsonPrimitive)?.contentOrNull
+                ?: (annotation["type"] as? JsonPrimitive)?.contentOrNull?.let(::javaTypeNameOf)
+                ?: return false
+            if (!nameSpecMatchesJavaName(typeSpec, typeName)) return false
+        }
+        spec.visibility?.let { visibility ->
+            val name = (annotation["visibility"] as? JsonPrimitive)?.contentOrNull ?: return false
+            if (!visibility.matches(name)) return false
+        }
+        if (spec.elements.isNotEmpty()) {
+            val elements = (annotation["elements"] as? JsonArray)
+                ?.mapNotNull { it as? JsonObject }
+                ?: return false
+            for (elementSpec in spec.elements) {
+                val matched = elements.any { element ->
+                    val name = (element["name"] as? JsonPrimitive)?.contentOrNull ?: return@any false
+                    nameSpecMatchesJavaName(elementSpec.name, name) &&
+                        matchesAnnotationValue(element["value"], elementSpec.value)
+                }
+                if (!matched) return false
+            }
+        }
+        return true
+    }
+
+    private fun matchesAnnotationValue(actual: JsonElement?, expected: AnnotationValue): Boolean {
+        return when (expected) {
+            is AnnotationValue.Text ->
+                actual is JsonPrimitive && actual.contentOrNull == expected.value
+            is AnnotationValue.DescriptorValue ->
+                actual is JsonPrimitive &&
+                    actual.contentOrNull?.let { value ->
+                        value == expected.value ||
+                            javaTypeNameOf(value) == javaTypeNameOf(expected.value)
+                    } == true
+            is AnnotationValue.BooleanValue ->
+                actual is JsonPrimitive &&
+                    actual.contentOrNull?.toBooleanStrictOrNull() == expected.value
+            is AnnotationValue.NumberValue -> {
+                val content = (actual as? JsonPrimitive)?.contentOrNull
+                content != null && content.toDoubleOrNull()?.let { it == expected.value.toDouble() } == true
+            }
+            is AnnotationValue.ListValue -> {
+                val array = actual as? JsonArray ?: return false
+                array.size == expected.values.size &&
+                    expected.values.indices.all { index ->
+                        matchesAnnotationValue(array[index], expected.values[index])
+                    }
+            }
+            is AnnotationValue.Nested ->
+                actual is JsonObject && matchesAnnotation(actual, expected.annotation)
         }
     }
 

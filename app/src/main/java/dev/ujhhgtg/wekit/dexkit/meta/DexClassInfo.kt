@@ -17,6 +17,10 @@ class DexClassInfo internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
+    /** Raw JSON backing this instance (class document including additive annotations). */
+    internal val rawJson: JsonObject
+        get() = json
+
     /** Shallow descriptor/name reference for classes without dataset metadata (e.g. framework). */
     internal constructor(descriptor: String, name: String, metadata: DexMetadata) : this(
         buildJsonObject {

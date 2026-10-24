@@ -5,6 +5,7 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
 import dev.ujhhgtg.wekit.dexkit.matcher.BridgeMatcherRelations
+import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSessionCache
 import dev.ujhhgtg.wekit.dexkit.matcher.DexDescriptorQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.QueryMatcherScope
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
@@ -51,6 +52,9 @@ internal class QueryMatcherSpec(
             // Cheap prefilters read the raw JSON document; rejected candidates therefore do not
             // enter the session metadata cache during candidate scans.
             rawMetadata = callerSource::query,
+            // Cross-delegate memoization: identical candidate SQL/raw documents/class-string
+            // evaluations are shared by every converted delegate of this resolution session.
+            sessionCache = MatcherSessionCache.forSession(bridge),
         )
     }
 }

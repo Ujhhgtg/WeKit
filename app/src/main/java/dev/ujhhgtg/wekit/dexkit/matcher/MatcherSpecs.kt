@@ -41,6 +41,76 @@ data class TypeSpec(val value: String, val match: NameMatch = NameMatch.Equals) 
     fun matches(candidate: String): Boolean = match.matches(candidate, value)
 }
 
+/** DexKit OpCodeMatchType. */
+enum class OpcodeMatchType {
+    /** Every requested opcode name appears at least once (DexKit Contains semantics). */
+    Contains,
+
+    /** The whole opcode name list equals the requested list (order-sensitive). */
+    Equals,
+}
+
+/**
+ * Method opcode constraint (DexKit OpCodeMatcher replacement).
+ *
+ * Reads the top-level method JSON keys `opcode_count` (number, null when the load has no code
+ * items) and `opcodes` ([string] Dalvik mnemonics). Missing/null opcode data is a clean non-match.
+ */
+data class OpcodeSpec(
+    val names: List<String> = emptyList(),
+    val matchType: OpcodeMatchType = OpcodeMatchType.Contains,
+    /** Range for the total instruction count ([opcode_count]). */
+    val count: IntRange? = null,
+)
+
+/** DexKit AnnotationVisibilityType name. */
+enum class AnnotationVisibility {
+    Build,
+    Runtime,
+    System,
+    Unknown;
+
+    fun matches(jsonName: String): Boolean = name.lowercase() == jsonName
+}
+
+/** One annotation element matcher (name + encoded value). */
+data class AnnotationElementSpec(
+    val name: NameSpec,
+    val value: AnnotationValue,
+)
+
+/** DexKit annotation encoded value matcher. */
+sealed interface AnnotationValue {
+    /** A JSON string field (DexKit stringValue); compared exactly. */
+    data class Text(val value: String) : AnnotationValue
+
+    /** A JSON array (DexKit arrayValue); compared element-by-element in order. */
+    data class ListValue(val values: List<AnnotationValue>) : AnnotationValue
+
+    /** A JSON number (integer or floating). */
+    data class NumberValue(val value: Number) : AnnotationValue
+
+    /** A JSON boolean. */
+    data class BooleanValue(val value: Boolean) : AnnotationValue
+
+    /** A descriptor/enum encoded value; descriptor and dotted Java-name forms are equivalent. */
+    data class DescriptorValue(val value: String) : AnnotationValue
+
+    /** A nested annotation value. */
+    data class Nested(val annotation: AnnotationSpec) : AnnotationValue
+}
+
+/**
+ * Annotation matcher (DexKit AnnotationMatcher replacement). Matches one entry of the class/method
+ * JSON `annotations` array: every requested element must be present with a matching value.
+ */
+data class AnnotationSpec(
+    /** Dotted annotation type name (or `L...;` descriptor); matched against JSON type_name/type. */
+    val type: NameSpec? = null,
+    val visibility: AnnotationVisibility? = null,
+    val elements: List<AnnotationElementSpec> = emptyList(),
+)
+
 /**
  * Method matcher (DexKit MethodMatcher replacement).
  *
@@ -68,6 +138,10 @@ data class MethodSpec(
     val callerMethods: List<MethodSpec> = emptyList(),
     val anyOf: List<MethodSpec> = emptyList(),
     val allOf: List<MethodSpec> = emptyList(),
+    /** DexKit opCodes constraint (evaluation-only; candidate generation ignores it). */
+    val opcodes: OpcodeSpec? = null,
+    /** DexKit annotation constraints on the method (evaluation-only). */
+    val annotations: List<AnnotationSpec> = emptyList(),
 )
 
 /** One field access matcher (DexKit UsingFieldMatcher); null [usingType] means any direction. */
@@ -96,6 +170,8 @@ data class ClassSpec(
     /** Contains semantics: (candidate.modifiers and mask) == mask. */
     val modifiers: Int? = null,
     val usingStrings: List<StringSpec> = emptyList(),
+    /** DexKit annotation constraints on the class (evaluation-only). */
+    val annotations: List<AnnotationSpec> = emptyList(),
 )
 
 /**

@@ -349,9 +349,9 @@ class StructuralCandidateTest {
             // Exactly one access unit per query.
             assertEquals(1, Regex("JOIN method_field_accesses").findAll(sql).count(), sql)
             assertFalse(sql.contains("JOIN method_field_accesses fa1"), sql)
-            // The broad java.util.HashMap type must NOT drive this candidate set.
-            assertFalse(sql.contains("f.type_descriptor"), sql)
-            assertFalse(sql.contains("java/util/HashMap"), sql)
+            // The broad java.util.HashMap type is still not the DRIVER, but it is a necessary
+            // conjunct next to each access unit (the FieldSpec requires that type).
+            assertTrue(sql.contains("f.type_descriptor = 'Ljava/util/HashMap;'"), sql)
             assertEveryJoinOnIsSingleEquality(sql)
         }
         assertTrue(readerQuery.contains("fm0.param_count = 0"), readerQuery)
