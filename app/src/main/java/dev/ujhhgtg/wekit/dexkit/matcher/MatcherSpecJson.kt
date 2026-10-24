@@ -235,10 +235,9 @@ object MatcherSpecJson {
                             (element["list"] as JsonArray).map(::parseAnnotationValue),
                         )
                     element.containsKey("nested") ->
-                        AnnotationValue.Nested(parseAnnotation((element["nested"] as JsonObject)))
+                        AnnotationValue.Nested(parseAnnotation(element["nested"] as JsonObject))
                     else -> throw IllegalArgumentException("invalid annotation value object")
                 }
-            else -> throw IllegalArgumentException("invalid annotation value")
         }
     }
 
@@ -268,7 +267,7 @@ object MatcherSpecJson {
             "ends_with",
             "endswith",
             "suffix" -> NameMatch.EndsWith
-            else -> throw IllegalArgumentException("unknown name/type match mode: " + value)
+            else -> throw IllegalArgumentException("unknown name/type match mode: $value")
         }
 
     private fun JsonObject.stringOrNull(key: String): String? =
@@ -293,13 +292,13 @@ object MatcherSpecJson {
             is JsonPrimitive -> {
                 val value =
                     element.intOrNull
-                        ?: throw IllegalArgumentException(key + " must be an int or range")
+                        ?: throw IllegalArgumentException("$key must be an int or range")
                 value..value
             }
             is JsonArray -> {
                 val min =
                     (element.getOrNull(0) as? JsonPrimitive)?.intOrNull
-                        ?: throw IllegalArgumentException(key + " range requires [min, max]")
+                        ?: throw IllegalArgumentException("$key range requires [min, max]")
                 val max = (element.getOrNull(1) as? JsonPrimitive)?.intOrNull ?: min
                 min..max
             }
@@ -308,7 +307,6 @@ object MatcherSpecJson {
                 val max = (element["max"] as? JsonPrimitive)?.intOrNull ?: Int.MAX_VALUE
                 min..max
             }
-            else -> throw IllegalArgumentException(key + " must be an int or range")
         }
     }
 

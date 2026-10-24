@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlin.time.measureTimedValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -13,6 +12,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.time.measureTimedValue
 
 sealed interface LocalDexProgress {
     val displayName: String
@@ -59,10 +59,9 @@ object LocalDexResolver {
                     try {
                         if (roots.isNotEmpty()) {
                             // Metadata reads (*Data replacement) need the DexSQL dataset even when
-                            // a
-                            // feature set has no SQL query delegate.
+                            // a feature set has no SQL query delegate.
                             val dexSql = DexSqlBridge.openHost()
-                            try {
+                            dexSql.use { dexSql ->
                                 resolveDexBatch(
                                     roots,
                                     DexHostMetadata.currentAndroidHost(),
@@ -74,6 +73,7 @@ object LocalDexResolver {
                                     when (event) {
                                         is DexResolutionEvent.Start ->
                                             onProgress(LocalDexProgress.Start(displayName))
+
                                         is DexResolutionEvent.Finished -> {
                                             currentCoroutineContext().ensureActive()
                                             val error =
@@ -104,8 +104,6 @@ object LocalDexResolver {
                                         }
                                     }
                                 }
-                            } finally {
-                                dexSql?.close()
                             }
                         }
                     } catch (error: CancellationException) {

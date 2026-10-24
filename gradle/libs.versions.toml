@@ -10,37 +10,36 @@ lifecycle-runtime = "2.11.0"
 material = "1.14.0"
 activity = "1.13.0"
 navigationevent = "1.2.0"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 androidx-core-ktx = "1.19.1"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
-serialization = "1.11.0"
+serialization = "1.12.0"
 lombok = "1.18.48"
 google-protobuf = "4.36.2"
 ksp = "2.3.12"
-okhttp = "5.5.0"
-fastjson2 = "2.0.65"
+okhttp = "5.5.1"
+fastjson2 = "2.0.66"
 hidden-api-bypass = "6.2"
 runtime = "1.12.1"
-compose-material3 = "1.5.0-beta01"
+compose-material3 = "1.5.0-beta02"
 libsu = "6.0.0"
 libxposed = "102.0.0"
-aboutlibraries = "15.2.0"
+aboutlibraries = "15.3.0"
 kotlinpoet = "2.4.0"
 biometric = "1.2.0-alpha05"
 browser = "1.10.0"
-miuix = "0.9.4-5c91d5e5-SNAPSHOT"
+miuix = "0.9.4-fc455d9a-SNAPSHOT"
 materialkolor = "5.0.1"
 markwon = "4.6.2"
 annotation = "1.11.0"
-mcp-server = "0.15.0"
-mcp-client = "0.15.0"
+mcp = "0.15.0"
 jsoup = "1.23.2"
 room = "2.8.5"
 ktor = "3.6.0"
 dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
-jsch = "2.28.7"
+jsch = "2.28.8"
 sqliteJdbc = "3.53.4.0"
 arsclib = "1.4.0"
 bouncycastle = "1.86"
@@ -140,8 +139,8 @@ kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlin
 aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref = "aboutlibraries" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
 
-mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp-server" }
-mcp-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp-client" }
+mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp" }
+mcp-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
