@@ -35,10 +35,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
@@ -270,14 +266,10 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         val iLinkServiceName = classILinkService.data.name
         val readerMethod =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        declaredClass =
-                            ClassSpec(className = NameSpec(classILinkService.data.name)),
-                        usingStrings = listOf(StringSpec("start audio device failed")),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    declaredClass = classILinkService.data.name
+                    usingString("start audio device failed")
+                }
                 .single()
         val roomIdField =
             readerMethod.usingFields

@@ -10,12 +10,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -128,13 +122,10 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
                 }
             }
         val storageAccessor =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        paramTypes = emptyList(),
-                        returnType = ClassSpec(className = NameSpec(storageInterface.name)),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    paramTypes = emptyList<Any?>()
+                    returnType = storageInterface.name
+                }
                 .single { candidate ->
                     candidate.declaredClass!!.fields.any { field ->
                         field.typeName == candidate.declaredClassName &&
@@ -146,40 +137,27 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         val setIconMethod = methodSetTextStatusIcon.data
         val iconHelperType = setIconMethod.paramTypeNames.first()
         val iconHelperAccessor =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        paramTypes = emptyList(),
-                        returnType = ClassSpec(className = NameSpec(iconHelperType)),
-                        modifiers = Modifier.STATIC,
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    paramTypes = emptyList<Any?>()
+                    returnType = iconHelperType
+                    modifiers = Modifier.STATIC
+                }
                 .single()
         val statusDescriptionMethod =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec(iconHelperType)),
-                        paramTypes = listOf(TypeSpec(topicInfoMethod.returnTypeName)),
-                        returnType = ClassSpec(className = NameSpec(String::class.java.name)),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    declaredClass = iconHelperType
+                    paramTypes(topicInfoMethod.returnTypeName)
+                    returnType = String::class.java.name
+                }
                 .single()
         val statusType = latestStatusMethod.returnTypeName
         val currentStatusActionsMethod =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        paramTypes =
-                            listOf(TypeSpec(Context::class.java.name), TypeSpec(statusType)),
-                        returnType = ClassSpec(className = NameSpec(Void.TYPE.name)),
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.MMSubMenuHelper", NameMatch.Equals),
-                                StringSpec("show, menu empty", NameMatch.Equals),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    paramTypes(Context::class.java.name, statusType)
+                    returnType = Void.TYPE.name
+                    usingEqString("MicroMsg.MMSubMenuHelper")
+                    usingEqString("show, menu empty")
+                }
                 .single { candidate ->
                     candidate.usesFieldThroughDirectInvoke("field_UserName")
                 }

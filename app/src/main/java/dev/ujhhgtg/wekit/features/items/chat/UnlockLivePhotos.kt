@@ -22,9 +22,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -123,12 +120,9 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         fieldSysVersion.setDescriptor(fields.single { it.typeName == "java.lang.String" })
         fieldSupport.setDescriptor(fields.single { it.typeName == "boolean" })
         val saveReads =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        usingStrings = listOf(StringSpec("enableSaveLivePhoto", NameMatch.Equals)),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    usingEqString("enableSaveLivePhoto")
+                }
                 .asSequence()
                 .flatMap { it.usingFields }
                 .filter { it.usingType == FieldUsingType.Read }

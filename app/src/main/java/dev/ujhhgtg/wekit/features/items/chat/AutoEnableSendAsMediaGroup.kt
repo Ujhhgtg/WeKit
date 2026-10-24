@@ -10,10 +10,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -94,14 +90,11 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
         val state = states.single()
         classLocalPickerState.setDescriptor(state)
         methodLocalPickerSelectionReducer.setDescriptor(
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        returnType = ClassSpec(className = NameSpec(state.name)),
-                        paramTypes = listOf(TypeSpec(state.name), null),
-                        usingNumbers = listOf<Number>(3),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    returnType = state.name
+                    paramTypes(state.name, null)
+                    usingNumbers(3)
+                }
                 .single(),
         )
     }

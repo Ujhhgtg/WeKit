@@ -51,10 +51,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -185,42 +181,22 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
     override fun resolveDex() {
         methodFeatureAvatarSimple1.setDescriptor(
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        declaredClass =
-                            ClassSpec(className = NameSpec(classAvatarDrawable.data.name)),
-                        paramTypes =
-                            listOf(
-                                TypeSpec("android.widget.ImageView"),
-                                TypeSpec("java.lang.String"),
-                            ),
-                        returnType = ClassSpec(className = NameSpec("void")),
-                        usingNumbers = listOf<Number>(0.5f),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    declaredClass = classAvatarDrawable.data.name
+                    paramTypes("android.widget.ImageView", "java.lang.String")
+                    returnType = "void"
+                    usingNumbers(0.5f)
+                }
                 .singleOrNull()
-                ?: DexResolutionContext.matcher
-                    .findMethods(
-                        MethodSpec(
-                            declaredClass =
-                                ClassSpec(className = NameSpec(classAvatarDrawable.data.name)),
-                            paramTypes =
-                                listOf(
-                                    TypeSpec("android.widget.ImageView"),
-                                    TypeSpec("java.lang.String"),
-                                ),
-                            returnType = ClassSpec(className = NameSpec("void")),
-                            invokeMethods =
-                                listOf(
-                                    MethodSpec(
-                                        declaredClass =
-                                            ClassSpec(className = NameSpec("android.view.View")),
-                                        name = NameSpec("invalidate"),
-                                    ),
-                                ),
-                        ),
-                    )
+                ?: DexResolutionContext.findMethods {
+                        declaredClass = classAvatarDrawable.data.name
+                        paramTypes("android.widget.ImageView", "java.lang.String")
+                        returnType = "void"
+                        invokeMethod {
+                            declaredClass = "android.view.View"
+                            name = "invalidate"
+                        }
+                    }
                     .single(),
         )
     }

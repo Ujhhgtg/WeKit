@@ -15,11 +15,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
@@ -111,29 +108,15 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         fieldListSpacer.setDescriptor(
-            DexResolutionContext.matcher
-                .findFields(
-                    FieldSpec(
-                        declaredClass =
-                            ClassSpec(
-                                className =
-                                    NameSpec("com.tencent.mm.ui.conversation.ConversationListView"),
-                            ),
-                        type = ClassSpec(className = NameSpec("android.view.View")),
-                        writeMethods =
-                            listOf(
-                                MethodSpec(
-                                    usingStrings =
-                                        listOf(
-                                            StringSpec(
-                                                "initActionBarView check multiWindowMode %b",
-                                                NameMatch.Equals,
-                                            ),
-                                        ),
-                                ),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findFields {
+                    declaredClass {
+                        className = "com.tencent.mm.ui.conversation.ConversationListView"
+                    }
+                    type = "android.view.View"
+                    writeMethod {
+                        usingEqString("initActionBarView check multiWindowMode %b")
+                    }
+                }
                 .single { it.descriptor != fieldListActionBar.data.descriptor },
         )
 
@@ -146,26 +129,15 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
                 }
             }
             fieldRecyclerSpacer.setDescriptor(
-                DexResolutionContext.matcher
-                    .findFields(
-                        FieldSpec(
-                            declaredClass =
-                                ClassSpec(className = NameSpec(classRecyclerView.data.name)),
-                            type = ClassSpec(className = NameSpec("android.view.View")),
-                            writeMethods =
-                                listOf(
-                                    MethodSpec(
-                                        usingStrings =
-                                            listOf(
-                                                StringSpec(
-                                                    "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
-                                                    NameMatch.Equals,
-                                                ),
-                                            ),
-                                    ),
-                                ),
-                        ),
-                    )
+                DexResolutionContext.findFields {
+                        declaredClass = classRecyclerView.data.name
+                        type = "android.view.View"
+                        writeMethod {
+                            usingEqString(
+                                "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
+                            )
+                        }
+                    }
                     .single { it.descriptor != fieldRecyclerActionBar.data.descriptor },
             )
         } else {
@@ -176,13 +148,10 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         // Across both layouts HomeUI has a search and a plus MenuItem. Identify the plus item
         // by its binding method, rather than relying on the newer contacts-search alpha log.
         fieldSearchItem.setDescriptor(
-            DexResolutionContext.matcher
-                .findFields(
-                    FieldSpec(
-                        declaredClass = ClassSpec(className = NameSpec("com.tencent.mm.ui.HomeUI")),
-                        type = ClassSpec(className = NameSpec("android.view.MenuItem")),
-                    ),
-                )
+            DexResolutionContext.findFields {
+                    declaredClass = "com.tencent.mm.ui.HomeUI"
+                    type = "android.view.MenuItem"
+                }
                 .single { it.descriptor != fieldPlusItem.data.descriptor },
         )
 

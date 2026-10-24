@@ -9,9 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -270,17 +267,11 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         }
 
         val results =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.C2CVideoPathFeatureService", NameMatch.Equals),
-                                StringSpec("success restore file, from ", NameMatch.Equals),
-                                StringSpec(".mp4", NameMatch.Equals),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    usingEqString("MicroMsg.C2CVideoPathFeatureService")
+                    usingEqString("success restore file, from ")
+                    usingEqString(".mp4")
+                }
                 .ifEmpty {
                     DexResolutionContext.findMethods {
                         usingEqString("MicroMsg.VideoInfoStorage")

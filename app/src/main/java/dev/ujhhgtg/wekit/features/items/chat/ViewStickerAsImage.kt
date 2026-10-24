@@ -13,10 +13,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
@@ -92,16 +88,12 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         }
 
         val resolveEmojiInfo =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        paramTypes = listOf(TypeSpec(methodEmojiClickEntry.data.paramTypeNames[2])),
-                        returnType =
-                            ClassSpec(
-                                className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    paramTypes(methodEmojiClickEntry.data.paramTypeNames[2])
+                    returnType {
+                        className = "com.tencent.mm.storage.emotion.EmojiInfo"
+                    }
+                }
                 .single { !Modifier.isStatic(it.modifiers) }
         methodResolveEmojiInfo.setDescriptor(resolveEmojiInfo)
 

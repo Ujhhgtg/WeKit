@@ -6,11 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -45,20 +40,14 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         val refreshMethod =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        declaredClass = ClassSpec(className = NameSpec(APP_PANEL_CLASS)),
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.AppPanel", NameMatch.Equals),
-                                StringSpec("roomEnable:%s, hideRoomLive:%s", NameMatch.Equals),
-                            ),
-                        paramCount = 0..0,
-                        returnType = ClassSpec(className = NameSpec("void")),
-                    ),
-                    packages = listOf(APP_PANEL_PACKAGE),
-                )
+            DexResolutionContext.findMethods {
+                    searchPackages(APP_PANEL_PACKAGE)
+                    declaredClass = APP_PANEL_CLASS
+                    usingEqString("MicroMsg.AppPanel")
+                    usingEqString("roomEnable:%s, hideRoomLive:%s")
+                    paramCount = 0
+                    returnType = "void"
+                }
                 .single()
         methodRefreshAppPanel.setDescriptor(refreshMethod)
 

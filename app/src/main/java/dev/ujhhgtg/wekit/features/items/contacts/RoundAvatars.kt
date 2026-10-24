@@ -14,9 +14,6 @@ import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -71,16 +68,10 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     override fun resolveDex() {
         val modifyMethods =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        usingStrings =
-                            listOf(
-                                StringSpec("workerScope", NameMatch.Equals),
-                                StringSpec("username", NameMatch.Equals),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    usingEqString("workerScope")
+                    usingEqString("username")
+                }
                 .filter { it.name != "<init>" }
 
         val modifyMethod = modifyMethods.singleOrNull()

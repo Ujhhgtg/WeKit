@@ -3,10 +3,6 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -55,18 +51,12 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         val matches =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        returnType = ClassSpec(className = NameSpec("boolean")),
-                        paramCount = 10..11,
-                        usingStrings =
-                            listOf(
-                                StringSpec("MicroMsg.ChatroomMembersLogic"),
-                                StringSpec("SyncAddChatroomMember"),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    returnType = "boolean"
+                    paramCount = 10..11
+                    usingString("MicroMsg.ChatroomMembersLogic")
+                    usingString("SyncAddChatroomMember")
+                }
                 .filter { method ->
                     val params = method.paramTypeNames
                     params[0] == "java.lang.String" &&

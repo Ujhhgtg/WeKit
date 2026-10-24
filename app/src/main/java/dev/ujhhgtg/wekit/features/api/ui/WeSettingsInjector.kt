@@ -23,10 +23,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -127,10 +124,9 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 
     override fun resolveDex() {
         val prefClass =
-            DexResolutionContext.matcher
-                .findClasses(
-                    ClassSpec(className = NameSpec(PREFERENCE_CLASS_NAME)),
-                )
+            DexResolutionContext.findClasses {
+                    className = PREFERENCE_CLASS_NAME
+                }
                 .single()
 
         val setKeyCandidates = DexResolutionContext.findMethods {
@@ -165,25 +161,21 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         }
 
         val adapterClass =
-            DexResolutionContext.matcher
-                .findClasses(
-                    ClassSpec(
-                        superClass = ClassSpec(className = NameSpec("android.widget.BaseAdapter")),
-                        methods =
-                            listOf(
-                                MethodSpec(
-                                    modifiers = Modifier.PUBLIC,
-                                    name = NameSpec("getView"),
-                                    paramCount = 3..3,
-                                ),
-                                MethodSpec(
-                                    name = NameSpec("<init>"),
-                                    paramCount = 3..3,
-                                ),
-                            ),
-                    ),
-                    packages = listOf("com.tencent.mm.ui.base.preference"),
-                )
+            DexResolutionContext.findClasses {
+                    searchPackages("com.tencent.mm.ui.base.preference")
+                    superClass {
+                        className = "android.widget.BaseAdapter"
+                    }
+                    method {
+                        modifiers = Modifier.PUBLIC
+                        name = "getView"
+                        paramCount = 3
+                    }
+                    method {
+                        name = "<init>"
+                        paramCount = 3
+                    }
+                }
                 .singleOrNull()
 
         if (adapterClass != null) {

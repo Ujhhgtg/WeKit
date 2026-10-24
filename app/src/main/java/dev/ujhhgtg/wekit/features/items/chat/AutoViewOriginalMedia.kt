@@ -11,11 +11,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.data
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -52,20 +47,12 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         val results =
-            DexResolutionContext.matcher
-                .findMethods(
-                    MethodSpec(
-                        declaredClass =
-                            ClassSpec(
-                                className =
-                                    NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
-                            ),
-                        usingStrings =
-                            listOf(
-                                StringSpec("setHdImageActionDownloadable", NameMatch.Equals),
-                            ),
-                    ),
-                )
+            DexResolutionContext.findMethods {
+                    declaredClass {
+                        className = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
+                    }
+                    usingEqString("setHdImageActionDownloadable")
+                }
                 .ifEmpty {
                     DexResolutionContext.findMethods {
                         declaredClass {
