@@ -6,7 +6,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.sql.sqlMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -75,30 +74,21 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeChatMessageViewApi"
 
-    private val methodChatItemOnBindView by
-        dexMethod(
-            sqlMethod {
-                usingStrings("MicroMsg.MvvmChattingItem", "[onBindView]")
-            },
-        )
+    private val methodChatItemOnBindView by dexMethod {
+        usingStrings("MicroMsg.MvvmChattingItem", "[onBindView]")
+    }
 
-    private val methodChatItemOnViewRecycled by
-        dexMethod(
-            sqlMethod {
-                usingStrings("rvnotify-test-onViewRecycled viewType=")
-            },
-        )
+    private val methodChatItemOnViewRecycled by dexMethod {
+        usingStrings("rvnotify-test-onViewRecycled viewType=")
+    }
 
-    private val methodChatItemSetNickname by
-        dexMethod(
-            sqlMethod {
-                returnType = "void"
-                paramTypes(null, "java.lang.CharSequence")
-                declaredClass {
-                    usingStrings("MicroMsg.ChattingItem")
-                }
-            },
-        )
+    private val methodChatItemSetNickname by dexMethod {
+        returnType = "void"
+        paramTypes(null, "java.lang.CharSequence")
+        declaredClass {
+            usingStrings("MicroMsg.ChattingItem")
+        }
+    }
 
     override fun onEnable() {
         methodChatItemSetNickname.hookAfter {

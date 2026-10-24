@@ -5,7 +5,6 @@ import android.content.DialogInterface
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.sql.sqlClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -17,12 +16,9 @@ object WeAlertDialogApi : ApiFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_alert_dialog_api_description
 
-    private val classMmAlert by
-        dexClass(
-            sqlClass {
-                usingEqStrings("MicroMsg.MMAlert")
-            },
-        )
+    private val classMmAlert by dexClass {
+        usingEqStrings("MicroMsg.MMAlert")
+    }
 
     /** NEVER use this API except for the TrollBan feature. */
     fun showAlertDialog(
