@@ -11,6 +11,15 @@ import java.util.zip.ZipFile
 /** Native artifacts from the copied APK; accessed under NativeLoader's load lock. */
 class ZygiskNativePayload(val apk: File, private val dataDir: File) {
 
+    /** Extracts only the generated decoder; executable payloads are never loaded by this path. */
+    fun decoderLibrary(fileName: String): File = ZipFile(apk).use { archive ->
+        val abi = currentProcessAbi(archive)
+        val entry = requireNotNull(archive.getEntry("lib/$abi/$fileName")) {
+            "Zygisk payload is missing the string decoder $fileName for $abi"
+        }
+        extractLibrary(archive, entry, libraryDirectory(abi), fileName)
+    }
+
     /**
      * InMemoryDexClassLoader has no native-library directory on API 28. Match
      * FunBox's workaround: extract packaged libraries into app data, then use
@@ -19,11 +28,7 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     fun loadLibraries(): Map<String, File> = ZipFile(apk).use { archive ->
         val abi = currentProcessAbi(archive)
-        val libraryDir = File(dataDir, ".wekit-native/${apk.nameWithoutExtension}/$abi")
-        if (!libraryDir.exists() && !libraryDir.mkdirs()) {
-            error("cannot create Zygisk native-library directory: $libraryDir")
-        }
-        require(libraryDir.isDirectory) { "Zygisk native-library path is not a directory: $libraryDir" }
+        val libraryDir = libraryDirectory(abi)
 
         val libraries = mutableMapOf<String, File>()
         val names = listOf(
@@ -47,6 +52,15 @@ class ZygiskNativePayload(val apk: File, private val dataDir: File) {
             require(name in libraries) { "Zygisk payload is missing lib$name.so for $abi" }
         }
         libraries
+    }
+
+    private fun libraryDirectory(abi: String): File {
+        val directory = File(dataDir, ".wekit-native/${apk.nameWithoutExtension}/$abi")
+        if (!directory.exists() && !directory.mkdirs()) {
+            error("cannot create Zygisk native-library directory: $directory")
+        }
+        require(directory.isDirectory) { "Zygisk native-library path is not a directory: $directory" }
+        return directory
     }
 
     private fun currentProcessAbi(archive: ZipFile): String {

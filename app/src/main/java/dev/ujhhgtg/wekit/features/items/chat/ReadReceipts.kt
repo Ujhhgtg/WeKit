@@ -22,12 +22,13 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -154,9 +155,9 @@ object ReadReceipts : ClickableFeature(),
     private fun migrateLegacyConfiguration(): ReadReceiptsConfiguration {
         return ReadReceiptsConfiguration(
             thirdPartyUrl = normalizeThirdPartyReadReceiptEndpoint(
-                WePrefs.getStringOrDef("read_receipts_third_party_url", ""),
+                KvStore.getStringOrDef("read_receipts_third_party_url", ""),
             ) ?: "",
-            pollIntervalSecs = WePrefs.getIntOrDef("read_receipts_poll_interval", 5)
+            pollIntervalSecs = KvStore.getIntOrDef("read_receipts_poll_interval", 5)
                 .takeIf { it > 0 } ?: 5,
         )
     }
@@ -194,12 +195,18 @@ object ReadReceipts : ClickableFeature(),
     /** Registers plaintext before the intercepted send is emitted. The underlying call is cancellable. */
     private suspend fun registerMessage(
         endpoint: String,
-        wxId: String,
+        wxId1: String,
+        wxId2: String,
+        conversationType: String,
         content: String,
         createTime: Long,
     ): ReadReceiptError? {
         val bodyJson = buildJsonObject {
-            put("wxId", wxId)
+            // Keep wxId for existing servers; the numbered fields carry the explicit context.
+            put("wxId", wxId1)
+            put("wxId1", wxId1)
+            put("wxId2", wxId2)
+            put("conversationType", conversationType)
             put("content", content)
             put("createTime", createTime)
         }.toString()
@@ -533,6 +540,8 @@ object ReadReceipts : ClickableFeature(),
                 val registrationError = registerMessage(
                     endpoint,
                     selfWxId,
+                    target,
+                    if (target.isGroupChatWxId) "group" else "private",
                     actualText,
                     createTime,
                 )

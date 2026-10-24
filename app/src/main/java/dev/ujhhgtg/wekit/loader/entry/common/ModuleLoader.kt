@@ -1,8 +1,10 @@
 package dev.ujhhgtg.wekit.loader.entry.common
 
+import android.util.Log
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.startup.UnifiedEntryPoint
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ModuleLoader {
@@ -24,6 +26,14 @@ object ModuleLoader {
         allowDynamicLoad: Boolean
     ): Boolean = synchronized(initLock) {
         if (isInitialized) return@synchronized true
+
+        try {
+            NativeLoader.initDecoder(modulePath)
+        } catch (t: Throwable) {
+            // The normal logger may itself contain protected strings.
+            Log.e("WeKit", "string decoder bootstrap failed", t)
+            return@synchronized false
+        }
 
         try {
             WeLogger.i(TAG, "loading in entry point ${loaderService.entryPointName}")

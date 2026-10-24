@@ -38,6 +38,7 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     private const val TAG = "AutoAcceptTransfers"
 
     override fun onEnable() {
+        TransferSettings.requireReady()
         WeDatabaseListenerApi.addListener(this)
     }
 

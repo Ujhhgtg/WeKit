@@ -676,7 +676,7 @@ private fun PythonDetailScreen(
         onConfirm = {
             confirmClear = false
             coroutineScope.launch(Dispatchers.IO) {
-                (KnownPaths.moduleData / "python" / "data" / pluginId).toFile().deleteRecursively()
+                (KnownPaths.moduleRoot / "python" / "data" / pluginId).toFile().deleteRecursively()
             }
         },
         onDismiss = { confirmClear = false },

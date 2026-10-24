@@ -13,7 +13,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -39,13 +39,13 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
 
     override fun onEnable() {
         methodVoiceRecorderGetLength.hookBefore {
-            result = WePrefs.getLongOrDef(KEY_DURATION, 0L)
+            result = KvStore.getLongOrDef(KEY_DURATION, 0L)
         }
     }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            var durationInput by remember { mutableStateOf(WePrefs.getLongOrDef(KEY_DURATION, 0).toString()) }
+            var durationInput by remember { mutableStateOf(KvStore.getLongOrDef(KEY_DURATION, 0).toString()) }
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_fake_voice_duration_name)) },
                 text = {
@@ -65,7 +65,7 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
                             return@Button
                         }
 
-                        WePrefs.putLong(KEY_DURATION, durationMs)
+                        KvStore.putLong(KEY_DURATION, durationMs)
                         onDismiss()
                     }) { Text(stringResource(R.string.dialog_confirm)) }
                 })

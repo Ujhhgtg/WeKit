@@ -67,7 +67,7 @@ object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerAp
     private const val TAG = "JavaScriptingHook"
     private const val DISABLED_FLAG = "disabled.flag"
 
-    private val SCRIPTS_DIR by lazy { (KnownPaths.moduleData / "scripts_java").createDirsSafe() }
+    private val SCRIPTS_DIR by lazy { (KnownPaths.moduleRoot / "scripts_java").createDirsSafe() }
 
     val scripts = ConcurrentHashMap<String, JavaPlugin>()
     private val lifecycleLock = Any()
