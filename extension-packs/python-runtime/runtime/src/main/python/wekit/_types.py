@@ -55,81 +55,83 @@ class HookToken(Protocol):
 
 
 class ResolvedClass(Protocol):
-    name: str
     descriptor: str
-    hostVersion: str
-    hostBuildTag: str
+    name: str
+    modifiers: int
+    host_version: str
+    host_build_tag: str
 
 
 class ResolvedMember(Protocol):
     descriptor: str
-    hostVersion: str
-    hostBuildTag: str
-    kind: object
+    name: str
+    declared_class: str
+    return_type: str
+    param_types: list[str]
+    modifiers: int
+    is_constructor: bool
+    host_version: str
+    host_build_tag: str
 
 
 class ResolvedField(Protocol):
     descriptor: str
-    hostVersion: str
-    hostBuildTag: str
+    name: str
+    declared_class: str
+    type_name: str
+    modifiers: int
+    host_version: str
+    host_build_tag: str
 
 
 class DexHost(Protocol):
     def findClass(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> ResolvedClass: ...
     def findClasses(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> Sequence[ResolvedClass]: ...
     def findMethod(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> ResolvedMember: ...
     def findMethods(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> Sequence[ResolvedMember]: ...
     def findConstructor(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> ResolvedMember: ...
     def findConstructors(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> Sequence[ResolvedMember]: ...
     def findField(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> ResolvedField: ...
     def findFields(
         self,
-        matcher: object,
+        spec_json: str,
         search_packages: list[str],
         exclude_packages: list[str],
-        ignore_packages_case: bool,
     ) -> Sequence[ResolvedField]: ...
 
 

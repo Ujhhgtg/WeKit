@@ -65,6 +65,13 @@ class PythonHookHostImpl(
         val executable = when (member) {
             is Executable -> member
             is PythonMemberHandle -> resolve(member.descriptor)
+            is String -> resolve(
+                member.also { descriptor ->
+                    require(descriptor.isNotBlank()) {
+                        "Hook member descriptor must not be blank"
+                    }
+                },
+            )
             else -> error("Unsupported hook member: $member")
         }
         val hook = currentHookBridge.hookMethod(

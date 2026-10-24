@@ -1,6 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
 import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
+import dev.ujhhgtg.wekit.dexkit.DexSqlRuntime
+import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSpecJson
+import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.python.api.PythonDexHost
 import dev.ujhhgtg.wekit.python.api.PythonMemberKind
@@ -8,126 +13,110 @@ import dev.ujhhgtg.wekit.python.api.PythonResolvedClass
 import dev.ujhhgtg.wekit.python.api.PythonResolvedField
 import dev.ujhhgtg.wekit.python.api.PythonResolvedMember
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.reflection.withDexKit
-import org.luckypray.dexkit.query.matchers.ClassMatcher
-import org.luckypray.dexkit.query.matchers.FieldMatcher
-import org.luckypray.dexkit.query.matchers.MethodMatcher
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
+/**
+ * Executes Python `wekit.dex` spec queries through the standalone matcher session.
+ *
+ * Each query acquires the shared runtime DexSQL lease ([withDexSql]), creates a
+ * [DexMatcherSession] over that bridge/metadata, converts the results to plain descriptor data,
+ * and releases the lease. Queries are serialized on one daemon thread; no DexKit matcher objects
+ * are involved.
+ */
 class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
     override fun findClasses(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
-    ): List<PythonResolvedClass> = query {
-        val binding = matcher as ClassMatcher
-        withDexKit { dexKit ->
-            dexKit.findClass {
-                applyScope(searchPackages, excludePackages, ignorePackagesCase)
-                matcher(binding)
-            }.map { data ->
-                PythonResolvedClass(data.name, data.descriptor, hostVersion, WeChatBuildConfig.BUILD_TAG)
-            }
+    ): List<PythonResolvedClass> = dexQuery { session ->
+        session.findClasses(
+            MatcherSpecJson.classSpec(specJson),
+            searchPackages,
+            excludePackages,
+        ).map { info ->
+            PythonResolvedClass(
+                name = info.name,
+                descriptor = info.descriptor,
+                modifiers = info.modifiers,
+                hostVersion = hostVersion,
+                hostBuildTag = WeChatBuildConfig.BUILD_TAG,
+            )
         }
     }
 
     override fun findMethods(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
-    ): List<PythonResolvedMember> = findMethodData(
-        matcher as MethodMatcher,
-        searchPackages,
-        excludePackages,
-        ignorePackagesCase,
-        PythonMemberKind.METHOD,
-    )
+    ): List<PythonResolvedMember> = dexQuery { session ->
+        session.findMethods(
+            MatcherSpecJson.methodSpec(specJson),
+            searchPackages,
+            excludePackages,
+        ).map { info -> info.toResolved(PythonMemberKind.METHOD) }
+    }
 
     override fun findConstructors(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
-    ): List<PythonResolvedMember> = findMethodData(
-        MethodMatcher().allOf(matcher as MethodMatcher, MethodMatcher().name("<init>")),
-        searchPackages,
-        excludePackages,
-        ignorePackagesCase,
-        PythonMemberKind.CONSTRUCTOR,
-    )
+    ): List<PythonResolvedMember> = dexQuery { session ->
+        val spec = MatcherSpecJson.methodSpec(specJson)
+        session.findMethods(
+            spec.copy(name = dev.ujhhgtg.wekit.dexkit.matcher.NameSpec("<init>")),
+            searchPackages,
+            excludePackages,
+        ).filter { it.isConstructor }
+            .map { info -> info.toResolved(PythonMemberKind.CONSTRUCTOR) }
+    }
 
     override fun findFields(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
-    ): List<PythonResolvedField> = query {
-        val binding = matcher as FieldMatcher
-        withDexKit { dexKit ->
-            dexKit.findField {
-                applyScope(searchPackages, excludePackages, ignorePackagesCase)
-                matcher(binding)
-            }.map { data ->
-                PythonResolvedField(data.descriptor, hostVersion, WeChatBuildConfig.BUILD_TAG)
-            }
+    ): List<PythonResolvedField> = dexQuery { session ->
+        session.findFields(
+            MatcherSpecJson.fieldSpec(specJson),
+            searchPackages,
+            excludePackages,
+        ).map { info ->
+            PythonResolvedField(
+                descriptor = info.descriptor,
+                name = info.name,
+                declaredClass = info.declaredClassName,
+                typeName = info.typeName,
+                modifiers = info.modifiers,
+                hostVersion = hostVersion,
+                hostBuildTag = WeChatBuildConfig.BUILD_TAG,
+            )
         }
     }
 
-    private fun findMethodData(
-        matcher: MethodMatcher,
-        searchPackages: List<String>,
-        excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
-        kind: PythonMemberKind,
-    ): List<PythonResolvedMember> = query {
-        withDexKit { dexKit ->
-            dexKit.findMethod {
-                applyScope(searchPackages, excludePackages, ignorePackagesCase)
-                matcher(matcher)
-            }.map { data ->
-                PythonResolvedMember(data.descriptor, hostVersion, WeChatBuildConfig.BUILD_TAG, kind)
-            }
+    private fun DexMethodInfo.toResolved(kind: PythonMemberKind): PythonResolvedMember =
+        PythonResolvedMember(
+            descriptor = descriptor,
+            name = name,
+            declaredClass = declaredClassName,
+            returnType = returnTypeName,
+            paramTypes = paramTypeNames,
+            modifiers = modifiers,
+            kind = kind,
+            hostVersion = hostVersion,
+            hostBuildTag = WeChatBuildConfig.BUILD_TAG,
+        )
+
+    private fun <T> dexQuery(block: (DexMatcherSession) -> T): T = query {
+        withDexSql { runtime: DexSqlRuntime ->
+            DexMatcherSession(runtime.bridge, runtime.metadata).use(block)
         }
-    }
-
-    private fun org.luckypray.dexkit.query.FindClass.applyScope(
-        search: List<String>,
-        exclude: List<String>,
-        ignoreCase: Boolean,
-    ) {
-        if (search.isNotEmpty()) searchPackages(search)
-        if (exclude.isNotEmpty()) excludePackages(exclude)
-        if (ignoreCase) ignorePackagesCase(true)
-    }
-
-    private fun org.luckypray.dexkit.query.FindMethod.applyScope(
-        search: List<String>,
-        exclude: List<String>,
-        ignoreCase: Boolean,
-    ) {
-        if (search.isNotEmpty()) searchPackages(search)
-        if (exclude.isNotEmpty()) excludePackages(exclude)
-        if (ignoreCase) ignorePackagesCase(true)
-    }
-
-    private fun org.luckypray.dexkit.query.FindField.applyScope(
-        search: List<String>,
-        exclude: List<String>,
-        ignoreCase: Boolean,
-    ) {
-        if (search.isNotEmpty()) searchPackages(search)
-        if (exclude.isNotEmpty()) excludePackages(exclude)
-        if (ignoreCase) ignorePackagesCase(true)
     }
 
     private fun <T> query(block: () -> T): T {
-        check(!scope.isClosed) { "Python plugin scope is closed: ${scope.pluginId}" }
+        check(!scope.isClosed) { "Python plugin scope is closed: " + scope.pluginId }
         return try {
             executor.submit<T> {
-                check(!scope.isClosed) { "Python plugin scope is closed: ${scope.pluginId}" }
+                check(!scope.isClosed) { "Python plugin scope is closed: " + scope.pluginId }
                 block()
             }.get()
         } catch (error: ExecutionException) {
@@ -135,11 +124,11 @@ class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
         }
     }
 
-    private val hostVersion get() = "${HostInfo.versionName} (${HostInfo.versionCode})"
+    private val hostVersion get() = HostInfo.versionName + " (" + HostInfo.versionCode + ")"
 
     private companion object {
         val executor = Executors.newSingleThreadExecutor { task ->
-            Thread(task, "WeKit-Python-DexKit").apply { isDaemon = true }
+            Thread(task, "WeKit-Python-Dex").apply { isDaemon = true }
         }
     }
 }

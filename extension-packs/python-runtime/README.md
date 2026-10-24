@@ -14,11 +14,10 @@ container cannot be installed as an application. The loader-neutral
 `RuntimeEntrypoint` Kotlin object loads the manifest-ordered native libraries
 before resolving the Chaquopy backend.
 
-DexKit's Python bindings are generated from the pinned DexKit AAR by
-`runtime:generateDexKitPythonBindings`. The runtime package and developer SDK
-therefore expose the same complete set of matcher classes, matcher collections,
-enums, snake-case methods, canonical aliases and typed overloads without a
-manually maintained API list.
+The runtime ships a small hand-written `wekit.dex` module (spec builder helpers plus
+immutable result dataclasses) instead of generated DexKit bindings. Specs are
+executed by WeKit's query matcher through the standalone matcher session; there is
+no DexKit AAR-derived code generation path.
 
 Runtime Python dependencies, including HTTPX2 and its HTTP/2, Brotli, Zstandard
 and SOCKS extras, are pinned in `runtime/requirements.txt`. Native packages use

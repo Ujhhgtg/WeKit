@@ -28,13 +28,17 @@ from ._types import (
     PluginHost,
     PluginRequest,
     RuntimeConfig,
-    ResolvedClass,
-    ResolvedField,
-    ResolvedMember,
     TaskHandle,
     TaskHost,
 )
-from .dexkit import ClassMatcher, DexKitBinding, FieldMatcher, MethodMatcher
+from .dex import (
+    ResolvedClass,
+    ResolvedField,
+    ResolvedMethod,
+    to_resolved_class,
+    to_resolved_field,
+    to_resolved_method,
+)
 
 _config: RuntimeConfig | None = None
 _instances: dict[str, tuple[str, PluginContext, _Scope]] = {}
@@ -178,6 +182,13 @@ class _AsyncHandle:
             )
 
 
+def current_context() -> PluginContext:
+    context = _current_context.get()
+    if context is None:
+        raise RuntimeError("no active WeKit Python plugin context")
+    return context
+
+
 class _Logger:
     def __init__(self, delegate: Logger) -> None:
         self._delegate: Logger = delegate
@@ -241,6 +252,12 @@ class _Hooks:
         self._delegate: HookHost = delegate
         self._context: PluginContext = context
 
+    @staticmethod
+    def _member(member: object) -> object:
+        if isinstance(member, (ResolvedMethod, ResolvedField)):
+            return member.descriptor
+        return member
+
     def _wrap(
         self, callback: Callable[[HookParameter], _T]
     ) -> Callable[[HookParameter], _T]:
@@ -260,7 +277,7 @@ class _Hooks:
         callback: Callable[[HookParameter], object],
         priority: int = 50,
     ) -> HookToken:
-        return self._delegate.before(member, self._wrap(callback), priority)
+        return self._delegate.before(self._member(member), self._wrap(callback), priority)
 
     def after(
         self,
@@ -268,7 +285,7 @@ class _Hooks:
         callback: Callable[[HookParameter], object],
         priority: int = 50,
     ) -> HookToken:
-        return self._delegate.after(member, self._wrap(callback), priority)
+        return self._delegate.after(self._member(member), self._wrap(callback), priority)
 
     def replace(
         self,
@@ -276,7 +293,7 @@ class _Hooks:
         callback: Callable[[HookParameter], object],
         priority: int = 50,
     ) -> HookToken:
-        return self._delegate.replace(member, self._wrap(callback), priority)
+        return self._delegate.replace(self._member(member), self._wrap(callback), priority)
 
     def invoke_original(self, parameter: HookParameter) -> object:
         return self._delegate.invokeOriginal(parameter)
@@ -289,131 +306,135 @@ class _Dex:
     def __init__(self, delegate: DexHost) -> None:
         self._delegate: DexHost = delegate
 
+    @staticmethod
+    def _json(spec: dict[str, Any]) -> str:
+        if not isinstance(spec, dict):
+            raise TypeError("ctx.dex requires a spec dict built with wekit.dex helpers")
+        return json.dumps(spec, separators=(",", ":"))
+
     def class_(
         self,
-        matcher: ClassMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
     ) -> ResolvedClass:
-        return self._delegate.findClass(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
+        return to_resolved_class(
+            self._delegate.findClass(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
         )
 
     def classes(
         self,
-        matcher: ClassMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> Sequence[ResolvedClass]:
-        return self._delegate.findClasses(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
-        )
+    ) -> list[ResolvedClass]:
+        return [
+            to_resolved_class(item)
+            for item in self._delegate.findClasses(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
+        ]
 
     def method(
         self,
-        matcher: MethodMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> ResolvedMember:
-        return self._delegate.findMethod(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
+    ) -> ResolvedMethod:
+        return to_resolved_method(
+            self._delegate.findMethod(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
         )
 
     def methods(
         self,
-        matcher: MethodMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> Sequence[ResolvedMember]:
-        return self._delegate.findMethods(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
-        )
+    ) -> list[ResolvedMethod]:
+        return [
+            to_resolved_method(item)
+            for item in self._delegate.findMethods(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
+        ]
 
     def constructor(
         self,
-        matcher: MethodMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> ResolvedMember:
-        return self._delegate.findConstructor(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
+    ) -> ResolvedMethod:
+        return to_resolved_method(
+            self._delegate.findConstructor(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
         )
 
     def constructors(
         self,
-        matcher: MethodMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> Sequence[ResolvedMember]:
-        return self._delegate.findConstructors(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
-        )
+    ) -> list[ResolvedMethod]:
+        return [
+            to_resolved_method(item)
+            for item in self._delegate.findConstructors(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
+        ]
 
     def field(
         self,
-        matcher: FieldMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
     ) -> ResolvedField:
-        return self._delegate.findField(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
+        return to_resolved_field(
+            self._delegate.findField(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
         )
 
     def fields(
         self,
-        matcher: FieldMatcher,
+        spec: dict[str, Any],
         *,
         search_packages: Sequence[str] = (),
         exclude_packages: Sequence[str] = (),
-        ignore_packages_case: bool = False,
-    ) -> Sequence[ResolvedField]:
-        return self._delegate.findFields(
-            self._java(matcher),
-            list(search_packages),
-            list(exclude_packages),
-            ignore_packages_case,
-        )
-
-    @staticmethod
-    def _java(matcher: DexKitBinding) -> object:
-        if not isinstance(matcher, DexKitBinding):
-            raise TypeError("ctx.dex requires a generated DexKit binding")
-        return matcher._to_java()
+    ) -> list[ResolvedField]:
+        return [
+            to_resolved_field(item)
+            for item in self._delegate.findFields(
+                self._json(spec),
+                list(search_packages),
+                list(exclude_packages),
+            )
+        ]
 
 
 class _Jvm:

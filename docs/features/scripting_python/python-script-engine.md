@@ -31,20 +31,18 @@ This produces `dist/extensions/python-runtime-<content-hash>.apk` and `wekit-pyt
 
 Plugins live in `<module data>/scripts_python/<reverse-dns-id>/` and contain `plugin.json` plus an entry module. New plugins are disabled by default. Enabling one starts the process-local runtime on demand and calls `setup(ctx)` in a private `_wekit_plugins.<encoded-id>` namespace. `ctx.defer`, hook tokens and task handles are released in LIFO order during disable or reload.
 
-`wekit.dexkit` is generated from DexKit 2.2.0's AAR. It exposes every public
-matcher, matcher collection and query enum as a typed Python class, with
-snake-case methods, typed overloads and the canonical JVM method aliases. A
-binding recursively unwraps nested Python bindings before calling DexKit and
-wraps matcher results again; the underlying JVM object is not the public API.
-Constructor keywords are generated from DexKit's fluent setters, so
-`MethodMatcher(return_type="void", param_count=1, using_strings=[eq("foo")])`
-and the equivalent fluent chain are the same binding.
-
-`ctx.dex` accepts these real bindings for class, method, constructor and field
-queries. Queries use WeKit's shared DexKit lease off the UI thread and return
-descriptors tagged with the current host version/build rather than
-process-stale reflection objects. The generated `.pyi` files ship in
-`wekit-python-sdk.zip` with the runtime and examples.
+`wekit.dex` is a hand-written, DexKit-free module. Builder helpers
+(`class_spec`, `method_spec`, `field_spec`, `name`, `string`, `using_strings`,
+`opcode_spec`, annotation helpers, ...) return plain snake_case spec
+dictionaries. `ctx.dex` and the `wekit.dex.find_classes` / `find_methods` /
+`find_fields` helpers execute them with WeKit's query matcher over the host
+APK through a standalone matcher session and return immutable Python
+dataclasses with descriptor, name, declaring class, return type, parameter
+types and modifiers. Specs cover nested class/method/field matching, using
+strings/numbers/fields, invoke/caller methods, opcode constraints and
+annotations. There is no DexKit matcher ABI or generated binding layer; the
+hand-written `.pyi` files ship in `wekit-python-sdk.zip` with the runtime and
+examples.
 
 The manager remains available when the runtime pack is absent. Missing runtime state is shown as `RUNTIME_MISSING`; WeKit does not download it or show an installation dialog during WeChat startup.
 

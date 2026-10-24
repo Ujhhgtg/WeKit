@@ -1,72 +1,71 @@
 package dev.ujhhgtg.wekit.python.api
 
+/**
+ * Spec-based DEX query host for Python plugins.
+ *
+ * The Python `wekit.dex` module builds plain snake_case spec dicts and passes their JSON encoding;
+ * the host executes them through WeKit's standalone
+ * [dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession]. There is no DexKit matcher ABI in this API.
+ */
 interface PythonDexHost {
     fun findClasses(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): List<PythonResolvedClass>
 
     fun findMethods(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): List<PythonResolvedMember>
 
     fun findConstructors(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): List<PythonResolvedMember>
 
     fun findFields(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): List<PythonResolvedField>
 
     fun findClass(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): PythonResolvedClass = findClasses(
-        matcher, searchPackages, excludePackages, ignorePackagesCase,
+        specJson, searchPackages, excludePackages,
     ).requireSingle("class")
 
     fun findMethod(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): PythonResolvedMember = findMethods(
-        matcher, searchPackages, excludePackages, ignorePackagesCase,
+        specJson, searchPackages, excludePackages,
     ).requireSingle("method")
 
     fun findConstructor(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): PythonResolvedMember = findConstructors(
-        matcher, searchPackages, excludePackages, ignorePackagesCase,
+        specJson, searchPackages, excludePackages,
     ).requireSingle("constructor")
 
     fun findField(
-        matcher: Any,
+        specJson: String,
         searchPackages: List<String>,
         excludePackages: List<String>,
-        ignorePackagesCase: Boolean,
     ): PythonResolvedField = findFields(
-        matcher, searchPackages, excludePackages, ignorePackagesCase,
+        specJson, searchPackages, excludePackages,
     ).requireSingle("field")
 
     private fun <T> List<T>.requireSingle(kind: String): T {
-        require(size == 1) { "DexKit $kind query returned $size matches" }
+        require(size == 1) { "DEX " + kind + " query returned " + size + " matches" }
         return single()
     }
 }
@@ -74,6 +73,7 @@ interface PythonDexHost {
 data class PythonResolvedClass(
     val name: String,
     val descriptor: String,
+    val modifiers: Int,
     val hostVersion: String,
     val hostBuildTag: String,
 )
@@ -82,13 +82,22 @@ enum class PythonMemberKind { METHOD, CONSTRUCTOR, FIELD }
 
 data class PythonResolvedMember(
     override val descriptor: String,
+    val name: String,
+    val declaredClass: String,
+    val returnType: String,
+    val paramTypes: List<String>,
+    val modifiers: Int,
+    val kind: PythonMemberKind = PythonMemberKind.METHOD,
     val hostVersion: String,
     val hostBuildTag: String,
-    val kind: PythonMemberKind = PythonMemberKind.METHOD,
 ) : PythonMemberHandle
 
 data class PythonResolvedField(
     val descriptor: String,
+    val name: String,
+    val declaredClass: String,
+    val typeName: String,
+    val modifiers: Int,
     val hostVersion: String,
     val hostBuildTag: String,
 )

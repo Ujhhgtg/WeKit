@@ -98,12 +98,6 @@ val chaquopyTarget = configurations.create("chaquopyTarget") {
     isCanBeConsumed = false
     isCanBeResolved = true
 }
-val dexKitCodegen = configurations.create("dexKitCodegen") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-    isTransitive = false
-}
-
 dependencies {
     // Supplied by xtask from a controlled local Maven repository; compile-only
     // prevents API classes from entering the runtime DEX.
@@ -112,28 +106,6 @@ dependencies {
     chaquopyTarget(
         "com.chaquo.python:target:${libs.versions.pythonRuntimeChaquopyTarget.get()}:arm64-v8a@zip",
     )
-    dexKitCodegen("org.luckypray:dexkit:${libs.versions.dexkit.get()}")
-}
-
-val generatedDexKitPython = layout.buildDirectory.dir("generated/dexkitBindings/python")
-val generatedDexKitStubs = layout.buildDirectory.dir("generated/dexkitBindings/stubs")
-val generateDexKitPythonBindings = tasks.register<Exec>("generateDexKitPythonBindings") {
-    val generator = rootProject.file("codegen/generate_dexkit_bindings.py")
-    inputs.file(generator)
-    inputs.files(dexKitCodegen)
-    outputs.dirs(generatedDexKitPython, generatedDexKitStubs)
-    doFirst {
-        commandLine(
-            "python3",
-            generator,
-            "--aar",
-            dexKitCodegen.singleFile,
-            "--python-out",
-            generatedDexKitPython.get().asFile,
-            "--stub-out",
-            generatedDexKitStubs.get().asFile,
-        )
-    }
 }
 
 chaquopy {
@@ -151,21 +123,9 @@ chaquopy {
             install("-r", "requirements.txt")
         }
     }
-    sourceSets {
-        named("main") {
-            srcDir(generatedDexKitPython.get().asFile)
-        }
-    }
 }
 
 tasks.named("preBuild") { dependsOn(generateRuntimeManifest) }
-tasks.matching {
-    it.name.matches(Regex("generate.+PythonSourceAssets")) ||
-        it.name.matches(Regex("merge.+PythonSources"))
-}.configureEach {
-    dependsOn(generateDexKitPythonBindings)
-}
-
 val extractedChaquopyTarget = layout.buildDirectory.dir("chaquopyTarget")
 tasks.register<Sync>("extractChaquopyTarget") {
     from({ chaquopyTarget.files.map(::zipTree) })

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from java import dynamic_proxy  # ty: ignore[unresolved-import]
 
 from dev.ujhhgtg.wekit.features.api.core import WeDatabaseListenerApi  # ty: ignore[unresolved-import]
-from wekit.dexkit import MethodMatcher, eq
+from wekit import dex
 from wekit.runtime import PluginContext
 
 if TYPE_CHECKING:
@@ -15,9 +15,9 @@ if TYPE_CHECKING:
 def setup(ctx: PluginContext) -> None:
     ctx.log.info("Demo loading")
     target = ctx.dex.method(
-        MethodMatcher(
-            return_type="void",
-            using_strings=[eq("some stable string")],
+        dex.method_spec(
+            return_type=dex.class_spec(class_name=dex.name("void")),
+            using_strings=dex.using_strings("some stable string"),
         )
     )
 
