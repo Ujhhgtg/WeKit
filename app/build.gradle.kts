@@ -431,8 +431,10 @@ val monetCorpus = providers.gradleProperty("wekit.monetCorpus").map(String::toBo
 tasks.withType<Test>().configureEach {
     systemProperty("wekit.monetCorpus", monetCorpus.get())
     systemProperty("wekit.monetRuntime.dump", providers.gradleProperty("wekit.monetRuntime.dump").orNull.orEmpty())
-    // Monet resource-graph tests load complete host APKs.
-    maxHeapSize = "4g"
+    // Monet resource-graph tests load complete host APKs; other suites (including the dex-test
+    // workers) only need the smaller cap. Keep worker heaps low so a batched run cannot exhaust
+    // host memory.
+    maxHeapSize = if (monetCorpus.get()) "4g" else "2g"
     if (dexKitSnapshot.get()) {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexKitDataSnapshotTest")
