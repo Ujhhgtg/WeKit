@@ -39,6 +39,7 @@ internal class DexSqlLiterals {
     val strings = mutableListOf<SqlStringLiteral>()
     val numberCalls = mutableListOf<List<Any>>()
     val searchPackages = mutableListOf<String>()
+    val excludePackages = mutableListOf<String>()
     var limit: Int? = null
         private set
 
@@ -62,6 +63,8 @@ internal class DexSqlLiterals {
     }
 
     fun searchPackages(vararg values: String) = values.forEach { searchPackages += it }
+
+    fun excludePackages(vararg values: String) = values.forEach { excludePackages += it }
 
     fun setLimit(value: Int) {
         limit = value
@@ -141,6 +144,20 @@ private fun packageCondition(column: String, searchPackages: List<String>): Stri
         "instr(" + column + ", " + sqlQuote(packageDescriptor(packageName)) + ") = 1"
     }
 }
+
+/** Exclude-package prefix condition: NOT (OR prefix matches) over one descriptor column. */
+private fun packageExcludeCondition(column: String, excludePackages: List<String>): String? {
+    val include = packageCondition(column, excludePackages) ?: return null
+    return "NOT " + include
+}
+
+/** Inclusive count conditions for a class column (equality when min == max). */
+private fun countConditions(column: String, range: IntRange): List<String> =
+    if (range.first == range.last) {
+        listOf(column + " = " + range.first)
+    } else {
+        listOf(column + " >= " + range.first, column + " <= " + range.last)
+    }
 
 /**
  * Render one DexKit string predicate (case-sensitive): contains uses instr(...) > 0, prefix uses
@@ -527,7 +544,20 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
     val result = methodJoins(query.literals.strings, query.literals.numberCalls, "m", 0, properties)
     val joins = result.joins.toMutableList()
     where += result.where
+    query.descriptor?.let { where += "m.descriptor = " + sqlQuote(it) }
+    query.usingFields.forEachIndexed { index, access ->
+        val alias = "uf$index"
+        joins += "JOIN method_field_accesses $alias ON $alias.method = m.descriptor"
+        where += "$alias.file_id = m.file_id"
+        where += "$alias.method_idx = m.method_idx"
+        access.fieldName?.let { where += alias + ".field_name = " + sqlQuote(it) }
+        access.fieldType?.let { where += alias + ".field_type = " + sqlQuote(javaType(it)) }
+        access.usingType?.let { where += alias + ".using_type = " + sqlQuote(it) }
+    }
     packageCondition("m.class_descriptor", query.literals.searchPackages)?.let { where += it }
+    packageExcludeCondition("m.class_descriptor", query.literals.excludePackages)?.let {
+        where += it
+    }
     query.modifiers?.let { mask ->
         where += "((m.access_flags & $mask) = $mask)"
     }
@@ -625,6 +655,9 @@ internal fun emitClass(query: SqlClassQuery): String {
             where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
         }
         packageCondition("cm.class_descriptor", query.literals.searchPackages)?.let { where += it }
+        packageExcludeCondition("cm.class_descriptor", query.literals.excludePackages)?.let {
+            where += it
+        }
         query.modifiers?.let { mask ->
             if (!classesJoined) {
                 joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
@@ -633,6 +666,16 @@ internal fun emitClass(query: SqlClassQuery): String {
             }
             where += "((c.access_flags & $mask) = $mask)"
         }
+        if (
+            (query.fieldCountRange != null || query.interfaceCountRange != null) && !classesJoined
+        ) {
+            joins += "JOIN classes c ON c.descriptor = cm.class_descriptor"
+            where += "c.file_id = cm.file_id"
+            where += "c.class_idx = cm.class_idx"
+            classesJoined = true
+        }
+        query.fieldCountRange?.let { where += countConditions("c.field_count", it) }
+        query.interfaceCountRange?.let { where += countConditions("c.interface_count", it) }
         where += methodMatcherDistinctnessConditions(nestedMethodAliases)
         query.superClassConstraint?.let {
             appendSuperClassConstraint(it, "cm", nextIndex, joins, where)
@@ -656,8 +699,11 @@ internal fun emitClass(query: SqlClassQuery): String {
         classNameMatch != null ||
             superClassMatch != null ||
             query.literals.searchPackages.isNotEmpty() ||
+            query.literals.excludePackages.isNotEmpty() ||
             superClassConstraint != null ||
-            query.modifiers != null,
+            query.modifiers != null ||
+            query.fieldCountRange != null ||
+            query.interfaceCountRange != null,
     ) {
         "sqlClass requires at least one predicate"
     }
@@ -668,9 +714,12 @@ internal fun emitClass(query: SqlClassQuery): String {
         where += nameMatchCondition("c.superclass_descriptor", it, SqlNameLiteralKind.Class)
     }
     packageCondition("c.descriptor", query.literals.searchPackages)?.let { where += it }
+    packageExcludeCondition("c.descriptor", query.literals.excludePackages)?.let { where += it }
     query.modifiers?.let { mask ->
         where += "((c.access_flags & $mask) = $mask)"
     }
+    query.fieldCountRange?.let { where += countConditions("c.field_count", it) }
+    query.interfaceCountRange?.let { where += countConditions("c.interface_count", it) }
     superClassConstraint?.let {
         appendSuperClassConstraint(it, null, 0, joins, where)
     }
@@ -691,6 +740,9 @@ internal fun emitField(query: SqlFieldQuery): String {
     query.declaredClass?.let { where += "f.class_descriptor = " + sqlQuote(classDescriptor(it)) }
     query.type?.let { where += "f.type_descriptor = " + sqlQuote(javaType(it)) }
     packageCondition("f.class_descriptor", query.literals.searchPackages)?.let { where += it }
+    packageExcludeCondition("f.class_descriptor", query.literals.excludePackages)?.let {
+        where += it
+    }
     // Access aliases are positional; literal aliases start after the previous unit's aliases.
     var aliasCounter = 0
     query.accesses.forEachIndexed { index, access ->

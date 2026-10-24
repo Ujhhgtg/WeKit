@@ -74,7 +74,21 @@ internal fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery = DexSqlQuer
  * Only DexKit predicates that DexSQL can express are exposed; unsupported constructs are Kotlin
  * compile errors instead of silently dropped predicates.
  */
+/**
+ * One method-to-field access matcher (DexKit UsingFieldMatcher) on the access-method side:
+ * method_field_accesses joined on the matched method. Field name/type are exact matches; the
+ * direction is 'get'/'put' or null for either.
+ */
+internal class SqlUsingField(
+    val fieldName: String? = null,
+    val fieldType: String? = null,
+    val usingType: String? = null,
+)
+
 internal class SqlMethodQuery internal constructor() {
+    /** Exact full method descriptor ("Lcom/foo/Bar;->name(I)V"). */
+    var descriptor: String? = null
+
     /** Exact method name (m.name); constructors use "<init>". */
     var name: String? = null
 
@@ -124,8 +138,14 @@ internal class SqlMethodQuery internal constructor() {
 
     internal val literals = DexSqlLiterals()
     internal var paramTypes: List<Any?>? = null
+    internal val usingFields = mutableListOf<SqlUsingField>()
 
     internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
+
+    /** Add one method-to-field access matcher on the access-method side. */
+    fun usingField(fieldName: String? = null, fieldType: String? = null, usingType: String? = null) {
+        usingFields += SqlUsingField(fieldName, fieldType, usingType)
+    }
 
     /** Set the declaring class; same as assigning [declaredClass]. */
     fun declaredClass(value: String) {
@@ -240,6 +260,10 @@ internal class SqlMethodQuery internal constructor() {
      */
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
+    /** Reject declaring-class packages (prefix semantics, DexKit excludePackages). */
+    fun excludePackages(vararg excludePackages: String) =
+        literals.excludePackages(*excludePackages)
+
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
 
@@ -293,6 +317,36 @@ internal class SqlClassQuery internal constructor() {
 
     internal val literals = DexSqlLiterals()
     internal val methods = mutableListOf<SqlMethodQuery>()
+    internal var fieldCountRange: IntRange? = null
+    internal var interfaceCountRange: IntRange? = null
+
+    /** Inclusive declared-field count range; min == max keeps the equality form. */
+    fun fieldCount(count: Int) {
+        fieldCountRange = count..count
+    }
+
+    /** Inclusive declared-field count range. */
+    fun fieldCount(min: Int, max: Int) {
+        require(min in 0..max) { "DexSQL fieldCount range must satisfy 0 <= min <= max" }
+        fieldCountRange = min..max
+    }
+
+    /** Inclusive declared-field count range. */
+    fun fieldCount(range: IntRange) = fieldCount(range.first, range.last)
+
+    /** Inclusive direct-interface count range; min == max keeps the equality form. */
+    fun interfaceCount(count: Int) {
+        interfaceCountRange = count..count
+    }
+
+    /** Inclusive direct-interface count range. */
+    fun interfaceCount(min: Int, max: Int) {
+        require(min in 0..max) { "DexSQL interfaceCount range must satisfy 0 <= min <= max" }
+        interfaceCountRange = min..max
+    }
+
+    /** Inclusive direct-interface count range. */
+    fun interfaceCount(range: IntRange) = interfaceCount(range.first, range.last)
 
     /** Set the class descriptor; same as assigning [className]. */
     fun className(value: String) {
@@ -348,6 +402,10 @@ internal class SqlClassQuery internal constructor() {
     /** Restrict the package, emitted against the class descriptor column. */
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
 
+    /** Reject packages, emitted as NOT (prefix match) against the class descriptor column. */
+    fun excludePackages(vararg excludePackages: String) =
+        literals.excludePackages(*excludePackages)
+
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)
 
@@ -401,6 +459,10 @@ internal class SqlFieldQuery internal constructor() {
 
     /** Restrict the declaring class package, emitted as (f.class_descriptor LIKE 'Lpackage/%'). */
     fun searchPackages(vararg searchPackages: String) = literals.searchPackages(*searchPackages)
+
+    /** Reject declaring-class packages (prefix semantics). */
+    fun excludePackages(vararg excludePackages: String) =
+        literals.excludePackages(*excludePackages)
 
     /** Append LIMIT n after ORDER BY. */
     fun limit(value: Int) = literals.setLimit(value)

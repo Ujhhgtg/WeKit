@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
 
 /**
  * Spec -> canonical DexSQL IR conversion.
@@ -129,12 +130,12 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     constructor: Boolean = false,
     nested: Boolean = false,
 ): SqlMethodQuery? {
-    if (descriptor != null) return null
-    if (excludePackages.isNotEmpty()) return null
+    if (nested && descriptor != null) return null
+    if (nested && usingFields.isNotEmpty()) return null
     if (nested && searchPackages.isNotEmpty()) return null
+    if (nested && excludePackages.isNotEmpty()) return null
     if (
-        usingFields.isNotEmpty() ||
-            invokeMethods.isNotEmpty() ||
+        invokeMethods.isNotEmpty() ||
             callerMethods.isNotEmpty() ||
             anyOf.isNotEmpty() ||
             allOf.isNotEmpty() ||
@@ -151,6 +152,7 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     if (constructor && name != null && name.value != "<init>") return null
     if (usingStrings.any(StringSpec::isEmptyNonEquality)) return null
     val query = SqlMethodQuery()
+    descriptor?.let { query.descriptor = it }
     if (!constructor) name?.let { query.name = it.value }
     modifiers?.let { query.modifiers = it }
     declaredClass?.let { classSpec ->
@@ -183,17 +185,45 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     usingStrings.forEach { it.toSqlMethodLiteral(query) }
     if (usingNumbers.isNotEmpty()) query.usingNumbers(*usingNumbers.toTypedArray())
     if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
+    if (excludePackages.isNotEmpty()) query.excludePackages(*excludePackages.toTypedArray())
+    if (usingFields.isNotEmpty()) {
+        // Injective access-entry matching cannot be reproduced by one SQL access unit when several
+        // field specs target the same field, so only the single-spec form is lowered.
+        if (usingFields.size > 1) return null
+        val access = usingFields.single()
+        val field = access.field
+        if (field.declaredClass != null) return null
+        if (field.modifiers != null) return null
+        if (field.readMethods.isNotEmpty() || field.writeMethods.isNotEmpty()) return null
+        if (field.searchPackages.isNotEmpty() || field.excludePackages.isNotEmpty()) return null
+        val fieldName =
+            field.name?.let {
+                if (it.match != NameMatch.Equals) return null
+                it.value
+            }
+        val fieldType =
+            field.type?.let { typeSpec ->
+                if (!typeSpec.isNameOnly()) return null
+                val nameSpec = typeSpec.className ?: return null
+                if (nameSpec.match != NameMatch.Equals) return null
+                nameSpec.value
+            }
+        val usingType =
+            when (access.usingType) {
+                null -> null
+                FieldUsingType.Read -> "get"
+                FieldUsingType.Write -> "put"
+            }
+        query.usingField(fieldName = fieldName, fieldType = fieldType, usingType = usingType)
+    }
     return query
 }
 
 internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
-    if (excludePackages.isNotEmpty()) return null
     if (
         interfaces.isNotEmpty() ||
             fields.isNotEmpty() ||
-            fieldCount != null ||
             methodCount != null ||
-            interfaceCount != null ||
             annotations.isNotEmpty()
     ) {
         return null
@@ -216,6 +246,9 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
     usingStrings.forEach { it.toSqlClassLiteral(query) }
     if (usingNumbers.isNotEmpty()) query.usingNumbers(*usingNumbers.toTypedArray())
     if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
+    if (excludePackages.isNotEmpty()) query.excludePackages(*excludePackages.toTypedArray())
+    fieldCount?.let { query.fieldCount(it) }
+    interfaceCount?.let { query.interfaceCount(it) }
     methods.forEach { methodSpec ->
         val nestedQuery = methodSpec.toSqlMethodQueryOrNull(nested = true) ?: return null
         if (
@@ -234,25 +267,15 @@ internal fun ClassSpec.toSqlClassQueryOrNull(): SqlClassQuery? {
             usingStrings.isEmpty() &&
             usingNumbers.isEmpty() &&
             searchPackages.isEmpty() &&
+            excludePackages.isEmpty() &&
+            fieldCount == null &&
+            interfaceCount == null &&
             methods.isEmpty()
     ) {
         return null
     }
     return query
 }
-
-private fun MethodSpec.hasMatcherPredicates(): Boolean =
-    name != null ||
-        modifiers != null ||
-        declaredClass != null ||
-        returnType != null ||
-        paramTypes != null ||
-        paramCount != null ||
-        opcodes?.count != null ||
-        usingStrings.isNotEmpty() ||
-        usingNumbers.isNotEmpty() ||
-        searchPackages.isNotEmpty() ||
-        excludePackages.isNotEmpty()
 
 private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
     name != null ||
@@ -267,7 +290,6 @@ private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
         literals.searchPackages.isNotEmpty()
 
 internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
-    if (excludePackages.isNotEmpty()) return null
     val query = SqlFieldQuery()
     name?.let {
         if (it.match != NameMatch.Equals) return null
@@ -298,12 +320,14 @@ internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
         query.accesses += SqlFieldAccess(nested, usingType)
     }
     if (searchPackages.isNotEmpty()) query.searchPackages(*searchPackages.toTypedArray())
+    if (excludePackages.isNotEmpty()) query.excludePackages(*excludePackages.toTypedArray())
     if (
         query.name == null &&
             query.declaredClass == null &&
             query.type == null &&
             query.accesses.isEmpty() &&
-            query.literals.searchPackages.isEmpty()
+            query.literals.searchPackages.isEmpty() &&
+            query.literals.excludePackages.isEmpty()
     ) {
         return null
     }

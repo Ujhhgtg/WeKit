@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.matcher.methodSpec
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -318,13 +319,22 @@ class SpecSqlScopeParityTest {
     }
 
     @Test
-    fun classSpecFallbackForClassNumbersCombinedWithStructuralMembers() {
+    fun classSpecNumbersAndFieldCountStaySqlExpressible() {
         val spec = classSpec {
             usingNumbers(42)
             fieldCount = 2..2
         }
-        assertNull(spec.toSqlOrNull())
-        assertFalse(spec.isSqlExpressible())
+        assertEquals(
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm " +
+                "JOIN method_using_numbers mn0 ON mn0.method = cm.descriptor " +
+                "JOIN classes c ON c.descriptor = cm.class_descriptor " +
+                "WHERE mn0.file_id = cm.file_id AND mn0.method_idx = cm.method_idx " +
+                "AND mn0.long_value = 42 AND c.file_id = cm.file_id " +
+                "AND c.class_idx = cm.class_idx AND c.field_count = 2 " +
+                "ORDER BY cm.class_descriptor;",
+            spec.toSqlOrNull(),
+        )
+        assertTrue(spec.isSqlExpressible())
     }
 
     @Test
@@ -425,27 +435,92 @@ class SpecSqlScopeParityTest {
     }
 
     @Test
-    fun packageExclusionDegradesToMatcherFallback() {
-        assertNull(
+    fun newScopeExtensionsEmitCanonicalSql() {
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m " +
+                "WHERE m.descriptor = 'Lcom/test/A;->run()V' ORDER BY m.descriptor;",
+            methodSpec { descriptor = "Lcom/test/A;->run()V" }.toSqlOrNull(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'run' " +
+                "AND (instr(m.class_descriptor, 'Lcom/test/') = 1) " +
+                "AND NOT (instr(m.class_descriptor, 'Lcom/test/ui/') = 1) " +
+                "ORDER BY m.descriptor;",
+            methodSpec {
+                    name("run")
+                    searchPackages("com.test")
+                    excludePackages("com.test.ui")
+                }
+                .toSqlOrNull(),
+        )
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m " +
+                "JOIN method_field_accesses uf0 ON uf0.method = m.descriptor " +
+                "WHERE m.name = 'run' AND uf0.file_id = m.file_id " +
+                "AND uf0.method_idx = m.method_idx AND uf0.field_type = 'I' " +
+                "ORDER BY m.descriptor;",
+            methodSpec {
+                    name("run")
+                    usingField { type = "int" }
+                }
+                .toSqlOrNull(),
+        )
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                "WHERE c.descriptor = 'Lcom/test/A;' AND c.field_count = 2 " +
+                "ORDER BY c.descriptor;",
+            classSpec {
+                    className("com.test.A")
+                    fieldCount = 2
+                }
+                .toSqlOrNull(),
+        )
+        assertEquals(
+            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                "WHERE c.descriptor = 'Lcom/test/A;' AND c.interface_count = 0 " +
+                "ORDER BY c.descriptor;",
+            classSpec {
+                    className("com.test.A")
+                    interfaceCount = 0
+                }
+                .toSqlOrNull(),
+        )
+        assertEquals(
+            "SELECT DISTINCT f.descriptor AS descriptor FROM fields f WHERE f.name = 'count' " +
+                "AND (instr(f.class_descriptor, 'Lcom/test/') = 1) " +
+                "AND NOT (instr(f.class_descriptor, 'Lcom/test/ui/') = 1) " +
+                "ORDER BY f.descriptor;",
+            fieldSpec {
+                    name("count")
+                    searchPackages("com.test")
+                    excludePackages("com.test.ui")
+                }
+                .toSqlOrNull(),
+        )
+    }
+
+    @Test
+    fun packageExclusionsAreEmittedForEveryKind() {
+        assertTrue(
             methodSpec {
                     searchPackages("com.tencent.mm")
                     excludePackages("com.tencent.mm.ui")
                 }
-                .toSqlOrNull(),
+                .isSqlExpressible(),
         )
-        assertNull(
+        assertTrue(
             classSpec {
                     className("com.tencent.mm.SomeClass")
                     excludePackages("com.tencent.mm.ui")
                 }
-                .toSqlOrNull(),
+                .isSqlExpressible(),
         )
-        assertNull(
+        assertTrue(
             fieldSpec {
                     name("someField")
                     excludePackages("com.tencent.mm.ui")
                 }
-                .toSqlOrNull(),
+                .isSqlExpressible(),
         )
     }
 }
