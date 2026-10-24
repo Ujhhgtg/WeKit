@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Skills management (§ Skills): add/edit/delete skills and toggle each on/off globally. Skills are
- * `SKILL.md` files under `moduleData/agent/skills/<name>/`; only enabled ones are advertised to the
+ * `SKILL.md` files under `filesDir/wekit/agent/skills/<name>/`; only enabled ones are advertised to the
  * model (as a name+description catalog), and the model loads a skill's body via the `load_skill`
  * tool — the dynamic-discovery model.
  */

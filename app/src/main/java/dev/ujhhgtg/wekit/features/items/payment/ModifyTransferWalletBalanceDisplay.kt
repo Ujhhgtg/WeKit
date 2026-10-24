@@ -14,7 +14,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -67,8 +67,8 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
             keysList.add(keysIterator.next())
         }
 
-        val customCft = WePrefs.getStringOrDef(KEY_CFT_BALANCE, null)
-        val customLqt = WePrefs.getStringOrDef(KEY_LQT_BALANCE, null)
+        val customCft = KvStore.getStringOrDef(KEY_CFT_BALANCE, null)
+        val customLqt = KvStore.getStringOrDef(KEY_LQT_BALANCE, null)
 
         for (key in keysList) {
             val value = obj.opt(key) ?: continue
@@ -143,12 +143,12 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
         showComposeDialog(context) {
             var cftInput by remember {
                 mutableStateOf(
-                    WePrefs.getStringOrDef(KEY_CFT_BALANCE, null) ?: ""
+                    KvStore.getStringOrDef(KEY_CFT_BALANCE, null) ?: ""
                 )
             }
             var lqtInput by remember {
                 mutableStateOf(
-                    WePrefs.getStringOrDef(KEY_LQT_BALANCE, null) ?: ""
+                    KvStore.getStringOrDef(KEY_LQT_BALANCE, null) ?: ""
                 )
             }
 
@@ -169,14 +169,14 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                 confirmButton = {
                     Button(onClick = {
                         if (!cftInput.isBlank())
-                            WePrefs.putString(KEY_CFT_BALANCE, cftInput)
+                            KvStore.putString(KEY_CFT_BALANCE, cftInput)
                         else
-                            WePrefs.remove(KEY_CFT_BALANCE)
+                            KvStore.remove(KEY_CFT_BALANCE)
 
                         if (!lqtInput.isBlank())
-                            WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
+                            KvStore.putString(KEY_LQT_BALANCE, lqtInput)
                         else
-                            WePrefs.remove(KEY_LQT_BALANCE)
+                            KvStore.remove(KEY_LQT_BALANCE)
                         onDismiss()
                     }) { Text(stringResource(R.string.dialog_confirm)) }
                 },

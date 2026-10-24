@@ -7,14 +7,15 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.ssh.EncryptedSshCredentials
+import dev.ujhhgtg.wekit.agent.ssh.SshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
 import dev.ujhhgtg.wekit.agent.ssh.SshEndpoint
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKey
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.extensions.ArchLinuxPack
 import dev.ujhhgtg.wekit.extensions.ExtensionPack
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -372,10 +373,19 @@ class LinuxEnvironmentManager(
             LinuxEnvironmentType.PROOT -> ProotBackend(snapshot)
             LinuxEnvironmentType.SSH -> {
                 val stored = requireNotNull(entity)
-                val encrypted = EncryptedSshCredentials(
-                    requireNotNull(stored.sshCredentialCiphertext) { "SSH credentials are missing" },
-                    requireNotNull(stored.sshCredentialIv) { "SSH credential IV is missing" },
-                )
+                val credentials = when {
+                    stored.sshPassword != null -> SshCredentials.Password(stored.sshPassword)
+                    stored.sshPrivateKey != null -> SshCredentials.PrivateKey(
+                        stored.sshPrivateKey,
+                        stored.sshPrivateKeyPassphrase,
+                    )
+                    else -> SshCredentialStore.decrypt(
+                        EncryptedSshCredentials(
+                            requireNotNull(stored.sshCredentialCiphertext) { "SSH credentials are missing" },
+                            requireNotNull(stored.sshCredentialIv) { "SSH credential IV is missing" },
+                        ),
+                    )
+                }
                 val confirmed = stored.sshHostKeyFingerprint?.let { fingerprint ->
                     SshHostKey(requireNotNull(stored.sshHostKeyAlgorithm), fingerprint)
                 }
@@ -388,7 +398,7 @@ class LinuxEnvironmentManager(
                             requireNotNull(stored.sshUsername),
                             confirmed,
                         ),
-                        SshCredentialStore.decrypt(encrypted),
+                        credentials,
                     ),
                 )
             }
@@ -415,7 +425,7 @@ class LinuxEnvironmentManager(
             }
 
         private fun defaultNativeSnapshot(): EnvironmentSnapshot {
-            val workingDirectory = File(HostInfo.application.filesDir, "wekit-agent/environment/native")
+            val workingDirectory = KnownPaths.moduleRoot.resolve("agent/environment/native").toFile()
                 .apply { mkdirs() }
             return EnvironmentSnapshot(
                 id = NATIVE_ENVIRONMENT_ID,

@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.constants
 
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 
 object Preferences {
 
@@ -42,7 +42,7 @@ object Preferences {
     // use this when Google fucked up itself again
 //    var useActivityInsteadOfDialog: Boolean
 //        get() = false
-//        set(value) { WePrefs.putBool(USE_ACTIVITY_INSTEAD_OF_DIALOG, value) }
+//        set(value) { KvStore.putBool(USE_ACTIVITY_INSTEAD_OF_DIALOG, value) }
 
     var pythonEditorSoftWrap by prefOption(PYTHON_EDITOR_SOFT_WRAP, false)
 }

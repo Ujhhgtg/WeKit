@@ -30,7 +30,11 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
-import dev.ujhhgtg.wekit.features.items.AtomicJsonConfigStore
+import dev.ujhhgtg.wekit.data.JsonDataMigration
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.asOverrides
+import dev.ujhhgtg.wekit.features.items.AutomationSaveContent
+import dev.ujhhgtg.wekit.features.items.rememberAutomationSaveState
 import dev.ujhhgtg.wekit.features.items.AutomationContactSettingsSelector
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordMode
 import dev.ujhhgtg.wekit.features.items.AutomationKeywordRule
@@ -45,7 +49,7 @@ import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditDialog
 import dev.ujhhgtg.wekit.features.items.payment.PaymentTextEditMode
 import dev.ujhhgtg.wekit.features.items.payment.keywordItems
 import dev.ujhhgtg.wekit.features.items.payment.timeRangeItems
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -56,9 +60,10 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlin.io.path.div
 
 @Serializable
 enum class MomentAutomationAction {
@@ -172,7 +177,7 @@ data class MomentAutomationOverrides(
 }
 
 @Serializable
-private data class StoredMomentAutomationConfig(
+data class StoredMomentAutomationConfig(
     val version: Int = CONFIG_VERSION,
     val global: MomentAutomationRuleSet = MomentAutomationRuleSet(),
     val contacts: Map<String, MomentAutomationOverrides> = emptyMap()
@@ -180,10 +185,9 @@ private data class StoredMomentAutomationConfig(
 
 class MomentsAutomationSettings private constructor(
     @StringRes private val featureNameRes: Int,
-    private val fileName: String,
     private val logTag: String,
     private val includeAction: Boolean,
-    private val legacyKeys: List<String>,
+    private val legacyPreferenceKeys: List<String>,
     private val legacyUseWhitelistKey: String,
     private val legacyWhitelistKey: String,
     private val legacyBlacklistKey: String,
@@ -202,32 +206,33 @@ class MomentsAutomationSettings private constructor(
         MAXIMUM_AGE
     }
 
-    private val store by lazy {
-        AtomicJsonConfigStore(
-            file = KnownPaths.moduleData / fileName,
-            serializer = StoredMomentAutomationConfig.serializer(),
-            tag = logTag,
-            initialValue = ::migrateLegacyConfig
-        )
-    }
+    private val featureKind = if (includeAction) "LIKE" else "REPOST"
+    @Volatile
+    private var cachedConfig: StoredMomentAutomationConfig? = null
+
+    fun requireReady() { loadConfig() }
 
     fun resolve(owner: String): MomentAutomationRuleSet {
-        val config = store.get()
+        val config = loadConfig()
         return config.global.apply(config.contacts[owner])
     }
 
     fun hasAllLoadedTargets(): Boolean {
-        val config = store.get()
+        val config = loadConfig()
         if (config.global.process.enabled && config.global.effectiveMode == MomentAutomationMode.ALL_LOADED) {
             return true
         }
         return config.contacts.keys.any { owner ->
-            val rules = resolve(owner)
+            val rules = config.global.apply(config.contacts[owner])
             rules.process.enabled && rules.effectiveMode == MomentAutomationMode.ALL_LOADED
         }
     }
 
     fun showMainDialog(context: Context, onSettingsChanged: () -> Unit) {
+        if (!JsonDataMigration.isCompleted("json", logTag)) {
+            showToast(context, context.localizedMomentsString(R.string.structured_storage_unavailable))
+            return
+        }
         showComposeDialog(context) {
             AlertDialogContent(
                 title = { Text(stringResource(featureNameRes)) },
@@ -256,7 +261,9 @@ class MomentsAutomationSettings private constructor(
 
     private fun showGlobalDialog(context: Context, onSettingsChanged: () -> Unit) {
         showComposeDialog(context) {
-            var draft by remember { mutableStateOf(store.get().global) }
+            val saveState = rememberAutomationSaveState()
+            androidx.compose.runtime.SideEffect { dialog.setCancelable(!saveState.saving) }
+            var draft by remember { mutableStateOf(loadConfig().global) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
             val validationError = validate(localizedContext, draft)
@@ -271,29 +278,32 @@ class MomentsAutomationSettings private constructor(
                     .fillMaxHeight(),
                 title = { Text(stringResource(R.string.moments_automation_global_settings)) },
                 text = {
-                    RuleSetEditor(
-                        rules = draft,
-                        overriddenKeys = null,
-                        parentLabel = "",
-                        validationError = validationError,
-                        onActivate = {},
-                        onReset = {},
-                        onChange = { _, updated -> draft = updated },
-                        onEditText = { editText = it },
-                    )
+                    AutomationSaveContent(saveState) {
+                        RuleSetEditor(
+                            rules = draft,
+                            overriddenKeys = null,
+                            parentLabel = "",
+                            validationError = validationError,
+                            onActivate = {},
+                            onReset = {},
+                            onChange = { _, updated -> draft = updated },
+                            onEditText = { editText = it },
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(
-                        enabled = validationError == null,
+                        enabled = validationError == null && !saveState.saving,
                         onClick = {
-                            store.update { it.copy(version = CONFIG_VERSION, global = draft) }
-                            onSettingsChanged()
-                            showToast(localizedContext.getString(R.string.moments_automation_global_saved))
-                            onDismiss()
+                            saveState.submit(save = { putRule("GLOBAL", "", draft.asOverrides()) }, onSuccess = {
+                                onSettingsChanged()
+                                showToast(localizedContext.getString(R.string.moments_automation_global_saved))
+                                onDismiss()
+                            })
                         }
                     ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = { TextButton(onDismiss, enabled = !saveState.saving) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -327,7 +337,7 @@ class MomentsAutomationSettings private constructor(
                     showOverrideDialog(
                         context = context,
                         title = contact.displayName.ifBlank { contact.wxId },
-                        parent = store.get().global,
+                        parent = loadConfig().global,
                         initial = contactOverrides(contact.wxId),
                         onSave = {
                             setContactOverrides(contact.wxId, it)
@@ -345,9 +355,11 @@ class MomentsAutomationSettings private constructor(
         title: String,
         parent: MomentAutomationRuleSet,
         initial: MomentAutomationOverrides,
-        onSave: (MomentAutomationOverrides) -> Unit
+        onSave: suspend (MomentAutomationOverrides) -> Unit
     ) {
         showComposeDialog(context) {
+            val saveState = rememberAutomationSaveState()
+            androidx.compose.runtime.SideEffect { dialog.setCancelable(!saveState.saving) }
             var draft by remember { mutableStateOf(initial) }
             var editText by remember { mutableStateOf<PaymentTextEditMode?>(null) }
             val effective = parent.apply(draft)
@@ -364,28 +376,31 @@ class MomentsAutomationSettings private constructor(
                     .fillMaxHeight(),
                 title = { Text(title) },
                 text = {
-                    RuleSetEditor(
-                        rules = effective,
-                        overriddenKeys = draft.keys(),
-                        parentLabel = localizedContext.getString(R.string.moments_automation_global_settings),
-                        validationError = validationError,
-                        onActivate = { draft = draft.withRule(it, effective) },
-                        onReset = { draft = draft.withoutRule(it) },
-                        onChange = { key, updated -> draft = draft.withRule(key, updated) },
-                        onEditText = { editText = it },
-                    )
+                    AutomationSaveContent(saveState) {
+                        RuleSetEditor(
+                            rules = effective,
+                            overriddenKeys = draft.keys(),
+                            parentLabel = localizedContext.getString(R.string.moments_automation_global_settings),
+                            validationError = validationError,
+                            onActivate = { draft = draft.withRule(it, effective) },
+                            onReset = { draft = draft.withoutRule(it) },
+                            onChange = { key, updated -> draft = draft.withRule(key, updated) },
+                            onEditText = { editText = it },
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(
-                        enabled = validationError == null,
+                        enabled = validationError == null && !saveState.saving,
                         onClick = {
-                            onSave(draft)
-                            showToast(localizedContext.getString(R.string.settings_saved))
-                            onDismiss()
+                            saveState.submit(save = { onSave(draft) }, onSuccess = {
+                                showToast(localizedContext.getString(R.string.settings_saved))
+                                onDismiss()
+                            })
                         }
                     ) { Text(stringResource(R.string.dialog_confirm)) }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = { TextButton(onDismiss, enabled = !saveState.saving) { Text(stringResource(R.string.dialog_cancel)) } }
             )
         }
     }
@@ -768,35 +783,53 @@ class MomentsAutomationSettings private constructor(
     }.getOrDefault(emptyList())
 
     private fun contactOverrides(wxId: String): MomentAutomationOverrides =
-        store.get().contacts[wxId] ?: MomentAutomationOverrides()
+        loadConfig().contacts[wxId] ?: MomentAutomationOverrides()
 
-    private fun setContactOverrides(wxId: String, overrides: MomentAutomationOverrides) {
-        store.update { config ->
-            val contacts = config.contacts.toMutableMap()
-            if (overrides.isEmpty(includeAction)) contacts.remove(wxId) else contacts[wxId] = overrides
-            config.copy(version = CONFIG_VERSION, contacts = contacts)
+    private suspend fun setContactOverrides(wxId: String, overrides: MomentAutomationOverrides) {
+        putRule("CONTACT", wxId, overrides)
+    }
+
+    private fun loadConfig(): StoredMomentAutomationConfig {
+        JsonDataMigration.requireCompleted("json", logTag)
+        cachedConfig?.let { return it }
+        return runBlocking(Dispatchers.IO) {
+            WeKitDatabase.instance.automationDao().getMomentAutomationConfig(featureKind)
+                .also { cachedConfig = it }
         }
     }
 
-    private fun migrateLegacyConfig(): StoredMomentAutomationConfig {
-        val hasLegacyPrefs = legacyKeys.any(WePrefs::containsKey)
+    private suspend fun putRule(scopeType: String, ownerId: String, rules: MomentAutomationOverrides) {
+        JsonDataMigration.requireCompleted("json", logTag)
+        withContext(Dispatchers.IO) {
+            try {
+                WeKitDatabase.instance.automationDao().putMomentAutomationRule(featureKind, scopeType, ownerId, rules)
+            } finally {
+                // Also clear on cancellation: the SQL transaction may already have committed.
+                cachedConfig = null
+            }
+        }
+    }
+
+    fun migrateLegacyConfig(): StoredMomentAutomationConfig {
+        KvStore.requireMigrationKeys(legacyPreferenceKeys)
+        val hasLegacyPrefs = legacyPreferenceKeys.any(KvStore::containsKey)
         if (!hasLegacyPrefs) return StoredMomentAutomationConfig()
 
-        val useWhitelist = WePrefs.getBoolOrDef(legacyUseWhitelistKey, true)
+        val useWhitelist = KvStore.getBoolOrDef(legacyUseWhitelistKey, true)
         val selected = if (useWhitelist) {
-            WePrefs.getStringSetOrDef(legacyWhitelistKey, emptySet())
+            KvStore.getStringSetOrDef(legacyWhitelistKey, emptySet())
         } else {
-            WePrefs.getStringSetOrDef(legacyBlacklistKey, emptySet())
+            KvStore.getStringSetOrDef(legacyBlacklistKey, emptySet())
         }
-        val mode = if (WePrefs.getIntOrDef(legacyModeKey, LEGACY_MODE_WHEN_SEEN) == LEGACY_MODE_ALL_LOADED) {
+        val mode = if (KvStore.getIntOrDef(legacyModeKey, LEGACY_MODE_WHEN_SEEN) == LEGACY_MODE_ALL_LOADED) {
             MomentAutomationMode.ALL_LOADED
         } else {
             MomentAutomationMode.WHEN_SEEN
         }
-        val delay = WePrefs.getLongOrDef(legacyDelayKey, 0L).coerceIn(0L, MAX_ACTION_DELAY_MS)
+        val delay = KvStore.getLongOrDef(legacyDelayKey, 0L).coerceIn(0L, MAX_ACTION_DELAY_MS)
         val action = if (
             includeAction && legacyActionKey != null &&
-            WePrefs.getIntOrDef(legacyActionKey, LEGACY_ACTION_LIKE) == LEGACY_ACTION_UNLIKE
+            KvStore.getIntOrDef(legacyActionKey, LEGACY_ACTION_LIKE) == LEGACY_ACTION_UNLIKE
         ) {
             MomentAutomationAction.UNLIKE
         } else {
@@ -818,10 +851,9 @@ class MomentsAutomationSettings private constructor(
     companion object {
         val Like = MomentsAutomationSettings(
             featureNameRes = R.string.feature_auto_like_moments_name,
-            fileName = "auto_like_moments_settings.json",
             logTag = "AutoLikeMomentsSettings",
             includeAction = true,
-            legacyKeys = listOf(
+            legacyPreferenceKeys = listOf(
                 "moments_auto_like_mode",
                 "moments_auto_like_action",
                 "moments_auto_like_action_delay_ms",
@@ -839,10 +871,9 @@ class MomentsAutomationSettings private constructor(
 
         val Repost = MomentsAutomationSettings(
             featureNameRes = R.string.feature_auto_repost_moments_name,
-            fileName = "auto_repost_moments_settings.json",
             logTag = "AutoRepostMomentsSettings",
             includeAction = false,
-            legacyKeys = listOf(
+            legacyPreferenceKeys = listOf(
                 "moments_auto_forward_mode",
                 "moments_auto_forward_action_delay_ms",
                 "moments_auto_forward_use_whitelist",

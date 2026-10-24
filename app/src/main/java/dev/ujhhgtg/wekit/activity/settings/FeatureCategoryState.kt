@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 
 object FeatureCategoryState {
     var revision by mutableIntStateOf(0)
@@ -36,7 +36,7 @@ object FeatureCategoryState {
             .values
             .filterIsInstance<SwitchFeature>()
             .filter { feature ->
-                WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled) ||
+                KvStore.getBoolOrDef(feature.technicalId, feature.defaultEnabled) ||
                     (feature is ClickableFeature && feature.alwaysEnabled)
             }
             .sortedBy { it.technicalId }

@@ -11,7 +11,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.classImproveInteractionLayout
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.classImproveSnsInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.fieldInteractionSnsInfo
@@ -53,14 +53,14 @@ abstract class AutoMomentsBase : ClickableFeature() {
     private val enabledAtKey get() = "${technicalId}_new_posts_enabled_at"
 
     protected fun startAutomation() {
-        val enabledAt = WePrefs.getLongOrDef(enabledAtKey, 0L).takeIf { it > 0L }
-            ?: System.currentTimeMillis().also { WePrefs.putLong(enabledAtKey, it) }
+        val enabledAt = KvStore.getLongOrDef(enabledAtKey, 0L).takeIf { it > 0L }
+            ?: System.currentTimeMillis().also { KvStore.putLong(enabledAtKey, it) }
         automationRun = AutomationRun(enabledAt)
     }
 
     protected fun stopAutomation() {
         automationRun = null
-        WePrefs.remove(enabledAtKey)
+        KvStore.remove(enabledAtKey)
         // Old view callbacks may survive unhooking, but cannot submit work while stopped.
         timelineHooksInstalled = false
         synchronized(attachedRoots) { attachedRoots.clear() }
@@ -72,10 +72,10 @@ abstract class AutoMomentsBase : ClickableFeature() {
         if (account.isEmpty()) return null
         val afterMillis = run.accountWindows.computeIfAbsent(account) {
             val key = "${technicalId}_new_posts_after_$account"
-            val previous = WePrefs.getLongOrDef(key, 0L)
+            val previous = KvStore.getLongOrDef(key, 0L)
             if (previous >= run.enabledAtMillis) previous else {
                 // A new account or a fresh enable must never inherit another account's backlog.
-                System.currentTimeMillis().also { WePrefs.putLong(key, it) }
+                System.currentTimeMillis().also { KvStore.putLong(key, it) }
             }
         }
         return AutomationScope(run, account, afterMillis / 1000L)

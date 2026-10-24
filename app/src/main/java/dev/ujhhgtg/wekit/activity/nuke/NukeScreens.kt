@@ -64,7 +64,7 @@ import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeCategoryIcon
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeCountAndChevron
 import dev.ujhhgtg.wekit.ui.content.nuke.NukeDivider
@@ -568,7 +568,7 @@ fun NukeFeatureRow(
     val context = LocalWeKitLocalizedContext.current
     val revision = FeatureCategoryState.revision
     val checked = remember(feature.technicalId, revision) {
-        WePrefs.getBoolOrDef(feature.technicalId, feature.defaultEnabled)
+        KvStore.getBoolOrDef(feature.technicalId, feature.defaultEnabled)
     }
     val configurable = feature as? ClickableFeature
 
