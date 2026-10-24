@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -68,65 +67,33 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                     ),
                 )
                 .ifEmpty {
-                    DexResolutionContext.matcher.findMethods(
-                        MethodSpec(
-                            declaredClass =
-                                ClassSpec(
-                                    className =
-                                        NameSpec(
-                                            "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI",
-                                        ),
-                                ),
-                            usingStrings =
-                                listOf(
-                                    StringSpec("setImageHdImgBtnVisibility", NameMatch.Equals),
-                                ),
-                        ),
-                    )
+                    DexResolutionContext.findMethods {
+                        declaredClass {
+                            className = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
+                        }
+                        usingEqString("setImageHdImgBtnVisibility")
+                    }
                 }
         methodSetImageHdImgBtnVisibility.setDescriptor(results.single())
 
-        methodCheckNeedShowOriginVideoBtn.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec("com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"),
-                    ),
-                usingStrings =
-                    listOf(
-                        StringSpec("checkNeedShowOriginVideoBtn", NameMatch.Equals),
-                    ),
-            ),
-        )
+        methodCheckNeedShowOriginVideoBtn.find {
+            declaredClass {
+                className = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
+            }
+            usingEqString("checkNeedShowOriginVideoBtn")
+        }
 
-        classMediaGalleryVideoBottomBarLayer.find(
-            ClassSpec(
-                usingStrings =
-                    listOf(
-                        StringSpec("MediaGallery.VideoBottomBarLayer", NameMatch.Equals),
-                    ),
-            ),
-        )
+        classMediaGalleryVideoBottomBarLayer.find {
+            usingEqString("MediaGallery.VideoBottomBarLayer")
+        }
 
-        val chatLiveBottomBarLayers =
-            DexResolutionContext.matcher.findClasses(
-                ClassSpec(
-                    methods =
-                        listOf(
-                            MethodSpec(
-                                name = NameSpec("<init>"),
-                                paramCount = 1..1,
-                                usingStrings =
-                                    listOf(
-                                        StringSpec(
-                                            "MediaGallery.ChatLiveBottomBarLayer",
-                                            NameMatch.Equals,
-                                        ),
-                                    ),
-                            ),
-                        ),
-                ),
-            )
+        val chatLiveBottomBarLayers = DexResolutionContext.findClasses {
+            method {
+                name = "<init>"
+                paramCount = 1
+                usingEqString("MediaGallery.ChatLiveBottomBarLayer")
+            }
+        }
 
         when (chatLiveBottomBarLayers.size) {
             0 -> {
@@ -148,37 +115,24 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 )
         }
 
-        methodBindMediaGalleryChatLiveBottomBar.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classMediaGalleryChatLiveBottomBarLayer.data.name),
-                    ),
-                paramCount = 1..1,
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings =
-                    listOf(
-                        StringSpec("bindContext", NameMatch.Equals),
-                        StringSpec("msgInfo", NameMatch.Equals),
-                    ),
-            ),
-        )
+        methodBindMediaGalleryChatLiveBottomBar.find {
+            declaredClass {
+                className = classMediaGalleryChatLiveBottomBarLayer.data.name
+            }
+            paramCount = 1
+            returnType = "void"
+            usingEqString("bindContext")
+            usingEqString("msgInfo")
+        }
 
-        val updateVideoOriginButtonMethods =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    declaredClass =
-                        ClassSpec(
-                            className = NameSpec(classMediaGalleryVideoBottomBarLayer.data.name),
-                        ),
-                    paramTypes = listOf(TypeSpec("java.lang.String"), TypeSpec("boolean")),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                    usingStrings =
-                        listOf(
-                            StringSpec("getString(...)", NameMatch.Equals),
-                        ),
-                ),
-            )
+        val updateVideoOriginButtonMethods = DexResolutionContext.findMethods {
+            declaredClass {
+                className = classMediaGalleryVideoBottomBarLayer.data.name
+            }
+            paramTypes("java.lang.String", "boolean")
+            returnType = "void"
+            usingEqString("getString(...)")
+        }
 
         when (updateVideoOriginButtonMethods.size) {
             0 -> methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()

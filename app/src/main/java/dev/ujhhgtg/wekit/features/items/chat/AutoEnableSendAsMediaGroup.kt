@@ -12,9 +12,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -85,18 +83,9 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
 
     override fun resolveDex() {
         // Probe: only hosts with the half-screen chat picker have this state class
-        val states =
-            DexResolutionContext.matcher.findClasses(
-                ClassSpec(
-                    usingStrings =
-                        listOf(
-                            StringSpec(
-                                "ChattingLocalMediaPickerState(selection=",
-                                NameMatch.Equals,
-                            ),
-                        ),
-                ),
-            )
+        val states = DexResolutionContext.findClasses {
+            usingEqString("ChattingLocalMediaPickerState(selection=")
+        }
         if (states.isEmpty()) {
             classLocalPickerState.markExpectedFailure()
             methodLocalPickerSelectionReducer.markExpectedFailure()

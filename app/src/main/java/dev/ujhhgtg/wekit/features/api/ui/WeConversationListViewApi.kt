@@ -20,13 +20,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexField
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -196,36 +189,27 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             methodListHostAddHeaderView.markExpectedFailure()
             methodListHostView.markExpectedFailure()
         } else {
-            fieldMainUiListHost.find(
-                FieldSpec(
-                    declaredClass =
-                        ClassSpec(
-                            className = NameSpec("com.tencent.mm.ui.conversation.MainUI"),
-                        ),
-                    type = ClassSpec(className = NameSpec(classConversationListHost.data.name)),
-                ),
-            )
-            methodListHostAddHeaderView.find(
-                MethodSpec(
-                    declaredClass =
-                        ClassSpec(
-                            className = NameSpec(classConversationListHost.data.name),
-                        ),
-                    name = NameSpec("addHeaderView"),
-                    paramTypes = listOf(TypeSpec(View::class.java.name)),
-                    returnType = ClassSpec(className = NameSpec("void")),
-                ),
-            )
-            methodListHostView.find(
-                MethodSpec(
-                    declaredClass =
-                        ClassSpec(
-                            className = NameSpec(classConversationListHost.data.name),
-                        ),
-                    paramCount = 0..0,
-                    returnType = ClassSpec(className = NameSpec(View::class.java.name)),
-                ),
-            )
+            fieldMainUiListHost.find {
+                declaredClass {
+                    className = "com.tencent.mm.ui.conversation.MainUI"
+                }
+                type = classConversationListHost.data.name
+            }
+            methodListHostAddHeaderView.find {
+                declaredClass {
+                    className = classConversationListHost.data.name
+                }
+                name = "addHeaderView"
+                paramTypes(View::class.java.name)
+                returnType = "void"
+            }
+            methodListHostView.find {
+                declaredClass {
+                    className = classConversationListHost.data.name
+                }
+                paramCount = 0
+                returnType = View::class.java.name
+            }
         }
 
         if (!classConversationRecyclerAdapter.isFound) {
@@ -284,21 +268,11 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             },
         )
 
-        methodRecyclerConversationBind.find(
-            MethodSpec(
-                paramTypes =
-                    listOf(
-                        null,
-                        null,
-                        TypeSpec("int"),
-                        TypeSpec("int"),
-                        TypeSpec("boolean"),
-                        TypeSpec("java.util.List"),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(StringSpec("GROUP_KEY_TOP", NameMatch.Equals)),
-            ),
-        )
+        methodRecyclerConversationBind.find {
+            paramTypes(null, null, "int", "int", "boolean", "java.util.List")
+            returnType = "void"
+            usingEqString("GROUP_KEY_TOP")
+        }
         val holderType = methodRecyclerConversationBind.data.paramTypeNames[0]
         val recyclerAdapterFrameworkClass =
             generateSequence(
@@ -323,146 +297,85 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             },
         )
 
-        classConversationRecyclerView.find(
-            ClassSpec(
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.ConversationRecyclerView", NameMatch.Equals),
-                        StringSpec("[flushPendingHeaders] flushing %d headers", NameMatch.Equals),
-                    ),
-            ),
-        )
-        fieldRecyclerActionBar.find(
-            FieldSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                type = ClassSpec(className = NameSpec("android.view.View")),
-                readMethods =
-                    listOf(
-                        MethodSpec(
-                            paramCount = 0..0,
-                            returnType = ClassSpec(className = NameSpec("void")),
-                            usingStrings =
-                                listOf(
-                                    StringSpec("resetActionBarView\$app_release", NameMatch.Equals),
-                                ),
-                        ),
-                    ),
-            ),
-        )
-        methodRecyclerAddHeaderView.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                name = NameSpec("addHeaderView"),
-                paramTypes = listOf(TypeSpec(View::class.java.name)),
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-        )
-        methodRecyclerAttachViewToParent.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                name = NameSpec("attachViewToParent"),
-                paramTypes =
-                    listOf(
-                        TypeSpec(View::class.java.name),
-                        TypeSpec("int"),
-                        TypeSpec(ViewGroup.LayoutParams::class.java.name),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-        )
-        methodRecyclerSetFoldBanner.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                name = NameSpec("setFoldBanner"),
-                paramTypes = listOf(TypeSpec(View::class.java.name)),
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-        )
-        methodRecyclerFirstVisiblePosition.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                name = NameSpec("getFirstVisiblePosition"),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("int")),
-            ),
-        )
-        methodRecyclerOnScrolled.find(
-            MethodSpec(
-                paramTypes =
-                    listOf(
-                        TypeSpec("androidx.recyclerview.widget.RecyclerView"),
-                        TypeSpec("int"),
-                        TypeSpec("int"),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.ConversationRecyclerView", NameMatch.Equals),
-                        StringSpec(
-                            "[onScrolled] stop fling at HC edge: dy=%d firstView.top=%d scrollOffset=%d",
-                            NameMatch.Equals,
-                        ),
-                    ),
-            ),
-        )
-        methodRecyclerOnScrollStateChanged.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(methodRecyclerOnScrolled.data.declaredClassName),
-                    ),
-                name = NameSpec("onScrollStateChanged"),
-                paramTypes =
-                    listOf(
-                        TypeSpec("androidx.recyclerview.widget.RecyclerView"),
-                        TypeSpec("int"),
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-        )
-        methodRecyclerCalculateEmptyFooter.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("float")),
-                usingStrings =
-                    listOf(
-                        StringSpec(
-                            "[calculateEmptyFooterHeight] read fold data failed",
-                            NameMatch.Equals,
-                        ),
-                    ),
-            ),
-        )
-        methodRecyclerApplyEmptyFooter.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(classConversationRecyclerView.data.name),
-                    ),
-                paramTypes = listOf(TypeSpec("float"), TypeSpec("boolean")),
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings = listOf(StringSpec("[applyEmptyFooterHeight] fromUpdate:")),
-            ),
-        )
+        classConversationRecyclerView.find {
+            usingEqString("MicroMsg.ConversationRecyclerView")
+            usingEqString("[flushPendingHeaders] flushing %d headers")
+        }
+        fieldRecyclerActionBar.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            type = "android.view.View"
+            readMethod {
+                paramCount = 0
+                returnType = "void"
+                usingEqString("resetActionBarView\$app_release")
+            }
+        }
+        methodRecyclerAddHeaderView.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            name = "addHeaderView"
+            paramTypes(View::class.java.name)
+            returnType = "void"
+        }
+        methodRecyclerAttachViewToParent.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            name = "attachViewToParent"
+            paramTypes(View::class.java.name, "int", ViewGroup.LayoutParams::class.java.name)
+            returnType = "void"
+        }
+        methodRecyclerSetFoldBanner.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            name = "setFoldBanner"
+            paramTypes(View::class.java.name)
+            returnType = "void"
+        }
+        methodRecyclerFirstVisiblePosition.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            name = "getFirstVisiblePosition"
+            paramCount = 0
+            returnType = "int"
+        }
+        methodRecyclerOnScrolled.find {
+            paramTypes("androidx.recyclerview.widget.RecyclerView", "int", "int")
+            returnType = "void"
+            usingEqString("MicroMsg.ConversationRecyclerView")
+            usingEqString(
+                "[onScrolled] stop fling at HC edge: dy=%d firstView.top=%d scrollOffset=%d",
+            )
+        }
+        methodRecyclerOnScrollStateChanged.find {
+            declaredClass {
+                className = methodRecyclerOnScrolled.data.declaredClassName
+            }
+            name = "onScrollStateChanged"
+            paramTypes("androidx.recyclerview.widget.RecyclerView", "int")
+            returnType = "void"
+        }
+        methodRecyclerCalculateEmptyFooter.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            paramCount = 0
+            returnType = "float"
+            usingEqString("[calculateEmptyFooterHeight] read fold data failed")
+        }
+        methodRecyclerApplyEmptyFooter.find {
+            declaredClass {
+                className = classConversationRecyclerView.data.name
+            }
+            paramTypes("float", "boolean")
+            returnType = "void"
+            usingString("[applyEmptyFooterHeight] fromUpdate:")
+        }
     }
 
     override fun onEnable() {

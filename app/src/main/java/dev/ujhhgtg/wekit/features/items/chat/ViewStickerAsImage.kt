@@ -15,9 +15,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.TypeSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -77,34 +75,21 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
     }
 
     override fun resolveDex() {
-        methodEmojiClickHandler.find(
-            MethodSpec(
-                paramCount = 1..1,
-                returnType = ClassSpec(className = NameSpec("void")),
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.EmojiClickListener", NameMatch.Equals),
-                        StringSpec("exit in teen mode", NameMatch.Equals),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.ui.chatting.viewitems"),
-        )
+        methodEmojiClickHandler.find {
+            searchPackages("com.tencent.mm.ui.chatting.viewitems")
+            paramCount = 1
+            returnType = "void"
+            usingEqString("MicroMsg.EmojiClickListener")
+            usingEqString("exit in teen mode")
+        }
 
-        methodEmojiClickEntry.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec(methodEmojiClickHandler.data.declaredClassName),
-                    ),
-                paramTypes =
-                    listOf(
-                        TypeSpec("android.view.View"),
-                        null,
-                        null,
-                    ),
-                returnType = ClassSpec(className = NameSpec("void")),
-            ),
-        )
+        methodEmojiClickEntry.find {
+            declaredClass {
+                className = methodEmojiClickHandler.data.declaredClassName
+            }
+            paramTypes("android.view.View", null, null)
+            returnType = "void"
+        }
 
         val resolveEmojiInfo =
             DexResolutionContext.matcher
@@ -120,37 +105,25 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
                 .single { !Modifier.isStatic(it.modifiers) }
         methodResolveEmojiInfo.setDescriptor(resolveEmojiInfo)
 
-        methodEmojiResolverGetter.find(
-            MethodSpec(
-                paramCount = 0..0,
-                returnType =
-                    ClassSpec(
-                        className = NameSpec(methodResolveEmojiInfo.data.declaredClassName),
-                    ),
-            ),
-            packages = listOf("com.tencent.mm.feature.emoji"),
-        )
+        methodEmojiResolverGetter.find {
+            searchPackages("com.tencent.mm.feature.emoji")
+            paramCount = 0
+            returnType {
+                className = methodResolveEmojiInfo.data.declaredClassName
+            }
+        }
 
-        methodGetEmojiDecryptPath.find(
-            MethodSpec(
-                declaredClass =
-                    ClassSpec(
-                        className = NameSpec("com.tencent.mm.storage.emotion.EmojiInfo"),
-                    ),
-                paramCount = 0..0,
-                returnType = ClassSpec(className = NameSpec("java.lang.String")),
-                usingStrings =
-                    listOf(
-                        StringSpec("MicroMsg.emoji.EmojiInfo", NameMatch.Equals),
-                        StringSpec(
-                            "[cpan] get icon path failed. product id and md5 are null.",
-                            NameMatch.Equals,
-                        ),
-                        StringSpec("decrypt/", NameMatch.Equals),
-                        StringSpec("getDecryptPath decrypt %s", NameMatch.Equals),
-                    ),
-            ),
-        )
+        methodGetEmojiDecryptPath.find {
+            declaredClass {
+                className = "com.tencent.mm.storage.emotion.EmojiInfo"
+            }
+            paramCount = 0
+            returnType = "java.lang.String"
+            usingEqString("MicroMsg.emoji.EmojiInfo")
+            usingEqString("[cpan] get icon path failed. product id and md5 are null.")
+            usingEqString("decrypt/")
+            usingEqString("getDecryptPath decrypt %s")
+        }
     }
 
     private fun resolveUsableActivity(view: View): Activity? {

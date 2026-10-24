@@ -10,11 +10,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -48,34 +43,20 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
     //    }
 
     override fun resolveDex() {
-        val modernTabletMethods =
-            DexResolutionContext.matcher.findMethods(
-                MethodSpec(
-                    returnType = ClassSpec(className = NameSpec("boolean")),
-                    usingStrings =
-                        listOf(
-                            StringSpec("MicroMsg.UIUtils", NameMatch.Equals),
-                            StringSpec(
-                                "inTabletEnv, no tablet condition matched, return false",
-                                NameMatch.Equals,
-                            ),
-                        ),
-                ),
-            )
+        val modernTabletMethods = DexResolutionContext.findMethods {
+            returnType = "boolean"
+            usingEqString("MicroMsg.UIUtils")
+            usingEqString("inTabletEnv, no tablet condition matched, return false")
+        }
 
         when (modernTabletMethods.size) {
             1 -> methodIsTablet.setDescriptor(modernTabletMethods.single())
             0 ->
-                methodIsTablet.find(
-                    MethodSpec(
-                        returnType = ClassSpec(className = NameSpec("boolean")),
-                        usingStrings =
-                            listOf(
-                                StringSpec("Lenovo TB-9707F", NameMatch.Equals),
-                                StringSpec("eebbk", NameMatch.Equals),
-                            ),
-                    ),
-                )
+                methodIsTablet.find {
+                    returnType = "boolean"
+                    usingEqString("Lenovo TB-9707F")
+                    usingEqString("eebbk")
+                }
 
             else ->
                 error(
