@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.dexkit.matcher
 
+import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.DexSqlQueryResult
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
@@ -57,14 +58,33 @@ class BridgeMatcherRelations(
     }
 
     private fun fetchFieldAccessMethods(fieldDescriptor: String, usingType: String): List<DexMethodInfo> {
-        val sql = "SELECT DISTINCT f.descriptor AS descriptor FROM fields f " +
+        // The candidate relation is the canonical field-access shape (single-equality ON, scoping
+        // predicates in WHERE). It must select the ACCESSING METHOD descriptor, not the field
+        // descriptor: metadata.methodInfo(fieldDescriptor) is null and would silently yield no
+        // read/write methods (fieldGlobalUicChildren regression).
+        if (!isRealFieldDescriptor(fieldDescriptor)) return emptyList()
+        val sql = "SELECT DISTINCT fm0.descriptor AS descriptor FROM fields f " +
             "JOIN method_field_accesses fa0 ON fa0.field = f.descriptor " +
             "JOIN methods fm0 ON fm0.descriptor = fa0.method " +
             "WHERE f.descriptor = " + sqlQuote(fieldDescriptor) +
+            " AND fa0.file_id = f.file_id" +
+            " AND fa0.field_idx = f.field_idx" +
+            " AND fm0.file_id = fa0.file_id" +
             " AND fa0.using_type = " + sqlQuote(usingType) +
-            " ORDER BY f.descriptor;"
-        return query(sql).rows.mapNotNull { row ->
-            row.firstOrNull()?.let(metadata::methodInfo)
+            " ORDER BY fm0.descriptor;"
+        val rows = try {
+            query(sql).rows
+        } catch (e: DexSqlException) {
+            return emptyList()
+        }
+        return rows.mapNotNull { row ->
+            val descriptor = row.firstOrNull() ?: return@mapNotNull null
+            if (!isRealMethodDescriptor(descriptor)) return@mapNotNull null
+            try {
+                metadata.methodInfo(descriptor)
+            } catch (e: DexSqlException) {
+                null
+            }
         }
     }
 

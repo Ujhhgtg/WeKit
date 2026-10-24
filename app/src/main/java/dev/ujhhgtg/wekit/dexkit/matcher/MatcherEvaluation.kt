@@ -1,9 +1,13 @@
 package dev.ujhhgtg.wekit.dexkit.matcher
 
+import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * Pure evaluator for [ClassSpec]/[MethodSpec]/[FieldSpec] over the DexSQL metadata API, mirroring
@@ -21,10 +25,17 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 internal class DexMatcherEvaluator(
     private val metadata: DexMetadata,
     private val relations: DexMatcherRelations? = null,
+    /**
+     * Query-backed class-level usingStrings check (class descriptor + one StringSpec). Avoiding the
+     * metadata method documents here is essential: the engine's method-document builder rejects
+     * method refs whose declaring class is an array type (e.g. array.clone call sites), which would
+     * otherwise surface as a DexSqlException during a pure matcher evaluation.
+     */
+    private val classUsingString: ((DexClassInfo, StringSpec) -> Boolean)? = null,
 ) {
 
     fun matchesClass(info: DexClassInfo, spec: ClassSpec): Boolean {
-        spec.className?.let { if (!it.matches(info.name)) return false }
+        spec.className?.let { if (!nameSpecMatchesJavaName(it, info.name)) return false }
         if (isShallow(info)) {
             // External classes have no dataset metadata: DexKit only matches their names; any
             // structural/count/member constraint cannot be satisfied.
@@ -49,19 +60,59 @@ internal class DexMatcherEvaluator(
         }
         if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) }) return false
         if (!injectiveMatch(spec.fields, info.fields) { s, c -> matchesField(c, s) }) return false
-        // Array-class member refs (e.g. "[Lx;->clone()...") are not real class members and their
-        // metadata documents cannot be resolved; skip them instead of querying the native API.
-        val realMethods = info.methods.filterNot(::isArrayClassMember)
+        // Array-class member refs (e.g. "[Lx;->clone()...") and any other malformed member
+        // descriptors are not real class members; their metadata documents cannot be resolved.
+        // Skip them instead of querying the native API with an array/primitive descriptor.
+        val realMethods = info.methods.filter { isRealMethodDescriptor(it.descriptor) }
         if (!injectiveMatch(spec.methods, realMethods) { s, c -> matchesMethod(c, s) }) return false
+        // Class-level string semantics cover every real method's string constants. If the strict
+        // member filter selected nothing (defensive: never silently drop class-level strings), fall
+        // back to the weaker array-ref filter; classMethodUsingStrings ignores unreadable documents.
+        val stringSourceMethods = if (realMethods.isNotEmpty()) {
+            realMethods
+        } else {
+            info.methods.filterNot { it.descriptor.startsWith("[") }
+        }
         for (stringSpec in spec.usingStrings) {
-            if (realMethods.none { method ->
-                    !isArrayClassMember(method) && method.usingStrings.any { stringSpec.matches(it) }
+            val matched = classUsingString?.invoke(info, stringSpec)
+                ?: stringSourceMethods.any { method ->
+                    classMethodUsingStrings(method).any { stringSpec.matches(it) }
                 }
-            ) {
-                return false
-            }
+            if (!matched) return false
         }
         return true
+    }
+
+    /**
+     * String constants of one class member. The top-level method document is authoritative and
+     * carries using_strings inline; shallow class-member refs may need the provider round-trip for
+     * their relations, which is surfaced through the same full-document read. A native method
+     * document failure (array-class method refs) is treated as "no strings" instead of aborting the
+     * whole class evaluation.
+     */
+    private fun classMethodUsingStrings(method: DexMethodInfo): List<String> {
+        val full = try {
+            metadata.methodInfo(method.descriptor)
+        } catch (e: DexSqlException) {
+            null
+        }
+        if (full != null) {
+            val inline = full.rawJson["using_strings"] as? JsonArray
+            if (inline != null) {
+                return inline.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            }
+            val resolved = try {
+                full.usingStrings
+            } catch (e: DexSqlException) {
+                emptyList()
+            }
+            if (resolved.isNotEmpty()) return resolved
+        }
+        return try {
+            method.usingStrings
+        } catch (e: DexSqlException) {
+            emptyList()
+        }
     }
 
     fun matchesMethod(info: DexMethodInfo, spec: MethodSpec): Boolean {
@@ -75,7 +126,9 @@ internal class DexMatcherEvaluator(
             } else {
                 if (types.size != info.paramCount) return false
                 types.forEachIndexed { index, type ->
-                    if (type != null && !type.matches(info.paramTypeNames[index])) return false
+                    if (type != null && !typeSpecMatchesJavaName(type, info.paramTypeNames[index])) {
+                        return false
+                    }
                 }
             }
         }
@@ -83,7 +136,15 @@ internal class DexMatcherEvaluator(
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) return false
         }
         spec.returnType?.let { typeSpec ->
-            if (!matchesClassReference(info.returnType, info.returnTypeName, typeSpec)) return false
+            // Never resolve class metadata for primitive/array return types: the meta layer's
+            // name->descriptor conversion is guarded here, but array-typed member relations must
+            // not be touched at all.
+            val rawName = info.returnTypeName
+            if (isPrimitiveOrArrayTypeName(rawName)) {
+                if (!matchesPrimitiveOrArrayType(rawName, typeSpec)) return false
+            } else if (!matchesClassReference(info.returnType, rawName, typeSpec)) {
+                return false
+            }
         }
         for (stringSpec in spec.usingStrings) {
             if (info.usingStrings.none { stringSpec.matches(it) }) return false
@@ -114,9 +175,7 @@ internal class DexMatcherEvaluator(
         spec.name?.let { if (!it.matches(info.name)) return false }
         spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
         spec.type?.let { typeSpec ->
-            if (!matchesClassReference(metadata.classInfoByName(info.typeName), info.typeName, typeSpec)) {
-                return false
-            }
+            if (!matchesFieldType(info.typeName, typeSpec)) return false
         }
         spec.declaredClass?.let { classSpec ->
             if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) return false
@@ -145,7 +204,7 @@ internal class DexMatcherEvaluator(
     private data class CandidateNumber(val longValue: Long?, val doubleValue: Double?)
 
     private fun usingNumbers(info: DexMethodInfo): List<CandidateNumber> {
-        val raw = info.rawJson["using_numbers"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        val raw = numbersJson(info)["using_numbers"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
         return raw.mapNotNull { element ->
             val entry = element as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
             val kind = (entry["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
@@ -155,6 +214,28 @@ internal class DexMatcherEvaluator(
                 "double" -> value.toDoubleOrNull()?.let { CandidateNumber(null, it) }
                 else -> null
             }
+        }
+    }
+
+    /**
+     * Relation-bearing JSON for a method. Shallow class-member refs only carry scalars, so the full
+     * top-level document is fetched on demand (same as DexMethodInfo.relationsJson), but a native
+     * method-document failure (array-class method refs inside invokes) must not abort resolution:
+     * treat the relations as unavailable instead.
+     */
+    private fun numbersJson(info: DexMethodInfo): kotlinx.serialization.json.JsonObject {
+        val shallow = info.rawJson
+        if (shallow.containsKey("using_numbers") ||
+            shallow.containsKey("invokes") ||
+            shallow.containsKey("using_fields") ||
+            shallow.containsKey("using_strings")
+        ) {
+            return shallow
+        }
+        return try {
+            metadata.methodInfo(info.descriptor)?.rawJson ?: shallow
+        } catch (e: DexSqlException) {
+            shallow
         }
     }
 
@@ -173,6 +254,40 @@ internal class DexMatcherEvaluator(
         }
     }
 
+    /**
+     * Field type matching. Primitive/array Java type names ("int", "com.x.C[]") have no dataset
+     * class metadata; they are compared by name only and can never satisfy structural ClassSpec
+     * constraints. This avoids converting array Java names back to descriptors (which would produce
+     * malformed descriptors like "Lcom/x/C[];" and crash the native metadata API).
+     */
+    private fun matchesFieldType(typeName: String, spec: ClassSpec): Boolean {
+        val javaName = javaTypeNameOf(typeName)
+        if (isPrimitiveOrArrayTypeName(javaName)) {
+            return matchesPrimitiveOrArrayType(javaName, spec)
+        }
+        return matchesClassReference(metadata.classInfoByName(javaName), javaName, spec)
+    }
+
+    /**
+     * Array/primitive type matching: no class metadata exists, so only an explicitly compatible
+     * name-only matcher matches (exact Java-name/descriptor equivalence). Mode matchers
+     * (Contains/StartsWith/EndsWith) and structural constraints never match arrays/primitives.
+     */
+    private fun matchesPrimitiveOrArrayType(actualName: String, spec: ClassSpec): Boolean {
+        val nameSpec = spec.className ?: return false
+        if (nameSpec.match != NameMatch.Equals) return false
+        if (javaTypeNameOf(actualName) != javaTypeNameOf(nameSpec.value)) return false
+        return spec.superClass == null &&
+            spec.interfaces.isEmpty() &&
+            spec.fields.isEmpty() &&
+            spec.methods.isEmpty() &&
+            spec.fieldCount == null &&
+            spec.methodCount == null &&
+            spec.interfaceCount == null &&
+            spec.modifiers == null &&
+            spec.usingStrings.isEmpty()
+    }
+
     private fun matchesClassReference(
         resolved: DexClassInfo?,
         fallbackName: String,
@@ -181,7 +296,7 @@ internal class DexMatcherEvaluator(
         if (resolved != null) return matchesClass(resolved, spec)
         // External/non-dataset class: only the name is available (mirrors DexKit's name-only path).
         val nameSpec = spec.className ?: return false
-        return nameSpec.matches(fallbackName) &&
+        return nameSpecMatchesJavaName(nameSpec, fallbackName) &&
             spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
@@ -193,9 +308,6 @@ internal class DexMatcherEvaluator(
             spec.usingStrings.isEmpty()
     }
 
-    /** Array-class methods are not valid dataset members and cannot be resolved natively. */
-    private fun isArrayClassMember(method: DexMethodInfo): Boolean =
-        method.descriptor.startsWith("[")
 
     /** True when this instance is the shallow fallback produced for a non-dataset class. */
     private fun isShallow(info: DexClassInfo): Boolean =

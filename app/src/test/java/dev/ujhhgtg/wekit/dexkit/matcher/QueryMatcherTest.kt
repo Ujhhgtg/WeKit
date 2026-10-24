@@ -284,7 +284,13 @@ class QueryMatcherTest {
 
     @Test
     fun classCandidateQueryUsesClassNameAndUsingStrings() {
-        val query = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                !sql.contains("class_descriptor = '") -> MatcherFixtures.classDescriptors()
+                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
+                else -> emptyList()
+            }
+        }
         val scope = QueryMatcherScope(metadata, query)
         val results = scope.findClasses(
             ClassSpec(
@@ -293,10 +299,8 @@ class QueryMatcherTest {
             ),
         )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
-        val sql = query.queries.single()
-        // Class-level usingStrings are two-step resolved; the SQL is the canonical class scan.
-        assertTrue(sql.contains("instr(c.descriptor, 'Lcom/test') = 1"), sql)
-        assertFalse(sql.contains("JOIN method_strings"), sql)
+        val classScan = query.queries.first { it.contains("instr(c.descriptor, 'Lcom/test') = 1") }
+        assertFalse(classScan.contains("JOIN method_strings"))
     }
 
     @Test

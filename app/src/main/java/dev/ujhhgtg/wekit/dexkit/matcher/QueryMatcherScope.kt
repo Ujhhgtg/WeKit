@@ -1,11 +1,11 @@
 package dev.ujhhgtg.wekit.dexkit.matcher
 
+import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataKind
-import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
 import dev.ujhhgtg.wekit.dexkit.sql.SqlClassLiteralConstraint
 import dev.ujhhgtg.wekit.dexkit.sql.SqlClassQuery
 import dev.ujhhgtg.wekit.dexkit.sql.SqlFieldQuery
@@ -26,6 +26,41 @@ fun interface DexDescriptorQuery {
 }
 
 private const val DEFAULT_CANDIDATE_PAGE_SIZE = 4096
+
+
+/**
+ * Broad library types that must not drive class candidates when used as a bare type-only field
+ * (dotted form, plus primitives/arrays handled separately). Dynamic/obfuscated/domain class names
+ * outside this set are considered narrow.
+ */
+private val BROAD_FIELD_TYPE_NAMES = setOf(
+    "java.lang.Object",
+    "java.lang.String",
+    "java.lang.CharSequence",
+    "java.lang.Class",
+    "java.util.List",
+    "java.util.Map",
+    "java.util.Set",
+    "android.view.View",
+    "android.widget.TextView",
+)
+
+/**
+ * Broad builtin field-type prefixes: a type-only field matcher in these namespaces is not selective
+ * enough to drive a field candidate when a read/write-method two-step source exists. Used only for
+ * field specs (the class-candidate narrow-type policy uses the exact BROAD_FIELD_TYPE_NAMES set).
+ */
+private val BROAD_FIELD_TYPE_PREFIXES = listOf(
+    "java.",
+    "javax.",
+    "android.",
+    "androidx.",
+    "kotlin.",
+    "kotlinx.",
+    "org.jetbrains.",
+    "sun.",
+    "dalvik.",
+)
 
 /** One candidate source: canonical SQL text (paged) or a known-short descriptor list. */
 private sealed interface CandidateSource {
@@ -65,7 +100,66 @@ class QueryMatcherScope(
     private val rawMetadata: ((DexMetadataKind, String) -> JsonObject?)? = null,
     private val candidatePageSize: Int = DEFAULT_CANDIDATE_PAGE_SIZE,
 ) {
-    private val evaluator = DexMatcherEvaluator(metadata, relations)
+    private val classUsingStringCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    // Candidate queries are executed at most once per resolution scope for small result sets; the
+    // two-step field-access lookups are re-used by class/field evaluation paths.
+    private val candidateSqlCache = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+
+    private val evaluator = DexMatcherEvaluator(metadata, relations, ::classUsingString)
+
+    // Native metadata document construction can fail on obfuscated method refs whose declaring
+    // class is an array type (engine limitation, engine repo is frozen). A candidate whose
+    // relations cannot be read must be skipped, never abort the whole delegate resolution.
+    private fun matchesMethodSafely(info: DexMethodInfo, spec: MethodSpec): Boolean = try {
+        evaluator.matchesMethod(info, spec)
+    } catch (e: DexSqlException) {
+        false
+    }
+
+    private fun matchesClassSafely(info: DexClassInfo, spec: ClassSpec): Boolean = try {
+        evaluator.matchesClass(info, spec)
+    } catch (e: DexSqlException) {
+        false
+    }
+
+    private fun matchesFieldSafely(info: DexFieldInfo, spec: FieldSpec): Boolean = try {
+        evaluator.matchesField(info, spec)
+    } catch (e: DexSqlException) {
+        false
+    }
+
+    /**
+     * Class-level usingStrings evaluation backed by the canonical class-scoped method_strings query
+     * (declaredClass literal => method_strings unit). This keeps class/return-type/interface string
+     * semantics out of the native method-document builder (array-class method refs there throw).
+     */
+    private fun classUsingString(info: DexClassInfo, spec: StringSpec): Boolean {
+        val dotted = dottedClassNameOrNull(info.descriptor) ?: return false
+        val key = info.descriptor + "\u0000" + spec.match.name + "\u0000" + spec.value
+        return classUsingStringCache.getOrPut(key) {
+            val sql = try {
+                sqlMethod {
+                    declaredClass {
+                        className(dotted)
+                        when (spec.match) {
+                            NameMatch.Equals -> usingEqStrings(spec.value)
+                            NameMatch.StartsWith -> usingPrefixStrings(spec.value)
+                            NameMatch.Contains -> usingStrings(spec.value)
+                            NameMatch.EndsWith -> usingSuffixStrings(spec.value)
+                        }
+                    }
+                }.toSql()
+            } catch (e: IllegalArgumentException) {
+                return@getOrPut false
+            }
+            try {
+                query.descriptors(sql).isNotEmpty()
+            } catch (e: DexSqlException) {
+                false
+            }
+        }
+    }
 
     fun findMethods(
         spec: MethodSpec,
@@ -77,7 +171,7 @@ class QueryMatcherScope(
             .filterNot { it.startsWith("[") }
             .mapNotNull { loadMethod(it, spec) }
             .filter { matchesPackages(it.declaredClassName, packages, excludePackages) }
-            .filter { evaluator.matchesMethod(it, spec) }
+            .filter { matchesMethodSafely(it, spec) }
             .toList()
     }
 
@@ -91,7 +185,7 @@ class QueryMatcherScope(
             .filterNot { it.startsWith("[") }
             .mapNotNull { loadClass(it, spec) }
             .filter { matchesPackages(it.name, packages, excludePackages) }
-            .filter { evaluator.matchesClass(it, spec) }
+            .filter { matchesClassSafely(it, spec) }
             .toList()
     }
 
@@ -105,7 +199,7 @@ class QueryMatcherScope(
             .filterNot { it.startsWith("[") }
             .mapNotNull { loadField(it, spec) }
             .filter { matchesPackages(it.declaredClassName, packages, excludePackages) }
-            .filter { evaluator.matchesField(it, spec) }
+            .filter { matchesFieldSafely(it, spec) }
             .toList()
     }
 
@@ -156,7 +250,7 @@ class QueryMatcherScope(
                 val info = loadMethod(descriptor, spec)
                 if (info != null &&
                     matchesPackages(info.declaredClassName, packages, excludePackages) &&
-                    evaluator.matchesMethod(info, spec) &&
+                    matchesMethodSafely(info, spec) &&
                     matchedDescriptors.add(info.descriptor)
                 ) {
                     matches += info
@@ -180,7 +274,7 @@ class QueryMatcherScope(
                 val info = loadClass(descriptor, spec)
                 if (info != null &&
                     matchesPackages(info.name, packages, excludePackages) &&
-                    evaluator.matchesClass(info, spec) &&
+                    matchesClassSafely(info, spec) &&
                     matchedDescriptors.add(info.descriptor)
                 ) {
                     matches += info
@@ -204,7 +298,7 @@ class QueryMatcherScope(
                 val info = loadField(descriptor, spec)
                 if (info != null &&
                     matchesPackages(info.declaredClassName, packages, excludePackages) &&
-                    evaluator.matchesField(info, spec) &&
+                    matchesFieldSafely(info, spec) &&
                     matchedDescriptors.add(info.descriptor)
                 ) {
                     matches += info
@@ -247,7 +341,14 @@ class QueryMatcherScope(
         sources.flatMap { source ->
             when (source) {
                 is CandidateSource.Descriptors -> source.descriptors
-                is CandidateSource.Sql -> query.descriptors(source.sql)
+                is CandidateSource.Sql -> candidateSqlCache[source.sql] ?: run {
+                    val rows = query.descriptors(source.sql)
+                    // Only cache small candidate sets: a huge scan list must not be retained.
+                    if (rows.size <= DEFAULT_CANDIDATE_PAGE_SIZE) {
+                        candidateSqlCache[source.sql] = rows
+                    }
+                    rows
+                }
             }
         }.distinct()
 
@@ -266,22 +367,59 @@ class QueryMatcherScope(
     // ---------------------------------------------------------------------
 
     private fun loadMethod(descriptor: String, spec: MethodSpec): DexMethodInfo? {
-        val source = rawMetadata ?: return metadata.methodInfo(descriptor)
-        val json = source.invoke(DexMetadataKind.Method, descriptor) ?: return null
+        // Candidate SQL/descriptor shortcuts must never feed array/primitive class descriptors or
+        // malformed members into the native metadata API.
+        if (!isRealMethodDescriptor(descriptor)) return null
+        if (rawMetadata == null) {
+            return try {
+                metadata.methodInfo(descriptor)
+            } catch (e: DexSqlException) {
+                null
+            }
+        }
+        val json = try {
+            rawMetadata.invoke(DexMetadataKind.Method, descriptor) ?: return null
+        } catch (e: DexSqlException) {
+            return null
+        }
         if (!methodPrefilter(json, spec)) return null
         return DexMethodInfo(json, metadata)
     }
 
     private fun loadClass(descriptor: String, spec: ClassSpec): DexClassInfo? {
-        val source = rawMetadata ?: return metadata.classInfo(descriptor)
-        val json = source.invoke(DexMetadataKind.Class, descriptor) ?: return null
+        // Class candidates must be object class descriptors; array/primitive descriptors have no
+        // dataset class metadata and must never reach the native API.
+        if (classDescriptorOrNull(descriptor) == null) return null
+        if (rawMetadata == null) {
+            return try {
+                metadata.classInfo(descriptor)
+            } catch (e: DexSqlException) {
+                null
+            }
+        }
+        val json = try {
+            rawMetadata.invoke(DexMetadataKind.Class, descriptor) ?: return null
+        } catch (e: DexSqlException) {
+            return null
+        }
         if (!classPrefilter(json, spec)) return null
         return DexClassInfo(json, metadata)
     }
 
     private fun loadField(descriptor: String, spec: FieldSpec): DexFieldInfo? {
-        val source = rawMetadata ?: return metadata.fieldInfo(descriptor)
-        val json = source.invoke(DexMetadataKind.Field, descriptor) ?: return null
+        if (!isRealFieldDescriptor(descriptor)) return null
+        if (rawMetadata == null) {
+            return try {
+                metadata.fieldInfo(descriptor)
+            } catch (e: DexSqlException) {
+                null
+            }
+        }
+        val json = try {
+            rawMetadata.invoke(DexMetadataKind.Field, descriptor) ?: return null
+        } catch (e: DexSqlException) {
+            return null
+        }
         if (!fieldPrefilter(json, spec)) return null
         return DexFieldInfo(json, metadata)
     }
@@ -310,6 +448,19 @@ class QueryMatcherScope(
         spec: MethodSpec,
         packages: List<String>,
     ): List<CandidateSource>? {
+        val steps = methodCandidateSteps(spec, packages) ?: return null
+        return listOf(CandidateSource.Sql(sqlMethod { steps.forEach { step -> step(this) } }.toSql()))
+    }
+
+    /**
+     * Canonical, pushable method predicates of one MethodSpec. Returns null when the spec has no
+     * fast-path-expressible predicate (array/primitive returnType non-equals modes and empty string
+     * literals are deliberately evaluated in Kotlin only).
+     */
+    private fun methodCandidateSteps(
+        spec: MethodSpec,
+        packages: List<String>,
+    ): List<(SqlMethodQuery) -> Unit>? {
         val steps = mutableListOf<(SqlMethodQuery) -> Unit>()
         spec.name?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
             steps += { q -> q.name = nameSpec.value }
@@ -317,7 +468,11 @@ class QueryMatcherScope(
         spec.modifiers?.let { mask -> steps += { q -> q.modifiers(mask) } }
         spec.declaredClass?.let { classSpec ->
             classSpec.className?.let { nameSpec ->
-                steps += { q -> q.className(nameSpec.match.toSqlMode(), nameSpec.value) }
+                // Class names must be object class names; primitive/array values cannot match any
+                // real class and must not be converted to malformed "L...[];" descriptors.
+                dottedClassNameOrNull(nameSpec.value)?.let { dotted ->
+                    steps += { q -> q.className(nameSpec.match.toSqlMode(), dotted) }
+                }
             }
             if (classSpec.usingStrings.isNotEmpty()) {
                 steps += { q ->
@@ -326,16 +481,28 @@ class QueryMatcherScope(
             }
         }
         spec.returnType?.className?.takeIf { it.match != NameMatch.EndsWith }?.let { nameSpec ->
-            steps += { q -> q.returnType(nameSpec.match.toSqlMode(), nameSpec.value) }
+            val javaName = javaTypeNameOf(nameSpec.value)
+            if (javaName.isNotEmpty()) {
+                if (nameSpec.match == NameMatch.Equals) {
+                    steps += { q -> q.returnType(SqlStringMatchMode.Equals, javaName) }
+                } else if (!isPrimitiveOrArrayTypeName(javaName)) {
+                    // Non-equals class-name modes require a dotted class name; array/primitive
+                    // values are evaluated in Kotlin only.
+                    steps += { q -> q.returnType(nameSpec.match.toSqlMode(), javaName) }
+                }
+            }
         }
         spec.paramCount?.let { range -> steps += { q -> q.paramCount(range.first, range.last) } }
         spec.paramTypes
             ?.takeIf { types -> types.all { it == null || it.match == NameMatch.Equals } }
             ?.let { types ->
-                val values = types.map { it?.value }.toTypedArray()
+                val values = types.map { type -> type?.value?.let(::javaTypeNameOf) }.toTypedArray()
                 steps += { q -> q.paramTypes(*values) }
             }
-        spec.usingStrings.forEach { stringSpec ->
+        // Empty literals are Kotlin-only existential semantics (DexKit usingEqStrings("")); emitting
+        // them as SQL would create a broad method_strings predicate that steals candidate priority
+        // from narrower sources (e.g. a package-only class scan). Non-empty literals stay canonical.
+        spec.usingStrings.filter { it.value.isNotEmpty() }.forEach { stringSpec ->
             steps += { q -> addMethodStringPredicate(q, stringSpec) }
         }
         if (spec.usingNumbers.isNotEmpty()) {
@@ -346,57 +513,108 @@ class QueryMatcherScope(
             val pack = packages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
         }
-        if (steps.isEmpty()) return null
-        return listOf(CandidateSource.Sql(sqlMethod { steps.forEach { step -> step(this) } }.toSql()))
+        return steps.ifEmpty { null }
     }
 
     private fun classCandidateSources(spec: ClassSpec, packages: List<String>): List<CandidateSource>? {
+        // Candidate priority: most selective canonical source first, package-only scan last.
+        // 1) explicit class name (canonical class scan)
         classDirectCandidateSources(spec, packages)?.let { return it }
-        // Class-level usingStrings: canonical method lookup for each literal, then map the
-        // candidate method's declared class. Never join classes x methods x method_strings.
-        if (spec.usingStrings.isNotEmpty()) {
+        // 2) class-level usingStrings: canonical method lookup for each non-empty literal, then map
+        //    the candidate method's declared class. Empty literals are Kotlin-only semantics and are
+        //    never emitted as SQL predicates.
+        val nonEmptyClassStrings = spec.usingStrings.filter { it.value.isNotEmpty() }
+        if (nonEmptyClassStrings.isNotEmpty()) {
             val classDescriptors = linkedSetOf<String>()
-            for (stringSpec in spec.usingStrings) {
+            for (stringSpec in nonEmptyClassStrings) {
                 val sql = sqlMethod { addMethodStringPredicate(this, stringSpec) }.toSql()
                 query.descriptors(sql).forEach { methodDescriptor ->
-                    if (!methodDescriptor.startsWith("[")) {
-                        declaredClassNameOfMethod(methodDescriptor)?.let {
-                            classDescriptors += dottedClassNameToDescriptor(it)
-                        }
-                    }
+                    if (!isRealMethodDescriptor(methodDescriptor)) return@forEach
+                    val declaredClass = declaredClassNameOfMethod(methodDescriptor) ?: return@forEach
+                    classDescriptorOrNull(declaredClass)?.let { classDescriptors += it }
                 }
             }
             return listOf(CandidateSource.Descriptors(classDescriptors.toList()))
         }
-        // Nested member methods: canonical method lookup, then map declared classes.
+        // 3) Nested member methods: canonical method lookup, then map declared classes.
         for (methodSpec in spec.methods) {
             val methodSources = methodCandidateSources(methodSpec, emptyList()) ?: continue
             val classDescriptors = queryDescriptors(methodSources)
-                .filterNot { it.startsWith("[") }
+                .filter(::isRealMethodDescriptor)
                 .mapNotNull { declaredClassNameOfMethod(it) }
-                .map(::dottedClassNameToDescriptor)
+                .mapNotNull(::classDescriptorOrNull)
                 .distinct()
             return listOf(CandidateSource.Descriptors(classDescriptors))
         }
-        // Nested member fields: canonical field lookup, then map declared classes.
+        // 4) Nested member fields: canonical field lookup, then map declared classes.
+        //    A field with a name is always selective. A type-only field matcher is used only for
+        //    narrow (non-framework) class names resolved dynamically; broad framework/primitive
+        //    type-only fields are deferred so superClass/package/enumeration candidates win
+        //    (classMenuItemData/classMmQuickDialog). A deferred broad field is still used as the
+        //    last resort when it is the only candidate source available
+        //    (classImageFeatureService/classMvvmConversationAdapter keep their field two-step).
         for (fieldSpec in spec.fields) {
+            if (fieldSpec.name == null && !typeOnlyFieldIsNarrow(fieldSpec)) continue
             val fieldSources = fieldCandidateSources(fieldSpec, emptyList()) ?: continue
-            val classDescriptors = queryDescriptors(fieldSources)
-                .filterNot { it.startsWith("[") }
-                .mapNotNull { declaredClassNameOfField(it) }
-                .map(::dottedClassNameToDescriptor)
-                .distinct()
-            return listOf(CandidateSource.Descriptors(classDescriptors))
+            return classSourcesFromFields(fieldSources)
         }
-        // Superclass-only class specs use the canonical superclass unit shape.
+        // 5) Superclass-only class specs use the canonical superclass unit shape.
         spec.superClass?.className?.let { nameSpec ->
+            val dotted = dottedClassNameOrNull(nameSpec.value) ?: return@let
             val sql = sqlClass {
-                superClass(nameSpec.match.toSqlMode(), nameSpec.value)
+                superClass(nameSpec.match.toSqlMode(), dotted)
                 if (packages.isNotEmpty()) searchPackages(*packages.toTypedArray())
             }.toSql()
             return listOf(CandidateSource.Sql(sql))
         }
+        // 6) Canonical class access-flag scan (e.g. "only INTERFACE classes") when no other source.
+        spec.modifiers?.let { mask ->
+            val sql = sqlClass {
+                modifiers = mask
+                if (packages.isNotEmpty()) searchPackages(*packages.toTypedArray())
+            }.toSql()
+            return listOf(CandidateSource.Sql(sql))
+        }
+        // 7) Package-only canonical class scan.
+        if (packages.isNotEmpty()) {
+            val sql = sqlClass { searchPackages(*packages.toTypedArray()) }.toSql()
+            return listOf(CandidateSource.Sql(sql))
+        }
+        // No safe candidate source left: member counts / interface-only class specs cannot be
+        // prefiltered without fetching the full metadata of every class (hundreds of MB to GBs),
+        // so fail fast instead of enumerating (the previous bare-class enumeration OOMed at 12.8G).
         return null
+    }
+
+    /** Maps a canonical field lookup to class candidates via each field's declared class. */
+    private fun classSourcesFromFields(fieldSources: List<CandidateSource>): List<CandidateSource> =
+        listOf(
+            CandidateSource.Descriptors(
+                queryDescriptors(fieldSources)
+                    .filter(::isRealFieldDescriptor)
+                    .mapNotNull { declaredClassNameOfField(it) }
+                    .mapNotNull(::classDescriptorOrNull)
+                    .distinct(),
+            ),
+        )
+
+    /**
+     * True when a name-less field type matcher is narrow enough to drive a class candidate.
+     *
+     * Accepted: name-only Equals object types in descriptor form ("Lcom/x/Y;") or dotted form
+     * ("com.x.Y") that are outside the broad-library set. Dynamic values resolved from another
+     * delegate's .data (obfuscated/domain types) therefore qualify, while java.lang.String/int/
+     * android.widget.TextView-style matchers do not.
+     */
+    private fun typeOnlyFieldIsNarrow(spec: FieldSpec): Boolean {
+        val typeSpec = spec.type ?: return false
+        if (!classSpecIsNameOnly(typeSpec)) return false
+        val nameSpec = typeSpec.className ?: return false
+        if (nameSpec.match != NameMatch.Equals) return false
+        // Object class names only: arrays/primitives have no class metadata and must never drive a
+        // class candidate (the shared helper rejects them instead of malformed L...[]; strings).
+        val dotted = dottedClassNameOrNull(nameSpec.value) ?: return false
+        return dotted !in BROAD_FIELD_TYPE_NAMES
     }
 
     private fun classDirectCandidateSources(
@@ -406,51 +624,136 @@ class QueryMatcherScope(
         // Class-level usingStrings are intentionally NOT emitted as a class-literal SQL join here;
         // they are resolved in two canonical steps in classCandidateSources (method lookup, then
         // map the declared class), which keeps the class query a simple fast descriptor scan.
+        val className = spec.className ?: return null
+        val dotted = dottedClassNameOrNull(className.value) ?: return null
         val steps = mutableListOf<(SqlClassQuery) -> Unit>()
-        spec.className?.let { nameSpec ->
-            steps += { q -> q.className(nameSpec.match.toSqlMode(), nameSpec.value) }
-        }
+        steps += { q -> q.className(className.match.toSqlMode(), dotted) }
         if (packages.isNotEmpty()) {
             val pack = packages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
         }
-        if (steps.isEmpty()) return null
         return listOf(CandidateSource.Sql(sqlClass { steps.forEach { step -> step(this) } }.toSql()))
     }
 
     private fun fieldCandidateSources(spec: FieldSpec, packages: List<String>): List<CandidateSource>? {
         val steps = mutableListOf<(SqlFieldQuery) -> Unit>()
+        // 1) Field name / declaring class are inherently selective and always safe to drive.
         spec.name?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
             steps += { q -> q.name = nameSpec.value }
         }
         spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className
             ?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
-                steps += { q -> q.declaredClass(nameSpec.value) }
+                dottedClassNameOrNull(nameSpec.value)?.let { dotted ->
+                    steps += { q -> q.declaredClass(dotted) }
+                }
             }
-        spec.type?.takeIf(::classSpecIsNameOnly)?.className
-            ?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
-                steps += { q -> q.type(nameSpec.value) }
-            }
+        if (steps.isNotEmpty()) {
+            return listOf(CandidateSource.Sql(sqlField { steps.forEach { step -> step(this) } }.toSql()))
+        }
+        // 2) readMethods/writeMethods two-step: canonical field-access shape driven by the accessing
+        //    method's selective canonical predicates. This is what keeps fieldGlobalUicChildren
+        //    (broad HashMap type + structural declaredClass + onBackPressed readers) bounded.
+        fieldAccessCandidateSources(spec)?.let { return it }
+        // 3) Field type: narrow types can drive directly; broad builtin types (java.*, android.*,
+        //    primitives/arrays, ...) are only a last resort when no read/write method source exists.
+        val typeJavaName = spec.type?.takeIf(::classSpecIsNameOnly)?.className
+            ?.takeIf { it.match == NameMatch.Equals }
+            ?.value
+            ?.let(::javaTypeNameOf)
+            ?.takeIf { typeDescriptorOrNull(it) != null }
+        if (typeJavaName != null && !isBroadFieldType(typeJavaName)) {
+            steps += { q -> q.type(typeJavaName) }
+        }
         if (packages.isNotEmpty()) {
             val pack = packages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
+        }
+        if (steps.isEmpty() && typeJavaName != null) {
+            steps += { q -> q.type(typeJavaName) }
         }
         if (steps.isEmpty()) return null
         return listOf(CandidateSource.Sql(sqlField { steps.forEach { step -> step(this) } }.toSql()))
     }
 
-    private fun declaredClassNameOfMethod(descriptor: String): String? {
-        rawMetadata?.invoke(DexMetadataKind.Method, descriptor)?.let { json ->
-            return json.stringValue("declared_class_name")
+    /**
+     * Field candidates driven by readMethods/writeMethods.
+     *
+     * IMPORTANT: the pinned engine mishandles MULTIPLE method_field_accesses units in one query
+     * (each unit alone works, both ANDed returns empty / generic-plan failure). Therefore each
+     * selective read/write method matcher gets its own canonical SINGLE-unit field-access query
+     * (proven correct and fast-pathed), and the per-unit field descriptor sets are intersected in
+     * Kotlin with deterministic order and dedupe. A single unit stays a paged SQL candidate source;
+     * multiple units materialize the small intersection.
+     */
+    private fun fieldAccessCandidateSources(spec: FieldSpec): List<CandidateSource>? {
+        val unitSources = mutableListOf<CandidateSource.Sql>()
+        spec.readMethods.forEach { methodSpec ->
+            if (!methodSpecIsSelectiveForAccessUnit(methodSpec)) return@forEach
+            methodCandidateSteps(methodSpec, emptyList())?.let { methodSteps ->
+                unitSources += CandidateSource.Sql(
+                    sqlField {
+                        readMethod { methodSteps.forEach { step -> step(this) } }
+                    }.toSql(),
+                )
+            }
         }
-        return metadata.methodInfo(descriptor)?.declaredClassName
+        spec.writeMethods.forEach { methodSpec ->
+            if (!methodSpecIsSelectiveForAccessUnit(methodSpec)) return@forEach
+            methodCandidateSteps(methodSpec, emptyList())?.let { methodSteps ->
+                unitSources += CandidateSource.Sql(
+                    sqlField {
+                        writeMethod { methodSteps.forEach { step -> step(this) } }
+                    }.toSql(),
+                )
+            }
+        }
+        if (unitSources.isEmpty()) return null
+        if (unitSources.size == 1) return unitSources
+        // Intersect in Kotlin. Keep the first unit's order for deterministic candidate iteration.
+        val unitFields = unitSources.map { source -> queryDescriptors(listOf(source)).toSet() }
+        val ordered = queryDescriptors(listOf(unitSources.first()))
+            .filter { descriptor -> unitFields.all { descriptor in it } }
+            .distinct()
+        return listOf(CandidateSource.Descriptors(ordered))
+    }
+
+    /**
+     * Only selective accessor-method matchers drive a field-access unit; a modifiers-only or
+     * otherwise broad matcher would scan a huge field set (same policy as broad field types).
+     */
+    private fun methodSpecIsSelectiveForAccessUnit(spec: MethodSpec): Boolean =
+        spec.name?.match == NameMatch.Equals ||
+            spec.paramCount != null ||
+            spec.paramTypes != null ||
+            spec.returnType?.className != null ||
+            spec.declaredClass?.className != null ||
+            (spec.declaredClass?.usingStrings?.any { it.value.isNotEmpty() } == true) ||
+            spec.usingStrings.any { it.value.isNotEmpty() } ||
+            spec.usingNumbers.isNotEmpty()
+
+    /** Broad builtin field types never drive candidates when a read/write-method source is available. */
+    private fun isBroadFieldType(typeName: String): Boolean {
+        val value = typeName.trim()
+        if (value.isEmpty()) return true
+        if (isPrimitiveOrArrayTypeName(value)) return true
+        val dotted = dottedClassNameOrNull(value) ?: return true
+        return BROAD_FIELD_TYPE_PREFIXES.any { prefix ->
+            dotted == prefix.trimEnd('.') || dotted.startsWith(prefix)
+        }
+    }
+
+    // Declared class names are derived from the member descriptor itself; no metadata document is
+    // needed here (and the native method-document builder rejects array-class method refs).
+    private fun declaredClassNameOfMethod(descriptor: String): String? {
+        if (!isRealMethodDescriptor(descriptor)) return null
+        val classDescriptor = descriptor.substring(0, descriptor.indexOf("->"))
+        return dottedClassNameOrNull(classDescriptor)
     }
 
     private fun declaredClassNameOfField(descriptor: String): String? {
-        rawMetadata?.invoke(DexMetadataKind.Field, descriptor)?.let { json ->
-            return json.stringValue("declared_class_name")
-        }
-        return metadata.fieldInfo(descriptor)?.declaredClassName
+        if (!isRealFieldDescriptor(descriptor)) return null
+        val classDescriptor = descriptor.substring(0, descriptor.indexOf("->"))
+        return dottedClassNameOrNull(classDescriptor)
     }
 
     private fun unsupportedCandidate(kind: String): Nothing = throw UnsupportedOperationException(
@@ -555,16 +858,16 @@ private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
         val names = json.stringList("param_type_names")
         if (names.size != types.size) return false
         types.forEachIndexed { index, type ->
-            if (type != null && names[index] != type.value) return false
+            if (type != null && !typeSpecMatchesJavaName(type, names[index])) return false
         }
     }
     spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.stringValue("declared_class_name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     spec.returnType?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.stringValue("return_type_name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     if (spec.usingStrings.isNotEmpty()) {
         val strings = json.stringList("using_strings")
@@ -579,7 +882,7 @@ private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
 private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
     spec.className?.let {
         val name = json.stringValue("name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     spec.modifiers?.let { mask ->
         val modifiers = json.intValue("modifiers") ?: return@let
@@ -599,7 +902,7 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
     }
     spec.superClass?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.objectValue("super_class")?.stringValue("name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     if (spec.interfaces.isNotEmpty()) {
         val interfaceArray = json["interfaces"] as? JsonArray ?: return true
@@ -607,7 +910,7 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
         for (interfaceSpec in spec.interfaces) {
             val interfaceName = interfaceSpec.className ?: continue
             if (!classSpecIsNameOnly(interfaceSpec)) continue
-            if (interfaceNames.none { interfaceName.matches(it) }) return false
+            if (interfaceNames.none { nameSpecMatchesJavaName(interfaceName, it) }) return false
         }
     }
     return true
@@ -624,11 +927,11 @@ private fun fieldPrefilter(json: JsonObject, spec: FieldSpec): Boolean {
     }
     spec.type?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.stringValue("type_name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.stringValue("declared_class_name") ?: return@let
-        if (!it.matches(name)) return false
+        if (!nameSpecMatchesJavaName(it, name)) return false
     }
     return true
 }

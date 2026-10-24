@@ -82,7 +82,17 @@ class StructuralCandidateTest {
 
     @Test
     fun declaredClassUsingStringsCandidateUsesCanonicalLiteralUnits() {
-        val (scope, query) = methodScope()
+        // Candidate generation uses the canonical class-literal-unit shape; the class-level
+        // usingStrings evaluation afterwards is a class-scoped query (class name predicate), so the
+        // fake must scope it to the fixture class that actually carries the literal (Alpha).
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                !sql.contains("class_descriptor = '") -> MatcherFixtures.methodDescriptors()
+                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
+                else -> emptyList()
+            }
+        }
+        val scope = scopeFor(query)
         val results = scope.findMethods(
             methodSpec {
                 name("run")
@@ -90,7 +100,17 @@ class StructuralCandidateTest {
             },
         )
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
-        val sql = query.queries.single()
+        // Fixture truth: Gamma carries no "alpha marker" string constant; only Alpha does.
+        assertFalse(
+            DexMatcherEvaluator(metadata).matchesClass(
+                metadata.classInfo(MatcherFixtures.GAMMA)!!,
+                ClassSpec(usingStrings = listOf(StringSpec("alpha marker"))),
+            ),
+        )
+        val candidateSql = query.queries.filter {
+            it.contains("JOIN methods ccm0") && !it.contains("class_descriptor = '")
+        }
+        val sql = candidateSql.single()
         assertTrue(sql.contains("JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor"), sql)
         assertTrue(sql.contains("JOIN method_strings ms0 ON ms0.method = ccm0.descriptor"), sql)
         assertTrue(sql.contains("ccm0.file_id = m.file_id"), sql)
@@ -104,7 +124,15 @@ class StructuralCandidateTest {
 
     @Test
     fun classUsingStringsCandidateResolvesInTwoCanonicalSteps() {
-        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                // Candidate two-step lookups have no class-name constraint.
+                !sql.contains("class_descriptor = '") -> MatcherFixtures.methodDescriptors()
+                // Class-level usingStrings evaluation is class-scoped: only Alpha has matches.
+                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
+                else -> emptyList()
+            }
+        }
         val scope = scopeFor(query)
         val results = scope.findClasses(
             classSpec {
@@ -113,8 +141,9 @@ class StructuralCandidateTest {
             },
         )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
-        assertEquals(2, query.queries.size)
-        for (sql in query.queries) {
+        val candidateQueries = query.queries.filter { !it.contains("class_descriptor = '") }
+        assertEquals(2, candidateQueries.size)
+        for (sql in candidateQueries) {
             assertTrue(sql.startsWith("SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings"), sql)
             assertTrue(sql.contains("ON ms0.method = m.descriptor"), sql)
             assertTrue(sql.contains("ORDER BY m.descriptor;"), sql)
@@ -164,6 +193,364 @@ class StructuralCandidateTest {
     }
 
     @Test
+    fun classInterfaceOnlySpecIsUnsupportedWithoutFastPath() {
+        // Interface/count-only class specs cannot be prefiltered without fetching the full
+        // metadata of every class; fail fast (zero SQL) instead of enumerating hundreds of MB/GBs.
+        val (scope, query) = classScope()
+        assertThrows(UnsupportedOperationException::class.java) {
+            scope.findClasses(classSpec { interfaceSpec { className("com.test.I1") } })
+        }
+        assertTrue(query.queries.isEmpty())
+    }
+
+    @Test
+    fun classMemberCountOnlySpecIsUnsupportedWithoutFastPath() {
+        val (scope, query) = classScope()
+        assertThrows(UnsupportedOperationException::class.java) {
+            scope.findClasses(classSpec { methodCount = 3..3 })
+        }
+        assertTrue(query.queries.isEmpty())
+    }
+
+    @Test
+    fun classModifiersOnlySpecUsesCanonicalAccessFlagScan() {
+        val (scope, query) = classScope()
+        scope.findClasses(classSpec { modifiers = 512 })
+        val sql = query.queries.single()
+        assertTrue(sql.contains("(c.access_flags & 512) = 512"), sql)
+        assertTrue(sql.contains("FROM classes c"), sql)
+    }
+
+    @Test
+    fun classIOnSceneEndShapeUsesNestedMethodTwoStep() {
+        // Real shape: no className/package/usingStrings; modifiers INTERFACE + interfaceCount 0..0
+        // + methodCount 1..1 + a selective nested method (name/paramCount/paramTypes/returnType).
+        // It must derive candidates from the canonical method lookup, never from class enumeration.
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec {
+                modifiers = 512
+                interfaceCount = 0..0
+                methodCount = 1..1
+                method {
+                    name("onSceneEnd")
+                    paramCount = 4..4
+                    paramTypes(
+                        TypeSpec("int"),
+                        TypeSpec("int"),
+                        TypeSpec("java.lang.String"),
+                        TypeSpec("java.lang.String"),
+                    )
+                    returnType { className("void") }
+                }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.startsWith("SELECT DISTINCT m.descriptor AS method FROM methods m"), sql)
+        assertTrue(sql.contains("m.name = 'onSceneEnd'"), sql)
+        assertTrue(sql.contains("m.param_count = 4"), sql)
+        assertTrue(sql.contains("m.param_descriptors = 'I,I,Ljava/lang/String;,Ljava/lang/String;'"), sql)
+        assertTrue(sql.contains("m.return_descriptor = 'V'"), sql)
+        assertFalse(sql.contains("FROM classes"), sql)
+    }
+
+    @Test
+    fun classEmptyUsingStringLiteralIsSkippedInCandidateSql() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM classes")) MatcherFixtures.classDescriptors()
+            else MatcherFixtures.methodDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec {
+                usingEqString("")
+                usingString("alpha marker")
+            },
+        )
+        // Candidate generation (no class-name constraint) must only use the non-empty literal.
+        val candidateSql = query.queries.filter {
+            it.contains("JOIN method_strings") && !it.contains("class_descriptor = '")
+        }
+        assertTrue(candidateSql.isNotEmpty(), query.queries.joinToString(" | "))
+        for (sql in candidateSql) {
+            assertTrue(sql.contains("instr(ms0.value, 'alpha marker') > 0"), sql)
+            assertFalse(sql.contains("value = ''"), sql)
+        }
+    }
+
+    @Test
+    fun emptyMethodUsingStringLiteralProducesNoMethodStringsPredicate() {
+        val (scope, query) = methodScope()
+        scope.findMethods(
+            methodSpec {
+                name("run")
+                usingEqString("")
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.name = 'run'"), sql)
+        assertFalse(sql.contains("JOIN method_strings"), sql)
+        assertFalse(sql.contains("value = ''"), sql)
+    }
+
+    @Test
+    fun emptyMethodLiteralWithoutCheapPredicateIsUnsupported() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(query).findMethods(
+                MethodSpec(usingStrings = listOf(StringSpec("", NameMatch.Equals))),
+            )
+        }
+        assertTrue(query.queries.isEmpty())
+    }
+
+    @Test
+    fun fieldGlobalUicChildrenShapeUsesReadMethodsTwoStep() {
+        // The pinned engine returns empty for ANDed multi-access-unit queries, so candidate
+        // generation must issue one canonical SINGLE-unit query per read/write method and intersect
+        // the field descriptor sets in Kotlin.
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                sql.contains("fm0.name = 'onBackPressed'") -> listOf(
+                    MatcherFixtures.ALPHA_COUNT_FIELD,
+                    MatcherFixtures.ALPHA_NAME_FIELD,
+                )
+                sql.contains("fm0.param_descriptors = 'Landroid/app/Activity;'") -> listOf(
+                    MatcherFixtures.ALPHA_COUNT_FIELD,
+                )
+                else -> emptyList()
+            }
+        }
+        scopeFor(query).findFields(
+            fieldSpec {
+                declaredClass { superClass { className("android.view.View") } }
+                type { className("java.util.HashMap") }
+                readMethod {
+                    name("onBackPressed")
+                    paramCount = 0..0
+                    returnType { className("boolean") }
+                }
+                readMethod {
+                    paramTypes(TypeSpec("android.app.Activity"))
+                    returnType { className("void") }
+                }
+            },
+        )
+        assertEquals(2, query.queries.size)
+        val readerQuery = query.queries.first { it.contains("fm0.name = 'onBackPressed'") }
+        val fragmentQuery = query.queries.first { it.contains("fm0.param_descriptors = 'Landroid/app/Activity;'") }
+        for (sql in listOf(readerQuery, fragmentQuery)) {
+            assertTrue(sql.startsWith("SELECT DISTINCT f.descriptor AS descriptor FROM fields f"), sql)
+            assertTrue(sql.contains("JOIN method_field_accesses fa0 ON fa0.field = f.descriptor"), sql)
+            assertTrue(sql.contains("JOIN methods fm0 ON fm0.descriptor = fa0.method"), sql)
+            assertTrue(sql.contains("fa0.using_type = 'get'"), sql)
+            // Exactly one access unit per query.
+            assertEquals(1, Regex("JOIN method_field_accesses").findAll(sql).count(), sql)
+            assertFalse(sql.contains("JOIN method_field_accesses fa1"), sql)
+            // The broad java.util.HashMap type must NOT drive this candidate set.
+            assertFalse(sql.contains("f.type_descriptor"), sql)
+            assertFalse(sql.contains("java/util/HashMap"), sql)
+            assertEveryJoinOnIsSingleEquality(sql)
+        }
+        assertTrue(readerQuery.contains("fm0.param_count = 0"), readerQuery)
+        assertTrue(readerQuery.contains("fm0.return_descriptor = 'Z'"), readerQuery)
+        assertTrue(fragmentQuery.contains("fm0.return_descriptor = 'V'"), fragmentQuery)
+    }
+
+    @Test
+    fun fieldReadMethodsTwoStepIntersectsSingleUnitQueries() {
+        val countField = MatcherFixtures.ALPHA_COUNT_FIELD
+        val nameField = MatcherFixtures.ALPHA_NAME_FIELD
+        val query = RecordingDescriptorQuery { sql ->
+            when {
+                sql.contains("fm0.name = 'run'") -> listOf(countField, nameField)
+                sql.contains("fm0.name = '<init>'") -> listOf(countField)
+                else -> emptyList()
+            }
+        }
+        val relations = FakeMatcherRelations(
+            metadata = metadata,
+            fieldAccessByKey = mapOf(
+                countField + "|get" to listOf(MatcherFixtures.ALPHA_RUN, MatcherFixtures.ALPHA_INIT),
+                nameField + "|get" to listOf(MatcherFixtures.ALPHA_RUN),
+            ),
+        )
+        val scope = QueryMatcherScope(
+            metadata = metadata,
+            query = query,
+            relations = relations,
+            rawMetadata = MatcherFixtures.provider::query,
+        )
+        val results = scope.findFields(
+            fieldSpec {
+                readMethod { name("run") }
+                readMethod { name("<init>") }
+            },
+        )
+        // Unit A returns {count, label}, unit B returns {count}: intersection is {count}, and the
+        // evaluator confirms count is read by both run() and <init>().
+        assertEquals(listOf(MatcherFixtures.ALPHA_COUNT_FIELD), results.map { it.descriptor })
+        assertEquals(2, query.queries.size)
+        for (sql in query.queries) {
+            assertEquals(1, Regex("JOIN method_field_accesses").findAll(sql).count(), sql)
+            assertTrue(sql.contains("ORDER BY f.descriptor"), sql)
+        }
+    }
+
+    @Test
+    fun broadFieldTypeOnlyRemainsCandidateWithoutAccessMethods() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
+        scopeFor(query).findFields(
+            fieldSpec { type { className("java.util.HashMap") } },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("f.type_descriptor = 'Ljava/util/HashMap;'"), sql)
+        assertTrue(sql.contains("ORDER BY f.descriptor"), sql)
+    }
+
+    @Test
+    fun narrowTypeOnlyFieldDrivesClassCandidate() {
+        // classImageFeatureService shape: the only cheap predicates are type-only fields whose
+        // class names are narrow (typically resolved from another delegate's .data).
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec {
+                field { type { className("com.test.Alpha") } }
+                field { type { className("com.test.Base") } }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("FROM fields f"), sql)
+        assertTrue(sql.contains("f.type_descriptor = 'Lcom/test/Alpha;'"), sql)
+        assertFalse(sql.contains("FROM classes"), sql)
+    }
+
+    @Test
+    fun descriptorFormNarrowTypeOnlyFieldDrivesClassCandidate() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec { field { type { className("Lcom/test/Alpha;") } } },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("FROM fields f"), sql)
+        assertTrue(sql.contains("f.type_descriptor = 'Lcom/test/Alpha;'"), sql)
+        assertFalse(sql.contains("FROM classes"), sql)
+    }
+
+    @Test
+    fun narrowTypeOnlyFieldWinsOverUnusableSuperClassStrings() {
+        // classMvvmConversationAdapter shape: superClass only has usingStrings (no canonical
+        // superclass name source), so the narrow type-only field lookup is the candidate source.
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec {
+                superClass { usingString("mvvm adapter") }
+                field { type { className("com.test.Alpha") } }
+            },
+        )
+        // The field two-step candidate is one of several queries now (class-string evaluation for
+        // the superclass constraint is class-scoped SQL); assert the relevant field lookup.
+        val sql = query.queries.first { it.contains("FROM fields f") }
+        assertTrue(sql.contains("FROM fields f"), sql)
+        assertTrue(sql.contains("f.type_descriptor = 'Lcom/test/Alpha;'"), sql)
+        assertFalse(sql.contains("FROM classes"), sql)
+    }
+
+    @Test
+    fun broadTypeOnlyFieldWithoutOtherSourceIsUnsupported() {
+        // Broad library/primitive type-only fields never drive class candidates; with no other
+        // canonical source the spec fails loudly before any SQL instead of scanning.
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(query).findClasses(
+                classSpec { field { type { className("java.lang.String") } } },
+            )
+        }
+        assertTrue(query.queries.isEmpty())
+    }
+
+    @Test
+    fun weakFieldTypeDoesNotWinOverPackageScanForClassMenuItemDataShape() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        val results = scopeFor(query).findClasses(
+            classSpec {
+                field { type { className("java.lang.String") } }
+                field { type { className("int") } }
+                fieldCount = 2..2
+                method { usingEqString("") }
+            },
+            packages = listOf("com.test"),
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("instr(c.descriptor, 'Lcom/test/') = 1"), sql)
+        assertFalse(sql.contains("FROM fields"), sql)
+        assertFalse(sql.contains("FROM methods"), sql)
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun weakFieldTypeDoesNotWinOverSuperClassCandidate() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        scopeFor(query).findClasses(
+            classSpec {
+                superClass { className("com.test.Base") }
+                field { type { className("android.widget.TextView") } }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("c.superclass_descriptor = 'Lcom/test/Base;'"), sql)
+        assertFalse(sql.contains("FROM fields"), sql)
+    }
+
+    @Test
+    fun classMemberCandidateBeatsPackageOnlyScan() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        val results = scopeFor(query).findClasses(
+            classSpec { method { name("run") } },
+            packages = listOf("com.test"),
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.name = 'run'"), sql)
+        assertFalse(sql.contains("FROM classes"), sql)
+    }
+
+    @Test
+    fun packageOnlyScanIsLastResortBeforeEnumeration() {
+        val (scope, query) = classScope()
+        val results = scope.findClasses(
+            classSpec { methodCount = 3..3 },
+            packages = listOf("com.test"),
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+        val sql = query.queries.single()
+        assertTrue(sql.contains("instr(c.descriptor, 'Lcom/test/') = 1"), sql)
+    }
+
+    @Test
     fun unsupportedCandidateShapesFailLoudlyWithoutRunningSql() {
         val methodQuery = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         assertThrows(UnsupportedOperationException::class.java) {
@@ -182,19 +569,16 @@ class StructuralCandidateTest {
 
         val classQuery = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
         assertThrows(UnsupportedOperationException::class.java) {
-            scopeFor(classQuery).findClasses(
-                classSpec { interfaceSpec { className("com.test.I1") } },
-            )
-        }
-        assertThrows(UnsupportedOperationException::class.java) {
-            scopeFor(classQuery).findClasses(classSpec { methodCount = 3..3 })
+            scopeFor(classQuery).findClasses(classSpec {})
         }
         assertTrue(classQuery.queries.isEmpty())
 
         val fieldQuery = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
         assertThrows(UnsupportedOperationException::class.java) {
+            // A read/write method matcher with no selective canonical predicate cannot drive the
+            // field candidate (nothing pushable), so this shape remains unsupported.
             scopeFor(fieldQuery).findFields(
-                fieldSpec { readMethod { name("run") } },
+                fieldSpec { readMethod { } },
             )
         }
         assertTrue(fieldQuery.queries.isEmpty())
