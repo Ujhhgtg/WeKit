@@ -22,9 +22,40 @@ use crate::workspace_root;
 #[path = "dex_report_diff.rs"]
 pub mod diff;
 
-const ENGINE_VERSION: &str = "dexsql";
-// Keep in sync with the dexsql dependency pin in xtask/Cargo.toml.
-const ENGINE_REVISION: &str = "21e36925267610ee2d9c78f0681cd2b5ada6973b";
+/// Engine name, version and resolved git revision reported by the worker environment.
+///
+/// The dependency tracks dexsql's `main` branch, so the exact revision lives in Cargo.lock;
+/// read it from there instead of duplicating it in source.
+fn engine_identity(root: &Path) -> (String, String) {
+    let unknown = "unknown".to_string();
+    let Ok(text) = fs::read_to_string(root.join("Cargo.lock")) else {
+        return (unknown.clone(), unknown);
+    };
+    let mut current: Option<String> = None;
+    let mut version: Option<String> = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(name) = line.strip_prefix("name = ") {
+            current = Some(name.trim_matches('"').to_string());
+            version = None;
+        } else if let Some(value) = line.strip_prefix("version = ") {
+            if current.as_deref() == Some("dexsql") {
+                version = Some(value.trim_matches('"').to_string());
+            }
+        } else if let Some(source) = line.strip_prefix("source = ") {
+            if current.as_deref() == Some("dexsql") {
+                let source = source.trim_matches('"');
+                if let Some(revision) = source.rsplit('#').next() {
+                    return (
+                        version.unwrap_or_else(|| "dexsql".to_string()),
+                        revision.to_string(),
+                    );
+                }
+            }
+        }
+    }
+    (unknown.clone(), unknown)
+}
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {
@@ -178,6 +209,7 @@ struct SummaryReport {
 
 pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let root = workspace_root();
+    let (engine_version, engine_revision) = engine_identity(&root);
     let started = now_rfc3339();
     let apks = if args.apks.is_empty() {
         discover_apks()?
@@ -219,10 +251,10 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let report_names = report_file_names(&identities);
 
     println!(
-        "dex-test: {} APK(s), engine {} ({})",
+        "dex-test: {} APK(s), engine dexsql {} ({})",
         apks.len(),
-        ENGINE_VERSION,
-        ENGINE_REVISION
+        engine_version,
+        engine_revision
     );
     let mut reports = Vec::with_capacity(apks.len());
     for (index, apk) in apks.iter().enumerate() {
@@ -230,7 +262,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         let metadata = match read_apk_metadata(&root, apk) {
             Ok(metadata) => metadata,
             Err(error) => {
-                let report = infrastructure_report(apk, &error);
+                let report = infrastructure_report(apk, &error, &engine_revision);
                 write_json_atomic(&report_path, &report)?;
                 render_apk(&report, &report_path, args.verbose);
                 reports.push((report, report_path));
@@ -251,14 +283,16 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             args.features.as_deref(),
             args.workers,
             dex_sql_native.as_deref(),
+            &engine_revision,
         );
         let report = match (status, read_report(&report_path)) {
             (_, Ok(report)) => report,
             (Ok(status), Err(error)) => infrastructure_report(
                 apk,
                 &anyhow::anyhow!("worker exited {status}; report unavailable: {error}"),
+                &engine_revision,
             ),
-            (Err(error), _) => infrastructure_report(apk, &error),
+            (Err(error), _) => infrastructure_report(apk, &error, &engine_revision),
         };
         if !matches!(report.outcome, ApkOutcome::InfrastructureFailure)
             && report.apk_sha256.is_empty()
@@ -610,13 +644,14 @@ fn run_worker(
     features: Option<&str>,
     workers: Option<u16>,
     dex_sql_native: Option<&Path>,
+    engine_revision: &str,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
     let mut properties = vec![
         ("wekit.dexTest.apk", apk.to_string_lossy().to_string()),
         ("wekit.dexTest.report", report.to_string_lossy().to_string()),
-        ("wekit.dexTest.engineVersion", ENGINE_VERSION.to_string()),
-        ("wekit.dexTest.engineRevision", ENGINE_REVISION.to_string()),
+        ("wekit.dexTest.engineVersion", "dexsql".to_string()),
+        ("wekit.dexTest.engineRevision", engine_revision.to_string()),
         (
             "wekit.dexTest.versionCode",
             metadata.version_code.to_string(),
@@ -660,7 +695,7 @@ fn read_report(path: &Path) -> Result<ApkReport> {
     serde_json::from_str(&text).with_context(|| format!("parse worker report {}", path.display()))
 }
 
-fn infrastructure_report(apk: &Path, error: &anyhow::Error) -> ApkReport {
+fn infrastructure_report(apk: &Path, error: &anyhow::Error, engine_revision: &str) -> ApkReport {
     ApkReport {
         schema_version: 3,
         worker_pid: 0,
@@ -685,8 +720,8 @@ fn infrastructure_report(apk: &Path, error: &anyhow::Error) -> ApkReport {
         is_google_play: false,
         dex_count: 0,
         environment: Environment {
-            engine_version: ENGINE_VERSION.to_string(),
-            engine_revision: ENGINE_REVISION.to_string(),
+            engine_version: "dexsql".to_string(),
+            engine_revision: engine_revision.to_string(),
             architecture: env::consts::ARCH.to_string(),
             jvm_version: String::new(),
         },
