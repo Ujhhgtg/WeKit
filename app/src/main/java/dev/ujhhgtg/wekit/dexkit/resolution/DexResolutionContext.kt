@@ -83,37 +83,34 @@ object DexResolutionContext {
     fun findClasses(
         spec: ClassSpec,
         packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
-    ): List<DexClassInfo> = matcher.findClasses(spec, packages, excludePackages)
+    ): List<DexClassInfo> = matcher.findClasses(spec, packages)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
         val matcher = ClassMatcher().apply(block)
-        return findClasses(matcher.build(), emptyList(), emptyList())
+        return findClasses(matcher.build())
     }
 
     fun findMethods(
         spec: MethodSpec,
         packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
-    ): List<DexMethodInfo> = matcher.findMethods(spec, packages, excludePackages)
+    ): List<DexMethodInfo> = matcher.findMethods(spec, packages)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
         val matcher = MethodMatcher().apply(block)
-        return findMethods(matcher.build(), emptyList(), emptyList())
+        return findMethods(matcher.build())
     }
 
     fun findFields(
         spec: FieldSpec,
         packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
-    ): List<DexFieldInfo> = matcher.findFields(spec, packages, excludePackages)
+    ): List<DexFieldInfo> = matcher.findFields(spec, packages)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findFields(block: FieldMatcher.() -> Unit): List<DexFieldInfo> {
         val matcher = FieldMatcher().apply(block)
-        return findFields(matcher.build(), emptyList(), emptyList())
+        return findFields(matcher.build())
     }
 
     fun ensureResolved(delegate: BaseDexDelegate) {

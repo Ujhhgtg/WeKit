@@ -53,39 +53,39 @@ class DexMatcherSession(
     fun findClasses(
         spec: ClassSpec,
         packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
+    ): List<DexClassInfo> =
+        synchronized(lock) {
+            checkOpen()
+            scope.findClasses(spec, packages)
+        }
+
+    /** Script-host overload with an explicit package exclusion list. */
+    internal fun findClasses(
+        spec: ClassSpec,
+        packages: List<String>,
+        excludePackages: List<String>,
     ): List<DexClassInfo> =
         synchronized(lock) {
             checkOpen()
             scope.findClasses(spec, packages, excludePackages)
         }
 
-    /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
-    fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
-        val matcher = ClassMatcher().apply(block)
-        return findClasses(matcher.build(), emptyList(), emptyList())
-    }
-
-    fun findMethods(
+    /** Script-host overload with an explicit package exclusion list. */
+    internal fun findMethods(
         spec: MethodSpec,
-        packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
+        packages: List<String>,
+        excludePackages: List<String>,
     ): List<DexMethodInfo> =
         synchronized(lock) {
             checkOpen()
             scope.findMethods(spec, packages, excludePackages)
         }
 
-    /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
-    fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
-        val matcher = MethodMatcher().apply(block)
-        return findMethods(matcher.build(), emptyList(), emptyList())
-    }
-
-    fun findFields(
+    /** Script-host overload with an explicit package exclusion list. */
+    internal fun findFields(
         spec: FieldSpec,
-        packages: List<String> = emptyList(),
-        excludePackages: List<String> = emptyList(),
+        packages: List<String>,
+        excludePackages: List<String>,
     ): List<DexFieldInfo> =
         synchronized(lock) {
             checkOpen()
@@ -93,9 +93,39 @@ class DexMatcherSession(
         }
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
+    fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
+        val matcher = ClassMatcher().apply(block)
+        return findClasses(matcher.build())
+    }
+
+    fun findMethods(
+        spec: MethodSpec,
+        packages: List<String> = emptyList(),
+    ): List<DexMethodInfo> =
+        synchronized(lock) {
+            checkOpen()
+            scope.findMethods(spec, packages)
+        }
+
+    /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
+    fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
+        val matcher = MethodMatcher().apply(block)
+        return findMethods(matcher.build())
+    }
+
+    fun findFields(
+        spec: FieldSpec,
+        packages: List<String> = emptyList(),
+    ): List<DexFieldInfo> =
+        synchronized(lock) {
+            checkOpen()
+            scope.findFields(spec, packages)
+        }
+
+    /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findFields(block: FieldMatcher.() -> Unit): List<DexFieldInfo> {
         val matcher = FieldMatcher().apply(block)
-        return findFields(matcher.build(), emptyList(), emptyList())
+        return findFields(matcher.build())
     }
 
     /** Callers of a method descriptor (DexKit order); fetched lazily from the bridge. */
