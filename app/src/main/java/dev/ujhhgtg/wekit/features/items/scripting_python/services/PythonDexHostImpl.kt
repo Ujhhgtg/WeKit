@@ -1,13 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
-import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
-import dev.ujhhgtg.wekit.dexkit.DexSqlRuntime
 import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
 import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSpecJson
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.classSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.fieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.methodSpec
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.withDexSql
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
@@ -18,7 +13,9 @@ import dev.ujhhgtg.wekit.python.api.PythonResolvedField
 import dev.ujhhgtg.wekit.python.api.PythonResolvedMember
 import dev.ujhhgtg.wekit.utils.HostInfo
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
 
 /**
  * Executes Python `wekit.dex` spec queries through the standalone matcher session.
@@ -90,7 +87,7 @@ class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
         )
 
     private fun <T> dexQuery(block: (DexMatcherSession) -> T): T = query {
-        withDexSql { runtime: DexSqlRuntime ->
+        withDexSql { runtime ->
             DexMatcherSession(runtime.bridge, runtime.metadata).use(block)
         }
     }
@@ -113,7 +110,7 @@ class PythonDexHostImpl(private val scope: PythonPluginScope) : PythonDexHost {
         get() = HostInfo.versionName + " (" + HostInfo.versionCode + ")"
 
     private companion object {
-        val executor = Executors.newSingleThreadExecutor { task ->
+        val executor: ExecutorService = Executors.newSingleThreadExecutor { task ->
             Thread(task, "WeKit-Python-Dex").apply { isDaemon = true }
         }
     }

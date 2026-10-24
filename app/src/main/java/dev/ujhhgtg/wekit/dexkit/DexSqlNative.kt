@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.dexkit
 
-import androidx.annotation.Keep
-
 /**
  * The small JNI surface exported by libwekit_native for the embedded DexSQL engine.
  *
@@ -15,7 +13,6 @@ import androidx.annotation.Keep
  * row, expected failure, ...) are WeKit concerns implemented by [DexSqlBridge]/the Dex delegate
  * layer, not part of this native contract.
  */
-@Keep
 object DexSqlNative {
     external fun open(paths: Array<String>): Long
 
