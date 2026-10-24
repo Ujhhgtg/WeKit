@@ -27,6 +27,9 @@ fun interface DexDescriptorQuery {
 
 private const val DEFAULT_CANDIDATE_PAGE_SIZE = 4096
 
+/** Class candidates closer to this bound are good enough; larger sets are intersected. */
+private const val NESTED_CANDIDATE_INTERSECTION_THRESHOLD = 2048
+
 
 /**
  * Broad library types that must not drive class candidates when used as a bare type-only field
@@ -570,27 +573,55 @@ class QueryMatcherScope(
             }
             return listOf(CandidateSource.Descriptors(classDescriptors.orEmpty().toList()))
         }
-        // 3) Nested member methods: canonical method lookup, then map declared classes.
-        for (methodSpec in spec.methods) {
-            val methodSources = methodCandidateSources(methodSpec, emptyList()) ?: continue
-            val classDescriptors = queryDescriptors(methodSources)
-                .filter(::isRealMethodDescriptor)
-                .mapNotNull { declaredClassNameOfMethod(it) }
-                .mapNotNull(::classDescriptorOrNull)
-                .distinct()
-            return listOf(CandidateSource.Descriptors(classDescriptors))
+        // 3) Nested member methods: rank pushable units by selectivity, drive from the most
+        //    selective one, and intersect with the next unit while the candidate class set is still
+        //    large. Non-pushable units (e.g. "<init>" + opcodes/annotations only) never drive.
+        if (spec.methods.isNotEmpty()) {
+            val rankedMethods = spec.methods
+                .map { methodSpec -> methodUnitSelectivity(methodSpec) to methodSpec }
+                .filter { (score, _) -> score > 0 }
+                .sortedByDescending { (score, _) -> score }
+            if (rankedMethods.isNotEmpty()) {
+                var candidates: LinkedHashSet<String>? = null
+                for ((_, methodSpec) in rankedMethods) {
+                    val methodSources = methodCandidateSources(methodSpec, emptyList()) ?: continue
+                    val unitClasses = classDescriptorsOfMethodSources(methodSources)
+                    candidates = if (candidates == null) unitClasses else candidates.apply { retainAll(unitClasses) }
+                    if (candidates!!.isEmpty() ||
+                        candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
+                    ) {
+                        break
+                    }
+                }
+                if (candidates != null) {
+                    return listOf(CandidateSource.Descriptors(candidates!!.toList()))
+                }
+            }
         }
-        // 4) Nested member fields: canonical field lookup, then map declared classes.
-        //    A field with a name is always selective. A type-only field matcher is used only for
-        //    narrow (non-framework) class names resolved dynamically; broad framework/primitive
-        //    type-only fields are deferred so superClass/package/enumeration candidates win
-        //    (classMenuItemData/classMmQuickDialog). A deferred broad field is still used as the
-        //    last resort when it is the only candidate source available
-        //    (classImageFeatureService/classMvvmConversationAdapter keep their field two-step).
-        for (fieldSpec in spec.fields) {
-            if (fieldSpec.name == null && !typeOnlyFieldIsNarrow(fieldSpec)) continue
-            val fieldSources = fieldCandidateSources(fieldSpec, emptyList()) ?: continue
-            return classSourcesFromFields(fieldSources)
+        // 4) Nested member fields: rank by selectivity (name > declaring class > narrow type >
+        //    selective read/write accessors); broad type-only fields never drive a class candidate.
+        //    Intersect further ranked field units when the candidate class set is still large.
+        if (spec.fields.isNotEmpty()) {
+            val rankedFields = spec.fields
+                .map { fieldSpec -> fieldUnitSelectivity(fieldSpec) to fieldSpec }
+                .filter { (score, _) -> score > 0 }
+                .sortedByDescending { (score, _) -> score }
+            if (rankedFields.isNotEmpty()) {
+                var candidates: LinkedHashSet<String>? = null
+                for ((_, fieldSpec) in rankedFields) {
+                    val fieldSources = fieldCandidateSources(fieldSpec, emptyList()) ?: continue
+                    val unitClasses = classDescriptorsOfFieldSources(fieldSources)
+                    candidates = if (candidates == null) unitClasses else candidates.apply { retainAll(unitClasses) }
+                    if (candidates!!.isEmpty() ||
+                        candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
+                    ) {
+                        break
+                    }
+                }
+                if (candidates != null) {
+                    return listOf(CandidateSource.Descriptors(candidates!!.toList()))
+                }
+            }
         }
         // 5) Superclass-only class specs use the canonical superclass unit shape.
         spec.superClass?.className?.let { nameSpec ->
@@ -620,17 +651,81 @@ class QueryMatcherScope(
         return null
     }
 
-    /** Maps a canonical field lookup to class candidates via each field's declared class. */
-    private fun classSourcesFromFields(fieldSources: List<CandidateSource>): List<CandidateSource> =
-        listOf(
-            CandidateSource.Descriptors(
-                queryDescriptors(fieldSources)
-                    .filter(::isRealFieldDescriptor)
-                    .mapNotNull { declaredClassNameOfField(it) }
-                    .mapNotNull(::classDescriptorOrNull)
-                    .distinct(),
-            ),
-        )
+    /** Class descriptors of the methods matched by a canonical method candidate source. */
+    private fun classDescriptorsOfMethodSources(sources: List<CandidateSource>): LinkedHashSet<String> {
+        val classes = linkedSetOf<String>()
+        queryDescriptors(sources).forEach { methodDescriptor ->
+            if (!isRealMethodDescriptor(methodDescriptor)) return@forEach
+            val declaredClass = declaredClassNameOfMethod(methodDescriptor) ?: return@forEach
+            classDescriptorOrNull(declaredClass)?.let { classes += it }
+        }
+        return classes
+    }
+
+    /** Class descriptors of the fields matched by a canonical field candidate source. */
+    private fun classDescriptorsOfFieldSources(sources: List<CandidateSource>): LinkedHashSet<String> {
+        val classes = linkedSetOf<String>()
+        queryDescriptors(sources).forEach { fieldDescriptor ->
+            if (!isRealFieldDescriptor(fieldDescriptor)) return@forEach
+            val declaredClass = declaredClassNameOfField(fieldDescriptor) ?: return@forEach
+            classDescriptorOrNull(declaredClass)?.let { classes += it }
+        }
+        return classes
+    }
+
+    /**
+     * Selectivity rank for a nested member method used as a class-candidate unit. Pushable
+     * predicates rank exact paramTypes > paramCount > returnType > modifiers > declaredClass >
+     * usingStrings > non-constructor name; opcodes/annotations and constructor names are
+     * deliberately non-selective (score 0).
+     */
+    private fun methodUnitSelectivity(spec: MethodSpec): Int {
+        var score = 0
+        val paramTypes = spec.paramTypes
+        if (paramTypes != null &&
+            paramTypes.all { type -> type == null || type.match == NameMatch.Equals }
+        ) {
+            score = maxOf(score, 100)
+        }
+        if (spec.paramCount != null) score = maxOf(score, 80)
+        val returnTypeName = spec.returnType?.className
+        if (returnTypeName != null && returnTypeName.match != NameMatch.EndsWith) {
+            score = maxOf(score, 60)
+        }
+        if (spec.modifiers != null) score = maxOf(score, 50)
+        if (spec.declaredClass?.className?.let { dottedClassNameOrNull(it.value) } != null ||
+            spec.declaredClass?.usingStrings?.any { it.value.isNotEmpty() } == true
+        ) {
+            score = maxOf(score, 40)
+        }
+        if (spec.usingStrings.any { it.value.isNotEmpty() }) score = maxOf(score, 30)
+        if (spec.usingNumbers.isNotEmpty()) score = maxOf(score, 25)
+        val name = spec.name
+        if (name != null && name.match == NameMatch.Equals &&
+            name.value != "<init>" && name.value != "<clinit>"
+        ) {
+            score = maxOf(score, 20)
+        }
+        return score
+    }
+
+    /**
+     * Selectivity rank for a nested member field used as a class-candidate unit. Named fields >
+     * declaring class > narrow type > selective read/write accessors; broad type-only fields and
+     * count-only constraints are non-selective (score 0).
+     */
+    private fun fieldUnitSelectivity(spec: FieldSpec): Int {
+        var score = 0
+        if (spec.name?.match == NameMatch.Equals) score = maxOf(score, 100)
+        spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className
+            ?.takeIf { it.match == NameMatch.Equals && dottedClassNameOrNull(it.value) != null }
+            ?.let { score = maxOf(score, 80) }
+        if (typeOnlyFieldIsNarrow(spec)) score = maxOf(score, 60)
+        if ((spec.readMethods + spec.writeMethods).any(::methodSpecIsSelectiveForAccessUnit)) {
+            score = maxOf(score, 40)
+        }
+        return score
+    }
 
     /**
      * True when a name-less field type matcher is narrow enough to drive a class candidate.

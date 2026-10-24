@@ -193,6 +193,103 @@ class StructuralCandidateTest {
     }
 
     @Test
+    fun classGenericRespShapeDrivesFromOpMethodNotConstructor() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        scopeFor(query).findClasses(
+            classSpec {
+                method {
+                    name("<init>")
+                    opcodes = OpcodeSpec(names = listOf("new-instance"))
+                }
+                method {
+                    name("op")
+                    paramTypes(TypeSpec("int"), TypeSpec("java.lang.Object[]"))
+                    returnType { className("int") }
+                    opcodes = OpcodeSpec(count = 0..10)
+                }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.name = 'op'"), sql)
+        assertTrue(sql.contains("m.param_descriptors = 'I,[Ljava/lang/Object;'"), sql)
+        assertTrue(sql.contains("m.return_descriptor = 'I'"), sql)
+        assertFalse(sql.contains("<init>"), sql)
+    }
+
+    @Test
+    fun classRawReqShapeDrivesFromOpMethodNotConstructor() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        scopeFor(query).findClasses(
+            classSpec {
+                field { type { className("byte[]") } }
+                fieldCount = 1..1
+                method {
+                    name("<init>")
+                    opcodes = OpcodeSpec(names = listOf("new-instance"))
+                }
+                method {
+                    name("op")
+                    paramTypes(TypeSpec("int"), TypeSpec("java.lang.Object[]"))
+                    returnType { className("int") }
+                    opcodes = OpcodeSpec(count = 0..10)
+                }
+                method {
+                    name("toByteArray")
+                    returnType { className("byte[]") }
+                }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.name = 'op'"), sql)
+        assertFalse(sql.contains("<init>"), sql)
+        assertFalse(sql.contains("toByteArray"), sql)
+    }
+
+    @Test
+    fun opcodeOnlyClassSpecIsUnsupportedWithZeroSql() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(query).findClasses(
+                classSpec {
+                    method {
+                        name("<init>")
+                        opcodes = OpcodeSpec(names = listOf("new-instance"))
+                    }
+                },
+            )
+        }
+        assertTrue(query.queries.isEmpty())
+    }
+
+    @Test
+    fun nestedMethodSelectivityPrefersParamTypesOverReturnType() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        scopeFor(query).findClasses(
+            classSpec {
+                method { returnType { className("boolean") } }
+                method { paramTypes(TypeSpec("int")) }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.param_descriptors = 'I'"), sql)
+        assertFalse(sql.contains("m.return_descriptor"), sql)
+    }
+
+    @Test
+    fun nestedFieldSelectivityPrefersNamedFieldOverNarrowType() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
+        scopeFor(query).findClasses(
+            classSpec {
+                field { type { className("com.test.Alpha") } }
+                field { name("count") }
+            },
+        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("f.name = 'count'"), sql)
+        assertFalse(sql.contains("f.type_descriptor"), sql)
+    }
+
+    @Test
     fun classInterfaceOnlySpecIsUnsupportedWithoutFastPath() {
         // Interface/count-only class specs cannot be prefiltered without fetching the full
         // metadata of every class; fail fast (zero SQL) instead of enumerating hundreds of MB/GBs.
