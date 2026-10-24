@@ -56,7 +56,10 @@ internal object MatcherFixtures {
         put("modifiers", modifiers)
         put("access_flags", accessFlags)
         put("return_type_name", returnTypeName)
-        put("param_type_names", JsonArray(paramTypeNames.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+        put(
+            "param_type_names",
+            JsonArray(paramTypeNames.map { kotlinx.serialization.json.JsonPrimitive(it) }),
+        )
         put("param_count", paramTypeNames.size)
         put("is_constructor", isConstructor)
         put("is_static_initializer", isStaticInitializer)
@@ -136,28 +139,64 @@ internal object MatcherFixtures {
 
     init {
         val alphaDeclaredClassName = "com.test.Alpha"
-        val runRef = methodRef(
-            ALPHA_RUN, "run", alphaDeclaredClassName, "()V", "void", emptyList(),
-        )
-        val helperRef = methodRef(
-            ALPHA_HELPER, "helper", alphaDeclaredClassName, "(I)V", "void", listOf("int"),
-        )
-        val initRef = methodRef(
-            ALPHA_INIT, "<init>", alphaDeclaredClassName, "()V", "void", emptyList(),
-            accessFlags = 65537, isConstructor = true,
-        )
-        val callHelperRef = methodRef(
-            CALL_HELPER, "helper", "com.test.Call", "()V", "void", emptyList(),
-        )
-        val countFieldRef = fieldRef(
-            ALPHA_COUNT_FIELD, "count", alphaDeclaredClassName, "int", modifiers = 8,
-        )
-        val nameFieldRef = fieldRef(
-            ALPHA_NAME_FIELD, "label", alphaDeclaredClassName, "java.lang.String",
-        )
+        val runRef =
+            methodRef(
+                ALPHA_RUN,
+                "run",
+                alphaDeclaredClassName,
+                "()V",
+                "void",
+                emptyList(),
+            )
+        val helperRef =
+            methodRef(
+                ALPHA_HELPER,
+                "helper",
+                alphaDeclaredClassName,
+                "(I)V",
+                "void",
+                listOf("int"),
+            )
+        val initRef =
+            methodRef(
+                ALPHA_INIT,
+                "<init>",
+                alphaDeclaredClassName,
+                "()V",
+                "void",
+                emptyList(),
+                accessFlags = 65537,
+                isConstructor = true,
+            )
+        val callHelperRef =
+            methodRef(
+                CALL_HELPER,
+                "helper",
+                "com.test.Call",
+                "()V",
+                "void",
+                emptyList(),
+            )
+        val countFieldRef =
+            fieldRef(
+                ALPHA_COUNT_FIELD,
+                "count",
+                alphaDeclaredClassName,
+                "int",
+                modifiers = 8,
+            )
+        val nameFieldRef =
+            fieldRef(
+                ALPHA_NAME_FIELD,
+                "label",
+                alphaDeclaredClassName,
+                "java.lang.String",
+            )
 
         putEntry(
-            DexMetadataKind.Method, ALPHA_RUN, methodDoc(
+            DexMetadataKind.Method,
+            ALPHA_RUN,
+            methodDoc(
                 runRef,
                 invokes = listOf(callHelperRef),
                 usingFields = listOf(usingField(countFieldRef, "read")),
@@ -166,40 +205,66 @@ internal object MatcherFixtures {
             ),
         )
         putEntry(
-            DexMetadataKind.Method, ALPHA_HELPER,
+            DexMetadataKind.Method,
+            ALPHA_HELPER,
             methodDoc(helperRef, usingStrings = listOf("other")),
         )
         putEntry(DexMetadataKind.Method, ALPHA_INIT, methodDoc(initRef))
         putEntry(
-            DexMetadataKind.Method, CALL_MAKE,
+            DexMetadataKind.Method,
+            CALL_MAKE,
             methodDoc(
                 methodRef(
-                    CALL_MAKE, "make", "com.test.Call", "()Lcom/test/Base;", "com.test.Base",
+                    CALL_MAKE,
+                    "make",
+                    "com.test.Call",
+                    "()Lcom/test/Base;",
+                    "com.test.Base",
                     emptyList(),
                 ),
             ),
         )
         putEntry(
-            DexMetadataKind.Method, CALL_HELPER,
-            methodDoc(callHelperRef, usingStrings = listOf("call helper"), usingNumbers = listOf("long" to "7")),
+            DexMetadataKind.Method,
+            CALL_HELPER,
+            methodDoc(
+                callHelperRef,
+                usingStrings = listOf("call helper"),
+                usingNumbers = listOf("long" to "7"),
+            ),
         )
-        putEntry(DexMetadataKind.Method, GAMMA_RUN, methodDoc(
-            methodRef(GAMMA_RUN, "run", "com.test.Gamma", "()V", "void", emptyList()),
-        ))
+        putEntry(
+            DexMetadataKind.Method,
+            GAMMA_RUN,
+            methodDoc(
+                methodRef(GAMMA_RUN, "run", "com.test.Gamma", "()V", "void", emptyList()),
+            ),
+        )
 
         putEntry(
-            DexMetadataKind.Field, ALPHA_COUNT_FIELD,
+            DexMetadataKind.Field,
+            ALPHA_COUNT_FIELD,
             fieldRef(ALPHA_COUNT_FIELD, "count", alphaDeclaredClassName, "int", 8, "I"),
         )
         putEntry(
-            DexMetadataKind.Field, ALPHA_NAME_FIELD,
-            fieldRef(ALPHA_NAME_FIELD, "label", alphaDeclaredClassName, "java.lang.String", 1, "Ljava/lang/String;"),
+            DexMetadataKind.Field,
+            ALPHA_NAME_FIELD,
+            fieldRef(
+                ALPHA_NAME_FIELD,
+                "label",
+                alphaDeclaredClassName,
+                "java.lang.String",
+                1,
+                "Ljava/lang/String;",
+            ),
         )
 
         putEntry(
-            DexMetadataKind.Class, ALPHA,
+            DexMetadataKind.Class,
+            ALPHA,
             classDoc(
-                ALPHA, "com.test.Alpha",
+                ALPHA,
+                "com.test.Alpha",
                 superClass = ref(BASE, "com.test.Base"),
                 interfaces = listOf(ref(IFACE, "com.test.I1")),
                 methods = listOf(runRef, helperRef, initRef),
@@ -207,32 +272,39 @@ internal object MatcherFixtures {
             ),
         )
         putEntry(
-            DexMetadataKind.Class, BASE,
+            DexMetadataKind.Class,
+            BASE,
             classDoc(BASE, "com.test.Base"),
         )
         putEntry(
-            DexMetadataKind.Class, IFACE,
+            DexMetadataKind.Class,
+            IFACE,
             classDoc(IFACE, "com.test.I1"),
         )
         putEntry(
-            DexMetadataKind.Class, GAMMA,
+            DexMetadataKind.Class,
+            GAMMA,
             classDoc(
-                GAMMA, "com.test.Gamma",
+                GAMMA,
+                "com.test.Gamma",
                 superClass = ref("Ljava/lang/Object;", "java.lang.Object"),
             ),
         )
     }
 
-    val provider: DexMetadataProvider = object : DexMetadataProvider {
-        override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? =
-            entries[kind.key + "|" + descriptor]
-    }
+    val provider: DexMetadataProvider =
+        object : DexMetadataProvider {
+            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? =
+                entries[kind.key + "|" + descriptor]
+        }
 
     val metadata: DexMetadata = DexMetadata(provider)
 
     fun methodDescriptors(): List<String> =
         listOf(ALPHA_RUN, ALPHA_HELPER, ALPHA_INIT, CALL_HELPER, CALL_MAKE, GAMMA_RUN)
+
     fun classDescriptors(): List<String> = listOf(ALPHA, BASE, IFACE, GAMMA)
+
     fun fieldDescriptors(): List<String> = listOf(ALPHA_COUNT_FIELD, ALPHA_NAME_FIELD)
 }
 
@@ -245,8 +317,13 @@ internal class FakeMatcherRelations(
     override fun callers(methodDescriptor: String): List<DexMethodInfo> =
         callersByMethod[methodDescriptor].orEmpty().mapNotNull { metadata.methodInfo(it) }
 
-    override fun fieldAccessMethods(fieldDescriptor: String, usingType: String): List<DexMethodInfo> =
-        fieldAccessByKey[fieldDescriptor + "|" + usingType].orEmpty().mapNotNull { metadata.methodInfo(it) }
+    override fun fieldAccessMethods(
+        fieldDescriptor: String,
+        usingType: String,
+    ): List<DexMethodInfo> =
+        fieldAccessByKey[fieldDescriptor + "|" + usingType].orEmpty().mapNotNull {
+            metadata.methodInfo(it)
+        }
 }
 
 /** Fake query executor: records every generated SQL and returns preconfigured descriptor rows. */

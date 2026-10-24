@@ -4,12 +4,12 @@ import dev.ujhhgtg.wekit.data.dao.AssetDao
 import dev.ujhhgtg.wekit.data.entity.AssetBindingEntity
 import dev.ujhhgtg.wekit.data.entity.AssetChunkEntity
 import dev.ujhhgtg.wekit.data.entity.AssetEntity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 /** Runtime access to assets imported into the Room catalog. */
 object AssetStore {
@@ -26,7 +26,8 @@ object AssetStore {
             }
             output.toByteArray()
         }
-    }.getOrNull()
+    }
+        .getOrNull()
 
     /**
      * Streams the asset bound to [owner]/[slot] into [target], replacing it only once the copy is
@@ -45,14 +46,16 @@ object AssetStore {
             check(partial.renameTo(target)) { "cannot move $partial to $target" }
             true
         }
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     /** Id of the asset bound to [owner]/[slot], or null when the slot is unbound. */
     fun bindingAssetId(owner: String, slot: String): String? = runCatching {
         runBlocking(Dispatchers.IO) {
             WeKitDatabase.instance.assetDao().getBinding(owner, slot)?.assetId
         }
-    }.getOrNull()
+    }
+        .getOrNull()
 
     /**
      * Stores [bytes] as a content-addressed asset and binds it to [owner]/[slot]. Re-importing
@@ -65,10 +68,17 @@ object AssetStore {
         bytes: ByteArray,
         mimeType: String,
         metadataJson: String? = null,
-    ): Boolean = import(
-        owner, slot, bytes.size.toLong(), MessageDigest.getInstance("SHA-256").digest(bytes),
-        mimeType, metadataJson,
-    ) { bytes.inputStream() }
+    ): Boolean =
+        import(
+            owner,
+            slot,
+            bytes.size.toLong(),
+            MessageDigest.getInstance("SHA-256").digest(bytes),
+            mimeType,
+            metadataJson,
+        ) {
+            bytes.inputStream()
+        }
 
     /** [importBinding] that streams [source], for media too large to hold in memory. */
     fun importBinding(
@@ -87,8 +97,11 @@ object AssetStore {
                 digest.update(buffer, 0, read)
             }
         }
-        import(owner, slot, source.length(), digest.digest(), mimeType, metadataJson) { source.inputStream() }
-    }.getOrDefault(false)
+        import(owner, slot, source.length(), digest.digest(), mimeType, metadataJson) {
+            source.inputStream()
+        }
+    }
+        .getOrDefault(false)
 
     private fun import(
         owner: String,
@@ -106,8 +119,10 @@ object AssetStore {
             val previousBinding = dao.getBinding(owner, slot)
             val expectedChunks = ((size + CHUNK_SIZE - 1) / CHUNK_SIZE).toInt()
             val existing = dao.get(assetId)
-            if (existing == null || existing.sizeBytes != size ||
-                dao.countChunks(assetId) != expectedChunks
+            if (
+                existing == null ||
+                    existing.sizeBytes != size ||
+                    dao.countChunks(assetId) != expectedChunks
             ) {
                 // The chunk count check also repairs an asset row left behind by an interrupted
                 // earlier import whose chunks were only partially written.
@@ -132,15 +147,18 @@ object AssetStore {
                 }
             }
             dao.bind(AssetBindingEntity(owner, slot, assetId))
-            if (previousBinding != null && previousBinding.assetId != assetId &&
-                dao.countBindings(previousBinding.assetId) == 0
+            if (
+                previousBinding != null &&
+                    previousBinding.assetId != assetId &&
+                    dao.countBindings(previousBinding.assetId) == 0
             ) {
                 dao.deleteChunks(previousBinding.assetId)
                 dao.delete(previousBinding.assetId)
             }
         }
         true
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     /** Reads up to one full chunk; shorter only at the end of the stream, empty at its end. */
     private fun InputStream.readChunk(): ByteArray {
@@ -166,14 +184,16 @@ object AssetStore {
             }
             true
         }
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     /** Slots currently bound to [owner], for example the usernames carrying a custom avatar. */
     fun listBindingSlots(owner: String): List<String> = runCatching {
         runBlocking(Dispatchers.IO) {
             WeKitDatabase.instance.assetDao().getBindings(owner).map { it.slot }
         }
-    }.getOrDefault(emptyList())
+    }
+        .getOrDefault(emptyList())
 
     private suspend fun bindingAssetSize(dao: AssetDao, assetId: String): Int =
         dao.get(assetId)?.sizeBytes?.coerceIn(0L, Int.MAX_VALUE.toLong())?.toInt() ?: 0

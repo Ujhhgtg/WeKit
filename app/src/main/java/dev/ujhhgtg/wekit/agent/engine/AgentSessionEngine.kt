@@ -43,16 +43,16 @@ class TurnConfig(
     /**
      * Which conditionally-advertised builtin tools this turn may see (vision / fs). Snapshotted per
      * turn — never read from a process-global flag — so a background trigger-fired turn on a
-     * non-vision model can't strip `ui-screenshot` out from under a concurrently-running vision turn
-     * (or hand it to a model whose provider then rejects the injected images).
+     * non-vision model can't strip `ui-screenshot` out from under a concurrently-running vision
+     * turn (or hand it to a model whose provider then rejects the injected images).
      */
     val toolVisibility: dev.ujhhgtg.wekit.agent.tool.ToolVisibility =
         dev.ujhhgtg.wekit.agent.tool.ToolVisibility.fromGlobals(),
     /**
-     * Queue-after-turn steer-hook: called by the engine at the top of every while-loop iteration. If
-     * non-null and returning a non-blank string, the engine injects it as a transient USER message
-     * before the next model request (not persisted). The callback should consume the message
-     * atomically so each steer fires once.
+     * Queue-after-turn steer-hook: called by the engine at the top of every while-loop iteration.
+     * If non-null and returning a non-blank string, the engine injects it as a transient USER
+     * message before the next model request (not persisted). The callback should consume the
+     * message atomically so each steer fires once.
      */
     val onFetchSteerMessage: (() -> String?)? = null,
 )
@@ -72,17 +72,34 @@ class AgentSessionEngine(
     private val approvalGateway: ApprovalGateway,
     private val promptComposer: PromptComposer,
     private val historySink: HistorySink,
-    /** Resolves the session's permission level per tool call, so level changes apply immediately. */
+    /**
+     * Resolves the session's permission level per tool call, so level changes apply immediately.
+     */
     private val permissionLevel: suspend () -> PermissionLevel,
 ) {
     private val toolCallExecutor = ToolCallExecutor(registry, approvalGateway, permissionLevel)
+
     /**
      * Persists conversation state as the loop advances. Implemented over Room by WeAgentService;
      * kept as an interface so the engine has no direct DB dependency and stays testable.
      */
     interface HistorySink {
-        suspend fun onAssistantMessage(content: String?, reasoning: String?, reasoningSignature: String?, toolCalls: List<LlmToolCall>)
-        suspend fun onToolResult(callId: String, toolName: String, providerId: String, argumentsJson: String, resultText: String, status: ApprovalStatus)
+        suspend fun onAssistantMessage(
+            content: String?,
+            reasoning: String?,
+            reasoningSignature: String?,
+            toolCalls: List<LlmToolCall>,
+        )
+
+        suspend fun onToolResult(
+            callId: String,
+            toolName: String,
+            providerId: String,
+            argumentsJson: String,
+            resultText: String,
+            status: ApprovalStatus,
+        )
+
         suspend fun onUserMessage(content: String)
     }
 
@@ -103,7 +120,8 @@ class AgentSessionEngine(
             val systemMessage = promptComposer.composeSystemMessage(config.systemPromptContent)
             // Persist/display the raw user message; the model gets the per-turn-augmented copy.
             historySink.onUserMessage(userMessage)
-            val sentUserText = promptComposer.composeTurnUserMessage(config.perTurnPrompts, userMessage)
+            val sentUserText =
+                promptComposer.composeTurnUserMessage(config.perTurnPrompts, userMessage)
 
             // Working message list for this turn: [system] + prior + this user message.
             val messages = ArrayList<LlmMessage>()
@@ -131,17 +149,19 @@ class AgentSessionEngine(
                 requestIndex++
                 send(AgentEvent.RequestStarted(requestIndex))
 
-                val wireTools = registry.requestTools(config.toolLoadingMode, discovered, config.toolVisibility)
-                val request = dev.ujhhgtg.wekit.agent.model.LlmRequest(
-                    modelIdRemote = config.modelIdRemote,
-                    messages = pruneStaleImages(messages),
-                    sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
-                    tools = wireTools.map { it.toSpec() },
-                    reasoningEffort = config.reasoningEffort,
-                    customJsonOverride = config.customJsonOverride,
-                    maxTokens = config.maxTokens,
-                    stream = true,
-                )
+                val wireTools =
+                    registry.requestTools(config.toolLoadingMode, discovered, config.toolVisibility)
+                val request =
+                    dev.ujhhgtg.wekit.agent.model.LlmRequest(
+                        modelIdRemote = config.modelIdRemote,
+                        messages = pruneStaleImages(messages),
+                        sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
+                        tools = wireTools.map { it.toSpec() },
+                        reasoningEffort = config.reasoningEffort,
+                        customJsonOverride = config.customJsonOverride,
+                        maxTokens = config.maxTokens,
+                        stream = true,
+                    )
 
                 // Stream one model response.
                 val textBuf = StringBuilder()
@@ -152,11 +172,13 @@ class AgentSessionEngine(
                 config.client.stream(request).collect { ev ->
                     when (ev) {
                         is LlmStreamEvent.TextDelta -> {
-                            textBuf.append(ev.text); send(AgentEvent.TextDelta(ev.text))
+                            textBuf.append(ev.text)
+                            send(AgentEvent.TextDelta(ev.text))
                         }
 
                         is LlmStreamEvent.ReasoningDelta -> {
-                            reasoningBuf.append(ev.text); send(AgentEvent.ReasoningDelta(ev.text))
+                            reasoningBuf.append(ev.text)
+                            send(AgentEvent.ReasoningDelta(ev.text))
                         }
 
                         is LlmStreamEvent.Completed -> completed = ev
@@ -170,21 +192,34 @@ class AgentSessionEngine(
                     return@channelFlow
                 }
                 completed?.usage?.let { send(AgentEvent.UsageUpdated(it)) }
-                val assistant = completed?.message
-                    ?: LlmMessage(role = LlmRole.ASSISTANT, content = textBuf.toString().ifEmpty { null })
+                val assistant =
+                    completed?.message
+                        ?: LlmMessage(
+                            role = LlmRole.ASSISTANT,
+                            content = textBuf.toString().ifEmpty { null },
+                        )
 
                 messages += assistant
-                historySink.onAssistantMessage(assistant.content, assistant.reasoning, assistant.reasoningSignature, assistant.toolCalls)
+                historySink.onAssistantMessage(
+                    assistant.content,
+                    assistant.reasoning,
+                    assistant.reasoningSignature,
+                    assistant.toolCalls,
+                )
 
                 // No tool calls -> round over, turn ends (§2.1).
                 if (assistant.toolCalls.isEmpty()) {
                     // Conditional prompts (§6): if any regex matches, append a system-reminder user
                     // message and continue the loop with another request.
-                    val reminders = promptComposer.matchConditionalPrompts(
-                        config.conditionalPrompts, assistant.content.orEmpty()
-                    )
+                    val reminders =
+                        promptComposer.matchConditionalPrompts(
+                            config.conditionalPrompts,
+                            assistant.content.orEmpty(),
+                        )
                     if (reminders.isNotEmpty()) {
-                        reminders.forEach { messages += LlmMessage(role = LlmRole.USER, content = it) }
+                        reminders.forEach {
+                            messages += LlmMessage(role = LlmRole.USER, content = it)
+                        }
                         continue
                     }
                     send(AgentEvent.TurnCompleted(assistant.content))
@@ -195,34 +230,58 @@ class AgentSessionEngine(
                 for (call in assistant.toolCalls) {
                     currentCoroutineContext().ensureActive()
                     send(AgentEvent.ToolCallStarted(call.id, call.name, call.argumentsJson))
-                    val result = if (call.name == ToolRegistry.DISCOVER_TOOLS_NAME) {
-                        ToolCallExecutor.Result(
-                            ToolDiscovery.handle(registry, parseArgs(call.argumentsJson), discovered, config.toolVisibility),
-                            ApprovalStatus.AUTO_ALLOWED,
-                            "builtin",
-                        )
-                    } else {
-                        toolCallExecutor.execute(call, ToolCallExecutor.Context(
-                            modelExplanation = assistant.content,
-                            visibility = config.toolVisibility,
-                        ) { toolName -> send(AgentEvent.ToolAwaitingApproval(call.id, toolName)) })
-                    }
-                    messages += LlmMessage(role = LlmRole.TOOL, content = result.text, toolCallId = call.id)
-                    historySink.onToolResult(call.id, call.name, result.providerId, call.argumentsJson, result.text, result.status)
-                    send(AgentEvent.ToolCallFinished(call.id, call.name, result.status, result.text))
+                    val result =
+                        if (call.name == ToolRegistry.DISCOVER_TOOLS_NAME) {
+                            ToolCallExecutor.Result(
+                                ToolDiscovery.handle(
+                                    registry,
+                                    parseArgs(call.argumentsJson),
+                                    discovered,
+                                    config.toolVisibility,
+                                ),
+                                ApprovalStatus.AUTO_ALLOWED,
+                                "builtin",
+                            )
+                        } else {
+                            toolCallExecutor.execute(
+                                call,
+                                ToolCallExecutor.Context(
+                                    modelExplanation = assistant.content,
+                                    visibility = config.toolVisibility,
+                                ) { toolName ->
+                                    send(AgentEvent.ToolAwaitingApproval(call.id, toolName))
+                                },
+                            )
+                        }
+                    messages +=
+                        LlmMessage(role = LlmRole.TOOL, content = result.text, toolCallId = call.id)
+                    historySink.onToolResult(
+                        call.id,
+                        call.name,
+                        result.providerId,
+                        call.argumentsJson,
+                        result.text,
+                        result.status,
+                    )
+                    send(
+                        AgentEvent.ToolCallFinished(call.id, call.name, result.status, result.text),
+                    )
                 }
 
                 // Vision: a tool (ui-screenshot) may have staged images into the UiImageSink this
-                // round. Inject them as a transient USER message so the model sees them next request.
+                // round. Inject them as a transient USER message so the model sees them next
+                // request.
                 // These are intentionally NOT persisted via historySink — screenshots are heavy and
-                // only relevant to the live turn (mirrors how Anthropic thinking blocks aren't replayed).
+                // only relevant to the live turn (mirrors how Anthropic thinking blocks aren't
+                // replayed).
                 val stagedImages = currentCoroutineContext()[UiImageSink]?.drain().orEmpty()
                 if (stagedImages.isNotEmpty()) {
-                    messages += LlmMessage(
-                        role = LlmRole.USER,
-                        content = "以下是刚才工具捕获的界面截图（${stagedImages.size} 张）：",
-                        images = stagedImages,
-                    )
+                    messages +=
+                        LlmMessage(
+                            role = LlmRole.USER,
+                            content = "以下是刚才工具捕获的界面截图（${stagedImages.size} 张）：",
+                            images = stagedImages,
+                        )
                 }
             }
         } catch (e: CancellationException) {
@@ -238,10 +297,11 @@ class AgentSessionEngine(
     /**
      * Best-effort cleanup that must run however the turn ended (completion, failure, user cancel).
      *
-     * - A gesture left held by `ui-touch-down` would otherwise leave WeChat with a stuck ACTION_DOWN
-     *   in its input state until the next `ui-touch-up` that may never come, and pin the Activity.
-     * - JVM handles are weakly held, so nothing is pinned; this just reaps the collected shells.
-     *   A full clear is intentionally avoided — the registry is process-global while turns are
+     * - A gesture left held by `ui-touch-down` would otherwise leave WeChat with a stuck
+     *   ACTION_DOWN in its input state until the next `ui-touch-up` that may never come, and pin
+     *   the Activity.
+     * - JVM handles are weakly held, so nothing is pinned; this just reaps the collected shells. A
+     *   full clear is intentionally avoided — the registry is process-global while turns are
      *   per-session, and concurrent sessions would lose their live handles.
      */
     private fun teardownTurn() {
@@ -252,32 +312,35 @@ class AgentSessionEngine(
     }
 
     /**
-     * Context economy: screenshots staged by `ui-screenshot` are appended to the working message list
-     * and would otherwise be re-sent on **every** later request of the same turn. In the intended
-     * screenshot → tap → screenshot loop that grows quadratically — by round 10 the body also carries
-     * the 9 stale screenshots, each a few hundred KB of base64.
+     * Context economy: screenshots staged by `ui-screenshot` are appended to the working message
+     * list and would otherwise be re-sent on **every** later request of the same turn. In the
+     * intended screenshot → tap → screenshot loop that grows quadratically — by round 10 the body
+     * also carries the 9 stale screenshots, each a few hundred KB of base64.
      *
      * So only the most recent image message keeps its payload; earlier ones are replaced by a short
      * note. Text (tool results, narration) is never touched — only the image payloads are dropped.
      * Do not "optimise" this away: the model only ever needs to see the current screen.
      */
     private fun pruneStaleImages(messages: List<LlmMessage>): List<LlmMessage> {
-        // Fast path: zero or one image message — nothing to prune (still a defensive copy, since the
+        // Fast path: zero or one image message — nothing to prune (still a defensive copy, since
+        // the
         // caller keeps mutating its working list after the request is built).
         if (messages.count { it.images.isNotEmpty() } <= 1) return messages.toList()
         val newest = messages.indexOfLast { it.images.isNotEmpty() }
         return messages.mapIndexed { i, m ->
             if (i == newest || m.images.isEmpty()) m
-            else m.copy(
-                content = "（已省略 ${m.images.size} 张较早的界面截图，只保留最近一次截图以节省上下文）",
-                images = emptyList(),
-            )
+            else
+                m.copy(
+                    content = "（已省略 ${m.images.size} 张较早的界面截图，只保留最近一次截图以节省上下文）",
+                    images = emptyList(),
+                )
         }
     }
 
-    private fun parseArgs(argumentsJson: String): JsonObject =
-        runCatching { dev.ujhhgtg.wekit.agent.model.LlmJson.json.parseToJsonElement(argumentsJson).jsonObject }
-            .getOrElse { JsonObject(emptyMap()) }
+    private fun parseArgs(argumentsJson: String): JsonObject = runCatching {
+        dev.ujhhgtg.wekit.agent.model.LlmJson.json.parseToJsonElement(argumentsJson).jsonObject
+    }
+        .getOrElse { JsonObject(emptyMap()) }
 
     private fun WireTool.toSpec(): LlmToolSpec =
         LlmToolSpec(name = exposedName, description = description, parametersSchema = jsonSchema)

@@ -28,10 +28,10 @@ import com.composables.icons.materialsymbols.outlinedfilled.Lightbulb
  * A general-purpose card for displaying tips or important information.
  *
  * @param modifier The modifier to be applied to the card.
- * @param tipContent The composable slot for the main tip message.
- * This is typically a Row with an Icon and Text.
- * @param actionContent The composable slot for action buttons, typically aligned to the end.
- * It's within a ColumnScope, so modifiers like `align` are allowed.
+ * @param tipContent The composable slot for the main tip message. This is typically a Row with an
+ *   Icon and Text.
+ * @param actionContent The composable slot for action buttons, typically aligned to the end. It's
+ *   within a ColumnScope, so modifiers like `align` are allowed.
  * @param noPadding Don't add more padding in internal
  */
 @Composable
@@ -43,23 +43,22 @@ fun TipCard(
     actionContent: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier = if (noPadding) {
-            modifier
-                .fillMaxWidth()
-        } else {
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f),
-        ),
+        modifier =
+            if (noPadding) {
+                modifier.fillMaxWidth()
+            } else {
+                modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            },
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f),
+            ),
         shape = cardShape,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 0.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 0.dp),
         ) {
             tipContent()
             Column(

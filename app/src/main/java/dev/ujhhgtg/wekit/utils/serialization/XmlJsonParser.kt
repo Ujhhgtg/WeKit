@@ -1,13 +1,13 @@
 package dev.ujhhgtg.wekit.utils.serialization
 
+import java.io.BufferedReader
+import java.io.IOException
+import java.io.Reader
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.Reader
 
 private const val LT_CHAR = '<'
 private const val GT_CHAR = '>'
@@ -25,17 +25,22 @@ data class XmlParserConfiguration(
     val trimWhiteSpace: Boolean = true,
     val maxNestingDepth: Int = Int.MAX_VALUE,
     val forceList: Set<String> = emptySet(),
-    val xsiTypeMap: Map<String, (String) -> JsonElement> = emptyMap()
+    val xsiTypeMap: Map<String, (String) -> JsonElement> = emptyMap(),
 )
 
 // ported from org.json.XML
 object XmlJsonParser {
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun toJsonObject(string: String, configuration: XmlParserConfiguration = XmlParserConfiguration()): JsonObject =
-        toJsonObject(string.reader(), configuration)
+    inline fun toJsonObject(
+        string: String,
+        configuration: XmlParserConfiguration = XmlParserConfiguration(),
+    ): JsonObject = toJsonObject(string.reader(), configuration)
 
-    fun toJsonObject(reader: Reader, config: XmlParserConfiguration = XmlParserConfiguration()): JsonObject {
+    fun toJsonObject(
+        reader: Reader,
+        config: XmlParserConfiguration = XmlParserConfiguration(),
+    ): JsonObject {
         val context = JsonAccumulator()
         val tokener = XmlTokener(reader, config)
         while (tokener.more()) {
@@ -52,7 +57,7 @@ object XmlJsonParser {
         context: JsonAccumulator,
         name: String?,
         config: XmlParserConfiguration,
-        currentNestingDepth: Int
+        currentNestingDepth: Int,
     ): Boolean {
         var token: Any? = x.nextToken()
 
@@ -77,8 +82,8 @@ object XmlJsonParser {
                                         text,
                                         config.keepBooleanAsString,
                                         config.keepNumberAsString,
-                                        config.keepStrings
-                                    )
+                                        config.keepStrings,
+                                    ),
                                 )
                             }
                             return false
@@ -91,9 +96,9 @@ object XmlJsonParser {
                 do {
                     token = x.nextMeta()
                     when (token) {
-//                        null -> {
-//                            throw x.syntaxError("Missing '>' after '<!'.")
-//                        }
+                        //                        null -> {
+                        //                            throw x.syntaxError("Missing '>' after '<!'.")
+                        //                        }
                         LT_CHAR -> {
                             depth += 1
                         }
@@ -153,7 +158,9 @@ object XmlJsonParser {
 
                             val attrValue = token
                             when {
-                                config.convertNilAttributeToNull && attrName == NULL_ATTR && attrValue.toBooleanStrictOrNull() == true -> {
+                                config.convertNilAttributeToNull &&
+                                    attrName == NULL_ATTR &&
+                                    attrValue.toBooleanStrictOrNull() == true -> {
                                     nilAttributeFound = true
                                 }
 
@@ -168,8 +175,8 @@ object XmlJsonParser {
                                             attrValue,
                                             config.keepBooleanAsString,
                                             config.keepNumberAsString,
-                                            config.keepStrings
-                                        )
+                                            config.keepStrings,
+                                        ),
                                     )
                                 }
                             }
@@ -216,7 +223,7 @@ object XmlJsonParser {
                                                     text,
                                                     config.keepBooleanAsString,
                                                     config.keepNumberAsString,
-                                                    config.keepStrings
+                                                    config.keepStrings,
                                                 )
                                         jsonObject.accumulate(config.cDataTagName, contentValue)
                                     }
@@ -225,11 +232,19 @@ object XmlJsonParser {
                                 LT_CHAR -> {
                                     if (currentNestingDepth == config.maxNestingDepth) {
                                         throw x.syntaxError(
-                                            "Maximum nesting depth of ${config.maxNestingDepth} reached"
+                                            "Maximum nesting depth of ${config.maxNestingDepth} reached",
                                         )
                                     }
 
-                                    if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1)) {
+                                    if (
+                                        parse(
+                                            x,
+                                            jsonObject,
+                                            tagName,
+                                            config,
+                                            currentNestingDepth + 1,
+                                        )
+                                    ) {
                                         val value: JsonElement? =
                                             if (jsonObject.isEmpty()) {
                                                 null
@@ -241,24 +256,32 @@ object XmlJsonParser {
 
                                         if (tagName in config.forceList) {
                                             when {
-                                                jsonObject.isEmpty() -> context.put(tagName, JsonArray(emptyList()))
+                                                jsonObject.isEmpty() ->
+                                                    context.put(tagName, JsonArray(emptyList()))
                                                 value != null -> context.append(tagName, value)
                                                 else -> {
                                                     if (!config.trimWhiteSpace) {
                                                         removeEmpty(jsonObject)
                                                     }
-                                                    context.append(tagName, jsonObject.toJsonElement(config.forceList))
+                                                    context.append(
+                                                        tagName,
+                                                        jsonObject.toJsonElement(config.forceList),
+                                                    )
                                                 }
                                             }
                                         } else {
                                             when {
-                                                jsonObject.isEmpty() -> context.accumulate(tagName, JsonPrimitive(""))
+                                                jsonObject.isEmpty() ->
+                                                    context.accumulate(tagName, JsonPrimitive(""))
                                                 value != null -> context.accumulate(tagName, value)
                                                 else -> {
                                                     if (!config.trimWhiteSpace) {
                                                         removeEmpty(jsonObject)
                                                     }
-                                                    context.accumulate(tagName, jsonObject.toJsonElement(config.forceList))
+                                                    context.accumulate(
+                                                        tagName,
+                                                        jsonObject.toJsonElement(config.forceList),
+                                                    )
                                                 }
                                             }
                                         }
@@ -281,7 +304,7 @@ object XmlJsonParser {
         text: String,
         keepBooleanAsString: Boolean,
         keepNumberAsString: Boolean,
-        keepStrings: Boolean
+        keepStrings: Boolean,
     ): JsonElement {
         when (text) {
             "true" -> return if (keepBooleanAsString) JsonPrimitive(text) else JsonPrimitive(true)
@@ -290,7 +313,9 @@ object XmlJsonParser {
         }
 
         if (!keepNumberAsString) {
-            text.toLongOrNull()?.let { return JsonPrimitive(it) }
+            text.toLongOrNull()?.let {
+                return JsonPrimitive(it)
+            }
             text.toDoubleOrNull()?.let { if (it.isFinite()) return JsonPrimitive(it) }
         }
 
@@ -308,7 +333,9 @@ object XmlJsonParser {
 private class JsonAccumulator {
     private val values: LinkedHashMap<String, MutableList<JsonElement>> = linkedMapOf()
 
-    val size: Int get() = values.size
+    val size: Int
+        get() = values.size
+
     fun isEmpty(): Boolean = values.isEmpty()
 
     fun accumulate(name: String, value: JsonElement) {
@@ -333,41 +360,42 @@ private class JsonAccumulator {
     }
 
     fun toJsonElement(forceList: Set<String>): JsonElement {
-//        if (values.size == 1) {
-//            val (key, list) = values.entries.first()
-//            return if (key in forceList) {
-//                JsonArray(list.toList())
-//            } else if (list.size == 1) {
-//                list[0]
-//            } else {
-//                JsonArray(list.toList())
-//            }
-//        }
-//
-//        val map = linkedMapOf<String, JsonElement>()
-//        for ((key, list) in values) {
-//            map[key] = if (key in forceList) {
-//                JsonArray(list.toList())
-//            } else if (list.size == 1) {
-//                list[0]
-//            } else {
-//                JsonArray(list.toList())
-//            }
-//        }
-//        return JsonObject(map)
+        //        if (values.size == 1) {
+        //            val (key, list) = values.entries.first()
+        //            return if (key in forceList) {
+        //                JsonArray(list.toList())
+        //            } else if (list.size == 1) {
+        //                list[0]
+        //            } else {
+        //                JsonArray(list.toList())
+        //            }
+        //        }
+        //
+        //        val map = linkedMapOf<String, JsonElement>()
+        //        for ((key, list) in values) {
+        //            map[key] = if (key in forceList) {
+        //                JsonArray(list.toList())
+        //            } else if (list.size == 1) {
+        //                list[0]
+        //            } else {
+        //                JsonArray(list.toList())
+        //            }
+        //        }
+        //        return JsonObject(map)
         return toJsonObject(forceList)
     }
 
     fun toJsonObject(forceList: Set<String>): JsonObject {
         val map = linkedMapOf<String, JsonElement>()
         for ((key, list) in values) {
-            map[key] = if (key in forceList) {
-                JsonArray(list.toList())
-            } else if (list.size == 1) {
-                list[0]
-            } else {
-                JsonArray(list.toList())
-            }
+            map[key] =
+                if (key in forceList) {
+                    JsonArray(list.toList())
+                } else if (list.size == 1) {
+                    list[0]
+                } else {
+                    JsonArray(list.toList())
+                }
         }
         return JsonObject(map)
     }
@@ -384,7 +412,7 @@ private class JsonAccumulator {
 
 class XmlTokener(
     reader: Reader,
-    private val configuration: XmlParserConfiguration = XmlParserConfiguration()
+    private val configuration: XmlParserConfiguration = XmlParserConfiguration(),
 ) {
     private val reader: Reader = if (reader.markSupported()) reader else BufferedReader(reader)
     private var character: Long = 1
@@ -456,23 +484,25 @@ class XmlTokener(
         fun unescapeEntity(e: String?): String {
             if (e.isNullOrEmpty()) return ""
             if (e[0] == '#') {
-                val cp = if (e.length > 1 && (e[1] == 'x' || e[1] == 'X')) {
-                    e.substring(2).toInt(16)
-                } else {
-                    e.substring(1).toInt()
-                }
+                val cp =
+                    if (e.length > 1 && (e[1] == 'x' || e[1] == 'X')) {
+                        e.substring(2).toInt(16)
+                    } else {
+                        e.substring(1).toInt()
+                    }
                 return String(Character.toChars(cp))
             }
             return entity[e]?.toString() ?: "&$e;"
         }
 
-        private val entity: HashMap<String, Char> = hashMapOf(
-            "amp" to '&',
-            "apos" to '\'',
-            "gt" to '>',
-            "lt" to '<',
-            "quot" to '"'
-        )
+        private val entity: HashMap<String, Char> =
+            hashMapOf(
+                "amp" to '&',
+                "apos" to '\'',
+                "gt" to '>',
+                "lt" to '<',
+                "quot" to '"',
+            )
     }
 
     fun nextMeta(): Any {
@@ -489,7 +519,8 @@ class XmlTokener(
             EQ_CHAR -> EQ_CHAR
             BANG_CHAR -> BANG_CHAR
             QUEST_CHAR -> QUEST_CHAR
-            '"', '\'' -> {
+            '"',
+            '\'' -> {
                 val q = c
                 while (true) {
                     c = next()
@@ -504,7 +535,14 @@ class XmlTokener(
                     if (c.isWhitespace()) return true
                     when (c) {
                         0.toChar() -> throw syntaxError("Unterminated string")
-                        LT_CHAR, GT_CHAR, SLASH_CHAR, EQ_CHAR, BANG_CHAR, QUEST_CHAR, '"', '\'' -> {
+                        LT_CHAR,
+                        GT_CHAR,
+                        SLASH_CHAR,
+                        EQ_CHAR,
+                        BANG_CHAR,
+                        QUEST_CHAR,
+                        '"',
+                        '\'' -> {
                             back()
                             return true
                         }
@@ -528,7 +566,8 @@ class XmlTokener(
             EQ_CHAR -> EQ_CHAR
             BANG_CHAR -> BANG_CHAR
             QUEST_CHAR -> QUEST_CHAR
-            '"', '\'' -> {
+            '"',
+            '\'' -> {
                 val q = c
                 val sb = StringBuilder()
                 while (true) {
@@ -555,9 +594,13 @@ class XmlTokener(
                     when {
                         ch.isWhitespace() -> return sb.toString()
                         ch == 0.toChar() -> return sb.toString()
-                        ch == GT_CHAR || ch == SLASH_CHAR || ch == EQ_CHAR ||
-                                ch == BANG_CHAR || ch == QUEST_CHAR ||
-                                ch == '[' || ch == ']' -> {
+                        ch == GT_CHAR ||
+                            ch == SLASH_CHAR ||
+                            ch == EQ_CHAR ||
+                            ch == BANG_CHAR ||
+                            ch == QUEST_CHAR ||
+                            ch == '[' ||
+                            ch == ']' -> {
                             back()
                             return sb.toString()
                         }
@@ -606,16 +649,17 @@ class XmlTokener(
     }
 
     fun next(): Char {
-        val c: Int = if (usePrevious) {
-            usePrevious = false
-            previous.code
-        } else {
-            try {
-                reader.read()
-            } catch (e: IOException) {
-                throw JsonException(e)
+        val c: Int =
+            if (usePrevious) {
+                usePrevious = false
+                previous.code
+            } else {
+                try {
+                    reader.read()
+                } catch (e: IOException) {
+                    throw JsonException(e)
+                }
             }
-        }
 
         if (c <= 0) {
             eof = true
@@ -698,6 +742,8 @@ class XmlTokener(
 
 class JsonException : RuntimeException {
     constructor(message: String) : super(message)
+
     constructor(cause: Throwable) : super(cause)
+
     constructor(message: String, cause: Throwable) : super(message, cause)
 }

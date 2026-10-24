@@ -1,12 +1,12 @@
 package dev.ujhhgtg.wekit.dextest
 
-import kotlin.io.path.writeText
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import kotlin.io.path.writeText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -41,9 +41,7 @@ internal data class DexTestDelegateReport(
 internal data class DexTestFeatureReport(
     val className: String,
     val displayName: String,
-    /**
-     * 设备端云缓存按此字段匹配 feature；仅在类加载失败时为空字符串（该类 outcome 必然 FAIL，不会进入发布资产）。
-     */
+    /** 设备端云缓存按此字段匹配 feature；仅在类加载失败时为空字符串（该类 outcome 必然 FAIL，不会进入发布资产）。 */
     val technicalId: String = "",
     val methodHash: String = "",
     val outcome: DexTestFeatureOutcome,

@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.ui.content
 
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,15 +49,13 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.roundToInt
-import android.graphics.Color as AndroidColor
-import androidx.compose.ui.graphics.Color as ComposeColor
 
 /**
  * The module's single color input: a hex text field that flags unparseable input, with a preview
  * swatch that opens [WeColorPickerDialog] when tapped.
  *
- * Accepts anything [toColorInt] understands (`#RRGGBB`, `#AARRGGBB`, `black`, `gray`, …) so existing
- * stored values keep working; picking a color always writes back uppercase `#AARRGGBB`.
+ * Accepts anything [toColorInt] understands (`#RRGGBB`, `#AARRGGBB`, `black`, `gray`, …) so
+ * existing stored values keep working; picking a color always writes back uppercase `#AARRGGBB`.
  */
 @Composable
 fun WeColorField(
@@ -66,9 +66,10 @@ fun WeColorField(
     enabled: Boolean = true,
 ) {
     val context = LocalContext.current
-    val parsedColor = remember(value) {
-        value.takeIf { it.isNotBlank() }?.let { runCatching { it.toColorInt() }.getOrNull() }
-    }
+    val parsedColor =
+        remember(value) {
+            value.takeIf { it.isNotBlank() }?.let { runCatching { it.toColorInt() }.getOrNull() }
+        }
 
     OutlinedTextField(
         value = value,
@@ -80,13 +81,13 @@ fun WeColorField(
         isError = value.isNotBlank() && parsedColor == null,
         trailingIcon = {
             Box(
-                Modifier
-                    .padding(end = 8.dp)
+                Modifier.padding(end = 8.dp)
                     .size(24.dp)
                     .clip(CircleShape)
                     .then(if (parsedColor != null) Modifier.checkerboard(4.dp) else Modifier)
                     .background(
-                        parsedColor?.let(::ComposeColor) ?: MaterialTheme.colorScheme.surfaceVariant
+                        parsedColor?.let(::ComposeColor)
+                            ?: MaterialTheme.colorScheme.surfaceVariant,
                     )
                     .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                     .clickable(enabled = enabled) {
@@ -100,7 +101,7 @@ fun WeColorField(
                                 },
                             )
                         }
-                    }
+                    },
             )
         },
     )
@@ -109,12 +110,13 @@ fun WeColorField(
 /**
  * Hue/saturation/value/alpha color picker, for use inside a [showComposeDialog].
  *
- * Works in HSV rather than packed ARGB so that dragging value or saturation to zero doesn't collapse
- * the other components — a round trip through RGB would lose the hue of any black or gray.
+ * Works in HSV rather than packed ARGB so that dragging value or saturation to zero doesn't
+ * collapse the other components — a round trip through RGB would lose the hue of any black or gray.
  *
- * @param resetColor when set, a Reset button loads this color into the picker (still to be confirmed).
+ * @param resetColor when set, a Reset button loads this color into the picker (still to be
+ *   confirmed).
  * @param showAlpha `false` for colors that must stay opaque: hides the opacity slider and forces
- * full alpha on every edit.
+ *   full alpha on every edit.
  */
 @Composable
 fun WeColorPickerDialog(
@@ -125,7 +127,8 @@ fun WeColorPickerDialog(
     showAlpha: Boolean = true,
 ) {
     fun normalized(color: Int) = if (showAlpha) color else color or OPAQUE
-    val initialHsv = remember(initial) { FloatArray(3).also { AndroidColor.colorToHSV(initial, it) } }
+    val initialHsv =
+        remember(initial) { FloatArray(3).also { AndroidColor.colorToHSV(initial, it) } }
 
     var hue by remember { mutableFloatStateOf(initialHsv[0] / 360f) }
     var saturation by remember { mutableFloatStateOf(initialHsv[1]) }
@@ -157,56 +160,61 @@ fun WeColorPickerDialog(
         text = {
             DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                 Box(
-                    Modifier
-                        .fillMaxWidth()
+                    Modifier.fillMaxWidth()
                         .height(56.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .checkerboard()
                         .background(ComposeColor(current))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
                 )
 
                 ColorSlider(
                     label = stringResource(R.string.color_picker_hue),
                     value = hue,
                     onValueChange = { next -> onSliderChange { hue = next } },
-                    trackBrush = Brush.horizontalGradient(
-                        List(HUE_STOPS + 1) { ComposeColor(argbOf(it / HUE_STOPS.toFloat(), 1f, 1f, 1f)) }
-                    ),
+                    trackBrush =
+                        Brush.horizontalGradient(
+                            List(HUE_STOPS + 1) {
+                                ComposeColor(argbOf(it / HUE_STOPS.toFloat(), 1f, 1f, 1f))
+                            },
+                        ),
                 )
                 ColorSlider(
                     label = stringResource(R.string.color_picker_saturation),
                     value = saturation,
                     onValueChange = { next -> onSliderChange { saturation = next } },
-                    trackBrush = Brush.horizontalGradient(
-                        listOf(
-                            ComposeColor(argbOf(hue, 0f, brightness, 1f)),
-                            ComposeColor(argbOf(hue, 1f, brightness, 1f)),
-                        )
-                    ),
+                    trackBrush =
+                        Brush.horizontalGradient(
+                            listOf(
+                                ComposeColor(argbOf(hue, 0f, brightness, 1f)),
+                                ComposeColor(argbOf(hue, 1f, brightness, 1f)),
+                            ),
+                        ),
                 )
                 ColorSlider(
                     label = stringResource(R.string.color_picker_value),
                     value = brightness,
                     onValueChange = { next -> onSliderChange { brightness = next } },
-                    trackBrush = Brush.horizontalGradient(
-                        listOf(
-                            ComposeColor(argbOf(hue, saturation, 0f, 1f)),
-                            ComposeColor(argbOf(hue, saturation, 1f, 1f)),
-                        )
-                    ),
+                    trackBrush =
+                        Brush.horizontalGradient(
+                            listOf(
+                                ComposeColor(argbOf(hue, saturation, 0f, 1f)),
+                                ComposeColor(argbOf(hue, saturation, 1f, 1f)),
+                            ),
+                        ),
                 )
                 if (showAlpha) {
                     ColorSlider(
                         label = stringResource(R.string.color_picker_opacity),
                         value = alpha,
                         onValueChange = { next -> onSliderChange { alpha = next } },
-                        trackBrush = Brush.horizontalGradient(
-                            listOf(
-                                ComposeColor(argbOf(hue, saturation, brightness, 0f)),
-                                ComposeColor(argbOf(hue, saturation, brightness, 1f)),
-                            )
-                        ),
+                        trackBrush =
+                            Brush.horizontalGradient(
+                                listOf(
+                                    ComposeColor(argbOf(hue, saturation, brightness, 0f)),
+                                    ComposeColor(argbOf(hue, saturation, brightness, 1f)),
+                                ),
+                            ),
                         checkerboard = true,
                     )
                 }
@@ -220,9 +228,10 @@ fun WeColorPickerDialog(
                     label = { Text(stringResource(R.string.color_picker_hex_value)) },
                     singleLine = true,
                     isError = hexError,
-                    supportingText = if (hexError) {
-                        { Text(stringResource(R.string.color_picker_invalid_argb)) }
-                    } else null,
+                    supportingText =
+                        if (hexError) {
+                            { Text(stringResource(R.string.color_picker_invalid_argb)) }
+                        } else null,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -230,10 +239,14 @@ fun WeColorPickerDialog(
         dismissButton = {
             TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             if (resetColor != null) {
-                TextButton(onClick = {
-                    loadColor(resetColor)
-                    hexText = formatArgbHex(normalized(resetColor))
-                }) { Text(stringResource(R.string.action_reset)) }
+                TextButton(
+                    onClick = {
+                        loadColor(resetColor)
+                        hexText = formatArgbHex(normalized(resetColor))
+                    },
+                ) {
+                    Text(stringResource(R.string.action_reset))
+                }
             }
         },
         confirmButton = {
@@ -269,8 +282,7 @@ private fun ColorSlider(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(
-            Modifier
-                .fillMaxWidth()
+            Modifier.fillMaxWidth()
                 .height(SLIDER_HEIGHT)
                 .onSizeChanged { widthPx = it.width }
                 .pointerInput(widthPx) {
@@ -294,13 +306,12 @@ private fun ColorSlider(
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(
-                Modifier
-                    .fillMaxWidth()
+                Modifier.fillMaxWidth()
                     .height(TRACK_HEIGHT)
                     .clip(pill)
                     .then(if (checkerboard) Modifier.checkerboard(4.dp) else Modifier)
                     .background(trackBrush)
-                    .border(1.dp, outline, pill)
+                    .border(1.dp, outline, pill),
             )
             Canvas(Modifier.matchParentSize()) {
                 val thumbRadius = THUMB_RADIUS.toPx()
@@ -314,8 +325,9 @@ private fun ColorSlider(
 }
 
 /** Draws an alpha-indicating checkerboard behind the composable's own content. */
-fun Modifier.checkerboard(cell: Dp = CHECKER_CELL): Modifier =
-    drawBehind { drawCheckerboard(cell.toPx(), size) }
+fun Modifier.checkerboard(cell: Dp = CHECKER_CELL): Modifier = drawBehind {
+    drawCheckerboard(cell.toPx(), size)
+}
 
 private fun DrawScope.drawCheckerboard(cellPx: Float, area: Size) {
     if (cellPx <= 0f) return
@@ -340,7 +352,11 @@ private fun DrawScope.drawCheckerboard(cellPx: Float, area: Size) {
 private fun argbOf(hue: Float, saturation: Float, brightness: Float, alpha: Float): Int =
     AndroidColor.HSVToColor(
         (alpha.coerceIn(0f, 1f) * 255f).roundToInt(),
-        floatArrayOf(hue.coerceIn(0f, 1f) * 360f, saturation.coerceIn(0f, 1f), brightness.coerceIn(0f, 1f)),
+        floatArrayOf(
+            hue.coerceIn(0f, 1f) * 360f,
+            saturation.coerceIn(0f, 1f),
+            brightness.coerceIn(0f, 1f),
+        ),
     )
 
 /** The module's canonical on-disk color notation. */

@@ -15,7 +15,8 @@ enum class FieldUsingType {
 }
 
 /** One field access of a method: the accessed field plus read/write direction. */
-class DexFieldAccess internal constructor(
+class DexFieldAccess
+internal constructor(
     val field: DexFieldInfo,
     val usingType: FieldUsingType,
 ) {
@@ -27,11 +28,12 @@ class DexFieldAccess internal constructor(
                 field = DexFieldInfo(json.requiredObject("field"), metadata),
                 // Engine contract is lowercase "read"/"write"; the DexKit oracle snapshot uses
                 // capitalized "Read"/"Write", so accept both.
-                usingType = when (val value = json.requiredString("using_type").lowercase()) {
-                    "read" -> FieldUsingType.Read
-                    "write" -> FieldUsingType.Write
-                    else -> error("Unknown DexSQL field using_type: " + value)
-                },
+                usingType =
+                    when (val value = json.requiredString("using_type").lowercase()) {
+                        "read" -> FieldUsingType.Read
+                        "write" -> FieldUsingType.Write
+                        else -> error("Unknown DexSQL field using_type: " + value)
+                    },
             )
     }
 }

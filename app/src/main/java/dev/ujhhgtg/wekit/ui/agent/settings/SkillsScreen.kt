@@ -26,16 +26,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.agent.skill.SkillStore
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
-import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.agent.skill.SkillStore
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlinx.coroutines.Dispatchers
@@ -44,9 +44,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Skills management (§ Skills): add/edit/delete skills and toggle each on/off globally. Skills are
- * `SKILL.md` files under `filesDir/wekit/agent/skills/<name>/`; only enabled ones are advertised to the
- * model (as a name+description catalog), and the model loads a skill's body via the `load_skill`
- * tool — the dynamic-discovery model.
+ * `SKILL.md` files under `filesDir/wekit/agent/skills/<name>/`; only enabled ones are advertised to
+ * the model (as a name+description catalog), and the model loads a skill's body via the
+ * `load_skill` tool — the dynamic-discovery model.
  */
 @Composable
 fun SkillsScreen(onBack: () -> Unit) {
@@ -70,7 +70,10 @@ fun SkillsScreen(onBack: () -> Unit) {
                     title = stringResource(R.string.agent_empty_skills_title),
                     message = stringResource(R.string.agent_empty_skills_message),
                     actionLabel = stringResource(R.string.agent_add_skill),
-                    onAction = { editing = null; showEditor = true },
+                    onAction = {
+                        editing = null
+                        showEditor = true
+                    },
                 )
             }
         } else {
@@ -80,15 +83,23 @@ fun SkillsScreen(onBack: () -> Unit) {
                     item {
                         SwitchWidget(
                             title = s.name,
-                            description = s.description.ifBlank { stringResource(R.string.agent_no_description) },
+                            description =
+                                s.description.ifBlank {
+                                    stringResource(R.string.agent_no_description)
+                                },
                             checked = s.enabled,
                             onCheckedChange = { on ->
                                 scope.launch {
-                                    withContext(Dispatchers.IO) { SkillStore.setEnabled(s.name, on) }
+                                    withContext(Dispatchers.IO) {
+                                        SkillStore.setEnabled(s.name, on)
+                                    }
                                     reloadTick++
                                 }
                             },
-                            onClick = { editing = s; showEditor = true },
+                            onClick = {
+                                editing = s
+                                showEditor = true
+                            },
                             trailingDivider = true,
                         )
                     }
@@ -99,7 +110,10 @@ fun SkillsScreen(onBack: () -> Unit) {
                     SettingsListActionButton(
                         label = stringResource(R.string.agent_add_skill),
                         icon = MaterialSymbols.Outlined.Add,
-                        onClick = { editing = null; showEditor = true },
+                        onClick = {
+                            editing = null
+                            showEditor = true
+                        },
                     )
                 }
             }
@@ -109,20 +123,26 @@ fun SkillsScreen(onBack: () -> Unit) {
     SkillEditorSheet(
         show = showEditor,
         existing = editing,
-        // Clear [editing] too: the editor's field state is keyed on it, so leaving it set would keep
+        // Clear [editing] too: the editor's field state is keyed on it, so leaving it set would
+        // keep
         // the abandoned edits alive and re-show them the next time the same skill is opened.
-        onDismiss = { showEditor = false; editing = null },
+        onDismiss = {
+            showEditor = false
+            editing = null
+        },
         onSave = { name, description, body ->
             scope.launch {
                 val ok = withContext(Dispatchers.IO) { SkillStore.save(name, description, body) }
                 if (ok == null) {
                     showToast(localizedContext.getString(R.string.agent_invalid_skill_name))
-                }
-                else {
+                } else {
                     // Renaming isn't in-place: if the dir name changed, drop the old one.
-                    editing?.name?.takeIf { it != ok }?.let { old ->
-                        withContext(Dispatchers.IO) { SkillStore.delete(old) }
-                    }
+                    editing
+                        ?.name
+                        ?.takeIf { it != ok }
+                        ?.let { old ->
+                            withContext(Dispatchers.IO) { SkillStore.delete(old) }
+                        }
                     reloadTick++
                     showEditor = false
                 }
@@ -154,20 +174,26 @@ private fun SkillEditorSheet(
 
     SettingsEditorSheet(
         show = show,
-        title = stringResource(if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill),
+        title =
+            stringResource(
+                if (existing == null) R.string.agent_add_skill else R.string.agent_edit_skill,
+            ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (existing != null) {
                     TextButton(
                         onClick = { showDeleteConfirm = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.action_delete)) }
+                        colors =
+                            ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = dismiss) { Text(stringResource(R.string.dialog_cancel)) }
@@ -175,7 +201,9 @@ private fun SkillEditorSheet(
                 Button(
                     onClick = { finish { onSave(name, description, body) } },
                     enabled = name.isNotBlank() && body.isNotBlank(),
-                ) { Text(stringResource(R.string.action_save)) }
+                ) {
+                    Text(stringResource(R.string.action_save))
+                }
             }
         },
     ) {

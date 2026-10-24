@@ -22,18 +22,20 @@ class ExtensionPacksRegistryTest {
 
     @Test
     fun validationRejectsEmptyPackId() {
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            validateExtensionPacks(listOf(FakePack("")))
-        }
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                validateExtensionPacks(listOf(FakePack("")))
+            }
 
         assertTrue(error.message.orEmpty().contains("FakePack"))
     }
 
     @Test
     fun validationRejectsDuplicatePackIds() {
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            validateExtensionPacks(listOf(FakePack("duplicate"), FakePack("duplicate")))
-        }
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                validateExtensionPacks(listOf(FakePack("duplicate"), FakePack("duplicate")))
+            }
 
         assertTrue(error.message.orEmpty().contains("duplicate"))
     }

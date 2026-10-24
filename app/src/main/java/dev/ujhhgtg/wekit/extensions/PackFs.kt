@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.extensions
 
+import java.io.File
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import kotlin.io.path.moveTo
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.security.MessageDigest
-import java.nio.file.StandardCopyOption
 
 /** Shared file plumbing for extension packs: hashing, verification, atomic publish. */
 object PackFs {
@@ -37,7 +37,8 @@ object PackFs {
     }
 
     fun writeManifest(dir: File, manifest: PackManifest) {
-        dir.resolve(MANIFEST_NAME).writeText(json.encodeToString(PackManifest.serializer(), manifest))
+        dir.resolve(MANIFEST_NAME)
+            .writeText(json.encodeToString(PackManifest.serializer(), manifest))
     }
 
     fun readManifest(dir: File): PackManifest? {

@@ -1,9 +1,6 @@
 package dev.ujhhgtg.wekit.utils
 
-/**
- * 将十六进制字符串转换为字节数组
- * 移植自 Hutool HexUtil, 去除了冗余依赖
- */
+/** 将十六进制字符串转换为字节数组 移植自 Hutool HexUtil, 去除了冗余依赖 */
 fun hexToBytes(src: String?): ByteArray? {
     if (src.isNullOrEmpty()) return null
 
@@ -22,8 +19,7 @@ fun hexToBytes(src: String?): ByteArray? {
 
     // 3. 每两个字符转换一个字节
     for (i in 0 until (len shr 1)) {
-        val f = (toDigit(finalHex[i * 2], i * 2) shl 4) or
-                toDigit(finalHex[i * 2 + 1], i * 2 + 1)
+        val f = (toDigit(finalHex[i * 2], i * 2) shl 4) or toDigit(finalHex[i * 2 + 1], i * 2 + 1)
         out[i] = (f and 0xFF).toByte()
     }
 
@@ -40,12 +36,12 @@ private fun toDigit(ch: Char, index: Int): Int {
 
 private fun isBlankChar(c: Int): Boolean {
     return Character.isWhitespace(c) ||
-            Character.isSpaceChar(c) ||
-            c == 0xFEFF ||
-            c == 0x202A ||
-            c == 0x0000 ||
-            c == 0x3164 ||
-            c == 0x2800 ||
-            c == 0x200C ||
-            c == 0x180E
+        Character.isSpaceChar(c) ||
+        c == 0xFEFF ||
+        c == 0x202A ||
+        c == 0x0000 ||
+        c == 0x3164 ||
+        c == 0x2800 ||
+        c == 0x200C ||
+        c == 0x180E
 }

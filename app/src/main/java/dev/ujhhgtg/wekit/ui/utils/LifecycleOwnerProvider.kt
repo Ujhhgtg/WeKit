@@ -17,19 +17,31 @@ object LifecycleOwnerProvider {
     fun install(application: Application) {
         if (installed) return
         installed = true
-        application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) =
-                update(activity, Lifecycle.State.CREATED)
-            override fun onActivityStarted(activity: Activity) = update(activity, Lifecycle.State.STARTED)
-            override fun onActivityResumed(activity: Activity) = update(activity, Lifecycle.State.RESUMED)
-            override fun onActivityPaused(activity: Activity) = update(activity, Lifecycle.State.STARTED)
-            override fun onActivityStopped(activity: Activity) = update(activity, Lifecycle.State.CREATED)
-            override fun onActivityDestroyed(activity: Activity) {
-                owners.remove(activity)?.onDestroy()
-                states.remove(activity)
-            }
-            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-        })
+        application.registerActivityLifecycleCallbacks(
+            object : Application.ActivityLifecycleCallbacks {
+                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) =
+                    update(activity, Lifecycle.State.CREATED)
+
+                override fun onActivityStarted(activity: Activity) =
+                    update(activity, Lifecycle.State.STARTED)
+
+                override fun onActivityResumed(activity: Activity) =
+                    update(activity, Lifecycle.State.RESUMED)
+
+                override fun onActivityPaused(activity: Activity) =
+                    update(activity, Lifecycle.State.STARTED)
+
+                override fun onActivityStopped(activity: Activity) =
+                    update(activity, Lifecycle.State.CREATED)
+
+                override fun onActivityDestroyed(activity: Activity) {
+                    owners.remove(activity)?.onDestroy()
+                    states.remove(activity)
+                }
+
+                override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            },
+        )
     }
 
     fun getOrCreate(activity: Activity): XposedLifecycleOwner {

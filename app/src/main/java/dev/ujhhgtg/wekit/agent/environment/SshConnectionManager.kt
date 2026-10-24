@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyVerifier
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-import java.io.OutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
@@ -34,7 +33,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 data class SshConfiguration(
@@ -46,9 +44,15 @@ data class SshConfiguration(
     init {
         require(host.isNotBlank() && !host.any(Char::isWhitespace)) { "SSH host is required" }
         require(port in 1..65535) { "SSH port is invalid" }
-        require(username.isNotBlank() && !username.any { it == '\u0000' || it == '\n' || it == '\r' }) { "SSH username is invalid" }
+        require(
+            username.isNotBlank() && !username.any { it == '\u0000' || it == '\n' || it == '\r' },
+        ) {
+            "SSH username is invalid"
+        }
         confirmedHostKey?.let {
-            require(it.algorithm.isNotBlank() && it.fingerprint.startsWith("SHA256:")) { "SSH host-key pin is invalid" }
+            require(it.algorithm.isNotBlank() && it.fingerprint.startsWith("SHA256:")) {
+                "SSH host-key pin is invalid"
+            }
         }
     }
 }
@@ -61,19 +65,23 @@ data class SshExecResponse(
 )
 
 data class SshRemoteMetadata(val size: Long, val modifiedSeconds: Int, val permissions: Int)
+
 data class SshRemoteFile(val bytes: ByteArray, val metadata: SshRemoteMetadata?)
 
 class SshIndeterminateExecutionException(message: String, cause: Throwable? = null) :
     IllegalStateException(message, cause)
 
-class SshConcurrentEditException : IllegalStateException("remote file changed while it was being edited")
+class SshConcurrentEditException :
+    IllegalStateException("remote file changed while it was being edited")
 
 class SshConnectionManager(
     private val configuration: SshConfiguration,
     private val credentials: SshCredentials,
-    private val dispatcher: ExecutorCoroutineDispatcher = Executors.newFixedThreadPool(4) { runnable ->
-        Thread(runnable, "weagent-ssh").apply { isDaemon = true }
-    }.asCoroutineDispatcher(),
+    private val dispatcher: ExecutorCoroutineDispatcher =
+        Executors.newFixedThreadPool(4) { runnable ->
+                Thread(runnable, "weagent-ssh").apply { isDaemon = true }
+            }
+            .asCoroutineDispatcher(),
 ) {
     private val connectionMutex = Mutex()
     private var session: Session? = null
@@ -104,12 +112,16 @@ class SshConnectionManager(
             channel.disconnect()
             invalidate(submittedSession)
             throw SshIndeterminateExecutionException(
-                "SSH command state is unknown after submission; it was not replayed", error,
+                "SSH command state is unknown after submission; it was not replayed",
+                error,
             )
         }
     }
 
-    private suspend fun executeSubmitted(channel: ChannelExec, timeoutMillis: Long): SshExecResponse {
+    private suspend fun executeSubmitted(
+        channel: ChannelExec,
+        timeoutMillis: Long,
+    ): SshExecResponse {
         val stdout = channel.inputStream
         val stderr = channel.errStream
         val out = ByteArrayOutputStream()
@@ -130,7 +142,9 @@ class SshConnectionManager(
             drain(stderr, err)
             val exit = channel.exitStatus.takeIf { it >= 0 }
             if (exit == null) {
-                throw SshIndeterminateExecutionException("SSH server supplied no exit status after command submission")
+                throw SshIndeterminateExecutionException(
+                    "SSH server supplied no exit status after command submission",
+                )
             }
             return SshExecResponse(out.toByteArray(), err.toByteArray(), exit, false)
         } catch (error: CancellationException) {
@@ -140,7 +154,8 @@ class SshConnectionManager(
             throw error
         } catch (error: Throwable) {
             throw SshIndeterminateExecutionException(
-                "SSH command state is unknown after submission; it was not replayed", error,
+                "SSH command state is unknown after submission; it was not replayed",
+                error,
             )
         } finally {
             channel.disconnect()
@@ -149,12 +164,14 @@ class SshConnectionManager(
     }
 
     suspend fun readFile(path: String, maxBytes: Long): SshRemoteFile = withSftp { sftp ->
-        val attributes = try {
-            sftp.lstat(path)
-        } catch (error: SftpException) {
-            if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) return@withSftp SshRemoteFile(ByteArray(0), null)
-            throw error
-        }
+        val attributes =
+            try {
+                sftp.lstat(path)
+            } catch (error: SftpException) {
+                if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                    return@withSftp SshRemoteFile(ByteArray(0), null)
+                throw error
+            }
         require(attributes.isReg) { "not a regular file: $path" }
         require(attributes.size <= maxBytes) { "file exceeds $maxBytes bytes" }
         val bytes = sftp.get(path).use(InputStream::readBytes)
@@ -165,18 +182,19 @@ class SshConnectionManager(
         require(maxBytes >= 0)
         val attributes = sftp.lstat(path)
         require(attributes.isReg) { "not a regular file: $path" }
-        val bytes = sftp.get(path).use { input ->
-            val output = ByteArrayOutputStream(maxBytes)
-            val buffer = ByteArray(minOf(IO_BUFFER_SIZE, maxBytes.coerceAtLeast(1)))
-            var remaining = maxBytes
-            while (remaining > 0) {
-                val count = input.read(buffer, 0, minOf(buffer.size, remaining))
-                if (count < 0) break
-                output.write(buffer, 0, count)
-                remaining -= count
+        val bytes =
+            sftp.get(path).use { input ->
+                val output = ByteArrayOutputStream(maxBytes)
+                val buffer = ByteArray(minOf(IO_BUFFER_SIZE, maxBytes.coerceAtLeast(1)))
+                var remaining = maxBytes
+                while (remaining > 0) {
+                    val count = input.read(buffer, 0, minOf(buffer.size, remaining))
+                    if (count < 0) break
+                    output.write(buffer, 0, count)
+                    remaining -= count
+                }
+                output.toByteArray()
             }
-            output.toByteArray()
-        }
         SshRemoteFile(bytes, attributes.toMetadata())
     }
 
@@ -195,44 +213,64 @@ class SshConnectionManager(
         expected: SshRemoteFile,
         updated: ByteArray,
         defaultPermissions: Int = 0b110_000_000,
-    ) = withSftp(WRITE_TIMEOUT_MS) { sftp ->
-        val current = try {
-            val attributes = sftp.lstat(path)
-            require(attributes.isReg) { "not a regular file: $path" }
-            SshRemoteFile(sftp.get(path).use(InputStream::readBytes), attributes.toMetadata())
-        } catch (error: SftpException) {
-            if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) SshRemoteFile(ByteArray(0), null) else throw error
-        }
-        if (current.metadata != expected.metadata || !current.bytes.contentEquals(expected.bytes)) {
-            throw SshConcurrentEditException()
-        }
-        val slash = path.lastIndexOf('/')
-        val parent = if (slash < 0) "." else path.substring(0, slash).ifEmpty { "/" }
-        val temporary = "$parent/.weagent-edit-${java.util.UUID.randomUUID()}.tmp"
-        try {
-            sftp.setUseWriteFlushWorkaround(true)
-            sftp.put(ByteArrayInputStream(updated), temporary, ChannelSftp.OVERWRITE)
-            sftp.chmod(expected.metadata?.permissions ?: defaultPermissions, temporary)
-            val beforeCommit = try {
-                val attributes = sftp.lstat(path)
-                SshRemoteFile(sftp.get(path).use(InputStream::readBytes), attributes.toMetadata())
-            } catch (error: SftpException) {
-                if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) SshRemoteFile(ByteArray(0), null) else throw error
-            }
-            if (beforeCommit.metadata != expected.metadata || !beforeCommit.bytes.contentEquals(expected.bytes)) {
+    ) =
+        withSftp(WRITE_TIMEOUT_MS) { sftp ->
+            val current =
+                try {
+                    val attributes = sftp.lstat(path)
+                    require(attributes.isReg) { "not a regular file: $path" }
+                    SshRemoteFile(
+                        sftp.get(path).use(InputStream::readBytes),
+                        attributes.toMetadata(),
+                    )
+                } catch (error: SftpException) {
+                    if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                        SshRemoteFile(ByteArray(0), null)
+                    else throw error
+                }
+            if (
+                current.metadata != expected.metadata ||
+                    !current.bytes.contentEquals(expected.bytes)
+            ) {
                 throw SshConcurrentEditException()
             }
-            sftp.rename(temporary, path)
-        } finally {
-            runCatching { sftp.rm(temporary) }
+            val slash = path.lastIndexOf('/')
+            val parent = if (slash < 0) "." else path.substring(0, slash).ifEmpty { "/" }
+            val temporary = "$parent/.weagent-edit-${java.util.UUID.randomUUID()}.tmp"
+            try {
+                sftp.setUseWriteFlushWorkaround(true)
+                sftp.put(ByteArrayInputStream(updated), temporary, ChannelSftp.OVERWRITE)
+                sftp.chmod(expected.metadata?.permissions ?: defaultPermissions, temporary)
+                val beforeCommit =
+                    try {
+                        val attributes = sftp.lstat(path)
+                        SshRemoteFile(
+                            sftp.get(path).use(InputStream::readBytes),
+                            attributes.toMetadata(),
+                        )
+                    } catch (error: SftpException) {
+                        if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                            SshRemoteFile(ByteArray(0), null)
+                        else throw error
+                    }
+                if (
+                    beforeCommit.metadata != expected.metadata ||
+                        !beforeCommit.bytes.contentEquals(expected.bytes)
+                ) {
+                    throw SshConcurrentEditException()
+                }
+                sftp.rename(temporary, path)
+            } finally {
+                runCatching { sftp.rm(temporary) }
+            }
         }
-    }
 
-    suspend fun upload(path: String, bytes: ByteArray, permissions: Int = 0b111_101_101) = withSftp(WRITE_TIMEOUT_MS) { sftp ->
-        sftp.setUseWriteFlushWorkaround(true)
-        sftp.put(ByteArrayInputStream(bytes), path, ChannelSftp.OVERWRITE)
-        sftp.chmod(permissions, path)
-    }
+    suspend fun upload(path: String, bytes: ByteArray, permissions: Int = 0b111_101_101) =
+        withSftp(WRITE_TIMEOUT_MS) { sftp ->
+            sftp.setUseWriteFlushWorkaround(true)
+            sftp.put(ByteArrayInputStream(bytes), path, ChannelSftp.OVERWRITE)
+            sftp.chmod(permissions, path)
+        }
 
     suspend fun homeDirectory(): String = withSftp { it.home }
 
@@ -243,12 +281,13 @@ class SshConnectionManager(
         rows: Int,
     ): SshTerminalConnection {
         retainHandle()
-        val channel = try {
-            openChannel("shell") as ChannelShell
-        } catch (error: Throwable) {
-            releaseHandle()
-            throw error
-        }
+        val channel =
+            try {
+                openChannel("shell") as ChannelShell
+            } catch (error: Throwable) {
+                releaseHandle()
+                throw error
+            }
         environmentVariables.forEach(channel::setEnv)
         channel.setPty(true)
         channel.setPtyType("xterm-256color", cols, rows, 0, 0)
@@ -264,8 +303,15 @@ class SshConnectionManager(
             }
             return SshTerminalConnection(
                 readBlock = { maximum -> readTerminal(channel, input, maximum) },
-                writeBlock = { bytes -> runBlockingIo { output.write(bytes); output.flush() } },
-                resizeBlock = { width, height -> runBlockingIo { channel.setPtySize(width, height, 0, 0) } },
+                writeBlock = { bytes ->
+                    runBlockingIo {
+                        output.write(bytes)
+                        output.flush()
+                    }
+                },
+                resizeBlock = { width, height ->
+                    runBlockingIo { channel.setPtySize(width, height, 0, 0) }
+                },
                 waitBlock = { waitForChannel(channel) },
                 killBlock = { channel.disconnect() },
                 closeBlock = {
@@ -296,7 +342,9 @@ class SshConnectionManager(
                     }
                     handedOff = true
                     return SshReverseForward(remotePort) {
-                        runCatching { runBlockingIo { active.delPortForwardingR("127.0.0.1", remotePort) } }
+                        runCatching {
+                            runBlockingIo { active.delPortForwardingR("127.0.0.1", remotePort) }
+                        }
                         markUsed()
                         releaseHandle()
                     }
@@ -304,17 +352,21 @@ class SshConnectionManager(
                     lastError = error
                 }
             }
-            throw IllegalStateException("cannot allocate remote loopback forwarding port", lastError)
+            throw IllegalStateException(
+                "cannot allocate remote loopback forwarding port",
+                lastError,
+            )
         } finally {
             if (!handedOff) releaseHandle()
         }
     }
 
     suspend fun close() {
-        val closeNow = synchronized(lifecycleLock) {
-            closeRequested = true
-            retainedHandles == 0
-        }
+        val closeNow =
+            synchronized(lifecycleLock) {
+                closeRequested = true
+                retainedHandles == 0
+            }
         if (closeNow) completeClose()
     }
 
@@ -327,7 +379,10 @@ class SshConnectionManager(
         dispatcher.close()
     }
 
-    private suspend fun <T> withSftp(timeoutMillis: Long = SFTP_TIMEOUT_MS, action: (ChannelSftp) -> T): T {
+    private suspend fun <T> withSftp(
+        timeoutMillis: Long = SFTP_TIMEOUT_MS,
+        action: (ChannelSftp) -> T,
+    ): T {
         val channel = openChannel("sftp") as ChannelSftp
         try {
             runBlockingIo { channel.connect(CHANNEL_CONNECT_TIMEOUT_MS) }
@@ -361,47 +416,67 @@ class SshConnectionManager(
     }
 
     private suspend fun ensureConnected(): Session = connectionMutex.withLock {
-        check(!synchronized(lifecycleLock) { closeRequested }) { "SSH connection manager is closed" }
+        check(!synchronized(lifecycleLock) { closeRequested }) {
+            "SSH connection manager is closed"
+        }
         val now = System.nanoTime()
-        session?.takeIf {
-            it.isConnected && now - lastUsedNanos < IDLE_TIMEOUT_NANOS && now - connectedAtNanos < LIFETIME_NANOS
-        }?.let { return@withLock it }
+        session
+            ?.takeIf {
+                it.isConnected &&
+                    now - lastUsedNanos < IDLE_TIMEOUT_NANOS &&
+                    now - connectedAtNanos < LIFETIME_NANOS
+            }
+            ?.let {
+                return@withLock it
+            }
         session?.disconnect()
 
         val verifier = SshHostKeyVerifier(configuration.confirmedHostKey)
-        val repository = StrictHostKeyRepository(
-            verifier,
-            SshEndpoint(configuration.host, configuration.port, configuration.username),
-        )
-        val jsch = JSch().apply {
-            setHostKeyRepository(repository)
-            if (credentials is SshCredentials.PrivateKey) {
-                addIdentity(
-                    "weagent",
-                    credentials.privateKey.toByteArray(),
-                    null,
-                    credentials.passphrase?.toByteArray(),
-                )
+        val repository =
+            StrictHostKeyRepository(
+                verifier,
+                SshEndpoint(configuration.host, configuration.port, configuration.username),
+            )
+        val jsch =
+            JSch().apply {
+                setHostKeyRepository(repository)
+                if (credentials is SshCredentials.PrivateKey) {
+                    addIdentity(
+                        "weagent",
+                        credentials.privateKey.toByteArray(),
+                        null,
+                        credentials.passphrase?.toByteArray(),
+                    )
+                }
             }
-        }
-        val created = jsch.getSession(configuration.username, configuration.host, configuration.port).apply {
-            setConfig("StrictHostKeyChecking", "yes")
-            setConfig("PreferredAuthentications", when (credentials) {
-                is SshCredentials.Password -> "password,keyboard-interactive"
-                is SshCredentials.PrivateKey -> "publickey"
-            })
-            if (credentials is SshCredentials.Password) setPassword(credentials.password.toByteArray())
-            setServerAliveInterval(SERVER_ALIVE_INTERVAL_MS)
-            setServerAliveCountMax(SERVER_ALIVE_COUNT)
-            setTimeout(SOCKET_TIMEOUT_MS)
-            setDaemonThread(true)
-        }
+        val created =
+            jsch.getSession(configuration.username, configuration.host, configuration.port).apply {
+                setConfig("StrictHostKeyChecking", "yes")
+                setConfig(
+                    "PreferredAuthentications",
+                    when (credentials) {
+                        is SshCredentials.Password -> "password,keyboard-interactive"
+                        is SshCredentials.PrivateKey -> "publickey"
+                    },
+                )
+                if (credentials is SshCredentials.Password)
+                    setPassword(credentials.password.toByteArray())
+                setServerAliveInterval(SERVER_ALIVE_INTERVAL_MS)
+                setServerAliveCountMax(SERVER_ALIVE_COUNT)
+                setTimeout(SOCKET_TIMEOUT_MS)
+                setDaemonThread(true)
+            }
         try {
-            withTimeout(CONNECT_DEADLINE_MS) { runBlockingIo { created.connect(CONNECT_TIMEOUT_MS) } }
+            withTimeout(CONNECT_DEADLINE_MS) {
+                runBlockingIo { created.connect(CONNECT_TIMEOUT_MS) }
+            }
         } catch (error: Throwable) {
             created.disconnect()
             repository.rejection()?.let { throw it }
-            if (error is JSchException && error.message.orEmpty().contains("Auth fail", ignoreCase = true)) {
+            if (
+                error is JSchException &&
+                    error.message.orEmpty().contains("Auth fail", ignoreCase = true)
+            ) {
                 throw SshAuthenticationException("SSH authentication failed", error)
             }
             throw error
@@ -432,11 +507,12 @@ class SshConnectionManager(
     }
 
     private suspend fun releaseHandle() {
-        val closeNow = synchronized(lifecycleLock) {
-            check(retainedHandles > 0)
-            retainedHandles--
-            closeRequested && retainedHandles == 0
-        }
+        val closeNow =
+            synchronized(lifecycleLock) {
+                check(retainedHandles > 0)
+                retainedHandles--
+                closeRequested && retainedHandles == 0
+            }
         if (closeNow) completeClose()
     }
 
@@ -455,14 +531,19 @@ class SshConnectionManager(
         }
     }
 
-    private suspend fun readTerminal(channel: ChannelShell, input: InputStream, maximum: Int): ByteArray? {
+    private suspend fun readTerminal(
+        channel: ChannelShell,
+        input: InputStream,
+        maximum: Int,
+    ): ByteArray? {
         return runBlockingIo {
             val available = input.available()
             when {
-                available > 0 -> ByteArray(minOf(available, maximum)).let { buffer ->
-                    val count = input.read(buffer)
-                    if (count < 0) ByteArray(0) else buffer.copyOf(count)
-                }
+                available > 0 ->
+                    ByteArray(minOf(available, maximum)).let { buffer ->
+                        val count = input.read(buffer)
+                        if (count < 0) ByteArray(0) else buffer.copyOf(count)
+                    }
                 channel.isClosed -> ByteArray(0)
                 else -> null
             }
@@ -501,11 +582,17 @@ class SshConnectionManager(
         }
 
         fun rejection(): SshHostKeyException? = rejected
+
         override fun add(hostkey: HostKey, ui: UserInfo?) = Unit
+
         override fun remove(host: String, type: String) = Unit
+
         override fun remove(host: String, type: String, key: ByteArray) = Unit
+
         override fun getKnownHostsRepositoryID() = "WeAgent confirmed host key"
+
         override fun getHostKey(): Array<HostKey> = emptyArray()
+
         override fun getHostKey(host: String, type: String?): Array<HostKey> = emptyArray()
     }
 
@@ -529,7 +616,8 @@ class SshConnectionManager(
     }
 }
 
-class SshTerminalConnection constructor(
+class SshTerminalConnection
+constructor(
     private val readBlock: suspend (Int) -> ByteArray?,
     private val writeBlock: suspend (ByteArray) -> Unit,
     private val resizeBlock: suspend (Int, Int) -> Unit,
@@ -538,18 +626,26 @@ class SshTerminalConnection constructor(
     private val closeBlock: suspend () -> Unit,
 ) {
     private val closed = AtomicBoolean()
+
     suspend fun read(maxBytes: Int) = readBlock(maxBytes)
+
     suspend fun write(bytes: ByteArray) = writeBlock(bytes)
+
     suspend fun resize(cols: Int, rows: Int) = resizeBlock(cols, rows)
+
     suspend fun waitForExit() = waitBlock()
+
     suspend fun kill() = killBlock()
+
     suspend fun close() {
         if (closed.compareAndSet(false, true)) closeBlock()
     }
 }
 
-class SshReverseForward constructor(val remotePort: Int, private val closeBlock: suspend () -> Unit) {
+class SshReverseForward
+constructor(val remotePort: Int, private val closeBlock: suspend () -> Unit) {
     private val closed = AtomicBoolean()
+
     suspend fun close() {
         if (closed.compareAndSet(false, true)) closeBlock()
     }

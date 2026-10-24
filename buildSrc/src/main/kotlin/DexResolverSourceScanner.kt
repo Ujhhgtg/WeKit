@@ -118,6 +118,27 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
             }
         }
     }
+    // Unified matcher-block delegates: `by dexX { ... }` / `by dexX(allowFailure = ...) { ... }`.
+    clean.findAllCode(UNIFIED_DELEGATE).filter(::isDirectMember).forEach { match ->
+        var index = match.range.last + 1
+        while (index < clean.length && clean.text[index].isWhitespace()) index++
+        if (index < clean.length && clean.text[index] == '(') {
+            val close = clean.findParenthesisEnd(index)
+            if (close == -1) return@forEach
+            val args = clean.substring(index + 1, close).trim()
+            // Legacy SQL delegates and eager spec delegates are handled above; only the
+            // allowFailure-only argument list belongs to the unified matcher-block form.
+            if (args.isNotEmpty() && !args.startsWith("allowFailure")) return@forEach
+            index = close + 1
+            while (index < clean.length && clean.text[index].isWhitespace()) index++
+        }
+        if (index < clean.length && clean.text[index] == '{') {
+            val end = clean.findBlockEnd(index)
+            if (end != -1 && end < classBodyEnd) {
+                addBlock(match.groupValues[1].toQueryResolveBlockKind(), index, end)
+            }
+        }
+    }
     if (blocks.isEmpty()) {
         error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any SQL/query dex delegate.")
     }
@@ -150,8 +171,10 @@ private fun String.toQueryResolveBlockKind(): ResolveBlockKind = when (this) {
 }
 
 private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
-private val SQL_DSL_CALL = Regex("""sql(?:Method|Class|Field|Constructor)\b""")
+private val SQL_DSL_CALL =
+    Regex("""(?:sql|methodSpec|classSpec|fieldSpec)(?:Method|Class|Field|Constructor)?\b""")
 private val INLINE_QUERY_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)Query\b""")
+private val UNIFIED_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
 private val TECHNICAL_ID = Regex("""\btechnicalId\s*=\s*"((?:[^"\\\n]|\\.)*)"""")

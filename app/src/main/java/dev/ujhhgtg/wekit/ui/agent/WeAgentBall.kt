@@ -44,8 +44,8 @@ private class BallDragTracker {
  * the overlay. Using absolute `rawX/rawY` (not per-event deltas) avoids the feedback loop where
  * moving the window would itself shift subsequent pointer coordinates.
  *
- * Visuals reflect the 4-state machine: Idle static, Running breathing, PendingApproval badge,
- * Error warning tint.
+ * Visuals reflect the 4-state machine: Idle static, Running breathing, PendingApproval badge, Error
+ * warning tint.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -56,25 +56,29 @@ fun WeAgentBall(
     onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
 ) {
-    val container = when (state) {
-        BallState.ERROR -> MaterialTheme.colorScheme.errorContainer
-        BallState.PENDING_APPROVAL -> MaterialTheme.colorScheme.tertiaryContainer
-        else -> MaterialTheme.colorScheme.primaryContainer
-    }
-    val content = when (state) {
-        BallState.ERROR -> MaterialTheme.colorScheme.onErrorContainer
-        BallState.PENDING_APPROVAL -> MaterialTheme.colorScheme.onTertiaryContainer
-        else -> MaterialTheme.colorScheme.onPrimaryContainer
-    }
+    val container =
+        when (state) {
+            BallState.ERROR -> MaterialTheme.colorScheme.errorContainer
+            BallState.PENDING_APPROVAL -> MaterialTheme.colorScheme.tertiaryContainer
+            else -> MaterialTheme.colorScheme.primaryContainer
+        }
+    val content =
+        when (state) {
+            BallState.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+            BallState.PENDING_APPROVAL -> MaterialTheme.colorScheme.onTertiaryContainer
+            else -> MaterialTheme.colorScheme.onPrimaryContainer
+        }
 
     // Breathing animation while running.
     val transition = rememberInfiniteTransition(label = "ball")
-    val pulse = transition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (state == BallState.RUNNING) 0.55f else 1f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
-        label = "pulse",
-    )
+    val pulse =
+        transition.animateFloat(
+            initialValue = 1f,
+            targetValue = if (state == BallState.RUNNING) 0.55f else 1f,
+            animationSpec =
+                infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+            label = "pulse",
+        )
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
     val tracker = remember { BallDragTracker() }
@@ -84,47 +88,51 @@ fun WeAgentBall(
             color = container,
             shape = CircleShape,
             shadowElevation = 6.dp,
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .graphicsLayer { alpha = if (state == BallState.RUNNING) pulse.value else 1f }
-                .pointerInteropFilter { event ->
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            tracker.downRawX = event.rawX
-                            tracker.downRawY = event.rawY
-                            tracker.moved = false
-                            onDragStart()
-                            true
-                        }
-
-                        MotionEvent.ACTION_MOVE -> {
-                            val dx = event.rawX - tracker.downRawX
-                            val dy = event.rawY - tracker.downRawY
-                            if (!tracker.moved && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
-                                tracker.moved = true
+            modifier =
+                Modifier.size(52.dp)
+                    .clip(CircleShape)
+                    .graphicsLayer { alpha = if (state == BallState.RUNNING) pulse.value else 1f }
+                    .pointerInteropFilter { event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> {
+                                tracker.downRawX = event.rawX
+                                tracker.downRawY = event.rawY
+                                tracker.moved = false
+                                onDragStart()
+                                true
                             }
-                            if (tracker.moved) onDrag(dx, dy)
-                            true
-                        }
 
-                        MotionEvent.ACTION_UP -> {
-                            if (tracker.moved) onDragEnd() else onClick()
-                            true
-                        }
+                            MotionEvent.ACTION_MOVE -> {
+                                val dx = event.rawX - tracker.downRawX
+                                val dy = event.rawY - tracker.downRawY
+                                if (
+                                    !tracker.moved && (abs(dx) > touchSlop || abs(dy) > touchSlop)
+                                ) {
+                                    tracker.moved = true
+                                }
+                                if (tracker.moved) onDrag(dx, dy)
+                                true
+                            }
 
-                        MotionEvent.ACTION_CANCEL -> {
-                            if (tracker.moved) onDragEnd()
-                            true
-                        }
+                            MotionEvent.ACTION_UP -> {
+                                if (tracker.moved) onDragEnd() else onClick()
+                                true
+                            }
 
-                        else -> false
-                    }
-                },
+                            MotionEvent.ACTION_CANCEL -> {
+                                if (tracker.moved) onDragEnd()
+                                true
+                            }
+
+                            else -> false
+                        }
+                    },
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = if (state == BallState.ERROR) MaterialSymbols.Outlined.Error else MaterialSymbols.Outlined.Chat,
+                    imageVector =
+                        if (state == BallState.ERROR) MaterialSymbols.Outlined.Error
+                        else MaterialSymbols.Outlined.Chat,
                     contentDescription = "WeAgent",
                     tint = content,
                     modifier = Modifier.size(26.dp),
@@ -136,9 +144,7 @@ fun WeAgentBall(
             Surface(
                 color = MaterialTheme.colorScheme.error,
                 shape = CircleShape,
-                modifier = Modifier
-                    .size(14.dp)
-                    .align(Alignment.TopEnd),
+                modifier = Modifier.size(14.dp).align(Alignment.TopEnd),
             ) {}
         }
     }

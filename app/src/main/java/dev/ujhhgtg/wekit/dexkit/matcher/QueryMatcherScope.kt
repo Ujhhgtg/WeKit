@@ -3,9 +3,9 @@ package dev.ujhhgtg.wekit.dexkit.matcher
 import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
-import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataKind
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.sql.SqlClassLiteralConstraint
 import dev.ujhhgtg.wekit.dexkit.sql.SqlClassQuery
 import dev.ujhhgtg.wekit.dexkit.sql.SqlFieldQuery
@@ -30,40 +30,41 @@ private const val DEFAULT_CANDIDATE_PAGE_SIZE = 4096
 /** Class candidates closer to this bound are good enough; larger sets are intersected. */
 private const val NESTED_CANDIDATE_INTERSECTION_THRESHOLD = 2048
 
-
 /**
  * Broad library types that must not drive class candidates when used as a bare type-only field
  * (dotted form, plus primitives/arrays handled separately). Dynamic/obfuscated/domain class names
  * outside this set are considered narrow.
  */
-private val BROAD_FIELD_TYPE_NAMES = setOf(
-    "java.lang.Object",
-    "java.lang.String",
-    "java.lang.CharSequence",
-    "java.lang.Class",
-    "java.util.List",
-    "java.util.Map",
-    "java.util.Set",
-    "android.view.View",
-    "android.widget.TextView",
-)
+private val BROAD_FIELD_TYPE_NAMES =
+    setOf(
+        "java.lang.Object",
+        "java.lang.String",
+        "java.lang.CharSequence",
+        "java.lang.Class",
+        "java.util.List",
+        "java.util.Map",
+        "java.util.Set",
+        "android.view.View",
+        "android.widget.TextView",
+    )
 
 /**
  * Broad builtin field-type prefixes: a type-only field matcher in these namespaces is not selective
  * enough to drive a field candidate when a read/write-method two-step source exists. Used only for
  * field specs (the class-candidate narrow-type policy uses the exact BROAD_FIELD_TYPE_NAMES set).
  */
-private val BROAD_FIELD_TYPE_PREFIXES = listOf(
-    "java.",
-    "javax.",
-    "android.",
-    "androidx.",
-    "kotlin.",
-    "kotlinx.",
-    "org.jetbrains.",
-    "sun.",
-    "dalvik.",
-)
+private val BROAD_FIELD_TYPE_PREFIXES =
+    listOf(
+        "java.",
+        "javax.",
+        "android.",
+        "androidx.",
+        "kotlin.",
+        "kotlinx.",
+        "org.jetbrains.",
+        "sun.",
+        "dalvik.",
+    )
 
 /** One candidate source: canonical SQL text (paged) or a known-short descriptor list. */
 private sealed interface CandidateSource {
@@ -80,15 +81,15 @@ private sealed interface CandidateSource {
  * Candidate generation rules (the pinned engine only fast-paths canonical shapes):
  * - method specs use the typed SQL DSL (methods x method_strings / method_using_numbers /
  *   method_field_accesses canonical joins with single-equality ON + file_id/method_idx WHERE);
- * - structural constraints (declaredClass/returnType class structure, invokeMethods,
- *   usingFields, callerMethods) are evaluated in Kotlin, never joined in SQL;
+ * - structural constraints (declaredClass/returnType class structure, invokeMethods, usingFields,
+ *   callerMethods) are evaluated in Kotlin, never joined in SQL;
  * - class specs use className/packages/class-level literals through the DSL; a class whose only
  *   cheap predicate is class-level usingStrings (or a nested cheap member) is narrowed in two
  *   steps: canonical method/field lookup, then map the candidate's declared class and evaluate;
  * - field specs use name/type/declaredClass/packages through the DSL.
  *
- * A spec with no fast-path-expressible predicate is an explicit unsupported-shape error instead
- * of a multi-gigabyte generic table scan.
+ * A spec with no fast-path-expressible predicate is an explicit unsupported-shape error instead of
+ * a multi-gigabyte generic table scan.
  *
  * unique* helpers stop as soon as a second match is found and page SQL candidates, so the amount of
  * evaluated work/cache growth is bounded. Raw documents are read through [rawMetadata] and cheap
@@ -118,29 +119,34 @@ class QueryMatcherScope(
     // Native metadata document construction can fail on obfuscated method refs whose declaring
     // class is an array type (engine limitation, engine repo is frozen). A candidate whose
     // relations cannot be read must be skipped, never abort the whole delegate resolution.
-    private fun matchesMethodSafely(info: DexMethodInfo, spec: MethodSpec): Boolean = try {
-        evaluator.matchesMethod(info, spec)
-    } catch (e: DexSqlException) {
-        false
-    }
-
-    private fun matchesClassSafely(info: DexClassInfo, spec: ClassSpec): Boolean {
-        val key = info.descriptor to spec
-        classMatchCache[key]?.let { return it }
-        val result = try {
-            evaluator.matchesClass(info, spec)
+    private fun matchesMethodSafely(info: DexMethodInfo, spec: MethodSpec): Boolean =
+        try {
+            evaluator.matchesMethod(info, spec)
         } catch (e: DexSqlException) {
             false
         }
+
+    private fun matchesClassSafely(info: DexClassInfo, spec: ClassSpec): Boolean {
+        val key = info.descriptor to spec
+        classMatchCache[key]?.let {
+            return it
+        }
+        val result =
+            try {
+                evaluator.matchesClass(info, spec)
+            } catch (e: DexSqlException) {
+                false
+            }
         if (classMatchCache.size < 2048) classMatchCache[key] = result
         return result
     }
 
-    private fun matchesFieldSafely(info: DexFieldInfo, spec: FieldSpec): Boolean = try {
-        evaluator.matchesField(info, spec)
-    } catch (e: DexSqlException) {
-        false
-    }
+    private fun matchesFieldSafely(info: DexFieldInfo, spec: FieldSpec): Boolean =
+        try {
+            evaluator.matchesField(info, spec)
+        } catch (e: DexSqlException) {
+            false
+        }
 
     /**
      * Class-level usingStrings evaluation is a set-membership test. The set of classes containing a
@@ -158,7 +164,9 @@ class QueryMatcherScope(
 
     private fun classesUsingString(spec: StringSpec): Set<String> {
         val key = spec.match.name + "\u0000" + spec.value
-        localStringClasses[key]?.let { return it }
+        localStringClasses[key]?.let {
+            return it
+        }
         sessionCache?.stringClasses(key)?.let {
             localStringClasses[key] = it
             return it
@@ -170,11 +178,12 @@ class QueryMatcherScope(
     }
 
     private fun computeClassesUsingString(spec: StringSpec): Set<String> {
-        val sql = try {
-            sqlMethod { addMethodStringPredicate(this, spec) }.toSql()
-        } catch (e: IllegalArgumentException) {
-            return emptySet()
-        }
+        val sql =
+            try {
+                sqlMethod { addMethodStringPredicate(this, spec) }.toSql()
+            } catch (e: IllegalArgumentException) {
+                return emptySet()
+            }
         return try {
             val classes = linkedSetOf<String>()
             query.descriptors(sql).forEach { methodDescriptor ->
@@ -195,8 +204,12 @@ class QueryMatcherScope(
         descriptor: String,
     ): JsonObject? {
         val loader = { rawMetadata?.invoke(kind, descriptor) }
-        sessionCache?.let { return it.rawDocument(key, loader) }
-        localRawDocuments[key]?.let { return it }
+        sessionCache?.let {
+            return it.rawDocument(key, loader)
+        }
+        localRawDocuments[key]?.let {
+            return it
+        }
         val document = loader() ?: return null
         if (localRawDocuments.size < 2048) localRawDocuments[key] = document
         return document
@@ -208,9 +221,11 @@ class QueryMatcherScope(
         excludePackages: List<String> = emptyList(),
     ): List<DexMethodInfo> {
         val sources = methodCandidateSources(spec, packages) ?: unsupportedCandidate("method")
-        return queryDescriptors(sources).asSequence()
+        return queryDescriptors(sources)
+            .asSequence()
             .filterNot { it.startsWith("[") }
             .filter { methodDescriptorInPackages(it, packages, excludePackages) }
+            .filter { methodDescriptorInPackages(it, spec.packages, emptyList()) }
             .mapNotNull { loadMethod(it, spec) }
             .filter { matchesMethodSafely(it, spec) }
             .toList()
@@ -222,11 +237,14 @@ class QueryMatcherScope(
         excludePackages: List<String> = emptyList(),
     ): List<DexClassInfo> {
         val sources = classCandidateSources(spec, packages) ?: unsupportedCandidate("class")
-        val candidates = queryDescriptors(sources).asSequence()
-            .filterNot { it.startsWith("[") }
-            .filter { classDescriptorInPackages(it, packages, excludePackages) }
-            .mapNotNull { loadClass(it, spec) }
-            .toList()
+        val candidates =
+            queryDescriptors(sources)
+                .asSequence()
+                .filterNot { it.startsWith("[") }
+                .filter { classDescriptorInPackages(it, packages, excludePackages) }
+                .filter { classDescriptorInPackages(it, spec.packages, emptyList()) }
+                .mapNotNull { loadClass(it, spec) }
+                .toList()
         preloadClassFieldAccessRelations(candidates, spec)
         return candidates.filter { matchesClassSafely(it, spec) }
     }
@@ -237,12 +255,16 @@ class QueryMatcherScope(
         excludePackages: List<String> = emptyList(),
     ): List<DexFieldInfo> {
         val sources = fieldCandidateSources(spec, packages) ?: unsupportedCandidate("field")
-        val candidates = queryDescriptors(sources).asSequence()
-            .filterNot { it.startsWith("[") }
-            .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
-            .toList()
+        val candidates =
+            queryDescriptors(sources)
+                .asSequence()
+                .filterNot { it.startsWith("[") }
+                .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
+                .filter { fieldDescriptorInPackages(it, spec.packages, emptyList()) }
+                .toList()
         preloadFieldAccessRelations(candidates, spec)
-        return candidates.asSequence()
+        return candidates
+            .asSequence()
             .mapNotNull { loadField(it, spec) }
             .filter { matchesFieldSafely(it, spec) }
             .toList()
@@ -256,27 +278,30 @@ class QueryMatcherScope(
         spec: MethodSpec,
         packages: List<String> = emptyList(),
         excludePackages: List<String> = emptyList(),
-    ): String? = uniqueMatches(findMethodsUpToTwo(spec, packages, excludePackages), "method") {
-        it.descriptor
-    }
+    ): String? =
+        uniqueMatches(findMethodsUpToTwo(spec, packages, excludePackages), "method") {
+            it.descriptor
+        }
 
     /** Single-result helper: null when nothing matched; multiple matches are an ambiguity error. */
     fun uniqueClass(
         spec: ClassSpec,
         packages: List<String> = emptyList(),
         excludePackages: List<String> = emptyList(),
-    ): String? = uniqueMatches(findClassesUpToTwo(spec, packages, excludePackages), "class") {
-        it.descriptor
-    }
+    ): String? =
+        uniqueMatches(findClassesUpToTwo(spec, packages, excludePackages), "class") {
+            it.descriptor
+        }
 
     /** Single-result helper: null when nothing matched; multiple matches are an ambiguity error. */
     fun uniqueField(
         spec: FieldSpec,
         packages: List<String> = emptyList(),
         excludePackages: List<String> = emptyList(),
-    ): String? = uniqueMatches(findFieldsUpToTwo(spec, packages, excludePackages), "field") {
-        it.descriptor
-    }
+    ): String? =
+        uniqueMatches(findFieldsUpToTwo(spec, packages, excludePackages), "field") {
+            it.descriptor
+        }
 
     // ---------------------------------------------------------------------
     // Bounded unique search (stop at the second match, paged candidates)
@@ -291,13 +316,16 @@ class QueryMatcherScope(
         val matches = mutableListOf<DexMethodInfo>()
         val matchedDescriptors = HashSet<String>(4)
         forEachCandidateDescriptor(sources) { descriptor ->
-            if (!descriptor.startsWith("[") &&
-                methodDescriptorInPackages(descriptor, packages, excludePackages)
+            if (
+                !descriptor.startsWith("[") &&
+                    methodDescriptorInPackages(descriptor, packages, excludePackages) &&
+                    methodDescriptorInPackages(descriptor, spec.packages, emptyList())
             ) {
                 val info = loadMethod(descriptor, spec)
-                if (info != null &&
-                    matchesMethodSafely(info, spec) &&
-                    matchedDescriptors.add(info.descriptor)
+                if (
+                    info != null &&
+                        matchesMethodSafely(info, spec) &&
+                        matchedDescriptors.add(info.descriptor)
                 ) {
                     matches += info
                 }
@@ -316,13 +344,16 @@ class QueryMatcherScope(
         val matches = mutableListOf<DexClassInfo>()
         val matchedDescriptors = HashSet<String>(4)
         forEachCandidateDescriptor(sources) { descriptor ->
-            if (!descriptor.startsWith("[") &&
-                classDescriptorInPackages(descriptor, packages, excludePackages)
+            if (
+                !descriptor.startsWith("[") &&
+                    classDescriptorInPackages(descriptor, packages, excludePackages) &&
+                    classDescriptorInPackages(descriptor, spec.packages, emptyList())
             ) {
                 val info = loadClass(descriptor, spec)
-                if (info != null &&
-                    matchesClassSafely(info, spec) &&
-                    matchedDescriptors.add(info.descriptor)
+                if (
+                    info != null &&
+                        matchesClassSafely(info, spec) &&
+                        matchedDescriptors.add(info.descriptor)
                 ) {
                     matches += info
                 }
@@ -338,18 +369,22 @@ class QueryMatcherScope(
         excludePackages: List<String>,
     ): List<DexFieldInfo> {
         val sources = fieldCandidateSources(spec, packages) ?: unsupportedCandidate("field")
-        val candidates = queryDescriptors(sources).asSequence()
-            .filterNot { it.startsWith("[") }
-            .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
-            .toList()
+        val candidates =
+            queryDescriptors(sources)
+                .asSequence()
+                .filterNot { it.startsWith("[") }
+                .filter { fieldDescriptorInPackages(it, packages, excludePackages) }
+                .filter { fieldDescriptorInPackages(it, spec.packages, emptyList()) }
+                .toList()
         preloadFieldAccessRelations(candidates, spec)
         val matches = mutableListOf<DexFieldInfo>()
         val matchedDescriptors = HashSet<String>(4)
         for (descriptor in candidates) {
             val info = loadField(descriptor, spec)
-            if (info != null &&
-                matchesFieldSafely(info, spec) &&
-                matchedDescriptors.add(info.descriptor)
+            if (
+                info != null &&
+                    matchesFieldSafely(info, spec) &&
+                    matchedDescriptors.add(info.descriptor)
             ) {
                 matches += info
             }
@@ -374,8 +409,9 @@ class QueryMatcherScope(
                     var offset = 0
                     while (true) {
                         val pageSql = pagedSql(source.sql, candidatePageSize, offset)
-                        val page = sessionCache?.candidateRows(pageSql) { query.descriptors(pageSql) }
-                            ?: query.descriptors(pageSql)
+                        val page =
+                            sessionCache?.candidateRows(pageSql) { query.descriptors(pageSql) }
+                                ?: query.descriptors(pageSql)
                         if (page.isEmpty()) break
                         for (descriptor in page) {
                             if (action(descriptor)) return
@@ -389,30 +425,43 @@ class QueryMatcherScope(
     }
 
     private fun queryDescriptors(sources: List<CandidateSource>): List<String> =
-        sources.flatMap { source ->
-            when (source) {
-                is CandidateSource.Descriptors -> source.descriptors
-                is CandidateSource.Sql -> sessionCache?.candidateRows(source.sql) {
-                    query.descriptors(source.sql)
-                } ?: candidateSqlCache[source.sql] ?: run {
-                    val rows = query.descriptors(source.sql)
-                    // Only cache small candidate sets: a huge scan list must not be retained.
-                    if (rows.size <= DEFAULT_CANDIDATE_PAGE_SIZE) {
-                        candidateSqlCache[source.sql] = rows
-                    }
-                    rows
+        sources
+            .flatMap { source ->
+                when (source) {
+                    is CandidateSource.Descriptors -> source.descriptors
+                    is CandidateSource.Sql ->
+                        sessionCache?.candidateRows(source.sql) {
+                            query.descriptors(source.sql)
+                        }
+                            ?: candidateSqlCache[source.sql]
+                            ?: run {
+                                val rows = query.descriptors(source.sql)
+                                // Only cache small candidate sets: a huge scan list must not be
+                                // retained.
+                                if (rows.size <= DEFAULT_CANDIDATE_PAGE_SIZE) {
+                                    candidateSqlCache[source.sql] = rows
+                                }
+                                rows
+                            }
                 }
             }
-        }.distinct()
+            .distinct()
 
-    private fun <T> uniqueMatches(matches: List<T>, kind: String, descriptor: (T) -> String): String? =
+    private fun <T> uniqueMatches(
+        matches: List<T>,
+        kind: String,
+        descriptor: (T) -> String,
+    ): String? =
         when (matches.size) {
             0 -> null
             1 -> descriptor(matches.single())
-            else -> error(
-                "Query matcher: multiple " + kind + "s matched, expected one: " +
-                    matches.joinToString(",") { descriptor(it) },
-            )
+            else ->
+                error(
+                    "Query matcher: multiple " +
+                        kind +
+                        "s matched, expected one: " +
+                        matches.joinToString(",") { descriptor(it) },
+                )
         }
 
     // ---------------------------------------------------------------------
@@ -430,12 +479,13 @@ class QueryMatcherScope(
                 null
             }
         }
-        val json = try {
-            cachedRawDocument("method|" + descriptor, DexMetadataKind.Method, descriptor)
-                ?: return null
-        } catch (e: DexSqlException) {
-            return null
-        }
+        val json =
+            try {
+                cachedRawDocument("method|" + descriptor, DexMetadataKind.Method, descriptor)
+                    ?: return null
+            } catch (e: DexSqlException) {
+                return null
+            }
         if (!methodPrefilter(json, spec)) return null
         return DexMethodInfo(json, metadata)
     }
@@ -451,12 +501,13 @@ class QueryMatcherScope(
                 null
             }
         }
-        val json = try {
-            cachedRawDocument("class|" + descriptor, DexMetadataKind.Class, descriptor)
-                ?: return null
-        } catch (e: DexSqlException) {
-            return null
-        }
+        val json =
+            try {
+                cachedRawDocument("class|" + descriptor, DexMetadataKind.Class, descriptor)
+                    ?: return null
+            } catch (e: DexSqlException) {
+                return null
+            }
         if (!classPrefilter(json, spec)) return null
         return DexClassInfo(json, metadata)
     }
@@ -470,12 +521,13 @@ class QueryMatcherScope(
                 null
             }
         }
-        val json = try {
-            cachedRawDocument("field|" + descriptor, DexMetadataKind.Field, descriptor)
-                ?: return null
-        } catch (e: DexSqlException) {
-            return null
-        }
+        val json =
+            try {
+                cachedRawDocument("field|" + descriptor, DexMetadataKind.Field, descriptor)
+                    ?: return null
+            } catch (e: DexSqlException) {
+                return null
+            }
         if (!fieldPrefilter(json, spec)) return null
         return DexFieldInfo(json, metadata)
     }
@@ -484,12 +536,21 @@ class QueryMatcherScope(
     // Candidate source generation: canonical fast-path shapes only
     // ---------------------------------------------------------------------
 
-    private fun methodCandidateSources(spec: MethodSpec, packages: List<String>): List<CandidateSource>? {
+    private fun methodCandidateSources(
+        spec: MethodSpec,
+        packages: List<String>,
+    ): List<CandidateSource>? {
         // Exact descriptor specs need no SQL: the descriptor itself is the only candidate.
-        spec.descriptor?.let { return listOf(CandidateSource.Descriptors(listOf(it))) }
-        methodOwnCandidateSources(spec, packages)?.let { return it }
+        spec.descriptor?.let {
+            return listOf(CandidateSource.Descriptors(listOf(it)))
+        }
+        methodOwnCandidateSources(spec, packages)?.let {
+            return it
+        }
         for (child in spec.allOf) {
-            methodOwnCandidateSources(child, emptyList())?.let { return it }
+            methodOwnCandidateSources(child, emptyList())?.let {
+                return it
+            }
         }
         if (spec.anyOf.isNotEmpty()) {
             val childSources = spec.anyOf.map { methodOwnCandidateSources(it, emptyList()) }
@@ -505,7 +566,9 @@ class QueryMatcherScope(
         packages: List<String>,
     ): List<CandidateSource>? {
         val steps = methodCandidateSteps(spec, packages) ?: return null
-        return listOf(CandidateSource.Sql(sqlMethod { steps.forEach { step -> step(this) } }.toSql()))
+        return listOf(
+            CandidateSource.Sql(sqlMethod { steps.forEach { step -> step(this) } }.toSql()),
+        )
     }
 
     /**
@@ -518,9 +581,11 @@ class QueryMatcherScope(
         packages: List<String>,
     ): List<(SqlMethodQuery) -> Unit>? {
         val steps = mutableListOf<(SqlMethodQuery) -> Unit>()
-        spec.name?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
-            steps += { q -> q.name = nameSpec.value }
-        }
+        spec.name
+            ?.takeIf { it.match == NameMatch.Equals }
+            ?.let { nameSpec ->
+                steps += { q -> q.name = nameSpec.value }
+            }
         spec.modifiers?.let { mask -> steps += { q -> q.modifiers(mask) } }
         spec.declaredClass?.let { classSpec ->
             classSpec.className?.let { nameSpec ->
@@ -530,24 +595,36 @@ class QueryMatcherScope(
                     steps += { q -> q.className(nameSpec.match.toSqlMode(), dotted) }
                 }
             }
-            if (classSpec.usingStrings.isNotEmpty()) {
+            if (classSpec.packages.isNotEmpty()) {
+                val classPackages = classSpec.packages.toTypedArray()
+                steps += { q -> q.searchPackages(*classPackages) }
+            }
+            if (classSpec.usingStrings.isNotEmpty() || classSpec.usingNumbers.isNotEmpty()) {
+                val literals = classSpec.usingStrings
+                val numbers = classSpec.usingNumbers.map { it as Any }.toTypedArray()
                 steps += { q ->
-                    q.declaredClass { addClassLiteralStrings(classSpec.usingStrings) }
+                    q.declaredClass {
+                        addClassLiteralStrings(literals)
+                        if (numbers.isNotEmpty()) usingNumbers(*numbers)
+                    }
                 }
             }
         }
-        spec.returnType?.className?.takeIf { it.match != NameMatch.EndsWith }?.let { nameSpec ->
-            val javaName = javaTypeNameOf(nameSpec.value)
-            if (javaName.isNotEmpty()) {
-                if (nameSpec.match == NameMatch.Equals) {
-                    steps += { q -> q.returnType(SqlStringMatchMode.Equals, javaName) }
-                } else if (!isPrimitiveOrArrayTypeName(javaName)) {
-                    // Non-equals class-name modes require a dotted class name; array/primitive
-                    // values are evaluated in Kotlin only.
-                    steps += { q -> q.returnType(nameSpec.match.toSqlMode(), javaName) }
+        spec.returnType
+            ?.className
+            ?.takeIf { it.match != NameMatch.EndsWith }
+            ?.let { nameSpec ->
+                val javaName = javaTypeNameOf(nameSpec.value)
+                if (javaName.isNotEmpty()) {
+                    if (nameSpec.match == NameMatch.Equals) {
+                        steps += { q -> q.returnType(SqlStringMatchMode.Equals, javaName) }
+                    } else if (!isPrimitiveOrArrayTypeName(javaName)) {
+                        // Non-equals class-name modes require a dotted class name; array/primitive
+                        // values are evaluated in Kotlin only.
+                        steps += { q -> q.returnType(nameSpec.match.toSqlMode(), javaName) }
+                    }
                 }
             }
-        }
         spec.paramCount?.let { range -> steps += { q -> q.paramCount(range.first, range.last) } }
         spec.opcodes?.count?.let { range -> steps += { q -> q.opcodeCount(range) } }
         spec.paramTypes
@@ -556,40 +633,56 @@ class QueryMatcherScope(
                 val values = types.map { type -> type?.value?.let(::javaTypeNameOf) }.toTypedArray()
                 steps += { q -> q.paramTypes(*values) }
             }
-        // Empty literals are Kotlin-only existential semantics (DexKit usingEqStrings("")); emitting
+        // Empty literals are Kotlin-only existential semantics (DexKit usingEqStrings(""));
+        // emitting
         // them as SQL would create a broad method_strings predicate that steals candidate priority
-        // from narrower sources (e.g. a package-only class scan). Non-empty literals stay canonical.
-        spec.usingStrings.filter { it.value.isNotEmpty() }.forEach { stringSpec ->
-            steps += { q -> addMethodStringPredicate(q, stringSpec) }
-        }
+        // from narrower sources (e.g. a package-only class scan). Non-empty literals stay
+        // canonical.
+        spec.usingStrings
+            .filter { it.value.isNotEmpty() }
+            .forEach { stringSpec ->
+                steps += { q -> addMethodStringPredicate(q, stringSpec) }
+            }
         if (spec.usingNumbers.isNotEmpty()) {
             val numbers = spec.usingNumbers.map { it as Any }.toTypedArray()
             steps += { q -> q.usingNumbers(*numbers) }
         }
-        if (packages.isNotEmpty()) {
-            val pack = packages.toTypedArray()
+        val allPackages = (packages + spec.packages).distinct()
+        if (allPackages.isNotEmpty()) {
+            val pack = allPackages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
         }
         return steps.ifEmpty { null }
     }
 
-    private fun classCandidateSources(spec: ClassSpec, packages: List<String>): List<CandidateSource>? {
+    private fun classCandidateSources(
+        spec: ClassSpec,
+        packages: List<String>,
+    ): List<CandidateSource>? {
+        // Delegate/find packages and spec packages are independent AND constraints; a single
+        // searchPackages call ORs values, so the merged list is a sound (broader) candidate filter.
+        val scopePackages = (packages + spec.packages).distinct()
         // Candidate priority: most selective canonical source first, package-only scan last.
         // 1) explicit class name (canonical class scan)
-        classDirectCandidateSources(spec, packages)?.let { return it }
+        classDirectCandidateSources(spec, scopePackages)?.let {
+            return it
+        }
         // 2) class-level usingStrings: canonical method lookup for each non-empty literal, then map
-        //    the candidate method's declared class. Empty literals are Kotlin-only semantics and are
+        //    the candidate method's declared class. Empty literals are Kotlin-only semantics and
+        // are
         //    never emitted as SQL predicates.
         val nonEmptyClassStrings = spec.usingStrings.filter { it.value.isNotEmpty() }
         if (nonEmptyClassStrings.isNotEmpty()) {
             // Every class-level literal is an independent existential requirement, so a matching
-            // class must appear in EVERY literal's method-candidate set. Intersecting the per-literal
+            // class must appear in EVERY literal's method-candidate set. Intersecting the
+            // per-literal
             // class sets is a necessary condition and drastically narrows the evaluation set.
             var classDescriptors: LinkedHashSet<String>? = null
             for (stringSpec in nonEmptyClassStrings) {
                 val literalClasses = classesUsingString(stringSpec)
-                classDescriptors = classDescriptors?.apply { retainAll(literalClasses) }
-                    ?: LinkedHashSet(literalClasses)
+                classDescriptors =
+                    classDescriptors?.apply { retainAll(literalClasses) }
+                        ?: LinkedHashSet(literalClasses)
                 if (classDescriptors!!.isEmpty()) break
             }
             return listOf(CandidateSource.Descriptors(classDescriptors.orEmpty().toList()))
@@ -598,18 +691,22 @@ class QueryMatcherScope(
         //    selective one, and intersect with the next unit while the candidate class set is still
         //    large. Non-pushable units (e.g. "<init>" + opcodes/annotations only) never drive.
         if (spec.methods.isNotEmpty()) {
-            val rankedMethods = spec.methods
-                .map { methodSpec -> methodUnitSelectivity(methodSpec) to methodSpec }
-                .filter { (score, _) -> score > 0 }
-                .sortedByDescending { (score, _) -> score }
+            val rankedMethods =
+                spec.methods
+                    .map { methodSpec -> methodUnitSelectivity(methodSpec) to methodSpec }
+                    .filter { (score, _) -> score > 0 }
+                    .sortedByDescending { (score, _) -> score }
             if (rankedMethods.isNotEmpty()) {
                 var candidates: LinkedHashSet<String>? = null
                 for ((_, methodSpec) in rankedMethods) {
                     val methodSources = methodCandidateSources(methodSpec, emptyList()) ?: continue
                     val unitClasses = classDescriptorsOfMethodSources(methodSources)
-                    candidates = if (candidates == null) unitClasses else candidates.apply { retainAll(unitClasses) }
-                    if (candidates!!.isEmpty() ||
-                        candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
+                    candidates =
+                        if (candidates == null) unitClasses
+                        else candidates.apply { retainAll(unitClasses) }
+                    if (
+                        candidates!!.isEmpty() ||
+                            candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
                     ) {
                         break
                     }
@@ -624,18 +721,22 @@ class QueryMatcherScope(
         //    selective read/write accessors); broad type-only fields never drive a class candidate.
         //    Intersect further ranked field units when the candidate class set is still large.
         if (spec.fields.isNotEmpty()) {
-            val rankedFields = spec.fields
-                .map { fieldSpec -> fieldUnitSelectivity(fieldSpec) to fieldSpec }
-                .filter { (score, _) -> score > 0 }
-                .sortedByDescending { (score, _) -> score }
+            val rankedFields =
+                spec.fields
+                    .map { fieldSpec -> fieldUnitSelectivity(fieldSpec) to fieldSpec }
+                    .filter { (score, _) -> score > 0 }
+                    .sortedByDescending { (score, _) -> score }
             if (rankedFields.isNotEmpty()) {
                 var candidates: LinkedHashSet<String>? = null
                 for ((_, fieldSpec) in rankedFields) {
                     val fieldSources = fieldCandidateSources(fieldSpec, emptyList()) ?: continue
                     val unitClasses = classDescriptorsOfFieldSources(fieldSources)
-                    candidates = if (candidates == null) unitClasses else candidates.apply { retainAll(unitClasses) }
-                    if (candidates!!.isEmpty() ||
-                        candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
+                    candidates =
+                        if (candidates == null) unitClasses
+                        else candidates.apply { retainAll(unitClasses) }
+                    if (
+                        candidates!!.isEmpty() ||
+                            candidates!!.size <= NESTED_CANDIDATE_INTERSECTION_THRESHOLD
                     ) {
                         break
                     }
@@ -646,30 +747,43 @@ class QueryMatcherScope(
                 }
             }
         }
-        // 5) Superclass-only class specs use the canonical superclass unit shape.
+        // 5) Class-level numeric-operand units: each value is its own canonical existential
+        //    method unit, matching the matcher fallback semantics.
+        if (spec.usingNumbers.isNotEmpty()) {
+            val numbers = spec.usingNumbers.map { it as Any }
+            val sql = sqlClass {
+                numbers.forEach { usingNumbers(it) }
+                if (scopePackages.isNotEmpty()) searchPackages(*scopePackages.toTypedArray())
+            }
+                .toSql()
+            return listOf(CandidateSource.Sql(sql))
+        }
+        // 6) Superclass-only class specs use the canonical superclass unit shape.
         spec.superClass?.className?.let { nameSpec ->
             val dotted = dottedClassNameOrNull(nameSpec.value) ?: return@let
             val sql = sqlClass {
                 superClass(nameSpec.match.toSqlMode(), dotted)
-                if (packages.isNotEmpty()) searchPackages(*packages.toTypedArray())
-            }.toSql()
+                if (scopePackages.isNotEmpty()) searchPackages(*scopePackages.toTypedArray())
+            }
+                .toSql()
             return listOf(CandidateSource.Sql(sql))
         }
-        // 6) Canonical class access-flag scan (e.g. "only INTERFACE classes") when no other source.
+        // 7) Canonical class access-flag scan (e.g. "only INTERFACE classes") when no other source.
         spec.modifiers?.let { mask ->
             val sql = sqlClass {
                 modifiers = mask
-                if (packages.isNotEmpty()) searchPackages(*packages.toTypedArray())
-            }.toSql()
+                if (scopePackages.isNotEmpty()) searchPackages(*scopePackages.toTypedArray())
+            }
+                .toSql()
             return listOf(CandidateSource.Sql(sql))
         }
-        // 7) Field count constraint: canonical bare-class scan over classes.field_count.
+        // 8) Field count constraint: canonical bare-class scan over classes.field_count.
         spec.fieldCount?.let { range ->
             return listOf(CandidateSource.Sql(classFieldCountSql(range)))
         }
-        // 8) Package-only canonical class scan.
-        if (packages.isNotEmpty()) {
-            val sql = sqlClass { searchPackages(*packages.toTypedArray()) }.toSql()
+        // 9) Package-only canonical class scan.
+        if (scopePackages.isNotEmpty()) {
+            val sql = sqlClass { searchPackages(*scopePackages.toTypedArray()) }.toSql()
             return listOf(CandidateSource.Sql(sql))
         }
         // No safe candidate source left: member counts / interface-only class specs cannot be
@@ -679,7 +793,9 @@ class QueryMatcherScope(
     }
 
     /** Class descriptors of the methods matched by a canonical method candidate source. */
-    private fun classDescriptorsOfMethodSources(sources: List<CandidateSource>): LinkedHashSet<String> {
+    private fun classDescriptorsOfMethodSources(
+        sources: List<CandidateSource>,
+    ): LinkedHashSet<String> {
         val classes = linkedSetOf<String>()
         queryDescriptors(sources).forEach { methodDescriptor ->
             if (!isRealMethodDescriptor(methodDescriptor)) return@forEach
@@ -690,7 +806,9 @@ class QueryMatcherScope(
     }
 
     /** Class descriptors of the fields matched by a canonical field candidate source. */
-    private fun classDescriptorsOfFieldSources(sources: List<CandidateSource>): LinkedHashSet<String> {
+    private fun classDescriptorsOfFieldSources(
+        sources: List<CandidateSource>,
+    ): LinkedHashSet<String> {
         val classes = linkedSetOf<String>()
         queryDescriptors(sources).forEach { fieldDescriptor ->
             if (!isRealFieldDescriptor(fieldDescriptor)) return@forEach
@@ -709,8 +827,9 @@ class QueryMatcherScope(
     private fun methodUnitSelectivity(spec: MethodSpec): Int {
         var score = 0
         val paramTypes = spec.paramTypes
-        if (paramTypes != null &&
-            paramTypes.all { type -> type == null || type.match == NameMatch.Equals }
+        if (
+            paramTypes != null &&
+                paramTypes.all { type -> type == null || type.match == NameMatch.Equals }
         ) {
             score = maxOf(score, 100)
         }
@@ -720,16 +839,21 @@ class QueryMatcherScope(
             score = maxOf(score, 60)
         }
         if (spec.modifiers != null) score = maxOf(score, 50)
-        if (spec.declaredClass?.className?.let { dottedClassNameOrNull(it.value) } != null ||
-            spec.declaredClass?.usingStrings?.any { it.value.isNotEmpty() } == true
+        if (
+            spec.declaredClass?.className?.let { dottedClassNameOrNull(it.value) } != null ||
+                spec.declaredClass?.usingStrings?.any { it.value.isNotEmpty() } == true
         ) {
             score = maxOf(score, 40)
         }
         if (spec.usingStrings.any { it.value.isNotEmpty() }) score = maxOf(score, 30)
         if (spec.usingNumbers.isNotEmpty()) score = maxOf(score, 25)
+        if (spec.packages.isNotEmpty()) score = maxOf(score, 22)
         val name = spec.name
-        if (name != null && name.match == NameMatch.Equals &&
-            name.value != "<init>" && name.value != "<clinit>"
+        if (
+            name != null &&
+                name.match == NameMatch.Equals &&
+                name.value != "<init>" &&
+                name.value != "<clinit>"
         ) {
             score = maxOf(score, 20)
         }
@@ -744,7 +868,9 @@ class QueryMatcherScope(
     private fun fieldUnitSelectivity(spec: FieldSpec): Int {
         var score = 0
         if (spec.name?.match == NameMatch.Equals) score = maxOf(score, 100)
-        spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className
+        spec.declaredClass
+            ?.takeIf(::classSpecIsNameOnly)
+            ?.className
             ?.takeIf { it.match == NameMatch.Equals && dottedClassNameOrNull(it.value) != null }
             ?.let { score = maxOf(score, 80) }
         if (typeOnlyFieldIsNarrow(spec)) score = maxOf(score, 60)
@@ -788,10 +914,15 @@ class QueryMatcherScope(
             val pack = packages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
         }
-        return listOf(CandidateSource.Sql(sqlClass { steps.forEach { step -> step(this) } }.toSql()))
+        return listOf(
+            CandidateSource.Sql(sqlClass { steps.forEach { step -> step(this) } }.toSql()),
+        )
     }
 
-    private fun fieldCandidateSources(spec: FieldSpec, packages: List<String>): List<CandidateSource>? {
+    private fun fieldCandidateSources(
+        spec: FieldSpec,
+        packages: List<String>,
+    ): List<CandidateSource>? {
         // 1) readMethods/writeMethods access units (with every pushable field predicate as a
         //    conjunct) are selective. When the spec ALSO has a selective base predicate (name /
         //    declaring class / narrow type), intersect both cheap candidate sets instead of letting
@@ -801,9 +932,15 @@ class QueryMatcherScope(
         if (accessSources != null) {
             if (selectiveSteps.isEmpty()) return accessSources
             val accessDescriptors = queryDescriptors(accessSources)
-            val baseDescriptors = queryDescriptors(
-                listOf(CandidateSource.Sql(sqlField { selectiveSteps.forEach { step -> step(this) } }.toSql())),
-            ).toHashSet()
+            val baseDescriptors =
+                queryDescriptors(
+                        listOf(
+                            CandidateSource.Sql(
+                                sqlField { selectiveSteps.forEach { step -> step(this) } }.toSql(),
+                            ),
+                        ),
+                    )
+                    .toHashSet()
             return listOf(
                 CandidateSource.Descriptors(
                     accessDescriptors.filter { it in baseDescriptors }.distinct(),
@@ -830,7 +967,8 @@ class QueryMatcherScope(
 
     /**
      * Canonical pushable base predicates of a FieldSpec. Broad builtin types are included only when
-     * the caller opts in (last-resort candidate, or as a necessary conjunct next to an access unit).
+     * the caller opts in (last-resort candidate, or as a necessary conjunct next to an access
+     * unit).
      */
     private fun fieldPredicateSteps(
         spec: FieldSpec,
@@ -838,26 +976,36 @@ class QueryMatcherScope(
         includeBroadType: Boolean,
     ): MutableList<(SqlFieldQuery) -> Unit> {
         val steps = mutableListOf<(SqlFieldQuery) -> Unit>()
-        spec.name?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
-            steps += { q -> q.name = nameSpec.value }
-        }
-        spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className
-            ?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
+        spec.name
+            ?.takeIf { it.match == NameMatch.Equals }
+            ?.let { nameSpec ->
+                steps += { q -> q.name = nameSpec.value }
+            }
+        spec.declaredClass
+            ?.takeIf(::classSpecIsNameOnly)
+            ?.className
+            ?.takeIf { it.match == NameMatch.Equals }
+            ?.let { nameSpec ->
                 dottedClassNameOrNull(nameSpec.value)?.let { dotted ->
                     steps += { q -> q.declaredClass(dotted) }
                 }
             }
-        spec.type?.takeIf(::classSpecIsNameOnly)?.className
-            ?.takeIf { it.match == NameMatch.Equals }?.let { nameSpec ->
+        spec.type
+            ?.takeIf(::classSpecIsNameOnly)
+            ?.className
+            ?.takeIf { it.match == NameMatch.Equals }
+            ?.let { nameSpec ->
                 val javaName = javaTypeNameOf(nameSpec.value)
-                if (typeDescriptorOrNull(javaName) != null &&
-                    (includeBroadType || !isBroadFieldType(javaName))
+                if (
+                    typeDescriptorOrNull(javaName) != null &&
+                        (includeBroadType || !isBroadFieldType(javaName))
                 ) {
                     steps += { q -> q.type(javaName) }
                 }
             }
-        if (packages.isNotEmpty()) {
-            val pack = packages.toTypedArray()
+        val allPackages = (packages + spec.packages).distinct()
+        if (allPackages.isNotEmpty()) {
+            val pack = allPackages.toTypedArray()
             steps += { q -> q.searchPackages(*pack) }
         }
         return steps
@@ -884,32 +1032,37 @@ class QueryMatcherScope(
         spec.readMethods.forEach { methodSpec ->
             if (!methodSpecIsSelectiveForAccessUnit(methodSpec)) return@forEach
             methodCandidateSteps(methodSpec, emptyList())?.let { methodSteps ->
-                unitSources += CandidateSource.Sql(
-                    sqlField {
-                        baseSteps.forEach { step -> step(this) }
-                        readMethod { methodSteps.forEach { step -> step(this) } }
-                    }.toSql(),
-                )
+                unitSources +=
+                    CandidateSource.Sql(
+                        sqlField {
+                            baseSteps.forEach { step -> step(this) }
+                            readMethod { methodSteps.forEach { step -> step(this) } }
+                        }
+                            .toSql(),
+                    )
             }
         }
         spec.writeMethods.forEach { methodSpec ->
             if (!methodSpecIsSelectiveForAccessUnit(methodSpec)) return@forEach
             methodCandidateSteps(methodSpec, emptyList())?.let { methodSteps ->
-                unitSources += CandidateSource.Sql(
-                    sqlField {
-                        baseSteps.forEach { step -> step(this) }
-                        writeMethod { methodSteps.forEach { step -> step(this) } }
-                    }.toSql(),
-                )
+                unitSources +=
+                    CandidateSource.Sql(
+                        sqlField {
+                            baseSteps.forEach { step -> step(this) }
+                            writeMethod { methodSteps.forEach { step -> step(this) } }
+                        }
+                            .toSql(),
+                    )
             }
         }
         if (unitSources.isEmpty()) return null
         if (unitSources.size == 1) return unitSources
         // Intersect in Kotlin. Keep the first unit's order for deterministic candidate iteration.
         val unitFields = unitSources.map { source -> queryDescriptors(listOf(source)).toSet() }
-        val ordered = queryDescriptors(listOf(unitSources.first()))
-            .filter { descriptor -> unitFields.all { descriptor in it } }
-            .distinct()
+        val ordered =
+            queryDescriptors(listOf(unitSources.first()))
+                .filter { descriptor -> unitFields.all { descriptor in it } }
+                .distinct()
         return listOf(CandidateSource.Descriptors(ordered))
     }
 
@@ -927,7 +1080,10 @@ class QueryMatcherScope(
             spec.usingStrings.any { it.value.isNotEmpty() } ||
             spec.usingNumbers.isNotEmpty()
 
-    /** Broad builtin field types never drive candidates when a read/write-method source is available. */
+    /**
+     * Broad builtin field types never drive candidates when a read/write-method source is
+     * available.
+     */
     private fun isBroadFieldType(typeName: String): Boolean {
         val value = typeName.trim()
         if (value.isEmpty()) return true
@@ -953,25 +1109,29 @@ class QueryMatcherScope(
     }
 
     /**
-     * Intersect a class candidate set with the canonical classes.field_count scan. Class specs
-     * with a fieldCount constraint would otherwise load metadata for every class declaring a
-     * candidate member (e.g. 9k classes for a common method signature).
+     * Intersect a class candidate set with the canonical classes.field_count scan. Class specs with
+     * a fieldCount constraint would otherwise load metadata for every class declaring a candidate
+     * member (e.g. 9k classes for a common method signature).
      */
     private fun intersectFieldCount(
         spec: ClassSpec,
         candidates: LinkedHashSet<String>,
     ): LinkedHashSet<String> {
         val range = spec.fieldCount ?: return candidates
-        val allowed = queryDescriptors(
-            listOf(CandidateSource.Sql(classFieldCountSql(range))),
-        ).toHashSet()
+        val allowed =
+            queryDescriptors(
+                    listOf(CandidateSource.Sql(classFieldCountSql(range))),
+                )
+                .toHashSet()
         return candidates.filterTo(LinkedHashSet()) { it in allowed }
     }
 
     private fun classFieldCountSql(range: IntRange): String =
         "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
-            "WHERE c.field_count >= " + range.first +
-            " AND c.field_count <= " + range.last +
+            "WHERE c.field_count >= " +
+            range.first +
+            " AND c.field_count <= " +
+            range.last +
             " ORDER BY c.descriptor;"
 
     /** Batch-fetch read/write access data for the direct field constraints of candidate classes. */
@@ -981,8 +1141,10 @@ class QueryMatcherScope(
         if (spec.fields.none { it.readMethods.isNotEmpty() || it.writeMethods.isNotEmpty() }) return
         val fields = classes.flatMap { info -> info.fields.map { it.descriptor } }.distinct()
         if (fields.isEmpty()) return
-        if (spec.fields.any { it.readMethods.isNotEmpty() }) relations.fieldAccessMethods(fields, "get")
-        if (spec.fields.any { it.writeMethods.isNotEmpty() }) relations.fieldAccessMethods(fields, "put")
+        if (spec.fields.any { it.readMethods.isNotEmpty() })
+            relations.fieldAccessMethods(fields, "get")
+        if (spec.fields.any { it.writeMethods.isNotEmpty() })
+            relations.fieldAccessMethods(fields, "put")
     }
 
     /** Batch-fetch read/write relation data for every candidate field once (cache-backed). */
@@ -1029,25 +1191,30 @@ class QueryMatcherScope(
         return matchesPackages(name, packages, excludePackages)
     }
 
-    private fun unsupportedCandidate(kind: String): Nothing = throw UnsupportedOperationException(
-        "Query matcher " + kind + " candidate shape is unsupported: the spec has no fast-path " +
-            "predicate (method: name/modifiers/declaredClass className|usingStrings/returnType " +
-            "className/paramCount/paramTypes/usingStrings/usingNumbers/packages; class: className/" +
-            "class usingStrings/cheap nested members/superClass; field: name/declaredClass/type/" +
-            "packages). Add one, or extend the matcher helper with a canonical fast-path shape.",
-    )
+    private fun unsupportedCandidate(kind: String): Nothing =
+        throw UnsupportedOperationException(
+            "Query matcher " +
+                kind +
+                " candidate shape is unsupported: the spec has no fast-path " +
+                "predicate (method: name/modifiers/declaredClass className|usingStrings|" +
+                "usingNumbers|packages/returnType className/paramCount/paramTypes/usingStrings/" +
+                "usingNumbers/packages; class: className/packages/class usingStrings|usingNumbers/" +
+                "cheap nested members/superClass; field: name/declaredClass/type/packages). Add one, " +
+                "or extend the matcher helper with a canonical fast-path shape.",
+        )
 }
 
 // ---------------------------------------------------------------------------
 // Canonical SQL predicate helpers (delegating to the typed SQL DSL)
 // ---------------------------------------------------------------------------
 
-private fun NameMatch.toSqlMode(): SqlStringMatchMode = when (this) {
-    NameMatch.Equals -> SqlStringMatchMode.Equals
-    NameMatch.StartsWith -> SqlStringMatchMode.StartsWith
-    NameMatch.Contains -> SqlStringMatchMode.Contains
-    NameMatch.EndsWith -> SqlStringMatchMode.EndsWith
-}
+private fun NameMatch.toSqlMode(): SqlStringMatchMode =
+    when (this) {
+        NameMatch.Equals -> SqlStringMatchMode.Equals
+        NameMatch.StartsWith -> SqlStringMatchMode.StartsWith
+        NameMatch.Contains -> SqlStringMatchMode.Contains
+        NameMatch.EndsWith -> SqlStringMatchMode.EndsWith
+    }
 
 private fun addMethodStringPredicate(query: SqlMethodQuery, spec: StringSpec) {
     when (spec.match) {
@@ -1079,14 +1246,18 @@ private fun classSpecIsNameOnly(spec: ClassSpec): Boolean =
         spec.methodCount == null &&
         spec.interfaceCount == null &&
         spec.modifiers == null &&
-        spec.usingStrings.isEmpty()
+        spec.usingStrings.isEmpty() &&
+        spec.usingNumbers.isEmpty() &&
+        spec.packages.isEmpty()
 
 private fun matchesPackages(
     javaName: String,
     packages: List<String>,
     excludePackages: List<String>,
 ): Boolean {
-    if (packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith(it + ".") }) {
+    if (
+        packages.isNotEmpty() && packages.none { javaName == it || javaName.startsWith(it + ".") }
+    ) {
         return false
     }
     if (excludePackages.any { javaName == it || javaName.startsWith(it + ".") }) {
@@ -1104,7 +1275,8 @@ private fun pagedSql(sql: String, pageSize: Int, offset: Int): String {
     return base + " LIMIT " + pageSize + " OFFSET " + offset + ";"
 }
 
-private fun JsonObject.stringValue(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
+private fun JsonObject.stringValue(key: String): String? =
+    (this[key] as? JsonPrimitive)?.contentOrNull
 
 private fun JsonObject.intValue(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
 
@@ -1113,12 +1285,22 @@ private fun JsonObject.stringList(key: String): List<String> =
 
 private fun JsonObject.objectValue(key: String): JsonObject? = this[key] as? JsonObject
 
+/** searchPackages semantics on one raw document name field (dotted Java names). */
+private fun JsonObject.nameMatchesPackages(key: String, packages: List<String>): Boolean {
+    if (packages.isEmpty()) return true
+    val name = stringValue(key) ?: return false
+    return packages.any { name == it || name.startsWith(it + ".") }
+}
+
 /** Cheap necessary-condition prefilter on the raw method document (no model construction). */
 private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
+    if (!json.nameMatchesPackages("declared_class_name", spec.packages)) return false
     spec.descriptor?.let { if (json.stringValue("descriptor") != it) return false }
-    spec.name?.takeIf { it.match == NameMatch.Equals }?.let {
-        if (json.stringValue("name") != it.value) return false
-    }
+    spec.name
+        ?.takeIf { it.match == NameMatch.Equals }
+        ?.let {
+            if (json.stringValue("name") != it.value) return false
+        }
     spec.modifiers?.let { mask ->
         val modifiers = json.intValue("modifiers") ?: return@let
         if ((modifiers and mask) != mask) return false
@@ -1127,13 +1309,15 @@ private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
         val count = json.intValue("param_count") ?: return@let
         if (count !in range) return false
     }
-    spec.paramTypes?.takeIf { types -> types.all { it == null || it.match == NameMatch.Equals } }?.let { types ->
-        val names = json.stringList("param_type_names")
-        if (names.size != types.size) return false
-        types.forEachIndexed { index, type ->
-            if (type != null && !typeSpecMatchesJavaName(type, names[index])) return false
+    spec.paramTypes
+        ?.takeIf { types -> types.all { it == null || it.match == NameMatch.Equals } }
+        ?.let { types ->
+            val names = json.stringList("param_type_names")
+            if (names.size != types.size) return false
+            types.forEachIndexed { index, type ->
+                if (type != null && !typeSpecMatchesJavaName(type, names[index])) return false
+            }
         }
-    }
     spec.declaredClass?.takeIf(::classSpecIsNameOnly)?.className?.let {
         val name = json.stringValue("declared_class_name") ?: return@let
         if (!nameSpecMatchesJavaName(it, name)) return false
@@ -1162,6 +1346,7 @@ private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw class document. */
 private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
+    if (!json.nameMatchesPackages("name", spec.packages)) return false
     spec.className?.let {
         val name = json.stringValue("name") ?: return@let
         if (!nameSpecMatchesJavaName(it, name)) return false
@@ -1204,9 +1389,12 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw field document. */
 private fun fieldPrefilter(json: JsonObject, spec: FieldSpec): Boolean {
-    spec.name?.takeIf { it.match == NameMatch.Equals }?.let {
-        if (json.stringValue("name") != it.value) return false
-    }
+    if (!json.nameMatchesPackages("declared_class_name", spec.packages)) return false
+    spec.name
+        ?.takeIf { it.match == NameMatch.Equals }
+        ?.let {
+            if (json.stringValue("name") != it.value) return false
+        }
     spec.modifiers?.let { mask ->
         val modifiers = json.intValue("modifiers") ?: return@let
         if ((modifiers and mask) != mask) return false

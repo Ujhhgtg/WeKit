@@ -6,16 +6,18 @@ import org.junit.jupiter.api.Test
 
 class CloudDexReportTest {
     private val host = CloudDexHost("8.0.69", 3040, false)
-    private val firstItem = CurrentDexItem(
-        technicalId = "FirstFeature",
-        methodHash = "first-hash",
-        delegateKeys = setOf("FirstFeature:class", "FirstFeature:method"),
-    )
-    private val secondItem = CurrentDexItem(
-        technicalId = "SecondFeature",
-        methodHash = "second-hash",
-        delegateKeys = setOf("SecondFeature:method"),
-    )
+    private val firstItem =
+        CurrentDexItem(
+            technicalId = "FirstFeature",
+            methodHash = "first-hash",
+            delegateKeys = setOf("FirstFeature:class", "FirstFeature:method"),
+        )
+    private val secondItem =
+        CurrentDexItem(
+            technicalId = "SecondFeature",
+            methodHash = "second-hash",
+            delegateKeys = setOf("SecondFeature:method"),
+        )
 
     @Test
     fun canonicalAssetNameSeparatesDomesticAndGooglePlayBuilds() {
@@ -43,10 +45,11 @@ class CloudDexReportTest {
                 CloudDexCacheEntry(
                     technicalId = "FirstFeature",
                     methodHash = "first-hash",
-                    descriptors = mapOf(
-                        "FirstFeature:class" to "first.Class",
-                        "FirstFeature:method" to "Lfirst/Class;->method()V",
-                    ),
+                    descriptors =
+                        mapOf(
+                            "FirstFeature:class" to "first.Class",
+                            "FirstFeature:method" to "Lfirst/Class;->method()V",
+                        ),
                 ),
             ),
             selection.entries,
@@ -57,20 +60,32 @@ class CloudDexReportTest {
     @Test
     fun expectedFailureFeatureAndDelegateRemainEligible() {
         val secondFeature = featureBlock("SecondFeature", "second-hash", secondDelegates())
-        val report = validReport().replace(
-            secondFeature,
-            featureBlock(
-                "SecondFeature",
-                "second-hash",
-                "{\"key\": \"SecondFeature:method\", \"status\": \"EXPECTED_FAILURE\"}",
-            ).replace("\"outcome\": \"PASS\"", "\"outcome\": \"PASS_WITH_EXPECTED_FAILURES\""),
-        )
+        val report =
+            validReport()
+                .replace(
+                    secondFeature,
+                    featureBlock(
+                            "SecondFeature",
+                            "second-hash",
+                            "{\"key\": \"SecondFeature:method\", \"status\": \"EXPECTED_FAILURE\"}",
+                        )
+                        .replace(
+                            "\"outcome\": \"PASS\"",
+                            "\"outcome\": \"PASS_WITH_EXPECTED_FAILURES\"",
+                        ),
+                )
         check(report != validReport())
 
         val selection = CloudDexReport.select(report, host, listOf(secondItem))
 
         assertEquals(
-            listOf(CloudDexCacheEntry("SecondFeature", "second-hash", mapOf("SecondFeature:method" to null))),
+            listOf(
+                CloudDexCacheEntry(
+                    "SecondFeature",
+                    "second-hash",
+                    mapOf("SecondFeature:method" to null),
+                ),
+            ),
             selection.entries,
         )
         assertEquals(0, selection.rejectedCount)
@@ -78,7 +93,8 @@ class CloudDexReportTest {
 
     @Test
     fun staleItemIsRejectedWithoutDiscardingOtherMatches() {
-        val report = validReport().replace("\"methodHash\": \"first-hash\"", "\"methodHash\": \"stale\"")
+        val report =
+            validReport().replace("\"methodHash\": \"first-hash\"", "\"methodHash\": \"stale\"")
 
         val selection = CloudDexReport.select(report, host, listOf(firstItem, secondItem))
 
@@ -88,23 +104,31 @@ class CloudDexReportTest {
 
     @Test
     fun incompleteOrFailedDelegatesRejectOnlyTheirItem() {
-        val invalidReports = listOf(
-            validReport().replace(
-                firstDelegates(),
-                "{\"key\": \"FirstFeature:class\", \"status\": \"SUCCESS\", \"descriptor\": \"first.Class\"}",
-            ),
-            validReport().replace(firstMethodDelegate(), firstMethodDelegate() + ",\n" + firstMethodDelegate()),
-            validReport().replace("Lfirst/Class;->method()V", ""),
-            validReport().replace(
-                "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\"",
-                "\"key\": \"FirstFeature:method\", \"status\": \"UNEXPECTED_FAILURE\"",
-            ),
-            validReport().replace(
-                featureBlock("FirstFeature", "first-hash", firstDelegates()),
-                featureBlock("FirstFeature", "first-hash", firstDelegates())
-                    .replace("\"outcome\": \"PASS\"", "\"outcome\": \"FAIL\""),
-            ),
-        )
+        val invalidReports =
+            listOf(
+                validReport()
+                    .replace(
+                        firstDelegates(),
+                        "{\"key\": \"FirstFeature:class\", \"status\": \"SUCCESS\", \"descriptor\": \"first.Class\"}",
+                    ),
+                validReport()
+                    .replace(
+                        firstMethodDelegate(),
+                        firstMethodDelegate() + ",\n" + firstMethodDelegate(),
+                    ),
+                validReport().replace("Lfirst/Class;->method()V", ""),
+                validReport()
+                    .replace(
+                        "\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\"",
+                        "\"key\": \"FirstFeature:method\", \"status\": \"UNEXPECTED_FAILURE\"",
+                    ),
+                validReport()
+                    .replace(
+                        featureBlock("FirstFeature", "first-hash", firstDelegates()),
+                        featureBlock("FirstFeature", "first-hash", firstDelegates())
+                            .replace("\"outcome\": \"PASS\"", "\"outcome\": \"FAIL\""),
+                    ),
+            )
 
         invalidReports.forEach { report ->
             val selection = CloudDexReport.select(report, host, listOf(firstItem, secondItem))
@@ -126,17 +150,20 @@ class CloudDexReportTest {
 
     @Test
     fun extraReportDataDoesNotRejectCurrentItem() {
-        val report = validReport()
-            .replace("\"schemaVersion\": 3", "\"schemaVersion\": 3, \"future\": true")
-            .replace(
-                firstMethodDelegate(),
-                firstMethodDelegate() + ",\n            {\"key\": \"FirstFeature:removed\", \"status\": \"SUCCESS\", \"descriptor\": \"extra\"}",
-            )
-            .replace(
-                featureBlock("SecondFeature", "second-hash", secondDelegates()),
-                featureBlock("SecondFeature", "second-hash", secondDelegates()) +
-                    "," + featureBlock("RemovedFeature", "removed", ""),
-            )
+        val report =
+            validReport()
+                .replace("\"schemaVersion\": 3", "\"schemaVersion\": 3, \"future\": true")
+                .replace(
+                    firstMethodDelegate(),
+                    firstMethodDelegate() +
+                        ",\n            {\"key\": \"FirstFeature:removed\", \"status\": \"SUCCESS\", \"descriptor\": \"extra\"}",
+                )
+                .replace(
+                    featureBlock("SecondFeature", "second-hash", secondDelegates()),
+                    featureBlock("SecondFeature", "second-hash", secondDelegates()) +
+                        "," +
+                        featureBlock("RemovedFeature", "removed", ""),
+                )
 
         val selection = CloudDexReport.select(report, host, listOf(firstItem, secondItem))
 
@@ -146,11 +173,16 @@ class CloudDexReportTest {
 
     @Test
     fun classNameIsNotUsedForMatching() {
-        val report = validReport().replace(
-            featureBlock("FirstFeature", "first-hash", firstDelegates()),
-            featureBlock("FirstFeature", "first-hash", firstDelegates())
-                .replace("\"technicalId\": \"FirstFeature\"", "\"technicalId\": \"RenamedFeature\""),
-        )
+        val report =
+            validReport()
+                .replace(
+                    featureBlock("FirstFeature", "first-hash", firstDelegates()),
+                    featureBlock("FirstFeature", "first-hash", firstDelegates())
+                        .replace(
+                            "\"technicalId\": \"FirstFeature\"",
+                            "\"technicalId\": \"RenamedFeature\"",
+                        ),
+                )
 
         val selection = CloudDexReport.select(report, host, listOf(firstItem, secondItem))
 
@@ -160,13 +192,14 @@ class CloudDexReportTest {
 
     @Test
     fun incompatibleWholeReportIsRejected() {
-        val reports = listOf(
-            validReport().replace("\"schemaVersion\": 3", "\"schemaVersion\": 2"),
-            validReport().replaceFirst("\"outcome\": \"PASS\"", "\"outcome\": \"FAIL\""),
-            validReport().replace("\"versionName\": \"8.0.69\"", "\"versionName\": \"8.0.68\""),
-            validReport().replace("\"versionCode\": 3040", "\"versionCode\": 3020"),
-            validReport().replace("\"isGooglePlay\": false", "\"isGooglePlay\": true"),
-        )
+        val reports =
+            listOf(
+                validReport().replace("\"schemaVersion\": 3", "\"schemaVersion\": 2"),
+                validReport().replaceFirst("\"outcome\": \"PASS\"", "\"outcome\": \"FAIL\""),
+                validReport().replace("\"versionName\": \"8.0.69\"", "\"versionName\": \"8.0.68\""),
+                validReport().replace("\"versionCode\": 3040", "\"versionCode\": 3020"),
+                validReport().replace("\"isGooglePlay\": false", "\"isGooglePlay\": true"),
+            )
 
         reports.forEach { report ->
             assertThrows(IllegalArgumentException::class.java) {
@@ -175,7 +208,8 @@ class CloudDexReportTest {
         }
     }
 
-    private fun validReport(): String = """
+    private fun validReport(): String =
+        """
         {
           "schemaVersion": 3,
           "outcome": "PASS",
@@ -187,9 +221,11 @@ class CloudDexReportTest {
             ${featureBlock("SecondFeature", "second-hash", secondDelegates())}
           ]
         }
-    """.trimIndent()
+    """
+            .trimIndent()
 
-    private fun featureBlock(name: String, hash: String, delegates: String): String = """
+    private fun featureBlock(name: String, hash: String, delegates: String): String =
+        """
         {
           "className": "dev.ujhhgtg.wekit.$name",
           "technicalId": "$name",
@@ -199,12 +235,15 @@ class CloudDexReportTest {
           "elapsedMillis": 1,
           "delegates": [$delegates]
         }
-    """.trimIndent()
+    """
+            .trimIndent()
 
-    private fun firstDelegates() = """
+    private fun firstDelegates() =
+        """
         {"key": "FirstFeature:class", "status": "SUCCESS", "descriptor": "first.Class"},
         ${firstMethodDelegate()}
-    """.trimIndent()
+    """
+            .trimIndent()
 
     private fun firstMethodDelegate() =
         "{\"key\": \"FirstFeature:method\", \"status\": \"SUCCESS\", \"descriptor\": \"Lfirst/Class;->method()V\"}"

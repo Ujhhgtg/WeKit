@@ -43,8 +43,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -61,8 +61,8 @@ import top.yukonga.miuix.kmp.nav.gesture.WindowNavigationEventBridge
 val SETTINGS_CONTENT_BOTTOM_INSET = 32.dp
 
 /**
- * Shared settings scaffold: collapsing blurred
- * [ExpressiveCollapsingTopAppBar] with an optional back button + a scroll-through-blur [LazyColumn], mirroring
+ * Shared settings scaffold: collapsing blurred [ExpressiveCollapsingTopAppBar] with an optional
+ * back button + a scroll-through-blur [LazyColumn], mirroring
  * [dev.ujhhgtg.wekit.activity.settings.M3ListScaffold] with back and action callbacks.
  *
  * A [pinnedHeader] stays below the app bar while the list scrolls under both; they then share one
@@ -81,12 +81,11 @@ fun SettingsScaffold(
     snackbarHost: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val barBackdrop = rememberMaterial3BlurBackdrop()
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         floatingActionButton = floatingActionButton,
         snackbarHost = snackbarHost,
@@ -102,19 +101,20 @@ fun SettingsScaffold(
                     },
                     actions = actions,
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = barBackdrop.m3AppBarColor(),
-                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = barBackdrop.m3AppBarColor(),
+                            scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                        ),
                 )
             }
             if (pinnedHeader == null) {
                 appBar(Modifier.m3AppBarBlur(barBackdrop))
             } else {
                 Column(
-                    modifier = Modifier
-                        .m3AppBarBlur(barBackdrop, progressive = false)
-                        .background(barBackdrop.m3AppBarColor()),
+                    modifier =
+                        Modifier.m3AppBarBlur(barBackdrop, progressive = false)
+                            .background(barBackdrop.m3AppBarColor()),
                 ) {
                     appBar(Modifier)
                     pinnedHeader()
@@ -124,17 +124,13 @@ fun SettingsScaffold(
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .m3BackdropLayer(barBackdrop),
+                modifier = Modifier.fillMaxSize().m3BackdropLayer(barBackdrop),
                 state = listState,
                 contentPadding = innerPadding,
                 content = content,
             )
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
                 content = overlay,
             )
         }
@@ -142,8 +138,8 @@ fun SettingsScaffold(
 }
 
 /**
- * Full-viewport empty state for a settings list: centered title, optional message,
- * and optional filled action button.
+ * Full-viewport empty state for a settings list: centered title, optional message, and optional
+ * filled action button.
  */
 @Composable
 fun LazyItemScope.SettingsEmptyState(
@@ -208,11 +204,12 @@ fun SettingsConfirmDialog(
                 } else {
                     Text(
                         text = confirmLabel,
-                        color = if (destructive) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            LocalContentColor.current
-                        },
+                        color =
+                            if (destructive) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                LocalContentColor.current
+                            },
                     )
                 }
             }
@@ -227,8 +224,8 @@ fun SettingsConfirmDialog(
  * Back guard shared by the detail screens' creation mode: while [guardActive] (a savable but
  * unsaved draft), every back attempt — scaffold back button or system gesture — opens a
  * confirm-discard dialog instead of leaving; otherwise back passes straight through. Returns the
- * guarded callback to hand to [SettingsScaffold]'s onBack. Dialog copy defaults to the
- * creation wording; override the labels for other guard kinds (e.g. discarding edits).
+ * guarded callback to hand to [SettingsScaffold]'s onBack. Dialog copy defaults to the creation
+ * wording; override the labels for other guard kinds (e.g. discarding edits).
  */
 @Composable
 fun rememberCreationBackGuard(
@@ -256,7 +253,9 @@ fun rememberCreationBackGuard(
     return { if (guardActive) showDiscard = true else onBack() }
 }
 
-/** Compact list action button with a leading icon that swaps to a progress spinner while loading. */
+/**
+ * Compact list action button with a leading icon that swaps to a progress spinner while loading.
+ */
 @Composable
 fun SettingsListActionButton(
     label: String,
@@ -295,10 +294,11 @@ fun SettingsActionRow(
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = SETTINGS_CONTENT_BOTTOM_INSET),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = SETTINGS_CONTENT_BOTTOM_INSET),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
@@ -314,10 +314,11 @@ fun SettingsEditorSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!show) return
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden,
-        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-    )
+    val sheetState =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
     val scope = rememberCoroutineScope()
 
     fun finish(action: () -> Unit) {
@@ -339,17 +340,14 @@ fun SettingsEditorSheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
             )
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp),
+                modifier =
+                    Modifier.weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp),
                 content = content,
             )
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(top = 8.dp),
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(top = 8.dp),
             ) {
                 bottomBar({ finish(onDismiss) }, ::finish)
             }

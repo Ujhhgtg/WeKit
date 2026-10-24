@@ -33,11 +33,12 @@ fun ByteArrayInputStream.readBytes(len: Int): ByteArray {
             }
 
             // Trim buffer if we read less than allocated chunk size
-            val currentBuf = if (nread < buf.size) {
-                buf.copyOfRange(0, nread)
-            } else {
-                buf
-            }
+            val currentBuf =
+                if (nread < buf.size) {
+                    buf.copyOfRange(0, nread)
+                } else {
+                    buf
+                }
 
             total += nread
             if (result == null) {

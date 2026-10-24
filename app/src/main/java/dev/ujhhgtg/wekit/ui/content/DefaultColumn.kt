@@ -10,11 +10,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun DefaultColumn(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        content = content
+        content = content,
     )
 }

@@ -14,10 +14,11 @@ import org.junit.jupiter.api.Test
 class QueryMatcherDelegatesTest {
     private val metadata = MatcherFixtures.metadata
 
-    private fun scope(): QueryMatcherScope = QueryMatcherScope(
-        metadata,
-        RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() },
-    )
+    private fun scope(): QueryMatcherScope =
+        QueryMatcherScope(
+            metadata,
+            RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() },
+        )
 
     @Test
     fun nullResultIsExpectedFailureOnlyWhenAllowed() {
@@ -29,28 +30,30 @@ class QueryMatcherDelegatesTest {
 
     @Test
     fun descriptorResultIsReturned() {
-        val spec = QueryMatcherSpec(allowFailure = false) {
-            uniqueMethod(
-                MethodSpec(
-                    name = NameSpec("helper"),
-                    declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
-                ),
-            )
-        }
+        val spec =
+            QueryMatcherSpec(allowFailure = false) {
+                uniqueMethod(
+                    MethodSpec(
+                        name = NameSpec("helper"),
+                        declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
+                    ),
+                )
+            }
         assertEquals(MatcherFixtures.ALPHA_HELPER, spec.resolve(scope()))
     }
 
     @Test
     fun blockRunsLazilyAtResolutionTime() {
         var wantedName = "missing"
-        val spec = QueryMatcherSpec(allowFailure = true) {
-            uniqueMethod(
-                MethodSpec(
-                    name = NameSpec(wantedName),
-                    declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
-                ),
-            )
-        }
+        val spec =
+            QueryMatcherSpec(allowFailure = true) {
+                uniqueMethod(
+                    MethodSpec(
+                        name = NameSpec(wantedName),
+                        declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
+                    ),
+                )
+            }
         assertNull(spec.resolve(scope()))
         // The block re-reads captured state on every resolution attempt (lazy prelude semantics).
         wantedName = "helper"
@@ -59,9 +62,10 @@ class QueryMatcherDelegatesTest {
 
     @Test
     fun ambiguousMatchIsAnError() {
-        val spec = QueryMatcherSpec(allowFailure = true) {
-            uniqueMethod(MethodSpec(name = NameSpec("run")))
-        }
+        val spec =
+            QueryMatcherSpec(allowFailure = true) {
+                uniqueMethod(MethodSpec(name = NameSpec("run")))
+            }
         assertThrows(IllegalStateException::class.java) { spec.resolve(scope()) }
     }
 

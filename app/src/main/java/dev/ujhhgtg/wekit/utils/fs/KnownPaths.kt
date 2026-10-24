@@ -11,8 +11,8 @@ object KnownPaths {
     /**
      * Root for all WeKit-owned files that need a real filesystem path.
      *
-     * Keep the directory names below this root stable: script loaders and extension runtimes
-     * use their relative layout as part of their contract.
+     * Keep the directory names below this root stable: script loaders and extension runtimes use
+     * their relative layout as part of their contract.
      */
     val moduleRoot: Path by lazy {
         (HostInfo.application.filesDir.asPath / "wekit").createDirsSafe()
@@ -35,7 +35,8 @@ object KnownPaths {
     }
 
     val downloads by lazy {
-        (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toPath() / BuildConfig.TAG)
+        (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toPath() /
+                BuildConfig.TAG)
             .createDirsSafe()
     }
 }

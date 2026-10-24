@@ -23,18 +23,24 @@ inline fun Path.createDirsSafe(): Path {
     return this
 }
 
-inline val String.asPath get() = Path(this)
+inline val String.asPath
+    get() = Path(this)
 
-inline val File.asPath: Path get() = toPath()
+inline val File.asPath: Path
+    get() = toPath()
 
-inline val Path.asAndroidUri: Uri get() = Uri.fromFile(toFile())
+inline val Path.asAndroidUri: Uri
+    get() = Uri.fromFile(toFile())
 
-/** Replaces [target] atomically when supported, falling back only when atomic moves are unavailable. */
-fun Path.moveReplacing(target: Path): Path = try {
-    moveTo(target, REPLACE_EXISTING, ATOMIC_MOVE)
-} catch (_: AtomicMoveNotSupportedException) {
-    moveTo(target, REPLACE_EXISTING)
-}
+/**
+ * Replaces [target] atomically when supported, falling back only when atomic moves are unavailable.
+ */
+fun Path.moveReplacing(target: Path): Path =
+    try {
+        moveTo(target, REPLACE_EXISTING, ATOMIC_MOVE)
+    } catch (_: AtomicMoveNotSupportedException) {
+        moveTo(target, REPLACE_EXISTING)
+    }
 
 /** Copies [input] into this path and closes the output stream opened for the path. */
 fun Path.copyFrom(input: InputStream, vararg options: OpenOption): Long =

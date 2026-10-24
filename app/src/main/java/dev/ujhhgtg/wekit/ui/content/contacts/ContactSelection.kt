@@ -41,12 +41,15 @@ enum class ContactSortMode(val icon: ImageVector) {
     LAST_MESSAGE_TIME(MaterialSymbols.Outlined.Schedule);
 
     @StringRes
-    fun displayNameRes(reversed: Boolean): Int = when (this) {
-        ALPHABETICAL -> if (reversed) R.string.contact_sort_alphabetical_descending
-        else R.string.contact_sort_alphabetical_ascending
-        LAST_MESSAGE_TIME -> if (reversed) R.string.contact_sort_oldest_first
-        else R.string.contact_sort_newest_first
-    }
+    fun displayNameRes(reversed: Boolean): Int =
+        when (this) {
+            ALPHABETICAL ->
+                if (reversed) R.string.contact_sort_alphabetical_descending
+                else R.string.contact_sort_alphabetical_ascending
+            LAST_MESSAGE_TIME ->
+                if (reversed) R.string.contact_sort_oldest_first
+                else R.string.contact_sort_newest_first
+        }
 }
 
 /** A label, aggregation folder or conversation group, reduced to the wxIds it contains. */
@@ -65,10 +68,14 @@ class ContactFilterData(
 ) {
     /** The single friend/group/official-account/other rule every filter and count uses. */
     fun typeOf(contact: IWeContact): ContactTypeFilter {
-        val isGroup = contact is WeGroup || contact.wxId.endsWith("@chatroom") || contact.wxId in groupWxIds
-        val isOfficial = contact is WeOfficialAccount || contact.wxId.startsWith("gh_") ||
+        val isGroup =
+            contact is WeGroup || contact.wxId.endsWith("@chatroom") || contact.wxId in groupWxIds
+        val isOfficial =
+            contact is WeOfficialAccount ||
+                contact.wxId.startsWith("gh_") ||
                 contact.wxId in officialAccountWxIds
-        val isFriend = contact.wxId in friendWxIds ||
+        val isFriend =
+            contact.wxId in friendWxIds ||
                 contact is WeContact && !isGroup && !isOfficial && contact.type and 1 != 0
         return when {
             isGroup -> ContactTypeFilter.GROUPS
@@ -112,7 +119,8 @@ sealed interface ContactSectionKey {
 
     /** An alphabetical section: `A`–`Z` or `#`. */
     data class Initial(val letter: String) : ContactSectionKey {
-        override val itemKey get() = "header_$letter"
+        override val itemKey
+            get() = "header_$letter"
     }
 }
 
@@ -122,8 +130,8 @@ data class ContactSection(val key: ContactSectionKey, val contacts: List<IWeCont
 fun alphabetIndexKeys(reversed: Boolean): List<ContactSectionKey> {
     val letters = ('A'..'Z').map { ContactSectionKey.Initial(it.toString()) }
     return listOf(ContactSectionKey.Selected) +
-            (if (reversed) letters.reversed() else letters) +
-            ContactSectionKey.Initial("#")
+        (if (reversed) letters.reversed() else letters) +
+        ContactSectionKey.Initial("#")
 }
 
 /**
@@ -140,33 +148,43 @@ fun buildContactSections(
 ): List<ContactSection> {
     if (sortMode == ContactSortMode.LAST_MESSAGE_TIME) {
         val times = lastMessageTimes.orEmpty()
-        val sorted = if (reversed) {
-            contacts.sortedBy { times[it.wxId] ?: Long.MIN_VALUE }
-        } else {
-            contacts.sortedByDescending { times[it.wxId] ?: Long.MIN_VALUE }
-        }
+        val sorted =
+            if (reversed) {
+                contacts.sortedBy { times[it.wxId] ?: Long.MIN_VALUE }
+            } else {
+                contacts.sortedByDescending { times[it.wxId] ?: Long.MIN_VALUE }
+            }
         val (selected, rest) = sorted.partition(isSelected)
         return buildList {
             if (selected.isNotEmpty()) add(ContactSection(ContactSectionKey.Selected, selected))
             if (rest.isNotEmpty()) {
-                add(ContactSection(if (reversed) ContactSectionKey.Oldest else ContactSectionKey.Newest, rest))
+                add(
+                    ContactSection(
+                        if (reversed) ContactSectionKey.Oldest else ContactSectionKey.Newest,
+                        rest,
+                    ),
+                )
             }
         }
     }
 
     val (selected, rest) = contacts.partition(isSelected)
-    val letters = rest.groupBy { initialOf(it.displayName) }
-        .toSortedMap { a, b ->
-            when {
-                a == b -> 0
-                a == "#" -> 1
-                b == "#" -> -1
-                else -> if (reversed) b.compareTo(a) else a.compareTo(b)
+    val letters =
+        rest
+            .groupBy { initialOf(it.displayName) }
+            .toSortedMap { a, b ->
+                when {
+                    a == b -> 0
+                    a == "#" -> 1
+                    b == "#" -> -1
+                    else -> if (reversed) b.compareTo(a) else a.compareTo(b)
+                }
             }
-        }
     return buildList {
         if (selected.isNotEmpty()) add(ContactSection(ContactSectionKey.Selected, selected))
-        letters.forEach { (letter, members) -> add(ContactSection(ContactSectionKey.Initial(letter), members)) }
+        letters.forEach { (letter, members) ->
+            add(ContactSection(ContactSectionKey.Initial(letter), members))
+        }
     }
 }
 
@@ -191,15 +209,22 @@ fun indexBarTarget(
     sections: List<ContactSection>,
     reversed: Boolean,
 ): Int? {
-    headerIndices[key]?.let { return it }
+    headerIndices[key]?.let {
+        return it
+    }
     if (key !is ContactSectionKey.Initial) return null
     val letter = key.letter.first()
-    val letterSections = sections.map { it.key }.filterIsInstance<ContactSectionKey.Initial>().filter { it.letter != "#" }
-    val target = if (reversed) {
-        letterSections.firstOrNull { it.letter.first() <= letter }
-    } else {
-        letterSections.firstOrNull { it.letter.first() >= letter }
-    } ?: sections.lastOrNull()?.key
+    val letterSections =
+        sections
+            .map { it.key }
+            .filterIsInstance<ContactSectionKey.Initial>()
+            .filter { it.letter != "#" }
+    val target =
+        if (reversed) {
+            letterSections.firstOrNull { it.letter.first() <= letter }
+        } else {
+            letterSections.firstOrNull { it.letter.first() >= letter }
+        } ?: sections.lastOrNull()?.key
     return target?.let(headerIndices::get)
 }
 
@@ -212,14 +237,15 @@ private class SortableContact(
 /**
  * 按显示名排序 (与 `Collator.compare` 的顺序完全一致)。
  *
- * ICU 的 [Collator] 每次 compare 都要重新分析两个字符串, 排序过程里同一个名字会被反复分析;
- * 这里先给每个不同的显示名各算一份 [CollationKey] (每个名字只分析一次), 排序时只比较键。
- * `displayName` 是 getter (WeContact 每次都会重新拼字符串), 所以也只取一次。
+ * ICU 的 [Collator] 每次 compare 都要重新分析两个字符串, 排序过程里同一个名字会被反复分析; 这里先给每个不同的显示名各算一份 [CollationKey]
+ * (每个名字只分析一次), 排序时只比较键。 `displayName` 是 getter (WeContact 每次都会重新拼字符串), 所以也只取一次。
  *
- * 调用方只在联系人列表变化时调用一次, 搜索时改用 [filterSortedContacts] 在已排好序的
- * 列表上做纯字符串过滤, 避免每敲一个字就在主线程上重跑一遍 ICU 排序。
+ * 调用方只在联系人列表变化时调用一次, 搜索时改用 [filterSortedContacts] 在已排好序的 列表上做纯字符串过滤, 避免每敲一个字就在主线程上重跑一遍 ICU 排序。
  */
-fun sortContactsByDisplayName(contacts: List<IWeContact>, locale: Locale = Locale.CHINA): List<IWeContact> {
+fun sortContactsByDisplayName(
+    contacts: List<IWeContact>,
+    locale: Locale = Locale.CHINA,
+): List<IWeContact> {
     if (contacts.size < 2) return contacts
     val collator = Collator.getInstance(locale)
     val keyCache = HashMap<String, CollationKey>()
@@ -241,6 +267,6 @@ fun filterSortedContacts(sorted: List<IWeContact>, query: String): List<IWeConta
     if (query.isEmpty()) return sorted
     return sorted.filter {
         it.displayName.contains(query, ignoreCase = true) ||
-                it.wxId.contains(query, ignoreCase = true)
+            it.wxId.contains(query, ignoreCase = true)
     }
 }

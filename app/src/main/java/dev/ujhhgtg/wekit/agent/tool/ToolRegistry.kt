@@ -9,9 +9,15 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 /** How tools are advertised to the model for a request (§3.3). */
-enum class ToolLoadingMode { STATIC, DYNAMIC }
+enum class ToolLoadingMode {
+    STATIC,
+    DYNAMIC,
+}
 
-enum class ToolCallOrigin { DIRECT, ENVIRONMENT_BRIDGE }
+enum class ToolCallOrigin {
+    DIRECT,
+    ENVIRONMENT_BRIDGE,
+}
 
 /**
  * Per-turn gating of the conditionally-advertised builtin tools (§3.4).
@@ -32,8 +38,7 @@ data class ToolVisibility(
          * Visibility outside a resolved turn (settings previews, defaults). Vision is off — nothing
          * has declared a vision model.
          */
-        fun fromGlobals(): ToolVisibility =
-            ToolVisibility(visionTools = false)
+        fun fromGlobals(): ToolVisibility = ToolVisibility(visionTools = false)
     }
 }
 
@@ -74,11 +79,13 @@ class ToolRegistry(
         if (provider.kind == ProviderKind.BUILTIN) bare else "mcp__${provider.id}__$bare"
 
     /**
-     * Every available tool across providers. [visibility] gates the conditionally-advertised builtin
-     * tools for this turn (see [ToolVisibility]); providers themselves list everything they own, so
-     * gating lives in exactly one place.
+     * Every available tool across providers. [visibility] gates the conditionally-advertised
+     * builtin tools for this turn (see [ToolVisibility]); providers themselves list everything they
+     * own, so gating lives in exactly one place.
      */
-    fun resolveVisibleTools(visibility: ToolVisibility = ToolVisibility.fromGlobals()): List<WireTool> = buildList {
+    fun resolveVisibleTools(
+        visibility: ToolVisibility = ToolVisibility.fromGlobals(),
+    ): List<WireTool> = buildList {
         for (provider in providers) {
             if (!provider.isAvailable) continue
             for (tool in provider.listTools()) {
@@ -91,20 +98,25 @@ class ToolRegistry(
                         sideEffect = tool.sideEffect,
                         provider = provider,
                         bareName = tool.name,
-                    )
+                    ),
                 )
             }
         }
     }
 
     /**
-     * Whether a builtin tool is advertised at all under [visibility]. Non-builtin (MCP) providers are
-     * never gated this way. Kept name-based so gating never touches anything else — the tools are
-     * simply not offered to the model this turn.
+     * Whether a builtin tool is advertised at all under [visibility]. Non-builtin (MCP) providers
+     * are never gated this way. Kept name-based so gating never touches anything else — the tools
+     * are simply not offered to the model this turn.
      */
-    private fun isAdvertised(provider: ToolProvider, bareName: String, visibility: ToolVisibility): Boolean {
+    private fun isAdvertised(
+        provider: ToolProvider,
+        bareName: String,
+        visibility: ToolVisibility,
+    ): Boolean {
         if (provider.kind != ProviderKind.BUILTIN) return true
-        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES) return false
+        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES)
+            return false
         return true
     }
 
@@ -120,12 +132,14 @@ class ToolRegistry(
     ): List<WireTool> =
         when (mode) {
             ToolLoadingMode.STATIC -> resolveVisibleTools(visibility)
-            ToolLoadingMode.DYNAMIC -> buildList {
-                add(discoverToolsMeta())
-                resolveVisibleTools(visibility).filterTo(this) {
-                    it.exposedName in discoveredThisTurn || it.exposedName in DYNAMIC_BASELINE_NAMES
+            ToolLoadingMode.DYNAMIC ->
+                buildList {
+                    add(discoverToolsMeta())
+                    resolveVisibleTools(visibility).filterTo(this) {
+                        it.exposedName in discoveredThisTurn ||
+                            it.exposedName in DYNAMIC_BASELINE_NAMES
+                    }
                 }
-            }
         }
 
     /** Look up a resolved tool by the name the model called. */
@@ -143,18 +157,21 @@ class ToolRegistry(
 
     // -------- discover_tools meta-tool (§3.3) --------
 
-    fun discoverToolsMeta(): WireTool = WireTool(
-        exposedName = DISCOVER_TOOLS_NAME,
-        description = "Discover available tools. action=list_providers lists tool providers; " +
-                "action=list_tools returns tools (optionally filtered by provider) with full JSON schemas; " +
-                "action=search_tools fuzzy-matches name/description by keyword. Returned tools become callable.",
-        jsonSchema = DISCOVER_TOOLS_SCHEMA,
-        sideEffect = false,
-        // Meta-tool: handled by the engine (ToolDiscovery), never executed via this provider — the
-        // field is only for display, so any built-in provider works.
-        provider = providers.first { it.kind == ProviderKind.BUILTIN },
-        bareName = DISCOVER_TOOLS_NAME,
-    )
+    fun discoverToolsMeta(): WireTool =
+        WireTool(
+            exposedName = DISCOVER_TOOLS_NAME,
+            description =
+                "Discover available tools. action=list_providers lists tool providers; " +
+                    "action=list_tools returns tools (optionally filtered by provider) with full JSON schemas; " +
+                    "action=search_tools fuzzy-matches name/description by keyword. Returned tools become callable.",
+            jsonSchema = DISCOVER_TOOLS_SCHEMA,
+            sideEffect = false,
+            // Meta-tool: handled by the engine (ToolDiscovery), never executed via this provider —
+            // the
+            // field is only for display, so any built-in provider works.
+            provider = providers.first { it.kind == ProviderKind.BUILTIN },
+            bareName = DISCOVER_TOOLS_NAME,
+        )
 
     companion object {
         const val DISCOVER_TOOLS_NAME = "discover_tools"
@@ -177,7 +194,9 @@ class ToolRegistry(
                 if (providerKind == ProviderKind.MCP) add(exposedName.substringAfterLast("__"))
             }
             return names.none { name ->
-                name == "edit" || name == "exec" || name == DISCOVER_TOOLS_NAME ||
+                name == "edit" ||
+                    name == "exec" ||
+                    name == DISCOVER_TOOLS_NAME ||
                     name.startsWith("terminal_")
             }
         }

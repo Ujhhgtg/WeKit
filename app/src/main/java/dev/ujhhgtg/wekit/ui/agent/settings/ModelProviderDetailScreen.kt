@@ -42,29 +42,29 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Cloud_download
 import com.composables.icons.materialsymbols.outlined.Save
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
-import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
+import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 /**
  * Edits one provider (name/url/key/type) with instant-apply rows and manages its models. A blank
@@ -88,11 +88,19 @@ fun ModelProviderDetailScreen(
     var savedId by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(providerId, savedId) {
-        provider = when {
-            creating && savedId.isNotBlank() -> WeAgentRepository.getModelProvider(savedId)
-            creating -> ModelProviderEntity("", ModelProviderType.OPENAI_CHAT_COMPLETION, "", "https://api.openai.com/v1", "")
-            else -> WeAgentRepository.getModelProvider(providerId)
-        }
+        provider =
+            when {
+                creating && savedId.isNotBlank() -> WeAgentRepository.getModelProvider(savedId)
+                creating ->
+                    ModelProviderEntity(
+                        "",
+                        ModelProviderType.OPENAI_CHAT_COMPLETION,
+                        "",
+                        "https://api.openai.com/v1",
+                        "",
+                    )
+                else -> WeAgentRepository.getModelProvider(providerId)
+            }
     }
 
     val p = provider
@@ -104,16 +112,17 @@ fun ModelProviderDetailScreen(
     // The id backing this screen: the route's, or the one assigned on save during creation (the
     // route entry keeps its blank id, so the models list must key off this instead).
     val activeId = if (creating) savedId else providerId
-    val models by remember(activeId) { WeAgentRepository.observeModelsForProvider(activeId) }
-        .collectAsState(initial = emptyList())
+    val models by
+        remember(activeId) { WeAgentRepository.observeModelsForProvider(activeId) }
+            .collectAsState(initial = emptyList())
     // Auto-import state: fetched ids to pick from, plus loading.
     var importCandidates by remember { mutableStateOf<List<String>?>(null) }
     var importing by remember { mutableStateOf(false) }
 
     /**
-     * Every confirmed row edit of an existing provider is persisted immediately — there is no
-     * draft state and no save button in edit mode; during creation, edits only update the draft.
-     * The API key is stored exactly as typed (no encryption anywhere in the pipeline).
+     * Every confirmed row edit of an existing provider is persisted immediately — there is no draft
+     * state and no save button in edit mode; during creation, edits only update the draft. The API
+     * key is stored exactly as typed (no encryption anywhere in the pipeline).
      */
     fun commitProvider(transform: (ModelProviderEntity) -> ModelProviderEntity) {
         val current = provider ?: return
@@ -135,8 +144,9 @@ fun ModelProviderDetailScreen(
     val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
 
     SettingsScaffold(
-        title = if (!editing) stringResource(R.string.agent_add_model_provider)
-        else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
+        title =
+            if (!editing) stringResource(R.string.agent_add_model_provider)
+            else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
         onBack = guardedBack,
     ) {
         if (p == null) {
@@ -212,10 +222,11 @@ fun ModelProviderDetailScreen(
                         onClick = {
                             val draft = p
                             scope.launch {
-                                val saved = draft.copy(
-                                    id = UUID.randomUUID().toString(),
-                                    name = draft.name.ifBlank { fallbackName },
-                                )
+                                val saved =
+                                    draft.copy(
+                                        id = UUID.randomUUID().toString(),
+                                        name = draft.name.ifBlank { fallbackName },
+                                    )
                                 WeAgentRepository.upsertModelProvider(saved)
                                 // Stay in place: assigning the id switches the screen to edit mode
                                 // and reveals the models section.
@@ -231,8 +242,13 @@ fun ModelProviderDetailScreen(
                 SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteProviderConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.action_delete)) }
+                        colors =
+                            ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
             }
 
@@ -252,13 +268,22 @@ fun ModelProviderDetailScreen(
                         BaseWidget(
                             iconPlaceholder = false,
                             title = m.displayName.ifBlank { m.modelIdRemote },
-                            description = "id=${m.modelIdRemote}" +
+                            description =
+                                "id=${m.modelIdRemote}" +
                                     (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
                                     (m.contextWindow?.let { " · ctx=$it" } ?: "") +
                                     (m.maxTokens?.let { " · max=$it" } ?: "") +
-                                    if (m.supportsVision) " · ${stringResource(R.string.agent_model_supports_vision_badge)}" else "",
+                                    if (m.supportsVision)
+                                        " · ${stringResource(R.string.agent_model_supports_vision_badge)}"
+                                    else "",
                             onClick = { onOpenModel(activeId, m.id) },
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingContent = {
+                                Icon(
+                                    MaterialSymbols.Outlined.Chevron_right,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
                         )
                     }
                 }
@@ -283,14 +308,15 @@ fun ModelProviderDetailScreen(
                                     val result = ModelProviderManager.listRemoteModels(p)
                                     importing = false
                                     result.fold(
-                                        // distinct(): duplicate ids would produce duplicate LazyColumn keys in the import picker
+                                        // distinct(): duplicate ids would produce duplicate
+                                        // LazyColumn keys in the import picker
                                         onSuccess = { importCandidates = it.distinct() },
                                         onFailure = {
                                             showToast(
                                                 localizedContext.getString(
                                                     R.string.agent_fetch_models_failed,
                                                     it.message,
-                                                )
+                                                ),
                                             )
                                         },
                                     )
@@ -318,7 +344,9 @@ fun ModelProviderDetailScreen(
                         WeAgentRepository.deleteModelProvider(p.id)
                         onBack()
                     } catch (e: Exception) {
-                        showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
+                        showToast(
+                            localizedContext.getString(R.string.agent_delete_failed, e.message),
+                        )
                     }
                 }
             },
@@ -336,8 +364,10 @@ fun ModelProviderDetailScreen(
                 val (added, overwritten) = WeAgentRepository.importModels(activeId, picked)
                 showToast(
                     localizedContext.getString(
-                        R.string.agent_models_imported_result, added, overwritten
-                    )
+                        R.string.agent_models_imported_result,
+                        added,
+                        overwritten,
+                    ),
                 )
             }
             importCandidates = null
@@ -347,8 +377,8 @@ fun ModelProviderDetailScreen(
 
 /**
  * Per-model settings. Editing is instant-apply; a blank [modelId] starts a new model kept as an
- * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and
- * returns to the provider page, and leaving with a savable draft asks for confirmation first.
+ * in-memory draft: other rows stay disabled until a model id is entered, 保存 persists it and returns
+ * to the provider page, and leaving with a savable draft asks for confirmation first.
  */
 @Composable
 fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
@@ -360,14 +390,17 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(modelId) {
-        model = if (creating) {
-            ModelEntity("", providerId, "", null, null, "", null)
-        } else {
-            WeAgentRepository.getModel(modelId)
-        }
+        model =
+            if (creating) {
+                ModelEntity("", providerId, "", null, null, "", null)
+            } else {
+                WeAgentRepository.getModel(modelId)
+            }
     }
 
-    /** Persists one field immediately in edit mode; during creation the edit only updates the draft. */
+    /**
+     * Persists one field immediately in edit mode; during creation the edit only updates the draft.
+     */
     fun commitModel(transform: (ModelEntity) -> ModelEntity) {
         val current = model ?: return
         if (creating) {
@@ -375,10 +408,12 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
             return
         }
         scope.launch {
-            val updated = transform(current).copy(
-                id = current.id.ifEmpty { UUID.randomUUID().toString() },
-                providerId = providerId,
-            )
+            val updated =
+                transform(current)
+                    .copy(
+                        id = current.id.ifEmpty { UUID.randomUUID().toString() },
+                        providerId = providerId,
+                    )
             WeAgentRepository.upsertModel(updated)
             model = updated
         }
@@ -390,7 +425,8 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     val guardedBack = rememberCreationBackGuard(creating && ready, onBack)
 
     SettingsScaffold(
-        title = stringResource(if (creating) R.string.agent_add_model else R.string.agent_edit_model),
+        title =
+            stringResource(if (creating) R.string.agent_add_model else R.string.agent_edit_model),
         onBack = guardedBack,
     ) {
         if (m == null) {
@@ -414,7 +450,10 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         onValueChange = { value ->
                             commitModel { raw ->
                                 val next = raw.copy(modelIdRemote = value)
-                                if (next.displayName.isBlank() || next.displayName == next.modelIdRemote) {
+                                if (
+                                    next.displayName.isBlank() ||
+                                        next.displayName == next.modelIdRemote
+                                ) {
                                     next.copy(displayName = value)
                                 } else {
                                     next
@@ -456,7 +495,12 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         title = stringResource(R.string.agent_context_window_label),
                         value = m.contextWindow?.toString().orEmpty(),
                         onValueChange = { value ->
-                            commitModel { it.copy(contextWindow = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                            commitModel {
+                                it.copy(
+                                    contextWindow =
+                                        value.filter(Char::isDigit).take(9).toIntOrNull(),
+                                )
+                            }
                         },
                         dialogTitle = stringResource(R.string.agent_context_window_label),
                         confirmLabel = stringResource(R.string.dialog_confirm),
@@ -471,7 +515,11 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         title = stringResource(R.string.agent_max_output_tokens_label),
                         value = m.maxTokens?.toString().orEmpty(),
                         onValueChange = { value ->
-                            commitModel { it.copy(maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull()) }
+                            commitModel {
+                                it.copy(
+                                    maxTokens = value.filter(Char::isDigit).take(9).toIntOrNull(),
+                                )
+                            }
                         },
                         dialogTitle = stringResource(R.string.agent_max_output_tokens_label),
                         confirmLabel = stringResource(R.string.dialog_confirm),
@@ -485,7 +533,9 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                     TextFieldDialogWidget(
                         title = stringResource(R.string.agent_custom_json_label),
                         value = m.customJsonOverride.orEmpty(),
-                        onValueChange = { value -> commitModel { it.copy(customJsonOverride = value.ifBlank { null }) } },
+                        onValueChange = { value ->
+                            commitModel { it.copy(customJsonOverride = value.ifBlank { null }) }
+                        },
                         dialogTitle = stringResource(R.string.agent_custom_json_label),
                         confirmLabel = stringResource(R.string.dialog_confirm),
                         dismissLabel = stringResource(R.string.dialog_cancel),
@@ -500,7 +550,9 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                         description = stringResource(R.string.agent_supports_vision_summary),
                         enabled = ready,
                         checked = m.supportsVision,
-                        onCheckedChange = { value -> commitModel { it.copy(supportsVision = value) } },
+                        onCheckedChange = { value ->
+                            commitModel { it.copy(supportsVision = value) }
+                        },
                     )
                 }
             }
@@ -517,7 +569,10 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                             val draft = m
                             scope.launch {
                                 WeAgentRepository.upsertModel(
-                                    draft.copy(id = UUID.randomUUID().toString(), providerId = providerId),
+                                    draft.copy(
+                                        id = UUID.randomUUID().toString(),
+                                        providerId = providerId,
+                                    ),
                                 )
                                 onBack()
                             }
@@ -530,8 +585,13 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
                 SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.action_delete)) }
+                        colors =
+                            ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
             }
         }
@@ -559,7 +619,9 @@ fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     )
 }
 
-/** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */
+/**
+ * Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily.
+ */
 @Composable
 private fun ModelSectionTitle(text: String) {
     Text(
@@ -574,24 +636,24 @@ private fun ModelSectionTitle(text: String) {
 private val EFFORT_GEARS = listOf("off", "minimal", "low", "medium", "high", "xhigh", "max")
 
 @Composable
-private fun effortGearLabel(value: String): String = stringResource(
-    when (value) {
-        "off" -> R.string.agent_reasoning_effort_off
-        "minimal" -> R.string.agent_reasoning_effort_minimal
-        "low" -> R.string.agent_reasoning_effort_low
-        "medium" -> R.string.agent_reasoning_effort_medium
-        "high" -> R.string.agent_reasoning_effort_high
-        "xhigh" -> R.string.agent_reasoning_effort_extra_high
-        "max" -> R.string.agent_reasoning_effort_maximum
-        else -> error("Unknown reasoning effort: $value")
-    }
-)
-
+private fun effortGearLabel(value: String): String =
+    stringResource(
+        when (value) {
+            "off" -> R.string.agent_reasoning_effort_off
+            "minimal" -> R.string.agent_reasoning_effort_minimal
+            "low" -> R.string.agent_reasoning_effort_low
+            "medium" -> R.string.agent_reasoning_effort_medium
+            "high" -> R.string.agent_reasoning_effort_high
+            "xhigh" -> R.string.agent_reasoning_effort_extra_high
+            "max" -> R.string.agent_reasoning_effort_maximum
+            else -> error("Unknown reasoning effort: $value")
+        },
+    )
 
 /**
  * Model-import picker: lists ids fetched from the provider's `/models` endpoint. Ids already added
- * start unchecked (selecting one overwrites its config) and carry an "(已导入)" suffix; the rest
- * start selected. Confirming imports every selected id.
+ * start unchecked (selecting one overwrites its config) and carry an "(已导入)" suffix; the rest start
+ * selected. Confirming imports every selected id.
  */
 @Composable
 private fun ImportModelsDialog(
@@ -604,11 +666,18 @@ private fun ImportModelsDialog(
     // Pre-select every not-yet-added id. Keyed on [candidates] because the dialog is composed
     // unconditionally: on first composition nothing has been fetched yet, so an unkeyed remember
     // would freeze an empty selection (and carry the previous run's ticks into the next import).
-    val selected = remember(candidates) {
-        mutableStateListOf<String>().apply { addAll(candidates.filter { it !in existingRemoteIds }) }
-    }
+    val selected =
+        remember(candidates) {
+            mutableStateListOf<String>().apply {
+                addAll(candidates.filter { it !in existingRemoteIds })
+            }
+        }
 
-    WeKitBasicDialog(show = show, title = stringResource(R.string.agent_import_models_title, candidates.size), onDismissRequest = onDismiss) {
+    WeKitBasicDialog(
+        show = show,
+        title = stringResource(R.string.agent_import_models_title, candidates.size),
+        onDismissRequest = onDismiss,
+    ) {
         Column {
             if (candidates.isEmpty()) {
                 Text(stringResource(R.string.agent_provider_returned_no_models))
@@ -623,16 +692,21 @@ private fun ImportModelsDialog(
                     lazySegmentedItems(candidates, key = { it }) { id ->
                         val already = id in existingRemoteIds
                         val checked = id in selected
-                        // The whole row toggles; the checkbox is a pure indicator with no semantics of its own.
+                        // The whole row toggles; the checkbox is a pure indicator with no semantics
+                        // of its own.
                         BaseWidget(
                             iconPlaceholder = false,
-                            title = if (already) stringResource(R.string.agent_model_already_added, id) else id,
-                            onClick = { if (id in selected) selected.remove(id) else selected.add(id) },
+                            title =
+                                if (already) stringResource(R.string.agent_model_already_added, id)
+                                else id,
+                            onClick = {
+                                if (id in selected) selected.remove(id) else selected.add(id)
+                            },
                             trailingContent = {
                                 Checkbox(
                                     checked = checked,
                                     onCheckedChange = null,
-                                    modifier = Modifier.clearAndSetSemantics { },
+                                    modifier = Modifier.clearAndSetSemantics {},
                                 )
                             },
                         )
@@ -646,7 +720,9 @@ private fun ImportModelsDialog(
                 TextButton(
                     onClick = { onImport(selected.toList()) },
                     enabled = selected.isNotEmpty(),
-                ) { Text(stringResource(R.string.agent_import_selected_models, selected.size)) }
+                ) {
+                    Text(stringResource(R.string.agent_import_selected_models, selected.size))
+                }
             }
         }
     }

@@ -27,41 +27,51 @@ internal data class DexTestWorkerConfig(
 ) {
     companion object {
         fun fromSystemProperties(properties: Properties): DexTestWorkerConfig {
-            fun required(key: String) = properties.getProperty(key)?.takeIf(String::isNotBlank)
-                ?: error("missing required system property: " + key)
-            val isGooglePlay = required("wekit.dexTest.isGooglePlay").let { raw ->
-                raw.toBooleanStrictOrNull()
-                    ?: error("wekit.dexTest.isGooglePlay must be true or false, was " + raw)
-            }
+            fun required(key: String) =
+                properties.getProperty(key)?.takeIf(String::isNotBlank)
+                    ?: error("missing required system property: " + key)
+            val isGooglePlay =
+                required("wekit.dexTest.isGooglePlay").let { raw ->
+                    raw.toBooleanStrictOrNull()
+                        ?: error("wekit.dexTest.isGooglePlay must be true or false, was " + raw)
+                }
             return DexTestWorkerConfig(
                 apk = required("wekit.dexTest.apk").asPath.toAbsolutePath().normalize(),
-                dexSqlNativeLibrary = required("wekit.dexTest.dexSqlNativeLibrary")
-                    .asPath
-                    .toAbsolutePath()
-                    .normalize(),
+                dexSqlNativeLibrary =
+                    required("wekit.dexTest.dexSqlNativeLibrary")
+                        .asPath
+                        .toAbsolutePath()
+                        .normalize(),
                 report = required("wekit.dexTest.report").asPath.toAbsolutePath().normalize(),
                 engineVersion = required("wekit.dexTest.engineVersion"),
                 engineRevision = required("wekit.dexTest.engineRevision"),
-                versionCode = required("wekit.dexTest.versionCode").toLongOrNull()
-                    ?: error("wekit.dexTest.versionCode must be a long"),
+                versionCode =
+                    required("wekit.dexTest.versionCode").toLongOrNull()
+                        ?: error("wekit.dexTest.versionCode must be a long"),
                 versionName = required("wekit.dexTest.versionName"),
                 buildTag = required("wekit.dexTest.buildTag"),
                 isGooglePlay = isGooglePlay,
-                workers = properties.getProperty("wekit.dexTest.workers")?.takeIf(String::isNotBlank)?.let {
-                    requireNotNull(it.toIntOrNull()?.takeIf { count -> count > 0 }) {
-                        "wekit.dexTest.workers must be a positive integer"
-                    }
-                },
-                featureSelectors = properties.getProperty("wekit.dexTest.features")
-                    ?.takeIf(String::isNotBlank)
-                    ?.split(',')
-                    ?.map { selector ->
-                        selector.trim().also {
-                            require(it.isNotEmpty()) {
-                                "wekit.dexTest.features contains an empty feature name"
+                workers =
+                    properties
+                        .getProperty("wekit.dexTest.workers")
+                        ?.takeIf(String::isNotBlank)
+                        ?.let {
+                            requireNotNull(it.toIntOrNull()?.takeIf { count -> count > 0 }) {
+                                "wekit.dexTest.workers must be a positive integer"
                             }
-                        }
-                    },
+                        },
+                featureSelectors =
+                    properties
+                        .getProperty("wekit.dexTest.features")
+                        ?.takeIf(String::isNotBlank)
+                        ?.split(',')
+                        ?.map { selector ->
+                            selector.trim().also {
+                                require(it.isNotEmpty()) {
+                                    "wekit.dexTest.features contains an empty feature name"
+                                }
+                            }
+                        },
             )
         }
     }
@@ -74,61 +84,68 @@ class DexTestWorkerTest {
         val config = DexTestWorkerConfig.fromSystemProperties(System.getProperties())
         val started = Instant.now()
         val startedNanos = System.nanoTime()
-        val environment = DexTestEnvironment(
-            engineVersion = config.engineVersion,
-            engineRevision = config.engineRevision,
-            architecture = System.getProperty("os.arch").orEmpty(),
-            jvmVersion = System.getProperty("java.version").orEmpty(),
-        )
-
-        val report = try {
-            val entries = selectDexTestEntries(
-                DexResolutionTestRegistry.ITEMS,
-                config.featureSelectors,
+        val environment =
+            DexTestEnvironment(
+                engineVersion = config.engineVersion,
+                engineRevision = config.engineRevision,
+                architecture = System.getProperty("os.arch").orEmpty(),
+                jvmVersion = System.getProperty("java.version").orEmpty(),
             )
-            require(Files.isRegularFile(config.apk)) { "APK is not a regular file: " + config.apk }
-            require(Files.isRegularFile(config.dexSqlNativeLibrary)) {
-                "DexSQL native library is not a regular file: " + config.dexSqlNativeLibrary
-            }
-            System.load(config.dexSqlNativeLibrary.toString())
-            val host = DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
-            val classLoader = javaClass.classLoader ?: error("worker class loader is null")
-            DexSqlBridge.open(listOf(config.apk.toString())).use { dexSql ->
-                val features = if (config.workers != null) {
-                    runDexBatchFeatures(entries, host, classLoader, config.workers, dexSql)
-                } else {
-                    entries.map { entry ->
-                        runDexFeature(entry, host, classLoader, dexSql)
-                    }
+
+        val report =
+            try {
+                val entries =
+                    selectDexTestEntries(
+                        DexResolutionTestRegistry.ITEMS,
+                        config.featureSelectors,
+                    )
+                require(Files.isRegularFile(config.apk)) {
+                    "APK is not a regular file: " + config.apk
                 }
-                buildReport(
-                    config = config,
+                require(Files.isRegularFile(config.dexSqlNativeLibrary)) {
+                    "DexSQL native library is not a regular file: " + config.dexSqlNativeLibrary
+                }
+                System.load(config.dexSqlNativeLibrary.toString())
+                val host =
+                    DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
+                val classLoader = javaClass.classLoader ?: error("worker class loader is null")
+                DexSqlBridge.open(listOf(config.apk.toString())).use { dexSql ->
+                    val features =
+                        if (config.workers != null) {
+                            runDexBatchFeatures(entries, host, classLoader, config.workers, dexSql)
+                        } else {
+                            entries.map { entry ->
+                                runDexFeature(entry, host, classLoader, dexSql)
+                            }
+                        }
+                    buildReport(
+                        config = config,
+                        environment = environment,
+                        dexCount = 0,
+                        started = started,
+                        elapsedMillis = elapsedMillis(startedNanos),
+                        features = features,
+                    )
+                }
+            } catch (error: Throwable) {
+                DexTestApkReport(
+                    apkPath = config.apk.toString(),
+                    fileName = config.apk.fileName.toString(),
+                    label = config.apk.fileName.toString(),
+                    apkSize = if (Files.exists(config.apk)) Files.size(config.apk) else 0,
+                    apkSha256 = if (Files.isRegularFile(config.apk)) sha256(config.apk) else "",
+                    versionCode = config.versionCode,
+                    versionName = config.versionName,
+                    buildTag = config.buildTag,
+                    isGooglePlay = config.isGooglePlay,
                     environment = environment,
-                    dexCount = 0,
-                    started = started,
+                    startedAt = started.toString(),
+                    finishedAt = Instant.now().toString(),
                     elapsedMillis = elapsedMillis(startedNanos),
-                    features = features,
+                    outcome = DexTestApkOutcome.INFRASTRUCTURE_FAILURE,
+                    infrastructureError = error.toDexTestError(),
                 )
             }
-        } catch (error: Throwable) {
-            DexTestApkReport(
-                apkPath = config.apk.toString(),
-                fileName = config.apk.fileName.toString(),
-                label = config.apk.fileName.toString(),
-                apkSize = if (Files.exists(config.apk)) Files.size(config.apk) else 0,
-                apkSha256 = if (Files.isRegularFile(config.apk)) sha256(config.apk) else "",
-                versionCode = config.versionCode,
-                versionName = config.versionName,
-                buildTag = config.buildTag,
-                isGooglePlay = config.isGooglePlay,
-                environment = environment,
-                startedAt = started.toString(),
-                finishedAt = Instant.now().toString(),
-                elapsedMillis = elapsedMillis(startedNanos),
-                outcome = DexTestApkOutcome.INFRASTRUCTURE_FAILURE,
-                infrastructureError = error.toDexTestError(),
-            )
-        }
         report.writeAtomically(config.report)
     }
 }
@@ -139,14 +156,17 @@ internal fun selectDexTestEntries(
 ): List<DexResolutionTestEntry> {
     if (selectors == null) return entries
     return selectors.map { selector ->
-        val matches = if ('.' in selector) {
-            entries.filter { it.className == selector }
-        } else {
-            entries.filter { it.className.substringAfterLast('.') == selector }
-        }
+        val matches =
+            if ('.' in selector) {
+                entries.filter { it.className == selector }
+            } else {
+                entries.filter { it.className.substringAfterLast('.') == selector }
+            }
         require(matches.isNotEmpty()) { "unknown Dex resolver feature: " + selector }
         require(matches.size == 1) {
-            "ambiguous Dex resolver feature " + selector + "; use its fully qualified name: " +
+            "ambiguous Dex resolver feature " +
+                selector +
+                "; use its fully qualified name: " +
                 matches.map(DexResolutionTestEntry::className).sorted().joinToString()
         }
         matches.single()
@@ -162,18 +182,23 @@ private fun buildReport(
     features: List<DexTestFeatureReport>,
 ): DexTestApkReport {
     val delegates = features.flatMap(DexTestFeatureReport::delegates)
-    val counts = DexTestCounts(
-        success = delegates.count { it.status.name == "SUCCESS" },
-        expectedFailure = delegates.count { it.status.name == "EXPECTED_FAILURE" },
-        unexpectedFailure = delegates.count { it.status.name == "UNEXPECTED_FAILURE" },
-        blocked = delegates.count { it.status.name == "BLOCKED" },
-        incomplete = delegates.count { it.status.name == "INCOMPLETE" },
-    )
-    val outcome = if (features.all {
-            it.outcome == DexTestFeatureOutcome.PASS ||
-                it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
-        }
-    ) DexTestApkOutcome.PASS else DexTestApkOutcome.FAIL
+    val counts =
+        DexTestCounts(
+            success = delegates.count { it.status.name == "SUCCESS" },
+            expectedFailure = delegates.count { it.status.name == "EXPECTED_FAILURE" },
+            unexpectedFailure = delegates.count { it.status.name == "UNEXPECTED_FAILURE" },
+            blocked = delegates.count { it.status.name == "BLOCKED" },
+            incomplete = delegates.count { it.status.name == "INCOMPLETE" },
+        )
+    val outcome =
+        if (
+            features.all {
+                it.outcome == DexTestFeatureOutcome.PASS ||
+                    it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
+            }
+        )
+            DexTestApkOutcome.PASS
+        else DexTestApkOutcome.FAIL
     return DexTestApkReport(
         apkPath = config.apk.toString(),
         fileName = config.apk.fileName.toString(),

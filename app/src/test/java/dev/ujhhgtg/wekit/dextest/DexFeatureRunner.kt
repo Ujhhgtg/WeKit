@@ -1,15 +1,15 @@
 package dev.ujhhgtg.wekit.dextest
 
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.GeneratedMethodHashes
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionState
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
 import dev.ujhhgtg.wekit.dexkit.resolution.resolveDexBatch
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import kotlin.time.TimeMark
@@ -23,19 +23,20 @@ internal fun runDexFeature(
     dexSql: DexSqlBridge? = null,
 ): DexTestFeatureReport {
     val started = TimeSource.Monotonic.markNow()
-    val feature = try {
-        loadFeature(entry, classLoader)
-    } catch (error: Throwable) {
-        error.rethrowIfFatal()
-        return DexTestFeatureReport(
-            className = entry.className,
-            displayName = entry.className,
-            methodHash = "",
-            outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-            featureError = error.toDexTestError(),
-        )
-    }
+    val feature =
+        try {
+            loadFeature(entry, classLoader)
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
+            return DexTestFeatureReport(
+                className = entry.className,
+                displayName = entry.className,
+                methodHash = "",
+                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
+                elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+                featureError = error.toDexTestError(),
+            )
+        }
     return runDexFeature(feature, entry, host, started, dexSql)
 }
 
@@ -46,22 +47,25 @@ internal fun runDexFeature(
     started: TimeMark = TimeSource.Monotonic.markNow(),
     dexSql: DexSqlBridge? = null,
 ): DexTestFeatureReport {
-    val resolver = feature as? IResolveDex
-        ?: return DexTestFeatureReport(
-            className = entry.className,
-            displayName = displayName(feature),
-            technicalId = feature.technicalId,
-            methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
-            outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-            elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-            featureError = DexTestError(message = "${entry.className} does not implement IResolveDex"),
-        )
+    val resolver =
+        feature as? IResolveDex
+            ?: return DexTestFeatureReport(
+                className = entry.className,
+                displayName = displayName(feature),
+                technicalId = feature.technicalId,
+                methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
+                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
+                elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+                featureError =
+                    DexTestError(message = "${entry.className} does not implement IResolveDex"),
+            )
 
     feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
 
     val error = runCatching {
         resolver.resolveAllDex(host, dexSql = dexSql)
-    }.exceptionOrNull()
+    }
+        .exceptionOrNull()
     error?.rethrowIfFatal()
 
     return dexFeatureReport(feature, entry, error, started.elapsedNow().inWholeMilliseconds)
@@ -78,26 +82,27 @@ private fun dexFeatureReport(
     if (error == null) {
         pending.forEach(BaseDexDelegate::markIncomplete)
     } else {
-        val failingKey = feature.dexDelegates
-            .firstOrNull { it.state is DexResolutionState.UnexpectedFailure }
-            ?.key
-            ?: "${entry.className}#resolveDex"
+        val failingKey =
+            feature.dexDelegates
+                .firstOrNull { it.state is DexResolutionState.UnexpectedFailure }
+                ?.key ?: "${entry.className}#resolveDex"
         pending.forEach { it.markBlocked(failingKey) }
     }
 
-    val delegates = feature.dexDelegates.map { delegate ->
-        val state = delegate.state
-        val failure = state as? DexResolutionState.UnexpectedFailure
-        DexTestDelegateReport(
-            key = delegate.key,
-            status = state.status,
-            descriptor = (state as? DexResolutionState.Success)?.descriptor,
-            message = failure?.message,
-            exceptionType = failure?.exceptionType,
-            stackTrace = failure?.stackTrace,
-            blockedBy = (state as? DexResolutionState.Blocked)?.blockedBy,
-        )
-    }
+    val delegates =
+        feature.dexDelegates.map { delegate ->
+            val state = delegate.state
+            val failure = state as? DexResolutionState.UnexpectedFailure
+            DexTestDelegateReport(
+                key = delegate.key,
+                status = state.status,
+                descriptor = (state as? DexResolutionState.Success)?.descriptor,
+                message = failure?.message,
+                exceptionType = failure?.exceptionType,
+                stackTrace = failure?.stackTrace,
+                blockedBy = (state as? DexResolutionState.Blocked)?.blockedBy,
+            )
+        }
     return DexTestFeatureReport(
         className = entry.className,
         displayName = displayName(feature),
@@ -126,20 +131,23 @@ internal fun runDexBatchFeatures(
             entry to feature
         } catch (error: Throwable) {
             error.rethrowIfFatal()
-            reports[entry] = DexTestFeatureReport(
-                className = entry.className,
-                displayName = entry.className,
-                methodHash = "",
-                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-                elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-                featureError = error.toDexTestError(),
-            )
+            reports[entry] =
+                DexTestFeatureReport(
+                    className = entry.className,
+                    displayName = entry.className,
+                    methodHash = "",
+                    outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
+                    elapsedMillis = started.elapsedNow().inWholeMilliseconds,
+                    featureError = error.toDexTestError(),
+                )
             null
         }
     }
     // Initialize and reset all roots before workers start; never reset a dependency
     // while another worker can be reading it. Build reports only after the batch joins.
-    loaded.forEach { (_, feature) -> feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution) }
+    loaded.forEach { (_, feature) ->
+        feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
+    }
     val finished = mutableMapOf<IResolveDex, DexResolutionEvent.Finished>()
     runBlocking {
         resolveDexBatch(
@@ -161,32 +169,34 @@ internal fun runDexBatchFeatures(
 private fun loadFeature(entry: DexResolutionTestEntry, classLoader: ClassLoader): BaseFeature {
     val clazz = Class.forName(entry.className, true, classLoader)
     val instance = clazz.getField("INSTANCE").get(null)
-    return instance as? BaseFeature
-        ?: error("${entry.className} INSTANCE is not a BaseFeature")
+    return instance as? BaseFeature ?: error("${entry.className} INSTANCE is not a BaseFeature")
 }
 
 private fun featureOutcome(
     delegates: List<DexTestDelegateReport>,
     error: Throwable?,
-): DexTestFeatureOutcome = when {
-    error != null -> DexTestFeatureOutcome.FAIL
-    delegates.any {
-        it.status == DexResolutionStatus.UNEXPECTED_FAILURE ||
-            it.status == DexResolutionStatus.BLOCKED ||
-            it.status == DexResolutionStatus.INCOMPLETE
-    } -> DexTestFeatureOutcome.FAIL
-    delegates.any { it.status == DexResolutionStatus.EXPECTED_FAILURE } -> DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
-    else -> DexTestFeatureOutcome.PASS
-}
+): DexTestFeatureOutcome =
+    when {
+        error != null -> DexTestFeatureOutcome.FAIL
+        delegates.any {
+            it.status == DexResolutionStatus.UNEXPECTED_FAILURE ||
+                it.status == DexResolutionStatus.BLOCKED ||
+                it.status == DexResolutionStatus.INCOMPLETE
+        } -> DexTestFeatureOutcome.FAIL
+        delegates.any { it.status == DexResolutionStatus.EXPECTED_FAILURE } ->
+            DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
+        else -> DexTestFeatureOutcome.PASS
+    }
 
 private fun displayName(feature: BaseFeature) =
     "${feature.categoryIds.joinToString(",")}/${feature.technicalId}"
 
-internal fun Throwable.toDexTestError() = DexTestError(
-    message = message ?: cause?.message,
-    exceptionType = javaClass.name,
-    stackTrace = stackTraceToString(),
-)
+internal fun Throwable.toDexTestError() =
+    DexTestError(
+        message = message ?: cause?.message,
+        exceptionType = javaClass.name,
+        stackTrace = stackTraceToString(),
+    )
 
 private fun Throwable.rethrowIfFatal() {
     if (this is VirtualMachineError || this is ThreadDeath) throw this

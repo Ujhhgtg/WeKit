@@ -27,7 +27,7 @@ class OriginalMethodInvoker(
     private val hookBridge: IHookBridge,
     private val method: Method,
     private val thisObject: Any?,
-    private val originalArgs: Array<Any?>
+    private val originalArgs: Array<Any?>,
 ) {
     operator fun invoke(args: Array<Any?>? = null): Any? =
         hookBridge.invokeOriginalMethod(method, thisObject, args ?: originalArgs)
@@ -40,61 +40,73 @@ inline val currentHookBridge: IHookBridge
 
 fun BaseReflectedMethod.hookBeforeDirectly(
     priority: Int = 50,
-    action: HookAction
+    action: HookAction,
 ) = self.hookBeforeDirectly(priority, action)
 
 fun Executable.hookBeforeDirectly(
     priority: Int = 50,
-    action: HookAction
-): HookHandle = currentHookBridge.hookMethod(
-    this, object : HookCallback(priority) {
-        override fun beforeHookedMethod(param: HookParam) {
-            action(param)
-        }
-    }, priority
-)
+    action: HookAction,
+): HookHandle =
+    currentHookBridge.hookMethod(
+        this,
+        object : HookCallback(priority) {
+            override fun beforeHookedMethod(param: HookParam) {
+                action(param)
+            }
+        },
+        priority,
+    )
 
 fun BaseReflectedMethod.hookAfterDirectly(
     priority: Int = 50,
-    action: HookAction
+    action: HookAction,
 ): HookHandle = self.hookAfterDirectly(priority, action)
 
 fun ReflectedConstructor<*>.hookAfterDirectly(
     priority: Int = 50,
-    action: HookAction
+    action: HookAction,
 ): HookHandle = self.hookAfterDirectly(priority, action)
 
 fun Executable.hookAfterDirectly(
     priority: Int = 50,
-    action: HookAction
-): HookHandle = currentHookBridge.hookMethod(
-    this, object : HookCallback(priority) {
-        override fun afterHookedMethod(param: HookParam) {
-            action(param)
-        }
-    }, priority
-)
+    action: HookAction,
+): HookHandle =
+    currentHookBridge.hookMethod(
+        this,
+        object : HookCallback(priority) {
+            override fun afterHookedMethod(param: HookParam) {
+                action(param)
+            }
+        },
+        priority,
+    )
 
 fun BaseReflectedMethod.hookDirectly(
-    hook: HookCallback
+    hook: HookCallback,
 ): HookHandle = self.hookDirectly(hook)
 
 fun Executable.hookDirectly(
-    hook: HookCallback
+    hook: HookCallback,
 ): HookHandle = currentHookBridge.hookMethod(this, hook, hook.priority)
 
 fun HookParam.captureOriginalMethod(): OriginalMethodInvoker {
-    val method = member as? Method
-        ?: throw IllegalStateException("invokeOriginalMethod is only supported for methods: $member")
+    val method =
+        member as? Method
+            ?: throw IllegalStateException(
+                "invokeOriginalMethod is only supported for methods: $member",
+            )
     return OriginalMethodInvoker(currentHookBridge, method, thisObject, args.copyOf())
 }
 
 fun HookParam.invokeOriginalMethod(thisObject: Any? = null, args: Array<Any?>? = null): Any? {
-    val method = member as? Method
-        ?: throw IllegalStateException("invokeOriginalMethod is only supported for methods: $member")
+    val method =
+        member as? Method
+            ?: throw IllegalStateException(
+                "invokeOriginalMethod is only supported for methods: $member",
+            )
     return currentHookBridge.invokeOriginalMethod(
         method,
         thisObject ?: this.thisObject,
-        args ?: this.args
+        args ?: this.args,
     )
 }

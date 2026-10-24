@@ -5,15 +5,17 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
+import dev.ujhhgtg.wekit.utils.reflection.descriptorToConstructor
+import dev.ujhhgtg.wekit.utils.reflection.descriptorToMethod
+import java.lang.reflect.Constructor
+import java.lang.reflect.Method
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.lang.reflect.Constructor
-import java.lang.reflect.Method
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * One open runtime DexSQL session over the host APK.
@@ -43,29 +45,33 @@ private object DexSqlHolder {
     private var idleCloseJob: Job? = null
     private var idleCloseGeneration = 0L
 
-    fun acquire(): DexSqlRuntime = synchronized(lock) {
-        cancelIdleCloseLocked()
+    fun acquire(): DexSqlRuntime =
+        synchronized(lock) {
+            cancelIdleCloseLocked()
 
-        val current = runtime
-        val acquired = if (current != null && current.bridge.isOpen) {
-            current
-        } else {
-            // Repackaging frameworks such as NPatch may expose a loader-only outer APK through sourceDir.
-            DexSqlRuntime(DexSqlBridge.openHost()).also { runtime = it }
+            val current = runtime
+            val acquired =
+                if (current != null && current.bridge.isOpen) {
+                    current
+                } else {
+                    // Repackaging frameworks such as NPatch may expose a loader-only outer APK
+                    // through sourceDir.
+                    DexSqlRuntime(DexSqlBridge.openHost()).also { runtime = it }
+                }
+
+            activeLeaseCount++
+            acquired
         }
 
-        activeLeaseCount++
-        acquired
-    }
+    fun release() =
+        synchronized(lock) {
+            check(activeLeaseCount > 0) { "DexSQL lease released without a matching acquire" }
 
-    fun release() = synchronized(lock) {
-        check(activeLeaseCount > 0) { "DexSQL lease released without a matching acquire" }
-
-        activeLeaseCount--
-        if (activeLeaseCount == 0) {
-            scheduleIdleCloseLocked()
+            activeLeaseCount--
+            if (activeLeaseCount == 0) {
+                scheduleIdleCloseLocked()
+            }
         }
-    }
 
     private fun cancelIdleCloseLocked() {
         idleCloseGeneration++
@@ -107,23 +113,13 @@ fun <T> withDexSql(block: (DexSqlRuntime) -> T): T {
     }
 }
 
-/** Suspending counterpart of [withDexSql]. The lease remains active across suspension points. */
-suspend fun <T> withDexSqlSuspending(block: suspend (DexSqlRuntime) -> T): T {
-    val session = DexSqlHolder.acquire()
-    return try {
-        block(session)
-    } finally {
-        DexSqlHolder.release()
-    }
-}
-
 /** Reflection handle for a resolved method (hook-time only). */
 inline val DexMethodInfo.asMethod: Method
-    get() = DexMethodDescriptor(descriptor).getMethodInstance(ClassLoaders.HOST)
+    get() = descriptor.descriptorToMethod(ClassLoaders.HOST)
 
 /** Reflection handle for a resolved constructor (hook-time only). */
 inline val DexMethodInfo.asConstructor: Constructor<*>
-    get() = DexMethodDescriptor(descriptor).getConstructorInstance(ClassLoaders.HOST)
+    get() = descriptor.descriptorToConstructor(ClassLoaders.HOST)
 
 /** Reflection handle for a resolved class (hook-time only). */
 inline val DexClassInfo.asClass: Class<*>

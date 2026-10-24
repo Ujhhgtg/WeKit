@@ -28,14 +28,15 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 fun showComposeDialog(
     context: Context,
     directlyDismissable: Boolean = true,
-    content: @Composable ShowComposeDialogScope.() -> Unit
+    content: @Composable ShowComposeDialogScope.() -> Unit,
 ) {
     val context = CommonContextWrapper(context)
 
-    val dialog = ComponentDialog(
-        context,
-        android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth
-    )
+    val dialog =
+        ComponentDialog(
+            context,
+            android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth,
+        )
 
     dialog.apply {
         window!!.apply {
@@ -54,14 +55,14 @@ fun showComposeDialog(
                         ModuleTheme {
                             Box(
                                 modifier = Modifier.wrapContentSize(),
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 scope.content()
                             }
                         }
                     }
                 }
-            }
+            },
         )
 
         window!!.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
@@ -73,7 +74,7 @@ class ShowComposeDialogScope(
     val context: Context,
     val dialog: Dialog,
     val window: Window,
-    val onDismiss: () -> Unit
+    val onDismiss: () -> Unit,
 )
 
 fun View.setLifecycleOwner(lifecycleOwner: XposedLifecycleOwner) {

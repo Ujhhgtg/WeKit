@@ -4,8 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.os.postDelayed
 
-@Suppress("ObjectPropertyName")
-val _mainHandler = Handler(Looper.getMainLooper())
+@Suppress("ObjectPropertyName") val _mainHandler = Handler(Looper.getMainLooper())
 
 inline fun postOnUiThread(crossinline action: () -> Unit) {
     _mainHandler.post {

@@ -31,18 +31,22 @@ fun ExpressiveBackButton(
 ) {
     // Drop the tonal background once content scrolls beneath the translucent bar, so the button
     // doesn't read as an opaque blob over the blurred content.
-    val animatedContainerColor by animateColorAsState(
-        targetValue = if (LocalTopBarContentOverlapped.current) containerColor.copy(alpha = 0f) else containerColor,
-        label = "backButtonContainer",
-    )
+    val animatedContainerColor by
+        animateColorAsState(
+            targetValue =
+                if (LocalTopBarContentOverlapped.current) containerColor.copy(alpha = 0f)
+                else containerColor,
+            label = "backButtonContainer",
+        )
     IconButton(
         onClick = onClick,
         modifier = modifier,
         shapes = IconButtonDefaults.shapes(shape = CircleShape),
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = animatedContainerColor,
-            contentColor = contentColor,
-        ),
+        colors =
+            IconButtonDefaults.iconButtonColors(
+                containerColor = animatedContainerColor,
+                contentColor = contentColor,
+            ),
     ) {
         Icon(imageVector = icon, contentDescription = contentDescription)
     }

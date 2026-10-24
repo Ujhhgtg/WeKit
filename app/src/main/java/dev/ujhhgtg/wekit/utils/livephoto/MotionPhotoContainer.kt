@@ -3,14 +3,6 @@ package dev.ujhhgtg.wekit.utils.livephoto
 import dev.ujhhgtg.wekit.utils.fs.moveReplacing
 import dev.ujhhgtg.wekit.utils.livephoto.MotionPhotoNative.flag
 import dev.ujhhgtg.wekit.utils.livephoto.MotionPhotoNative.long
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import org.w3c.dom.Document
-import org.w3c.dom.Element
-import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -24,6 +16,14 @@ import javax.xml.transform.OutputKeys
 import javax.xml.transform.TransformerFactory
 import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import org.w3c.dom.Document
+import org.w3c.dom.Element
+import org.xml.sax.InputSource
 
 /** Standard JPEG Motion Photos. Vendor HDR/multi-image and extended XMP are unsupported. */
 object MotionPhotoContainer {
@@ -32,7 +32,8 @@ object MotionPhotoContainer {
         val videoLength: Long,
         val coverTimestampMs: Long,
         val imageEnd: Long,
-        val coverTimestampUs: Long = if (coverTimestampMs == -1L) -1L else Math.multiplyExact(coverTimestampMs, 1000),
+        val coverTimestampUs: Long =
+            if (coverTimestampMs == -1L) -1L else Math.multiplyExact(coverTimestampMs, 1000),
     )
 
     private const val CAMERA = "http://ns.google.com/photos/1.0/camera/"
@@ -45,10 +46,16 @@ object MotionPhotoContainer {
     private val XMP_HEADER = "http://ns.adobe.com/xap/1.0/\u0000".toByteArray(Charsets.US_ASCII)
     private val MPF_HEADER = byteArrayOf(0x4d, 0x50, 0x46, 0)
     private val WECHAT_CACHED_JPEG_MD5_HEADER = byteArrayOf(-1, -28, -112, 3, 0, 0, 0, 0)
-    private val MOTION_PROPERTIES = setOf(
-        "MotionPhoto", "MotionPhotoVersion", "MotionPhotoPresentationTimestampUs",
-        "MicroVideo", "MicroVideoVersion", "MicroVideoOffset", "MicroVideoPresentationTimestampUs",
-    )
+    private val MOTION_PROPERTIES =
+        setOf(
+            "MotionPhoto",
+            "MotionPhotoVersion",
+            "MotionPhotoPresentationTimestampUs",
+            "MicroVideo",
+            "MicroVideoVersion",
+            "MicroVideoOffset",
+            "MicroVideoPresentationTimestampUs",
+        )
 
     /** A header candidate only; [inspect] must still validate the complete image and video. */
     fun hasMotionPhotoMetadata(channel: FileChannel): Boolean =
@@ -56,15 +63,23 @@ object MotionPhotoContainer {
 
     /** Returns null for a static JPEG/non-JPEG; malformed motion files throw [IOException]. */
     fun inspect(channel: FileChannel): PhotoInfo? =
-        MotionPhotoNative.photoInfo(MotionPhotoNative.decode(MotionPhotoNative.inspectPhoto(channel, channel.size())))
+        MotionPhotoNative.photoInfo(
+            MotionPhotoNative.decode(MotionPhotoNative.inspectPhoto(channel, channel.size())),
+        )
 
-    /** Publishes only a complete validated MP4; a failed extraction preserves an existing output. */
+    /**
+     * Publishes only a complete validated MP4; a failed extraction preserves an existing output.
+     */
     fun extractVideo(channel: FileChannel, info: PhotoInfo, output: File) {
-        if (info.videoOffset < info.imageEnd || info.videoLength <= 0 ||
-            add(info.videoOffset, info.videoLength) != channel.size()
-        ) fail("Invalid extracted video bounds")
+        if (
+            info.videoOffset < info.imageEnd ||
+                info.videoLength <= 0 ||
+                add(info.videoOffset, info.videoLength) != channel.size()
+        )
+            fail("Invalid extracted video bounds")
         analyzeVideo(channel, info.videoOffset, info.videoLength).metadata?.let { metadata ->
-            if (metadata.frames.any { it.timestampUs != info.coverTimestampUs }) fail("Extracted metadata timestamp disagrees with photo")
+            if (metadata.frames.any { it.timestampUs != info.coverTimestampUs })
+                fail("Extracted metadata timestamp disagrees with photo")
         }
         publish(output, ".mp4") { temporary ->
             temporary.outputStream().channel.use { target ->
@@ -79,47 +94,80 @@ object MotionPhotoContainer {
 
     /** Writes modern XMP and a single-image MPF index, retaining original pixels and EXIF. */
     @JvmOverloads
-    fun write(cover: File, video: File, output: File, coverTimestampMs: Long, vivoMetadata: Boolean = false): PhotoInfo =
+    fun write(
+        cover: File,
+        video: File,
+        output: File,
+        coverTimestampMs: Long,
+        vivoMetadata: Boolean = false,
+    ): PhotoInfo =
         writeContainer(cover, video, output, coverTimestampMs, vivoMetadata, conversion = false)
 
     /** Write converted primary pixels and a caller-validated video directly into one container. */
     fun writeConverted(
-        cover: File, video: File, output: File, coverTimestampMs: Long, videoLength: Long,
-        vivoMetadata: Boolean, appendVideo: (FileChannel, FileChannel, Long) -> Unit,
-    ): PhotoInfo = writeContainer(cover, video, output, coverTimestampMs, vivoMetadata,
-        conversion = true, transformedVideoLength = videoLength, appendVideo = appendVideo)
+        cover: File,
+        video: File,
+        output: File,
+        coverTimestampMs: Long,
+        videoLength: Long,
+        vivoMetadata: Boolean,
+        appendVideo: (FileChannel, FileChannel, Long) -> Unit,
+    ): PhotoInfo =
+        writeContainer(
+            cover,
+            video,
+            output,
+            coverTimestampMs,
+            vivoMetadata,
+            conversion = true,
+            transformedVideoLength = videoLength,
+            appendVideo = appendVideo,
+        )
 
     private fun writeContainer(
-        cover: File, video: File, output: File, coverTimestampMs: Long, vivoMetadata: Boolean,
-        conversion: Boolean, transformedVideoLength: Long? = null,
+        cover: File,
+        video: File,
+        output: File,
+        coverTimestampMs: Long,
+        vivoMetadata: Boolean,
+        conversion: Boolean,
+        transformedVideoLength: Long? = null,
         appendVideo: ((FileChannel, FileChannel, Long) -> Unit)? = null,
     ): PhotoInfo {
         if (coverTimestampMs < -1) fail("Invalid cover timestamp")
-        if (output.canonicalFile == cover.canonicalFile || output.canonicalFile == video.canonicalFile) {
+        if (
+            output.canonicalFile == cover.canonicalFile ||
+                output.canonicalFile == video.canonicalFile
+        ) {
             fail("Output must not overwrite a source image or video")
         }
         return cover.inputStream().channel.use { imageChannel ->
             video.inputStream().channel.use { videoChannel ->
                 val jpeg = parseJpeg(imageChannel, discardUnusableMetadata = conversion)
                 if (!conversion) ensureSupported(jpeg)
-                val videoMetadata = if (appendVideo == null) {
-                    analyzeVideo(videoChannel, 0, videoChannel.size()).metadata
-                } else null // The conversion's rewrite plan already validated this source.
+                val videoMetadata =
+                    if (appendVideo == null) {
+                        analyzeVideo(videoChannel, 0, videoChannel.size()).metadata
+                    } else null // The conversion's rewrite plan already validated this source.
                 if (!conversion) validateCoverTail(imageChannel, jpeg, videoChannel)
                 val videoLength = transformedVideoLength ?: videoChannel.size()
                 val document = jpeg.xmp ?: newXmp()
                 if (conversion) {
                     // FIXME: Explicit Vivo/standard conversion discards unsupported private
-                    //        auxiliary declarations, as selected by the user; normal export stays strict.
+                    //        auxiliary declarations, as selected by the user; normal export stays
+                    // strict.
                     removeConversionMetadata(document)
                 } else removeMotionMetadata(document)
                 addMotionMetadata(document, videoLength, coverTimestampMs, vivoMetadata)
                 val xmp = XMP_HEADER + serialize(document)
                 if (xmp.size > 65533) fail("XMP exceeds the JPEG APP1 segment limit")
-                val removed = jpeg.segments.filter { it.isXmp || it.isMpf || conversion && it.isExtendedXmp }
-                val imageLength = jpeg.imageEnd - removed.sumOf { it.end - it.start } + xmp.size + 4 + 74
+                val removed =
+                    jpeg.segments.filter { it.isXmp || it.isMpf || conversion && it.isExtendedXmp }
+                val imageLength =
+                    jpeg.imageEnd - removed.sumOf { it.end - it.start } + xmp.size + 4 + 74
                 // FIXME: OPlus 1.0.8 requires MPF even for a single JPEG. Standard Motion
-                //        Photo does not; remove this APP2 index when that reader is no longer supported.
+                //        Photo does not; remove this APP2 index when that reader is no longer
+                // supported.
                 val mpf = singleImageMpf(imageLength)
                 publish(output, ".jpg") { temporary ->
                     temporary.outputStream().channel.use { target ->
@@ -132,20 +180,31 @@ object MotionPhotoContainer {
                             sourceOffset = end
                         }
                         copy(imageChannel, sourceOffset, jpeg.imageEnd - sourceOffset, target)
-                        if (appendVideo != null) appendVideo(videoChannel, target, imageLength) else {
+                        if (appendVideo != null) appendVideo(videoChannel, target, imageLength)
+                        else {
                             copy(videoChannel, 0, videoLength, target)
                             videoMetadata?.let {
-                                val timestampUs = if (coverTimestampMs == -1L) -1L else Math.multiplyExact(coverTimestampMs, 1000)
-                                MotionPhotoVideoMetadata.synchronize(target, imageLength, it, timestampUs)
+                                val timestampUs =
+                                    if (coverTimestampMs == -1L) -1L
+                                    else Math.multiplyExact(coverTimestampMs, 1000)
+                                MotionPhotoVideoMetadata.synchronize(
+                                    target,
+                                    imageLength,
+                                    it,
+                                    timestampUs,
+                                )
                             }
                         }
                         target.force(true)
                     }
                     temporary.inputStream().channel.use {
                         val result = inspect(it) ?: fail("Written file is not a Motion Photo")
-                        if (result.videoLength != videoLength || result.coverTimestampMs != coverTimestampMs ||
-                            result.imageEnd != imageLength
-                        ) fail("Written Motion Photo failed verification")
+                        if (
+                            result.videoLength != videoLength ||
+                                result.coverTimestampMs != coverTimestampMs ||
+                                result.imageEnd != imageLength
+                        )
+                            fail("Written Motion Photo failed verification")
                         result
                     }
                 }
@@ -154,19 +213,25 @@ object MotionPhotoContainer {
     }
 
     private fun validateCoverTail(image: FileChannel, jpeg: Jpeg, video: FileChannel) {
-        if (jpeg.imageEnd < image.size() && inspect(image) == null &&
-            !matchesSuppliedVideo(image, jpeg.imageEnd, video) && !matchesCachedCoverChecksum(image, jpeg.imageEnd)
-        ) fail("Cover has unsupported trailing data")
+        if (
+            jpeg.imageEnd < image.size() &&
+                inspect(image) == null &&
+                !matchesSuppliedVideo(image, jpeg.imageEnd, video) &&
+                !matchesCachedCoverChecksum(image, jpeg.imageEnd)
+        )
+            fail("Cover has unsupported trailing data")
     }
 
     /** Explicit format conversion: retain the primary JPEG and metadata that can stand alone. */
     fun normalizeCover(cover: File, output: File) = normalizeCover(cover, output, null)
 
     /** Strip a verified cached cover before EXIF edits, without staging its duplicate video. */
-    fun normalizeCoverForExport(cover: File, video: File, output: File) = normalizeCover(cover, output, video)
+    fun normalizeCoverForExport(cover: File, video: File, output: File) =
+        normalizeCover(cover, output, video)
 
     private fun normalizeCover(cover: File, output: File, verifiedVideo: File?) {
-        if (cover.canonicalFile == output.canonicalFile) fail("Normalized cover must not replace its source")
+        if (cover.canonicalFile == output.canonicalFile)
+            fail("Normalized cover must not replace its source")
         cover.inputStream().channel.use { source ->
             // FIXME: Vivo conversion may discard unsupported private XDR/auxiliary data,
             //        as explicitly selected by the user. Preserve primary pixels/EXIF and
@@ -180,13 +245,15 @@ object MotionPhotoContainer {
                     validateCoverTail(source, jpeg, it)
                 }
             }
-            val packet = jpeg.xmp?.let { document ->
-                removeMotionMetadata(document)
-                if (verifiedVideo == null) removeConversionMetadata(document)
-                val bytes = XMP_HEADER + serialize(document)
-                if (verifiedVideo != null && bytes.size > 65533) fail("XMP exceeds the JPEG APP1 segment limit")
-                bytes.takeIf { it.size <= 65533 }
-            }
+            val packet =
+                jpeg.xmp?.let { document ->
+                    removeMotionMetadata(document)
+                    if (verifiedVideo == null) removeConversionMetadata(document)
+                    val bytes = XMP_HEADER + serialize(document)
+                    if (verifiedVideo != null && bytes.size > 65533)
+                        fail("XMP exceeds the JPEG APP1 segment limit")
+                    bytes.takeIf { it.size <= 65533 }
+                }
             val removed = jpeg.segments.filter { it.isXmp || it.isMpf || it.isExtendedXmp }
             publish(output, ".jpg") { temporary ->
                 temporary.outputStream().channel.use { target ->
@@ -203,7 +270,8 @@ object MotionPhotoContainer {
                 temporary.inputStream().channel.use { normalized ->
                     val result = parseJpeg(normalized)
                     ensureSupported(result)
-                    if (result.imageEnd != normalized.size()) fail("Normalized cover has trailing data")
+                    if (result.imageEnd != normalized.size())
+                        fail("Normalized cover has trailing data")
                 }
             }
         }
@@ -216,6 +284,7 @@ object MotionPhotoContainer {
         val isMpf: Boolean,
         val isExtendedXmp: Boolean = false,
     )
+
     private data class Jpeg(
         val segments: List<Segment>,
         val imageEnd: Long,
@@ -225,30 +294,54 @@ object MotionPhotoContainer {
     )
 
     private fun parseJpeg(channel: FileChannel, discardUnusableMetadata: Boolean = false): Jpeg {
-        val data = MotionPhotoNative.decode(
-            MotionPhotoNative.parseJpeg(channel, channel.size(), false, discardUnusableMetadata),
-        ) as JsonObject
-        val segments = (data.getValue("segments") as JsonArray).map {
-            val segment = it as JsonObject
-            Segment(segment.long("start"), segment.long("end"), segment.flag("is_xmp"),
-                segment.flag("is_mpf"), segment.flag("is_extended_xmp"))
-        }
+        val data =
+            MotionPhotoNative.decode(
+                MotionPhotoNative.parseJpeg(
+                    channel,
+                    channel.size(),
+                    false,
+                    discardUnusableMetadata,
+                ),
+            ) as JsonObject
+        val segments =
+            (data.getValue("segments") as JsonArray).map {
+                val segment = it as JsonObject
+                Segment(
+                    segment.long("start"),
+                    segment.long("end"),
+                    segment.flag("is_xmp"),
+                    segment.flag("is_mpf"),
+                    segment.flag("is_extended_xmp"),
+                )
+            }
         val packet = data.getValue("xmp")
-        return Jpeg(segments, data.long("image_end"),
-            if (packet == JsonNull) null else
-                parseXmp((packet as JsonPrimitive).content.toByteArray(Charsets.UTF_8)),
-            data.flag("has_extended_xmp"), data.flag("multi_image"))
+        return Jpeg(
+            segments,
+            data.long("image_end"),
+            if (packet == JsonNull) null
+            else parseXmp((packet as JsonPrimitive).content.toByteArray(Charsets.UTF_8)),
+            data.flag("has_extended_xmp"),
+            data.flag("multi_image"),
+        )
     }
 
     /** Validate the primary JPEG once before choosing Vivo's opaque-prefix preservation. */
     fun conversionImageEnd(channel: FileChannel): Long {
-        val data = MotionPhotoNative.decode(MotionPhotoNative.parseJpeg(channel, channel.size(), headers = false, discard = true))
-            as JsonObject
+        val data =
+            MotionPhotoNative.decode(
+                MotionPhotoNative.parseJpeg(
+                    channel,
+                    channel.size(),
+                    headers = false,
+                    discard = true,
+                ),
+            ) as JsonObject
         return data.long("image_end")
     }
 
     private fun ensureSupported(jpeg: Jpeg) {
-        if (jpeg.extendedXmp || jpeg.multiImage) fail("Extended XMP and multi-image JPEG are unsupported")
+        if (jpeg.extendedXmp || jpeg.multiImage)
+            fail("Extended XMP and multi-image JPEG are unsupported")
         jpeg.xmp?.let { document ->
             val all = document.getElementsByTagName("*")
             for (i in 0 until all.length) {
@@ -259,7 +352,10 @@ object MotionPhotoContainer {
                 }
                 for (j in 0 until element.attributes.length) {
                     val attributeNamespace = element.attributes.item(j).namespaceURI.orEmpty()
-                    if (attributeNamespace.contains("hdr-gain-map") || attributeNamespace.contains("hdrgm")) {
+                    if (
+                        attributeNamespace.contains("hdr-gain-map") ||
+                            attributeNamespace.contains("hdrgm")
+                    ) {
                         fail("Ultra HDR JPEG is unsupported")
                     }
                 }
@@ -267,7 +363,8 @@ object MotionPhotoContainer {
             val items = document.getElementsByTagNameNS(CONTAINER, "Item")
             if (items.length > 2) fail("Auxiliary JPEG items are unsupported")
             for (i in 0 until items.length) {
-                if (field(items.item(i) as Element, "Semantic") == "GainMap") fail("Gain map JPEG is unsupported")
+                if (field(items.item(i) as Element, "Semantic") == "GainMap")
+                    fail("Gain map JPEG is unsupported")
             }
         }
     }
@@ -276,33 +373,41 @@ object MotionPhotoContainer {
         // FIXME: An observed producer appends NUL padding after a complete UTF-8 packet;
         //        this is a compatibility exception, not standard XMP whitespace padding.
         //        Trim only segment-tail zeros. Interior zeros and UTF-16/32 remain rejected.
-        //        Restore strict XMP parsing by rejecting all NUL bytes instead of trimming this suffix.
+        //        Restore strict XMP parsing by rejecting all NUL bytes instead of trimming this
+        // suffix.
         var packetEnd = bytes.size
         while (packetEnd > 0 && bytes[packetEnd - 1] == 0.toByte()) packetEnd--
         // Reject DTDs before parsing: Android's XML factories differ in supported feature names.
         if ((0 until packetEnd).any { bytes[it] == 0.toByte() }) fail("XMP must use UTF-8 encoding")
         val text = String(bytes, 0, packetEnd, Charsets.UTF_8)
-        if (text.contains("<!DOCTYPE", ignoreCase = true) || text.contains("<!ENTITY", ignoreCase = true)) {
+        if (
+            text.contains("<!DOCTYPE", ignoreCase = true) ||
+                text.contains("<!ENTITY", ignoreCase = true)
+        ) {
             fail("XMP external/entity declarations are forbidden")
         }
         try {
             val builder = xmlFactory().newDocumentBuilder()
-            builder.setEntityResolver { _, _ -> throw IOException("External XMP entity is forbidden") }
+            builder.setEntityResolver { _, _ ->
+                throw IOException("External XMP entity is forbidden")
+            }
             return builder.parse(InputSource(ByteArrayInputStream(bytes, 0, packetEnd)))
         } catch (exception: Exception) {
             throw IOException("Malformed XMP", exception)
         }
     }
 
-    private fun xmlFactory() = DocumentBuilderFactory.newInstance().apply {
-        isNamespaceAware = true
-        isExpandEntityReferences = false
-    }
+    private fun xmlFactory() =
+        DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
+            isExpandEntityReferences = false
+        }
 
     private fun field(element: Element, name: String): String? {
         val values = mutableListOf<String>()
         if (element.hasAttributeNS(ITEM, name)) values += element.getAttributeNS(ITEM, name).trim()
-        childElements(element).filter { it.namespaceURI == ITEM && it.localName == name }
+        childElements(element)
+            .filter { it.namespaceURI == ITEM && it.localName == name }
             .forEach { values += it.textContent.trim() }
         if (values.size > 1) fail("Duplicate directory field: $name")
         return values.singleOrNull()
@@ -315,20 +420,23 @@ object MotionPhotoContainer {
         }
     }
 
-    private fun newXmp(): Document = xmlFactory().newDocumentBuilder().newDocument().apply {
-        val root = createElementNS(XMP, "x:xmpmeta")
-        appendChild(root)
-        root.appendChild(createElementNS(RDF, "rdf:RDF"))
-    }
+    private fun newXmp(): Document =
+        xmlFactory().newDocumentBuilder().newDocument().apply {
+            val root = createElementNS(XMP, "x:xmpmeta")
+            appendChild(root)
+            root.appendChild(createElementNS(RDF, "rdf:RDF"))
+        }
 
     private fun removeMotionMetadata(document: Document) {
         val all = document.getElementsByTagName("*")
         val remove = mutableListOf<Element>()
         for (i in 0 until all.length) {
             val element = all.item(i) as Element
-            if (element.namespaceURI == CAMERA && element.localName in MOTION_PROPERTIES ||
-                element.namespaceURI == CONTAINER && element.localName == "Directory"
-            ) remove += element
+            if (
+                element.namespaceURI == CAMERA && element.localName in MOTION_PROPERTIES ||
+                    element.namespaceURI == CONTAINER && element.localName == "Directory"
+            )
+                remove += element
             for (name in MOTION_PROPERTIES) element.removeAttributeNS(CAMERA, name)
             // FIXME: OPlus motion XMP can reference the previous video/crop; drop only its
             //        camera namespace on export. Remove this branch for standard-only XMP handling.
@@ -345,12 +453,19 @@ object MotionPhotoContainer {
         val descriptions = document.getElementsByTagNameNS(RDF, "Description")
         for (i in descriptions.length - 1 downTo 0) {
             val description = descriptions.item(i) as Element
-            val hasProperty = (0 until description.attributes.length).any { index ->
-                val attribute = description.attributes.item(index)
-                attribute.namespaceURI != "http://www.w3.org/2000/xmlns/" &&
-                    !(attribute.namespaceURI == RDF && attribute.localName == "about" && attribute.nodeValue.isEmpty())
-            }
-            if (!hasProperty && childElements(description).isEmpty() && description.textContent.isBlank()) {
+            val hasProperty =
+                (0 until description.attributes.length).any { index ->
+                    val attribute = description.attributes.item(index)
+                    attribute.namespaceURI != "http://www.w3.org/2000/xmlns/" &&
+                        !(attribute.namespaceURI == RDF &&
+                            attribute.localName == "about" &&
+                            attribute.nodeValue.isEmpty())
+                }
+            if (
+                !hasProperty &&
+                    childElements(description).isEmpty() &&
+                    description.textContent.isBlank()
+            ) {
                 description.parentNode.removeChild(description)
             }
         }
@@ -362,9 +477,11 @@ object MotionPhotoContainer {
         //        cleanup follows the user's choice to discard unsupported auxiliary data.
         val remove = mutableListOf<Element>()
         val all = document.getElementsByTagName("*")
-        fun discard(namespace: String?, name: String?) = namespace == CAMERA_VIVO ||
-            namespace.orEmpty().contains("hdr-gain-map") || namespace.orEmpty().contains("hdrgm") ||
-            namespace == "http://ns.adobe.com/xmp/note/" && name == "HasExtendedXMP"
+        fun discard(namespace: String?, name: String?) =
+            namespace == CAMERA_VIVO ||
+                namespace.orEmpty().contains("hdr-gain-map") ||
+                namespace.orEmpty().contains("hdrgm") ||
+                namespace == "http://ns.adobe.com/xmp/note/" && name == "HasExtendedXMP"
         for (i in 0 until all.length) {
             val element = all.item(i) as Element
             if (discard(element.namespaceURI, element.localName)) remove += element
@@ -379,19 +496,31 @@ object MotionPhotoContainer {
         removeMotionMetadata(document)
     }
 
-    private fun addMotionMetadata(document: Document, length: Long, timestampMs: Long, vivoMetadata: Boolean = false) {
+    private fun addMotionMetadata(
+        document: Document,
+        length: Long,
+        timestampMs: Long,
+        vivoMetadata: Boolean = false,
+    ) {
         val rdf = document.getElementsByTagNameNS(RDF, "RDF")
         if (rdf.length != 1) fail("XMP must have exactly one RDF root")
         val description = document.createElementNS(RDF, "rdf:Description")
         description.setAttributeNS(RDF, "rdf:about", "")
         description.setAttributeNS(CAMERA, "Camera:MotionPhoto", "1")
         description.setAttributeNS(CAMERA, "Camera:MotionPhotoVersion", "1")
-        val us = if (timestampMs == -1L) -1 else try {
-            Math.multiplyExact(timestampMs, 1000)
-        } catch (exception: ArithmeticException) {
-            throw IOException("Cover timestamp overflows microseconds", exception)
-        }
-        description.setAttributeNS(CAMERA, "Camera:MotionPhotoPresentationTimestampUs", us.toString())
+        val us =
+            if (timestampMs == -1L) -1
+            else
+                try {
+                    Math.multiplyExact(timestampMs, 1000)
+                } catch (exception: ArithmeticException) {
+                    throw IOException("Cover timestamp overflows microseconds", exception)
+                }
+        description.setAttributeNS(
+            CAMERA,
+            "Camera:MotionPhotoPresentationTimestampUs",
+            us.toString(),
+        )
         if (vivoMetadata) {
             // FIXME: Vivo V2 compatibility uses the provided SDK's XMP profile identifiers;
             //        no vendor SDK is loaded. These are format-compatibility declarations,
@@ -403,7 +532,11 @@ object MotionPhotoContainer {
         val directory = document.createElementNS(CONTAINER, "Container:Directory")
         val sequence = document.createElementNS(RDF, "rdf:Seq")
         directory.appendChild(sequence)
-        for ((mime, semantic, itemLength) in listOf(Triple("image/jpeg", "Primary", 0L), Triple("video/mp4", "MotionPhoto", length))) {
+        for ((mime, semantic, itemLength) in
+            listOf(
+                Triple("image/jpeg", "Primary", 0L),
+                Triple("video/mp4", "MotionPhoto", length),
+            )) {
             val entry = document.createElementNS(RDF, "rdf:li")
             entry.setAttributeNS(RDF, "rdf:parseType", "Resource")
             val item = document.createElementNS(CONTAINER, "Container:Item")
@@ -419,51 +552,85 @@ object MotionPhotoContainer {
 
     private fun serialize(document: Document): ByteArray {
         val stream = ByteArrayOutputStream()
-        TransformerFactory.newInstance().newTransformer().apply {
-            setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes")
-            setOutputProperty(OutputKeys.ENCODING, "UTF-8")
-        }.transform(DOMSource(document), StreamResult(stream))
+        TransformerFactory.newInstance()
+            .newTransformer()
+            .apply {
+                setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes")
+                setOutputProperty(OutputKeys.ENCODING, "UTF-8")
+            }
+            .transform(DOMSource(document), StreamResult(stream))
         return stream.toByteArray()
     }
 
     /** MP Index IFD with one baseline image; MPEntry offsets are relative to the TIFF header. */
     private fun singleImageMpf(imageLength: Long): ByteArray {
         if (imageLength > 0xffffffffL) fail("JPEG is too large for MPF")
-        return ByteBuffer.allocate(70).order(ByteOrder.BIG_ENDIAN).apply {
-            put(MPF_HEADER)
-            putShort(0x4d4d.toShort())
-            putShort(42)
-            putInt(8)
-            putShort(3)
-            putShort(0xb000.toShort()); putShort(7); putInt(4); put("0100".toByteArray(Charsets.US_ASCII))
-            putShort(0xb001.toShort()); putShort(4); putInt(1); putInt(1)
-            putShort(0xb002.toShort()); putShort(7); putInt(16); putInt(50)
-            putInt(0)
-            putInt(0x00030000)
-            putInt(imageLength.toInt())
-            putInt(0)
-            putShort(0)
-            putShort(0)
-        }.array()
+        return ByteBuffer.allocate(70)
+            .order(ByteOrder.BIG_ENDIAN)
+            .apply {
+                put(MPF_HEADER)
+                putShort(0x4d4d.toShort())
+                putShort(42)
+                putInt(8)
+                putShort(3)
+                putShort(0xb000.toShort())
+                putShort(7)
+                putInt(4)
+                put("0100".toByteArray(Charsets.US_ASCII))
+                putShort(0xb001.toShort())
+                putShort(4)
+                putInt(1)
+                putInt(1)
+                putShort(0xb002.toShort())
+                putShort(7)
+                putInt(16)
+                putInt(50)
+                putInt(0)
+                putInt(0x00030000)
+                putInt(imageLength.toInt())
+                putInt(0)
+                putShort(0)
+                putShort(0)
+            }
+            .array()
     }
 
-    data class Box(val type: String, val payload: Long, val end: Long, val start: Long = payload - 8)
+    data class Box(
+        val type: String,
+        val payload: Long,
+        val end: Long,
+        val start: Long = payload - 8,
+    )
+
     data class VideoAnalysis(val boxes: List<Box>, val metadata: MotionPhotoVideoMetadata.Info?)
 
     fun analyzeVideo(channel: FileChannel, start: Long, length: Long): VideoAnalysis {
-        val value = MotionPhotoNative.decode(MotionPhotoNative.analyzeVideo(channel, channel.size(), start, length))
-            as JsonObject
-        return VideoAnalysis(decodeBoxes(value.getValue("boxes")), MotionPhotoNative.metadata(value.getValue("metadata")))
+        val value =
+            MotionPhotoNative.decode(
+                MotionPhotoNative.analyzeVideo(channel, channel.size(), start, length),
+            ) as JsonObject
+        return VideoAnalysis(
+            decodeBoxes(value.getValue("boxes")),
+            MotionPhotoNative.metadata(value.getValue("metadata")),
+        )
     }
 
     fun boxes(channel: FileChannel, start: Long, end: Long): List<Box> =
-        decodeBoxes(MotionPhotoNative.decode(MotionPhotoNative.readBoxes(channel, channel.size(), start, end)))
+        decodeBoxes(
+            MotionPhotoNative.decode(
+                MotionPhotoNative.readBoxes(channel, channel.size(), start, end),
+            ),
+        )
 
     private fun decodeBoxes(value: JsonElement): List<Box> =
         (value as JsonArray).map {
             val box = it as JsonObject
-            Box((box.getValue("kind") as JsonPrimitive).content,
-                box.long("payload"), box.long("end"), box.long("start"))
+            Box(
+                (box.getValue("kind") as JsonPrimitive).content,
+                box.long("payload"),
+                box.long("end"),
+                box.long("start"),
+            )
         }
 
     private fun <T> publish(output: File, suffix: String, write: (File) -> T): T {
@@ -480,7 +647,11 @@ object MotionPhotoContainer {
         }
     }
 
-    private fun matchesSuppliedVideo(cover: FileChannel, imageEnd: Long, video: FileChannel): Boolean {
+    private fun matchesSuppliedVideo(
+        cover: FileChannel,
+        imageEnd: Long,
+        video: FileChannel,
+    ): Boolean {
         // FIXME: WeChat can remove XMP while retaining the same appended video in its cached
         //        cover. Only export may strip that duplicate: prove its entire bounded suffix
         //        equals the separately validated video. Album recognition remains XMP-based.
@@ -490,7 +661,8 @@ object MotionPhotoContainer {
         var offset = 0L
         while (offset < length) {
             val count = minOf(64 * 1024L, length - offset).toInt()
-            if (!read(cover, imageEnd + offset, count).contentEquals(read(video, offset, count))) return false
+            if (!read(cover, imageEnd + offset, count).contentEquals(read(video, offset, count)))
+                return false
             offset += count
         }
         return true
@@ -529,7 +701,11 @@ object MotionPhotoContainer {
     }
 
     private fun writeSegment(target: FileChannel, marker: Int, data: ByteArray) {
-        val header = ByteBuffer.allocate(4).put(0xff.toByte()).put(marker.toByte()).putShort((data.size + 2).toShort())
+        val header =
+            ByteBuffer.allocate(4)
+                .put(0xff.toByte())
+                .put(marker.toByte())
+                .putShort((data.size + 2).toShort())
         header.flip()
         while (header.hasRemaining()) target.write(header)
         val payload = ByteBuffer.wrap(data)
@@ -544,11 +720,15 @@ object MotionPhotoContainer {
         return buffer.array()
     }
 
-    private fun ByteArray.startsWith(prefix: ByteArray) = size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
-    private fun add(first: Long, second: Long): Long = try {
-        Math.addExact(first, second)
-    } catch (exception: ArithmeticException) {
-        throw IOException("File offset overflow", exception)
-    }
+    private fun ByteArray.startsWith(prefix: ByteArray) =
+        size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
+
+    private fun add(first: Long, second: Long): Long =
+        try {
+            Math.addExact(first, second)
+        } catch (exception: ArithmeticException) {
+            throw IOException("File offset overflow", exception)
+        }
+
     private fun fail(message: String): Nothing = throw IOException(message)
 }

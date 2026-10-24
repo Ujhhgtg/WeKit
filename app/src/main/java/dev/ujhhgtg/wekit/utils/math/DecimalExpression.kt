@@ -14,17 +14,19 @@ import java.math.RoundingMode
  * `^`/`**`, `sqrt(x)`, `round(x)`, and `round(x, digits)`. Decimal operations use 34 significant
  * digits and `HALF_UP` rounding.
  */
-class DecimalExpression private constructor(
+class DecimalExpression
+private constructor(
     private val root: Node,
 ) {
 
-    fun evaluate(variables: Map<String, BigDecimal> = emptyMap()): BigDecimal = try {
-        root.evaluate(variables)
-    } catch (error: DecimalExpressionException) {
-        throw error
-    } catch (error: ArithmeticException) {
-        throw DecimalExpressionException(error.message ?: "Arithmetic error", cause = error)
-    }
+    fun evaluate(variables: Map<String, BigDecimal> = emptyMap()): BigDecimal =
+        try {
+            root.evaluate(variables)
+        } catch (error: DecimalExpressionException) {
+            throw error
+        } catch (error: ArithmeticException) {
+            throw DecimalExpressionException(error.message ?: "Arithmetic error", cause = error)
+        }
 
     companion object {
         private const val MAX_EXPRESSION_LENGTH = 1024
@@ -48,10 +50,11 @@ class DecimalExpressionException(
     message: String,
     val position: Int? = null,
     cause: Throwable? = null,
-) : IllegalArgumentException(
-    if (position == null) message else "$message at position ${position + 1}",
-    cause,
-)
+) :
+    IllegalArgumentException(
+        if (position == null) message else "$message at position ${position + 1}",
+        cause,
+    )
 
 private val DECIMAL_CONTEXT = MathContext(34, RoundingMode.HALF_UP)
 private val TWO = BigDecimal.valueOf(2L)
@@ -124,7 +127,8 @@ private data class BinaryNode(
     private fun power(base: BigDecimal, exponentValue: BigDecimal): BigDecimal {
         val exponentInt = powerExponent(exponentValue)
         if (exponentInt >= 0) return base.pow(exponentInt, DECIMAL_CONTEXT)
-        if (base.signum() == 0) throw DecimalExpressionException("Zero cannot have a negative exponent")
+        if (base.signum() == 0)
+            throw DecimalExpressionException("Zero cannot have a negative exponent")
         return BigDecimal.ONE.divide(base.pow(-exponentInt, DECIMAL_CONTEXT), DECIMAL_CONTEXT)
     }
 }
@@ -140,14 +144,17 @@ private data class FunctionNode(val name: String, val arguments: List<Node>) : N
     }
 
     private fun squareRoot(value: BigDecimal): BigDecimal {
-        if (value.signum() < 0) throw DecimalExpressionException("Cannot take the square root of a negative number")
+        if (value.signum() < 0)
+            throw DecimalExpressionException("Cannot take the square root of a negative number")
         if (value.signum() == 0) return BigDecimal.ZERO
 
         val magnitude = value.precision() - value.scale()
         var estimate = BigDecimal.ONE.scaleByPowerOfTen(Math.floorDiv(magnitude, 2))
         repeat(DECIMAL_CONTEXT.precision + 10) {
-            val next = estimate.add(value.divide(estimate, DECIMAL_CONTEXT), DECIMAL_CONTEXT)
-                .divide(TWO, DECIMAL_CONTEXT)
+            val next =
+                estimate
+                    .add(value.divide(estimate, DECIMAL_CONTEXT), DECIMAL_CONTEXT)
+                    .divide(TWO, DECIMAL_CONTEXT)
             if (next.compareTo(estimate) == 0) return next
             estimate = next
         }
@@ -161,11 +168,12 @@ private data class FunctionNode(val name: String, val arguments: List<Node>) : N
 }
 
 private fun powerExponent(value: BigDecimal): Int {
-    val exponent = try {
-        value.toBigIntegerExact()
-    } catch (error: ArithmeticException) {
-        throw DecimalExpressionException("Power exponent must be an integer", cause = error)
-    }
+    val exponent =
+        try {
+            value.toBigIntegerExact()
+        } catch (error: ArithmeticException) {
+            throw DecimalExpressionException("Power exponent must be an integer", cause = error)
+        }
     if (exponent.abs() > MAX_POWER) {
         throw DecimalExpressionException("Power exponent must be between -10000 and 10000")
     }
@@ -173,13 +181,15 @@ private fun powerExponent(value: BigDecimal): Int {
 }
 
 private fun roundDigits(value: BigDecimal): Int {
-    val digits = try {
-        value.toBigIntegerExact()
-    } catch (error: ArithmeticException) {
-        throw DecimalExpressionException("round digits must be an integer", cause = error)
-    }
-    if (digits < BigInteger.valueOf(-MAX_ROUND_DIGITS.toLong()) ||
-        digits > BigInteger.valueOf(MAX_ROUND_DIGITS.toLong())
+    val digits =
+        try {
+            value.toBigIntegerExact()
+        } catch (error: ArithmeticException) {
+            throw DecimalExpressionException("round digits must be an integer", cause = error)
+        }
+    if (
+        digits < BigInteger.valueOf(-MAX_ROUND_DIGITS.toLong()) ||
+            digits > BigInteger.valueOf(MAX_ROUND_DIGITS.toLong())
     ) {
         throw DecimalExpressionException("round digits must be between -1000 and 1000")
     }
@@ -188,34 +198,39 @@ private fun roundDigits(value: BigDecimal): Int {
 
 /**
  * Evaluates variable-free subtrees while parsing, and validates operands whose invalidity is
- * independent of the remaining variables. This keeps expressions such as `2 / 0`,
- * `value / 0`, and `value ^ 0.5` out of persisted configuration while leaving genuinely
- * value-dependent failures to runtime handling.
+ * independent of the remaining variables. This keeps expressions such as `2 / 0`, `value / 0`, and
+ * `value ^ 0.5` out of persisted configuration while leaving genuinely value-dependent failures to
+ * runtime handling.
  */
-private fun Node.validateConstantSubexpressions(): BigDecimal? = when (this) {
-    is LiteralNode -> value
-    is VariableNode -> null
-    is UnaryNode -> operand.validateConstantSubexpressions()?.let {
-        if (negate) it.negate(DECIMAL_CONTEXT) else it
-    }
-    is BinaryNode -> {
-        val leftValue = left.validateConstantSubexpressions()
-        val rightValue = right.validateConstantSubexpressions()
-        when (operator) {
-            BinaryOperator.DIVIDE, BinaryOperator.FLOOR_DIVIDE, BinaryOperator.MODULO -> {
-                if (rightValue?.signum() == 0) throw DecimalExpressionException("Division by zero")
+private fun Node.validateConstantSubexpressions(): BigDecimal? =
+    when (this) {
+        is LiteralNode -> value
+        is VariableNode -> null
+        is UnaryNode ->
+            operand.validateConstantSubexpressions()?.let {
+                if (negate) it.negate(DECIMAL_CONTEXT) else it
             }
-            BinaryOperator.POWER -> if (rightValue != null) powerExponent(rightValue)
-            else -> Unit
+        is BinaryNode -> {
+            val leftValue = left.validateConstantSubexpressions()
+            val rightValue = right.validateConstantSubexpressions()
+            when (operator) {
+                BinaryOperator.DIVIDE,
+                BinaryOperator.FLOOR_DIVIDE,
+                BinaryOperator.MODULO -> {
+                    if (rightValue?.signum() == 0)
+                        throw DecimalExpressionException("Division by zero")
+                }
+                BinaryOperator.POWER -> if (rightValue != null) powerExponent(rightValue)
+                else -> Unit
+            }
+            if (leftValue != null && rightValue != null) evaluate(emptyMap()) else null
         }
-        if (leftValue != null && rightValue != null) evaluate(emptyMap()) else null
+        is FunctionNode -> {
+            val values = arguments.map(Node::validateConstantSubexpressions)
+            if (name == "round" && values.size == 2) values[1]?.let(::roundDigits)
+            if (values.all { it != null }) evaluate(emptyMap()) else null
+        }
     }
-    is FunctionNode -> {
-        val values = arguments.map(Node::validateConstantSubexpressions)
-        if (name == "round" && values.size == 2) values[1]?.let(::roundDigits)
-        if (values.all { it != null }) evaluate(emptyMap()) else null
-    }
-}
 
 private class Parser(
     private val source: String,
@@ -233,33 +248,37 @@ private class Parser(
     private fun parseAdditive(): Node {
         var result = parseMultiplicative()
         while (true) {
-            result = when {
-                consume("+") -> BinaryNode(BinaryOperator.ADD, result, parseMultiplicative())
-                consume("-") -> BinaryNode(BinaryOperator.SUBTRACT, result, parseMultiplicative())
-                else -> return result
-            }
+            result =
+                when {
+                    consume("+") -> BinaryNode(BinaryOperator.ADD, result, parseMultiplicative())
+                    consume("-") ->
+                        BinaryNode(BinaryOperator.SUBTRACT, result, parseMultiplicative())
+                    else -> return result
+                }
         }
     }
 
     private fun parseMultiplicative(): Node {
         var result = parseUnary()
         while (true) {
-            result = when {
-                consume("//") -> BinaryNode(BinaryOperator.FLOOR_DIVIDE, result, parseUnary())
-                consume("/") -> BinaryNode(BinaryOperator.DIVIDE, result, parseUnary())
-                consume("%") -> BinaryNode(BinaryOperator.MODULO, result, parseUnary())
-                startsWith("**") -> return result
-                consume("*") -> BinaryNode(BinaryOperator.MULTIPLY, result, parseUnary())
-                else -> return result
-            }
+            result =
+                when {
+                    consume("//") -> BinaryNode(BinaryOperator.FLOOR_DIVIDE, result, parseUnary())
+                    consume("/") -> BinaryNode(BinaryOperator.DIVIDE, result, parseUnary())
+                    consume("%") -> BinaryNode(BinaryOperator.MODULO, result, parseUnary())
+                    startsWith("**") -> return result
+                    consume("*") -> BinaryNode(BinaryOperator.MULTIPLY, result, parseUnary())
+                    else -> return result
+                }
         }
     }
 
-    private fun parseUnary(): Node = when {
-        consume("+") -> UnaryNode(negate = false, parseUnary())
-        consume("-") -> UnaryNode(negate = true, parseUnary())
-        else -> parsePower()
-    }
+    private fun parseUnary(): Node =
+        when {
+            consume("+") -> UnaryNode(negate = false, parseUnary())
+            consume("-") -> UnaryNode(negate = true, parseUnary())
+            else -> parsePower()
+        }
 
     private fun parsePower(): Node {
         val base = parsePrimary()
@@ -302,7 +321,8 @@ private class Parser(
         }
         when (name) {
             "sqrt" -> if (arguments.size != 1) fail("sqrt expects 1 argument", namePosition)
-            "round" -> if (arguments.size !in 1..2) fail("round expects 1 or 2 arguments", namePosition)
+            "round" ->
+                if (arguments.size !in 1..2) fail("round expects 1 or 2 arguments", namePosition)
             else -> fail("Unknown function '$name'", namePosition)
         }
         return FunctionNode(name, arguments)

@@ -31,7 +31,9 @@ object LlmJson {
     }
 }
 
-/** Minimal SSE line parser: extracts the payload after a `data:` prefix, or null for other lines. */
+/**
+ * Minimal SSE line parser: extracts the payload after a `data:` prefix, or null for other lines.
+ */
 object SseParser {
     fun dataOrNull(line: String): String? {
         if (!line.startsWith("data:")) return null
@@ -46,11 +48,14 @@ fun JsonPrimitive.contentOrNullSafe(): String? =
 /**
  * Parses an OpenAI-style `usage` object into [LlmUsage]. Accepts both the OpenAI Chat/Responses
  * field names (`prompt_tokens`/`completion_tokens`/`total_tokens` and the Responses
- * `input_tokens`/`output_tokens`) so one helper serves both adapters. Returns null if [usage] is null.
+ * `input_tokens`/`output_tokens`) so one helper serves both adapters. Returns null if [usage] is
+ * null.
  */
 fun parseUsage(usage: JsonObject?): LlmUsage? {
     if (usage == null) return null
-    fun i(vararg keys: String): Int? = keys.firstNotNullOfOrNull { usage[it]?.jsonPrimitive?.intOrNull }
+    fun i(vararg keys: String): Int? = keys.firstNotNullOfOrNull {
+        usage[it]?.jsonPrimitive?.intOrNull
+    }
     return LlmUsage(
         promptTokens = i("prompt_tokens", "input_tokens"),
         completionTokens = i("completion_tokens", "output_tokens"),
@@ -61,8 +66,7 @@ fun parseUsage(usage: JsonObject?): LlmUsage? {
 /** Drains the rest of a channel as UTF-8 text (used for error bodies). */
 suspend fun ByteReadChannel.readRemainingText(): String = buildString {
     while (true) {
-        @Suppress("DEPRECATION")
-        val line = readUTF8Line() ?: break
+        @Suppress("DEPRECATION") val line = readUTF8Line() ?: break
         append(line).append('\n')
     }
 }

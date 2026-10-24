@@ -64,7 +64,11 @@ fun ContactsSelectorScreen(
             title = contact.displayName,
             description = subtitleProvider(contact),
             leadingContent = { ContactAvatar(contact.avatarUrl, size = 40.dp) },
-            onClick = { onSelectionChange(if (checked) selectedWxIds - contact.wxId else selectedWxIds + contact.wxId) },
+            onClick = {
+                onSelectionChange(
+                    if (checked) selectedWxIds - contact.wxId else selectedWxIds + contact.wxId,
+                )
+            },
             trailingContent = { Checkbox(checked = checked, onCheckedChange = null) },
         )
     }
@@ -99,15 +103,19 @@ fun ContactPickerScreen(
             leadingContent = { ContactAvatar(contact.avatarUrl, size = 40.dp) },
             onClick = { onPick(contact) },
             trailingContent = {
-                Icon(trailingIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(
+                    trailingIcon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             },
         )
     }
 }
 
 /**
- * [SettingsScaffold] with the search field and filter chips pinned under the app bar, one
- * segmented group per section, and the letter index floating on the end edge.
+ * [SettingsScaffold] with the search field and filter chips pinned under the app bar, one segmented
+ * group per section, and the letter index floating on the end edge.
  */
 @Composable
 private fun ContactSelectorScaffold(
@@ -147,25 +155,30 @@ private fun ContactSelectorScaffold(
                 AlphabetIndexBar(
                     state = state,
                     sections = sections,
-                    onScrollTo = { index -> coroutineScope.launch { listState.scrollToItem(index) } },
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .padding(end = 2.dp),
+                    onScrollTo = { index ->
+                        coroutineScope.launch { listState.scrollToItem(index) }
+                    },
+                    modifier =
+                        Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
                 )
             }
         },
     ) {
         when {
-            contacts == null -> item(key = "loading") {
-                Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            contacts == null ->
+                item(key = "loading") {
+                    Box(
+                        modifier = Modifier.fillParentMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
 
-            sections.isEmpty() -> item(key = "empty") {
-                SettingsEmptyState(title = stringResource(R.string.contact_no_matches))
-            }
+            sections.isEmpty() ->
+                item(key = "empty") {
+                    SettingsEmptyState(title = stringResource(R.string.contact_no_matches))
+                }
 
             else -> {
                 sections.forEach { section ->
@@ -174,9 +187,14 @@ private fun ContactSelectorScaffold(
                             text = contactSectionTitle(section.key),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .animateItem()
-                                .padding(start = 32.dp, end = rowEndPadding, top = 16.dp, bottom = 12.dp),
+                            modifier =
+                                Modifier.animateItem()
+                                    .padding(
+                                        start = 32.dp,
+                                        end = rowEndPadding,
+                                        top = 16.dp,
+                                        bottom = 12.dp,
+                                    ),
                         )
                     }
                     lazySegmentedItems(section.contacts, key = { it.wxId }) { contact ->
@@ -185,7 +203,9 @@ private fun ContactSelectorScaffold(
                         }
                     }
                 }
-                item(key = "bottom_inset") { Spacer(Modifier.height(SETTINGS_CONTENT_BOTTOM_INSET)) }
+                item(key = "bottom_inset") {
+                    Spacer(Modifier.height(SETTINGS_CONTENT_BOTTOM_INSET))
+                }
             }
         }
     }

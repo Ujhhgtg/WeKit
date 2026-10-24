@@ -39,7 +39,8 @@ class OpLogProtoTest {
 
     @Test
     fun modProfileImgBufIsBinary() {
-        val encoded = WeProto.encodeWithDefaults(ModProfileProto(imgBuf = byteArrayOf(0, 0xFF.toByte())))
+        val encoded =
+            WeProto.encodeWithDefaults(ModProfileProto(imgBuf = byteArrayOf(0, 0xFF.toByte())))
         val decoded = WeProto.decode<ModProfileProto>(encoded)
         assertArrayEquals(byteArrayOf(0, 0xFF.toByte()), decoded.imgBuf)
     }
@@ -51,19 +52,21 @@ class OpLogProtoTest {
 
     @Test
     fun optionalNestedProfileFieldsAreOmittedWithDefaultEncoding() {
-        val encoded = WeProto.encodeWithDefaults(
-            ModProfileProto(disturbSetting = DisturbSettingProto())
-        )
+        val encoded =
+            WeProto.encodeWithDefaults(
+                ModProfileProto(disturbSetting = DisturbSettingProto()),
+            )
         val decoded = WeProto.decode<ModProfileProto>(encoded)
 
         assertEquals(DisturbSettingProto(), decoded.disturbSetting)
     }
 
-    private val legacyClearProfileRequest = hex(
-        "0a67080112630801125f085b125b08800112020a001a020a0020002a020a0032020a00" +
-            "380040004a0050005a0062006a007001800100880100980100a00100a80100b00100" +
-            "b80100c20100c80100da0100e20100e80100f00100f80100880200900200a00200b20200"
-    )
+    private val legacyClearProfileRequest =
+        hex(
+            "0a67080112630801125f085b125b08800112020a001a020a0020002a020a0032020a00" +
+                "380040004a0050005a0062006a007001800100880100980100a00100a80100b00100" +
+                "b80100c20100c80100da0100e20100e80100f00100f80100880200900200a00200b20200",
+        )
 
     private fun hex(value: String): ByteArray =
         value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()

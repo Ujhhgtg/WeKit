@@ -15,8 +15,14 @@ class MatcherBuildersTest {
             className("com.test.Alpha")
             superClass { className("com.test.Base") }
             interfaceSpec { className("com.test.I1") }
-            method { name("run"); paramTypes() }
-            field { name("count", NameMatch.Contains); modifiers = 8 }
+            method {
+                name("run")
+                paramTypes()
+            }
+            field {
+                name("count", NameMatch.Contains)
+                modifiers = 8
+            }
             fieldCount = 2..2
             methodCount = 3..3
             modifiers = 1

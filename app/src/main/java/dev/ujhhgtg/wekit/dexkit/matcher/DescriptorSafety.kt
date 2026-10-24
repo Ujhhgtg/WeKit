@@ -14,24 +14,36 @@ import dev.ujhhgtg.wekit.dexkit.meta.javaNameToDescriptor
  */
 
 /** Primitive/void Java type names (no dataset class metadata). */
-internal val PRIMITIVE_JAVA_TYPE_NAMES: Set<String> = setOf(
-    "void", "boolean", "byte", "short", "char", "int", "long", "float", "double",
-)
+internal val PRIMITIVE_JAVA_TYPE_NAMES: Set<String> =
+    setOf(
+        "void",
+        "boolean",
+        "byte",
+        "short",
+        "char",
+        "int",
+        "long",
+        "float",
+        "double",
+    )
 
-private val PRIMITIVE_DESCRIPTOR_NAMES: Map<Char, String> = mapOf(
-    'V' to "void",
-    'Z' to "boolean",
-    'B' to "byte",
-    'S' to "short",
-    'C' to "char",
-    'I' to "int",
-    'J' to "long",
-    'F' to "float",
-    'D' to "double",
-)
+private val PRIMITIVE_DESCRIPTOR_NAMES: Map<Char, String> =
+    mapOf(
+        'V' to "void",
+        'Z' to "boolean",
+        'B' to "byte",
+        'S' to "short",
+        'C' to "char",
+        'I' to "int",
+        'J' to "long",
+        'F' to "float",
+        'D' to "double",
+    )
 
 private val PRIMITIVE_NAME_DESCRIPTORS: Map<String, String> =
-    PRIMITIVE_DESCRIPTOR_NAMES.entries.associate { (descriptor, name) -> name to descriptor.toString() }
+    PRIMITIVE_DESCRIPTOR_NAMES.entries.associate { (descriptor, name) ->
+        name to descriptor.toString()
+    }
 
 /** True for a DEX array type descriptor ("[B", "[Lx/Y;", "[[I"). */
 internal fun isDexArrayDescriptor(value: String): Boolean = value.startsWith("[")
@@ -60,11 +72,12 @@ internal fun isDexTypeDescriptor(value: String): Boolean {
     return descriptorToJavaNameOrNull(value) != null
 }
 
-private fun descriptorToJavaNameOrNull(descriptor: String): String? = try {
-    descriptorToJavaName(descriptor)
-} catch (e: IllegalArgumentException) {
-    null
-}
+private fun descriptorToJavaNameOrNull(descriptor: String): String? =
+    try {
+        descriptorToJavaName(descriptor)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
 
 /** True for primitive, void or array type names in Java-name OR DEX-descriptor form. */
 internal fun isPrimitiveOrArrayTypeName(name: String): Boolean {
@@ -76,9 +89,9 @@ internal fun isPrimitiveOrArrayTypeName(name: String): Boolean {
 }
 
 /**
- * Normalizes a type name to a Java type name for name/type comparisons:
- * "[B" -> "byte[]", "[Lx/Y;" -> "x.Y[]", "int" -> "int", "com.x.Y[][]" -> unchanged.
- * Invalid input is returned trimmed unchanged (never throws).
+ * Normalizes a type name to a Java type name for name/type comparisons: "[B" -> "byte[]", "[Lx/Y;"
+ * -> "x.Y[]", "int" -> "int", "com.x.Y[][]" -> unchanged. Invalid input is returned trimmed
+ * unchanged (never throws).
  */
 internal fun javaTypeNameOf(name: String): String {
     val value = name.trim()
@@ -90,9 +103,9 @@ internal fun javaTypeNameOf(name: String): String {
 }
 
 /**
- * Safe type-name -> DEX type descriptor conversion used by candidate SQL emission:
- * primitives, Java arrays, dotted object names, and existing DEX type descriptors. Returns null for
- * malformed input instead of producing a malformed descriptor.
+ * Safe type-name -> DEX type descriptor conversion used by candidate SQL emission: primitives, Java
+ * arrays, dotted object names, and existing DEX type descriptors. Returns null for malformed input
+ * instead of producing a malformed descriptor.
  */
 internal fun typeDescriptorOrNull(name: String): String? {
     val value = name.trim()

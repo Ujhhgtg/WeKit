@@ -13,12 +13,13 @@ import androidx.compose.ui.platform.LocalResources
 /**
  * A context for accessing WeKit resources only.
  *
- * Do not use it for an Activity, windows, Activity Result, SAF, system services, or third-party
- * UI construction.
+ * Do not use it for an Activity, windows, Activity Result, SAF, system services, or third-party UI
+ * construction.
  */
-val LocalWeKitLocalizedContext = staticCompositionLocalOf<Context> {
-    error("LocalWeKitLocalizedContext was not provided")
-}
+val LocalWeKitLocalizedContext =
+    staticCompositionLocalOf<Context> {
+        error("LocalWeKitLocalizedContext was not provided")
+    }
 
 @Composable
 fun WeKitLocaleProvider(
@@ -28,12 +29,14 @@ fun WeKitLocaleProvider(
     val baseContext = LocalContext.current
     val parentConfiguration = LocalConfiguration.current
     val locale = WeKitLocaleController.resolvedLocale
-    val localizedContext = remember(baseContext, parentConfiguration, locale, mode) {
-        LocalizedContextFactory.create(baseContext, locale, mode)
-    }
-    val localizedConfiguration = remember(localizedContext, locale) {
-        Configuration(localizedContext.resources.configuration)
-    }
+    val localizedContext =
+        remember(baseContext, parentConfiguration, locale, mode) {
+            LocalizedContextFactory.create(baseContext, locale, mode)
+        }
+    val localizedConfiguration =
+        remember(localizedContext, locale) {
+            Configuration(localizedContext.resources.configuration)
+        }
 
     CompositionLocalProvider(
         LocalResources provides localizedContext.resources,

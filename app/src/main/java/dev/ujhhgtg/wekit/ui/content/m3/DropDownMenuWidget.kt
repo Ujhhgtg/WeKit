@@ -68,11 +68,12 @@ fun <T> DropDownMenuWidget(
     // DropdownMenuPopup anchors to its parent layout, so place a zero-size anchor
     // at the press position instead of a fixed spot inside the row.
     Box(
-        modifier = Modifier.pointerInput(enabled) {
-            awaitEachGesture {
-                pressPosition = awaitFirstDown(requireUnconsumed = false).position
-            }
-        }
+        modifier =
+            Modifier.pointerInput(enabled) {
+                awaitEachGesture {
+                    pressPosition = awaitFirstDown(requireUnconsumed = false).position
+                }
+            },
     ) {
         BaseWidget(
             icon = icon,
@@ -85,7 +86,7 @@ fun <T> DropDownMenuWidget(
         Box(
             Modifier.offset {
                 IntOffset(pressPosition.x.roundToInt(), pressPosition.y.roundToInt())
-            }
+            },
         ) {
             ExpressiveOptionDropdown(
                 expanded = expanded,

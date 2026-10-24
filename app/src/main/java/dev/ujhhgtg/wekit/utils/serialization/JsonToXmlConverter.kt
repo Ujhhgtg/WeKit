@@ -1,14 +1,14 @@
 package dev.ujhhgtg.wekit.utils.serialization
 
 import android.util.Xml
-import org.json.JSONArray
-import org.json.JSONObject
-import org.xmlpull.v1.XmlSerializer
 import java.io.IOException
 import java.io.StringWriter
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
+import org.xmlpull.v1.XmlSerializer
 
 data class XmlAttribute(val name: String, val value: String)
 
@@ -66,23 +66,25 @@ class JsonToXmlConverter(
 
                 is JSONArray -> processArray(node, key, value)
                 else -> {
-                    val strValue = when (value) {
-                        is Double if value % 1.0 == 0.0 -> value.toLong().toString()
-                        is Double -> {
-                            if (decimalFormat.maximumFractionDigits == 0)
-                                decimalFormat.maximumFractionDigits = 20
-                            decimalFormat.format(value)
-                        }
+                    val strValue =
+                        when (value) {
+                            is Double if value % 1.0 == 0.0 -> value.toLong().toString()
+                            is Double -> {
+                                if (decimalFormat.maximumFractionDigits == 0)
+                                    decimalFormat.maximumFractionDigits = 20
+                                decimalFormat.format(value)
+                            }
 
-                        else -> value.toString()
-                    }
+                            else -> value.toString()
+                        }
                     val valuePath = "${node.path}/$key"
                     when (valuePath) {
                         in attributePaths -> node.attributes.add(XmlAttribute(key, strValue))
                         in textPaths -> node.textContent = strValue
-                        else -> node.children.add(
-                            XmlNode(key, node.path).also { it.textContent = strValue }
-                        )
+                        else ->
+                            node.children.add(
+                                XmlNode(key, node.path).also { it.textContent = strValue },
+                            )
                     }
                 }
             }

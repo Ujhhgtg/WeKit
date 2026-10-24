@@ -13,7 +13,7 @@ object DexCacheManager {
     private lateinit var hostVersion: String
 
     /**
-     * A Dex cache is tied to both the WeChat build and its distribution channel.  Domestic and
+     * A Dex cache is tied to both the WeChat build and its distribution channel. Domestic and
      * Google Play builds can share a version name/code while exposing different DEX layouts, so
      * they must never address the same cache partition.
      */
@@ -59,11 +59,28 @@ object DexCacheManager {
         val db = database()
         db.beginTransaction()
         try {
-            db.execSQL("DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, item.technicalId))
-            db.execSQL("DELETE FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, item.technicalId))
-            db.execSQL("INSERT OR REPLACE INTO dex_cache_entries(hostVersion, technicalId, methodHash, timestamp) VALUES (?, ?, ?, ?)", arrayOf<Any?>(hostVersion, item.technicalId, methodHash(item), System.currentTimeMillis()))
+            db.execSQL(
+                "DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, item.technicalId),
+            )
+            db.execSQL(
+                "DELETE FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, item.technicalId),
+            )
+            db.execSQL(
+                "INSERT OR REPLACE INTO dex_cache_entries(hostVersion, technicalId, methodHash, timestamp) VALUES (?, ?, ?, ?)",
+                arrayOf<Any?>(
+                    hostVersion,
+                    item.technicalId,
+                    methodHash(item),
+                    System.currentTimeMillis(),
+                ),
+            )
             descriptors.forEach { (key, value) ->
-                db.execSQL("INSERT OR REPLACE INTO dex_cache_descriptors(hostVersion, technicalId, descriptorKey, descriptorValue) VALUES (?, ?, ?, ?)", arrayOf<Any?>(hostVersion, item.technicalId, key, value))
+                db.execSQL(
+                    "INSERT OR REPLACE INTO dex_cache_descriptors(hostVersion, technicalId, descriptorKey, descriptorValue) VALUES (?, ?, ?, ?)",
+                    arrayOf<Any?>(hostVersion, item.technicalId, key, value),
+                )
             }
             db.setTransactionSuccessful()
         } finally {
@@ -78,9 +95,24 @@ object DexCacheManager {
         val db = database()
         db.beginTransaction()
         try {
-            db.execSQL("DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, item.technicalId))
-            db.execSQL("DELETE FROM dex_cache_entries WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, item.technicalId))
-            db.execSQL("INSERT OR REPLACE INTO dex_cache_failures(hostVersion, technicalId, methodHash, message, timestamp) VALUES (?, ?, ?, ?, ?)", arrayOf<Any?>(hostVersion, item.technicalId, methodHash(item), message, System.currentTimeMillis()))
+            db.execSQL(
+                "DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, item.technicalId),
+            )
+            db.execSQL(
+                "DELETE FROM dex_cache_entries WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, item.technicalId),
+            )
+            db.execSQL(
+                "INSERT OR REPLACE INTO dex_cache_failures(hostVersion, technicalId, methodHash, message, timestamp) VALUES (?, ?, ?, ?, ?)",
+                arrayOf<Any?>(
+                    hostVersion,
+                    item.technicalId,
+                    methodHash(item),
+                    message,
+                    System.currentTimeMillis(),
+                ),
+            )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -99,8 +131,14 @@ object DexCacheManager {
         try {
             // The descriptor table intentionally has no FK so imported databases can preserve
             // file-backed metadata. Delete both halves together to avoid orphan descriptors.
-            db.execSQL("DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, technicalId))
-            db.execSQL("DELETE FROM dex_cache_entries WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, technicalId))
+            db.execSQL(
+                "DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, technicalId),
+            )
+            db.execSQL(
+                "DELETE FROM dex_cache_entries WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf<Any?>(hostVersion, technicalId),
+            )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -112,9 +150,18 @@ object DexCacheManager {
         val db = database()
         db.beginTransaction()
         try {
-            db.execSQL("DELETE FROM dex_cache_descriptors WHERE hostVersion = ?", arrayOf<Any?>(hostVersion))
-            db.execSQL("DELETE FROM dex_cache_entries WHERE hostVersion = ?", arrayOf<Any?>(hostVersion))
-            db.execSQL("DELETE FROM dex_cache_failures WHERE hostVersion = ?", arrayOf<Any?>(hostVersion))
+            db.execSQL(
+                "DELETE FROM dex_cache_descriptors WHERE hostVersion = ?",
+                arrayOf<Any?>(hostVersion),
+            )
+            db.execSQL(
+                "DELETE FROM dex_cache_entries WHERE hostVersion = ?",
+                arrayOf<Any?>(hostVersion),
+            )
+            db.execSQL(
+                "DELETE FROM dex_cache_failures WHERE hostVersion = ?",
+                arrayOf<Any?>(hostVersion),
+            )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -122,19 +169,37 @@ object DexCacheManager {
         WeLogger.i(TAG, "cleared Room Dex cache for $hostVersion")
     }
 
-    fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> =
-        items.filter { !isItemCacheValid(it) }
+    fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> = items.filter {
+        !isItemCacheValid(it)
+    }
 
     fun importCloudCaches(entries: List<CloudDexCacheEntry>) {
         val db = database()
         db.beginTransaction()
         try {
             entries.forEach { entry ->
-                db.execSQL("DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, entry.technicalId))
-                db.execSQL("DELETE FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?", arrayOf<Any?>(hostVersion, entry.technicalId))
-                db.execSQL("INSERT OR REPLACE INTO dex_cache_entries(hostVersion, technicalId, methodHash, timestamp) VALUES (?, ?, ?, ?)", arrayOf<Any?>(hostVersion, entry.technicalId, entry.methodHash, System.currentTimeMillis()))
+                db.execSQL(
+                    "DELETE FROM dex_cache_descriptors WHERE hostVersion = ? AND technicalId = ?",
+                    arrayOf<Any?>(hostVersion, entry.technicalId),
+                )
+                db.execSQL(
+                    "DELETE FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?",
+                    arrayOf<Any?>(hostVersion, entry.technicalId),
+                )
+                db.execSQL(
+                    "INSERT OR REPLACE INTO dex_cache_entries(hostVersion, technicalId, methodHash, timestamp) VALUES (?, ?, ?, ?)",
+                    arrayOf<Any?>(
+                        hostVersion,
+                        entry.technicalId,
+                        entry.methodHash,
+                        System.currentTimeMillis(),
+                    ),
+                )
                 entry.descriptors.forEach { (key, value) ->
-                    db.execSQL("INSERT OR REPLACE INTO dex_cache_descriptors(hostVersion, technicalId, descriptorKey, descriptorValue) VALUES (?, ?, ?, ?)", arrayOf<Any?>(hostVersion, entry.technicalId, key, value))
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO dex_cache_descriptors(hostVersion, technicalId, descriptorKey, descriptorValue) VALUES (?, ?, ?, ?)",
+                        arrayOf<Any?>(hostVersion, entry.technicalId, key, value),
+                    )
                 }
             }
             db.setTransactionSuccessful()
@@ -145,7 +210,8 @@ object DexCacheManager {
 
     fun methodHash(item: IResolveDex): String {
         val hash = GeneratedMethodHashes.HASHES[(item as BaseFeature).technicalId]
-        if (hash.isNullOrBlank()) error("failed to retrieve method hash for item ${item.technicalId}")
+        if (hash.isNullOrBlank())
+            error("failed to retrieve method hash for item ${item.technicalId}")
         return hash
     }
 
@@ -156,34 +222,44 @@ object DexCacheManager {
         // queries can observe different generations while another process replaces a cache.
         val descriptors = LinkedHashMap<String, String?>()
         var methodHash: String? = null
-        database().query(
-            "SELECT e.methodHash, d.descriptorKey, d.descriptorValue " +
+        database()
+            .query(
+                "SELECT e.methodHash, d.descriptorKey, d.descriptorValue " +
                     "FROM dex_cache_entries e LEFT JOIN dex_cache_descriptors d " +
                     "ON d.hostVersion = e.hostVersion AND d.technicalId = e.technicalId " +
                     "WHERE e.hostVersion = ? AND e.technicalId = ?",
-            arrayOf(hostVersion, technicalId),
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                methodHash = cursor.getString(0)
-                if (!cursor.isNull(1)) {
-                    descriptors[cursor.getString(1)] = if (cursor.isNull(2)) null else cursor.getString(2)
+                arrayOf(hostVersion, technicalId),
+            )
+            .use { cursor ->
+                while (cursor.moveToNext()) {
+                    methodHash = cursor.getString(0)
+                    if (!cursor.isNull(1)) {
+                        descriptors[cursor.getString(1)] =
+                            if (cursor.isNull(2)) null else cursor.getString(2)
+                    }
                 }
             }
-        }
         val resolvedMethodHash = methodHash ?: return@runCatching null
         CacheRecord(resolvedMethodHash, descriptors)
-    }.onFailure { WeLogger.e(TAG, "failed to read Room Dex cache for $technicalId", it) }.getOrNull()
+    }
+        .onFailure { WeLogger.e(TAG, "failed to read Room Dex cache for $technicalId", it) }
+        .getOrNull()
 
     private data class FailureRecord(val methodHash: String, val message: String)
 
     private fun readFailure(technicalId: String): FailureRecord? = runCatching {
-        database().query(
-            "SELECT methodHash, message FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?",
-            arrayOf(hostVersion, technicalId),
-        ).use { cursor ->
-            if (cursor.moveToFirst()) FailureRecord(cursor.getString(0), cursor.getString(1)) else null
-        }
-    }.onFailure { WeLogger.e(TAG, "failed to read Room Dex failure for $technicalId", it) }.getOrNull()
+        database()
+            .query(
+                "SELECT methodHash, message FROM dex_cache_failures WHERE hostVersion = ? AND technicalId = ?",
+                arrayOf(hostVersion, technicalId),
+            )
+            .use { cursor ->
+                if (cursor.moveToFirst()) FailureRecord(cursor.getString(0), cursor.getString(1))
+                else null
+            }
+    }
+        .onFailure { WeLogger.e(TAG, "failed to read Room Dex failure for $technicalId", it) }
+        .getOrNull()
 
     private fun database() = WeKitDatabase.instance.openHelper.writableDatabase
 }

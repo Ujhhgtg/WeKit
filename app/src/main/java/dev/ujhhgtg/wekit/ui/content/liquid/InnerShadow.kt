@@ -3,7 +3,8 @@
 
 package dev.ujhhgtg.wekit.ui.content.liquid
 
-// Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache 2.0).
+// Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache
+// 2.0).
 // Vendored from InstallerX-Revived's ui/library/liquid package.
 
 import androidx.compose.runtime.Immutable
@@ -41,8 +42,7 @@ data class InnerShadow(
     val blendMode: BlendMode = DrawScope.DefaultBlendMode,
 ) {
     companion object {
-        @Stable
-        val Default: InnerShadow = InnerShadow()
+        @Stable val Default: InnerShadow = InnerShadow()
     }
 }
 
@@ -88,8 +88,7 @@ private class InnerShadowElement(
 private class InnerShadowNode(
     var shape: Shape,
     var shadow: () -> InnerShadow?,
-) : Modifier.Node(),
-    DrawModifierNode {
+) : Modifier.Node(), DrawModifierNode {
 
     override val shouldAutoInvalidate: Boolean = false
 
@@ -120,7 +119,8 @@ private class InnerShadowNode(
         layer.alpha = shadow.alpha
         layer.blendMode = shadow.blendMode
         if (prevRadius != radius) {
-            layer.renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+            layer.renderEffect =
+                if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
             prevRadius = radius
         }
 
@@ -145,9 +145,10 @@ private class InnerShadowNode(
     }
 
     override fun onAttach() {
-        shadowLayer = requireGraphicsContext().createGraphicsLayer().apply {
-            compositingStrategy = CompositingStrategy.Offscreen
-        }
+        shadowLayer =
+            requireGraphicsContext().createGraphicsLayer().apply {
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
     }
 
     override fun onDetach() {
@@ -158,6 +159,7 @@ private class InnerShadowNode(
     }
 }
 
-private val ShadowMaskPaint: Paint = Paint().apply {
-    blendMode = BlendMode.Clear
-}
+private val ShadowMaskPaint: Paint =
+    Paint().apply {
+        blendMode = BlendMode.Clear
+    }

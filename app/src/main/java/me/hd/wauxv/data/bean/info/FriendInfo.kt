@@ -11,15 +11,17 @@ data class FriendInfo(
     var nickname: String = "",
     var type: Int = 0,
     var sourceExtInfo: String = "",
-    var createTime: Long = 0
+    var createTime: Long = 0,
 ) {
-    constructor(contact: WeContact) : this(
+    constructor(
+        contact: WeContact,
+    ) : this(
         wxid = contact.wxId,
         alias = contact.customWxId,
         remark = contact.remarkName,
         nickname = contact.nickname,
         type = contact.type,
         sourceExtInfo = "",
-        createTime = 0L
+        createTime = 0L,
     )
 }

@@ -20,11 +20,12 @@ fun debugCursor(cursor: Cursor?) {
             val rowString = StringBuilder()
             for (i in 0 until cursor.columnCount) {
                 val columnName = cursor.getColumnName(i)
-                val value = try {
-                    cursor.getString(i) ?: "NULL"
-                } catch (_: Exception) {
-                    "BLOB/Internal Error"
-                }
+                val value =
+                    try {
+                        cursor.getString(i) ?: "NULL"
+                    } catch (_: Exception) {
+                        "BLOB/Internal Error"
+                    }
                 rowString.append("[$columnName: $value] ")
             }
             WeLogger.d("debugCursor", "Row ${cursor.position}: $rowString")
@@ -38,12 +39,13 @@ fun debugCursor(cursor: Cursor?) {
 }
 
 fun debugViewTree(view: View, connector: String = "", indent: String = "") {
-    val idStr = if (view.id != View.NO_ID) {
-        runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("UNKNOWN_ID")
-    } else "NO_ID"
+    val idStr =
+        if (view.id != View.NO_ID) {
+            runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("UNKNOWN_ID")
+        } else "NO_ID"
     WeLogger.d(
         "debugViewTree",
-        "$indent$connector${view.javaClass.name} [ID: $idStr / ${view.id}] [TAG: ${view.tag?.javaClass?.name ?: "null"}]"
+        "$indent$connector${view.javaClass.name} [ID: $idStr / ${view.id}] [TAG: ${view.tag?.javaClass?.name ?: "null"}]",
     )
     if (view is ViewGroup) {
         val children = (0 until view.childCount).mapNotNull { view.getChildAt(it) }
@@ -51,15 +53,19 @@ fun debugViewTree(view: View, connector: String = "", indent: String = "") {
             val isLast = i == children.lastIndex
             val childConnector = if (isLast) "└─ " else "├─ "
             val childIndent =
-                indent + if (connector.isEmpty()) "" else if (connector.startsWith("└")) "   " else "│  "
+                indent +
+                    if (connector.isEmpty()) "" else if (connector.startsWith("└")) "   " else "│  "
             debugViewTree(child, childConnector, childIndent)
         }
     }
 }
 
 fun logStackTrace() {
-    Thread.currentThread().stackTrace
+    Thread.currentThread()
+        .stackTrace
         .drop(2) // drop getStackTrace() and logStackTrace() itself
-        .joinToString("\n") { "  at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
+        .joinToString("\n") {
+            "  at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})"
+        }
         .let { WeLogger.d("logStackTrace", "\n$it") }
 }

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
-import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
@@ -12,6 +11,8 @@ import dev.ujhhgtg.wekit.python.api.PythonMemberHandle
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.currentHookBridge
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
+import dev.ujhhgtg.wekit.utils.reflection.descriptorToConstructor
+import dev.ujhhgtg.wekit.utils.reflection.descriptorToMethod
 import java.lang.reflect.Executable
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -132,11 +133,11 @@ class PythonHookHostImpl(
     }
 
     private fun resolve(descriptor: String): Executable {
-        val parsed = DexMethodDescriptor(descriptor)
-        return if (parsed.name == "<init>") {
-            parsed.getConstructorInstance(ClassLoaders.HYBRID)
+        val name = descriptor.substringAfter("->").substringBefore("(")
+        return if (name == "<init>") {
+            descriptor.descriptorToConstructor(ClassLoaders.HYBRID)
         } else {
-            parsed.getMethodInstance(ClassLoaders.HYBRID)
+            descriptor.descriptorToMethod(ClassLoaders.HYBRID)
         }
     }
 

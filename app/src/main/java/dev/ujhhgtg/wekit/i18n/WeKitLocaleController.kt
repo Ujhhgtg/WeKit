@@ -31,11 +31,12 @@ object WeKitLocaleController : ComponentCallbacks {
     val resolvedLocale: SupportedLocale
         get() = LocaleResolver.resolve(selection, systemLocales)
 
-    private val systemLocaleReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            refreshSystemLocales()
+    private val systemLocaleReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                refreshSystemLocales()
+            }
         }
-    }
 
     /** The standalone module UID cannot access MMKV initialized inside WeChat's UID. */
     fun initializeModuleProcess(application: Application) {
@@ -51,11 +52,12 @@ object WeKitLocaleController : ComponentCallbacks {
         if (initialized) return
         this.application = application
         hostPreferencesAvailable = useHostPreferences
-        selection = if (useHostPreferences) {
-            LanguageSelection.fromStored(KvStore.getString(Preferences.UI_LANGUAGE))
-        } else {
-            LanguageSelection.SYSTEM
-        }
+        selection =
+            if (useHostPreferences) {
+                LanguageSelection.fromStored(KvStore.getString(Preferences.UI_LANGUAGE))
+            } else {
+                LanguageSelection.SYSTEM
+            }
         refreshSystemLocales()
         application.registerComponentCallbacks(this)
         ContextCompat.registerReceiver(
@@ -82,17 +84,16 @@ object WeKitLocaleController : ComponentCallbacks {
         // WeChat can retain or rewrite its own Application resource configuration. The system
         // locale service remains authoritative and is already current when locale callbacks run.
         // Resources.getSystem() is the fallback for Android releases before LocaleManager.
-        val locales = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            application.getSystemService(LocaleManager::class.java).systemLocales
-        } else {
-            Resources.getSystem().configuration.locales
-        }
+        val locales =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                application.getSystemService(LocaleManager::class.java).systemLocales
+            } else {
+                Resources.getSystem().configuration.locales
+            }
         systemLocales = locales.toLocaleList()
     }
 
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onLowMemory() = Unit
+    @Suppress("OVERRIDE_DEPRECATION") override fun onLowMemory() = Unit
 }
 
-private fun LocaleList.toLocaleList(): List<Locale> =
-    List(size()) { index -> get(index) }
+private fun LocaleList.toLocaleList(): List<Locale> = List(size()) { index -> get(index) }

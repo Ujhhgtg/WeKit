@@ -23,8 +23,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -77,7 +75,6 @@ import com.composables.icons.materialsymbols.outlined.Text_to_speech
 import com.composables.icons.materialsymbols.outlined.Travel_explore
 import com.composables.icons.materialsymbols.outlined.Upload_file
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
@@ -92,15 +89,20 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePreview
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
-import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
-import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiQuantity
+import dev.ujhhgtg.wekit.features.items.chat.panel.panelUiText
+import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.utils.ListItem
+import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.fs.asPath
+import kotlin.io.path.fileSize
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -108,20 +110,27 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.io.path.fileSize
-import kotlin.time.Duration.Companion.milliseconds
 
 data class VoicePanelActions(
     val reloadLocal: suspend () -> List<VoicePack> = { emptyList() },
-    val importVoice: (
-        packId: String,
-        mode: VoiceImportMode,
-        onStarted: () -> Unit,
-        onComplete: (Result<Unit>) -> Unit,
-    ) -> Unit = { _, _, _, _ -> },
-    val createLocalPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
-    val renameLocalPack: suspend (String, String) -> Result<Unit> = { _, _ -> Result.failure(UnsupportedOperationException()) },
-    val deleteLocalPack: suspend (String) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
+    val importVoice:
+        (
+            packId: String,
+            mode: VoiceImportMode,
+            onStarted: () -> Unit,
+            onComplete: (Result<Unit>) -> Unit,
+        ) -> Unit =
+        { _, _, _, _ ->
+        },
+    val createLocalPack: suspend (String) -> Result<String> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val renameLocalPack: suspend (String, String) -> Result<Unit> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
+    val deleteLocalPack: suspend (String) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val deleteLocalVoices: suspend (List<String>) -> Result<Int> = {
         Result.failure(UnsupportedOperationException())
     },
@@ -131,17 +140,25 @@ data class VoicePanelActions(
     val saveItemOrder: suspend (String, List<String>) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
-    val preview: suspend (VoiceItem) -> Result<VoicePreview> = { Result.failure(UnsupportedOperationException()) },
+    val preview: suspend (VoiceItem) -> Result<VoicePreview> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val releasePreview: (VoicePreview) -> Unit = {},
-    val send: suspend (VoiceItem) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
+    val send: suspend (VoiceItem) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val ensureLocalPack: suspend (String) -> Result<String> = {
         Result.failure(UnsupportedOperationException())
     },
     val addToLocal: suspend (String, VoiceItem) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
-    val synthesizeEdge: suspend (String, String) -> Result<Unit> = { _, _ -> Result.failure(UnsupportedOperationException()) },
-    val synthesizeSystem: suspend (String) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
+    val synthesizeEdge: suspend (String, String) -> Result<Unit> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
+    val synthesizeSystem: suspend (String) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val convertEdge: suspend (String, String) -> Result<VoicePreview> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
@@ -150,11 +167,20 @@ data class VoicePanelActions(
     },
     val loadClones: suspend () -> List<CloneVoice> = { emptyList() },
     val selectedCloneId: suspend () -> String = { "" },
-    val selectClone: suspend (String?) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
-    val deleteClone: suspend (String) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
-    val importClone: (onStarted: () -> Unit, onComplete: (Result<Unit>) -> Unit) -> Unit = { _, _ -> },
-    val importCloneFromVoice: suspend (String, VoiceItem) -> Result<Unit> = { _, _ -> Result.failure(UnsupportedOperationException()) },
-    val synthesizeClone: suspend (String, CloneVoice) -> Result<Unit> = { _, _ -> Result.failure(UnsupportedOperationException()) },
+    val selectClone: suspend (String?) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val deleteClone: suspend (String) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val importClone: (onStarted: () -> Unit, onComplete: (Result<Unit>) -> Unit) -> Unit = { _, _ ->
+    },
+    val importCloneFromVoice: suspend (String, VoiceItem) -> Result<Unit> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
+    val synthesizeClone: suspend (String, CloneVoice) -> Result<Unit> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
     val convertClone: suspend (String, CloneVoice) -> Result<VoicePreview> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
@@ -162,21 +188,42 @@ data class VoicePanelActions(
         Result.failure(UnsupportedOperationException())
     },
     val loadExampleGroups: suspend () -> Result<List<String>> = { Result.success(emptyList()) },
-    val loadExamples: suspend (String) -> Result<List<CloneExample>> = { Result.success(emptyList()) },
-    val previewExample: suspend (CloneExample) -> Result<VoicePreview> = { Result.failure(UnsupportedOperationException()) },
-    val addExample: suspend (CloneExample) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
-    val loadCloneSharedPacks: suspend () -> Result<List<VoicePack>> = { Result.success(emptyList()) },
+    val loadExamples: suspend (String) -> Result<List<CloneExample>> = {
+        Result.success(emptyList())
+    },
+    val previewExample: suspend (CloneExample) -> Result<VoicePreview> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val addExample: suspend (CloneExample) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val loadCloneSharedPacks: suspend () -> Result<List<VoicePack>> = {
+        Result.success(emptyList())
+    },
     val loadMySharedPacks: suspend () -> Result<List<VoicePack>> = { Result.success(emptyList()) },
-    val loadSharedPack: suspend (String) -> Result<List<VoiceItem>> = { Result.success(emptyList()) },
-    val createSharedPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
-    val renameSharedPack: suspend (String, String) -> Result<String> = { _, _ -> Result.failure(UnsupportedOperationException()) },
-    val deleteSharedPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
-    val confirmSharedPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
-    val uploadSharedVoice: (
-        packId: String,
-        onStarted: () -> Unit,
-        onComplete: (Result<String>) -> Unit,
-    ) -> Unit = { _, _, _ -> },
+    val loadSharedPack: suspend (String) -> Result<List<VoiceItem>> = {
+        Result.success(emptyList())
+    },
+    val createSharedPack: suspend (String) -> Result<String> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val renameSharedPack: suspend (String, String) -> Result<String> = { _, _ ->
+        Result.failure(UnsupportedOperationException())
+    },
+    val deleteSharedPack: suspend (String) -> Result<String> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val confirmSharedPack: suspend (String) -> Result<String> = {
+        Result.failure(UnsupportedOperationException())
+    },
+    val uploadSharedVoice:
+        (
+            packId: String,
+            onStarted: () -> Unit,
+            onComplete: (Result<String>) -> Unit,
+        ) -> Unit =
+        { _, _, _ ->
+        },
 )
 
 enum class VoiceImportMode {
@@ -204,15 +251,25 @@ fun showVoicePanelSheet(
 
 private sealed interface VoicePrompt {
     data object CreateLocalPack : VoicePrompt
+
     data class ImportLocal(val pack: VoicePack) : VoicePrompt
+
     data class RenameLocalPack(val pack: VoicePack) : VoicePrompt
+
     data class DeleteLocalPack(val pack: VoicePack) : VoicePrompt
+
     data class DeleteLocalVoices(val items: List<VoiceItem>) : VoicePrompt
+
     data object CreateSharedPack : VoicePrompt
+
     data class RenameSharedPack(val pack: VoicePack) : VoicePrompt
+
     data class DeleteSharedPack(val pack: VoicePack) : VoicePrompt
+
     data class ConfirmSharedPack(val pack: VoicePack) : VoicePrompt
+
     data class NameCloneSource(val item: VoiceItem) : VoicePrompt
+
     data class DeleteClone(val voice: CloneVoice) : VoicePrompt
 }
 
@@ -262,7 +319,9 @@ private fun VoicePanelContent(
     var destination by remember {
         mutableStateOf(
             rememberedNavigation?.destination
-                ?: VoiceDestination.entries.firstOrNull { it.name == PanelSettings.voiceLastDestination }
+                ?: VoiceDestination.entries.firstOrNull {
+                    it.name == PanelSettings.voiceLastDestination
+                }
                 ?: VoiceDestination.RECENT,
         )
     }
@@ -278,9 +337,15 @@ private fun VoicePanelContent(
     var selectedCloneId by remember { mutableStateOf("") }
     var managingClones by remember { mutableStateOf(rememberedNavigation?.managingClones == true) }
     var cloneSource by remember { mutableStateOf(rememberedNavigation?.cloneSource) }
-    var exampleGroups by remember { mutableStateOf<PanelUiState<List<String>>>(PanelUiState.Loading) }
-    var selectedExampleGroup by remember { mutableStateOf(rememberedNavigation?.selectedExampleGroup) }
-    var examples by remember { mutableStateOf<PanelUiState<List<CloneExample>>>(PanelUiState.Loading) }
+    var exampleGroups by remember {
+        mutableStateOf<PanelUiState<List<String>>>(PanelUiState.Loading)
+    }
+    var selectedExampleGroup by remember {
+        mutableStateOf(rememberedNavigation?.selectedExampleGroup)
+    }
+    var examples by remember {
+        mutableStateOf<PanelUiState<List<CloneExample>>>(PanelUiState.Loading)
+    }
     var provider by remember {
         mutableStateOf(
             VoiceProviderRegistry.get(
@@ -292,12 +357,18 @@ private fun VoicePanelContent(
     var providerPage by remember { mutableIntStateOf(rememberedNavigation?.providerPage ?: 0) }
     var providerFilterQuery by remember { mutableStateOf("") }
     var providerSearchExpanded by remember { mutableStateOf(false) }
-    var providerState by remember { mutableStateOf<PanelUiState<VoiceProviderPage>>(PanelUiState.Loading) }
+    var providerState by remember {
+        mutableStateOf<PanelUiState<VoiceProviderPage>>(PanelUiState.Loading)
+    }
     var providerRootSnapshot by remember { mutableStateOf<ProviderRootSnapshot?>(null) }
     var providerRequest by remember { mutableIntStateOf(0) }
-    var onlineSearchQuery by remember { mutableStateOf(rememberedNavigation?.onlineSearchQuery.orEmpty()) }
+    var onlineSearchQuery by remember {
+        mutableStateOf(rememberedNavigation?.onlineSearchQuery.orEmpty())
+    }
     var onlineSearchParent by remember { mutableStateOf(rememberedNavigation?.onlineSearchParent) }
-    var onlineSearchPage by remember { mutableIntStateOf(rememberedNavigation?.onlineSearchPage ?: 0) }
+    var onlineSearchPage by remember {
+        mutableIntStateOf(rememberedNavigation?.onlineSearchPage ?: 0)
+    }
     var onlineSearchExecuted by remember {
         mutableStateOf(rememberedNavigation?.onlineSearchExecuted == true)
     }
@@ -312,7 +383,9 @@ private fun VoicePanelContent(
     }
     var onlineSearchRootSnapshot by remember { mutableStateOf<ProviderRootSnapshot?>(null) }
     var onlineSearchRequest by remember { mutableIntStateOf(0) }
-    var sharedPacksState by remember { mutableStateOf<PanelUiState<List<VoicePack>>>(PanelUiState.Loading) }
+    var sharedPacksState by remember {
+        mutableStateOf<PanelUiState<List<VoicePack>>>(PanelUiState.Loading)
+    }
     var sharedPacksRequest by remember { mutableIntStateOf(0) }
     var selectedSharedPack by remember { mutableStateOf(rememberedNavigation?.selectedSharedPack) }
     var sharedQuery by remember { mutableStateOf("") }
@@ -324,7 +397,9 @@ private fun VoicePanelContent(
     }
     var sharedItemsRequest by remember { mutableIntStateOf(0) }
     var cloneSharedPack by remember { mutableStateOf(rememberedNavigation?.cloneSharedPack) }
-    var cloneSharedPacksState by remember { mutableStateOf<PanelUiState<List<VoicePack>>>(PanelUiState.Loading) }
+    var cloneSharedPacksState by remember {
+        mutableStateOf<PanelUiState<List<VoicePack>>>(PanelUiState.Loading)
+    }
     var cloneSharedPacksRequest by remember { mutableIntStateOf(0) }
     var cloneSharedItemsState by remember {
         mutableStateOf<PanelUiState<List<VoiceItem>>>(
@@ -353,26 +428,27 @@ private fun VoicePanelContent(
     val localItemListState = rememberLazyListState()
     val sharedPackListState = rememberLazyListState()
     val sharedItemListState = rememberLazyListState()
-    val navigationSnapshot by rememberUpdatedState(
-        VoicePanelNavigation(
-            destination = destination,
-            selectedLocalPackId = selectedLocalId,
-            localPackDetailId = localPackDetailId,
-            ttsMode = ttsMode,
-            managingClones = managingClones,
-            cloneSource = cloneSource,
-            cloneSharedPack = cloneSharedPack,
-            selectedExampleGroup = selectedExampleGroup,
-            providerId = provider.id,
-            providerParent = providerParent,
-            providerPage = providerPage,
-            onlineSearchQuery = onlineSearchQuery,
-            onlineSearchParent = onlineSearchParent,
-            onlineSearchPage = onlineSearchPage,
-            onlineSearchExecuted = onlineSearchExecuted,
-            selectedSharedPack = selectedSharedPack,
-        ),
-    )
+    val navigationSnapshot by
+        rememberUpdatedState(
+            VoicePanelNavigation(
+                destination = destination,
+                selectedLocalPackId = selectedLocalId,
+                localPackDetailId = localPackDetailId,
+                ttsMode = ttsMode,
+                managingClones = managingClones,
+                cloneSource = cloneSource,
+                cloneSharedPack = cloneSharedPack,
+                selectedExampleGroup = selectedExampleGroup,
+                providerId = provider.id,
+                providerParent = providerParent,
+                providerPage = providerPage,
+                onlineSearchQuery = onlineSearchQuery,
+                onlineSearchParent = onlineSearchParent,
+                onlineSearchPage = onlineSearchPage,
+                onlineSearchExecuted = onlineSearchExecuted,
+                selectedSharedPack = selectedSharedPack,
+            ),
+        )
 
     DisposableEffect(Unit) {
         onDispose {
@@ -412,7 +488,10 @@ private fun VoicePanelContent(
             } catch (error: Throwable) {
                 if (request != localRequest) return@launch
                 if (showFullLoadingState) {
-                    localState = PanelUiState.Error(error.toPanelUiText(R.string.voice_panel_error_local_load))
+                    localState =
+                        PanelUiState.Error(
+                            error.toPanelUiText(R.string.voice_panel_error_local_load),
+                        )
                 } else {
                     operationMessage = error.toPanelUiText(R.string.voice_panel_error_local_refresh)
                 }
@@ -437,14 +516,16 @@ private fun VoicePanelContent(
         scope.launch {
             val result = requestedProvider.browse(requestedParent, requestedPage)
             if (request != providerRequest) return@launch
-            providerState = result.fold(
-                {
-                    val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
-                    else PanelUiState.Content(it.copy(items = uniqueItems))
-                },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_voice_load)) },
-            )
+            providerState =
+                result.fold(
+                    {
+                        val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
+                        if (uniqueItems.isEmpty())
+                            PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
+                        else PanelUiState.Content(it.copy(items = uniqueItems))
+                    },
+                    { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_voice_load)) },
+                )
         }
     }
 
@@ -463,20 +544,27 @@ private fun VoicePanelContent(
         onlineSearchExecuted = true
         onlineSearchState = PanelUiState.Loading
         scope.launch {
-            val result = if (requestedParent == null) {
-                requestedProvider.search(requestedQuery, requestedPage)
-            } else {
-                requestedProvider.browse(requestedParent, requestedPage)
-            }
+            val result =
+                if (requestedParent == null) {
+                    requestedProvider.search(requestedQuery, requestedPage)
+                } else {
+                    requestedProvider.browse(requestedParent, requestedPage)
+                }
             if (request != onlineSearchRequest) return@launch
-            onlineSearchState = result.fold(
-                {
-                    val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
-                    else PanelUiState.Content(it.copy(items = uniqueItems))
-                },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_online_search)) },
-            )
+            onlineSearchState =
+                result.fold(
+                    {
+                        val uniqueItems = it.items.distinctBy(::voiceSelectionKey)
+                        if (uniqueItems.isEmpty())
+                            PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_more))
+                        else PanelUiState.Content(it.copy(items = uniqueItems))
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_online_search),
+                        )
+                    },
+                )
         }
     }
 
@@ -491,14 +579,16 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadSharedPack(pack.id)
             if (request != sharedItemsRequest || selectedSharedPack?.id != pack.id) return@launch
-            sharedItemsState = result.fold(
-                {
-                    val uniqueItems = it.distinctBy(::voiceSelectionKey)
-                    if (uniqueItems.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_pack))
-                    else PanelUiState.Content(uniqueItems)
-                },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_pack_load)) },
-            )
+            sharedItemsState =
+                result.fold(
+                    {
+                        val uniqueItems = it.distinctBy(::voiceSelectionKey)
+                        if (uniqueItems.isEmpty())
+                            PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_pack))
+                        else PanelUiState.Content(uniqueItems)
+                    },
+                    { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_pack_load)) },
+                )
         }
     }
 
@@ -508,33 +598,44 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadMySharedPacks()
             if (request != sharedPacksRequest) return@launch
-            sharedPacksState = result.fold(
-                { packs ->
-                    if (packs.isEmpty()) {
-                        selectedSharedPack = null
-                        sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
-                        PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_shared_packs))
-                    } else {
-                        val current = packs.firstOrNull { it.id == selectedSharedPack?.id }
-                        when {
-                            localPackLayout == VoicePackLayout.TABS -> {
-                                selectSharedPack(current ?: packs.first(), resetFilter = false)
-                            }
+            sharedPacksState =
+                result.fold(
+                    { packs ->
+                        if (packs.isEmpty()) {
+                            selectedSharedPack = null
+                            sharedItemsRequest++
+                            sharedItemsState =
+                                PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
+                            PanelUiState.Empty(
+                                panelUiText(R.string.voice_panel_empty_no_shared_packs),
+                            )
+                        } else {
+                            val current = packs.firstOrNull { it.id == selectedSharedPack?.id }
+                            when {
+                                localPackLayout == VoicePackLayout.TABS -> {
+                                    selectSharedPack(current ?: packs.first(), resetFilter = false)
+                                }
 
-                            current != null -> selectSharedPack(current, resetFilter = false)
+                                current != null -> selectSharedPack(current, resetFilter = false)
 
-                            selectedSharedPack != null -> {
-                                selectedSharedPack = null
-                                sharedItemsRequest++
-                                sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
+                                selectedSharedPack != null -> {
+                                    selectedSharedPack = null
+                                    sharedItemsRequest++
+                                    sharedItemsState =
+                                        PanelUiState.Empty(
+                                            panelUiText(R.string.voice_panel_select_pack),
+                                        )
+                                }
                             }
+                            PanelUiState.Content(packs)
                         }
-                        PanelUiState.Content(packs)
-                    }
-                },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_load)) },
-            )
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_shared_pack_load),
+                        )
+                    },
+                )
         }
     }
 
@@ -544,10 +645,21 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadCloneSharedPacks()
             if (request != cloneSharedPacksRequest) return@launch
-            cloneSharedPacksState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_no_available_shared_packs)) else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_load)) },
-            )
+            cloneSharedPacksState =
+                result.fold(
+                    {
+                        if (it.isEmpty())
+                            PanelUiState.Empty(
+                                panelUiText(R.string.voice_panel_empty_no_available_shared_packs),
+                            )
+                        else PanelUiState.Content(it)
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_shared_pack_load),
+                        )
+                    },
+                )
         }
     }
 
@@ -558,10 +670,21 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadSharedPack(pack.id)
             if (request != cloneSharedItemsRequest || cloneSharedPack?.id != pack.id) return@launch
-            cloneSharedItemsState = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_shared_pack_no_voice)) else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_shared_pack_read)) },
-            )
+            cloneSharedItemsState =
+                result.fold(
+                    {
+                        if (it.isEmpty())
+                            PanelUiState.Empty(
+                                panelUiText(R.string.voice_panel_empty_shared_pack_no_voice),
+                            )
+                        else PanelUiState.Content(it)
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_shared_pack_read),
+                        )
+                    },
+                )
         }
     }
 
@@ -571,7 +694,10 @@ private fun VoicePanelContent(
     }
 
     fun stopPreview() {
-        runCatching { player.stop(); player.reset() }
+        runCatching {
+            player.stop()
+            player.reset()
+        }
         playingId = null
         activePreviewId = null
         previewTitle = null
@@ -599,7 +725,10 @@ private fun VoicePanelContent(
                 previewPlaying = true
                 playingId = activePreviewId
             }
-        }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_play) }
+        }
+            .onFailure {
+                operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_play)
+            }
     }
 
     fun seekPreview(positionMs: Long) {
@@ -607,7 +736,10 @@ private fun VoicePanelContent(
             val position = positionMs.coerceIn(0L, previewDurationMs.coerceAtLeast(0L))
             player.seekTo(position.toInt())
             previewPositionMs = position
-        }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_seek) }
+        }
+            .onFailure {
+                operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_seek)
+            }
     }
 
     fun preview(
@@ -634,34 +766,43 @@ private fun VoicePanelContent(
                 return@launch
             }
             progressMessage = null
-            result.onSuccess { preview ->
-                runCatching {
-                    player.reset()
-                    player.setDataSource(preview.path)
-                    player.prepare()
-                    player.start()
-                    activePreview = preview
-                    activePreviewId = id
-                    playingId = id
-                    previewTitle = title
-                    previewPlaying = true
-                    previewPositionMs = 0L
-                    previewDurationMs = player.duration.coerceAtLeast(0).toLong()
-                    if (sourceItem != null && previewDurationMs > 0L) {
-                        resolvedDurations = resolvedDurations + (voiceSelectionKey(sourceItem) to previewDurationMs)
+            result
+                .onSuccess { preview ->
+                    runCatching {
+                        player.reset()
+                        player.setDataSource(preview.path)
+                        player.prepare()
+                        player.start()
+                        activePreview = preview
+                        activePreviewId = id
+                        playingId = id
+                        previewTitle = title
+                        previewPlaying = true
+                        previewPositionMs = 0L
+                        previewDurationMs = player.duration.coerceAtLeast(0).toLong()
+                        if (sourceItem != null && previewDurationMs > 0L) {
+                            resolvedDurations =
+                                resolvedDurations +
+                                    (voiceSelectionKey(sourceItem) to previewDurationMs)
+                        }
+                        previewSizeBytes =
+                            runCatching { preview.path.asPath.fileSize() }.getOrDefault(0L)
+                        previewMime = resolveAudioMime(preview.path)
+                        player.setOnCompletionListener {
+                            previewPositionMs = previewDurationMs
+                            previewPlaying = false
+                            playingId = null
+                        }
                     }
-                    previewSizeBytes = runCatching { preview.path.asPath.fileSize() }.getOrDefault(0L)
-                    previewMime = resolveAudioMime(preview.path)
-                    player.setOnCompletionListener {
-                        previewPositionMs = previewDurationMs
-                        previewPlaying = false
-                        playingId = null
-                    }
-                }.onFailure {
-                    actions.releasePreview(preview)
-                    operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_play)
+                        .onFailure {
+                            actions.releasePreview(preview)
+                            operationMessage =
+                                it.toPanelUiText(R.string.voice_panel_error_audio_play)
+                        }
                 }
-            }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_load) }
+                .onFailure {
+                    operationMessage = it.toPanelUiText(R.string.voice_panel_error_audio_load)
+                }
         }
     }
 
@@ -676,8 +817,8 @@ private fun VoicePanelContent(
 
     LaunchedEffect(activePreview, previewPlaying) {
         while (activePreview != null && previewPlaying) {
-            previewPositionMs = runCatching { player.currentPosition.toLong() }
-                .getOrDefault(previewPositionMs)
+            previewPositionMs =
+                runCatching { player.currentPosition.toLong() }.getOrDefault(previewPositionMs)
             delay(200L.milliseconds)
         }
     }
@@ -705,10 +846,21 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadExampleGroups()
             if (request != exampleGroupsRequest) return@launch
-            exampleGroups = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_example_groups)) else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_example_load)) },
-            )
+            exampleGroups =
+                result.fold(
+                    {
+                        if (it.isEmpty())
+                            PanelUiState.Empty(
+                                panelUiText(R.string.voice_panel_empty_example_groups),
+                            )
+                        else PanelUiState.Content(it)
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_example_load),
+                        )
+                    },
+                )
         }
     }
 
@@ -719,10 +871,19 @@ private fun VoicePanelContent(
         scope.launch {
             val result = actions.loadExamples(group)
             if (request != examplesRequest || selectedExampleGroup != group) return@launch
-            examples = result.fold(
-                { if (it.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_examples)) else PanelUiState.Content(it) },
-                { PanelUiState.Error(it.toPanelUiText(R.string.voice_panel_error_example_load)) },
-            )
+            examples =
+                result.fold(
+                    {
+                        if (it.isEmpty())
+                            PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_examples))
+                        else PanelUiState.Content(it)
+                    },
+                    {
+                        PanelUiState.Error(
+                            it.toPanelUiText(R.string.voice_panel_error_example_load),
+                        )
+                    },
+                )
         }
     }
 
@@ -734,7 +895,8 @@ private fun VoicePanelContent(
                 if (managingClones) {
                     when (cloneSource) {
                         SOURCE_SHARED -> {
-                            if (cloneSharedPacksState == PanelUiState.Loading) loadCloneSharedPacks()
+                            if (cloneSharedPacksState == PanelUiState.Loading)
+                                loadCloneSharedPacks()
                             cloneSharedPack?.let(::loadCloneSharedPack)
                         }
 
@@ -747,10 +909,12 @@ private fun VoicePanelContent(
             }
 
             VoiceDestination.ONLINE -> if (providerState == PanelUiState.Loading) loadProvider()
-            VoiceDestination.ONLINE_SEARCH -> if (onlineSearchState == PanelUiState.Loading) {
-                loadOnlineSearch()
-            }
-            VoiceDestination.SHARED -> if (sharedPacksState == PanelUiState.Loading) loadMySharedPacks()
+            VoiceDestination.ONLINE_SEARCH ->
+                if (onlineSearchState == PanelUiState.Loading) {
+                    loadOnlineSearch()
+                }
+            VoiceDestination.SHARED ->
+                if (sharedPacksState == PanelUiState.Loading) loadMySharedPacks()
             else -> Unit
         }
     }
@@ -796,27 +960,37 @@ private fun VoicePanelContent(
         val count = ttsText.codePointCount(0, ttsText.length)
         when {
             ttsText.isBlank() -> operationMessage = panelUiText(R.string.voice_panel_tts_empty)
-            count > 256 -> operationMessage = panelUiQuantity(R.plurals.voice_panel_tts_too_long, 256, 256)
-            ttsMode == TtsMode.CLONE && selectedClone == null -> operationMessage = panelUiText(R.string.voice_panel_tts_choose_voice_first)
+            count > 256 ->
+                operationMessage = panelUiQuantity(R.plurals.voice_panel_tts_too_long, 256, 256)
+            ttsMode == TtsMode.CLONE && selectedClone == null ->
+                operationMessage = panelUiText(R.string.voice_panel_tts_choose_voice_first)
             else -> {
                 clearConvertedTts()
                 progressMessage = panelUiText(R.string.voice_panel_progress_tts_convert)
                 scope.launch {
-                    val result = when (ttsMode) {
-                        TtsMode.SYSTEM -> actions.convertSystem(ttsText)
-                        TtsMode.EDGE -> actions.convertEdge(ttsText, selectedEdgeVoice)
-                        TtsMode.CLONE -> actions.convertClone(ttsText, selectedClone!!)
-                    }
-                    progressMessage = null
-                    result.onSuccess { preview ->
-                        convertedTts = preview
-                        convertedTtsTitle = when (ttsMode) {
-                            TtsMode.SYSTEM -> panelUiText(R.string.tts_mode_system)
-                            TtsMode.EDGE -> panelUiText(R.string.tts_mode_edge)
-                            TtsMode.CLONE -> selectedClone?.name?.let(PanelUiText::Raw)
-                                ?: panelUiText(R.string.tts_mode_clone)
+                    val result =
+                        when (ttsMode) {
+                            TtsMode.SYSTEM -> actions.convertSystem(ttsText)
+                            TtsMode.EDGE -> actions.convertEdge(ttsText, selectedEdgeVoice)
+                            TtsMode.CLONE -> actions.convertClone(ttsText, selectedClone!!)
                         }
-                    }.onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_tts_convert) }
+                    progressMessage = null
+                    result
+                        .onSuccess { preview ->
+                            convertedTts = preview
+                            convertedTtsTitle =
+                                when (ttsMode) {
+                                    TtsMode.SYSTEM -> panelUiText(R.string.tts_mode_system)
+                                    TtsMode.EDGE -> panelUiText(R.string.tts_mode_edge)
+                                    TtsMode.CLONE ->
+                                        selectedClone?.name?.let(PanelUiText::Raw)
+                                            ?: panelUiText(R.string.tts_mode_clone)
+                                }
+                        }
+                        .onFailure {
+                            operationMessage =
+                                it.toPanelUiText(R.string.voice_panel_error_tts_convert)
+                        }
                 }
             }
         }
@@ -842,87 +1016,161 @@ private fun VoicePanelContent(
 
     val recent = localPacks.firstOrNull { it.id == RECENT_PACK_ID }
     val editableLocalPacks = localPacks.filter { it.id != RECENT_PACK_ID }
-    val selectedLocalTab = editableLocalPacks.firstOrNull { it.id == selectedLocalId }
-        ?: editableLocalPacks.firstOrNull()
-    val localDetailPack = if (localPackLayout == VoicePackLayout.TABS) null
-    else editableLocalPacks.firstOrNull { it.id == localPackDetailId }
-    val selectedLocal = if (localPackLayout == VoicePackLayout.TABS) selectedLocalTab else localDetailPack
+    val selectedLocalTab =
+        editableLocalPacks.firstOrNull { it.id == selectedLocalId }
+            ?: editableLocalPacks.firstOrNull()
+    val localDetailPack =
+        if (localPackLayout == VoicePackLayout.TABS) null
+        else editableLocalPacks.firstOrNull { it.id == localPackDetailId }
+    val selectedLocal =
+        if (localPackLayout == VoicePackLayout.TABS) selectedLocalTab else localDetailPack
     val localCatalogVisible = localPackLayout == VoicePackLayout.LIST && localDetailPack == null
     val sharedCatalogVisible = localPackLayout == VoicePackLayout.LIST && selectedSharedPack == null
     val localFilterActive = localPackFilterQuery.trim().isNotEmpty()
-    val visibleLocalPacks = remember(localPacks, localPackFilterQuery, localCatalogVisible) {
-        if (!localCatalogVisible || localPackFilterQuery.isBlank()) editableLocalPacks
-        else editableLocalPacks.filter {
-            it.title.contains(localPackFilterQuery.trim(), ignoreCase = true)
+    val visibleLocalPacks =
+        remember(localPacks, localPackFilterQuery, localCatalogVisible) {
+            if (!localCatalogVisible || localPackFilterQuery.isBlank()) editableLocalPacks
+            else
+                editableLocalPacks.filter {
+                    it.title.contains(localPackFilterQuery.trim(), ignoreCase = true)
+                }
         }
-    }
-    val visibleSelectedLocal = remember(selectedLocal, localPackFilterQuery, localCatalogVisible) {
-        selectedLocal?.let { pack ->
-            if (localCatalogVisible || localPackFilterQuery.isBlank()) pack
-            else pack.copy(items = pack.items.filter { it.matchesLocalSearch(pack, localPackFilterQuery) })
-        }
-    }
-    val recentItems = remember(recent?.items, recentMostUsed) {
-        recent?.items.orEmpty().let { items ->
-            if (recentMostUsed) {
-                items.sortedWith(compareByDescending<VoiceItem> { it.sendCount }.thenByDescending { it.lastSentAt })
-            } else {
-                items.sortedByDescending(VoiceItem::lastSentAt)
+    val visibleSelectedLocal =
+        remember(selectedLocal, localPackFilterQuery, localCatalogVisible) {
+            selectedLocal?.let { pack ->
+                if (localCatalogVisible || localPackFilterQuery.isBlank()) pack
+                else
+                    pack.copy(
+                        items =
+                            pack.items.filter { it.matchesLocalSearch(pack, localPackFilterQuery) },
+                    )
             }
         }
-    }
-    val rail = listOf(
-        PanelRailItem(VoiceDestination.RECENT, MaterialSymbols.Outlined.History, stringResource(R.string.panel_recent)),
-        PanelRailItem(VoiceDestination.LOCAL, MaterialSymbols.Outlined.Folder, stringResource(R.string.voice_panel_local_packs)),
-        PanelRailItem(VoiceDestination.SEARCH, MaterialSymbols.Outlined.Manage_search, stringResource(R.string.panel_local_search)),
-        PanelRailItem(VoiceDestination.TTS, MaterialSymbols.Outlined.Text_to_speech, stringResource(R.string.voice_panel_tts)),
-        PanelRailItem(VoiceDestination.ONLINE, MaterialSymbols.Outlined.Cloud, stringResource(R.string.voice_panel_online_packs)),
-        PanelRailItem(VoiceDestination.ONLINE_SEARCH, MaterialSymbols.Outlined.Travel_explore, stringResource(R.string.panel_online_search)),
-        PanelRailItem(VoiceDestination.SHARED, MaterialSymbols.Outlined.Share, stringResource(R.string.voice_panel_shared_packs)),
-        PanelRailItem(VoiceDestination.SETTINGS, MaterialSymbols.Outlined.Settings, stringResource(R.string.panel_settings)),
-    )
-
-    val title = when (destination) {
-        VoiceDestination.RECENT -> stringResource(R.string.panel_recent)
-        VoiceDestination.SEARCH -> stringResource(R.string.panel_local_search)
-        VoiceDestination.LOCAL -> localDetailPack?.title ?: stringResource(R.string.voice_panel_local_packs)
-        VoiceDestination.TTS -> stringResource(R.string.voice_panel_tts)
-        VoiceDestination.ONLINE -> stringResource(R.string.voice_panel_online_packs)
-        VoiceDestination.ONLINE_SEARCH -> stringResource(R.string.panel_online_search)
-        VoiceDestination.SHARED -> if (sharedCatalogVisible) stringResource(R.string.voice_panel_my_shared_packs)
-        else selectedSharedPack?.title ?: stringResource(R.string.voice_panel_my_shared_packs)
-        VoiceDestination.SETTINGS -> stringResource(R.string.panel_settings)
-    }
-
-    val visibleProviderState = remember(providerState, providerFilterQuery) {
-        val term = providerFilterQuery.trim()
-        if (term.isBlank() || providerState !is PanelUiState.Content) {
-            providerState
-        } else {
-            val page = (providerState as PanelUiState.Content<VoiceProviderPage>).value
-            val items = page.items.filter { it.title.contains(term, ignoreCase = true) }
-            if (items.isEmpty()) PanelUiState.Empty(panelUiText(R.string.voice_panel_empty_current_page_no_match))
-            else PanelUiState.Content(page.copy(items = items))
+    val recentItems =
+        remember(recent?.items, recentMostUsed) {
+            recent?.items.orEmpty().let { items ->
+                if (recentMostUsed) {
+                    items.sortedWith(
+                        compareByDescending<VoiceItem> { it.sendCount }
+                            .thenByDescending { it.lastSentAt },
+                    )
+                } else {
+                    items.sortedByDescending(VoiceItem::lastSentAt)
+                }
+            }
         }
-    }
+    val rail =
+        listOf(
+            PanelRailItem(
+                VoiceDestination.RECENT,
+                MaterialSymbols.Outlined.History,
+                stringResource(R.string.panel_recent),
+            ),
+            PanelRailItem(
+                VoiceDestination.LOCAL,
+                MaterialSymbols.Outlined.Folder,
+                stringResource(R.string.voice_panel_local_packs),
+            ),
+            PanelRailItem(
+                VoiceDestination.SEARCH,
+                MaterialSymbols.Outlined.Manage_search,
+                stringResource(R.string.panel_local_search),
+            ),
+            PanelRailItem(
+                VoiceDestination.TTS,
+                MaterialSymbols.Outlined.Text_to_speech,
+                stringResource(R.string.voice_panel_tts),
+            ),
+            PanelRailItem(
+                VoiceDestination.ONLINE,
+                MaterialSymbols.Outlined.Cloud,
+                stringResource(R.string.voice_panel_online_packs),
+            ),
+            PanelRailItem(
+                VoiceDestination.ONLINE_SEARCH,
+                MaterialSymbols.Outlined.Travel_explore,
+                stringResource(R.string.panel_online_search),
+            ),
+            PanelRailItem(
+                VoiceDestination.SHARED,
+                MaterialSymbols.Outlined.Share,
+                stringResource(R.string.voice_panel_shared_packs),
+            ),
+            PanelRailItem(
+                VoiceDestination.SETTINGS,
+                MaterialSymbols.Outlined.Settings,
+                stringResource(R.string.panel_settings),
+            ),
+        )
 
-    val batchCandidates = when (destination) {
-        VoiceDestination.LOCAL -> localDetailPack?.items.orEmpty()
-
-        VoiceDestination.ONLINE -> (visibleProviderState as? PanelUiState.Content)?.value?.items
-            .orEmpty().filterNot(VoiceItem::isContainer).distinctBy(::voiceSelectionKey)
-
-        VoiceDestination.ONLINE_SEARCH -> (onlineSearchState as? PanelUiState.Content)?.value?.items
-            .orEmpty().filterNot(VoiceItem::isContainer).distinctBy(::voiceSelectionKey)
-
-        VoiceDestination.SHARED -> if (selectedSharedPack == null) emptyList() else {
-            (sharedItemsState as? PanelUiState.Content)?.value.orEmpty().filter {
-                sharedQuery.isBlank() || it.title.contains(sharedQuery, ignoreCase = true)
-            }.distinctBy(::voiceSelectionKey)
+    val title =
+        when (destination) {
+            VoiceDestination.RECENT -> stringResource(R.string.panel_recent)
+            VoiceDestination.SEARCH -> stringResource(R.string.panel_local_search)
+            VoiceDestination.LOCAL ->
+                localDetailPack?.title ?: stringResource(R.string.voice_panel_local_packs)
+            VoiceDestination.TTS -> stringResource(R.string.voice_panel_tts)
+            VoiceDestination.ONLINE -> stringResource(R.string.voice_panel_online_packs)
+            VoiceDestination.ONLINE_SEARCH -> stringResource(R.string.panel_online_search)
+            VoiceDestination.SHARED ->
+                if (sharedCatalogVisible) stringResource(R.string.voice_panel_my_shared_packs)
+                else
+                    selectedSharedPack?.title
+                        ?: stringResource(R.string.voice_panel_my_shared_packs)
+            VoiceDestination.SETTINGS -> stringResource(R.string.panel_settings)
         }
 
-        else -> emptyList()
-    }
+    val visibleProviderState =
+        remember(providerState, providerFilterQuery) {
+            val term = providerFilterQuery.trim()
+            if (term.isBlank() || providerState !is PanelUiState.Content) {
+                providerState
+            } else {
+                val page = (providerState as PanelUiState.Content<VoiceProviderPage>).value
+                val items = page.items.filter { it.title.contains(term, ignoreCase = true) }
+                if (items.isEmpty())
+                    PanelUiState.Empty(
+                        panelUiText(R.string.voice_panel_empty_current_page_no_match),
+                    )
+                else PanelUiState.Content(page.copy(items = items))
+            }
+        }
+
+    val batchCandidates =
+        when (destination) {
+            VoiceDestination.LOCAL -> localDetailPack?.items.orEmpty()
+
+            VoiceDestination.ONLINE ->
+                (visibleProviderState as? PanelUiState.Content)
+                    ?.value
+                    ?.items
+                    .orEmpty()
+                    .filterNot(VoiceItem::isContainer)
+                    .distinctBy(::voiceSelectionKey)
+
+            VoiceDestination.ONLINE_SEARCH ->
+                (onlineSearchState as? PanelUiState.Content)
+                    ?.value
+                    ?.items
+                    .orEmpty()
+                    .filterNot(VoiceItem::isContainer)
+                    .distinctBy(::voiceSelectionKey)
+
+            VoiceDestination.SHARED ->
+                if (selectedSharedPack == null) emptyList()
+                else {
+                    (sharedItemsState as? PanelUiState.Content)
+                        ?.value
+                        .orEmpty()
+                        .filter {
+                            sharedQuery.isBlank() ||
+                                it.title.contains(sharedQuery, ignoreCase = true)
+                        }
+                        .distinctBy(::voiceSelectionKey)
+                }
+
+            else -> emptyList()
+        }
     val deletingLocalVoices = destination == VoiceDestination.LOCAL && localDetailPack != null
 
     fun stopOnlineSave() {
@@ -959,11 +1207,12 @@ private fun VoicePanelContent(
                 onlineSaveJob = null
             }
             refreshLocal()
-            operationMessage = if (failed == 0) {
-                panelUiQuantity(R.plurals.voice_panel_saved_count, succeeded, succeeded)
-            } else {
-                panelUiText(R.string.voice_panel_save_result, succeeded, failed)
-            }
+            operationMessage =
+                if (failed == 0) {
+                    panelUiQuantity(R.plurals.voice_panel_saved_count, succeeded, succeeded)
+                } else {
+                    panelUiText(R.string.voice_panel_save_result, succeeded, failed)
+                }
         }
     }
 
@@ -973,7 +1222,9 @@ private fun VoicePanelContent(
             context = context,
             title = localizedContext.getString(R.string.voice_panel_save_to_pack),
             createLabel = localizedContext.getString(R.string.voice_panel_new_pack),
-            itemCountLabel = { count -> localizedContext.resources.getQuantityString(R.plurals.voice_count, count, count) },
+            itemCountLabel = { count ->
+                localizedContext.resources.getQuantityString(R.plurals.voice_count, count, count)
+            },
             packIcon = MaterialSymbols.Outlined.Folder,
             packs = editableLocalPacks.map { PanelPackChoice(it.id, it.title, it.itemCount) },
             onCreatePack = actions.createLocalPack,
@@ -983,7 +1234,8 @@ private fun VoicePanelContent(
 
     fun saveWholeVoicePack(parent: VoiceItem) {
         stopOnlineSave()
-        onlineSaveProgress = PanelSaveProgress(panelUiText(R.string.voice_panel_progress_read_pack, parent.title), 1)
+        onlineSaveProgress =
+            PanelSaveProgress(panelUiText(R.string.voice_panel_progress_read_pack, parent.title), 1)
         onlineSaveJob = scope.launch {
             val collected = mutableListOf<VoiceItem>()
             var page = 0
@@ -994,7 +1246,10 @@ private fun VoicePanelContent(
                 if (result.isFailure) {
                     onlineSaveProgress = null
                     onlineSaveJob = null
-                    operationMessage = result.exceptionOrNull()?.toPanelUiText(R.string.voice_panel_error_read_pack)
+                    operationMessage =
+                        result
+                            .exceptionOrNull()
+                            ?.toPanelUiText(R.string.voice_panel_error_read_pack)
                     return@launch
                 }
                 val providerPage = result.getOrThrow()
@@ -1006,12 +1261,19 @@ private fun VoicePanelContent(
             if (packId.isFailure) {
                 onlineSaveProgress = null
                 onlineSaveJob = null
-                operationMessage = packId.exceptionOrNull()?.toPanelUiText(R.string.voice_panel_error_create_local_pack)
+                operationMessage =
+                    packId
+                        .exceptionOrNull()
+                        ?.toPanelUiText(R.string.voice_panel_error_create_local_pack)
                 return@launch
             }
             onlineSaveJob = null
             onlineSaveProgress = null
-            startVoiceSave(packId.getOrThrow(), collected, panelUiText(R.string.voice_panel_progress_save_pack, parent.title))
+            startVoiceSave(
+                packId.getOrThrow(),
+                collected,
+                panelUiText(R.string.voice_panel_progress_save_pack, parent.title),
+            )
         }
     }
 
@@ -1028,7 +1290,12 @@ private fun VoicePanelContent(
                 PanelSettings.voicePackSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voicePackCustomSortHintShown) {
                     PanelSettings.voicePackCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch {
+                        showToastSuspend(
+                            context,
+                            currentLocalizedContext.getString(R.string.panel_sort_custom_hint),
+                        )
+                    }
                 }
             }
 
@@ -1037,7 +1304,12 @@ private fun VoicePanelContent(
                 PanelSettings.voiceItemSortMode = mode
                 if (mode == LocalSortMode.CUSTOM && !PanelSettings.voiceItemCustomSortHintShown) {
                     PanelSettings.voiceItemCustomSortHintShown = true
-                    scope.launch { showToastSuspend(context, currentLocalizedContext.getString(R.string.panel_sort_custom_hint)) }
+                    scope.launch {
+                        showToastSuspend(
+                            context,
+                            currentLocalizedContext.getString(R.string.panel_sort_custom_hint),
+                        )
+                    }
                 }
             }
         }
@@ -1068,211 +1340,411 @@ private fun VoicePanelContent(
         val requested = reorderKeys
         val packId = reorderPackId
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                when (target) {
-                    VoiceReorderTarget.PACKS -> actions.savePackOrder(requested)
-                    VoiceReorderTarget.ITEMS -> packId?.let { actions.saveItemOrder(it, requested) }
-                        ?: Result.failure(IllegalStateException(currentLocalizedContext.getString(R.string.voice_panel_error_no_pack_selected)))
+            val result =
+                withContext(Dispatchers.IO) {
+                    when (target) {
+                        VoiceReorderTarget.PACKS -> actions.savePackOrder(requested)
+                        VoiceReorderTarget.ITEMS ->
+                            packId?.let { actions.saveItemOrder(it, requested) }
+                                ?: Result.failure(
+                                    IllegalStateException(
+                                        currentLocalizedContext.getString(
+                                            R.string.voice_panel_error_no_pack_selected,
+                                        ),
+                                    ),
+                                )
+                    }
                 }
-            }
             if (result.isSuccess) {
                 cancelReorder()
                 refreshLocal()
                 operationMessage = panelUiText(R.string.panel_sort_saved)
             } else {
-                operationMessage = result.exceptionOrNull()?.toPanelUiText(R.string.panel_sort_save_failed)
+                operationMessage =
+                    result.exceptionOrNull()?.toPanelUiText(R.string.panel_sort_save_failed)
             }
         }
     }
 
-    val panelActions = if (reorderTarget != null) {
-        panelReorderActions(::cancelReorder, ::saveReorder)
-    } else if (batchMode) {
-        panelMultiSelectActions(
-            items = batchCandidates,
-            selectedKeys = selectedDownloadIds,
-            key = ::voiceSelectionKey,
-            terminalIcon = if (deletingLocalVoices) MaterialSymbols.Outlined.Delete else MaterialSymbols.Outlined.Save,
-            terminalLabel = stringResource(if (deletingLocalVoices) R.string.panel_action_delete else R.string.action_save),
-            onClose = {
-                batchMode = false
-                selectedDownloadIds = emptySet()
-            },
-            onSelectionChange = { selectedDownloadIds = it },
-            onTerminalAction = { items ->
-                if (deletingLocalVoices) prompt = VoicePrompt.DeleteLocalVoices(items)
-                else showVoicePackPicker(items)
-            },
-        )
-    } else when (destination) {
-        VoiceDestination.LOCAL -> if (localCatalogVisible) {
-            buildList {
-                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateLocalPack })
-                add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
-                add(
-                    panelLocalSortAction(
-                        mode = localPackSortMode,
-                        enabled = editableLocalPacks.isNotEmpty(),
-                        onModeChange = { changeLocalSortMode(VoiceReorderTarget.PACKS, it) },
-                        onStartCustomOrder = { startReorder(VoiceReorderTarget.PACKS) },
+    val panelActions =
+        if (reorderTarget != null) {
+            panelReorderActions(::cancelReorder, ::saveReorder)
+        } else if (batchMode) {
+            panelMultiSelectActions(
+                items = batchCandidates,
+                selectedKeys = selectedDownloadIds,
+                key = ::voiceSelectionKey,
+                terminalIcon =
+                    if (deletingLocalVoices) MaterialSymbols.Outlined.Delete
+                    else MaterialSymbols.Outlined.Save,
+                terminalLabel =
+                    stringResource(
+                        if (deletingLocalVoices) R.string.panel_action_delete
+                        else R.string.action_save,
                     ),
-                )
-            }
-        } else buildList {
-            if (localPackLayout == VoicePackLayout.LIST) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back)) { localPackDetailId = null })
-            } else {
-                add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateLocalPack })
-            }
-            add(PanelAction(MaterialSymbols.Outlined.Edit, stringResource(R.string.panel_action_rename), selectedLocal != null) {
-                selectedLocal?.let { prompt = VoicePrompt.RenameLocalPack(it) }
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Delete, stringResource(R.string.panel_action_delete), selectedLocal != null) {
-                selectedLocal?.let { prompt = VoicePrompt.DeleteLocalPack(it) }
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.panel_action_import), selectedLocal != null) {
-                selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) }
-            })
-            if (localPackLayout == VoicePackLayout.LIST) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select), !selectedLocal?.items.isNullOrEmpty()) {
-                    batchMode = true
+                onClose = {
+                    batchMode = false
                     selectedDownloadIds = emptySet()
-                })
-            }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::refreshLocal))
-            add(
-                panelLocalSortAction(
-                    mode = localItemSortMode,
-                    enabled = !selectedLocal?.items.isNullOrEmpty(),
-                    onModeChange = { changeLocalSortMode(VoiceReorderTarget.ITEMS, it) },
-                    onStartCustomOrder = { startReorder(VoiceReorderTarget.ITEMS) },
-                ),
+                },
+                onSelectionChange = { selectedDownloadIds = it },
+                onTerminalAction = { items ->
+                    if (deletingLocalVoices) prompt = VoicePrompt.DeleteLocalVoices(items)
+                    else showVoicePackPicker(items)
+                },
             )
-        }
+        } else
+            when (destination) {
+                VoiceDestination.LOCAL ->
+                    if (localCatalogVisible) {
+                        buildList {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Add,
+                                    stringResource(R.string.voice_panel_new_pack),
+                                ) {
+                                    prompt = VoicePrompt.CreateLocalPack
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Refresh,
+                                    stringResource(R.string.panel_action_refresh),
+                                    onClick = ::refreshLocal,
+                                ),
+                            )
+                            add(
+                                panelLocalSortAction(
+                                    mode = localPackSortMode,
+                                    enabled = editableLocalPacks.isNotEmpty(),
+                                    onModeChange = {
+                                        changeLocalSortMode(VoiceReorderTarget.PACKS, it)
+                                    },
+                                    onStartCustomOrder = { startReorder(VoiceReorderTarget.PACKS) },
+                                ),
+                            )
+                        }
+                    } else
+                        buildList {
+                            if (localPackLayout == VoicePackLayout.LIST) {
+                                add(
+                                    PanelAction(
+                                        MaterialSymbols.Outlined.Arrow_back,
+                                        stringResource(R.string.panel_action_back),
+                                    ) {
+                                        localPackDetailId = null
+                                    },
+                                )
+                            } else {
+                                add(
+                                    PanelAction(
+                                        MaterialSymbols.Outlined.Add,
+                                        stringResource(R.string.voice_panel_new_pack),
+                                    ) {
+                                        prompt = VoicePrompt.CreateLocalPack
+                                    },
+                                )
+                            }
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Edit,
+                                    stringResource(R.string.panel_action_rename),
+                                    selectedLocal != null,
+                                ) {
+                                    selectedLocal?.let { prompt = VoicePrompt.RenameLocalPack(it) }
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Delete,
+                                    stringResource(R.string.panel_action_delete),
+                                    selectedLocal != null,
+                                ) {
+                                    selectedLocal?.let { prompt = VoicePrompt.DeleteLocalPack(it) }
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Upload_file,
+                                    stringResource(R.string.panel_action_import),
+                                    selectedLocal != null,
+                                ) {
+                                    selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) }
+                                },
+                            )
+                            if (localPackLayout == VoicePackLayout.LIST) {
+                                add(
+                                    PanelAction(
+                                        MaterialSymbols.Outlined.Select_all,
+                                        stringResource(R.string.panel_action_multi_select),
+                                        !selectedLocal?.items.isNullOrEmpty(),
+                                    ) {
+                                        batchMode = true
+                                        selectedDownloadIds = emptySet()
+                                    },
+                                )
+                            }
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Refresh,
+                                    stringResource(R.string.panel_action_refresh),
+                                    onClick = ::refreshLocal,
+                                ),
+                            )
+                            add(
+                                panelLocalSortAction(
+                                    mode = localItemSortMode,
+                                    enabled = !selectedLocal?.items.isNullOrEmpty(),
+                                    onModeChange = {
+                                        changeLocalSortMode(VoiceReorderTarget.ITEMS, it)
+                                    },
+                                    onStartCustomOrder = { startReorder(VoiceReorderTarget.ITEMS) },
+                                ),
+                            )
+                        }
 
-        VoiceDestination.SEARCH -> emptyList()
-        VoiceDestination.ONLINE -> buildList {
-            add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back), providerParent != null) {
-                providerParent = null
-                providerRootSnapshot?.let { snapshot ->
-                    providerPage = snapshot.page
-                    providerState = snapshot.state
-                } ?: loadProvider(true)
-                providerRootSnapshot = null
-            })
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh)) { loadProvider() })
-            if (providerParent != null && batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
-                    batchMode = true
-                    selectedDownloadIds = emptySet()
-                })
-                add(PanelAction(MaterialSymbols.Outlined.Save, stringResource(R.string.action_save)) {
-                    providerParent?.let(::saveWholeVoicePack)
-                })
-            }
-        }
-
-        VoiceDestination.ONLINE_SEARCH -> buildList {
-            if (onlineSearchParent != null) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.voice_panel_back_to_search_results)) {
-                    onlineSearchParent = null
-                    onlineSearchRootSnapshot?.let { snapshot ->
-                        onlineSearchPage = snapshot.page
-                        onlineSearchState = snapshot.state
-                    } ?: loadOnlineSearch(true)
-                    onlineSearchRootSnapshot = null
-                })
-            }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onlineSearchQuery.isNotBlank()) {
-                loadOnlineSearch()
-            })
-            if (batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
-                    batchMode = true
-                    selectedDownloadIds = emptySet()
-                })
-            }
-            if (onlineSearchParent != null && batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Save, stringResource(R.string.action_save)) {
-                    onlineSearchParent?.let(::saveWholeVoicePack)
-                })
-            }
-        }
-
-        VoiceDestination.SHARED -> buildList {
-            if (localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null) {
-                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.voice_panel_back_to_shared_packs)) {
-                    selectedSharedPack = null
-                    sharedQuery = ""
-                    sharedSearchExpanded = false
-                    sharedItemsRequest++
-                    sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
-                })
-            }
-            if (batchCandidates.isNotEmpty()) {
-                add(PanelAction(MaterialSymbols.Outlined.Select_all, stringResource(R.string.panel_action_multi_select)) {
-                    batchMode = true
-                    selectedDownloadIds = emptySet()
-                })
-            }
-            add(PanelAction(MaterialSymbols.Outlined.Add, stringResource(R.string.voice_panel_new_pack)) { prompt = VoicePrompt.CreateSharedPack })
-            selectedSharedPack?.let { pack ->
-                add(PanelAction(MaterialSymbols.Outlined.Edit, stringResource(R.string.panel_action_rename)) {
-                    prompt = VoicePrompt.RenameSharedPack(pack)
-                })
-                add(PanelAction(MaterialSymbols.Outlined.Delete, stringResource(R.string.panel_action_delete)) {
-                    prompt = VoicePrompt.DeleteSharedPack(pack)
-                })
-                add(PanelAction(MaterialSymbols.Outlined.Check_circle, stringResource(R.string.voice_panel_submit_for_review)) {
-                    prompt = VoicePrompt.ConfirmSharedPack(pack)
-                })
-                add(PanelAction(MaterialSymbols.Outlined.Upload_file, stringResource(R.string.voice_panel_upload_voice)) {
-                    actions.uploadSharedVoice(pack.id, { progressMessage = panelUiText(R.string.voice_panel_progress_upload) }) { result ->
-                        progressMessage = null
-                        operationMessage = result.fold(
-                            onSuccess = { PanelUiText.Raw(it) },
-                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_upload) },
+                VoiceDestination.SEARCH -> emptyList()
+                VoiceDestination.ONLINE ->
+                    buildList {
+                        add(
+                            PanelAction(
+                                MaterialSymbols.Outlined.Arrow_back,
+                                stringResource(R.string.panel_action_back),
+                                providerParent != null,
+                            ) {
+                                providerParent = null
+                                providerRootSnapshot?.let { snapshot ->
+                                    providerPage = snapshot.page
+                                    providerState = snapshot.state
+                                } ?: loadProvider(true)
+                                providerRootSnapshot = null
+                            },
                         )
-                        if (result.isSuccess) loadMySharedPacks()
+                        add(
+                            PanelAction(
+                                MaterialSymbols.Outlined.Refresh,
+                                stringResource(R.string.panel_action_refresh),
+                            ) {
+                                loadProvider()
+                            },
+                        )
+                        if (providerParent != null && batchCandidates.isNotEmpty()) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Select_all,
+                                    stringResource(R.string.panel_action_multi_select),
+                                ) {
+                                    batchMode = true
+                                    selectedDownloadIds = emptySet()
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Save,
+                                    stringResource(R.string.action_save),
+                                ) {
+                                    providerParent?.let(::saveWholeVoicePack)
+                                },
+                            )
+                        }
                     }
-                })
+
+                VoiceDestination.ONLINE_SEARCH ->
+                    buildList {
+                        if (onlineSearchParent != null) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Arrow_back,
+                                    stringResource(R.string.voice_panel_back_to_search_results),
+                                ) {
+                                    onlineSearchParent = null
+                                    onlineSearchRootSnapshot?.let { snapshot ->
+                                        onlineSearchPage = snapshot.page
+                                        onlineSearchState = snapshot.state
+                                    } ?: loadOnlineSearch(true)
+                                    onlineSearchRootSnapshot = null
+                                },
+                            )
+                        }
+                        add(
+                            PanelAction(
+                                MaterialSymbols.Outlined.Refresh,
+                                stringResource(R.string.panel_action_refresh),
+                                onlineSearchQuery.isNotBlank(),
+                            ) {
+                                loadOnlineSearch()
+                            },
+                        )
+                        if (batchCandidates.isNotEmpty()) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Select_all,
+                                    stringResource(R.string.panel_action_multi_select),
+                                ) {
+                                    batchMode = true
+                                    selectedDownloadIds = emptySet()
+                                },
+                            )
+                        }
+                        if (onlineSearchParent != null && batchCandidates.isNotEmpty()) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Save,
+                                    stringResource(R.string.action_save),
+                                ) {
+                                    onlineSearchParent?.let(::saveWholeVoicePack)
+                                },
+                            )
+                        }
+                    }
+
+                VoiceDestination.SHARED ->
+                    buildList {
+                        if (localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Arrow_back,
+                                    stringResource(R.string.voice_panel_back_to_shared_packs),
+                                ) {
+                                    selectedSharedPack = null
+                                    sharedQuery = ""
+                                    sharedSearchExpanded = false
+                                    sharedItemsRequest++
+                                    sharedItemsState =
+                                        PanelUiState.Empty(
+                                            panelUiText(R.string.voice_panel_select_pack),
+                                        )
+                                },
+                            )
+                        }
+                        if (batchCandidates.isNotEmpty()) {
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Select_all,
+                                    stringResource(R.string.panel_action_multi_select),
+                                ) {
+                                    batchMode = true
+                                    selectedDownloadIds = emptySet()
+                                },
+                            )
+                        }
+                        add(
+                            PanelAction(
+                                MaterialSymbols.Outlined.Add,
+                                stringResource(R.string.voice_panel_new_pack),
+                            ) {
+                                prompt = VoicePrompt.CreateSharedPack
+                            },
+                        )
+                        selectedSharedPack?.let { pack ->
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Edit,
+                                    stringResource(R.string.panel_action_rename),
+                                ) {
+                                    prompt = VoicePrompt.RenameSharedPack(pack)
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Delete,
+                                    stringResource(R.string.panel_action_delete),
+                                ) {
+                                    prompt = VoicePrompt.DeleteSharedPack(pack)
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Check_circle,
+                                    stringResource(R.string.voice_panel_submit_for_review),
+                                ) {
+                                    prompt = VoicePrompt.ConfirmSharedPack(pack)
+                                },
+                            )
+                            add(
+                                PanelAction(
+                                    MaterialSymbols.Outlined.Upload_file,
+                                    stringResource(R.string.voice_panel_upload_voice),
+                                ) {
+                                    actions.uploadSharedVoice(
+                                        pack.id,
+                                        {
+                                            progressMessage =
+                                                panelUiText(R.string.voice_panel_progress_upload)
+                                        },
+                                    ) { result ->
+                                        progressMessage = null
+                                        operationMessage =
+                                            result.fold(
+                                                onSuccess = { PanelUiText.Raw(it) },
+                                                onFailure = {
+                                                    it.toPanelUiText(
+                                                        R.string.voice_panel_error_upload,
+                                                    )
+                                                },
+                                            )
+                                        if (result.isSuccess) loadMySharedPacks()
+                                    }
+                                },
+                            )
+                        }
+                        add(
+                            PanelAction(
+                                MaterialSymbols.Outlined.Refresh,
+                                stringResource(R.string.panel_action_refresh),
+                                onClick = ::loadMySharedPacks,
+                            ),
+                        )
+                    }
+
+                else -> emptyList()
             }
-            add(PanelAction(MaterialSymbols.Outlined.Refresh, stringResource(R.string.panel_action_refresh), onClick = ::loadMySharedPacks))
+    val actionSearch =
+        when {
+            reorderTarget != null || batchMode -> null
+
+            destination == VoiceDestination.LOCAL ->
+                PanelActionSearch(
+                    expanded = localPackFilterExpanded,
+                    value = localPackFilterQuery,
+                    label =
+                        stringResource(
+                            if (localCatalogVisible) R.string.voice_panel_filter_local_packs
+                            else R.string.voice_panel_filter_current_pack,
+                        ),
+                    actionIndex = (panelActions.size - 1).coerceAtLeast(0),
+                    onValueChange = { localPackFilterQuery = it },
+                    onExpandedChange = { localPackFilterExpanded = it },
+                )
+
+            destination == VoiceDestination.ONLINE ->
+                PanelActionSearch(
+                    expanded = providerSearchExpanded,
+                    value = providerFilterQuery,
+                    label =
+                        stringResource(
+                            if (providerParent == null) R.string.voice_panel_filter_current_pack
+                            else R.string.voice_panel_filter_current_voice,
+                        ),
+                    onValueChange = { providerFilterQuery = it },
+                    onExpandedChange = { providerSearchExpanded = it },
+                )
+
+            destination == VoiceDestination.SHARED ->
+                PanelActionSearch(
+                    expanded = sharedSearchExpanded,
+                    value = sharedQuery,
+                    label =
+                        stringResource(
+                            if (sharedCatalogVisible) R.string.voice_panel_filter_shared_packs
+                            else R.string.voice_panel_filter_current_shared_pack,
+                        ),
+                    actionIndex = (panelActions.size - 1).coerceAtLeast(0),
+                    onValueChange = { sharedQuery = it },
+                    onExpandedChange = { sharedSearchExpanded = it },
+                )
+
+            else -> null
         }
-
-        else -> emptyList()
-    }
-    val actionSearch = when {
-        reorderTarget != null || batchMode -> null
-
-        destination == VoiceDestination.LOCAL -> PanelActionSearch(
-            expanded = localPackFilterExpanded,
-            value = localPackFilterQuery,
-            label = stringResource(if (localCatalogVisible) R.string.voice_panel_filter_local_packs else R.string.voice_panel_filter_current_pack),
-            actionIndex = (panelActions.size - 1).coerceAtLeast(0),
-            onValueChange = { localPackFilterQuery = it },
-            onExpandedChange = { localPackFilterExpanded = it },
-        )
-
-        destination == VoiceDestination.ONLINE -> PanelActionSearch(
-            expanded = providerSearchExpanded,
-            value = providerFilterQuery,
-            label = stringResource(if (providerParent == null) R.string.voice_panel_filter_current_pack else R.string.voice_panel_filter_current_voice),
-            onValueChange = { providerFilterQuery = it },
-            onExpandedChange = { providerSearchExpanded = it },
-        )
-
-        destination == VoiceDestination.SHARED -> PanelActionSearch(
-            expanded = sharedSearchExpanded,
-            value = sharedQuery,
-            label = stringResource(if (sharedCatalogVisible) R.string.voice_panel_filter_shared_packs else R.string.voice_panel_filter_current_shared_pack),
-            actionIndex = (panelActions.size - 1).coerceAtLeast(0),
-            onValueChange = { sharedQuery = it },
-            onExpandedChange = { sharedSearchExpanded = it },
-        )
-
-        else -> null
-    }
 
     Box(Modifier.fillMaxSize()) {
         PanelShell(
@@ -1318,348 +1790,461 @@ private fun VoicePanelContent(
                     }
 
                     destination == VoiceDestination.SHARED &&
-                            localPackLayout == VoicePackLayout.LIST && selectedSharedPack != null -> {
+                        localPackLayout == VoicePackLayout.LIST &&
+                        selectedSharedPack != null -> {
                         selectedSharedPack = null
                         sharedQuery = ""
                         sharedSearchExpanded = false
                         sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
+                        sharedItemsState =
+                            PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
                     }
 
                     destination == VoiceDestination.LOCAL &&
-                            localPackLayout == VoicePackLayout.LIST && localPackDetailId != null -> {
+                        localPackLayout == VoicePackLayout.LIST &&
+                        localPackDetailId != null -> {
                         localPackDetailId = null
                     }
 
                     else -> onDismiss()
                 }
             },
-            titleContent = if (destination == VoiceDestination.RECENT) ({
-                RecentModeTitle(recentMostUsed) { mostUsed ->
-                    recentMostUsed = mostUsed
-                    PanelSettings.voiceRecentSortMode = if (mostUsed) 1 else 0
-                }
-            }) else null,
+            titleContent =
+                if (destination == VoiceDestination.RECENT)
+                    ({
+                        RecentModeTitle(recentMostUsed) { mostUsed ->
+                            recentMostUsed = mostUsed
+                            PanelSettings.voiceRecentSortMode = if (mostUsed) 1 else 0
+                        }
+                    })
+                else null,
         ) {
             CompositionLocalProvider(LocalVoiceDurationOverrides provides resolvedDurations) {
                 when (reorderTarget) {
-                    VoiceReorderTarget.PACKS -> VoicePackReorderContent(
-                        packs = reorderKeys.mapNotNull { key ->
-                            editableLocalPacks.firstOrNull { it.id == key }
-                        },
-                        onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
-                    )
-
-                    VoiceReorderTarget.ITEMS -> VoiceItemReorderContent(
-                        voices = reorderKeys.mapNotNull { key ->
-                            selectedLocal?.items?.firstOrNull { it.localPath == key }
-                        },
-                        onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
-                    )
-
-                    null -> when (destination) {
-                    VoiceDestination.RECENT -> PanelStateContent(localState, ::refreshLocal) {
-                        if (recent == null || recent.items.isEmpty()) {
-                            PanelEmptyAction(stringResource(R.string.voice_panel_empty_never_sent))
-                        } else {
-                            VoiceList(
-                                voices = recentItems,
-                                playingId = playingId,
-                                onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                                onSend = ::send,
-                            )
-                        }
-                    }
-
-                    VoiceDestination.SEARCH -> PanelStateContent(localState, ::refreshLocal) {
-                        VoiceSearchContent(
-                            packs = editableLocalPacks,
-                            query = localQuery,
-                            onQueryChange = { localQuery = it },
-                            playingId = playingId,
-                            onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                            onSend = ::send,
+                    VoiceReorderTarget.PACKS ->
+                        VoicePackReorderContent(
+                            packs =
+                                reorderKeys.mapNotNull { key ->
+                                    editableLocalPacks.firstOrNull { it.id == key }
+                                },
+                            onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
                         )
-                    }
 
-                    VoiceDestination.LOCAL -> PanelStateContent(localState, ::refreshLocal) {
-                        LocalVoiceContent(
-                            packs = visibleLocalPacks,
-                            layout = localPackLayout,
-                            selected = visibleSelectedLocal,
-                            filterActive = localFilterActive,
-                            playingId = playingId,
-                            packListState = localPackListState,
-                            itemListState = localItemListState,
-                            onSelectPack = {
-                                selectedLocalId = it.id
-                                if (localPackLayout == VoicePackLayout.LIST) {
-                                    localPackFilterQuery = ""
-                                    localPackFilterExpanded = false
-                                    localPackDetailId = it.id
-                                    scope.launch { localItemListState.scrollToItem(0) }
-                                }
-                            },
-                            onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                            onSend = ::send,
-                            onImport = { selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) } },
-                            selectable = batchMode && localDetailPack != null,
-                            selectedIds = selectedDownloadIds,
-                            onToggleSelection = { item ->
-                                val key = voiceSelectionKey(item)
-                                selectedDownloadIds = selectedDownloadIds.toMutableSet().apply {
-                                    if (!add(key)) remove(key)
-                                }
-                            }
+                    VoiceReorderTarget.ITEMS ->
+                        VoiceItemReorderContent(
+                            voices =
+                                reorderKeys.mapNotNull { key ->
+                                    selectedLocal?.items?.firstOrNull { it.localPath == key }
+                                },
+                            onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
                         )
-                    }
 
-                    VoiceDestination.TTS -> TtsContent(
-                        mode = ttsMode,
-                        text = ttsText,
-                        converted = convertedTts != null,
-                        selectedClone = selectedClone,
-                        selectedEdgeVoice = selectedEdgeVoice,
-                        onModeChange = { clearConvertedTts(); ttsMode = it },
-                        onTextChange = { clearConvertedTts(); ttsText = it },
-                        onSelectEdgeVoice = { voice ->
-                            clearConvertedTts()
-                            selectedEdgeVoice = voice
-                            PanelSettings.selectedEdgeVoice = voice
-                        },
-                        onChooseOrManage = { managingClones = true },
-                        onConvert = ::convertTts,
-                        onPreviewConverted = {
-                            convertedTts?.let { generated ->
-                                preview("tts-converted", requireNotNull(resolvedConvertedTtsTitle)) {
-                                    Result.success(generated.copy(temporary = false))
+                    null ->
+                        when (destination) {
+                            VoiceDestination.RECENT ->
+                                PanelStateContent(localState, ::refreshLocal) {
+                                    if (recent == null || recent.items.isEmpty()) {
+                                        PanelEmptyAction(
+                                            stringResource(R.string.voice_panel_empty_never_sent),
+                                        )
+                                    } else {
+                                        VoiceList(
+                                            voices = recentItems,
+                                            playingId = playingId,
+                                            onPreview = { item ->
+                                                preview(item.id, item.title, item) {
+                                                    actions.preview(item)
+                                                }
+                                            },
+                                            onSend = ::send,
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                        onSendConverted = ::sendConvertedTts,
-                        onSynthesize = {
-                            val count = ttsText.codePointCount(0, ttsText.length)
-                            if (ttsText.isBlank()) operationMessage = panelUiText(R.string.voice_panel_tts_empty)
-                            else if (count > 256) operationMessage = panelUiQuantity(R.plurals.voice_panel_tts_too_long, 256, 256)
-                            else {
-                                progressMessage = panelUiText(R.string.voice_panel_progress_tts_synthesize)
-                                scope.launch {
-                                    val result = when (ttsMode) {
-                                        TtsMode.SYSTEM -> actions.synthesizeSystem(ttsText)
-                                        TtsMode.EDGE -> actions.synthesizeEdge(ttsText, selectedEdgeVoice)
-                                        TtsMode.CLONE -> selectedClone?.let { actions.synthesizeClone(ttsText, it) }
-                                            ?: Result.failure(
-                                                IllegalStateException(
-                                                    currentLocalizedContext.getString(
-                                                        R.string.voice_panel_tts_choose_voice_first,
-                                                    ),
+
+                            VoiceDestination.SEARCH ->
+                                PanelStateContent(localState, ::refreshLocal) {
+                                    VoiceSearchContent(
+                                        packs = editableLocalPacks,
+                                        query = localQuery,
+                                        onQueryChange = { localQuery = it },
+                                        playingId = playingId,
+                                        onPreview = { item ->
+                                            preview(item.id, item.title, item) {
+                                                actions.preview(item)
+                                            }
+                                        },
+                                        onSend = ::send,
+                                    )
+                                }
+
+                            VoiceDestination.LOCAL ->
+                                PanelStateContent(localState, ::refreshLocal) {
+                                    LocalVoiceContent(
+                                        packs = visibleLocalPacks,
+                                        layout = localPackLayout,
+                                        selected = visibleSelectedLocal,
+                                        filterActive = localFilterActive,
+                                        playingId = playingId,
+                                        packListState = localPackListState,
+                                        itemListState = localItemListState,
+                                        onSelectPack = {
+                                            selectedLocalId = it.id
+                                            if (localPackLayout == VoicePackLayout.LIST) {
+                                                localPackFilterQuery = ""
+                                                localPackFilterExpanded = false
+                                                localPackDetailId = it.id
+                                                scope.launch { localItemListState.scrollToItem(0) }
+                                            }
+                                        },
+                                        onPreview = { item ->
+                                            preview(item.id, item.title, item) {
+                                                actions.preview(item)
+                                            }
+                                        },
+                                        onSend = ::send,
+                                        onImport = {
+                                            selectedLocal?.let {
+                                                prompt = VoicePrompt.ImportLocal(it)
+                                            }
+                                        },
+                                        selectable = batchMode && localDetailPack != null,
+                                        selectedIds = selectedDownloadIds,
+                                        onToggleSelection = { item ->
+                                            val key = voiceSelectionKey(item)
+                                            selectedDownloadIds =
+                                                selectedDownloadIds.toMutableSet().apply {
+                                                    if (!add(key)) remove(key)
+                                                }
+                                        },
+                                    )
+                                }
+
+                            VoiceDestination.TTS ->
+                                TtsContent(
+                                    mode = ttsMode,
+                                    text = ttsText,
+                                    converted = convertedTts != null,
+                                    selectedClone = selectedClone,
+                                    selectedEdgeVoice = selectedEdgeVoice,
+                                    onModeChange = {
+                                        clearConvertedTts()
+                                        ttsMode = it
+                                    },
+                                    onTextChange = {
+                                        clearConvertedTts()
+                                        ttsText = it
+                                    },
+                                    onSelectEdgeVoice = { voice ->
+                                        clearConvertedTts()
+                                        selectedEdgeVoice = voice
+                                        PanelSettings.selectedEdgeVoice = voice
+                                    },
+                                    onChooseOrManage = { managingClones = true },
+                                    onConvert = ::convertTts,
+                                    onPreviewConverted = {
+                                        convertedTts?.let { generated ->
+                                            preview(
+                                                "tts-converted",
+                                                requireNotNull(resolvedConvertedTtsTitle),
+                                            ) {
+                                                Result.success(generated.copy(temporary = false))
+                                            }
+                                        }
+                                    },
+                                    onSendConverted = ::sendConvertedTts,
+                                    onSynthesize = {
+                                        val count = ttsText.codePointCount(0, ttsText.length)
+                                        if (ttsText.isBlank())
+                                            operationMessage =
+                                                panelUiText(R.string.voice_panel_tts_empty)
+                                        else if (count > 256)
+                                            operationMessage =
+                                                panelUiQuantity(
+                                                    R.plurals.voice_panel_tts_too_long,
+                                                    256,
+                                                    256,
+                                                )
+                                        else {
+                                            progressMessage =
+                                                panelUiText(
+                                                    R.string.voice_panel_progress_tts_synthesize,
+                                                )
+                                            scope.launch {
+                                                val result =
+                                                    when (ttsMode) {
+                                                        TtsMode.SYSTEM ->
+                                                            actions.synthesizeSystem(ttsText)
+                                                        TtsMode.EDGE ->
+                                                            actions.synthesizeEdge(
+                                                                ttsText,
+                                                                selectedEdgeVoice,
+                                                            )
+                                                        TtsMode.CLONE ->
+                                                            selectedClone?.let {
+                                                                actions.synthesizeClone(ttsText, it)
+                                                            }
+                                                                ?: Result.failure(
+                                                                    IllegalStateException(
+                                                                        currentLocalizedContext
+                                                                            .getString(
+                                                                                R.string
+                                                                                    .voice_panel_tts_choose_voice_first,
+                                                                            ),
+                                                                    ),
+                                                                )
+                                                    }
+                                                progressMessage = null
+                                                showToastSuspend(
+                                                    context,
+                                                    result.exceptionOrNull()?.message
+                                                        ?: currentLocalizedContext.getString(
+                                                            R.string.voice_panel_send_success,
+                                                        ),
+                                                )
+                                                if (
+                                                    result.isSuccess && PanelSettings.panelAutoClose
+                                                )
+                                                    onDismiss()
+                                            }
+                                        }
+                                    },
+                                )
+
+                            VoiceDestination.ONLINE ->
+                                OnlineVoiceContent(
+                                    provider = provider,
+                                    state = visibleProviderState,
+                                    playingId = playingId,
+                                    listState =
+                                        if (providerParent == null) providerRootListState
+                                        else providerChildListState,
+                                    onProvider = {
+                                        provider = it
+                                        PanelSettings.selectedVoiceProvider = it.id
+                                        providerParent = null
+                                        providerRootSnapshot = null
+                                        providerFilterQuery = ""
+                                        providerSearchExpanded = false
+                                        onlineSearchParent = null
+                                        onlineSearchRootSnapshot = null
+                                        onlineSearchExecuted = false
+                                        onlineSearchRequest++
+                                        onlineSearchState =
+                                            PanelUiState.Empty(
+                                                panelUiText(
+                                                    if (onlineSearchQuery.isBlank())
+                                                        R.string.voice_panel_search_prompt
+                                                    else R.string.voice_panel_search_action_hint,
                                                 ),
                                             )
-                                    }
-                                    progressMessage = null
-                                    showToastSuspend(
-                                        context,
-                                        result.exceptionOrNull()?.message
-                                            ?: currentLocalizedContext.getString(R.string.voice_panel_send_success),
-                                    )
-                                    if (result.isSuccess && PanelSettings.panelAutoClose) onDismiss()
-                                }
-                            }
-                        },
-                    )
-
-                    VoiceDestination.ONLINE -> OnlineVoiceContent(
-                        provider = provider,
-                        state = visibleProviderState,
-                        playingId = playingId,
-                        listState = if (providerParent == null) providerRootListState else providerChildListState,
-                        onProvider = {
-                            provider = it
-                            PanelSettings.selectedVoiceProvider = it.id
-                            providerParent = null
-                            providerRootSnapshot = null
-                            providerFilterQuery = ""
-                            providerSearchExpanded = false
-                            onlineSearchParent = null
-                            onlineSearchRootSnapshot = null
-                            onlineSearchExecuted = false
-                            onlineSearchRequest++
-                            onlineSearchState = PanelUiState.Empty(panelUiText(
-                                if (onlineSearchQuery.isBlank()) R.string.voice_panel_search_prompt
-                                else R.string.voice_panel_search_action_hint,
-                            ))
-                            scope.launch {
-                                providerRootListState.scrollToItem(0)
-                                providerChildListState.scrollToItem(0)
-                            }
-                            loadProvider(true)
-                        },
-                        onOpen = { item ->
-                            if (providerParent == null) {
-                                providerRootSnapshot = ProviderRootSnapshot(
-                                    page = providerPage,
-                                    state = providerState,
+                                        scope.launch {
+                                            providerRootListState.scrollToItem(0)
+                                            providerChildListState.scrollToItem(0)
+                                        }
+                                        loadProvider(true)
+                                    },
+                                    onOpen = { item ->
+                                        if (providerParent == null) {
+                                            providerRootSnapshot =
+                                                ProviderRootSnapshot(
+                                                    page = providerPage,
+                                                    state = providerState,
+                                                )
+                                        }
+                                        providerParent = item
+                                        providerFilterQuery = ""
+                                        providerSearchExpanded = false
+                                        scope.launch { providerChildListState.scrollToItem(0) }
+                                        loadProvider(true)
+                                    },
+                                    onPreview = { item ->
+                                        preview(item.id, item.title, item) { actions.preview(item) }
+                                    },
+                                    onSend = ::send,
+                                    onAdd = { item -> showVoicePackPicker(listOf(item)) },
+                                    selectable = batchMode,
+                                    selectedIds = selectedDownloadIds,
+                                    onToggleSelection = { item ->
+                                        val key = voiceSelectionKey(item)
+                                        selectedDownloadIds =
+                                            selectedDownloadIds.toMutableSet().apply {
+                                                if (!add(key)) remove(key)
+                                            }
+                                    },
+                                    onPrevious = {
+                                        if (providerPage > 0) providerPage--
+                                        loadProvider()
+                                    },
+                                    onNext = {
+                                        providerPage++
+                                        loadProvider()
+                                    },
+                                    onRetry = { loadProvider() },
                                 )
-                            }
-                            providerParent = item
-                            providerFilterQuery = ""
-                            providerSearchExpanded = false
-                            scope.launch { providerChildListState.scrollToItem(0) }
-                            loadProvider(true)
-                        },
-                        onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                        onSend = ::send,
-                        onAdd = { item -> showVoicePackPicker(listOf(item)) },
-                        selectable = batchMode,
-                        selectedIds = selectedDownloadIds,
-                        onToggleSelection = { item ->
-                            val key = voiceSelectionKey(item)
-                            selectedDownloadIds = selectedDownloadIds.toMutableSet().apply {
-                                if (!add(key)) remove(key)
-                            }
-                        },
-                        onPrevious = {
-                            if (providerPage > 0) providerPage--
-                            loadProvider()
-                        },
-                        onNext = {
-                            providerPage++
-                            loadProvider()
-                        },
-                        onRetry = { loadProvider() },
-                    )
 
-                    VoiceDestination.ONLINE_SEARCH -> OnlineVoiceSearchContent(
-                        provider = provider,
-                        query = onlineSearchQuery,
-                        state = onlineSearchState,
-                        playingId = playingId,
-                        listState = if (onlineSearchParent == null) {
-                            onlineSearchRootListState
-                        } else {
-                            onlineSearchChildListState
-                        },
-                        onProvider = {
-                            provider = it
-                            PanelSettings.selectedVoiceProvider = it.id
-                            providerRequest++
-                            providerParent = null
-                            providerRootSnapshot = null
-                            providerFilterQuery = ""
-                            providerState = PanelUiState.Loading
-                            onlineSearchRequest++
-                            onlineSearchParent = null
-                            onlineSearchRootSnapshot = null
-                            onlineSearchPage = 0
-                            onlineSearchExecuted = false
-                            onlineSearchState = PanelUiState.Empty(panelUiText(
-                                if (onlineSearchQuery.isBlank()) R.string.voice_panel_search_prompt
-                                else R.string.voice_panel_search_action_hint,
-                            ))
-                        },
-                        onQueryChange = {
-                            onlineSearchQuery = it
-                            onlineSearchRequest++
-                            onlineSearchParent = null
-                            onlineSearchRootSnapshot = null
-                            onlineSearchPage = 0
-                            onlineSearchExecuted = false
-                            onlineSearchState = PanelUiState.Empty(panelUiText(
-                                if (it.isBlank()) R.string.voice_panel_search_prompt
-                                else R.string.voice_panel_search_action_hint,
-                            ))
-                        },
-                        onSearch = { loadOnlineSearch(true) },
-                        onOpen = { item ->
-                            if (onlineSearchParent == null) {
-                                onlineSearchRootSnapshot = ProviderRootSnapshot(
-                                    page = onlineSearchPage,
+                            VoiceDestination.ONLINE_SEARCH ->
+                                OnlineVoiceSearchContent(
+                                    provider = provider,
+                                    query = onlineSearchQuery,
                                     state = onlineSearchState,
+                                    playingId = playingId,
+                                    listState =
+                                        if (onlineSearchParent == null) {
+                                            onlineSearchRootListState
+                                        } else {
+                                            onlineSearchChildListState
+                                        },
+                                    onProvider = {
+                                        provider = it
+                                        PanelSettings.selectedVoiceProvider = it.id
+                                        providerRequest++
+                                        providerParent = null
+                                        providerRootSnapshot = null
+                                        providerFilterQuery = ""
+                                        providerState = PanelUiState.Loading
+                                        onlineSearchRequest++
+                                        onlineSearchParent = null
+                                        onlineSearchRootSnapshot = null
+                                        onlineSearchPage = 0
+                                        onlineSearchExecuted = false
+                                        onlineSearchState =
+                                            PanelUiState.Empty(
+                                                panelUiText(
+                                                    if (onlineSearchQuery.isBlank())
+                                                        R.string.voice_panel_search_prompt
+                                                    else R.string.voice_panel_search_action_hint,
+                                                ),
+                                            )
+                                    },
+                                    onQueryChange = {
+                                        onlineSearchQuery = it
+                                        onlineSearchRequest++
+                                        onlineSearchParent = null
+                                        onlineSearchRootSnapshot = null
+                                        onlineSearchPage = 0
+                                        onlineSearchExecuted = false
+                                        onlineSearchState =
+                                            PanelUiState.Empty(
+                                                panelUiText(
+                                                    if (it.isBlank())
+                                                        R.string.voice_panel_search_prompt
+                                                    else R.string.voice_panel_search_action_hint,
+                                                ),
+                                            )
+                                    },
+                                    onSearch = { loadOnlineSearch(true) },
+                                    onOpen = { item ->
+                                        if (onlineSearchParent == null) {
+                                            onlineSearchRootSnapshot =
+                                                ProviderRootSnapshot(
+                                                    page = onlineSearchPage,
+                                                    state = onlineSearchState,
+                                                )
+                                        }
+                                        onlineSearchParent = item
+                                        scope.launch { onlineSearchChildListState.scrollToItem(0) }
+                                        loadOnlineSearch(true)
+                                    },
+                                    onPreview = { item ->
+                                        preview(item.id, item.title, item) { actions.preview(item) }
+                                    },
+                                    onSend = ::send,
+                                    onAdd = { item -> showVoicePackPicker(listOf(item)) },
+                                    selectable = batchMode,
+                                    selectedIds = selectedDownloadIds,
+                                    onToggleSelection = { item ->
+                                        val key = voiceSelectionKey(item)
+                                        selectedDownloadIds =
+                                            selectedDownloadIds.toMutableSet().apply {
+                                                if (!add(key)) remove(key)
+                                            }
+                                    },
+                                    onPrevious = {
+                                        if (onlineSearchPage > 0) onlineSearchPage--
+                                        loadOnlineSearch()
+                                    },
+                                    onNext = {
+                                        onlineSearchPage++
+                                        loadOnlineSearch()
+                                    },
+                                    onRetry = { loadOnlineSearch() },
                                 )
-                            }
-                            onlineSearchParent = item
-                            scope.launch { onlineSearchChildListState.scrollToItem(0) }
-                            loadOnlineSearch(true)
-                        },
-                        onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                        onSend = ::send,
-                        onAdd = { item -> showVoicePackPicker(listOf(item)) },
-                        selectable = batchMode,
-                        selectedIds = selectedDownloadIds,
-                        onToggleSelection = { item ->
-                            val key = voiceSelectionKey(item)
-                            selectedDownloadIds = selectedDownloadIds.toMutableSet().apply {
-                                if (!add(key)) remove(key)
-                            }
-                        },
-                        onPrevious = {
-                            if (onlineSearchPage > 0) onlineSearchPage--
-                            loadOnlineSearch()
-                        },
-                        onNext = {
-                            onlineSearchPage++
-                            loadOnlineSearch()
-                        },
-                        onRetry = { loadOnlineSearch() },
-                    )
 
-                    VoiceDestination.SHARED -> SharedVoiceContent(
-                        packsState = sharedPacksState,
-                        layout = localPackLayout,
-                        selectedPack = selectedSharedPack,
-                        itemsState = sharedItemsState,
-                        query = sharedQuery,
-                        playingId = playingId,
-                        packListState = sharedPackListState,
-                        itemListState = sharedItemListState,
-                        selectable = batchMode,
-                        selectedIds = selectedDownloadIds,
-                        onToggleSelection = { item ->
-                            val key = voiceSelectionKey(item)
-                            selectedDownloadIds = selectedDownloadIds.toMutableSet().apply {
-                                if (!add(key)) remove(key)
-                            }
-                        },
-                        onSelectPack = { pack ->
-                            selectSharedPack(pack, resetFilter = localPackLayout == VoicePackLayout.LIST)
-                            scope.launch { sharedItemListState.scrollToItem(0) }
-                        },
-                        onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
-                        onSend = ::send,
-                        onRetryPacks = ::loadMySharedPacks,
-                        onRetryItems = {
-                            selectedSharedPack?.let {
-                                selectSharedPack(it, resetFilter = false)
-                            }
-                        },
-                    )
+                            VoiceDestination.SHARED ->
+                                SharedVoiceContent(
+                                    packsState = sharedPacksState,
+                                    layout = localPackLayout,
+                                    selectedPack = selectedSharedPack,
+                                    itemsState = sharedItemsState,
+                                    query = sharedQuery,
+                                    playingId = playingId,
+                                    packListState = sharedPackListState,
+                                    itemListState = sharedItemListState,
+                                    selectable = batchMode,
+                                    selectedIds = selectedDownloadIds,
+                                    onToggleSelection = { item ->
+                                        val key = voiceSelectionKey(item)
+                                        selectedDownloadIds =
+                                            selectedDownloadIds.toMutableSet().apply {
+                                                if (!add(key)) remove(key)
+                                            }
+                                    },
+                                    onSelectPack = { pack ->
+                                        selectSharedPack(
+                                            pack,
+                                            resetFilter = localPackLayout == VoicePackLayout.LIST,
+                                        )
+                                        scope.launch { sharedItemListState.scrollToItem(0) }
+                                    },
+                                    onPreview = { item ->
+                                        preview(item.id, item.title, item) { actions.preview(item) }
+                                    },
+                                    onSend = ::send,
+                                    onRetryPacks = ::loadMySharedPacks,
+                                    onRetryItems = {
+                                        selectedSharedPack?.let {
+                                            selectSharedPack(it, resetFilter = false)
+                                        }
+                                    },
+                                )
 
-                    VoiceDestination.SETTINGS -> VoiceSettingsContent(
-                        localPackLayout = localPackLayout,
-                        wrapActions = wrapActions,
-                        onLocalPackLayoutChange = {
-                            localPackLayout = it
-                            localPackDetailId = null
-                            sharedQuery = ""
-                            sharedSearchExpanded = false
-                            if (it == VoicePackLayout.TABS) {
-                                val packs = (sharedPacksState as? PanelUiState.Content)?.value.orEmpty()
-                                val target = packs.firstOrNull { pack -> pack.id == selectedSharedPack?.id }
-                                    ?: packs.firstOrNull()
-                                target?.let { pack -> selectSharedPack(pack, resetFilter = false) }
-                            } else {
-                                selectedSharedPack = null
-                                sharedItemsRequest++
-                                sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
-                            }
-                            PanelSettings.localVoicePackLayout = it
-                        },
-                        onWrapActionsChange = {
-                            wrapActions = it
-                            PanelSettings.wrapPanelActions = it
-                        },
-                    )
-                    }
+                            VoiceDestination.SETTINGS ->
+                                VoiceSettingsContent(
+                                    localPackLayout = localPackLayout,
+                                    wrapActions = wrapActions,
+                                    onLocalPackLayoutChange = {
+                                        localPackLayout = it
+                                        localPackDetailId = null
+                                        sharedQuery = ""
+                                        sharedSearchExpanded = false
+                                        if (it == VoicePackLayout.TABS) {
+                                            val packs =
+                                                (sharedPacksState as? PanelUiState.Content)
+                                                    ?.value
+                                                    .orEmpty()
+                                            val target =
+                                                packs.firstOrNull { pack ->
+                                                    pack.id == selectedSharedPack?.id
+                                                } ?: packs.firstOrNull()
+                                            target?.let { pack ->
+                                                selectSharedPack(pack, resetFilter = false)
+                                            }
+                                        } else {
+                                            selectedSharedPack = null
+                                            sharedItemsRequest++
+                                            sharedItemsState =
+                                                PanelUiState.Empty(
+                                                    panelUiText(R.string.voice_panel_select_pack),
+                                                )
+                                        }
+                                        PanelSettings.localVoicePackLayout = it
+                                    },
+                                    onWrapActionsChange = {
+                                        wrapActions = it
+                                        PanelSettings.wrapPanelActions = it
+                                    },
+                                )
+                        }
                 }
             }
         }
@@ -1687,31 +2272,49 @@ private fun VoicePanelContent(
                 onSource = { source ->
                     cloneSource = source
                     if (source == SOURCE_EXAMPLES) loadExampleGroups()
-                    if (source == SOURCE_SHARED && cloneSharedPacksState == PanelUiState.Loading) loadCloneSharedPacks()
+                    if (source == SOURCE_SHARED && cloneSharedPacksState == PanelUiState.Loading)
+                        loadCloneSharedPacks()
                 },
                 onSelectNone = {
                     clearConvertedTts()
                     scope.launch {
-                        actions.selectClone(null)
+                        actions
+                            .selectClone(null)
                             .onSuccess { selectedCloneId = "" }
-                            .onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_voice_select) }
+                            .onFailure {
+                                operationMessage =
+                                    it.toPanelUiText(R.string.voice_panel_error_voice_select)
+                            }
                     }
                 },
                 onSelect = { voice ->
                     clearConvertedTts()
                     scope.launch {
-                        actions.selectClone(voice.id).onSuccess { selectedCloneId = voice.id }
-                            .onFailure { operationMessage = it.toPanelUiText(R.string.voice_panel_error_voice_select) }
+                        actions
+                            .selectClone(voice.id)
+                            .onSuccess { selectedCloneId = voice.id }
+                            .onFailure {
+                                operationMessage =
+                                    it.toPanelUiText(R.string.voice_panel_error_voice_select)
+                            }
                     }
                 },
                 onDelete = { prompt = VoicePrompt.DeleteClone(it) },
                 onImportFile = {
-                    actions.importClone({ progressMessage = panelUiText(R.string.voice_panel_progress_import_clone) }) { result ->
+                    actions.importClone(
+                        {
+                            progressMessage =
+                                panelUiText(R.string.voice_panel_progress_import_clone)
+                        },
+                    ) { result ->
                         progressMessage = null
-                        operationMessage = result.fold(
-                            onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
-                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_clone) },
-                        )
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_import_clone)
+                                },
+                            )
                         if (result.isSuccess) refreshClones()
                     }
                 },
@@ -1733,11 +2336,13 @@ private fun VoicePanelContent(
                     examplesRequest++
                     cloneSharedPack = null
                     selectedExampleGroup = null
-                    cloneSource = when (cloneSource) {
-                        SOURCE_LOCAL, SOURCE_SHARED -> SOURCE_PANEL
-                        SOURCE_EXAMPLES -> null
-                        else -> null
-                    }
+                    cloneSource =
+                        when (cloneSource) {
+                            SOURCE_LOCAL,
+                            SOURCE_SHARED -> SOURCE_PANEL
+                            SOURCE_EXAMPLES -> null
+                            else -> null
+                        }
                 },
                 onBackExamples = {
                     stopPreview()
@@ -1759,10 +2364,13 @@ private fun VoicePanelContent(
                     scope.launch {
                         val result = actions.addExample(example)
                         progressMessage = null
-                        operationMessage = result.fold(
-                            onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
-                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_example) },
-                        )
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_import_example)
+                                },
+                            )
                         refreshClones()
                     }
                 },
@@ -1789,198 +2397,258 @@ private fun VoicePanelContent(
         }
 
         when (val current = prompt) {
-            VoicePrompt.CreateLocalPack -> PanelTextPrompt(
-                stringResource(R.string.voice_panel_new_pack),
-                stringResource(R.string.voice_pack_name),
-                confirmText = stringResource(R.string.panel_action_create),
-                onDismiss = { prompt = null },
-            ) { name ->
-                scope.launch {
-                    val result = actions.createLocalPack(name)
-                    prompt = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_pack_created) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_create_pack) },
-                    )
-                    if (result.isSuccess) refreshLocal()
-                }
-            }
-
-            is VoicePrompt.ImportLocal -> VoiceImportModePrompt(
-                onDismiss = { prompt = null },
-                onSelect = { mode ->
-                    prompt = null
-                    actions.importVoice(current.pack.id, mode, { progressMessage = panelUiText(R.string.voice_panel_progress_import) }) { result ->
-                        progressMessage = null
-                        operationMessage = result.fold(
-                            onSuccess = { panelUiText(R.string.voice_panel_import_complete) },
-                            onFailure = { it.toPanelUiText(R.string.voice_panel_error_import) },
-                        )
+            VoicePrompt.CreateLocalPack ->
+                PanelTextPrompt(
+                    stringResource(R.string.voice_panel_new_pack),
+                    stringResource(R.string.voice_pack_name),
+                    confirmText = stringResource(R.string.panel_action_create),
+                    onDismiss = { prompt = null },
+                ) { name ->
+                    scope.launch {
+                        val result = actions.createLocalPack(name)
+                        prompt = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_pack_created) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_create_pack)
+                                },
+                            )
                         if (result.isSuccess) refreshLocal()
                     }
-                },
-            )
-
-            is VoicePrompt.RenameLocalPack -> PanelTextPrompt(
-                stringResource(R.string.voice_panel_rename_pack),
-                stringResource(R.string.voice_pack_name),
-                current.pack.title,
-                stringResource(R.string.action_save),
-                onDismiss = { prompt = null },
-            ) { name ->
-                scope.launch {
-                    val result = actions.renameLocalPack(current.pack.id, name)
-                    prompt = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_pack_renamed) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_rename_pack) },
-                    )
-                    if (result.isSuccess) refreshLocal()
                 }
-            }
 
-            is VoicePrompt.DeleteLocalPack -> PanelConfirmation(
-                stringResource(R.string.voice_panel_delete_pack),
-                stringResource(R.string.voice_panel_delete_pack_message, current.pack.title),
-                stringResource(R.string.panel_action_delete),
-                { prompt = null },
-            ) {
-                scope.launch {
-                    val result = actions.deleteLocalPack(current.pack.id)
-                    prompt = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_pack_deleted) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_pack) },
-                    )
-                    if (result.isSuccess) refreshLocal()
-                }
-            }
+            is VoicePrompt.ImportLocal ->
+                VoiceImportModePrompt(
+                    onDismiss = { prompt = null },
+                    onSelect = { mode ->
+                        prompt = null
+                        actions.importVoice(
+                            current.pack.id,
+                            mode,
+                            { progressMessage = panelUiText(R.string.voice_panel_progress_import) },
+                        ) { result ->
+                            progressMessage = null
+                            operationMessage =
+                                result.fold(
+                                    onSuccess = {
+                                        panelUiText(R.string.voice_panel_import_complete)
+                                    },
+                                    onFailure = {
+                                        it.toPanelUiText(R.string.voice_panel_error_import)
+                                    },
+                                )
+                            if (result.isSuccess) refreshLocal()
+                        }
+                    },
+                )
 
-            is VoicePrompt.DeleteLocalVoices -> PanelConfirmation(
-                stringResource(R.string.voice_panel_delete_voices),
-                pluralStringResource(
-                    R.plurals.voice_panel_delete_selected_message,
-                    current.items.size,
-                    current.items.size,
-                ),
-                stringResource(R.string.panel_action_delete),
-                { prompt = null },
-            ) {
-                scope.launch {
-                    val paths = current.items.mapNotNull(VoiceItem::localPath)
-                    val result = actions.deleteLocalVoices(paths)
-                    prompt = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiQuantity(R.plurals.voice_panel_deleted_count, it, it) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_voices) },
-                    )
-                    if (result.isSuccess) {
-                        stopPreview()
-                        batchMode = false
-                        selectedDownloadIds = emptySet()
-                        refreshLocal()
+            is VoicePrompt.RenameLocalPack ->
+                PanelTextPrompt(
+                    stringResource(R.string.voice_panel_rename_pack),
+                    stringResource(R.string.voice_pack_name),
+                    current.pack.title,
+                    stringResource(R.string.action_save),
+                    onDismiss = { prompt = null },
+                ) { name ->
+                    scope.launch {
+                        val result = actions.renameLocalPack(current.pack.id, name)
+                        prompt = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_pack_renamed) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_rename_pack)
+                                },
+                            )
+                        if (result.isSuccess) refreshLocal()
                     }
                 }
-            }
 
-            VoicePrompt.CreateSharedPack -> PanelTextPrompt(
-                stringResource(R.string.voice_panel_new_shared_pack),
-                stringResource(R.string.voice_pack_name),
-                confirmText = stringResource(R.string.voice_panel_confirm_create),
-                onDismiss = { prompt = null },
-            ) { name ->
-                scope.launch {
-                    val result = actions.createSharedPack(name)
-                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
-                    prompt = null
-                    if (result.isSuccess) loadMySharedPacks()
-                }
-            }
-
-            is VoicePrompt.RenameSharedPack -> PanelTextPrompt(
-                stringResource(R.string.voice_panel_set_new_name),
-                stringResource(R.string.voice_pack_name),
-                current.pack.title,
-                stringResource(R.string.dialog_confirm),
-                onDismiss = { prompt = null },
-            ) { name ->
-                scope.launch {
-                    val result = actions.renameSharedPack(current.pack.id, name)
-                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
-                    prompt = null
-                    if (result.isSuccess) loadMySharedPacks()
-                }
-            }
-
-            is VoicePrompt.DeleteSharedPack -> PanelConfirmation(
-                stringResource(R.string.voice_panel_delete_pack),
-                stringResource(R.string.voice_panel_delete_shared_pack_message, current.pack.title),
-                stringResource(R.string.voice_panel_confirm_delete),
-                { prompt = null },
-            ) {
-                scope.launch {
-                    val result = actions.deleteSharedPack(current.pack.id)
-                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
-                    prompt = null
-                    if (result.isSuccess) {
-                        selectedSharedPack = null
-                        sharedItemsRequest++
-                        sharedItemsState = PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
-                        loadMySharedPacks()
+            is VoicePrompt.DeleteLocalPack ->
+                PanelConfirmation(
+                    stringResource(R.string.voice_panel_delete_pack),
+                    stringResource(R.string.voice_panel_delete_pack_message, current.pack.title),
+                    stringResource(R.string.panel_action_delete),
+                    { prompt = null },
+                ) {
+                    scope.launch {
+                        val result = actions.deleteLocalPack(current.pack.id)
+                        prompt = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_pack_deleted) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_delete_pack)
+                                },
+                            )
+                        if (result.isSuccess) refreshLocal()
                     }
                 }
-            }
 
-            is VoicePrompt.ConfirmSharedPack -> PanelConfirmation(
-                stringResource(R.string.voice_panel_confirm_pack),
-                stringResource(R.string.voice_panel_confirm_pack_message),
-                stringResource(R.string.dialog_confirm),
-                { prompt = null },
-            ) {
-                scope.launch {
-                    val result = actions.confirmSharedPack(current.pack.id)
-                    operationMessage = result.fold({ PanelUiText.Raw(it) }, { PanelUiText.Raw(it.message.orEmpty()) })
-                    prompt = null
-                    if (result.isSuccess) loadMySharedPacks()
+            is VoicePrompt.DeleteLocalVoices ->
+                PanelConfirmation(
+                    stringResource(R.string.voice_panel_delete_voices),
+                    pluralStringResource(
+                        R.plurals.voice_panel_delete_selected_message,
+                        current.items.size,
+                        current.items.size,
+                    ),
+                    stringResource(R.string.panel_action_delete),
+                    { prompt = null },
+                ) {
+                    scope.launch {
+                        val paths = current.items.mapNotNull(VoiceItem::localPath)
+                        val result = actions.deleteLocalVoices(paths)
+                        prompt = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = {
+                                    panelUiQuantity(R.plurals.voice_panel_deleted_count, it, it)
+                                },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_delete_voices)
+                                },
+                            )
+                        if (result.isSuccess) {
+                            stopPreview()
+                            batchMode = false
+                            selectedDownloadIds = emptySet()
+                            refreshLocal()
+                        }
+                    }
                 }
-            }
 
-            is VoicePrompt.NameCloneSource -> PanelTextPrompt(
-                stringResource(R.string.voice_panel_import_clone),
-                stringResource(R.string.voice_clone_name),
-                current.item.title,
-                stringResource(R.string.panel_action_import),
-                onDismiss = { prompt = null },
-            ) { name ->
-                progressMessage = panelUiText(R.string.voice_panel_progress_import_clone)
-                scope.launch {
-                    val result = actions.importCloneFromVoice(name, current.item)
-                    progressMessage = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_import_clone) },
-                    )
-                    prompt = null
-                    refreshClones()
+            VoicePrompt.CreateSharedPack ->
+                PanelTextPrompt(
+                    stringResource(R.string.voice_panel_new_shared_pack),
+                    stringResource(R.string.voice_pack_name),
+                    confirmText = stringResource(R.string.voice_panel_confirm_create),
+                    onDismiss = { prompt = null },
+                ) { name ->
+                    scope.launch {
+                        val result = actions.createSharedPack(name)
+                        operationMessage =
+                            result.fold(
+                                { PanelUiText.Raw(it) },
+                                { PanelUiText.Raw(it.message.orEmpty()) },
+                            )
+                        prompt = null
+                        if (result.isSuccess) loadMySharedPacks()
+                    }
                 }
-            }
 
-            is VoicePrompt.DeleteClone -> PanelConfirmation(
-                stringResource(R.string.voice_panel_delete_clone),
-                stringResource(R.string.voice_panel_delete_clone_message, current.voice.name),
-                stringResource(R.string.panel_action_delete),
-                { prompt = null },
-            ) {
-                scope.launch {
-                    val result = actions.deleteClone(current.voice.id)
-                    prompt = null
-                    operationMessage = result.fold(
-                        onSuccess = { panelUiText(R.string.voice_panel_clone_deleted) },
-                        onFailure = { it.toPanelUiText(R.string.voice_panel_error_delete_clone) },
-                    )
-                    if (result.isSuccess) refreshClones()
+            is VoicePrompt.RenameSharedPack ->
+                PanelTextPrompt(
+                    stringResource(R.string.voice_panel_set_new_name),
+                    stringResource(R.string.voice_pack_name),
+                    current.pack.title,
+                    stringResource(R.string.dialog_confirm),
+                    onDismiss = { prompt = null },
+                ) { name ->
+                    scope.launch {
+                        val result = actions.renameSharedPack(current.pack.id, name)
+                        operationMessage =
+                            result.fold(
+                                { PanelUiText.Raw(it) },
+                                { PanelUiText.Raw(it.message.orEmpty()) },
+                            )
+                        prompt = null
+                        if (result.isSuccess) loadMySharedPacks()
+                    }
                 }
-            }
+
+            is VoicePrompt.DeleteSharedPack ->
+                PanelConfirmation(
+                    stringResource(R.string.voice_panel_delete_pack),
+                    stringResource(
+                        R.string.voice_panel_delete_shared_pack_message,
+                        current.pack.title,
+                    ),
+                    stringResource(R.string.voice_panel_confirm_delete),
+                    { prompt = null },
+                ) {
+                    scope.launch {
+                        val result = actions.deleteSharedPack(current.pack.id)
+                        operationMessage =
+                            result.fold(
+                                { PanelUiText.Raw(it) },
+                                { PanelUiText.Raw(it.message.orEmpty()) },
+                            )
+                        prompt = null
+                        if (result.isSuccess) {
+                            selectedSharedPack = null
+                            sharedItemsRequest++
+                            sharedItemsState =
+                                PanelUiState.Empty(panelUiText(R.string.voice_panel_select_pack))
+                            loadMySharedPacks()
+                        }
+                    }
+                }
+
+            is VoicePrompt.ConfirmSharedPack ->
+                PanelConfirmation(
+                    stringResource(R.string.voice_panel_confirm_pack),
+                    stringResource(R.string.voice_panel_confirm_pack_message),
+                    stringResource(R.string.dialog_confirm),
+                    { prompt = null },
+                ) {
+                    scope.launch {
+                        val result = actions.confirmSharedPack(current.pack.id)
+                        operationMessage =
+                            result.fold(
+                                { PanelUiText.Raw(it) },
+                                { PanelUiText.Raw(it.message.orEmpty()) },
+                            )
+                        prompt = null
+                        if (result.isSuccess) loadMySharedPacks()
+                    }
+                }
+
+            is VoicePrompt.NameCloneSource ->
+                PanelTextPrompt(
+                    stringResource(R.string.voice_panel_import_clone),
+                    stringResource(R.string.voice_clone_name),
+                    current.item.title,
+                    stringResource(R.string.panel_action_import),
+                    onDismiss = { prompt = null },
+                ) { name ->
+                    progressMessage = panelUiText(R.string.voice_panel_progress_import_clone)
+                    scope.launch {
+                        val result = actions.importCloneFromVoice(name, current.item)
+                        progressMessage = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_clone_imported) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_import_clone)
+                                },
+                            )
+                        prompt = null
+                        refreshClones()
+                    }
+                }
+
+            is VoicePrompt.DeleteClone ->
+                PanelConfirmation(
+                    stringResource(R.string.voice_panel_delete_clone),
+                    stringResource(R.string.voice_panel_delete_clone_message, current.voice.name),
+                    stringResource(R.string.panel_action_delete),
+                    { prompt = null },
+                ) {
+                    scope.launch {
+                        val result = actions.deleteClone(current.voice.id)
+                        prompt = null
+                        operationMessage =
+                            result.fold(
+                                onSuccess = { panelUiText(R.string.voice_panel_clone_deleted) },
+                                onFailure = {
+                                    it.toPanelUiText(R.string.voice_panel_error_delete_clone)
+                                },
+                            )
+                        if (result.isSuccess) refreshClones()
+                    }
+                }
 
             null -> Unit
         }
@@ -1993,20 +2661,21 @@ private fun VoiceImportModePrompt(
     onSelect: (VoiceImportMode) -> Unit,
 ) {
     PanelImportModePrompt(
-        options = listOf(
-            PanelImportOption(
-                mode = VoiceImportMode.MULTIPLE_FILES,
-                title = stringResource(R.string.voice_import_files_title),
-                description = stringResource(R.string.voice_import_files_description),
-                icon = MaterialSymbols.Outlined.Upload_file,
+        options =
+            listOf(
+                PanelImportOption(
+                    mode = VoiceImportMode.MULTIPLE_FILES,
+                    title = stringResource(R.string.voice_import_files_title),
+                    description = stringResource(R.string.voice_import_files_description),
+                    icon = MaterialSymbols.Outlined.Upload_file,
+                ),
+                PanelImportOption(
+                    mode = VoiceImportMode.DIRECTORY,
+                    title = stringResource(R.string.panel_import_directory_title),
+                    description = stringResource(R.string.voice_import_directory_description),
+                    icon = MaterialSymbols.Outlined.Folder,
+                ),
             ),
-            PanelImportOption(
-                mode = VoiceImportMode.DIRECTORY,
-                title = stringResource(R.string.panel_import_directory_title),
-                description = stringResource(R.string.voice_import_directory_description),
-                icon = MaterialSymbols.Outlined.Folder,
-            ),
-        ),
         onDismiss = onDismiss,
         onSelect = onSelect,
     )
@@ -2047,7 +2716,9 @@ private fun LocalVoiceContent(
                 )
             } else if (selected.items.isEmpty()) {
                 if (filterActive) {
-                    PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_current_pack_match))
+                    PanelEmptyAction(
+                        stringResource(R.string.voice_panel_empty_no_current_pack_match),
+                    )
                 } else {
                     PanelEmptyAction(
                         stringResource(R.string.voice_panel_empty_pack),
@@ -2115,7 +2786,13 @@ private fun VoicePackList(
                         Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     supportingContent = {
-                        Text(pluralStringResource(R.plurals.voice_count, pack.itemCount, pack.itemCount))
+                        Text(
+                            pluralStringResource(
+                                R.plurals.voice_count,
+                                pack.itemCount,
+                                pack.itemCount,
+                            ),
+                        )
                     },
                     leadingContent = { VoicePackIcon(pack) },
                 )
@@ -2147,9 +2824,7 @@ private fun VoicePackReorderContent(
             leadingContent = { VoicePackIcon(pack) },
             trailingContent = {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .then(dragHandleModifier),
+                    modifier = Modifier.size(48.dp).then(dragHandleModifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -2198,21 +2873,22 @@ private fun VoiceItemReorderContent(
             supportingContent = {
                 Text(
                     buildList {
-                        if (voice.durationMs > 0) add(formatDuration(voice.durationMs))
-                        add(pluralStringResource(
-                            R.plurals.voice_sent_count,
-                            voice.sendCount.toInt(),
-                            voice.sendCount,
-                        ))
-                    }.joinToString(" · "),
+                            if (voice.durationMs > 0) add(formatDuration(voice.durationMs))
+                            add(
+                                pluralStringResource(
+                                    R.plurals.voice_sent_count,
+                                    voice.sendCount.toInt(),
+                                    voice.sendCount,
+                                ),
+                            )
+                        }
+                        .joinToString(" · "),
                 )
             },
             leadingContent = { Icon(MaterialSymbols.Outlined.Mic, null) },
             trailingContent = {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .then(dragHandleModifier),
+                    modifier = Modifier.size(48.dp).then(dragHandleModifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -2235,29 +2911,28 @@ private fun VoiceSearchContent(
     onPreview: (VoiceItem) -> Unit,
     onSend: (VoiceItem) -> Unit,
 ) {
-    val results = remember(packs, query) {
-        val term = query.trim()
-        if (term.isBlank()) emptyList()
-        else packs.flatMap { pack ->
-            pack.items.filter { it.matchesLocalSearch(pack, term) }
+    val results =
+        remember(packs, query) {
+            val term = query.trim()
+            if (term.isBlank()) emptyList()
+            else
+                packs.flatMap { pack ->
+                    pack.items.filter { it.matchesLocalSearch(pack, term) }
+                }
         }
-    }
     Column(Modifier.fillMaxSize()) {
         PanelSearchField(
             value = query,
             onValueChange = onQueryChange,
             label = stringResource(R.string.panel_local_search),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
         )
         Box(Modifier.weight(1f)) {
             if (query.isBlank()) {
                 PanelEmptyAction(stringResource(R.string.voice_panel_local_search_hint))
             } else if (results.isEmpty()) {
                 PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_local_voice_match))
-            }
-            else VoiceList(results, playingId, onPreview, onSend)
+            } else VoiceList(results, playingId, onPreview, onSend)
         }
     }
 }
@@ -2265,8 +2940,8 @@ private fun VoiceSearchContent(
 private fun VoiceItem.matchesLocalSearch(pack: VoicePack, query: String): Boolean {
     val term = query.trim()
     return term.isBlank() ||
-            title.contains(term, ignoreCase = true) ||
-            pack.title.contains(term, ignoreCase = true)
+        title.contains(term, ignoreCase = true) ||
+        pack.title.contains(term, ignoreCase = true)
 }
 
 @Composable
@@ -2281,25 +2956,29 @@ private fun VoiceList(
     selectable: Boolean = false,
     selectedIds: Set<String> = emptySet(),
     onToggleSelection: ((VoiceItem) -> Unit)? = null,
-    terminalActionIcon: androidx.compose.ui.graphics.vector.ImageVector = MaterialSymbols.Outlined.Send,
+    terminalActionIcon: androidx.compose.ui.graphics.vector.ImageVector =
+        MaterialSymbols.Outlined.Send,
     terminalActionLabel: String? = null,
 ) {
-    val resolvedTerminalActionLabel = terminalActionLabel ?: stringResource(R.string.panel_action_send)
+    val resolvedTerminalActionLabel =
+        terminalActionLabel ?: stringResource(R.string.panel_action_send)
     val resolvedListState = listState ?: rememberLazyListState()
     val durationOverrides = LocalVoiceDurationOverrides.current
-    val keyedVoices = remember(voices) {
-        panelItemsWithStableKeys(voices, ::voiceSelectionKey)
-    }
+    val keyedVoices =
+        remember(voices) {
+            panelItemsWithStableKeys(voices, ::voiceSelectionKey)
+        }
     LazyColumn(Modifier.fillMaxSize(), state = resolvedListState) {
         items(keyedVoices, key = { it.first }) { keyedVoice ->
             val voice = keyedVoice.second
             val durationMs = durationOverrides[voiceSelectionKey(voice)] ?: voice.durationMs
             Column(Modifier.animateItem()) {
                 ListItem(
-                    modifier = Modifier.clickable {
-                        if (selectable && !voice.isContainer) onToggleSelection?.invoke(voice)
-                        else if (voice.isContainer) onOpen?.invoke(voice) else onPreview(voice)
-                    },
+                    modifier =
+                        Modifier.clickable {
+                            if (selectable && !voice.isContainer) onToggleSelection?.invoke(voice)
+                            else if (voice.isContainer) onOpen?.invoke(voice) else onPreview(voice)
+                        },
                     colors = panelListItemColors(),
                     leadingContent = {
                         if (selectable && !voice.isContainer) {
@@ -2309,41 +2988,50 @@ private fun VoiceList(
                             )
                         } else {
                             Icon(
-                                if (voice.isContainer) MaterialSymbols.Outlined.Folder else MaterialSymbols.Outlined.Mic,
+                                if (voice.isContainer) MaterialSymbols.Outlined.Folder
+                                else MaterialSymbols.Outlined.Mic,
                                 null,
                             )
                         }
                     },
                     content = { Text(voice.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = if (durationMs > 0) ({
-                        Text(formatDuration(durationMs))
-                    }) else null,
-                    trailingContent = if (voice.isContainer || selectable) null else ({
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            SendCountBadge(voice.sendCount, Modifier.padding(end = 2.dp))
-                            IconButton(onClick = { onPreview(voice) }) {
-                                Icon(
-                                    if (playingId == voice.id) MaterialSymbols.Outlined.Pause else MaterialSymbols.Outlined.Play_arrow,
-                                    if (playingId == voice.id) {
-                                        stringResource(R.string.panel_action_pause)
-                                    } else {
-                                        stringResource(R.string.panel_action_preview)
-                                    },
-                                )
-                            }
-                            if (onAdd != null) {
-                                IconButton(onClick = { onAdd(voice) }) {
-                                    Icon(
-                                        MaterialSymbols.Outlined.Download,
-                                        stringResource(R.string.voice_panel_add_to_local),
-                                    )
+                    supportingContent =
+                        if (durationMs > 0)
+                            ({
+                                Text(formatDuration(durationMs))
+                            })
+                        else null,
+                    trailingContent =
+                        if (voice.isContainer || selectable) null
+                        else
+                            ({
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    SendCountBadge(voice.sendCount, Modifier.padding(end = 2.dp))
+                                    IconButton(onClick = { onPreview(voice) }) {
+                                        Icon(
+                                            if (playingId == voice.id)
+                                                MaterialSymbols.Outlined.Pause
+                                            else MaterialSymbols.Outlined.Play_arrow,
+                                            if (playingId == voice.id) {
+                                                stringResource(R.string.panel_action_pause)
+                                            } else {
+                                                stringResource(R.string.panel_action_preview)
+                                            },
+                                        )
+                                    }
+                                    if (onAdd != null) {
+                                        IconButton(onClick = { onAdd(voice) }) {
+                                            Icon(
+                                                MaterialSymbols.Outlined.Download,
+                                                stringResource(R.string.voice_panel_add_to_local),
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { onSend(voice) }) {
+                                        Icon(terminalActionIcon, resolvedTerminalActionLabel)
+                                    }
                                 }
-                            }
-                            IconButton(onClick = { onSend(voice) }) {
-                                Icon(terminalActionIcon, resolvedTerminalActionLabel)
-                            }
-                        }
-                    }),
+                            }),
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
             }
@@ -2420,9 +3108,7 @@ private fun OnlineVoiceSearchContent(
             value = query,
             onValueChange = onQueryChange,
             label = stringResource(R.string.panel_online_search),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             onSearch = onSearch,
         )
         HorizontalDivider()
@@ -2451,9 +3137,7 @@ private fun VoiceProviderSelector(
     onProvider: (VoiceProvider) -> Unit,
 ) {
     LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp),
+        modifier = Modifier.fillMaxWidth().height(44.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -2499,9 +3183,7 @@ private fun OnlineVoiceResults(
         }
         if (state is PanelUiState.Content) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -2567,13 +3249,13 @@ private fun SharedVoiceContent(
             }
         } else if (selectedPack == null) {
             val visiblePacks = packs.filter {
-                query.isBlank() || it.title.contains(query, ignoreCase = true) ||
-                        it.badge?.contains(query, ignoreCase = true) == true
+                query.isBlank() ||
+                    it.title.contains(query, ignoreCase = true) ||
+                    it.badge?.contains(query, ignoreCase = true) == true
             }
             if (visiblePacks.isEmpty()) {
                 PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_shared_pack_match))
-            }
-            else VoicePackList(visiblePacks, packListState, onSelectPack)
+            } else VoicePackList(visiblePacks, packListState, onSelectPack)
         } else {
             SharedVoiceItems(
                 selectedPack = selectedPack,
@@ -2616,17 +3298,17 @@ private fun SharedVoiceItems(
         }
         if (visibleVoices.isEmpty()) {
             PanelEmptyAction(stringResource(R.string.voice_panel_empty_no_shared_voice_match))
-        }
-        else VoiceList(
-            voices = visibleVoices,
-            playingId = playingId,
-            onPreview = onPreview,
-            onSend = onSend,
-            listState = listState,
-            selectable = selectable,
-            selectedIds = selectedIds,
-            onToggleSelection = onToggleSelection,
-        )
+        } else
+            VoiceList(
+                voices = visibleVoices,
+                playingId = playingId,
+                onPreview = onPreview,
+                onSend = onSend,
+                listState = listState,
+                selectable = selectable,
+                selectedIds = selectedIds,
+                onToggleSelection = onToggleSelection,
+            )
     }
 }
 
@@ -2637,7 +3319,9 @@ private fun VoiceSettingsContent(
     onLocalPackLayoutChange: (VoicePackLayout) -> Unit,
     onWrapActionsChange: (Boolean) -> Unit,
 ) {
-    var maxHistory by remember { mutableLongStateOf(PanelSettings.voiceMaxHistory.coerceAtLeast(1L)) }
+    var maxHistory by remember {
+        mutableLongStateOf(PanelSettings.voiceMaxHistory.coerceAtLeast(1L))
+    }
     var downloadConcurrency by remember {
         mutableIntStateOf(PanelSettings.effectivePanelDownloadConcurrency)
     }
@@ -2657,10 +3341,11 @@ private fun VoiceSettingsContent(
                 PanelDropdownSetting(
                     title = stringResource(R.string.voice_setting_pack_layout),
                     selected = localPackLayout,
-                    options = listOf(
-                        VoicePackLayout.TABS to stringResource(R.string.panel_layout_tabs),
-                        VoicePackLayout.LIST to stringResource(R.string.panel_layout_list),
-                    ),
+                    options =
+                        listOf(
+                            VoicePackLayout.TABS to stringResource(R.string.panel_layout_tabs),
+                            VoicePackLayout.LIST to stringResource(R.string.panel_layout_list),
+                        ),
                     onSelected = onLocalPackLayoutChange,
                 )
             }
@@ -2690,51 +3375,55 @@ private fun VoiceSettingsContent(
                 },
             )
         }
-        if (clientIdPrompt) PanelFunBoxApiClientIdPrompt(
-            onDismiss = { clientIdPrompt = false },
-            onConfirm = {
-                PanelSettings.funBoxApiClientWxId = it
-                clientIdPrompt = false
-            },
-        )
-        if (historyPrompt) PanelNumberPrompt(
-            title = stringResource(R.string.panel_setting_max_history),
-            label = stringResource(R.string.panel_number_at_least_one),
-            initialValue = maxHistory,
-            minValue = 1,
-            onDismiss = { historyPrompt = false },
-            onConfirm = {
-                maxHistory = it
-                PanelSettings.voiceMaxHistory = it
-                historyPrompt = false
-            },
-        )
-        if (downloadConcurrencyPrompt) PanelNumberPrompt(
-            title = stringResource(R.string.panel_setting_download_concurrency),
-            label = stringResource(R.string.panel_number_tasks_1_32),
-            initialValue = downloadConcurrency.toLong(),
-            minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
-            maxValue = PanelSettings.MAX_PANEL_DOWNLOAD_CONCURRENCY.toLong(),
-            onDismiss = { downloadConcurrencyPrompt = false },
-            onConfirm = {
-                downloadConcurrency = it.toInt()
-                PanelSettings.panelDownloadConcurrency = downloadConcurrency
-                downloadConcurrencyPrompt = false
-            },
-        )
-        if (conversionConcurrencyPrompt) PanelNumberPrompt(
-            title = stringResource(R.string.panel_setting_conversion_concurrency),
-            label = stringResource(R.string.panel_number_tasks_1_8),
-            initialValue = conversionConcurrency.toLong(),
-            minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
-            maxValue = PanelSettings.MAX_PANEL_CONVERSION_CONCURRENCY.toLong(),
-            onDismiss = { conversionConcurrencyPrompt = false },
-            onConfirm = {
-                conversionConcurrency = it.toInt()
-                PanelSettings.panelConversionConcurrency = conversionConcurrency
-                conversionConcurrencyPrompt = false
-            },
-        )
+        if (clientIdPrompt)
+            PanelFunBoxApiClientIdPrompt(
+                onDismiss = { clientIdPrompt = false },
+                onConfirm = {
+                    PanelSettings.funBoxApiClientWxId = it
+                    clientIdPrompt = false
+                },
+            )
+        if (historyPrompt)
+            PanelNumberPrompt(
+                title = stringResource(R.string.panel_setting_max_history),
+                label = stringResource(R.string.panel_number_at_least_one),
+                initialValue = maxHistory,
+                minValue = 1,
+                onDismiss = { historyPrompt = false },
+                onConfirm = {
+                    maxHistory = it
+                    PanelSettings.voiceMaxHistory = it
+                    historyPrompt = false
+                },
+            )
+        if (downloadConcurrencyPrompt)
+            PanelNumberPrompt(
+                title = stringResource(R.string.panel_setting_download_concurrency),
+                label = stringResource(R.string.panel_number_tasks_1_32),
+                initialValue = downloadConcurrency.toLong(),
+                minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
+                maxValue = PanelSettings.MAX_PANEL_DOWNLOAD_CONCURRENCY.toLong(),
+                onDismiss = { downloadConcurrencyPrompt = false },
+                onConfirm = {
+                    downloadConcurrency = it.toInt()
+                    PanelSettings.panelDownloadConcurrency = downloadConcurrency
+                    downloadConcurrencyPrompt = false
+                },
+            )
+        if (conversionConcurrencyPrompt)
+            PanelNumberPrompt(
+                title = stringResource(R.string.panel_setting_conversion_concurrency),
+                label = stringResource(R.string.panel_number_tasks_1_8),
+                initialValue = conversionConcurrency.toLong(),
+                minValue = PanelSettings.MIN_PANEL_CONCURRENCY.toLong(),
+                maxValue = PanelSettings.MAX_PANEL_CONVERSION_CONCURRENCY.toLong(),
+                onDismiss = { conversionConcurrencyPrompt = false },
+                onConfirm = {
+                    conversionConcurrency = it.toInt()
+                    PanelSettings.panelConversionConcurrency = conversionConcurrency
+                    conversionConcurrencyPrompt = false
+                },
+            )
     }
 }
 
@@ -2768,17 +3457,21 @@ private fun CloneManagerOverlay(
     onPreviewExample: (CloneExample) -> Unit,
     onAddExample: (CloneExample) -> Unit,
 ) {
-    val onSystemBack = when {
-        source == SOURCE_EXAMPLES && selectedExampleGroup != null -> onBackExamples
-        source == SOURCE_SHARED && sharedPack != null -> onBackSharedPacks
-        source != null -> onBackSource
-        else -> onDismiss
-    }
+    val onSystemBack =
+        when {
+            source == SOURCE_EXAMPLES && selectedExampleGroup != null -> onBackExamples
+            source == SOURCE_SHARED && sharedPack != null -> onBackSharedPacks
+            source != null -> onBackSource
+            else -> onDismiss
+        }
     PanelPageOverlay(onDismiss = onDismiss, onBack = onSystemBack) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (source != null) {
                 IconButton(onClick = onSystemBack) {
-                    Icon(MaterialSymbols.Outlined.Arrow_back, stringResource(R.string.panel_action_back))
+                    Icon(
+                        MaterialSymbols.Outlined.Arrow_back,
+                        stringResource(R.string.panel_action_back),
+                    )
                 }
             }
             Text(
@@ -2796,19 +3489,23 @@ private fun CloneManagerOverlay(
                     OutlinedButton(onClick = onImportFile, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.voice_panel_import_from_device))
                     }
-                    OutlinedButton(onClick = { onSource(SOURCE_PANEL) }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { onSource(SOURCE_PANEL) },
+                        modifier = Modifier.weight(1f),
+                    ) {
                         Text(stringResource(R.string.voice_panel_choose_from_panel))
                     }
                 }
-                OutlinedButton(onClick = { onSource(SOURCE_EXAMPLES) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { onSource(SOURCE_EXAMPLES) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(stringResource(R.string.voice_panel_voice_examples))
                 }
                 LazyColumn(Modifier.weight(1f)) {
                     item(key = "none") {
                         ListItem(
-                            modifier = Modifier
-                                .animateItem()
-                                .clickable(onClick = onSelectNone),
+                            modifier = Modifier.animateItem().clickable(onClick = onSelectNone),
                             colors = panelListItemColors(),
                             content = { Text(stringResource(R.string.panel_none)) },
                             supportingContent = {
@@ -2821,13 +3518,14 @@ private fun CloneManagerOverlay(
                     }
                     items(clones, key = { it.id }) { voice ->
                         ListItem(
-                            modifier = Modifier
-                                .animateItem()
-                                .clickable { onSelect(voice) },
+                            modifier = Modifier.animateItem().clickable { onSelect(voice) },
                             colors = panelListItemColors(),
                             content = { Text(voice.name) },
                             leadingContent = {
-                                RadioButton(selected = voice.id == selectedId, onClick = { onSelect(voice) })
+                                RadioButton(
+                                    selected = voice.id == selectedId,
+                                    onClick = { onSelect(voice) },
+                                )
                             },
                             trailingContent = {
                                 IconButton(onClick = { onDelete(voice) }) {
@@ -2843,63 +3541,84 @@ private fun CloneManagerOverlay(
             }
 
             SOURCE_PANEL -> {
-                Text(stringResource(R.string.voice_panel_choose_from_panel), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.voice_panel_choose_from_panel),
+                    style = MaterialTheme.typography.titleSmall,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onSource(SOURCE_LOCAL) }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { onSource(SOURCE_LOCAL) },
+                        modifier = Modifier.weight(1f),
+                    ) {
                         Text(stringResource(R.string.voice_panel_local_packs))
                     }
-                    OutlinedButton(onClick = { onSource(SOURCE_SHARED) }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { onSource(SOURCE_SHARED) },
+                        modifier = Modifier.weight(1f),
+                    ) {
                         Text(stringResource(R.string.voice_panel_shared_packs))
                     }
                 }
             }
 
-            SOURCE_LOCAL -> VoiceList(
-                localPacks.flatMap { it.items },
-                playingId,
-                onPreview = onPreviewVoice,
-                onSend = onChooseVoice,
-                terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
-                terminalActionLabel = stringResource(R.string.voice_panel_choose_clone_source),
-            )
+            SOURCE_LOCAL ->
+                VoiceList(
+                    localPacks.flatMap { it.items },
+                    playingId,
+                    onPreview = onPreviewVoice,
+                    onSend = onChooseVoice,
+                    terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
+                    terminalActionLabel = stringResource(R.string.voice_panel_choose_clone_source),
+                )
 
-            SOURCE_SHARED -> if (sharedPack == null) {
-                PanelStateContent(sharedPacksState) { packs ->
-                    LazyColumn(Modifier.fillMaxSize()) {
-                        items(packs, key = VoicePack::id) { pack ->
-                            ListItem(
-                                modifier = Modifier
-                                    .animateItem()
-                                    .clickable { onSelectSharedPack(pack) },
-                                colors = panelListItemColors(),
-                                content = { Text(pack.title) },
-                                supportingContent = {
-                                    Text(pluralStringResource(R.plurals.voice_count, pack.itemCount, pack.itemCount))
-                                },
-                                leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
+            SOURCE_SHARED ->
+                if (sharedPack == null) {
+                    PanelStateContent(sharedPacksState) { packs ->
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            items(packs, key = VoicePack::id) { pack ->
+                                ListItem(
+                                    modifier =
+                                        Modifier.animateItem().clickable {
+                                            onSelectSharedPack(pack)
+                                        },
+                                    colors = panelListItemColors(),
+                                    content = { Text(pack.title) },
+                                    supportingContent = {
+                                        Text(
+                                            pluralStringResource(
+                                                R.plurals.voice_count,
+                                                pack.itemCount,
+                                                pack.itemCount,
+                                            ),
+                                        )
+                                    },
+                                    leadingContent = {
+                                        Icon(MaterialSymbols.Outlined.Folder, null)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    OutlinedButton(onClick = onBackSharedPacks) {
+                        Icon(MaterialSymbols.Outlined.Arrow_back, null)
+                        Text(stringResource(R.string.voice_panel_back_to_shared_packs))
+                    }
+                    Text(sharedPack.title, style = MaterialTheme.typography.titleSmall)
+                    Box(Modifier.weight(1f)) {
+                        PanelStateContent(sharedItemsState) { voices ->
+                            VoiceList(
+                                voices,
+                                playingId,
+                                onPreview = onPreviewVoice,
+                                onSend = onChooseVoice,
+                                terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
+                                terminalActionLabel =
+                                    stringResource(R.string.voice_panel_choose_clone_source),
                             )
                         }
                     }
                 }
-            } else {
-                OutlinedButton(onClick = onBackSharedPacks) {
-                    Icon(MaterialSymbols.Outlined.Arrow_back, null)
-                    Text(stringResource(R.string.voice_panel_back_to_shared_packs))
-                }
-                Text(sharedPack.title, style = MaterialTheme.typography.titleSmall)
-                Box(Modifier.weight(1f)) {
-                    PanelStateContent(sharedItemsState) { voices ->
-                        VoiceList(
-                            voices,
-                            playingId,
-                            onPreview = onPreviewVoice,
-                            onSend = onChooseVoice,
-                            terminalActionIcon = MaterialSymbols.Outlined.Check_circle,
-                            terminalActionLabel = stringResource(R.string.voice_panel_choose_clone_source),
-                        )
-                    }
-                }
-            }
 
             SOURCE_EXAMPLES -> {
                 if (selectedExampleGroup == null) {
@@ -2907,12 +3626,15 @@ private fun CloneManagerOverlay(
                         LazyColumn(Modifier.fillMaxSize()) {
                             items(groups, key = { it }) { group ->
                                 ListItem(
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .clickable { onSelectExampleGroup(group) },
+                                    modifier =
+                                        Modifier.animateItem().clickable {
+                                            onSelectExampleGroup(group)
+                                        },
                                     colors = panelListItemColors(),
                                     content = { Text(group) },
-                                    leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
+                                    leadingContent = {
+                                        Icon(MaterialSymbols.Outlined.Folder, null)
+                                    },
                                 )
                             }
                         }
@@ -2926,7 +3648,10 @@ private fun CloneManagerOverlay(
                             )
                         }
                         Text(
-                            stringResource(R.string.voice_panel_example_group_title, selectedExampleGroup),
+                            stringResource(
+                                R.string.voice_panel_example_group_title,
+                                selectedExampleGroup,
+                            ),
                             style = MaterialTheme.typography.titleSmall,
                         )
                     }
@@ -2937,7 +3662,11 @@ private fun CloneManagerOverlay(
                                     modifier = Modifier.animateItem(),
                                     colors = panelListItemColors(),
                                     content = {
-                                        Text(example.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            example.title,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     },
                                     trailingContent = {
                                         Row {
@@ -2950,7 +3679,9 @@ private fun CloneManagerOverlay(
                                             IconButton(onClick = { onAddExample(example) }) {
                                                 Icon(
                                                     MaterialSymbols.Outlined.Download,
-                                                    stringResource(R.string.voice_panel_add_to_local),
+                                                    stringResource(
+                                                        R.string.voice_panel_add_to_local,
+                                                    ),
                                                 )
                                             }
                                         }
@@ -2978,7 +3709,10 @@ private fun VoicePreviewOverlay(
     onDismiss: () -> Unit,
 ) {
     PanelFullOverlay(onDismiss) {
-        Text(stringResource(R.string.voice_panel_preview_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.voice_panel_preview_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
         Text(
             title,
             modifier = Modifier.padding(top = 8.dp),
@@ -2987,12 +3721,13 @@ private fun VoicePreviewOverlay(
             overflow = TextOverflow.Ellipsis,
         )
         val valueRange = 0f..durationMs.coerceAtLeast(1L).toFloat()
-        val sliderState = remember(valueRange) {
-            SliderState(
-                value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
-                trackRange = valueRange,
-            )
-        }
+        val sliderState =
+            remember(valueRange) {
+                SliderState(
+                    value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
+                    trackRange = valueRange,
+                )
+            }
         sliderState.value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat()
         Slider(
             state = sliderState,
@@ -3005,7 +3740,8 @@ private fun VoicePreviewOverlay(
         ) {
             IconButton(onClick = onToggle) {
                 Icon(
-                    if (playing) MaterialSymbols.Outlined.Pause else MaterialSymbols.Outlined.Play_arrow,
+                    if (playing) MaterialSymbols.Outlined.Pause
+                    else MaterialSymbols.Outlined.Play_arrow,
                     if (playing) {
                         stringResource(R.string.panel_action_pause)
                     } else {
@@ -3018,9 +3754,7 @@ private fun VoicePreviewOverlay(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp),
+                modifier = Modifier.weight(1f).padding(start = 12.dp),
                 horizontalAlignment = Alignment.End,
             ) {
                 Text(formatFileSize(sizeBytes), style = MaterialTheme.typography.bodySmall)
@@ -3046,11 +3780,12 @@ private fun formatDuration(durationMs: Long): String {
     return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
 }
 
-private fun formatFileSize(bytes: Long): String = when {
-    bytes >= 1024L * 1024L -> "%.1f MiB".format(bytes / (1024.0 * 1024.0))
-    bytes >= 1024L -> "%.1f KiB".format(bytes / 1024.0)
-    else -> "$bytes B"
-}
+private fun formatFileSize(bytes: Long): String =
+    when {
+        bytes >= 1024L * 1024L -> "%.1f MiB".format(bytes / (1024.0 * 1024.0))
+        bytes >= 1024L -> "%.1f KiB".format(bytes / 1024.0)
+        else -> "$bytes B"
+    }
 
 private fun resolveAudioMime(path: String): String {
     val retriever = MediaMetadataRetriever()
@@ -3065,13 +3800,14 @@ private fun resolveAudioMime(path: String): String {
     }
 }
 
-private fun fallbackAudioMime(path: String): String = when (MediaFileTypeDetector.detectAudio(path.asPath)) {
-    MediaFileTypeDetector.AudioFormat.MP3 -> "audio/mpeg"
-    MediaFileTypeDetector.AudioFormat.M4A -> "audio/mp4"
-    MediaFileTypeDetector.AudioFormat.AAC -> "audio/aac"
-    MediaFileTypeDetector.AudioFormat.WAV -> "audio/wav"
-    MediaFileTypeDetector.AudioFormat.AMR -> "audio/amr"
-    MediaFileTypeDetector.AudioFormat.SILK -> "audio/silk"
-    MediaFileTypeDetector.AudioFormat.FLAC -> "audio/flac"
-    else -> "application/octet-stream"
-}
+private fun fallbackAudioMime(path: String): String =
+    when (MediaFileTypeDetector.detectAudio(path.asPath)) {
+        MediaFileTypeDetector.AudioFormat.MP3 -> "audio/mpeg"
+        MediaFileTypeDetector.AudioFormat.M4A -> "audio/mp4"
+        MediaFileTypeDetector.AudioFormat.AAC -> "audio/aac"
+        MediaFileTypeDetector.AudioFormat.WAV -> "audio/wav"
+        MediaFileTypeDetector.AudioFormat.AMR -> "audio/amr"
+        MediaFileTypeDetector.AudioFormat.SILK -> "audio/silk"
+        MediaFileTypeDetector.AudioFormat.FLAC -> "audio/flac"
+        else -> "application/octet-stream"
+    }

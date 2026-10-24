@@ -61,15 +61,16 @@ class ContactSelectionActions(
 )
 
 /** Multi-select actions over a [Set] of wxIds held by the caller. */
-fun multiSelectActions(selected: () -> Set<String>, onChange: (Set<String>) -> Unit) = ContactSelectionActions(
-    onSelectAll = { displayed -> onChange(selected() + displayed.map { it.wxId }) },
-    onDeselectAll = { displayed -> onChange(selected() - displayed.map { it.wxId }.toSet()) },
-    onInvert = { displayed ->
-        val current = selected()
-        val displayedIds = displayed.map { it.wxId }.toSet()
-        onChange((current - displayedIds) + (displayedIds - current))
-    },
-)
+fun multiSelectActions(selected: () -> Set<String>, onChange: (Set<String>) -> Unit) =
+    ContactSelectionActions(
+        onSelectAll = { displayed -> onChange(selected() + displayed.map { it.wxId }) },
+        onDeselectAll = { displayed -> onChange(selected() - displayed.map { it.wxId }.toSet()) },
+        onInvert = { displayed ->
+            val current = selected()
+            val displayedIds = displayed.map { it.wxId }.toSet()
+            onChange((current - displayedIds) + (displayedIds - current))
+        },
+    )
 
 @Composable
 fun ContactSearchField(state: ContactSelectorState, modifier: Modifier = Modifier) {
@@ -86,17 +87,22 @@ fun ContactSearchField(state: ContactSelectorState, modifier: Modifier = Modifie
             leadingIcon = {
                 Icon(
                     MaterialSymbols.Outlined.Search,
-                    contentDescription = stringResource(R.string.contact_search_content_description),
+                    contentDescription =
+                        stringResource(R.string.contact_search_content_description),
                 )
             },
             singleLine = true,
         )
         IconButton(onClick = { state.filtersExpanded = !state.filtersExpanded }) {
             Icon(
-                imageVector = if (state.filtersExpanded) MaterialSymbols.Outlined.Expand_less else MaterialSymbols.Outlined.Expand_more,
-                contentDescription = stringResource(
-                    if (state.filtersExpanded) R.string.contact_filters_collapse else R.string.contact_filters_expand,
-                ),
+                imageVector =
+                    if (state.filtersExpanded) MaterialSymbols.Outlined.Expand_less
+                    else MaterialSymbols.Outlined.Expand_more,
+                contentDescription =
+                    stringResource(
+                        if (state.filtersExpanded) R.string.contact_filters_collapse
+                        else R.string.contact_filters_expand,
+                    ),
             )
         }
     }
@@ -120,56 +126,75 @@ fun ContactFilterPanel(
         exit = shrinkVertically() + fadeOut(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (state.showTypeFilters) ChipRow(horizontalPadding) {
-                items(state.availableTypes) { type ->
-                    val displayName = stringResource(type.displayNameRes)
-                    ContactFilterChip(
-                        selected = state.typeFilter == type,
-                        onClick = { state.typeFilter = type },
-                        label = stringResource(R.string.contact_filter_with_count, displayName, state.typeCounts[type] ?: 0),
-                        icon = type.icon,
-                    )
+            if (state.showTypeFilters)
+                ChipRow(horizontalPadding) {
+                    items(state.availableTypes) { type ->
+                        val displayName = stringResource(type.displayNameRes)
+                        ContactFilterChip(
+                            selected = state.typeFilter == type,
+                            onClick = { state.typeFilter = type },
+                            label =
+                                stringResource(
+                                    R.string.contact_filter_with_count,
+                                    displayName,
+                                    state.typeCounts[type] ?: 0,
+                                ),
+                            icon = type.icon,
+                        )
+                    }
                 }
-            }
 
-            if (state.availableFilterModes.isNotEmpty()) ChipRow(horizontalPadding) {
-                item {
-                    val context = LocalContext.current
-                    val localizedContext = LocalWeKitLocalizedContext.current
-                    ContactFilterChip(
-                        selected = true,
-                        onClick = {
-                            if (!state.cycleFilterMode()) {
-                                showToast(context, localizedContext.getString(R.string.contact_filter_mode_enable_more))
-                            }
-                        },
-                        label = stringResource(state.filterMode.nameRes),
-                        icon = state.filterMode.icon,
-                    )
+            if (state.availableFilterModes.isNotEmpty())
+                ChipRow(horizontalPadding) {
+                    item {
+                        val context = LocalContext.current
+                        val localizedContext = LocalWeKitLocalizedContext.current
+                        ContactFilterChip(
+                            selected = true,
+                            onClick = {
+                                if (!state.cycleFilterMode()) {
+                                    showToast(
+                                        context,
+                                        localizedContext.getString(
+                                            R.string.contact_filter_mode_enable_more,
+                                        ),
+                                    )
+                                }
+                            },
+                            label = stringResource(state.filterMode.nameRes),
+                            icon = state.filterMode.icon,
+                        )
+                    }
+                    item {
+                        ContactFilterChip(
+                            selected = state.selectedOptionId == null,
+                            onClick = { state.selectedOptionId = null },
+                            label = stringResource(R.string.contact_label_filter_all),
+                        )
+                    }
+                    items(state.availableOptions) { option ->
+                        val selected = state.selectedOptionId == option.id
+                        ContactFilterChip(
+                            selected = selected,
+                            onClick = {
+                                state.selectedOptionId = if (selected) null else option.id
+                            },
+                            label =
+                                stringResource(
+                                    R.string.contact_label_with_count,
+                                    option.name,
+                                    state.optionCounts[option.id] ?: 0,
+                                ),
+                        )
+                    }
                 }
-                item {
-                    ContactFilterChip(
-                        selected = state.selectedOptionId == null,
-                        onClick = { state.selectedOptionId = null },
-                        label = stringResource(R.string.contact_label_filter_all),
-                    )
-                }
-                items(state.availableOptions) { option ->
-                    val selected = state.selectedOptionId == option.id
-                    ContactFilterChip(
-                        selected = selected,
-                        onClick = { state.selectedOptionId = if (selected) null else option.id },
-                        label = stringResource(R.string.contact_label_with_count, option.name, state.optionCounts[option.id] ?: 0),
-                    )
-                }
-            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding)
-                    .padding(bottom = 2.dp),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .padding(horizontal = horizontalPadding)
+                        .padding(bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ContactSortMode.entries.forEach { mode ->
@@ -189,7 +214,8 @@ fun ContactFilterPanel(
                     label = {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Swap_vert,
-                            contentDescription = stringResource(R.string.contact_sort_direction_toggle),
+                            contentDescription =
+                                stringResource(R.string.contact_sort_direction_toggle),
                             modifier = Modifier.size(16.dp),
                         )
                     },
@@ -199,10 +225,10 @@ fun ContactFilterPanel(
             if (selectionActions != null) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = horizontalPadding)
-                        .padding(bottom = 2.dp),
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = horizontalPadding)
+                            .padding(bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ContactFilterChip(
@@ -234,9 +260,7 @@ private fun ChipRow(horizontalPadding: Dp, content: LazyListScope.() -> Unit) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(horizontal = horizontalPadding),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -256,15 +280,27 @@ private fun ContactFilterChip(
         enabled = enabled,
         onClick = onClick,
         label = { Text(label) },
-        leadingIcon = when {
-            loading -> {
-                { CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp) }
-            }
-            icon != null -> {
-                { Icon(imageVector = icon, contentDescription = label, modifier = Modifier.size(16.dp)) }
-            }
-            else -> null
-        },
+        leadingIcon =
+            when {
+                loading -> {
+                    {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                }
+                icon != null -> {
+                    {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+                else -> null
+            },
     )
 }
 
@@ -274,20 +310,19 @@ fun ContactAvatar(model: Any?, modifier: Modifier = Modifier, size: Dp = 32.dp) 
         model = model,
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        modifier = modifier
-            .size(size)
-            .clip(RoundedCornerShape(size * 0.1875f)),
+        modifier = modifier.size(size).clip(RoundedCornerShape(size * 0.1875f)),
         imageLoader = GlobalImageLoader,
     )
 }
 
 @Composable
-fun contactSectionTitle(key: ContactSectionKey): String = when (key) {
-    ContactSectionKey.Selected -> stringResource(R.string.contact_selected_section)
-    ContactSectionKey.Newest -> stringResource(R.string.contact_sort_newest_first)
-    ContactSectionKey.Oldest -> stringResource(R.string.contact_sort_oldest_first)
-    is ContactSectionKey.Initial -> key.letter
-}
+fun contactSectionTitle(key: ContactSectionKey): String =
+    when (key) {
+        ContactSectionKey.Selected -> stringResource(R.string.contact_selected_section)
+        ContactSectionKey.Newest -> stringResource(R.string.contact_sort_newest_first)
+        ContactSectionKey.Oldest -> stringResource(R.string.contact_sort_oldest_first)
+        is ContactSectionKey.Initial -> key.letter
+    }
 
 /**
  * Letter index for alphabetical sorting (nothing otherwise). [onScrollTo] receives the flat index
@@ -309,18 +344,22 @@ fun AlphabetIndexBar(
     ) {
         alphabetIndexKeys(state.sortReversed).forEach { key ->
             Text(
-                text = if (key == ContactSectionKey.Selected) "✓" else (key as ContactSectionKey.Initial).letter,
+                text =
+                    if (key == ContactSectionKey.Selected) "✓"
+                    else (key as ContactSectionKey.Initial).letter,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (key in headerIndices) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                },
-                modifier = Modifier
-                    .clickable {
-                        indexBarTarget(key, headerIndices, sections, state.sortReversed)?.let(onScrollTo)
-                    }
-                    .padding(vertical = 2.dp, horizontal = 4.dp),
+                color =
+                    if (key in headerIndices) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    },
+                modifier =
+                    Modifier.clickable {
+                            indexBarTarget(key, headerIndices, sections, state.sortReversed)
+                                ?.let(onScrollTo)
+                        }
+                        .padding(vertical = 2.dp, horizontal = 4.dp),
             )
         }
     }

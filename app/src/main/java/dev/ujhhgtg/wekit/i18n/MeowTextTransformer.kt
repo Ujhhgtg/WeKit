@@ -6,9 +6,10 @@ import android.text.Spanned
 object MeowTextTransformer {
     private const val SUFFIX = "喵"
 
-    fun transform(text: String): String = insertionIndex(text)?.let { index ->
-        text.substring(0, index) + suffixAt(text, index) + text.substring(index)
-    } ?: text
+    fun transform(text: String): String =
+        insertionIndex(text)?.let { index ->
+            text.substring(0, index) + suffixAt(text, index) + text.substring(index)
+        } ?: text
 
     fun transform(text: CharSequence): CharSequence {
         val index = insertionIndex(text) ?: return text
@@ -45,18 +46,18 @@ object MeowTextTransformer {
         return insertionIndex
     }
 
-    private fun Int.isPunctuation(): Boolean = when (Character.getType(this)) {
-        Character.CONNECTOR_PUNCTUATION.toInt(),
-        Character.DASH_PUNCTUATION.toInt(),
-        Character.START_PUNCTUATION.toInt(),
-        Character.END_PUNCTUATION.toInt(),
-        Character.INITIAL_QUOTE_PUNCTUATION.toInt(),
-        Character.FINAL_QUOTE_PUNCTUATION.toInt(),
-        Character.OTHER_PUNCTUATION.toInt(),
-        -> true
+    private fun Int.isPunctuation(): Boolean =
+        when (Character.getType(this)) {
+            Character.CONNECTOR_PUNCTUATION.toInt(),
+            Character.DASH_PUNCTUATION.toInt(),
+            Character.START_PUNCTUATION.toInt(),
+            Character.END_PUNCTUATION.toInt(),
+            Character.INITIAL_QUOTE_PUNCTUATION.toInt(),
+            Character.FINAL_QUOTE_PUNCTUATION.toInt(),
+            Character.OTHER_PUNCTUATION.toInt() -> true
 
-        else -> false
-    }
+            else -> false
+        }
 
     private fun Int.isWhitespace(): Boolean =
         Character.isWhitespace(this) || Character.isSpaceChar(this)

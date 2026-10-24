@@ -42,16 +42,14 @@ fun BaseSupportingWidget(
     iconPlaceholder: Boolean = false,
     onClick: (() -> Unit)? = null,
     enabled: Boolean = true,
-    supportingContent: @Composable () -> Unit
+    supportingContent: @Composable () -> Unit,
 ) {
     val body: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (iconPlaceholder) Spacer(modifier = Modifier.size(24.dp))
 
@@ -59,13 +57,13 @@ fun BaseSupportingWidget(
                     Text(
                         text = title,
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     if (description != null) {
                         Text(
                             text = description,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
@@ -82,9 +80,7 @@ fun BaseSupportingWidget(
             body()
         } else {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = enabled, onClick = onClick),
+                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
             ) {
                 body()
             }

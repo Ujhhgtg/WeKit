@@ -2,9 +2,18 @@ package dev.ujhhgtg.wekit.loader.environment
 
 import java.io.ByteArrayOutputStream
 
-/** Bounded wire parsing for an untrusted native payload; unknown fields retain their exact bytes. */
+/**
+ * Bounded wire parsing for an untrusted native payload; unknown fields retain their exact bytes.
+ */
 object ReportWire {
-    data class Field(val number: Int, val wire: Int, val start: Int, val data: Int, val end: Int, val value: Long)
+    data class Field(
+        val number: Int,
+        val wire: Int,
+        val start: Int,
+        val data: Int,
+        val end: Int,
+        val value: Long,
+    )
 
     fun fields(bytes: ByteArray): List<Field> {
         var position = 0
@@ -29,10 +38,13 @@ object ReportWire {
             var value = 0L
             when (wire) {
                 0 -> value = varint()
-                1, 5 -> position += if (wire == 1) 8 else 4
+                1,
+                5 -> position += if (wire == 1) 8 else 4
                 2 -> {
                     val length = varint()
-                    require(length >= 0 && length <= bytes.size - position) { "invalid field length" }
+                    require(length >= 0 && length <= bytes.size - position) {
+                        "invalid field length"
+                    }
                     data = position
                     position += length.toInt()
                 }
@@ -65,16 +77,22 @@ object ReportWire {
         write(v.toInt())
     }
 
-    fun encode(number: Int, value: Long): ByteArray = ByteArrayOutputStream().apply {
-        varint(number.toLong() shl 3)
-        varint(value)
-    }.toByteArray()
+    fun encode(number: Int, value: Long): ByteArray =
+        ByteArrayOutputStream()
+            .apply {
+                varint(number.toLong() shl 3)
+                varint(value)
+            }
+            .toByteArray()
 
-    fun encode(number: Int, value: ByteArray): ByteArray = ByteArrayOutputStream().apply {
-        varint(number.toLong() shl 3 or 2)
-        varint(value.size.toLong())
-        write(value)
-    }.toByteArray()
+    fun encode(number: Int, value: ByteArray): ByteArray =
+        ByteArrayOutputStream()
+            .apply {
+                varint(number.toLong() shl 3 or 2)
+                varint(value.size.toLong())
+                write(value)
+            }
+            .toByteArray()
 
     fun rewrite(message: ByteArray, edit: (Field) -> ByteArray?): ByteArray {
         val out = ByteArrayOutputStream(message.size)

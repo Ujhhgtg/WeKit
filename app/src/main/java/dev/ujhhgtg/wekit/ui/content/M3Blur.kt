@@ -48,11 +48,15 @@ fun Modifier.m3AppBarBlur(
                 shape = shape,
                 gradient = ProgressiveBlur.Top.copy(curve = 2.2f),
                 blurRadius = 10f,
-                colors = BlurColors(
-                    blendColors = listOf(
-                        BlendColorEntry(color = MaterialTheme.colorScheme.surfaceContainer.copy(0.3f)),
+                colors =
+                    BlurColors(
+                        blendColors =
+                            listOf(
+                                BlendColorEntry(
+                                    color = MaterialTheme.colorScheme.surfaceContainer.copy(0.3f),
+                                ),
+                            ),
                     ),
-                ),
             ),
         )
     }

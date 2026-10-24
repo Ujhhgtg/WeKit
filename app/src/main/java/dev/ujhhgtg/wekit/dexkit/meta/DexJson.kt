@@ -10,13 +10,13 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 
 internal fun JsonObject.requiredObject(key: String): JsonObject =
-    objectOrNull(key) ?: error("DexSQL metadata is missing object '" + key + "'")
+    objectOrNull(key) ?: error("DexSQL metadata is missing object '$key'")
 
 internal fun JsonObject.objectOrNull(key: String): JsonObject? =
     this[key]?.takeIf { it !is JsonNull }?.jsonObject
 
 internal fun JsonObject.requiredString(key: String): String =
-    stringOrNull(key) ?: error("DexSQL metadata is missing string '" + key + "'")
+    stringOrNull(key) ?: error("DexSQL metadata is missing string '$key'")
 
 internal fun JsonObject.stringOrNull(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull

@@ -47,14 +47,19 @@ fun <T> ConnectedButtonGroup(
                 },
                 enabled = enabled,
                 modifier = Modifier.weight(1f),
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
+                shapes =
+                    when (index) {
+                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    },
             ) {
                 if (checked) {
-                    Icon(MaterialSymbols.Outlined.Check, contentDescription = null, modifier = Modifier.size(ToggleButtonDefaults.IconSize))
+                    Icon(
+                        MaterialSymbols.Outlined.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(ToggleButtonDefaults.IconSize),
+                    )
                     Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
                 }
                 Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)

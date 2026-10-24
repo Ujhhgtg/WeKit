@@ -12,10 +12,17 @@ import org.junit.jupiter.api.io.TempDir
 class BackupManagedDataReplacementTest {
     @TempDir lateinit var temp: Path
 
-    private val root get() = temp.resolve("live").toFile()
-    private val staging get() = temp.resolve("staging").toFile()
-    private val oldRoot get() = temp.resolve("old").toFile()
-    private val database get() = File(root, "wekit.db")
+    private val root
+        get() = temp.resolve("live").toFile()
+
+    private val staging
+        get() = temp.resolve("staging").toFile()
+
+    private val oldRoot
+        get() = temp.resolve("old").toFile()
+
+    private val database
+        get() = File(root, "wekit.db")
 
     private fun write(file: File, text: String): File = file.apply {
         parentFile!!.mkdirs()
@@ -36,8 +43,14 @@ class BackupManagedDataReplacementTest {
     @Test
     fun `successful replacement retains originals until caller cleans up`() {
         prepare()
-        BackupManagedDataReplacement.replace(root, staging, oldRoot, database,
-            managedDirectories = listOf("first", "second"), managedFiles = emptyList())
+        BackupManagedDataReplacement.replace(
+            root,
+            staging,
+            oldRoot,
+            database,
+            managedDirectories = listOf("first", "second"),
+            managedFiles = emptyList(),
+        )
         assertEquals("new database", database.readText())
         assertEquals("old database", File(oldRoot, "wekit.db").readText())
         assertEquals("old wal", File(oldRoot, "wekit.db-wal").readText())
@@ -51,12 +64,19 @@ class BackupManagedDataReplacementTest {
     @Test
     fun `first database move failure does not delete paths which were never processed`() {
         prepare()
-        val refusingDatabase = object : File(database.path) {
-            override fun renameTo(destination: File): Boolean = false
-        }
+        val refusingDatabase =
+            object : File(database.path) {
+                override fun renameTo(destination: File): Boolean = false
+            }
         assertThrows(IllegalStateException::class.java) {
-            BackupManagedDataReplacement.replace(root, staging, oldRoot, refusingDatabase,
-                listOf("first", "second", "untouched"), emptyList())
+            BackupManagedDataReplacement.replace(
+                root,
+                staging,
+                oldRoot,
+                refusingDatabase,
+                listOf("first", "second", "untouched"),
+                emptyList(),
+            )
         }
         assertOriginalData()
     }
@@ -66,8 +86,14 @@ class BackupManagedDataReplacementTest {
         prepare()
         write(File(staging, "second"), "wrong type for directory")
         assertThrows(IllegalStateException::class.java) {
-            BackupManagedDataReplacement.replace(root, staging, oldRoot, database,
-                listOf("first", "second", "untouched"), emptyList())
+            BackupManagedDataReplacement.replace(
+                root,
+                staging,
+                oldRoot,
+                database,
+                listOf("first", "second", "untouched"),
+                emptyList(),
+            )
         }
         assertOriginalData()
     }
@@ -81,8 +107,14 @@ class BackupManagedDataReplacementTest {
         File(staging, "later.json").mkdirs()
         write(File(root, "never.json"), "untouched file")
         assertThrows(IllegalStateException::class.java) {
-            BackupManagedDataReplacement.replace(root, staging, oldRoot, database,
-                listOf("first", "new-empty"), listOf("first.json", "later.json", "never.json"))
+            BackupManagedDataReplacement.replace(
+                root,
+                staging,
+                oldRoot,
+                database,
+                listOf("first", "new-empty"),
+                listOf("first.json", "later.json", "never.json"),
+            )
         }
         assertOriginalData()
         assertEquals("old first file", File(root, "first.json").readText())
@@ -95,13 +127,21 @@ class BackupManagedDataReplacementTest {
     fun `failed rollback reports recovery location preserves old database and continues other undo entries`() {
         prepare()
         write(File(staging, "second"), "wrong type for directory")
-        val undeletableDatabase = object : File(database.path) {
-            override fun delete(): Boolean = false
-        }
-        val failure = assertThrows(BackupReplacementRollbackException::class.java) {
-            BackupManagedDataReplacement.replace(root, staging, oldRoot, undeletableDatabase,
-                listOf("first", "second", "untouched"), emptyList())
-        }
+        val undeletableDatabase =
+            object : File(database.path) {
+                override fun delete(): Boolean = false
+            }
+        val failure =
+            assertThrows(BackupReplacementRollbackException::class.java) {
+                BackupManagedDataReplacement.replace(
+                    root,
+                    staging,
+                    oldRoot,
+                    undeletableDatabase,
+                    listOf("first", "second", "untouched"),
+                    emptyList(),
+                )
+            }
         assertEquals(oldRoot, failure.backupRoot)
         assertTrue(failure.suppressed.isNotEmpty())
         assertTrue(failure.originalFailure is IllegalStateException)

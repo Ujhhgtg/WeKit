@@ -4,29 +4,30 @@ import android.content.ContentValues
 import dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlinx.coroutines.CoroutineScope
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Bridges WeChat DB events ([WeDatabaseListenerApi]) into WeAgent [TriggerType.MESSAGE] /
  * [TriggerType.SQL] triggers. For each enabled event trigger it owns a [TriggerBuffer]; incoming
- * events are matched against the trigger's [TriggerConditions] and, if they pass (plus the anti-loop
- * filters), offered to that buffer. When a buffer flushes it calls back into [onFlush] with the
- * trigger + the batch of events.
+ * events are matched against the trigger's [TriggerConditions] and, if they pass (plus the
+ * anti-loop filters), offered to that buffer. When a buffer flushes it calls back into [onFlush]
+ * with the trigger + the batch of events.
  *
  * Anti-loop (§ anti-loop, per the user's "default filter + cooldown" choice):
- *  - MESSAGE `filterOwnEvents` drops rows with `isSend == 1` — this covers both the user's own sends
- *    and anything the agent sent via tools (both go out under the logged-in identity).
- *  - SQL events are dropped while a [suppressSqlBriefly] window is open, so the agent's own
- *    `builtin-wechat-sql` writes don't re-trigger SQL triggers. The window is time-based because DB
- *    callbacks arrive on WeChat's own threads, not the agent's coroutine.
+ * - MESSAGE `filterOwnEvents` drops rows with `isSend == 1` — this covers both the user's own sends
+ *   and anything the agent sent via tools (both go out under the logged-in identity).
+ * - SQL events are dropped while a [suppressSqlBriefly] window is open, so the agent's own
+ *   `builtin-wechat-sql` writes don't re-trigger SQL triggers. The window is time-based because DB
+ *   callbacks arrive on WeChat's own threads, not the agent's coroutine.
  */
 class EventTriggerBus(
     private val scope: CoroutineScope,
     private val onFlush: suspend (TriggerEntity, List<TriggeredEvent>) -> Unit,
-) : WeDatabaseListenerApi.IInsertListener,
+) :
+    WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeDatabaseListenerApi.IQueryListener {
 
@@ -35,16 +36,21 @@ class EventTriggerBus(
     }
 
     // triggerId -> (trigger row, its buffer). Rebuilt on resync.
-    private class Bound(val trigger: TriggerEntity, val conditions: TriggerConditions, val buffer: TriggerBuffer)
+    private class Bound(
+        val trigger: TriggerEntity,
+        val conditions: TriggerConditions,
+        val buffer: TriggerBuffer,
+    )
 
     private val message = ConcurrentHashMap<String, Bound>()
     private val sql = ConcurrentHashMap<String, Bound>()
 
-    /** Epoch millis until which SQL events are suppressed (agent's own writes). 0 = not suppressed. */
+    /**
+     * Epoch millis until which SQL events are suppressed (agent's own writes). 0 = not suppressed.
+     */
     private val sqlSuppressedUntil = AtomicLong(0)
 
-    @Volatile
-    private var registered = false
+    @Volatile private var registered = false
 
     /** Opens/extends a suppression window so the agent's own SQL writes don't fire SQL triggers. */
     fun suppressSqlBriefly(windowMillis: Long) {
@@ -57,8 +63,8 @@ class EventTriggerBus(
 
     /**
      * Reconciles bound buffers against the current [triggers]. Cancels buffers for triggers that
-     * disappeared / disabled, and (re)creates buffers for eligible MESSAGE / SQL triggers. Registers
-     * the DB listeners on first eligible trigger; unregisters when none remain.
+     * disappeared / disabled, and (re)creates buffers for eligible MESSAGE / SQL triggers.
+     * Registers the DB listeners on first eligible trigger; unregisters when none remain.
      */
     @Synchronized
     fun resync(triggers: List<TriggerEntity>) {
@@ -85,14 +91,15 @@ class EventTriggerBus(
         for ((id, trigger) in wanted) {
             map.remove(id)?.buffer?.cancel()
             val conditions = TriggerConditionsJson.decode(trigger.conditionsJson)
-            val buffer = TriggerBuffer(
-                triggerId = trigger.id,
-                scope = scope,
-                debounceMillis = trigger.bufferDebounceMillis,
-                maxEvents = trigger.bufferMaxEvents,
-                maxWaitMillis = trigger.bufferMaxWaitMillis,
-                onFlush = { batch -> onFlush(trigger, batch) },
-            )
+            val buffer =
+                TriggerBuffer(
+                    triggerId = trigger.id,
+                    scope = scope,
+                    debounceMillis = trigger.bufferDebounceMillis,
+                    maxEvents = trigger.bufferMaxEvents,
+                    maxWaitMillis = trigger.bufferMaxWaitMillis,
+                    onFlush = { batch -> onFlush(trigger, batch) },
+                )
             map[id] = Bound(trigger, conditions, buffer)
         }
     }
@@ -167,9 +174,11 @@ class EventTriggerBus(
             MessageDirection.BOTH -> Unit
         }
         // Message type.
-        c.msgTypes?.takeIf { it.isNotEmpty() }?.let { types ->
-            if (ev.type == null || ev.type !in types) return false
-        }
+        c.msgTypes
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { types ->
+                if (ev.type == null || ev.type !in types) return false
+            }
         // Talker regex.
         if (!regexOk(c.talkerRegex, ev.talker)) return false
         // Content regex.

@@ -14,7 +14,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** How the current [PermissionLevel] wants a single tool call to be approved. */
-enum class ApprovalBehavior { AUTO, MANUAL, SMART }
+enum class ApprovalBehavior {
+    AUTO,
+    MANUAL,
+    SMART,
+}
 
 /**
  * Resolves the approval behavior for a tool call under [level]. Side-effect-free tools always run
@@ -28,20 +32,24 @@ fun behaviorFor(
     sideEffect: Boolean,
     providerKind: ProviderKind,
     bareName: String,
-): ApprovalBehavior = when {
-    level == PermissionLevel.FULL_ACCESS || !sideEffect -> ApprovalBehavior.AUTO
-    level == PermissionLevel.AUTO_EDIT ->
-        if (providerKind == ProviderKind.BUILTIN && bareName == "edit") ApprovalBehavior.AUTO
-        else ApprovalBehavior.MANUAL
-    level == PermissionLevel.AUTO_APPROVAL -> ApprovalBehavior.SMART
-    else -> ApprovalBehavior.MANUAL
-}
+): ApprovalBehavior =
+    when {
+        level == PermissionLevel.FULL_ACCESS || !sideEffect -> ApprovalBehavior.AUTO
+        level == PermissionLevel.AUTO_EDIT ->
+            if (providerKind == ProviderKind.BUILTIN && bareName == "edit") ApprovalBehavior.AUTO
+            else ApprovalBehavior.MANUAL
+        level == PermissionLevel.AUTO_APPROVAL -> ApprovalBehavior.SMART
+        else -> ApprovalBehavior.MANUAL
+    }
 
 /** Outcome of an approval decision for a single tool call. */
 sealed interface ApprovalDecision {
     object Allowed : ApprovalDecision
 
-    /** Denied. [reason] explains why; [bySmartReview] distinguishes AI review from a user rejection (§2.2). */
+    /**
+     * Denied. [reason] explains why; [bySmartReview] distinguishes AI review from a user rejection
+     * (§2.2).
+     */
     data class Denied(val reason: String?, val bySmartReview: Boolean) : ApprovalDecision
 }
 
@@ -70,8 +78,8 @@ fun interface ManualApprovalHandler {
 /**
  * Resolves a tool call into an [ApprovalDecision] from the precomputed [ApprovalBehavior] (see
  * [behaviorFor]). AUTO allows immediately; MANUAL suspends on [manualHandler]; SMART fires an
- * independent small-model request (§2.2) that does not include conversation history nor count toward
- * its request budget.
+ * independent small-model request (§2.2) that does not include conversation history nor count
+ * toward its request budget.
  */
 class ApprovalGateway(
     private val manualHandler: ManualApprovalHandler,
@@ -83,50 +91,53 @@ class ApprovalGateway(
         providerName: String,
         argumentsJson: String,
         modelExplanation: String?,
-    ): ApprovalDecision = when (behavior) {
-        ApprovalBehavior.AUTO -> ApprovalDecision.Allowed
-        ApprovalBehavior.MANUAL -> {
-            val pending = PendingApproval(toolName, providerName, argumentsJson, modelExplanation)
-            when (val res = manualHandler.requestApproval(pending)) {
-                is ManualApprovalResult.Approved -> ApprovalDecision.Allowed
-                is ManualApprovalResult.Rejected ->
-                    ApprovalDecision.Denied(res.reason, bySmartReview = false)
+    ): ApprovalDecision =
+        when (behavior) {
+            ApprovalBehavior.AUTO -> ApprovalDecision.Allowed
+            ApprovalBehavior.MANUAL -> {
+                val pending =
+                    PendingApproval(toolName, providerName, argumentsJson, modelExplanation)
+                when (val res = manualHandler.requestApproval(pending)) {
+                    is ManualApprovalResult.Approved -> ApprovalDecision.Allowed
+                    is ManualApprovalResult.Rejected ->
+                        ApprovalDecision.Denied(res.reason, bySmartReview = false)
+                }
             }
-        }
 
-        ApprovalBehavior.SMART -> smartReview(toolName, argumentsJson, modelExplanation)
-    }
+            ApprovalBehavior.SMART -> smartReview(toolName, argumentsJson, modelExplanation)
+        }
 
     /**
      * Builds the tool-result text returned to the main model for a denied call, distinguishing the
      * origin of the reason (§2.2).
      */
-    fun deniedResultText(decision: ApprovalDecision.Denied): String = when {
-        decision.bySmartReview ->
-            "工具调用被拒绝：${decision.reason ?: "未给出理由"}"
+    fun deniedResultText(decision: ApprovalDecision.Denied): String =
+        when {
+            decision.bySmartReview -> "工具调用被拒绝：${decision.reason ?: "未给出理由"}"
 
-        decision.reason != null ->
-            "工具调用被用户拒绝。用户给出的理由：${decision.reason}"
+            decision.reason != null -> "工具调用被用户拒绝。用户给出的理由：${decision.reason}"
 
-        else ->
-            "工具调用被用户拒绝，用户未说明理由。"
-    }
+            else -> "工具调用被用户拒绝，用户未说明理由。"
+        }
 
     private suspend fun smartReview(
         toolName: String,
         argumentsJson: String,
         modelExplanation: String?,
     ): ApprovalDecision {
-        val model = smallModel ?: run {
-            WeLogger.w(TAG, "smart approval configured but no small model; denying")
-            return ApprovalDecision.Denied(
-                "当前权限等级为「自动审批」，但未配置审批小模型。请让用户在 WeAgent 设置中配置审批小模型，或调整权限等级。",
-                bySmartReview = true
-            )
-        }
+        val model =
+            smallModel
+                ?: run {
+                    WeLogger.w(TAG, "smart approval configured but no small model; denying")
+                    return ApprovalDecision.Denied(
+                        "当前权限等级为「自动审批」，但未配置审批小模型。请让用户在 WeAgent 设置中配置审批小模型，或调整权限等级。",
+                        bySmartReview = true,
+                    )
+                }
 
         // Prompt-injection hardening: the instruction text carries NO caller-controlled data. The
-        // tool name / arguments / explanation all originate (directly or indirectly) from content the
+        // tool name / arguments / explanation all originate (directly or indirectly) from content
+        // the
         // main model just read, so they are handed over as a separate message inside an unambiguous
         // fence and explicitly labelled as untrusted data to be judged, never instructions to obey.
         val instruction = buildString {
@@ -146,35 +157,43 @@ class ApprovalGateway(
             append("tool_name: ").append(sanitizeForFence(toolName)).append('\n')
             append("arguments: ").append(sanitizeForFence(argumentsJson)).append('\n')
             if (!modelExplanation.isNullOrBlank()) {
-                append("caller_explanation: ").append(sanitizeForFence(modelExplanation)).append('\n')
+                append("caller_explanation: ")
+                    .append(sanitizeForFence(modelExplanation))
+                    .append('\n')
             }
             append(FENCE)
         }
 
-        val request = LlmRequest(
-            modelIdRemote = model.modelIdRemote,
-            messages = listOf(
-                LlmMessage(role = LlmRole.SYSTEM, content = instruction),
-                LlmMessage(role = LlmRole.USER, content = payload),
-            ),
-            sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
-            tools = emptyList(),
-            reasoningEffort = model.reasoningEffort,
-            maxTokens = model.maxTokens,
-            customJsonOverride = null,
-            stream = false,
-        )
+        val request =
+            LlmRequest(
+                modelIdRemote = model.modelIdRemote,
+                messages =
+                    listOf(
+                        LlmMessage(role = LlmRole.SYSTEM, content = instruction),
+                        LlmMessage(role = LlmRole.USER, content = payload),
+                    ),
+                sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
+                tools = emptyList(),
+                reasoningEffort = model.reasoningEffort,
+                maxTokens = model.maxTokens,
+                customJsonOverride = null,
+                stream = false,
+            )
 
-        val text = runCatching {
-            val events = model.client.stream(request).toList()
-            (events.lastOrNull { it is LlmStreamEvent.Completed } as? LlmStreamEvent.Completed)
-                ?.message?.content
-                ?: (events.firstOrNull { it is LlmStreamEvent.Failed } as? LlmStreamEvent.Failed)
-                    ?.let { throw it.error }
-        }.getOrElse {
-            WeLogger.e(TAG, "smart review request failed", it)
-            return ApprovalDecision.Denied("审批小模型请求失败：${it.message}", bySmartReview = true)
-        } ?: return ApprovalDecision.Denied("审批小模型无返回", bySmartReview = true)
+        val text =
+            runCatching {
+                val events = model.client.stream(request).toList()
+                (events.lastOrNull { it is LlmStreamEvent.Completed } as? LlmStreamEvent.Completed)
+                    ?.message
+                    ?.content
+                    ?: (events.firstOrNull { it is LlmStreamEvent.Failed }
+                            as? LlmStreamEvent.Failed)
+                        ?.let { throw it.error }
+            }
+                .getOrElse {
+                    WeLogger.e(TAG, "smart review request failed", it)
+                    return ApprovalDecision.Denied("审批小模型请求失败：${it.message}", bySmartReview = true)
+                } ?: return ApprovalDecision.Denied("审批小模型无返回", bySmartReview = true)
 
         return parseDecision(text)
     }
@@ -182,9 +201,9 @@ class ApprovalGateway(
     /**
      * Strict parse of the reviewer's reply: the WHOLE reply must be a single JSON object. We do NOT
      * scan for the first `{…}` block — that made the reviewer prompt-injectable, since an argument
-     * string containing a plausible-looking `{"allow": true}` would get echoed back inside prose and
-     * picked up as the verdict. Any surrounding prose now fails closed (denied), and is logged so a
-     * genuine formatting slip is distinguishable from an injection attempt.
+     * string containing a plausible-looking `{"allow": true}` would get echoed back inside prose
+     * and picked up as the verdict. Any surrounding prose now fails closed (denied), and is logged
+     * so a genuine formatting slip is distinguishable from an injection attempt.
      */
     private fun parseDecision(text: String): ApprovalDecision {
         val trimmed = text.trim()
@@ -192,22 +211,30 @@ class ApprovalGateway(
         // attack surface, since the payload inside is still required to be the entire remainder.
         val body = stripCodeFence(trimmed)
         if (!body.startsWith("{") || !body.endsWith("}")) {
-            WeLogger.w(TAG, "smart review reply is not a bare JSON object (possible prompt injection): $text")
+            WeLogger.w(
+                TAG,
+                "smart review reply is not a bare JSON object (possible prompt injection): $text",
+            )
             return ApprovalDecision.Denied(
                 "审批小模型返回格式不合法（必须且只能是一个 JSON 对象），已按拒绝处理。",
-                bySmartReview = true
+                bySmartReview = true,
             )
         }
         val obj = runCatching {
             dev.ujhhgtg.wekit.agent.model.LlmJson.json.parseToJsonElement(body).jsonObject
-        }.getOrElse {
-            WeLogger.w(TAG, "smart review reply failed to parse as JSON: $text")
-            return ApprovalDecision.Denied("审批小模型返回无法解析，已按拒绝处理。", bySmartReview = true)
         }
+            .getOrElse {
+                WeLogger.w(TAG, "smart review reply failed to parse as JSON: $text")
+                return ApprovalDecision.Denied("审批小模型返回无法解析，已按拒绝处理。", bySmartReview = true)
+            }
         // Fail closed: only an explicit boolean/"true" allow field permits the call.
-        val allow = runCatching {
-            obj["allow"]?.jsonPrimitive?.let { it.booleanOrNull ?: it.content.equals("true", ignoreCase = true) }
-        }.getOrNull() ?: false
+        val allow =
+            runCatching {
+                obj["allow"]?.jsonPrimitive?.let {
+                    it.booleanOrNull ?: it.content.equals("true", ignoreCase = true)
+                }
+            }
+                .getOrNull() ?: false
         val reason = runCatching { obj["reason"]?.jsonPrimitive?.content }.getOrNull()
         return if (allow) ApprovalDecision.Allowed
         else ApprovalDecision.Denied(reason ?: "审批未通过", bySmartReview = true)
@@ -223,15 +250,19 @@ class ApprovalGateway(
     companion object {
         private const val TAG = "ApprovalGateway"
 
-        /** Delimiter around the untrusted review payload. Random-looking so it can't be guessed/closed. */
+        /**
+         * Delimiter around the untrusted review payload. Random-looking so it can't be
+         * guessed/closed.
+         */
         private const val FENCE = "<<<WEKIT_UNTRUSTED_TOOL_CALL_9f3a1c>>>"
 
         /**
-         * Neutralises any attempt to close the fence from inside the payload, and keeps each field on
-         * one line so injected "newline + fake header" text can't masquerade as a new field.
+         * Neutralises any attempt to close the fence from inside the payload, and keeps each field
+         * on one line so injected "newline + fake header" text can't masquerade as a new field.
          */
         private fun sanitizeForFence(value: String): String =
-            value.replace(FENCE, "<fence>")
+            value
+                .replace(FENCE, "<fence>")
                 .replace("\r\n", "\\n")
                 .replace('\r', ' ')
                 .replace("\n", "\\n")

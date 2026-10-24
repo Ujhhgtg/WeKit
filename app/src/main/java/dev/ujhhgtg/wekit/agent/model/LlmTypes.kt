@@ -7,12 +7,16 @@ import kotlinx.serialization.json.JsonObject
  * [LlmClient] adapters translate these to/from a specific provider wire format (OpenAI Chat
  * Completions, OpenAI Responses, …).
  */
-
-enum class LlmRole { SYSTEM, USER, ASSISTANT, TOOL }
+enum class LlmRole {
+    SYSTEM,
+    USER,
+    ASSISTANT,
+    TOOL,
+}
 
 /**
- * A single tool invocation requested by the model. [id] correlates the later [LlmMessage] with
- * role [LlmRole.TOOL] carrying the result. [argumentsJson] is the raw JSON object string the model
+ * A single tool invocation requested by the model. [id] correlates the later [LlmMessage] with role
+ * [LlmRole.TOOL] carrying the result. [argumentsJson] is the raw JSON object string the model
  * produced (may need re-parsing/validation before use).
  *
  * [providerSignature] is opaque provider-specific metadata that must be replayed verbatim on the
@@ -39,7 +43,8 @@ data class LlmImage(
     val mimeType: String = "image/png",
 ) {
     /** `data:<mime>;base64,<payload>` form used by the OpenAI `image_url` shape. */
-    val dataUri: String get() = "data:$mimeType;base64,$base64"
+    val dataUri: String
+        get() = "data:$mimeType;base64,$base64"
 }
 
 /**
@@ -98,7 +103,10 @@ data class LlmUsage(
 data class LlmRequest(
     val modelIdRemote: String,
     val messages: List<LlmMessage>,
-    /** Persisted conversation UUID, reused across turns and auxiliary requests for routing/cache affinity. */
+    /**
+     * Persisted conversation UUID, reused across turns and auxiliary requests for routing/cache
+     * affinity.
+     */
     val sessionId: String,
     val tools: List<LlmToolSpec> = emptyList(),
     val reasoningEffort: String? = null,
@@ -106,9 +114,9 @@ data class LlmRequest(
     val stream: Boolean = true,
     /**
      * Per-model output-token limit (null = omit / use provider default). Each [LlmClient] adapter
-     * maps this to its provider's field(s): Chat Completions sets both `max_tokens` and the official
-     * `max_completion_tokens` (some non-standard OpenAI-compatible servers only read the former);
-     * Responses uses `max_output_tokens`; Anthropic uses the required `max_tokens`.
+     * maps this to its provider's field(s): Chat Completions sets both `max_tokens` and the
+     * official `max_completion_tokens` (some non-standard OpenAI-compatible servers only read the
+     * former); Responses uses `max_output_tokens`; Anthropic uses the required `max_tokens`.
      */
     val maxTokens: Int? = null,
 )

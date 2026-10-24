@@ -20,7 +20,8 @@ fun rememberM3NavEffects(): NavDisplayEffects {
         NavDisplayEffects(
             enableCornerClip = true,
             cornerClipRadius = cornerRadius,
-            cornerClipMode = if (roundAllCorners) NavCornerClipMode.All else NavCornerClipMode.Leading,
+            cornerClipMode =
+                if (roundAllCorners) NavCornerClipMode.All else NavCornerClipMode.Leading,
             dimAmount = 0.5f,
             backdropColor = backdropColor,
             blockInputDuringTransition = false,

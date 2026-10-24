@@ -10,7 +10,8 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 
 // used for injected 'ComposeView's
-class XposedLifecycleOwner private constructor() : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+class XposedLifecycleOwner private constructor() :
+    LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
     override val lifecycle: Lifecycle
@@ -25,9 +26,13 @@ class XposedLifecycleOwner private constructor() : LifecycleOwner, ViewModelStor
     }
 
     fun onStart() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_START)
+
     fun onResume() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
     fun onPause() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+
     fun onStop() = lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+
     fun onDestroy() {
         lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         viewModelStore.clear()

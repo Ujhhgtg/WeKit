@@ -12,7 +12,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -20,12 +19,13 @@ import org.junit.jupiter.api.io.TempDir
 
 class OwnedProcessCleanupTest {
     @Test
-    fun `native timeout cancellation and stream failure use non-cancellable owned cleanup`(@TempDir directory: Path) =
-        runBlocking {
-            verifyFailureCleanup { starter ->
-                NativeBackend(nativeSnapshot(directory), startProcess = starter)
-            }
+    fun `native timeout cancellation and stream failure use non-cancellable owned cleanup`(
+        @TempDir directory: Path,
+    ) = runBlocking {
+        verifyFailureCleanup { starter ->
+            NativeBackend(nativeSnapshot(directory), startProcess = starter)
         }
+    }
 
     private suspend fun verifyFailureCleanup(
         backend: (OwnedProcessStarter) -> LinuxEnvironmentBackend,
@@ -38,9 +38,10 @@ class OwnedProcessCleanupTest {
         val started = CompletableDeferred<Unit>()
         val cancelled = FakeOwnedProcess()
         val cancellationBackend = backend { _, _, _ -> cancelled.also { started.complete(Unit) } }
-        val execution = kotlinx.coroutines.CoroutineScope(coroutineContext).launch {
-            cancellationBackend.exec("sleep", 10_000)
-        }
+        val execution =
+            kotlinx.coroutines.CoroutineScope(coroutineContext).launch {
+                cancellationBackend.exec("sleep", 10_000)
+            }
         started.await()
         execution.cancelAndJoin()
         cancelled.assertCleaned()
@@ -54,7 +55,8 @@ class OwnedProcessCleanupTest {
 
     private class FakeOwnedProcess(streamFailure: Boolean = false) : OwnedProcessHandle {
         override val outputStream = ByteArrayOutputStream()
-        override val inputStream: InputStream = if (streamFailure) FailingInputStream() else ByteArrayInputStream(ByteArray(0))
+        override val inputStream: InputStream =
+            if (streamFailure) FailingInputStream() else ByteArrayInputStream(ByteArray(0))
         override val errorStream: InputStream = ByteArrayInputStream(ByteArray(0))
         private var exitCode: Int? = null
         private val cleanupContexts = mutableListOf<Boolean>()
@@ -83,8 +85,16 @@ class OwnedProcessCleanupTest {
         override fun read(): Int = throw IOException("stream failed")
     }
 
-    private fun nativeSnapshot(directory: Path) = EnvironmentSnapshot(
-        NATIVE_ENVIRONMENT_ID, "Native", LinuxEnvironmentType.NATIVE, "test", "test",
-        "/bin/sh", directory.toString(), null, "test",
-    )
+    private fun nativeSnapshot(directory: Path) =
+        EnvironmentSnapshot(
+            NATIVE_ENVIRONMENT_ID,
+            "Native",
+            LinuxEnvironmentType.NATIVE,
+            "test",
+            "test",
+            "/bin/sh",
+            directory.toString(),
+            null,
+            "test",
+        )
 }

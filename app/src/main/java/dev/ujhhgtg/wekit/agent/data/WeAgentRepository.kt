@@ -3,9 +3,9 @@ package dev.ujhhgtg.wekit.agent.data
 import androidx.room.withTransaction
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ExternalServiceEntity
+import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageEntity
 import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
-import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
@@ -14,30 +14,28 @@ import dev.ujhhgtg.wekit.agent.data.entity.ProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SessionEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ToolCallEntity
-import dev.ujhhgtg.wekit.data.WeKitDatabase
-import dev.ujhhgtg.wekit.agent.model.LlmMessage
-import dev.ujhhgtg.wekit.agent.model.LlmRole
-import dev.ujhhgtg.wekit.agent.model.LlmToolCall
-import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentDeletionPlan
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionState
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentSessionTransition
-import dev.ujhhgtg.wekit.agent.environment.toSnapshot
+import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
+import dev.ujhhgtg.wekit.agent.environment.toSnapshot
+import dev.ujhhgtg.wekit.agent.model.LlmMessage
+import dev.ujhhgtg.wekit.agent.model.LlmRole
+import dev.ujhhgtg.wekit.agent.model.LlmToolCall
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
+import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flowOf
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 
-/**
- * Central data access + first-run seeding for WeAgent.
- */
+/** Central data access + first-run seeding for WeAgent. */
 object WeAgentRepository {
 
     private const val TAG = "WeAgentRepository"
@@ -48,24 +46,28 @@ object WeAgentRepository {
      */
     private const val TOOL_PAYLOAD_SEP = '\u0000'
 
-    private val db get() = WeKitDatabase.instance
+    private val db
+        get() = WeKitDatabase.instance
 
-    suspend fun appendBridgeToolAudit(entry: dev.ujhhgtg.wekit.agent.bridge.ToolBridgeSession.AuditEntry) {
-        db.bridgeToolAuditDao().insert(
-            dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity(
-                id = java.util.UUID.randomUUID().toString(),
-                sessionId = entry.sessionId,
-                environmentId = entry.environmentId,
-                parentToolCallId = entry.parentToolCallId,
-                providerId = entry.providerId,
-                toolName = entry.tool,
-                argumentsJson = entry.argumentsJson,
-                approvalStatus = entry.approvalStatus,
-                executionOutcome = entry.executionOutcome,
-                result = entry.result,
-                executedAt = java.time.Instant.now(),
+    suspend fun appendBridgeToolAudit(
+        entry: dev.ujhhgtg.wekit.agent.bridge.ToolBridgeSession.AuditEntry,
+    ) {
+        db.bridgeToolAuditDao()
+            .insert(
+                dev.ujhhgtg.wekit.agent.data.entity.BridgeToolAuditEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    sessionId = entry.sessionId,
+                    environmentId = entry.environmentId,
+                    parentToolCallId = entry.parentToolCallId,
+                    providerId = entry.providerId,
+                    toolName = entry.tool,
+                    argumentsJson = entry.argumentsJson,
+                    approvalStatus = entry.approvalStatus,
+                    executionOutcome = entry.executionOutcome,
+                    result = entry.result,
+                    executedAt = java.time.Instant.now(),
+                ),
             )
-        )
     }
 
     // --- Passthrough flows for UI (settings) ---
@@ -75,7 +77,9 @@ object WeAgentRepository {
     /** One-shot read of all tool providers (builtin + MCP rows). */
     suspend fun getAllProviders(): List<ProviderEntity> = db.providerDao().getAll()
 
-    fun observeModelProviders(): Flow<List<ModelProviderEntity>> = db.modelProviderDao().observeAll()
+    fun observeModelProviders(): Flow<List<ModelProviderEntity>> =
+        db.modelProviderDao().observeAll()
+
     fun observeModels(): Flow<List<ModelEntity>> = db.modelDao().observeAll()
 
     /**
@@ -103,11 +107,13 @@ object WeAgentRepository {
     // ---------------------------------------------------------------------------
 
     /**
-     * Monotonic clock for message ordering. Room orders history by `createdAt`, and several rows can
-     * be written within the same millisecond (assistant message + its tool results in one round), so
-     * we hand out strictly-increasing instants instead of relying on wall-clock resolution.
+     * Monotonic clock for message ordering. Room orders history by `createdAt`, and several rows
+     * can be written within the same millisecond (assistant message + its tool results in one
+     * round), so we hand out strictly-increasing instants instead of relying on wall-clock
+     * resolution.
      */
     private val lastStamp = AtomicLong(0L)
+
     private fun nextStamp(): Instant {
         val now = System.currentTimeMillis()
         val v = lastStamp.updateAndGet { prev -> if (now > prev) now else prev + 1 }
@@ -115,6 +121,7 @@ object WeAgentRepository {
     }
 
     fun observeSessions(): Flow<List<SessionEntity>> = db.sessionDao().observeAll()
+
     fun observeMessages(sessionId: String): Flow<List<MessageEntity>> =
         db.messageDao().observeForSession(sessionId)
 
@@ -125,52 +132,62 @@ object WeAgentRepository {
         db.messageDao().getForSession(sessionId)
 
     /** Records a model-visible environment transition exactly once for a session. */
-    suspend fun announceEffectiveLinuxEnvironment(sessionId: String, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot, previousEnvironment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot? = null): Boolean =
-        db.withTransaction {
-            val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
-            if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
-            db.sessionDao().setLastEffectiveLinuxEnvironmentId(sessionId, environment.id)
-            db.messageDao().insert(
+    suspend fun announceEffectiveLinuxEnvironment(
+        sessionId: String,
+        environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot,
+        previousEnvironment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot? = null,
+    ): Boolean = db.withTransaction {
+        val session = db.sessionDao().getById(sessionId) ?: return@withTransaction false
+        if (session.lastEffectiveLinuxEnvironmentId == environment.id) return@withTransaction false
+        db.sessionDao().setLastEffectiveLinuxEnvironmentId(sessionId, environment.id)
+        db.messageDao()
+            .insert(
                 MessageEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
                     role = MessageRole.SYSTEM,
                     content = environmentReminder(previousEnvironment, environment),
                     createdAt = nextStamp(),
-                )
+                ),
             )
-            true
-        }
+        true
+    }
 
-    private fun environmentReminder(previous: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?, environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot): String =
+    private fun environmentReminder(
+        previous: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot?,
+        environment: dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot,
+    ): String =
         "[系统提醒] 当前 Linux 环境已切换为「${environment.displayName}」(${environment.type.name})。" +
             "工作目录：${environment.workingDirectory}；Shell：${environment.shell}；" +
             "架构：${environment.architecture}；权限边界：${environment.privilegesAndCapabilities}；" +
             "invoke_tool：${environment.bridgeLocation ?: "不可用"}；旧环境：${previous?.let { "${it.displayName} (${it.type.name})，工作目录：${it.workingDirectory}；Shell：${it.shell}；架构：${it.architecture}；权限边界：${it.privilegesAndCapabilities}；invoke_tool：${it.bridgeLocation ?: "不可用"}" } ?: "未设置"}。"
 
     /** One tool-call row by its call id (used to restore tool name / status on UI reload). */
-    suspend fun getToolCall(callId: String): ToolCallEntity? =
-        db.toolCallDao().getById(callId)
+    suspend fun getToolCall(callId: String): ToolCallEntity? = db.toolCallDao().getById(callId)
 
     /** First configured model id, if any (used to seed a new session when no default is set). */
     suspend fun firstModelId(): String? = db.modelDao().first()?.id
 
-    /** Creates a new session with a placeholder title; returns its id. modelId null = "默认" (follow settings default). */
+    /**
+     * Creates a new session with a placeholder title; returns its id. modelId null = "默认" (follow
+     * settings default).
+     */
     suspend fun createSession(modelId: String?, systemPromptId: String?): String {
         val now = nextStamp()
         val id = UUID.randomUUID().toString()
-        db.sessionDao().upsert(
-            SessionEntity(
-                id = id,
-                title = "新对话",
-                systemPromptId = systemPromptId,
-                linuxEnvironmentId = null,
-                lastEffectiveLinuxEnvironmentId = null,
-                modelId = modelId,
-                createdAt = now,
-                updatedAt = now,
+        db.sessionDao()
+            .upsert(
+                SessionEntity(
+                    id = id,
+                    title = "新对话",
+                    systemPromptId = systemPromptId,
+                    linuxEnvironmentId = null,
+                    lastEffectiveLinuxEnvironmentId = null,
+                    modelId = modelId,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
             )
-        )
         return id
     }
 
@@ -190,14 +207,14 @@ object WeAgentRepository {
      * Removes any trailing invalid assistant turns from [sessionId] before a new turn begins.
      *
      * An assistant row is considered invalid (and therefore unsafe to send to the API) when:
-     *  - it requested tool calls but at least one result is still pending ([resultJson] == null),
-     *    which would produce an unbalanced `tool_use` / `tool_result` pair; or
-     *  - it has no text content *and* no tool calls — i.e. a thinking-only row whose content block
-     *    would be empty, which most APIs reject.
+     * - it requested tool calls but at least one result is still pending ([resultJson] == null),
+     *   which would produce an unbalanced `tool_use` / `tool_result` pair; or
+     * - it has no text content *and* no tool calls — i.e. a thinking-only row whose content block
+     *   would be empty, which most APIs reject.
      *
-     * Each offending row, together with every message that came after it (partial tool-result
-     * TOOL rows) and its own [ToolCallEntity] children, is deleted. The loop repeats until the
-     * tail is clean. Returns true if any rows were removed.
+     * Each offending row, together with every message that came after it (partial tool-result TOOL
+     * rows) and its own [ToolCallEntity] children, is deleted. The loop repeats until the tail is
+     * clean. Returns true if any rows were removed.
      */
     suspend fun sanitizeSessionHistory(sessionId: String): Boolean {
         var removed = false
@@ -212,7 +229,10 @@ object WeAgentRepository {
 
             if (!hasPendingToolCall && !isThinkingOnly) break // tail is valid
 
-            WeLogger.w(TAG, "sanitize: removing incomplete assistant row ${lastMsg.id} (pending=$hasPendingToolCall, thinkingOnly=$isThinkingOnly)")
+            WeLogger.w(
+                TAG,
+                "sanitize: removing incomplete assistant row ${lastMsg.id} (pending=$hasPendingToolCall, thinkingOnly=$isThinkingOnly)",
+            )
             // Delete the offending row and every subsequent message (partial TOOL result rows).
             db.messageDao().deleteFromTimestamp(sessionId, lastMsg.createdAt)
             // Remove the tool_call children that were orphaned by the deletion above.
@@ -234,34 +254,36 @@ object WeAgentRepository {
     }
 
     /**
-     * Creates a branch of [sourceSessionId] containing all messages up to and including the one
-     * at [upToTimestamp]. Session metadata (model, system prompt, Linux environment, favorite) is copied;
-     * token usage and triggers are not. Returns the new session id. The caller is responsible for
-     * switching the foreground to the new session.
+     * Creates a branch of [sourceSessionId] containing all messages up to and including the one at
+     * [upToTimestamp]. Session metadata (model, system prompt, Linux environment, favorite) is
+     * copied; token usage and triggers are not. Returns the new session id. The caller is
+     * responsible for switching the foreground to the new session.
      *
      * Tool call ids are remapped to fresh UUIDs so the copies don't collide with the originals in
      * the [tool_calls] table. TOOL message ids and content are updated to match the new call ids.
      */
     suspend fun branchSession(sourceSessionId: String, upToTimestamp: Instant): String {
-        val source = db.sessionDao().getById(sourceSessionId)
-            ?: error("source session $sourceSessionId not found")
+        val source =
+            db.sessionDao().getById(sourceSessionId)
+                ?: error("source session $sourceSessionId not found")
         val now = nextStamp()
         val newSessionId = UUID.randomUUID().toString()
 
-        db.sessionDao().upsert(
-            SessionEntity(
-                id = newSessionId,
-                title = "[分支] ${source.title}",
-                systemPromptId = source.systemPromptId,
-                linuxEnvironmentId = source.linuxEnvironmentId,
-                lastEffectiveLinuxEnvironmentId = source.lastEffectiveLinuxEnvironmentId,
-                modelId = source.modelId,
-                permissionLevel = source.permissionLevel,
-                favorite = source.favorite,
-                createdAt = now,
-                updatedAt = now,
+        db.sessionDao()
+            .upsert(
+                SessionEntity(
+                    id = newSessionId,
+                    title = "[分支] ${source.title}",
+                    systemPromptId = source.systemPromptId,
+                    linuxEnvironmentId = source.linuxEnvironmentId,
+                    lastEffectiveLinuxEnvironmentId = source.lastEffectiveLinuxEnvironmentId,
+                    modelId = source.modelId,
+                    permissionLevel = source.permissionLevel,
+                    favorite = source.favorite,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
             )
-        )
 
         val messages = db.messageDao().getUpToTimestamp(sourceSessionId, upToTimestamp)
 
@@ -272,9 +294,17 @@ object WeAgentRepository {
             when (m.role) {
                 MessageRole.ASSISTANT -> {
                     val newMsgId = UUID.randomUUID().toString()
-                    db.messageDao().insert(
-                        MessageEntity(newMsgId, newSessionId, m.role, m.content, m.createdAt, m.reasoning)
-                    )
+                    db.messageDao()
+                        .insert(
+                            MessageEntity(
+                                newMsgId,
+                                newSessionId,
+                                m.role,
+                                m.content,
+                                m.createdAt,
+                                m.reasoning,
+                            ),
+                        )
                     // Copy tool_calls with fresh ids so they don't collide with the originals.
                     for (tc in db.toolCallDao().getForMessage(m.id)) {
                         val newCallId = UUID.randomUUID().toString()
@@ -290,22 +320,31 @@ object WeAgentRepository {
                     val newCallId = callIdMap[oldCallId] ?: UUID.randomUUID().toString()
                     val sepIdx = m.content.indexOf(TOOL_PAYLOAD_SEP)
                     val resultText = if (sepIdx >= 0) m.content.substring(sepIdx + 1) else m.content
-                    db.messageDao().insert(
-                        MessageEntity(
-                            id = "tool_$newCallId",
-                            sessionId = newSessionId,
-                            role = m.role,
-                            content = "$newCallId$TOOL_PAYLOAD_SEP$resultText",
-                            createdAt = m.createdAt,
+                    db.messageDao()
+                        .insert(
+                            MessageEntity(
+                                id = "tool_$newCallId",
+                                sessionId = newSessionId,
+                                role = m.role,
+                                content = "$newCallId$TOOL_PAYLOAD_SEP$resultText",
+                                createdAt = m.createdAt,
+                            ),
                         )
-                    )
                 }
 
                 else -> {
                     // USER and SYSTEM rows copied verbatim with a fresh id.
-                    db.messageDao().insert(
-                        MessageEntity(UUID.randomUUID().toString(), newSessionId, m.role, m.content, m.createdAt, m.reasoning)
-                    )
+                    db.messageDao()
+                        .insert(
+                            MessageEntity(
+                                UUID.randomUUID().toString(),
+                                newSessionId,
+                                m.role,
+                                m.content,
+                                m.createdAt,
+                                m.reasoning,
+                            ),
+                        )
                 }
             }
         }
@@ -313,8 +352,12 @@ object WeAgentRepository {
         return newSessionId
     }
 
-    /** Toggles a session's favorite (starred) flag; favorited sessions pin to the top and can't be deleted. */
-    suspend fun setFavorite(id: String, favorite: Boolean) = db.sessionDao().setFavorite(id, favorite)
+    /**
+     * Toggles a session's favorite (starred) flag; favorited sessions pin to the top and can't be
+     * deleted.
+     */
+    suspend fun setFavorite(id: String, favorite: Boolean) =
+        db.sessionDao().setFavorite(id, favorite)
 
     /** Binds (or clears, modelId=null → "默认") the session's model. */
     suspend fun updateSessionModel(id: String, modelId: String?) {
@@ -329,17 +372,18 @@ object WeAgentRepository {
     }
 
     /**
-     * Persists the latest token usage for a session so the usage strip survives session switches and
-     * WeChat restarts. Deliberately does NOT bump `updatedAt` — usage is a side effect of a turn and
-     * shouldn't reorder the session drawer.
+     * Persists the latest token usage for a session so the usage strip survives session switches
+     * and WeChat restarts. Deliberately does NOT bump `updatedAt` — usage is a side effect of a
+     * turn and shouldn't reorder the session drawer.
      */
     suspend fun updateSessionUsage(id: String, usage: dev.ujhhgtg.wekit.agent.model.LlmUsage?) {
-        db.sessionDao().updateUsage(
-            id = id,
-            promptTokens = usage?.promptTokens,
-            completionTokens = usage?.completionTokens,
-            totalTokens = usage?.totalTokens,
-        )
+        db.sessionDao()
+            .updateUsage(
+                id = id,
+                promptTokens = usage?.promptTokens,
+                completionTokens = usage?.completionTokens,
+                totalTokens = usage?.totalTokens,
+            )
     }
 
     /** Persists the resolved context window (tokens) of the model used for a session's turn. */
@@ -355,13 +399,14 @@ object WeAgentRepository {
     suspend fun updateSessionLinuxEnvironment(id: String, environmentId: String?) {
         if (environmentId != null) requireEnvironmentExists(environmentId)
         val session = db.sessionDao().getById(id) ?: return
-        db.sessionDao().upsert(
-            session.copy(
-                linuxEnvironmentId = environmentId,
-                lastEffectiveLinuxEnvironmentId = null,
-                updatedAt = nextStamp(),
+        db.sessionDao()
+            .upsert(
+                session.copy(
+                    linuxEnvironmentId = environmentId,
+                    lastEffectiveLinuxEnvironmentId = null,
+                    updatedAt = nextStamp(),
+                ),
             )
-        )
     }
 
     // --- write paths used by the engine's HistorySink ---
@@ -369,19 +414,20 @@ object WeAgentRepository {
     /**
      * sessionId -> (provider wire call id -> row ids awaiting a result, in call order).
      *
-     * Tool-call **rows** are keyed by a locally-minted UUID, never by the id the model sent: several
-     * provider adapters synthesise ids that repeat across rounds (`call_<toolName>` when the server
-     * omits ids, `call_<index>` restarting at `call_0` every round), so persisting under the wire id
-     * made round 2 upsert over round 1's row and its `tool_<callId>` TOOL message REPLACE round 1's
-     * — silently truncating the transcript on reload.
+     * Tool-call **rows** are keyed by a locally-minted UUID, never by the id the model sent:
+     * several provider adapters synthesise ids that repeat across rounds (`call_<toolName>` when
+     * the server omits ids, `call_<index>` restarting at `call_0` every round), so persisting under
+     * the wire id made round 2 upsert over round 1's row and its `tool_<callId>` TOOL message
+     * REPLACE round 1's — silently truncating the transcript on reload.
      *
      * [appendAssistantMessage] mints the row id and registers it here; [appendToolResult] pops it
      * back out to find the row to complete. The wire id stays purely in-memory (in [LlmToolCall]),
-     * which is all it is needed for — matching results to calls inside one turn. A deque per wire id
-     * keeps the pairing right even when one round issues the same colliding id twice; the engine
+     * which is all it is needed for — matching results to calls inside one turn. A deque per wire
+     * id keeps the pairing right even when one round issues the same colliding id twice; the engine
      * executes calls in order, so FIFO matches.
      */
-    private val pendingToolCallRowIds = ConcurrentHashMap<String, MutableMap<String, ArrayDeque<String>>>()
+    private val pendingToolCallRowIds =
+        ConcurrentHashMap<String, MutableMap<String, ArrayDeque<String>>>()
 
     private fun registerToolCallRowId(sessionId: String, wireCallId: String, rowId: String) {
         val perSession = pendingToolCallRowIds.computeIfAbsent(sessionId) { HashMap() }
@@ -413,17 +459,18 @@ object WeAgentRepository {
         toolCalls: List<LlmToolCall>,
     ): String {
         val msgId = UUID.randomUUID().toString()
-        db.messageDao().insert(
-            MessageEntity(
-                id = msgId,
-                sessionId = sessionId,
-                role = MessageRole.ASSISTANT,
-                content = content.orEmpty(),
-                createdAt = nextStamp(),
-                reasoning = reasoning?.takeIf { it.isNotBlank() },
-                reasoningSignature = reasoningSignature?.takeIf { it.isNotBlank() },
+        db.messageDao()
+            .insert(
+                MessageEntity(
+                    id = msgId,
+                    sessionId = sessionId,
+                    role = MessageRole.ASSISTANT,
+                    content = content.orEmpty(),
+                    createdAt = nextStamp(),
+                    reasoning = reasoning?.takeIf { it.isNotBlank() },
+                    reasoningSignature = reasoningSignature?.takeIf { it.isNotBlank() },
+                ),
             )
-        )
         // Any tool call left unresolved from a previous round never will be — the engine resolves
         // every call of round N before round N+1's assistant message arrives. Drop them so the map
         // can't grow across a long session.
@@ -432,20 +479,22 @@ object WeAgentRepository {
         toolCalls.forEach { tc ->
             val rowId = UUID.randomUUID().toString()
             registerToolCallRowId(sessionId, tc.id, rowId)
-            db.toolCallDao().upsert(
-                ToolCallEntity(
-                    id = rowId,
-                    messageId = msgId,
-                    provider = "",
-                    toolName = tc.name,
-                    argumentsJson = tc.argumentsJson,
-                    resultJson = null,
-                    approvalStatus = dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus.AUTO_ALLOWED,
-                    approvalReason = null,
-                    executedAt = null,
-                    providerSignature = tc.providerSignature?.takeIf { it.isNotBlank() },
+            db.toolCallDao()
+                .upsert(
+                    ToolCallEntity(
+                        id = rowId,
+                        messageId = msgId,
+                        provider = "",
+                        toolName = tc.name,
+                        argumentsJson = tc.argumentsJson,
+                        resultJson = null,
+                        approvalStatus =
+                            dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus.AUTO_ALLOWED,
+                        approvalReason = null,
+                        executedAt = null,
+                        providerSignature = tc.providerSignature?.takeIf { it.isNotBlank() },
+                    ),
                 )
-            )
         }
         touchSession(sessionId)
         return msgId
@@ -460,46 +509,52 @@ object WeAgentRepository {
         resultText: String,
         status: dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus,
     ) {
-        val rowId = takeToolCallRowId(sessionId, callId)
-            ?: recoverToolCallRowId(sessionId, callId, toolName)
-            ?: UUID.randomUUID().toString()
+        val rowId =
+            takeToolCallRowId(sessionId, callId)
+                ?: recoverToolCallRowId(sessionId, callId, toolName)
+                ?: UUID.randomUUID().toString()
 
         // Update the row created by appendAssistantMessage in place, preserving its messageId link.
         // A rebuilt entity would reset every column not passed here to its default — that is how
-        // providerSignature (the Gemini 3 thoughtSignature whose absence 400s the next request) used
+        // providerSignature (the Gemini 3 thoughtSignature whose absence 400s the next request)
+        // used
         // to be wiped moments after being stored.
         val existing = db.toolCallDao().getById(rowId)
-        db.toolCallDao().upsert(
-            existing?.copy(
-                provider = providerId,
-                resultJson = resultText,
-                approvalStatus = status,
-                executedAt = nextStamp(),
-            ) ?: ToolCallEntity(
-                id = rowId,
-                messageId = rowId,
-                provider = providerId,
-                toolName = toolName,
-                argumentsJson = argumentsJson,
-                resultJson = resultText,
-                approvalStatus = status,
-                // Nothing carries the rejection reason into this method (AgentSessionEngine
-                // .HistorySink.onToolResult has no such parameter), so the column stays null and the
-                // reason survives only inside resultJson.
-                approvalReason = null,
-                executedAt = nextStamp(),
+        db.toolCallDao()
+            .upsert(
+                existing?.copy(
+                    provider = providerId,
+                    resultJson = resultText,
+                    approvalStatus = status,
+                    executedAt = nextStamp(),
+                )
+                    ?: ToolCallEntity(
+                        id = rowId,
+                        messageId = rowId,
+                        provider = providerId,
+                        toolName = toolName,
+                        argumentsJson = argumentsJson,
+                        resultJson = resultText,
+                        approvalStatus = status,
+                        // Nothing carries the rejection reason into this method (AgentSessionEngine
+                        // .HistorySink.onToolResult has no such parameter), so the column stays
+                        // null and the
+                        // reason survives only inside resultJson.
+                        approvalReason = null,
+                        executedAt = nextStamp(),
+                    ),
             )
-        )
         // … and record a TOOL message so history reconstruction can emit the tool result in order.
-        db.messageDao().insert(
-            MessageEntity(
-                id = "tool_$rowId",
-                sessionId = sessionId,
-                role = MessageRole.TOOL,
-                content = "$rowId$TOOL_PAYLOAD_SEP$resultText", // row id + payload
-                createdAt = nextStamp(),
+        db.messageDao()
+            .insert(
+                MessageEntity(
+                    id = "tool_$rowId",
+                    sessionId = sessionId,
+                    role = MessageRole.TOOL,
+                    content = "$rowId$TOOL_PAYLOAD_SEP$resultText", // row id + payload
+                    createdAt = nextStamp(),
+                ),
             )
-        )
         touchSession(sessionId)
     }
 
@@ -513,9 +568,11 @@ object WeAgentRepository {
         callId: String,
         toolName: String,
     ): String? {
-        val lastAssistant = db.messageDao().getForSession(sessionId)
-            .lastOrNull { it.role == MessageRole.ASSISTANT } ?: return null
-        return db.toolCallDao().getForMessage(lastAssistant.id)
+        val lastAssistant =
+            db.messageDao().getForSession(sessionId).lastOrNull { it.role == MessageRole.ASSISTANT }
+                ?: return null
+        return db.toolCallDao()
+            .getForMessage(lastAssistant.id)
             .firstOrNull { it.resultJson == null && it.toolName == toolName }
             ?.id
     }
@@ -528,7 +585,8 @@ object WeAgentRepository {
     /**
      * Reconstructs the provider-neutral [LlmMessage] history for a session (excluding the system
      * message, which the engine composes per turn). Assistant tool calls are re-attached from the
-     * tool_calls table; TOOL rows are decoded from their `<rowId>${TOOL_PAYLOAD_SEP}<payload>` content.
+     * tool_calls table; TOOL rows are decoded from their `<rowId>${TOOL_PAYLOAD_SEP}<payload>`
+     * content.
      */
     suspend fun loadHistory(sessionId: String): List<LlmMessage> {
         val rows = db.messageDao().getForSession(sessionId)
@@ -538,21 +596,29 @@ object WeAgentRepository {
                 MessageRole.USER -> out += LlmMessage(role = LlmRole.USER, content = m.content)
                 MessageRole.SYSTEM -> out += LlmMessage(role = LlmRole.USER, content = m.content)
                 MessageRole.ASSISTANT -> {
-                    val calls = db.toolCallDao().getForMessage(m.id).map {
-                        LlmToolCall(it.id, it.toolName, it.argumentsJson, providerSignature = it.providerSignature)
-                    }
-                    out += LlmMessage(
-                        role = LlmRole.ASSISTANT,
-                        content = m.content.ifEmpty { null },
-                        reasoning = m.reasoning,
-                        reasoningSignature = m.reasoningSignature,
-                        toolCalls = calls,
-                    )
+                    val calls =
+                        db.toolCallDao().getForMessage(m.id).map {
+                            LlmToolCall(
+                                it.id,
+                                it.toolName,
+                                it.argumentsJson,
+                                providerSignature = it.providerSignature,
+                            )
+                        }
+                    out +=
+                        LlmMessage(
+                            role = LlmRole.ASSISTANT,
+                            content = m.content.ifEmpty { null },
+                            reasoning = m.reasoning,
+                            reasoningSignature = m.reasoningSignature,
+                            toolCalls = calls,
+                        )
                 }
 
                 MessageRole.TOOL -> {
                     val idx = m.content.indexOf(TOOL_PAYLOAD_SEP)
-                    val callId = if (idx >= 0) m.content.substring(0, idx) else m.id.removePrefix("tool_")
+                    val callId =
+                        if (idx >= 0) m.content.substring(0, idx) else m.id.removePrefix("tool_")
                     val payload = if (idx >= 0) m.content.substring(idx + 1) else m.content
                     out += LlmMessage(role = LlmRole.TOOL, content = payload, toolCallId = callId)
                 }
@@ -566,20 +632,28 @@ object WeAgentRepository {
     suspend fun getModel(modelId: String): ModelEntity? = db.modelDao().getById(modelId)
 
     /** The bound system prompt's content for a session, or null. */
-    suspend fun getSystemPromptContent(systemPromptId: String?): String? =
-        systemPromptId?.let { db.systemPromptDao().getById(it)?.content }
+    suspend fun getSystemPromptContent(systemPromptId: String?): String? = systemPromptId?.let {
+        db.systemPromptDao().getById(it)?.content
+    }
 
     /** All currently-enabled per-turn prompt contents (global switches). */
-    suspend fun getEnabledPerTurnPrompts(): List<PerTurnPromptEntity> = db.perTurnPromptDao().getEnabled()
+    suspend fun getEnabledPerTurnPrompts(): List<PerTurnPromptEntity> =
+        db.perTurnPromptDao().getEnabled()
 
     /** All currently-enabled conditional prompts (global switches). */
     suspend fun getEnabledConditionalPrompts(): List<ConditionalPromptEntity> =
         db.conditionalPromptDao().getEnabled()
 
     fun observeSystemPrompts(): Flow<List<SystemPromptEntity>> = db.systemPromptDao().observeAll()
-    fun observePerTurnPrompts(): Flow<List<PerTurnPromptEntity>> = db.perTurnPromptDao().observeAll()
-    fun observeConditionalPrompts(): Flow<List<ConditionalPromptEntity>> = db.conditionalPromptDao().observeAll()
+
+    fun observePerTurnPrompts(): Flow<List<PerTurnPromptEntity>> =
+        db.perTurnPromptDao().observeAll()
+
+    fun observeConditionalPrompts(): Flow<List<ConditionalPromptEntity>> =
+        db.conditionalPromptDao().observeAll()
+
     fun observePresetPrompts(): Flow<List<PresetPromptEntity>> = db.presetPromptDao().observeAll()
+
     fun observeLinuxEnvironments(): Flow<List<LinuxEnvironmentEntity>> =
         db.linuxEnvironmentDao().observeAll()
 
@@ -592,24 +666,30 @@ object WeAgentRepository {
     suspend fun getAllLinuxEnvironments(): List<LinuxEnvironmentEntity> =
         db.linuxEnvironmentDao().getAllOnce()
 
-    fun observeDefaultLinuxEnvironmentId(): Flow<String> = combine(
-        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
-        db.linuxEnvironmentDao().observeAll(),
-    ) { configured, environments ->
-        resolveEffectiveLinuxEnvironmentId(null, configured, environments.mapTo(HashSet()) { it.id })
-    }
+    fun observeDefaultLinuxEnvironmentId(): Flow<String> =
+        combine(
+            db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+            db.linuxEnvironmentDao().observeAll(),
+        ) { configured, environments ->
+            resolveEffectiveLinuxEnvironmentId(
+                null,
+                configured,
+                environments.mapTo(HashSet()) { it.id },
+            )
+        }
 
-    fun observeSessionEffectiveLinuxEnvironmentId(sessionId: String): Flow<String> = combine(
-        db.sessionDao().observeLinuxEnvironmentId(sessionId),
-        db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
-        db.linuxEnvironmentDao().observeAll(),
-    ) { sessionEnvironmentId, defaultEnvironmentId, environments ->
-        resolveEffectiveLinuxEnvironmentId(
-            sessionEnvironmentId,
-            defaultEnvironmentId,
-            environments.mapTo(HashSet()) { it.id },
-        )
-    }
+    fun observeSessionEffectiveLinuxEnvironmentId(sessionId: String): Flow<String> =
+        combine(
+            db.sessionDao().observeLinuxEnvironmentId(sessionId),
+            db.settingDao().observeValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+            db.linuxEnvironmentDao().observeAll(),
+        ) { sessionEnvironmentId, defaultEnvironmentId, environments ->
+            resolveEffectiveLinuxEnvironmentId(
+                sessionEnvironmentId,
+                defaultEnvironmentId,
+                environments.mapTo(HashSet()) { it.id },
+            )
+        }
 
     suspend fun getEffectiveLinuxEnvironmentId(sessionId: String): String {
         val sessionIdValue = db.sessionDao().getById(sessionId)?.linuxEnvironmentId
@@ -676,39 +756,42 @@ object WeAgentRepository {
     /**
      * Bulk-imports [remoteIds] as models under [providerId] in one transaction. An id already
      * present for this provider keeps its local row id but is reset to a freshly-imported state
-     * (displayName = remote id, no reasoning gear, no custom override/context/max-token values,
-     * no vision); new ids get fresh UUIDs. Returns separate added/overwritten counts.
+     * (displayName = remote id, no reasoning gear, no custom override/context/max-token values, no
+     * vision); new ids get fresh UUIDs. Returns separate added/overwritten counts.
      */
     suspend fun importModels(providerId: String, remoteIds: List<String>): ModelImportResult {
         var added = 0
         var overwritten = 0
         db.withTransaction {
-            val existing = db.modelDao().getForProviderOnce(providerId).associateBy { it.modelIdRemote }
+            val existing =
+                db.modelDao().getForProviderOnce(providerId).associateBy { it.modelIdRemote }
             for (remoteId in remoteIds) {
                 val cur = existing[remoteId]
                 if (cur == null) {
-                    db.modelDao().upsert(
-                        ModelEntity(
-                            id = UUID.randomUUID().toString(),
-                            providerId = providerId,
-                            modelIdRemote = remoteId,
-                            reasoningEffort = null,
-                            customJsonOverride = null,
-                            displayName = remoteId,
+                    db.modelDao()
+                        .upsert(
+                            ModelEntity(
+                                id = UUID.randomUUID().toString(),
+                                providerId = providerId,
+                                modelIdRemote = remoteId,
+                                reasoningEffort = null,
+                                customJsonOverride = null,
+                                displayName = remoteId,
+                            ),
                         )
-                    )
                     added++
                 } else {
-                    db.modelDao().upsert(
-                        cur.copy(
-                            displayName = remoteId,
-                            reasoningEffort = null,
-                            customJsonOverride = null,
-                            contextWindow = null,
-                            maxTokens = null,
-                            supportsVision = false,
+                    db.modelDao()
+                        .upsert(
+                            cur.copy(
+                                displayName = remoteId,
+                                reasoningEffort = null,
+                                customJsonOverride = null,
+                                contextWindow = null,
+                                maxTokens = null,
+                                supportsVision = false,
+                            ),
                         )
-                    )
                     overwritten++
                 }
             }
@@ -720,9 +803,9 @@ object WeAgentRepository {
         db.modelDao().observeForProvider(providerId)
 
     /**
-     * Best-effort live-UI refresh after model rows were deleted (models or a whole provider).
-     * Only the Compose selection state is cleared — the DB is already committed at this point, so
-     * a failure here must not roll anything back.
+     * Best-effort live-UI refresh after model rows were deleted (models or a whole provider). Only
+     * the Compose selection state is cleared — the DB is already committed at this point, so a
+     * failure here must not roll anything back.
      */
     private fun notifyModelsDeleted(modelIds: Set<String>) {
         if (modelIds.isEmpty()) return
@@ -757,17 +840,25 @@ object WeAgentRepository {
             db.systemPromptDao().deleteById(id)
         }
         settingKeys.forEach { WeAgentSettings.clearCached(it) }
-        runCatching { dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onSystemPromptDeleted(id) }
+        runCatching {
+            dev.ujhhgtg.wekit.features.api.agent.WeAgentService.onSystemPromptDeleted(id)
+        }
     }
-    suspend fun getAllSystemPromptsOnce(): List<SystemPromptEntity> = db.systemPromptDao().getAllOnce()
+
+    suspend fun getAllSystemPromptsOnce(): List<SystemPromptEntity> =
+        db.systemPromptDao().getAllOnce()
 
     suspend fun upsertPerTurnPrompt(p: PerTurnPromptEntity) = db.perTurnPromptDao().upsert(p)
+
     suspend fun deletePerTurnPrompt(id: String) = db.perTurnPromptDao().deleteById(id)
 
-    suspend fun upsertConditionalPrompt(p: ConditionalPromptEntity) = db.conditionalPromptDao().upsert(p)
+    suspend fun upsertConditionalPrompt(p: ConditionalPromptEntity) =
+        db.conditionalPromptDao().upsert(p)
+
     suspend fun deleteConditionalPrompt(id: String) = db.conditionalPromptDao().deleteById(id)
 
     suspend fun upsertPresetPrompt(p: PresetPromptEntity) = db.presetPromptDao().upsert(p)
+
     suspend fun deletePresetPrompt(id: String) = db.presetPromptDao().deleteById(id)
 
     suspend fun upsertLinuxEnvironment(environment: LinuxEnvironmentEntity) {
@@ -789,40 +880,56 @@ object WeAgentRepository {
         var deleted = false
         db.withTransaction {
             val existing = db.linuxEnvironmentDao().getById(id) ?: return@withTransaction
-            check(existing.id == deletedEnvironment.id) { "deleted environment snapshot does not match the stored row" }
+            check(existing.id == deletedEnvironment.id) {
+                "deleted environment snapshot does not match the stored row"
+            }
             val stored = db.linuxEnvironmentDao().getAllOnce()
             val sessions = db.sessionDao().getAllOnce()
-            val deletionPlan = planLinuxEnvironmentDeletion(
-                deletedEnvironment = deletedEnvironment,
-                nativeEnvironment = nativeEnvironment,
-                defaultEnvironmentId = db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
-                sessions = sessions.map {
-                    LinuxEnvironmentSessionState(it.id, it.linuxEnvironmentId, it.lastEffectiveLinuxEnvironmentId)
-                },
-                storedEnvironmentIds = stored.mapTo(HashSet()) { it.id },
-                storedEnvironmentSnapshots = stored.associate { it.id to it.toSnapshot() },
-            )
-            db.settingDao().upsert(
-                dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
-                    WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
-                    deletionPlan.defaultEnvironmentId,
+            val deletionPlan =
+                planLinuxEnvironmentDeletion(
+                    deletedEnvironment = deletedEnvironment,
+                    nativeEnvironment = nativeEnvironment,
+                    defaultEnvironmentId =
+                        db.settingDao().getValue(WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID),
+                    sessions =
+                        sessions.map {
+                            LinuxEnvironmentSessionState(
+                                it.id,
+                                it.linuxEnvironmentId,
+                                it.lastEffectiveLinuxEnvironmentId,
+                            )
+                        },
+                    storedEnvironmentIds = stored.mapTo(HashSet()) { it.id },
+                    storedEnvironmentSnapshots = stored.associate { it.id to it.toSnapshot() },
                 )
-            )
+            db.settingDao()
+                .upsert(
+                    dev.ujhhgtg.wekit.agent.data.entity.SettingEntity(
+                        WeAgentSettings.KEY_DEFAULT_LINUX_ENVIRONMENT_ID,
+                        deletionPlan.defaultEnvironmentId,
+                    ),
+                )
             deletionPlan.transitions.forEach { transition ->
-                db.sessionDao().transitionLinuxEnvironment(
-                    transition.sessionId,
-                    transition.environmentId,
-                    transition.environment.id,
-                )
-                db.messageDao().insert(
-                    MessageEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = transition.sessionId,
-                        role = MessageRole.SYSTEM,
-                        content = environmentReminder(transition.previousEnvironment, transition.environment),
-                        createdAt = nextStamp(),
+                db.sessionDao()
+                    .transitionLinuxEnvironment(
+                        transition.sessionId,
+                        transition.environmentId,
+                        transition.environment.id,
                     )
-                )
+                db.messageDao()
+                    .insert(
+                        MessageEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = transition.sessionId,
+                            role = MessageRole.SYSTEM,
+                            content =
+                                environmentReminder(
+                                    transition.previousEnvironment,
+                                    transition.environment,
+                                ),
+                            createdAt = nextStamp(),
+                        ),
+                    )
             }
             deleted = db.linuxEnvironmentDao().deleteById(id) != 0
         }
@@ -836,13 +943,16 @@ object WeAgentRepository {
         sessionEnvironmentId: String?,
         defaultEnvironmentId: String?,
         storedEnvironmentIds: Set<String>,
-    ): String = when {
-        sessionEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
-        sessionEnvironmentId != null && sessionEnvironmentId in storedEnvironmentIds -> sessionEnvironmentId
-        defaultEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
-        defaultEnvironmentId != null && defaultEnvironmentId in storedEnvironmentIds -> defaultEnvironmentId
-        else -> NATIVE_ENVIRONMENT_ID
-    }
+    ): String =
+        when {
+            sessionEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+            sessionEnvironmentId != null && sessionEnvironmentId in storedEnvironmentIds ->
+                sessionEnvironmentId
+            defaultEnvironmentId == NATIVE_ENVIRONMENT_ID -> NATIVE_ENVIRONMENT_ID
+            defaultEnvironmentId != null && defaultEnvironmentId in storedEnvironmentIds ->
+                defaultEnvironmentId
+            else -> NATIVE_ENVIRONMENT_ID
+        }
 
     fun planLinuxEnvironmentDeletion(
         deletedEnvironment: EnvironmentSnapshot,
@@ -853,21 +963,29 @@ object WeAgentRepository {
         storedEnvironmentSnapshots: Map<String, EnvironmentSnapshot> = emptyMap(),
     ): LinuxEnvironmentDeletionPlan {
         val remainingIds = storedEnvironmentIds - deletedEnvironment.id
-        val replacementDefaultId = resolveEffectiveLinuxEnvironmentId(null, defaultEnvironmentId, remainingIds)
+        val replacementDefaultId =
+            resolveEffectiveLinuxEnvironmentId(null, defaultEnvironmentId, remainingIds)
         val snapshots = storedEnvironmentSnapshots + (NATIVE_ENVIRONMENT_ID to nativeEnvironment)
         val transitions = sessions.mapNotNull { session ->
-            if (session.environmentId != deletedEnvironment.id &&
-                session.lastEffectiveEnvironmentId != deletedEnvironment.id &&
-                !(session.environmentId == null && defaultEnvironmentId == deletedEnvironment.id)
-            ) return@mapNotNull null
+            if (
+                session.environmentId != deletedEnvironment.id &&
+                    session.lastEffectiveEnvironmentId != deletedEnvironment.id &&
+                    !(session.environmentId == null &&
+                        defaultEnvironmentId == deletedEnvironment.id)
+            )
+                return@mapNotNull null
 
             val bindingId = session.environmentId?.takeUnless { it == deletedEnvironment.id }
-            val effectiveId = resolveEffectiveLinuxEnvironmentId(bindingId, replacementDefaultId, remainingIds)
+            val effectiveId =
+                resolveEffectiveLinuxEnvironmentId(bindingId, replacementDefaultId, remainingIds)
             LinuxEnvironmentSessionTransition(
                 sessionId = session.sessionId,
                 environmentId = bindingId,
                 previousEnvironment = deletedEnvironment,
-                environment = requireNotNull(snapshots[effectiveId]) { "replacement environment $effectiveId has no snapshot" },
+                environment =
+                    requireNotNull(snapshots[effectiveId]) {
+                        "replacement environment $effectiveId has no snapshot"
+                    },
             )
         }
         return LinuxEnvironmentDeletionPlan(replacementDefaultId, transitions)
@@ -877,7 +995,9 @@ object WeAgentRepository {
         existing: LinuxEnvironmentEntity?,
         incoming: LinuxEnvironmentEntity,
     ) {
-        require(existing == null || existing.type == incoming.type) { "environment type is immutable" }
+        require(existing == null || existing.type == incoming.type) {
+            "environment type is immutable"
+        }
     }
 
     private suspend fun requireEnvironmentExists(id: String) {
@@ -892,18 +1012,31 @@ object WeAgentRepository {
         dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentManager.parseEnvironmentVariables(
             environment.environmentVariablesJson,
         )
-        require(environment.type != LinuxEnvironmentType.NATIVE) { "native environment is built in" }
-        val hasPlainCredentials = environment.sshPassword != null || environment.sshPrivateKey != null
-        val hasEncryptedCredentials = environment.sshCredentialCiphertext != null || environment.sshCredentialIv != null
-        require(hasPlainCredentials || (!hasEncryptedCredentials || environment.sshCredentialCiphertext != null && environment.sshCredentialIv != null)) {
+        require(environment.type != LinuxEnvironmentType.NATIVE) {
+            "native environment is built in"
+        }
+        val hasPlainCredentials =
+            environment.sshPassword != null || environment.sshPrivateKey != null
+        val hasEncryptedCredentials =
+            environment.sshCredentialCiphertext != null || environment.sshCredentialIv != null
+        require(
+            hasPlainCredentials ||
+                (!hasEncryptedCredentials ||
+                    environment.sshCredentialCiphertext != null &&
+                        environment.sshCredentialIv != null),
+        ) {
             "SSH credentials are incomplete"
         }
         when (environment.type) {
             LinuxEnvironmentType.SSH -> {
                 require(!environment.sshHost.isNullOrBlank()) { "SSH host is required" }
-                require(environment.sshPort != null && environment.sshPort in 1..65535) { "SSH port is invalid" }
+                require(environment.sshPort != null && environment.sshPort in 1..65535) {
+                    "SSH port is invalid"
+                }
                 require(!environment.sshUsername.isNullOrBlank()) { "SSH username is required" }
-                require(!environment.sshAuthenticationType.isNullOrBlank()) { "SSH authentication type is required" }
+                require(!environment.sshAuthenticationType.isNullOrBlank()) {
+                    "SSH authentication type is required"
+                }
             }
             LinuxEnvironmentType.NATIVE -> error("native environment is built in")
         }
@@ -925,7 +1058,9 @@ object WeAgentRepository {
     suspend fun getTrigger(id: String): dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity? =
         db.triggerDao().getById(id)
 
-    suspend fun getTriggersForSession(sessionId: String): List<dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity> =
+    suspend fun getTriggersForSession(
+        sessionId: String,
+    ): List<dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity> =
         db.triggerDao().getForSession(sessionId)
 
     suspend fun upsertTrigger(trigger: dev.ujhhgtg.wekit.agent.data.entity.TriggerEntity) =

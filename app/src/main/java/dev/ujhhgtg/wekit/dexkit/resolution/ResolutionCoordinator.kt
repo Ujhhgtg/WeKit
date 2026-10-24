@@ -29,25 +29,31 @@ class ResolutionCoordinator<K : Any>(
         val thread = Thread.currentThread()
         val state = lock.withLock {
             checkActive()
-            states.getOrPut(key) { State().apply { finished = canReuse() } }.also { state ->
-                while (state.executor != null) {
-                    check(state.executor !== thread) { "Circular Dex resolver dependency: ${describe(key)}" }
-                    waiting[thread] = key
-                    try {
-                        checkNoWaitCycle(thread, key)
-                        // Native queries are synchronous. Periodic cancellation checks let waiters
-                        // leave even while the executing query has not returned to signal them yet.
-                        changed.await(100, TimeUnit.MILLISECONDS)
-                        checkActive()
-                    } finally {
-                        waiting.remove(thread)
+            states
+                .getOrPut(key) { State().apply { finished = canReuse() } }
+                .also { state ->
+                    while (state.executor != null) {
+                        check(state.executor !== thread) {
+                            "Circular Dex resolver dependency: ${describe(key)}"
+                        }
+                        waiting[thread] = key
+                        try {
+                            checkNoWaitCycle(thread, key)
+                            // Native queries are synchronous. Periodic cancellation checks let
+                            // waiters
+                            // leave even while the executing query has not returned to signal them
+                            // yet.
+                            changed.await(100, TimeUnit.MILLISECONDS)
+                            checkActive()
+                        } finally {
+                            waiting.remove(thread)
+                        }
                     }
+                    state.failure?.let { throw it }
+                    if (state.finished) return
+                    checkActive()
+                    state.executor = thread
                 }
-                state.failure?.let { throw it }
-                if (state.finished) return
-                checkActive()
-                state.executor = thread
-            }
         }
         var failure: Throwable? = null
         try {

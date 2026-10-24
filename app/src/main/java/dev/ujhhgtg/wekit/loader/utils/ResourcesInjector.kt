@@ -14,8 +14,8 @@ import dev.ujhhgtg.wekit.extensions.PackFs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asHidden
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.lang.reflect.Array as ReflectArray
+import java.util.concurrent.ConcurrentHashMap
 
 class InjectionHandle(
     val sha256: String,
@@ -40,19 +40,26 @@ object ResourcesInjector {
         resources ?: return
         if (hasModuleRes(resources)) return
         injectApk(resources, payloadApk, payloadSha256)
-        check(hasModuleRes(resources)) { "business resource sentinel is missing after FD injection" }
+        check(hasModuleRes(resources)) {
+            "business resource sentinel is missing after FD injection"
+        }
         WeLogger.d(TAG, "injected business resources from sealed APK $payloadSha256")
     }
 
-    private fun hasModuleRes(resources: Resources): Boolean = try {
-        resources.getValue(R.string.res_inject_success, TypedValue(), true)
-        true
-    } catch (_: Resources.NotFoundException) {
-        false
-    }
+    private fun hasModuleRes(resources: Resources): Boolean =
+        try {
+            resources.getValue(R.string.res_inject_success, TypedValue(), true)
+            true
+        } catch (_: Resources.NotFoundException) {
+            false
+        }
 
     /** Ordinary extension APKs keep their file input; business always uses the FD overload. */
-    fun injectApk(resources: Resources, apk: File, expectedSha256: String? = null): InjectionHandle {
+    fun injectApk(
+        resources: Resources,
+        apk: File,
+        expectedSha256: String? = null,
+    ): InjectionHandle {
         val canonical = apk.canonicalFile
         require(canonical.isFile && canonical.canRead()) { "APK is not readable: $canonical" }
         val sha256 = expectedSha256 ?: PackFs.sha256(canonical)
@@ -61,10 +68,16 @@ object ResourcesInjector {
         }
     }
 
-    fun injectApk(resources: Resources, apk: ParcelFileDescriptor, sha256: String): InjectionHandle {
-        val handle = handles[sha256] ?: synchronized(handles) {
-            handles[sha256] ?: createHandle(apk, sha256).also { handles[sha256] = it }
-        }
+    fun injectApk(
+        resources: Resources,
+        apk: ParcelFileDescriptor,
+        sha256: String,
+    ): InjectionHandle {
+        val handle =
+            handles[sha256]
+                ?: synchronized(handles) {
+                    handles[sha256] ?: createHandle(apk, sha256).also { handles[sha256] = it }
+                }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             attachLoader(resources, handle.keepAlive as ResourcesLoader)
         } else {
@@ -74,10 +87,14 @@ object ResourcesInjector {
                 val array = ReflectArray.newInstance(handle.keepAlive.javaClass, current.size + 1)
                 System.arraycopy(current, 0, array, 0, current.size)
                 ReflectArray.set(array, current.size, handle.keepAlive)
-                AssetManager::class.java.reflekt().firstMethod {
-                    name = "setApkAssets"
-                    parameterCount = 2
-                }.invoke(assets, array, true)
+                AssetManager::class
+                    .java
+                    .reflekt()
+                    .firstMethod {
+                        name = "setApkAssets"
+                        parameterCount = 2
+                    }
+                    .invoke(assets, array, true)
             }
         }
         return handle
@@ -86,10 +103,14 @@ object ResourcesInjector {
     private fun createHandle(apk: ParcelFileDescriptor, sha256: String): InjectionHandle {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return createLoaderHandle(apk, sha256)
         val apkAssetsClass = Class.forName("android.content.res.ApkAssets")
-        val assets = apkAssetsClass.reflekt().firstMethod {
-            name = "loadFromFd"
-            parameterCount = 4
-        }.invoke(apk.fileDescriptor, "wekit:$sha256", false, false)!!
+        val assets =
+            apkAssetsClass
+                .reflekt()
+                .firstMethod {
+                    name = "loadFromFd"
+                    parameterCount = 4
+                }
+                .invoke(apk.fileDescriptor, "wekit:$sha256", false, false)!!
         return InjectionHandle(sha256, 0, assets)
     }
 
@@ -109,10 +130,14 @@ object ResourcesInjector {
             val assets = resources.assets
             val current = assets.asHidden().loaders
             if (loader !in current) {
-                AssetManager::class.java.reflekt().firstMethod {
-                    name = "setLoaders"
-                    parameterCount = 1
-                }.invoke(assets, current + loader)
+                AssetManager::class
+                    .java
+                    .reflekt()
+                    .firstMethod {
+                        name = "setLoaders"
+                        parameterCount = 1
+                    }
+                    .invoke(assets, current + loader)
             }
         }
     }

@@ -23,11 +23,12 @@ enum class AppThemeMode(val displayName: String) {
 
     /** Reads [isSystemInDarkTheme] for [SYSTEM]; must be called in a composable. */
     @Composable
-    fun resolve(): Boolean = when (this) {
-        SYSTEM -> isSystemInDarkTheme()
-        LIGHT -> false
-        DARK -> true
-    }
+    fun resolve(): Boolean =
+        when (this) {
+            SYSTEM -> isSystemInDarkTheme()
+            LIGHT -> false
+            DARK -> true
+        }
 
     companion object {
         fun fromName(value: String?) = entries.find { it.name == value } ?: SYSTEM
@@ -89,32 +90,42 @@ enum class AppColorSpec(
  *
  * Two consumers:
  * - the module's own UI ([ModuleTheme]) re-themes live from every value here;
- * - the UI injected into WeChat ([InjectedUiTheme]) only
- *   consult [dynamicWallpaper]/[seedColor]/[paletteStyle]/[colorSpec], and NOT live —
- *   it reads the persisted values once per WeChat launch.
+ * - the UI injected into WeChat ([InjectedUiTheme]) only consult
+ *   [dynamicWallpaper]/[seedColor]/[paletteStyle]/[colorSpec], and NOT live — it reads the
+ *   persisted values once per WeChat launch.
  */
 object ThemeSettings {
 
-    var themeMode by mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
+    var themeMode by
+        mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
         private set
-    var pageTransitionAnimation by mutableStateOf(
-        PageTransitionAnimation.fromName(
-            KvStore.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
+
+    var pageTransitionAnimation by
+        mutableStateOf(
+            PageTransitionAnimation.fromName(
+                KvStore.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION),
+            ),
         )
-    )
         private set
+
     /** Seed the accent from the platform wallpaper accent (SDK >= 31) instead of [seedColor]. */
-    var dynamicWallpaper by mutableStateOf(KvStore.getBoolOrFalse(Preferences.THEME_DYNAMIC_WALLPAPER))
+    var dynamicWallpaper by
+        mutableStateOf(KvStore.getBoolOrFalse(Preferences.THEME_DYNAMIC_WALLPAPER))
         private set
-    var paletteStyle by mutableStateOf(
-        AppPaletteStyle.fromName(KvStore.getString(Preferences.THEME_PALETTE_STYLE))
-    )
+
+    var paletteStyle by
+        mutableStateOf(
+            AppPaletteStyle.fromName(KvStore.getString(Preferences.THEME_PALETTE_STYLE)),
+        )
         private set
-    var colorSpec by mutableStateOf(AppColorSpec.fromName(KvStore.getString(Preferences.THEME_COLOR_SPEC)))
+
+    var colorSpec by
+        mutableStateOf(AppColorSpec.fromName(KvStore.getString(Preferences.THEME_COLOR_SPEC)))
         private set
 
     /** Seed color (ARGB int) used when wallpaper color is off. */
-    var seedColor by mutableIntStateOf(KvStore.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
+    var seedColor by
+        mutableIntStateOf(KvStore.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
         private set
 
     /** Spec coerced to 2021 when the current palette style can't honor 2025. */
@@ -153,5 +164,4 @@ object ThemeSettings {
 
     /** Default seed accent (WeChat green 0xFF07C160). */
     const val DEFAULT_SEED_COLOR: Int = 0xFF07C160.toInt()
-
 }

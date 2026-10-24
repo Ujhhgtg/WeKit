@@ -92,7 +92,9 @@ class DecimalExpressionTest {
     private fun assertExpression(source: String, value: String, expected: String) {
         assertEquals(
             0,
-            expression(source).evaluate(mapOf("value" to value.toBigDecimal())).compareTo(expected.toBigDecimal()),
+            expression(source)
+                .evaluate(mapOf("value" to value.toBigDecimal()))
+                .compareTo(expected.toBigDecimal()),
         )
     }
 

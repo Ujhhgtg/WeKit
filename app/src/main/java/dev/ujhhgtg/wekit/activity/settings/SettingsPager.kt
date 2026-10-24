@@ -1,9 +1,7 @@
 package dev.ujhhgtg.wekit.activity.settings
 
-
 import android.content.Context
 import android.content.Intent
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -243,7 +241,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         icon = MaterialSymbols.Outlined.Extension,
                         onClick = {
                             actCtx.startActivity(
-                                Intent(context, ExtensionsSettingsActivity::class.java)
+                                Intent(context, ExtensionsSettingsActivity::class.java),
                             )
                         },
                     )
@@ -257,7 +255,12 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                 item {
                     PrefArrow(
                         title = stringResource(R.string.settings_version_title),
-                        summary = stringResource(R.string.home_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                        summary =
+                            stringResource(
+                                R.string.home_version_value,
+                                BuildConfig.VERSION_NAME,
+                                BuildConfig.VERSION_CODE,
+                            ),
                         icon = MaterialSymbols.Outlined.Label,
                     )
                 }
@@ -274,11 +277,13 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         summary = stringResource(R.string.settings_donate_summary),
                         icon = MaterialSymbols.Outlined.Volunteer_activism,
                         onClick = {
-//                        context.startActivity(Intent().apply {
-//                            setClassName(HostInfo.packageName, "${PackageNames.WECHAT}.plugin.collect.reward.ui.QrRewardSelectMoneyUI")
-//                            putExtra("key_qrcode_url", "m0n#Z7LGW*s4AVH!z'd(?)")
-//                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//                        })
+                            //                        context.startActivity(Intent().apply {
+                            //                            setClassName(HostInfo.packageName,
+                            // "${PackageNames.WECHAT}.plugin.collect.reward.ui.QrRewardSelectMoneyUI")
+                            //                            putExtra("key_qrcode_url",
+                            // "m0n#Z7LGW*s4AVH!z'd(?)")
+                            //                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            //                        })
                             "https://ifdian.net/a/ujhhgtg".toUri().openInSystem(context, true)
                         },
                     )
@@ -296,14 +301,20 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.brand_github),
                         summary = "Ujhhgtg/WeKit",
                         icon = MaterialSymbols.Outlined.Code,
-                        onClick = { "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true) })
+                        onClick = {
+                            "https://github.com/Ujhhgtg/WeKit".toUri().openInSystem(context, true)
+                        },
+                    )
                 }
                 item {
                     PrefArrow(
                         title = stringResource(R.string.brand_telegram),
                         summary = "https://t.me/+7j5dJ6g16B43OWVl",
                         icon = MaterialSymbols.Outlined.Send,
-                        onClick = { "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true) })
+                        onClick = {
+                            "https://t.me/+7j5dJ6g16B43OWVl".toUri().openInSystem(context, true)
+                        },
+                    )
                 }
             }
         }
@@ -321,32 +332,38 @@ private fun ProfileCard() {
     val wxId = remember { WeApi.selfWxId }
     val activity = LocalComponentActivity.current
     val authorizationControls = StartupInfo.payloadEnvironment.authorizationControls
-    val cardModifier = authorizationControls?.let { controls ->
-        Modifier.clickable { controls.show(activity) }
-    } ?: Modifier
+    val cardModifier =
+        authorizationControls?.let { controls ->
+            Modifier.clickable { controls.show(activity) }
+        } ?: Modifier
 
     // WeChat identity — loaded once from the local DB; doesn't change mid-session.
     data class WechatIdentity(val nickname: String, val avatarUrl: String)
 
-    val identity by produceState(WechatIdentity("", "")) {
-        withContext(Dispatchers.IO) {
-            val db = dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-            val nickname = if (db.isReady) {
-                db.getSelfProfileField(dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField.NAME, "")
-                    ?.toString().orEmpty()
-            } else ""
-            val avatarUrl = if (db.isReady && wxId.isNotEmpty()) db.getAvatarUrl(wxId) else ""
-            value = WechatIdentity(nickname, avatarUrl)
+    val identity by
+        produceState(WechatIdentity("", "")) {
+            withContext(Dispatchers.IO) {
+                val db = dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
+                val nickname =
+                    if (db.isReady) {
+                        db.getSelfProfileField(
+                                dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField.NAME,
+                                "",
+                            )
+                            ?.toString()
+                            .orEmpty()
+                    } else ""
+                val avatarUrl = if (db.isReady && wxId.isNotEmpty()) db.getAvatarUrl(wxId) else ""
+                value = WechatIdentity(nickname, avatarUrl)
+            }
         }
-    }
 
     SegmentedColumn {
         item {
             BaseItemContainer(modifier = cardModifier) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    modifier =
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (identity.avatarUrl.isNotEmpty()) {
@@ -354,9 +371,7 @@ private fun ProfileCard() {
                             model = identity.avatarUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape),
+                            modifier = Modifier.size(56.dp).clip(CircleShape),
                         )
                     } else {
                         AvatarPlaceholder()
@@ -393,10 +408,10 @@ private fun ProfileCard() {
 @Composable
 private fun AvatarPlaceholder() {
     Box(
-        modifier = Modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        modifier =
+            Modifier.size(56.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -413,46 +428,56 @@ private fun ThemeSection() {
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val selectedLanguage = WeKitLocaleController.selection
     val resolvedLanguage = WeKitLocaleController.resolvedLocale
-    val languageLabels = mapOf(
-        LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
-        LanguageSelection.ENGLISH to stringResource(R.string.language_english),
-        LanguageSelection.SIMPLIFIED_CHINESE to stringResource(R.string.language_simplified_chinese),
-        LanguageSelection.MEOW_CHINESE to stringResource(R.string.language_meow_chinese),
-        LanguageSelection.TRADITIONAL_CHINESE to stringResource(R.string.language_traditional_chinese),
-    )
-    val languageSummary = if (selectedLanguage == LanguageSelection.SYSTEM) {
-        stringResource(
-            R.string.settings_language_summary,
-            stringResource(selectedLanguage.labelRes),
-            stringResource(resolvedLanguage.labelRes),
+    val languageLabels =
+        mapOf(
+            LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
+            LanguageSelection.ENGLISH to stringResource(R.string.language_english),
+            LanguageSelection.SIMPLIFIED_CHINESE to
+                stringResource(R.string.language_simplified_chinese),
+            LanguageSelection.MEOW_CHINESE to stringResource(R.string.language_meow_chinese),
+            LanguageSelection.TRADITIONAL_CHINESE to
+                stringResource(R.string.language_traditional_chinese),
         )
-    } else {
-        stringResource(selectedLanguage.labelRes)
-    }
-    val themeModeLabels = mapOf(
-        AppThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
-        AppThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
-        AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
-    )
-    val paletteStyleLabels = mapOf(
-        AppPaletteStyle.TONAL_SPOT to stringResource(R.string.palette_style_tonal_spot),
-        AppPaletteStyle.NEUTRAL to stringResource(R.string.palette_style_neutral),
-        AppPaletteStyle.VIBRANT to stringResource(R.string.palette_style_vibrant),
-        AppPaletteStyle.EXPRESSIVE to stringResource(R.string.palette_style_expressive),
-        AppPaletteStyle.RAINBOW to stringResource(R.string.palette_style_rainbow),
-        AppPaletteStyle.FRUIT_SALAD to stringResource(R.string.palette_style_fruit_salad),
-        AppPaletteStyle.MONOCHROME to stringResource(R.string.palette_style_monochrome),
-        AppPaletteStyle.FIDELITY to stringResource(R.string.palette_style_fidelity),
-        AppPaletteStyle.CONTENT to stringResource(R.string.palette_style_content),
-    )
-    val colorSpecLabels = mapOf(
-        AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
-        AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
-    )
-    val pageTransitionLabels = mapOf(
-        PageTransitionAnimation.AOSP to stringResource(R.string.settings_page_transition_animation_aosp),
-        PageTransitionAnimation.MIUIX to stringResource(R.string.settings_page_transition_animation_miuix),
-    )
+    val languageSummary =
+        if (selectedLanguage == LanguageSelection.SYSTEM) {
+            stringResource(
+                R.string.settings_language_summary,
+                stringResource(selectedLanguage.labelRes),
+                stringResource(resolvedLanguage.labelRes),
+            )
+        } else {
+            stringResource(selectedLanguage.labelRes)
+        }
+    val themeModeLabels =
+        mapOf(
+            AppThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
+            AppThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
+            AppThemeMode.DARK to stringResource(R.string.theme_mode_dark),
+        )
+    val paletteStyleLabels =
+        mapOf(
+            AppPaletteStyle.TONAL_SPOT to stringResource(R.string.palette_style_tonal_spot),
+            AppPaletteStyle.NEUTRAL to stringResource(R.string.palette_style_neutral),
+            AppPaletteStyle.VIBRANT to stringResource(R.string.palette_style_vibrant),
+            AppPaletteStyle.EXPRESSIVE to stringResource(R.string.palette_style_expressive),
+            AppPaletteStyle.RAINBOW to stringResource(R.string.palette_style_rainbow),
+            AppPaletteStyle.FRUIT_SALAD to stringResource(R.string.palette_style_fruit_salad),
+            AppPaletteStyle.MONOCHROME to stringResource(R.string.palette_style_monochrome),
+            AppPaletteStyle.FIDELITY to stringResource(R.string.palette_style_fidelity),
+            AppPaletteStyle.CONTENT to stringResource(R.string.palette_style_content),
+        )
+    val colorSpecLabels =
+        mapOf(
+            AppColorSpec.SPEC_2021 to stringResource(R.string.color_spec_material_2021),
+            AppColorSpec.SPEC_2025 to stringResource(R.string.color_spec_expressive_2025),
+        )
+    val pageTransitionLabels =
+        mapOf(
+            PageTransitionAnimation.AOSP to
+                stringResource(R.string.settings_page_transition_animation_aosp),
+            PageTransitionAnimation.MIUIX to
+                stringResource(R.string.settings_page_transition_animation_miuix),
+        )
     var dynamicWallpaper by remember { mutableStateOf(ThemeSettings.dynamicWallpaper) }
     val context = LocalContext.current
 
@@ -473,9 +498,10 @@ private fun ThemeSection() {
                 title = stringResource(R.string.settings_theme_mode_title),
                 description = null,
                 value = ThemeSettings.themeMode,
-                options = AppThemeMode.entries.map {
-                    DropdownOption(it, themeModeLabels.getValue(it))
-                },
+                options =
+                    AppThemeMode.entries.map {
+                        DropdownOption(it, themeModeLabels.getValue(it))
+                    },
                 onValueChange = ThemeSettings::updateThemeMode,
                 icon = MaterialSymbols.Outlined.Brightness_medium,
             )
@@ -486,9 +512,10 @@ private fun ThemeSection() {
                 title = stringResource(R.string.settings_page_transition_animation_title),
                 description = null,
                 value = ThemeSettings.pageTransitionAnimation,
-                options = PageTransitionAnimation.entries.map {
-                    DropdownOption(it, pageTransitionLabels.getValue(it))
-                },
+                options =
+                    PageTransitionAnimation.entries.map {
+                        DropdownOption(it, pageTransitionLabels.getValue(it))
+                    },
                 onValueChange = ThemeSettings::updatePageTransitionAnimation,
                 icon = MaterialSymbols.Outlined.Style,
             )
@@ -527,10 +554,10 @@ private fun ThemeSection() {
                 },
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color(ThemeSettings.seedColor)),
+                    modifier =
+                        Modifier.size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(ThemeSettings.seedColor)),
                 )
             }
         }
@@ -539,21 +566,22 @@ private fun ThemeSection() {
                 title = stringResource(R.string.settings_palette_style_title),
                 description = null,
                 value = ThemeSettings.paletteStyle,
-                options = AppPaletteStyle.entries.map {
-                    val localizedName = paletteStyleLabels.getValue(it)
-                    DropdownOption(
-                        it,
-                        if (resolvedLanguage == SupportedLocale.ENGLISH) {
-                            it.displayName
-                        } else {
-                            stringResource(
-                                R.string.palette_style_bilingual_format,
-                                localizedName,
-                                it.displayName,
-                            )
-                        },
-                    )
-                },
+                options =
+                    AppPaletteStyle.entries.map {
+                        val localizedName = paletteStyleLabels.getValue(it)
+                        DropdownOption(
+                            it,
+                            if (resolvedLanguage == SupportedLocale.ENGLISH) {
+                                it.displayName
+                            } else {
+                                stringResource(
+                                    R.string.palette_style_bilingual_format,
+                                    localizedName,
+                                    it.displayName,
+                                )
+                            },
+                        )
+                    },
                 onValueChange = {
                     ThemeSettings.updatePaletteStyle(it)
                     // Keep the stored spec valid for the new style.
@@ -568,13 +596,17 @@ private fun ThemeSection() {
         item {
             DropDownMenuWidget(
                 title = stringResource(R.string.settings_color_spec_title),
-                description = if (!spec2025Supported) {
-                    stringResource(R.string.settings_color_spec_unsupported)
-                } else null,
+                description =
+                    if (!spec2025Supported) {
+                        stringResource(R.string.settings_color_spec_unsupported)
+                    } else null,
                 value = ThemeSettings.effectiveColorSpec,
-                options = (if (spec2025Supported) AppColorSpec.entries else listOf(AppColorSpec.SPEC_2021)).map {
-                    DropdownOption(it, colorSpecLabels.getValue(it))
-                },
+                options =
+                    (if (spec2025Supported) AppColorSpec.entries
+                        else listOf(AppColorSpec.SPEC_2021))
+                        .map {
+                            DropdownOption(it, colorSpecLabels.getValue(it))
+                        },
                 onValueChange = ThemeSettings::updateColorSpec,
                 enabled = spec2025Supported,
                 icon = MaterialSymbols.Outlined.Contrast,
@@ -630,7 +662,12 @@ private fun PrefArrow(
             description = summary,
             icon = icon,
             onClick = onClick,
-            trailingContent = { Icon(imageVector = MaterialSymbols.Outlined.Chevron_right, contentDescription = null) },
+            trailingContent = {
+                Icon(
+                    imageVector = MaterialSymbols.Outlined.Chevron_right,
+                    contentDescription = null,
+                )
+            },
         )
     }
 }
@@ -656,6 +693,7 @@ private fun SecuritySwitch(context: Context) {
         },
     )
 }
+
 // ---------------------------------------------------------------------------
 //  Dialogs (Material 3 AlertDialog)
 // ---------------------------------------------------------------------------
@@ -700,7 +738,9 @@ private fun ConfirmDialog(
             TextButton(onClick = onConfirm) { Text(confirmText) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(dismissText ?: stringResource(R.string.dialog_cancel)) }
+            TextButton(onClick = onDismiss) {
+                Text(dismissText ?: stringResource(R.string.dialog_cancel))
+            }
         },
     )
 }
@@ -725,7 +765,6 @@ private fun MessageDialog(
     )
 }
 
-
 // ---------------------------------------------------------------------------
 //  Open-source license screen
 // ---------------------------------------------------------------------------
@@ -734,24 +773,27 @@ private fun MessageDialog(
 fun LicenseScreen(onBack: () -> Unit) {
     val libraries by produceLibraries(R.raw.aboutlibraries)
     var query by remember { mutableStateOf("") }
-    val filteredLibraries = remember(query, libraries) {
-        libraries?.copy(
-            libraries = libraries!!.libraries.filter { library ->
-                query.isBlank() ||
-                    library.name.contains(query, ignoreCase = true) ||
-                    library.developers.any { it.name?.contains(query, ignoreCase = true) == true } ||
-                    library.description?.contains(query, ignoreCase = true) == true
-            },
-        )
-    }
+    val filteredLibraries =
+        remember(query, libraries) {
+            libraries?.copy(
+                libraries =
+                    libraries!!.libraries.filter { library ->
+                        query.isBlank() ||
+                            library.name.contains(query, ignoreCase = true) ||
+                            library.developers.any {
+                                it.name?.contains(query, ignoreCase = true) == true
+                            } ||
+                            library.description?.contains(query, ignoreCase = true) == true
+                    },
+            )
+        }
     var selectedLibrary by remember { mutableStateOf<Library?>(null) }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val barBackdrop = rememberMaterial3BlurBackdrop()
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             ExpressiveCollapsingTopAppBar(
@@ -759,38 +801,37 @@ fun LicenseScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.licenses_title),
                 navigationIcon = { ExpressiveBackButton(onClick = onBack) },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = barBackdrop.m3AppBarColor(),
-                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = barBackdrop.m3AppBarColor(),
+                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                    ),
             )
-        }
+        },
     ) { scaffoldPadding ->
         LibrariesContainer(
             libraries = filteredLibraries,
-            modifier = Modifier
-                .fillMaxSize()
-                .m3BackdropLayer(barBackdrop),
+            modifier = Modifier.fillMaxSize().m3BackdropLayer(barBackdrop),
             contentPadding = scaffoldPadding + PaddingValues(horizontal = 16.dp),
-            colors = LibraryDefaults.libraryColors(
-                libraryBackgroundColor = MaterialTheme.colorScheme.surfaceContainer,
-                libraryContentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-            variantColors = LibraryDefaults.m3VariantColors(
-                rowBackground = MaterialTheme.colorScheme.surfaceBright,
-                rowExpandedBackground = MaterialTheme.colorScheme.surfaceBright,
-                rowOnBackground = MaterialTheme.colorScheme.onSurface,
-                rowSubtleContent = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+            colors =
+                LibraryDefaults.libraryColors(
+                    libraryBackgroundColor = MaterialTheme.colorScheme.surfaceContainer,
+                    libraryContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            variantColors =
+                LibraryDefaults.m3VariantColors(
+                    rowBackground = MaterialTheme.colorScheme.surfaceBright,
+                    rowExpandedBackground = MaterialTheme.colorScheme.surfaceBright,
+                    rowOnBackground = MaterialTheme.colorScheme.onSurface,
+                    rowSubtleContent = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             detailMode = LibraryDetailMode.None,
             header = {
                 item(key = "search") {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .fillMaxWidth(),
+                        modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
                         label = { Text(stringResource(R.string.licenses_search_hint)) },
                         singleLine = true,
                         leadingIcon = {
@@ -818,9 +859,8 @@ fun LicenseScreen(onBack: () -> Unit) {
                     expanded = expanded,
                     onToggle = toggle,
                     style = style,
-                    modifier = Modifier
-                        .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(CornerRadius)),
+                    modifier =
+                        Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(CornerRadius)),
                 )
             },
             onLibraryClick = { library ->
@@ -865,25 +905,29 @@ fun LicenseScreen(onBack: () -> Unit) {
                             OutlinedCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.outlinedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                ),
+                                colors =
+                                    CardDefaults.outlinedCardColors(
+                                        containerColor =
+                                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    ),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
                                         text = license.name,
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
+                                        modifier =
+                                            Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                                 license.url?.let(uriHandler::openUri)
                                             },
                                     )
                                     Spacer(modifier = Modifier.size(8.dp))
                                     Text(
-                                        text = license.licenseContent
-                                            ?: stringResource(R.string.licenses_no_license_text),
+                                        text =
+                                            license.licenseContent
+                                                ?: stringResource(
+                                                    R.string.licenses_no_license_text,
+                                                ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

@@ -10,32 +10,28 @@ import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
  */
 interface IResolveDex {
 
-    /**
-     * 当前 Feature 持有的所有 Dex 委托。
-     * 由 BaseFeature 维护，由委托工厂函数自动填充。
-     */
+    /** 当前 Feature 持有的所有 Dex 委托。 由 BaseFeature 维护，由委托工厂函数自动填充。 */
     val dexDelegates: List<BaseDexDelegate>
 
     /**
-     * 执行仍未解析的自定义查找（大多数 Feature 没有自定义逻辑）。
-     * SQL 委托与 query-matcher 委托已由解析上下文完成，调用方随后通过
+     * 执行仍未解析的自定义查找（大多数 Feature 没有自定义逻辑）。 SQL 委托与 query-matcher 委托已由解析上下文完成，调用方随后通过
      * [collectDescriptors] 读取结果。
      */
     fun resolveDex() {}
 
     /**
-     * 将所有委托的解析结果收集为 key → descriptor 映射，
-     * 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager] 持久化；`null` 表示预期内的解析失败。
+     * 将所有委托的解析结果收集为 key → descriptor 映射， 供 [dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager]
+     * 持久化；`null` 表示预期内的解析失败。
      */
-    fun collectDescriptors(): Map<String, String?> =
-        dexDelegates.associate { delegate ->
-            check(delegate.isSettled) { "Dex delegate ${delegate.key} is not resolved: ${delegate.state}" }
-            delegate.key to delegate.getDescriptorString()
+    fun collectDescriptors(): Map<String, String?> = dexDelegates.associate { delegate ->
+        check(delegate.isSettled) {
+            "Dex delegate ${delegate.key} is not resolved: ${delegate.state}"
         }
+        delegate.key to delegate.getDescriptorString()
+    }
 
     /**
-     * 从缓存 Map 中逐个恢复委托状态。
-     * 每个委托独立加载，某个 key 缺失不会影响其他委托。
+     * 从缓存 Map 中逐个恢复委托状态。 每个委托独立加载，某个 key 缺失不会影响其他委托。
      *
      * @return 缓存中不存在的 key 集合（需要重新扫描的委托）
      */

@@ -59,14 +59,17 @@ fun rememberViewBackdrop(
     backdrop.updateEnvironment(sourceView, density, layoutDirection)
 
     // Ask the glass to re-capture whenever WeChat's own content is about to redraw — a scroll, a
-    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpGeneration` writes
-    // a snapshot state that `drawBackdrop` reads, which is what actually forces the backdrop draw node
+    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpGeneration`
+    // writes
+    // a snapshot state that `drawBackdrop` reads, which is what actually forces the backdrop draw
+    // node
     // to re-run its layer recording; a plain View.invalidate() only recomposites the cached render
     // nodes and would NOT re-run the capture, so a settled static tab froze on its last frame.
     //
     // The `isDirty` gate is what keeps this from looping at 60fps: our own re-capture dirties the
     // overlay ComposeView, not `sourceView`, so `sourceView.isDirty` is true only when WeChat's
-    // content genuinely needs to redraw. When WeChat is idle nothing dirties the source, we skip the
+    // content genuinely needs to redraw. When WeChat is idle nothing dirties the source, we skip
+    // the
     // bump, and the glass costs nothing.
     DisposableEffect(sourceView, lifecycleOwner) {
         val observer = sourceView.viewTreeObserver
@@ -76,17 +79,27 @@ fun rememberViewBackdrop(
             }
             true
         }
-        val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
-            oldLeft, oldTop, oldRight, oldBottom ->
-            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
-                backdrop.bumpGeneration()
+        val layoutListener =
+            View.OnLayoutChangeListener {
+                _,
+                left,
+                top,
+                right,
+                bottom,
+                oldLeft,
+                oldTop,
+                oldRight,
+                oldBottom ->
+                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
+                    backdrop.bumpGeneration()
+                }
             }
-        }
-        val attachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) = backdrop.onSourceAttached()
+        val attachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) = backdrop.onSourceAttached()
 
-            override fun onViewDetachedFromWindow(v: View) = backdrop.invalidateSource()
-        }
+                override fun onViewDetachedFromWindow(v: View) = backdrop.invalidateSource()
+            }
         val lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START,
@@ -121,7 +134,7 @@ fun rememberViewBackdrop(
 
 @Stable
 class ViewBackdrop(
-    private val graphicsLayer: GraphicsLayer
+    private val graphicsLayer: GraphicsLayer,
 ) : Backdrop {
 
     var sourceView: View? = null
@@ -148,6 +161,7 @@ class ViewBackdrop(
     // (mirrors LayerBackdrop). At downscaleFactor == 1 these stay 0.
     override var offsetResidualX: Float = 0f
         private set
+
     override var offsetResidualY: Float = 0f
         private set
 
@@ -194,12 +208,12 @@ class ViewBackdrop(
 
     private fun currentCaptureKey(view: View): ViewBackdropCaptureKey? {
         if (!lifecycleStarted || !view.isAttachedToWindow) return null
-        val windowIdentity = windowIdentityState.update(view.windowToken) {
-            captureState.invalidate()
-            offsetResidualX = 0f
-            offsetResidualY = 0f
-        }
-            ?: return null
+        val windowIdentity =
+            windowIdentityState.update(view.windowToken) {
+                captureState.invalidate()
+                offsetResidualX = 0f
+                offsetResidualY = 0f
+            } ?: return null
         return ViewBackdropCaptureKey(
             source = sourceIdentity!!,
             window = windowIdentity,
@@ -231,8 +245,10 @@ class ViewBackdrop(
                 // view. WeChat's WxViewPager selects the visible tab by scrolling itself
                 // (scrollTo(clientWidth * position, 0)) — pages are laid out side by side and only
                 // the pager's own scrollX chooses which one shows. That scroll offset is applied by
-                // the *parent's* draw traversal, NOT by the public View.draw(canvas) we call here, so
-                // without this translate every page draws at its raw layout x and only page 0 (home)
+                // the *parent's* draw traversal, NOT by the public View.draw(canvas) we call here,
+                // so
+                // without this translate every page draws at its raw layout x and only page 0
+                // (home)
                 // fits in the layer. This is why the glass was stuck on the home tab.
                 nativeCanvas.withTranslation(-view.scrollX.toFloat(), -view.scrollY.toFloat()) {
                     view.draw(nativeCanvas)
@@ -286,8 +302,10 @@ class ViewBackdrop(
         val offsetY = barInWindow.y - viewLocation[1]
 
         if (downscaleFactor > 1) {
-            // Alignment happens in downscaled space; round to an even pixel (matching LayerBackdrop's
-            // even-snap for stable box-filter sampling) and report the leftover as a residual so the
+            // Alignment happens in downscaled space; round to an even pixel (matching
+            // LayerBackdrop's
+            // even-snap for stable box-filter sampling) and report the leftover as a residual so
+            // the
             // node's upscale pass restores sub-pixel-correct placement.
             val inv = 1f / downscaleFactor
             val scaledX = offsetX * inv

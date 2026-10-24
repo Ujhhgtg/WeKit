@@ -10,18 +10,20 @@ enum class NameMatch {
     Equals,
     StartsWith,
     Contains,
-    EndsWith,
-    ;
+    EndsWith;
 
-    fun matches(candidate: String, value: String): Boolean = when (this) {
-        Equals -> candidate == value
-        StartsWith -> candidate.startsWith(value)
-        Contains -> candidate.contains(value)
-        EndsWith -> candidate.endsWith(value)
-    }
+    fun matches(candidate: String, value: String): Boolean =
+        when (this) {
+            Equals -> candidate == value
+            StartsWith -> candidate.startsWith(value)
+            Contains -> candidate.contains(value)
+            EndsWith -> candidate.endsWith(value)
+        }
 }
 
-/** A dotted Java-name matcher (class/type names). Descriptor conversion is internal to candidates. */
+/**
+ * A dotted Java-name matcher (class/type names). Descriptor conversion is internal to candidates.
+ */
 data class NameSpec(val value: String, val match: NameMatch = NameMatch.Equals) {
     fun matches(candidate: String): Boolean = match.matches(candidate, value)
 }
@@ -114,8 +116,8 @@ data class AnnotationSpec(
 /**
  * Method matcher (DexKit MethodMatcher replacement).
  *
- * Nested [invokeMethods]/[callerMethods] are matched injectively: every spec must be satisfied by
- * a distinct related method. [anyOf]/[allOf] evaluate on the candidate method itself (empty groups
+ * Nested [invokeMethods]/[callerMethods] are matched injectively: every spec must be satisfied by a
+ * distinct related method. [anyOf]/[allOf] evaluate on the candidate method itself (empty groups
  * are true). [usingFields] entries are matched injectively against the candidate's field accesses.
  */
 data class MethodSpec(
@@ -142,6 +144,12 @@ data class MethodSpec(
     val opcodes: OpcodeSpec? = null,
     /** DexKit annotation constraints on the method (evaluation-only). */
     val annotations: List<AnnotationSpec> = emptyList(),
+    /**
+     * Restrict the declaring class package (dotted package names, OR semantics). Mirrors the DexSQL
+     * `searchPackages` delegate call: a class matches a package when its name equals the package or
+     * starts with the package plus '.'.
+     */
+    val packages: List<String> = emptyList(),
 )
 
 /** One field access matcher (DexKit UsingFieldMatcher); null [usingType] means any direction. */
@@ -172,6 +180,23 @@ data class ClassSpec(
     val usingStrings: List<StringSpec> = emptyList(),
     /** DexKit annotation constraints on the class (evaluation-only). */
     val annotations: List<AnnotationSpec> = emptyList(),
+    /**
+     * Class-level numeric-operand constraint: every value must be used by at least one method of
+     * the class (existential per value, not injective), mirroring [usingStrings]. The SQL fast path
+     * lowers the whole list to one canonical `method_using_numbers` class unit.
+     */
+    val usingNumbers: List<Number> = emptyList(),
+    /**
+     * Restrict the class package (dotted package names, OR semantics). Mirrors the DexSQL
+     * `searchPackages` delegate call: a class matches a package when its name equals the package or
+     * starts with the package plus '.'.
+     */
+    val packages: List<String> = emptyList(),
+    /**
+     * Bound on the number of annotations declared on the class (DexKit annotationCount). Stored as
+     * an inclusive range; builders accept both an Int and an IntRange assignment.
+     */
+    val annotationCount: IntRange? = null,
 )
 
 /**
@@ -189,4 +214,10 @@ data class FieldSpec(
     val declaredClass: ClassSpec? = null,
     val readMethods: List<MethodSpec> = emptyList(),
     val writeMethods: List<MethodSpec> = emptyList(),
+    /**
+     * Restrict the declaring class package (dotted package names, OR semantics). Mirrors the DexSQL
+     * `searchPackages` delegate call: a class matches a package when its name equals the package or
+     * starts with the package plus '.'.
+     */
+    val packages: List<String> = emptyList(),
 )

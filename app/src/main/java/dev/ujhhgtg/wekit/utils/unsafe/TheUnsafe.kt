@@ -7,8 +7,5 @@ import dev.ujhhgtg.reflekt.utils.makeAccessible
 import sun.misc.Unsafe
 
 val TheUnsafe by lazy {
-    Unsafe::class.java
-        .getDeclaredField("theUnsafe")
-        .makeAccessible()
-        .get(null) as Unsafe
+    Unsafe::class.java.getDeclaredField("theUnsafe").makeAccessible().get(null) as Unsafe
 }

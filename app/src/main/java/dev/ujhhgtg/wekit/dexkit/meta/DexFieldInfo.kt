@@ -8,7 +8,8 @@ import kotlinx.serialization.json.JsonObject
  * [declaredClass] resolves through the session [DexMetadata] cache on demand; it is null for field
  * references whose class metadata is not available.
  */
-class DexFieldInfo internal constructor(
+class DexFieldInfo
+internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
@@ -33,7 +34,8 @@ class DexFieldInfo internal constructor(
     val typeName: String = json.requiredString("type_name")
 
     /** DEX field type descriptor ("I", "[Ljava/lang/String;"). */
-    val typeDescriptor: String = json.stringOrNull("type_descriptor") ?: javaNameToDescriptor(typeName)
+    val typeDescriptor: String =
+        json.stringOrNull("type_descriptor") ?: javaNameToDescriptor(typeName)
 
     /** DexKit FieldData.typeSign alias for [typeDescriptor]. */
     val typeSign: String

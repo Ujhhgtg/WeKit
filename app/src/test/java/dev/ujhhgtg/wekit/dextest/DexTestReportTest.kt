@@ -10,19 +10,20 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 class DexTestReportTest {
-    @TempDir
-    lateinit var tempDir: Path
+    @TempDir lateinit var tempDir: Path
 
     @Test
     fun reportRoundTripsAndKeepsStackTrace() {
-        val report = sampleReport(
-            delegate = DexTestDelegateReport(
-                key = "Fixture:method",
-                status = DexResolutionStatus.UNEXPECTED_FAILURE,
-                exceptionType = "java.lang.IllegalStateException",
-                stackTrace = "boom\n at test",
+        val report =
+            sampleReport(
+                delegate =
+                    DexTestDelegateReport(
+                        key = "Fixture:method",
+                        status = DexResolutionStatus.UNEXPECTED_FAILURE,
+                        exceptionType = "java.lang.IllegalStateException",
+                        stackTrace = "boom\n at test",
+                    ),
             )
-        )
         val json = DexTestJson.encodeToString(report)
         assertEquals(report, DexTestJson.decodeFromString<DexTestApkReport>(json))
     }
@@ -35,7 +36,10 @@ class DexTestReportTest {
         assertFalse(Files.exists(tempDir.resolve(".wechat_8069.json.tmp")))
     }
 
-    private fun sampleReport(delegate: DexTestDelegateReport = DexTestDelegateReport("Fixture:method", DexResolutionStatus.SUCCESS)) =
+    private fun sampleReport(
+        delegate: DexTestDelegateReport =
+            DexTestDelegateReport("Fixture:method", DexResolutionStatus.SUCCESS),
+    ) =
         DexTestApkReport(
             apkPath = "/tmp/wechat_8069.apk",
             fileName = "wechat_8069.apk",
@@ -45,15 +49,16 @@ class DexTestReportTest {
             finishedAt = "2026-08-04T00:00:01Z",
             elapsedMillis = 1000,
             outcome = DexTestApkOutcome.PASS,
-            features = listOf(
-                DexTestFeatureReport(
-                    className = "Fixture",
-                    displayName = "测试/Fixture",
-                    technicalId = "Fixture",
-                    outcome = DexTestFeatureOutcome.PASS,
-                    elapsedMillis = 1,
-                    delegates = listOf(delegate),
-                )
-            ),
+            features =
+                listOf(
+                    DexTestFeatureReport(
+                        className = "Fixture",
+                        displayName = "测试/Fixture",
+                        technicalId = "Fixture",
+                        outcome = DexTestFeatureOutcome.PASS,
+                        elapsedMillis = 1,
+                        delegates = listOf(delegate),
+                    ),
+                ),
         )
 }

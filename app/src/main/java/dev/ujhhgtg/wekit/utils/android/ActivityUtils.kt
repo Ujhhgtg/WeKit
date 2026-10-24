@@ -10,24 +10,30 @@ import android.util.ArrayMap
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-private val mActivitiesField = ActivityThread::class.java.getDeclaredField("mActivities").makeAccessible()
-private val pausedField = ActivityThread.ActivityClientRecord::class.java.getDeclaredField("paused").makeAccessible()
-private val activityField = ActivityThread.ActivityClientRecord::class.java.getDeclaredField("activity").makeAccessible()
+private val mActivitiesField =
+    ActivityThread::class.java.getDeclaredField("mActivities").makeAccessible()
+private val pausedField =
+    ActivityThread.ActivityClientRecord::class.java.getDeclaredField("paused").makeAccessible()
+private val activityField =
+    ActivityThread.ActivityClientRecord::class.java.getDeclaredField("activity").makeAccessible()
 
 fun getTopMostActivity(allowPaused: Boolean = false): Activity? = runCatching {
     val currentActivityThread = ActivityThread.currentActivityThread()
 
     @Suppress("UNCHECKED_CAST")
-    val activities = mActivitiesField.get(currentActivityThread) as ArrayMap<IBinder, ActivityThread.ActivityClientRecord>
+    val activities =
+        mActivitiesField.get(currentActivityThread)
+            as ArrayMap<IBinder, ActivityThread.ActivityClientRecord>
 
     activities.values
         .filter { record -> allowPaused || pausedField.get(record) == false }
         .mapNotNull { record -> activityField.get(record) as? Activity }
         .lastOrNull()
-}.getOrElse {
-    WeLogger.e("getTopMostActivity", "failed to get top-most activity", it)
-    null
 }
+    .getOrElse {
+        WeLogger.e("getTopMostActivity", "failed to get top-most activity", it)
+        null
+    }
 
 val Activity.currentWxId: String?
     get() {

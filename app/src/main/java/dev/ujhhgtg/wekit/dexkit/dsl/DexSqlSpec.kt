@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.dexkit.dsl
 
-import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 
 /**
@@ -12,15 +11,17 @@ import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
  *   resolution inside the active Dex resolution context. A DexSQL builder block can therefore read
  *   other delegates' metadata naturally (for example declaredClass = classFoo.data.name), exactly
  *   like a DexKit matcher block; static raw SQL simply returns its string.
- * - Query-matcher-backed ([queryMatcher]): a Kotlin resolver runs a [dev.ujhhgtg.wekit.dexkit.matcher.QueryMatcherScope]
- *   block during resolution and returns the descriptor (or null for a not-found result).
+ * - Query-matcher-backed ([queryMatcher]): a Kotlin resolver runs a
+ *   [dev.ujhhgtg.wekit.dexkit.matcher.QueryMatcherScope] block during resolution and returns the
+ *   descriptor (or null for a not-found result).
  *
  * For SQL-backed plans the SQL must return the descriptor in its first column and is written to
  * produce exactly one row (or none); deciding that an empty result is an expected failure and that
  * a multi-row result is an ambiguity bug is WeKit resolver policy, implemented here rather than in
  * the engine. Query-matcher ambiguity is raised by the matcher scope's unique* helpers.
  */
-class DexSqlSpec private constructor(
+class DexSqlSpec
+private constructor(
     val allowFailure: Boolean,
     private val sqlProvider: (() -> String)?,
     private val matcherProvider: ((DexSqlBridge) -> String?)?,
@@ -32,12 +33,12 @@ class DexSqlSpec private constructor(
     ) : this(allowFailure, sqlProvider, null)
 
     /** Builds the executable SQL text; called once per resolution attempt. */
-    fun sql(): String = sqlProvider?.invoke()
-        ?: error("DexSqlSpec is query-matcher backed and has no SQL text")
+    fun sql(): String =
+        sqlProvider?.invoke() ?: error("DexSqlSpec is query-matcher backed and has no SQL text")
 
     /**
-     * Resolves the descriptor: null means the delegate's expected-failure policy decided the
-     * member does not exist; non-null is the resolved descriptor (or class name for class plans).
+     * Resolves the descriptor: null means the delegate's expected-failure policy decided the member
+     * does not exist; non-null is the resolved descriptor (or class name for class plans).
      */
     fun resolve(bridge: DexSqlBridge): String? {
         if (matcherProvider != null) {
@@ -52,14 +53,16 @@ class DexSqlSpec private constructor(
         val result = bridge.query(sql)
         return when (result.rows.size) {
             0 -> {
-                if (!allowFailure) error("DexSQL: no row found for query: " + sql)
+                if (!allowFailure) error("DexSQL: no row found for query: $sql")
                 null
             }
 
-            1 -> result.rows.single().firstOrNull()
-                ?: error("DexSQL: query returned no columns: " + sql)
+            1 ->
+                result.rows.single().firstOrNull()
+                    ?: error("DexSQL: query returned no columns: $sql")
 
-            else -> error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
+            else ->
+                error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
         }
     }
 
@@ -84,12 +87,14 @@ fun BaseDexDelegate.resolveFromDexSql(bridge: DexSqlBridge) {
             markExpectedFailure()
             return
         }
-        require(descriptor.isNotBlank()) { "DexSQL delegate " + key + " returned a blank descriptor" }
+        require(descriptor.isNotBlank()) {
+            "DexSQL delegate $key returned a blank descriptor"
+        }
         when (this) {
             is DexClassDelegate -> setDescriptor(descriptor.toJavaClassName())
             is DexFieldDelegate -> setDescriptor(descriptor)
-            is DexMethodDelegate -> setDescriptor(DexMethodDescriptor(descriptor))
-            is DexConstructorDelegate -> setDescriptor(DexMethodDescriptor(descriptor))
+            is DexMethodDelegate -> setDescriptor(descriptor)
+            is DexConstructorDelegate -> setDescriptor(descriptor)
         }
     } catch (error: Throwable) {
         recordUnexpectedFailure(error)

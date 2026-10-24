@@ -1,4 +1,3 @@
-
 package dev.ujhhgtg.wekit.ui.agent.settings
 
 import androidx.compose.foundation.layout.Box
@@ -19,8 +18,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,11 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
@@ -58,51 +52,62 @@ import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveCollapsingTopAppBar
-import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEditorSheet
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3AppBarBlur
 import dev.ujhhgtg.wekit.ui.content.m3AppBarColor
 import dev.ujhhgtg.wekit.ui.content.m3BackdropLayer
 import dev.ujhhgtg.wekit.ui.content.rememberMaterial3BlurBackdrop
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.launch
 
-private val PROMPT_TAB_LABELS = listOf(
-    R.string.agent_system_prompts,
-    R.string.agent_per_turn_prompts,
-    R.string.agent_conditional_prompts,
-    R.string.agent_preset_prompts,
-)
+private val PROMPT_TAB_LABELS =
+    listOf(
+        R.string.agent_system_prompts,
+        R.string.agent_per_turn_prompts,
+        R.string.agent_conditional_prompts,
+        R.string.agent_preset_prompts,
+    )
 
 /**
  * Prompts (§6): four paged lists behind one tab row —
- *  - 系统提示词: named prompts, bound per-session; no switch (exist / not).
- *  - 每轮提示词: each has a global enable switch (prepended to every user message when on).
- *  - 条件提示词: each has a global enable switch (regex-matched against replies when on).
- *  - 预设提示词: reusable snippets to insert into the input; no switch.
- * Tapping a row body edits it; per-turn/conditional switch areas toggle without opening the editor.
+ * - 系统提示词: named prompts, bound per-session; no switch (exist / not).
+ * - 每轮提示词: each has a global enable switch (prepended to every user message when on).
+ * - 条件提示词: each has a global enable switch (regex-matched against replies when on).
+ * - 预设提示词: reusable snippets to insert into the input; no switch. Tapping a row body edits it;
+ *   per-turn/conditional switch areas toggle without opening the editor.
  */
 @Composable
 fun PromptsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
-    val systemPrompts by WeAgentRepository.observeSystemPrompts().collectAsState(initial = emptyList())
+    val systemPrompts by
+        WeAgentRepository.observeSystemPrompts().collectAsState(initial = emptyList())
     val perTurn by WeAgentRepository.observePerTurnPrompts().collectAsState(initial = emptyList())
-    val conditionals by WeAgentRepository.observeConditionalPrompts().collectAsState(initial = emptyList())
+    val conditionals by
+        WeAgentRepository.observeConditionalPrompts().collectAsState(initial = emptyList())
     val presets by WeAgentRepository.observePresetPrompts().collectAsState(initial = emptyList())
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState(initialPage = selectedTab, pageCount = { PROMPT_TAB_LABELS.size })
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val pagerState =
+        rememberPagerState(initialPage = selectedTab, pageCount = { PROMPT_TAB_LABELS.size })
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val barBackdrop = rememberMaterial3BlurBackdrop()
 
     // Pager → tab: swiping a page updates the selected tab.
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page -> if (page != selectedTab) selectedTab = page }
+        snapshotFlow { pagerState.currentPage }
+            .collect { page -> if (page != selectedTab) selectedTab = page }
     }
 
     // Editors: null = closed. Empty-id entity = adding new.
@@ -112,9 +117,7 @@ fun PromptsScreen(onBack: () -> Unit) {
     var editPreset by remember { mutableStateOf<PresetPromptEntity?>(null) }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             // The blur layer spans the app bar and the tab row beneath it, mirroring LogsPager.
@@ -123,15 +126,14 @@ fun PromptsScreen(onBack: () -> Unit) {
                     title = stringResource(R.string.agent_prompts_title),
                     navigationIcon = { ExpressiveBackButton(onClick = onBack) },
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = barBackdrop.m3AppBarColor(),
-                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = barBackdrop.m3AppBarColor(),
+                            scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                        ),
                 )
                 Box(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 ) {
                     PrimaryTabRow(
                         selectedTabIndex = selectedTab,
@@ -154,45 +156,51 @@ fun PromptsScreen(onBack: () -> Unit) {
     ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .m3BackdropLayer(barBackdrop),
+            modifier = Modifier.fillMaxSize().m3BackdropLayer(barBackdrop),
             beyondViewportPageCount = PROMPT_TAB_LABELS.size - 1,
         ) { page ->
             when (page) {
-                0 -> SystemPromptsPage(
-                    contentPadding = innerPadding,
-                    prompts = systemPrompts,
-                    onEdit = { editSystem = it },
-                    onAdd = { editSystem = SystemPromptEntity("", "", "") },
-                )
+                0 ->
+                    SystemPromptsPage(
+                        contentPadding = innerPadding,
+                        prompts = systemPrompts,
+                        onEdit = { editSystem = it },
+                        onAdd = { editSystem = SystemPromptEntity("", "", "") },
+                    )
 
-                1 -> PerTurnPromptsPage(
-                    contentPadding = innerPadding,
-                    prompts = perTurn,
-                    onToggle = { p, on ->
-                        scope.launch { WeAgentRepository.upsertPerTurnPrompt(p.copy(enabled = on)) }
-                    },
-                    onEdit = { editPerTurn = it },
-                    onAdd = { editPerTurn = PerTurnPromptEntity("", "", "", true) },
-                )
+                1 ->
+                    PerTurnPromptsPage(
+                        contentPadding = innerPadding,
+                        prompts = perTurn,
+                        onToggle = { p, on ->
+                            scope.launch {
+                                WeAgentRepository.upsertPerTurnPrompt(p.copy(enabled = on))
+                            }
+                        },
+                        onEdit = { editPerTurn = it },
+                        onAdd = { editPerTurn = PerTurnPromptEntity("", "", "", true) },
+                    )
 
-                2 -> ConditionalPromptsPage(
-                    contentPadding = innerPadding,
-                    prompts = conditionals,
-                    onToggle = { c, on ->
-                        scope.launch { WeAgentRepository.upsertConditionalPrompt(c.copy(enabled = on)) }
-                    },
-                    onEdit = { editConditional = it },
-                    onAdd = { editConditional = ConditionalPromptEntity("", "", "", true) },
-                )
+                2 ->
+                    ConditionalPromptsPage(
+                        contentPadding = innerPadding,
+                        prompts = conditionals,
+                        onToggle = { c, on ->
+                            scope.launch {
+                                WeAgentRepository.upsertConditionalPrompt(c.copy(enabled = on))
+                            }
+                        },
+                        onEdit = { editConditional = it },
+                        onAdd = { editConditional = ConditionalPromptEntity("", "", "", true) },
+                    )
 
-                3 -> PresetPromptsPage(
-                    contentPadding = innerPadding,
-                    prompts = presets,
-                    onEdit = { editPreset = it },
-                    onAdd = { editPreset = PresetPromptEntity("", "", "") },
-                )
+                3 ->
+                    PresetPromptsPage(
+                        contentPadding = innerPadding,
+                        prompts = presets,
+                        onEdit = { editPreset = it },
+                        onAdd = { editPreset = PresetPromptEntity("", "", "") },
+                    )
             }
         }
     }
@@ -207,7 +215,11 @@ fun PromptsScreen(onBack: () -> Unit) {
             scope.launch {
                 try {
                     WeAgentRepository.upsertSystemPrompt(
-                        entity.copy(id = entity.id.ifEmpty { UUID.randomUUID().toString() }, name = name, content = content)
+                        entity.copy(
+                            id = entity.id.ifEmpty { UUID.randomUUID().toString() },
+                            name = name,
+                            content = content,
+                        ),
                     )
                     editSystem = null
                 } catch (e: Exception) {
@@ -215,16 +227,27 @@ fun PromptsScreen(onBack: () -> Unit) {
                 }
             }
         },
-        onDelete = editSystem?.id?.takeIf { it.isNotEmpty() }?.let { id -> {
-            scope.launch {
-                try {
-                    WeAgentRepository.deleteSystemPrompt(id)
-                    editSystem = null
-                } catch (e: Exception) {
-                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
-                }
-            }
-        } },
+        onDelete =
+            editSystem
+                ?.id
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { id ->
+                    {
+                        scope.launch {
+                            try {
+                                WeAgentRepository.deleteSystemPrompt(id)
+                                editSystem = null
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.agent_delete_failed,
+                                        e.message,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
     )
     PerTurnPromptEditor(
         existing = editPerTurn ?: PerTurnPromptEntity("", "", "", true),
@@ -235,7 +258,11 @@ fun PromptsScreen(onBack: () -> Unit) {
             scope.launch {
                 try {
                     WeAgentRepository.upsertPerTurnPrompt(
-                        entity.copy(id = entity.id.ifEmpty { UUID.randomUUID().toString() }, title = title, content = content)
+                        entity.copy(
+                            id = entity.id.ifEmpty { UUID.randomUUID().toString() },
+                            title = title,
+                            content = content,
+                        ),
                     )
                     editPerTurn = null
                 } catch (e: Exception) {
@@ -243,16 +270,27 @@ fun PromptsScreen(onBack: () -> Unit) {
                 }
             }
         },
-        onDelete = editPerTurn?.id?.takeIf { it.isNotEmpty() }?.let { id -> {
-            scope.launch {
-                try {
-                    WeAgentRepository.deletePerTurnPrompt(id)
-                    editPerTurn = null
-                } catch (e: Exception) {
-                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
-                }
-            }
-        } },
+        onDelete =
+            editPerTurn
+                ?.id
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { id ->
+                    {
+                        scope.launch {
+                            try {
+                                WeAgentRepository.deletePerTurnPrompt(id)
+                                editPerTurn = null
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.agent_delete_failed,
+                                        e.message,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
     )
     ConditionalPromptEditor(
         existing = editConditional ?: ConditionalPromptEntity("", "", "", true),
@@ -263,7 +301,11 @@ fun PromptsScreen(onBack: () -> Unit) {
             scope.launch {
                 try {
                     WeAgentRepository.upsertConditionalPrompt(
-                        entity.copy(id = entity.id.ifEmpty { UUID.randomUUID().toString() }, regex = regex, content = content)
+                        entity.copy(
+                            id = entity.id.ifEmpty { UUID.randomUUID().toString() },
+                            regex = regex,
+                            content = content,
+                        ),
                     )
                     editConditional = null
                 } catch (e: Exception) {
@@ -271,16 +313,27 @@ fun PromptsScreen(onBack: () -> Unit) {
                 }
             }
         },
-        onDelete = editConditional?.id?.takeIf { it.isNotEmpty() }?.let { id -> {
-            scope.launch {
-                try {
-                    WeAgentRepository.deleteConditionalPrompt(id)
-                    editConditional = null
-                } catch (e: Exception) {
-                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
-                }
-            }
-        } },
+        onDelete =
+            editConditional
+                ?.id
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { id ->
+                    {
+                        scope.launch {
+                            try {
+                                WeAgentRepository.deleteConditionalPrompt(id)
+                                editConditional = null
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.agent_delete_failed,
+                                        e.message,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
     )
     PresetPromptEditor(
         existing = editPreset ?: PresetPromptEntity("", "", ""),
@@ -291,7 +344,11 @@ fun PromptsScreen(onBack: () -> Unit) {
             scope.launch {
                 try {
                     WeAgentRepository.upsertPresetPrompt(
-                        entity.copy(id = entity.id.ifEmpty { UUID.randomUUID().toString() }, title = title, content = content)
+                        entity.copy(
+                            id = entity.id.ifEmpty { UUID.randomUUID().toString() },
+                            title = title,
+                            content = content,
+                        ),
                     )
                     editPreset = null
                 } catch (e: Exception) {
@@ -299,16 +356,27 @@ fun PromptsScreen(onBack: () -> Unit) {
                 }
             }
         },
-        onDelete = editPreset?.id?.takeIf { it.isNotEmpty() }?.let { id -> {
-            scope.launch {
-                try {
-                    WeAgentRepository.deletePresetPrompt(id)
-                    editPreset = null
-                } catch (e: Exception) {
-                    showToast(localizedContext.getString(R.string.agent_delete_failed, e.message))
-                }
-            }
-        } },
+        onDelete =
+            editPreset
+                ?.id
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { id ->
+                    {
+                        scope.launch {
+                            try {
+                                WeAgentRepository.deletePresetPrompt(id)
+                                editPreset = null
+                            } catch (e: Exception) {
+                                showToast(
+                                    localizedContext.getString(
+                                        R.string.agent_delete_failed,
+                                        e.message,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
     )
 }
 
@@ -335,7 +403,11 @@ private fun SystemPromptsPage(
                 val p = prompts[i]
                 SegmentedColumn {
                     item {
-                        BaseWidget(title = p.name, description = p.content.take(48), onClick = { onEdit(p) })
+                        BaseWidget(
+                            title = p.name,
+                            description = p.content.take(48),
+                            onClick = { onEdit(p) },
+                        )
                     }
                 }
             }
@@ -465,7 +537,11 @@ private fun PresetPromptsPage(
                 val p = prompts[i]
                 SegmentedColumn {
                     item {
-                        BaseWidget(title = p.title, description = p.content.take(48), onClick = { onEdit(p) })
+                        BaseWidget(
+                            title = p.title,
+                            description = p.content.take(48),
+                            onClick = { onEdit(p) },
+                        )
                     }
                 }
             }
@@ -500,7 +576,11 @@ private fun SystemPromptEditor(
 
     SettingsEditorSheet(
         show = show,
-        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_system_prompt else R.string.agent_edit_system_prompt),
+        title =
+            stringResource(
+                if (existing.id.isEmpty()) R.string.agent_add_system_prompt
+                else R.string.agent_edit_system_prompt,
+            ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
             EditorBottomBar(
@@ -558,7 +638,11 @@ private fun PerTurnPromptEditor(
 
     SettingsEditorSheet(
         show = show,
-        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_per_turn_prompt else R.string.agent_edit_per_turn_prompt),
+        title =
+            stringResource(
+                if (existing.id.isEmpty()) R.string.agent_add_per_turn_prompt
+                else R.string.agent_edit_per_turn_prompt,
+            ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
             EditorBottomBar(
@@ -617,7 +701,11 @@ private fun ConditionalPromptEditor(
 
     SettingsEditorSheet(
         show = show,
-        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_conditional_prompt else R.string.agent_edit_conditional_prompt),
+        title =
+            stringResource(
+                if (existing.id.isEmpty()) R.string.agent_add_conditional_prompt
+                else R.string.agent_edit_conditional_prompt,
+            ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
             EditorBottomBar(
@@ -681,7 +769,11 @@ private fun PresetPromptEditor(
 
     SettingsEditorSheet(
         show = show,
-        title = stringResource(if (existing.id.isEmpty()) R.string.agent_add_preset_prompt else R.string.agent_edit_preset_prompt),
+        title =
+            stringResource(
+                if (existing.id.isEmpty()) R.string.agent_add_preset_prompt
+                else R.string.agent_edit_preset_prompt,
+            ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
             EditorBottomBar(
@@ -734,20 +826,23 @@ private fun EditorBottomBar(
     onSave: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showDelete) {
             TextButton(
                 onClick = onDelete,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) { Text(stringResource(R.string.action_delete)) }
+                colors =
+                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text(stringResource(R.string.action_delete))
+            }
         }
         Spacer(Modifier.weight(1f))
         TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         Spacer(Modifier.width(8.dp))
-        Button(onClick = onSave, enabled = saveEnabled) { Text(stringResource(R.string.action_save)) }
+        Button(onClick = onSave, enabled = saveEnabled) {
+            Text(stringResource(R.string.action_save))
+        }
     }
 }

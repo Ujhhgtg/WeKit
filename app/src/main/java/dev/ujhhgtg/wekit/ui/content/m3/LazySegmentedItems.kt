@@ -26,26 +26,28 @@ fun <T> LazyListScope.lazySegmentedItems(
     ) { index, item ->
         val targetTop = if (index == 0) CornerRadius else ConnectionRadius
         val targetBottom = if (index == items.lastIndex) CornerRadius else ConnectionRadius
-        val top by animateDpAsState(
-            targetValue = targetTop,
-            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-            label = "segmentedTopRadius",
-        )
-        val bottom by animateDpAsState(
-            targetValue = targetBottom,
-            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-            label = "segmentedBottomRadius",
-        )
-        val shape = RoundedCornerShape(
-            topStart = top,
-            topEnd = top,
-            bottomStart = bottom,
-            bottomEnd = bottom,
-        )
+        val top by
+            animateDpAsState(
+                targetValue = targetTop,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "segmentedTopRadius",
+            )
+        val bottom by
+            animateDpAsState(
+                targetValue = targetBottom,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "segmentedBottomRadius",
+            )
+        val shape =
+            RoundedCornerShape(
+                topStart = top,
+                topEnd = top,
+                bottomStart = bottom,
+                bottomEnd = bottom,
+            )
 
         Box(
-            Modifier
-                .animateItem()
+            Modifier.animateItem()
                 .padding(top = if (index == 0) 0.dp else ListItemDefaults.SegmentedGap),
         ) {
             CompositionLocalProvider(LocalSegmentedItemShape provides shape) {

@@ -16,14 +16,17 @@ fun UnreadBadge(count: Long = 0) {
     Badge(
         containerColor = background,
         contentColor = foreground,
-        content = if (count > 0) {
-            {
-                Text(
-                    text = if (count <= 99) count.toString() else stringResource(R.string.badge_count_overflow),
-                    color = foreground,
-                    fontSize = 10.sp,
-                )
-            }
-        } else null,
+        content =
+            if (count > 0) {
+                {
+                    Text(
+                        text =
+                            if (count <= 99) count.toString()
+                            else stringResource(R.string.badge_count_overflow),
+                        color = foreground,
+                        fontSize = 10.sp,
+                    )
+                }
+            } else null,
     )
 }

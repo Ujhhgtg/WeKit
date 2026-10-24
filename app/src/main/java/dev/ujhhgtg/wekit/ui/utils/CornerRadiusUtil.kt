@@ -18,8 +18,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Dynamically calculates the device's physical corner radius.
  *
- * API 31+ uses the public RoundedCorner API.
- * API 30 and below falls back to the system rounded_corner_radius_bottom resource.
+ * API 31+ uses the public RoundedCorner API. API 30 and below falls back to the system
+ * rounded_corner_radius_bottom resource.
  *
  * @param defaultRadius The fallback radius to use if the device does not report rounded corners.
  * @return The calculated corner radius in Dp.
@@ -45,7 +45,7 @@ fun rememberDeviceCornerRadius(defaultRadius: Dp = 0.dp): Dp {
 
 private fun getDeviceCornerRadiusPx(
     context: Context,
-    view: View
+    view: View,
 ): Int {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val publicRadius = getRoundedCornerRadiusPx(view)
@@ -60,10 +60,11 @@ private fun getRoundedCornerRadiusPx(view: View): Int {
 
     val insets = view.rootWindowInsets ?: return 0
 
-    val corner = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
-        ?: insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT)
-        ?: insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)
-        ?: insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT)
+    val corner =
+        insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
+            ?: insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT)
+            ?: insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)
+            ?: insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT)
 
     return corner?.radius ?: 0
 }
@@ -73,18 +74,20 @@ private fun getRoundedCornerRadiusPx(view: View): Int {
 private fun getCornerRadiusBottom(context: Context): Int {
     val resources = context.resources
 
-    val bottomId = resources.getIdentifier(
-        "rounded_corner_radius_bottom",
-        "dimen",
-        "android"
-    )
+    val bottomId =
+        resources.getIdentifier(
+            "rounded_corner_radius_bottom",
+            "dimen",
+            "android",
+        )
     if (bottomId > 0) return resources.getDimensionPixelSize(bottomId)
 
-    val generalId = resources.getIdentifier(
-        "rounded_corner_radius",
-        "dimen",
-        "android"
-    )
+    val generalId =
+        resources.getIdentifier(
+            "rounded_corner_radius",
+            "dimen",
+            "android",
+        )
     return if (generalId > 0) {
         resources.getDimensionPixelSize(generalId)
     } else {

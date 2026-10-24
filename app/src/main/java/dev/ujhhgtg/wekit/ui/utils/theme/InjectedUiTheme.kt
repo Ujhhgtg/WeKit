@@ -20,7 +20,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 @Composable
 fun InjectedUiTheme(
     darkTheme: Boolean? = null,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
         val dark = darkTheme ?: isSystemInDarkTheme()

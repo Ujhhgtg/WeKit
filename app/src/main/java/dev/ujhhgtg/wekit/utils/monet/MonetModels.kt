@@ -2,12 +2,17 @@ package dev.ujhhgtg.wekit.utils.monet
 
 import kotlinx.serialization.Serializable
 
-enum class MonetBubbleStyle { MODERN, CLASSIC, PRO, NONE }
+enum class MonetBubbleStyle {
+    MODERN,
+    CLASSIC,
+    PRO,
+    NONE,
+}
 
 /**
  * A WeChat resource targeted by the runtime table. The loader has no idmap, so [id] is the
- * authority; [qualifiers] and [specFlags] mirror WeChat's own entry so the loader's configs can
- * tie or beat every config WeChat would pick.
+ * authority; [qualifiers] and [specFlags] mirror WeChat's own entry so the loader's configs can tie
+ * or beat every config WeChat would pick.
  */
 @Serializable
 data class MonetBinding(
@@ -19,8 +24,8 @@ data class MonetBinding(
 )
 
 /**
- * A color whose value is WeChat's brand green with alpha (selection highlight, `Brand_Alpha_*`,
- * …). Such colors have no semantic role; they become the theme primary at the same alpha. A `null`
+ * A color whose value is WeChat's brand green with alpha (selection highlight, `Brand_Alpha_*`, …).
+ * Such colors have no semantic role; they become the theme primary at the same alpha. A `null`
  * [nightAlpha] means the night value is not brand green and stays WeChat's.
  */
 @Serializable
@@ -70,7 +75,10 @@ data class MonetMethodDexEvidence(
 
 data class MonetFieldAccessEvidence(val descriptor: String, val access: MonetFieldAccess)
 
-enum class MonetFieldAccess { READ, WRITE }
+enum class MonetFieldAccess {
+    READ,
+    WRITE,
+}
 
 enum class MonetResolveStage {
     LOADING_APKS,

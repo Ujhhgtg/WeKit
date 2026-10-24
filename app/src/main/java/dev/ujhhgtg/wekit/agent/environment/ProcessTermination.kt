@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.agent.environment
 
-import dev.ujhhgtg.wekit.utils.fs.asPath
 import android.os.Process as AndroidProcess
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.util.concurrent.TimeUnit
-import kotlin.io.path.readText
 import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.readText
 
 object ProcessTermination {
     const val TERM_GRACE_MILLIS = 500L
@@ -14,7 +14,9 @@ object ProcessTermination {
     fun terminateTree(process: Process, rootPid: Int?) {
         if (rootPid != null) {
             val parentOf = readParents()
-            descendants(rootPid, parentOf).forEach { pid -> runCatching { AndroidProcess.killProcess(pid) } }
+            descendants(rootPid, parentOf).forEach { pid ->
+                runCatching { AndroidProcess.killProcess(pid) }
+            }
             runCatching { AndroidProcess.killProcess(rootPid) }
         }
         process.destroy()
@@ -26,11 +28,14 @@ object ProcessTermination {
 
     private fun readParents(): Map<Int, Int> = buildMap {
         runCatching {
-            "/proc".asPath.listDirectoryEntries()
+            "/proc"
+                .asPath
+                .listDirectoryEntries()
                 .filter { it.fileName.toString().all(Char::isDigit) }
                 .forEach { pidPath ->
                     val pid = pidPath.fileName.toString().toInt()
-                    val fields = pidPath.resolve("stat").readText().substringAfterLast(") ").split(' ')
+                    val fields =
+                        pidPath.resolve("stat").readText().substringAfterLast(") ").split(' ')
                     if (fields.size > 1) put(pid, fields[1].toInt())
                 }
         }
@@ -40,7 +45,10 @@ object ProcessTermination {
         val children = parentOf.entries.groupBy({ it.value }, { it.key })
         return buildList {
             fun visit(pid: Int) {
-                children[pid].orEmpty().forEach { child -> visit(child); add(child) }
+                children[pid].orEmpty().forEach { child ->
+                    visit(child)
+                    add(child)
+                }
             }
             visit(rootPid)
         }

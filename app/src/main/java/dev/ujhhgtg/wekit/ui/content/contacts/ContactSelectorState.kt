@@ -22,24 +22,26 @@ import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 private const val TAG = "ContactSelectorState"
 
-private var persistedFilterMode by KvStore.prefOption(
-    "contact_selector_filter_mode",
-    ContactFilterMode.LABELS.name,
-)
+private var persistedFilterMode by
+    KvStore.prefOption(
+        "contact_selector_filter_mode",
+        ContactFilterMode.LABELS.name,
+    )
 
-private fun ContactFilterMode.isAvailable(): Boolean = when (this) {
-    ContactFilterMode.LABELS -> true
-    ContactFilterMode.AGGREGATION -> ConversationAggregation.isEnabled
-    ContactFilterMode.GROUPING -> ConversationGrouping.isEnabled
-}
+private fun ContactFilterMode.isAvailable(): Boolean =
+    when (this) {
+        ContactFilterMode.LABELS -> true
+        ContactFilterMode.AGGREGATION -> ConversationAggregation.isEnabled
+        ContactFilterMode.GROUPING -> ConversationGrouping.isEnabled
+    }
 
 /**
  * Search, filter and sort state shared by the dialog and screen contact selectors. Selection is
@@ -60,14 +62,17 @@ class ContactSelectorState(
 
     var filterData by mutableStateOf(ContactFilterData.EMPTY)
         private set
+
     var filtersLoaded by mutableStateOf(false)
         private set
 
     var typeFilter by mutableStateOf(ContactTypeFilter.ALL)
-    var filterMode by mutableStateOf(
-        ContactFilterMode.entries.firstOrNull { it.name == persistedFilterMode }
-            ?.takeIf { it.isAvailable() } ?: ContactFilterMode.LABELS
-    )
+    var filterMode by
+        mutableStateOf(
+            ContactFilterMode.entries
+                .firstOrNull { it.name == persistedFilterMode }
+                ?.takeIf { it.isAvailable() } ?: ContactFilterMode.LABELS,
+        )
         private set
 
     /** The chosen label / aggregation folder / conversation group of [filterMode]; null = all. */
@@ -75,9 +80,11 @@ class ContactSelectorState(
 
     var sortMode by mutableStateOf(ContactSortMode.ALPHABETICAL)
         private set
+
     var sortReversed by mutableStateOf(false)
     var lastMessageTimes by mutableStateOf<Map<String, Long>?>(null)
         private set
+
     var sortLoading by mutableStateOf(false)
         private set
 
@@ -99,18 +106,25 @@ class ContactSelectorState(
     }
 
     val availableOptions by derivedStateOf {
-        filterData.options[filterMode].orEmpty().filter { option -> contacts.any { it.wxId in option.wxIds } }
+        filterData.options[filterMode].orEmpty().filter { option ->
+            contacts.any { it.wxId in option.wxIds }
+        }
     }
 
     val optionCounts by derivedStateOf {
-        availableOptions.associate { option -> option.id to searchedContacts.count { it.wxId in option.wxIds } }
+        availableOptions.associate { option ->
+            option.id to searchedContacts.count { it.wxId in option.wxIds }
+        }
     }
 
     /** What the list shows: searched, then narrowed by the type and option filters. */
     val displayedContacts by derivedStateOf {
-        val option = selectedOptionId?.let { id -> filterData.options[filterMode].orEmpty().firstOrNull { it.id == id } }
+        val option = selectedOptionId?.let { id ->
+            filterData.options[filterMode].orEmpty().firstOrNull { it.id == id }
+        }
         searchedContacts.filter { contact ->
-            filterData.matches(contact, typeFilter) && (option == null || contact.wxId in option.wxIds)
+            filterData.matches(contact, typeFilter) &&
+                (option == null || contact.wxId in option.wxIds)
         }
     }
 
@@ -139,9 +153,10 @@ class ContactSelectorState(
         }
         sortLoading = true
         coroutineScope.launch {
-            val times = withContext(Dispatchers.IO) {
-                if (WeDatabaseApi.isReady) WeDatabaseApi.getLastMessageTimes() else null
-            }
+            val times =
+                withContext(Dispatchers.IO) {
+                    if (WeDatabaseApi.isReady) WeDatabaseApi.getLastMessageTimes() else null
+                }
             // getLastMessageTimes() 内部吞掉异常后返回空表, 所以空结果也当作失败:
             // 否则会静默按"所有会话时间相同"排出一个随意的顺序, 而且缓存住之后再也不会重试。
             if (times.isNullOrEmpty()) {
@@ -156,10 +171,20 @@ class ContactSelectorState(
 
     /** Sections of [displayedContacts]; [selectionKey] must change whenever [isSelected] does. */
     @Composable
-    fun rememberSections(selectionKey: Any?, isSelected: (IWeContact) -> Boolean): List<ContactSection> {
+    fun rememberSections(
+        selectionKey: Any?,
+        isSelected: (IWeContact) -> Boolean,
+    ): List<ContactSection> {
         val displayed = displayedContacts
         return remember(displayed, selectionKey, sortMode, sortReversed, lastMessageTimes) {
-            buildContactSections(displayed, isSelected, sortMode, sortReversed, lastMessageTimes, initials::initialOf)
+            buildContactSections(
+                displayed,
+                isSelected,
+                sortMode,
+                sortReversed,
+                lastMessageTimes,
+                initials::initialOf,
+            )
         }
     }
 }
@@ -177,18 +202,21 @@ fun rememberContactSelectorState(
     val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val coroutineScope = rememberCoroutineScope()
     val state = remember {
-        ContactSelectorState(coroutineScope) { res: Int -> showToast(context, localizedContext.getString(res)) }
+        ContactSelectorState(coroutineScope) { res: Int ->
+            showToast(context, localizedContext.getString(res))
+        }
     }
     val sorted = remember(contacts, sortLocale) { sortContactsByDisplayName(contacts, sortLocale) }
     if (state.contacts !== sorted) state.contacts = sorted
 
     LaunchedEffect(state) {
-        val data = withContext(Dispatchers.IO) {
-            // 先在 IO 线程把分组字母算好, 主线程之后每次按键都只命中缓存。
-            // (之后新增的联系人会在 initialOf 里按需补算, 结果一致。)
-            runCatching { sorted.forEach { state.initials.initialOf(it.displayName) } }
-            loadContactFilterData(localizedContext)
-        }
+        val data =
+            withContext(Dispatchers.IO) {
+                // 先在 IO 线程把分组字母算好, 主线程之后每次按键都只命中缓存。
+                // (之后新增的联系人会在 initialOf 里按需补算, 结果一致。)
+                runCatching { sorted.forEach { state.initials.initialOf(it.displayName) } }
+                loadContactFilterData(localizedContext)
+            }
         state.onFilterDataLoaded(data)
     }
     return state
@@ -198,36 +226,44 @@ fun rememberContactSelectorState(
 private fun loadContactFilterData(localizedContext: Context): ContactFilterData? {
     if (!WeDatabaseApi.isReady) return null
     return try {
-        val labels = WeContactLabelApi.getAllLabels().map { label ->
-            ContactFilterOption(
-                id = label.labelName,
-                name = label.labelName,
-                wxIds = WeContactLabelApi.getContactsByLabelId(label.labelId).toSet(),
-            )
-        }
-        val aggregation = if (ConversationAggregation.isEnabled) {
-            ConversationAggregation.aggregationFolders().map { folder ->
-                ContactFilterOption(folder.id, folder.name, ConversationAggregation.folderMembers(folder.id).toSet())
+        val labels =
+            WeContactLabelApi.getAllLabels().map { label ->
+                ContactFilterOption(
+                    id = label.labelName,
+                    name = label.labelName,
+                    wxIds = WeContactLabelApi.getContactsByLabelId(label.labelId).toSet(),
+                )
             }
-        } else {
-            emptyList()
-        }
-        val grouping = if (ConversationGrouping.isEnabled) {
-            ConversationGrouping.groupFilterOptions(localizedContext).map { group ->
-                ContactFilterOption(group.id, group.name, group.members.toSet())
+        val aggregation =
+            if (ConversationAggregation.isEnabled) {
+                ConversationAggregation.aggregationFolders().map { folder ->
+                    ContactFilterOption(
+                        folder.id,
+                        folder.name,
+                        ConversationAggregation.folderMembers(folder.id).toSet(),
+                    )
+                }
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
+        val grouping =
+            if (ConversationGrouping.isEnabled) {
+                ConversationGrouping.groupFilterOptions(localizedContext).map { group ->
+                    ContactFilterOption(group.id, group.name, group.members.toSet())
+                }
+            } else {
+                emptyList()
+            }
         ContactFilterData(
             friendWxIds = WeDatabaseApi.getFriends().map { it.wxId }.toSet(),
             groupWxIds = WeDatabaseApi.getGroups().map { it.wxId }.toSet(),
             officialAccountWxIds = WeDatabaseApi.getOfficialAccounts().map { it.wxId }.toSet(),
-            options = mapOf(
-                ContactFilterMode.LABELS to labels,
-                ContactFilterMode.AGGREGATION to aggregation,
-                ContactFilterMode.GROUPING to grouping,
-            ),
+            options =
+                mapOf(
+                    ContactFilterMode.LABELS to labels,
+                    ContactFilterMode.AGGREGATION to aggregation,
+                    ContactFilterMode.GROUPING to grouping,
+                ),
         )
     } catch (e: Exception) {
         WeLogger.e(TAG, "failed to load contact filters", e)

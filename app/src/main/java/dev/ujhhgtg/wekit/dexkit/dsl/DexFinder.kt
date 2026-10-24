@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.dexkit.dsl
 
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassMatcher
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldMatcher
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodMatcher
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
@@ -11,88 +14,119 @@ import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 
 /**
- * Imperative spec-based resolver extensions for `resolveDex()` bodies (the DexKit-free
- * replacement for the removed `find(dexKit) { matcher { ... } }` overloads).
+ * DexKit-style imperative finder for `resolveDex()` bodies:
  *
- * Semantics mirror the deleted DexKit delegate find():
  * - 0 results: expected failure only when [allowFailure], otherwise a loud error.
  * - >1 results: ambiguity error listing the descriptors.
  * - exactly 1: setDescriptor(...) and return true.
  *
- * Requires an active DexResolutionContext (these run inside resolveDex / query-matcher blocks).
+ * The [block] is a DexKit matcher block: it runs during resolution, inside the active
+ * DexResolutionContext, so it may read other delegates' `.data`.
  */
-
 fun DexClassDelegate.find(
-    spec: ClassSpec,
-    packages: List<String> = emptyList(),
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
-): Boolean = resolveMatcher(
-    key = key,
-    kind = "class",
-    allowFailure = allowFailure,
-    query = { DexResolutionContext.matcher.findClasses(spec, packages, excludePackages) },
-    descriptor = DexClassInfo::descriptor,
-    set = { info -> this.setDescriptor(info) },
-    markExpectedFailure = ::markExpectedFailure,
-    recordFailure = ::recordUnexpectedFailure,
-)
+    block: ClassMatcher.() -> Unit,
+): Boolean {
+    val matcher = ClassMatcher().apply(block)
+    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+}
 
 fun DexMethodDelegate.find(
-    spec: MethodSpec,
-    packages: List<String> = emptyList(),
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
-): Boolean = resolveMatcher(
-    key = key,
-    kind = "method",
-    allowFailure = allowFailure,
-    query = { DexResolutionContext.matcher.findMethods(spec, packages, excludePackages) },
-    descriptor = DexMethodInfo::descriptor,
-    set = ::setDescriptor,
-    markExpectedFailure = ::markExpectedFailure,
-    recordFailure = ::recordUnexpectedFailure,
-)
+    block: MethodMatcher.() -> Unit,
+): Boolean {
+    val matcher = MethodMatcher().apply(block)
+    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+}
 
 fun DexConstructorDelegate.find(
-    spec: MethodSpec,
-    packages: List<String> = emptyList(),
-    excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
-): Boolean = resolveMatcher(
-    key = key,
-    kind = "constructor",
-    allowFailure = allowFailure,
-    query = {
-        DexResolutionContext.matcher.findMethods(
-            spec.copy(name = NameSpec("<init>", NameMatch.Equals)),
-            packages,
-            excludePackages,
-        )
-    },
-    descriptor = DexMethodInfo::descriptor,
-    set = ::setDescriptor,
-    markExpectedFailure = ::markExpectedFailure,
-    recordFailure = ::recordUnexpectedFailure,
-)
+    block: MethodMatcher.() -> Unit,
+): Boolean {
+    val matcher = MethodMatcher().apply(block)
+    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+}
 
 fun DexFieldDelegate.find(
-    spec: FieldSpec,
-    packages: List<String> = emptyList(),
+    allowFailure: Boolean = false,
+    block: FieldMatcher.() -> Unit,
+): Boolean {
+    val matcher = FieldMatcher().apply(block)
+    return find(matcher.build(), matcher.excludePackages.toList(), allowFailure)
+}
+
+internal fun DexClassDelegate.find(
+    spec: ClassSpec,
     excludePackages: List<String> = emptyList(),
     allowFailure: Boolean = false,
-): Boolean = resolveMatcher(
-    key = key,
-    kind = "field",
-    allowFailure = allowFailure,
-    query = { DexResolutionContext.matcher.findFields(spec, packages, excludePackages) },
-    descriptor = DexFieldInfo::descriptor,
-    set = ::setDescriptor,
-    markExpectedFailure = ::markExpectedFailure,
-    recordFailure = ::recordUnexpectedFailure,
-)
+): Boolean =
+    resolveMatcher(
+        key = key,
+        kind = "class",
+        allowFailure = allowFailure,
+        query = { DexResolutionContext.matcher.findClasses(spec, emptyList(), excludePackages) },
+        descriptor = DexClassInfo::descriptor,
+        set = { info -> this.setDescriptor(info) },
+        markExpectedFailure = ::markExpectedFailure,
+        recordFailure = ::recordUnexpectedFailure,
+    )
 
-private fun <T> resolveMatcher(
+internal fun DexMethodDelegate.find(
+    spec: MethodSpec,
+    excludePackages: List<String> = emptyList(),
+    allowFailure: Boolean = false,
+): Boolean =
+    resolveMatcher(
+        key = key,
+        kind = "method",
+        allowFailure = allowFailure,
+        query = { DexResolutionContext.matcher.findMethods(spec, emptyList(), excludePackages) },
+        descriptor = DexMethodInfo::descriptor,
+        set = ::setDescriptor,
+        markExpectedFailure = ::markExpectedFailure,
+        recordFailure = ::recordUnexpectedFailure,
+    )
+
+internal fun DexConstructorDelegate.find(
+    spec: MethodSpec,
+    excludePackages: List<String> = emptyList(),
+    allowFailure: Boolean = false,
+): Boolean =
+    resolveMatcher(
+        key = key,
+        kind = "constructor",
+        allowFailure = allowFailure,
+        query = {
+            DexResolutionContext.matcher.findMethods(
+                spec.copy(name = NameSpec("<init>", NameMatch.Equals)),
+                emptyList(),
+                excludePackages,
+            )
+        },
+        descriptor = DexMethodInfo::descriptor,
+        set = ::setDescriptor,
+        markExpectedFailure = ::markExpectedFailure,
+        recordFailure = ::recordUnexpectedFailure,
+    )
+
+internal fun DexFieldDelegate.find(
+    spec: FieldSpec,
+    excludePackages: List<String> = emptyList(),
+    allowFailure: Boolean = false,
+): Boolean =
+    resolveMatcher(
+        key = key,
+        kind = "field",
+        allowFailure = allowFailure,
+        query = { DexResolutionContext.matcher.findFields(spec, emptyList(), excludePackages) },
+        descriptor = DexFieldInfo::descriptor,
+        set = ::setDescriptor,
+        markExpectedFailure = ::markExpectedFailure,
+        recordFailure = ::recordUnexpectedFailure,
+    )
+
+
+internal fun <T> resolveMatcher(
     key: String,
     kind: String,
     allowFailure: Boolean,
@@ -105,14 +139,19 @@ private fun <T> resolveMatcher(
     try {
         val results = query()
         if (results.isEmpty()) {
-            if (!allowFailure) error("DexKit-style: no " + kind + " found for key: " + key)
+            if (!allowFailure) error("DexSQL: no $kind found for key: $key")
             markExpectedFailure()
             return false
         }
         if (results.size > 1) {
             error(
-                "DexKit-style: multiple " + kind + "s found for key: " + key +
-                    ", count: " + results.size + ", descriptors: " +
+                "DexSQL: multiple " +
+                    kind +
+                    "s found for key: " +
+                    key +
+                    ", count: " +
+                    results.size +
+                    ", descriptors: " +
                     results.joinToString(",") { descriptor(it) },
             )
         }

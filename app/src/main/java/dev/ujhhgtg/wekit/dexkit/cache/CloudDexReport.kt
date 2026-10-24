@@ -39,11 +39,19 @@ object CloudDexReport {
         items: List<CurrentDexItem>,
     ): CloudDexSelection {
         val report = json.decodeFromString<Report>(jsonText)
-        require(report.schemaVersion == SCHEMA_VERSION) { "unsupported cloud report schema: ${report.schemaVersion}" }
+        require(report.schemaVersion == SCHEMA_VERSION) {
+            "unsupported cloud report schema: ${report.schemaVersion}"
+        }
         require(report.outcome == APK_PASS) { "cloud report did not pass: ${report.outcome}" }
-        require(report.versionName == host.versionName) { "cloud report version name does not match host" }
-        require(report.versionCode == host.versionCode) { "cloud report version code does not match host" }
-        require(report.isGooglePlay == host.isGooglePlay) { "cloud report channel does not match host" }
+        require(report.versionName == host.versionName) {
+            "cloud report version name does not match host"
+        }
+        require(report.versionCode == host.versionCode) {
+            "cloud report version code does not match host"
+        }
+        require(report.isGooglePlay == host.isGooglePlay) {
+            "cloud report channel does not match host"
+        }
 
         val featuresById = report.features.groupBy(Feature::technicalId)
         val entries = items.mapNotNull { item ->
@@ -51,7 +59,9 @@ object CloudDexReport {
             if (features?.size != 1) return@mapNotNull null
 
             val feature = features.single()
-            if (feature.outcome !in FEATURE_PASS_OUTCOMES || feature.methodHash != item.methodHash) {
+            if (
+                feature.outcome !in FEATURE_PASS_OUTCOMES || feature.methodHash != item.methodHash
+            ) {
                 return@mapNotNull null
             }
 
@@ -61,11 +71,14 @@ object CloudDexReport {
             val descriptors = LinkedHashMap<String, String?>(item.delegateKeys.size)
             for (key in item.delegateKeys) {
                 val delegate = delegatesByKey[key]?.singleOrNull() ?: return@mapNotNull null
-                descriptors[key] = when (delegate.status) {
-                    "SUCCESS" -> delegate.descriptor?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
-                    "EXPECTED_FAILURE" -> null
-                    else -> return@mapNotNull null
-                }
+                descriptors[key] =
+                    when (delegate.status) {
+                        "SUCCESS" ->
+                            delegate.descriptor?.takeIf(String::isNotEmpty)
+                                ?: return@mapNotNull null
+                        "EXPECTED_FAILURE" -> null
+                        else -> return@mapNotNull null
+                    }
             }
 
             CloudDexCacheEntry(

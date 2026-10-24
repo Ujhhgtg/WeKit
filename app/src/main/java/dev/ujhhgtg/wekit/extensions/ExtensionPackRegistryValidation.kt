@@ -6,7 +6,8 @@ fun validateExtensionPacks(packs: List<ExtensionPack>): List<ExtensionPack> {
             "Extension pack ${pack.javaClass.name} has an empty ID"
         }
     }
-    packs.groupBy(ExtensionPack::id)
+    packs
+        .groupBy(ExtensionPack::id)
         .filterValues { it.size > 1 }
         .forEach { (id, duplicates) ->
             require(false) {

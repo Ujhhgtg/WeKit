@@ -6,10 +6,11 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class DexTestFeatureSelectionTest {
-    private val entries = listOf(
-        entry("dev.example.chat.AntiReadReceipts"),
-        entry("dev.example.chat.AntiSecMsg"),
-    )
+    private val entries =
+        listOf(
+            entry("dev.example.chat.AntiReadReceipts"),
+            entry("dev.example.chat.AntiSecMsg"),
+        )
 
     @Test
     fun omittedSelectorsKeepAllFeatures() {
@@ -34,9 +35,10 @@ class DexTestFeatureSelectionTest {
 
     @Test
     fun rejectsUnknownFeature() {
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            selectDexTestEntries(entries, listOf("MissingFeature"))
-        }
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                selectDexTestEntries(entries, listOf("MissingFeature"))
+            }
         assertEquals("unknown Dex resolver feature: MissingFeature", error.message)
     }
 
@@ -45,9 +47,10 @@ class DexTestFeatureSelectionTest {
         val duplicate = entry("dev.example.other.AntiReadReceipts")
         val ambiguousEntries = entries + duplicate
 
-        val error = assertThrows(IllegalArgumentException::class.java) {
-            selectDexTestEntries(ambiguousEntries, listOf("AntiReadReceipts"))
-        }
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                selectDexTestEntries(ambiguousEntries, listOf("AntiReadReceipts"))
+            }
         assertEquals(
             "ambiguous Dex resolver feature AntiReadReceipts; use its fully qualified name: " +
                 "dev.example.chat.AntiReadReceipts, dev.example.other.AntiReadReceipts",

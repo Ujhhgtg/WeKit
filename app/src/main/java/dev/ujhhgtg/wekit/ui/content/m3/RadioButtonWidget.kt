@@ -29,13 +29,13 @@ import androidx.compose.ui.text.TextStyle
  * @param iconPlaceholder If true, maintains a consistent leading space even when [icon] is null.
  * @param selected Whether this option is currently selected.
  * @param enabled Whether the widget is enabled and interactive.
- * @param trailingDivider Whether to display a vertical divider before the radio button,
- * visually separating the main and trailing click areas.
- * @param onClick Optional callback for the main/left area. When omitted, the main area
- * selects the option for backwards compatibility.
- * @param onSelect Callback invoked when the option is selected via the radio button.
- * When omitted, selection falls back to [onClick]; provide both to give the main area a
- * separate action such as opening a detail screen.
+ * @param trailingDivider Whether to display a vertical divider before the radio button, visually
+ *   separating the main and trailing click areas.
+ * @param onClick Optional callback for the main/left area. When omitted, the main area selects the
+ *   option for backwards compatibility.
+ * @param onSelect Callback invoked when the option is selected via the radio button. When omitted,
+ *   selection falls back to [onClick]; provide both to give the main area a separate action such as
+ *   opening a detail screen.
  */
 @Composable
 fun RadioButtonWidget(
@@ -57,10 +57,11 @@ fun RadioButtonWidget(
 
     BaseWidget(
         // Merge semantics and define role/state for screen readers
-        modifier = modifier.semantics(mergeDescendants = true) {
-            role = Role.RadioButton
-            this.selected = selected
-        },
+        modifier =
+            modifier.semantics(mergeDescendants = true) {
+                role = Role.RadioButton
+                this.selected = selected
+            },
         icon = icon,
         iconPlaceholder = iconPlaceholder,
         title = title,
@@ -75,23 +76,25 @@ fun RadioButtonWidget(
             selected = selected,
             // The row click is handled by BaseWidget's ListItem unless the trailing area
             // acts independently; passing null avoids double-triggering ripples
-            onClick = if (separateClickAreas) {
-                {
-                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                    selectAction?.invoke()
-                }
-            } else {
-                null
-            },
+            onClick =
+                if (separateClickAreas) {
+                    {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                        selectAction?.invoke()
+                    }
+                } else {
+                    null
+                },
             // Clear child semantics to avoid double reading by TalkBack
             modifier = Modifier.clearAndSetSemantics {},
             enabled = enabled,
             // Inherit the dynamic content color provided by BaseWidget
-            colors = RadioButtonDefaults.colors(
-                selectedColor = LocalContentColor.current
-            ),
+            colors =
+                RadioButtonDefaults.colors(
+                    selectedColor = LocalContentColor.current,
+                ),
             // Bind the shared interactionSource for synchronized visual feedback
-            interactionSource = interactionSource
+            interactionSource = interactionSource,
         )
     }
 }

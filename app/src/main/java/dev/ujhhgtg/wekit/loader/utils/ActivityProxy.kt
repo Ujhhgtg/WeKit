@@ -48,25 +48,28 @@ object ActivityProxy {
             val currentActivityThread = ActivityThread.currentActivityThread()
 
             // Hook Instrumentation
-            val mInstrumentationField = clazzActivityThread.getDeclaredField("mInstrumentation")
-                .makeAccessible()
+            val mInstrumentationField =
+                clazzActivityThread.getDeclaredField("mInstrumentation").makeAccessible()
             val instrumentation =
                 mInstrumentationField.get(currentActivityThread) as Instrumentation
             if (instrumentation !is ProxyInstrumentation) {
                 mInstrumentationField.set(
                     currentActivityThread,
-                    ProxyInstrumentation(instrumentation)
+                    ProxyInstrumentation(instrumentation),
                 )
             }
 
             // Hook Handler (mH)
-            val oriHandler = clazzActivityThread.getDeclaredField("mH")
-                .makeAccessible()
-                .get(currentActivityThread) as Handler
-            val callbackField = Handler::class.java.getDeclaredField("mCallback")
-                .makeAccessible()
+            val oriHandler =
+                clazzActivityThread
+                    .getDeclaredField("mH")
+                    .makeAccessible()
+                    .get(currentActivityThread) as Handler
+            val callbackField = Handler::class.java.getDeclaredField("mCallback").makeAccessible()
             val current = callbackField.get(oriHandler) as? Handler.Callback
-            if (current == null || current.javaClass.name != ProxyHandlerCallback::class.java.name) {
+            if (
+                current == null || current.javaClass.name != ProxyHandlerCallback::class.java.name
+            ) {
                 callbackField.set(oriHandler, ProxyHandlerCallback(current))
             }
 
@@ -74,47 +77,54 @@ object ActivityProxy {
             hookPackageManager(ctx, currentActivityThread, clazzActivityThread)
 
             initialized = true
-        }.onFailure { WeLogger.e(TAG, "failed to init stub activity hooks", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to init stub activity hooks", it) }
     }
 
     private fun hookIActivityManager() {
         val singletonClass = Class.forName("android.util.Singleton")
-        val instanceField =
-            singletonClass.getDeclaredField("mInstance").makeAccessible()
+        val instanceField = singletonClass.getDeclaredField("mInstance").makeAccessible()
 
         fun hookSingleton(singleton: Any?, iface: Class<*>) {
             if (singleton == null) return
             runCatching {
-                singletonClass.getDeclaredMethod("get").makeAccessible()
-                    .invoke(singleton)
+                singletonClass.getDeclaredMethod("get").makeAccessible().invoke(singleton)
             }
-            val instance = instanceField.get(singleton) ?: run {
-                WeLogger.e(TAG, "instance is null for ${iface.simpleName}")
-                return
-            }
-            val proxy = Proxy.newProxyInstance(
-                ActivityProxy::class.java.classLoader,
-                arrayOf(iface),
-                IActivityManagerHandler(instance)
-            )
+            val instance =
+                instanceField.get(singleton)
+                    ?: run {
+                        WeLogger.e(TAG, "instance is null for ${iface.simpleName}")
+                        return
+                    }
+            val proxy =
+                Proxy.newProxyInstance(
+                    ActivityProxy::class.java.classLoader,
+                    arrayOf(iface),
+                    IActivityManagerHandler(instance),
+                )
             instanceField.set(singleton, proxy)
         }
 
-        val (_, defField) = runCatching {
-            val c = Class.forName("android.app.ActivityManagerNative")
-            c to c.getDeclaredField("gDefault")
-        }.getOrElse {
-            val c = Class.forName("android.app.ActivityManager")
-            c to c.getDeclaredField("IActivityManagerSingleton")
-        }
+        val (_, defField) =
+            runCatching {
+                val c = Class.forName("android.app.ActivityManagerNative")
+                c to c.getDeclaredField("gDefault")
+            }
+                .getOrElse {
+                    val c = Class.forName("android.app.ActivityManager")
+                    c to c.getDeclaredField("IActivityManagerSingleton")
+                }
         defField.makeAccessible()
         hookSingleton(defField.get(null), Class.forName("android.app.IActivityManager"))
 
         // Android 10+ (Q)
         runCatching {
             val atmClass = Class.forName("android.app.ActivityTaskManager")
-            val singleton = atmClass.getDeclaredField("IActivityTaskManagerSingleton")
-                .makeAccessible().get(null)
+            val singleton =
+                atmClass
+                    .getDeclaredField("IActivityTaskManagerSingleton")
+                    .makeAccessible()
+                    .get(null)
             hookSingleton(singleton, Class.forName("android.app.IActivityTaskManager"))
         }
     }
@@ -122,25 +132,27 @@ object ActivityProxy {
     private fun hookPackageManager(
         ctx: Context,
         sCurrentActivityThread: Any,
-        clazzActivityThread: Class<*>
+        clazzActivityThread: Class<*>,
     ) {
         runCatching {
-            val sPackageManagerField = clazzActivityThread.getDeclaredField("sPackageManager")
-                .makeAccessible()
+            val sPackageManagerField =
+                clazzActivityThread.getDeclaredField("sPackageManager").makeAccessible()
             val packageManagerImpl = sPackageManagerField.get(sCurrentActivityThread)
             val iPackageManagerInterface = Class.forName("android.content.pm.IPackageManager")
 
             val pm = ctx.packageManager
             val mPmField = pm.javaClass.getDeclaredField("mPM").makeAccessible()
 
-            val pmProxy = Proxy.newProxyInstance(
-                iPackageManagerInterface.classLoader,
-                arrayOf(iPackageManagerInterface),
-                PackageManagerInvocationHandler(packageManagerImpl!!)
-            )
+            val pmProxy =
+                Proxy.newProxyInstance(
+                    iPackageManagerInterface.classLoader,
+                    arrayOf(iPackageManagerInterface),
+                    PackageManagerInvocationHandler(packageManagerImpl!!),
+                )
             sPackageManagerField.set(sCurrentActivityThread, pmProxy)
             mPmField.set(pm, pmProxy)
-        }.onFailure { WeLogger.e(TAG, "failed to hook PackageManager (non-fatal)", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to hook PackageManager (non-fatal)", it) }
     }
 
     // --- Inner types ---
@@ -148,11 +160,12 @@ object ActivityProxy {
     object ActProxyMgr {
         const val ACTIVITY_PROXY_INTENT_TOKEN = "wekit_target_intent_token"
         const val SETTINGS_PROXY = "${PackageNames.WECHAT}.app.WeChatSplashActivity"
-        const val TRANSPARENT_PROXY = "${PackageNames.WECHAT}.plugin.appbrand.ipc.AppBrandProxyTransparentUI"
+        const val TRANSPARENT_PROXY =
+            "${PackageNames.WECHAT}.plugin.appbrand.ipc.AppBrandProxyTransparentUI"
 
         /**
          * 这些模块 Activity 不借宿主的 stub，直接在模块自己的进程里启动：
-         *  - MainActivity 本来就是从桌面启动的。
+         * - MainActivity 本来就是从桌面启动的。
          */
         private val NON_PROXY_ACTIVITIES = listOf("MainActivity")
 
@@ -172,8 +185,8 @@ object ActivityProxy {
                             @Suppress("UNCHECKED_CAST")
                             val intents = arg as? Array<Intent?> ?: return@forEachIndexed
                             intents.forEachIndexed { j, intent ->
-                                if (intent != null && shouldProxy(intent)) intents[j] =
-                                    createTokenWrapper(intent)
+                                if (intent != null && shouldProxy(intent))
+                                    intents[j] = createTokenWrapper(intent)
                             }
                         }
                     }
@@ -192,7 +205,9 @@ object ActivityProxy {
         private fun createTokenWrapper(raw: Intent): Intent {
             val token = IntentTokenCache.put(Intent(raw))
             val className = raw.component!!.className
-            val proxyClass = if (className.contains("SettingsActivity")) ActProxyMgr.SETTINGS_PROXY else ActProxyMgr.TRANSPARENT_PROXY
+            val proxyClass =
+                if (className.contains("SettingsActivity")) ActProxyMgr.SETTINGS_PROXY
+                else ActProxyMgr.TRANSPARENT_PROXY
             return Intent {
                 component = ComponentName(HostInfo.packageName, proxyClass)
                 flags = raw.flags
@@ -201,12 +216,13 @@ object ActivityProxy {
                 raw.categories?.forEach { addCategory(it) }
                 putExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN, token)
                 setExtrasClassLoader(ParcelableFixer.hybridClassLoader)
-            }.also {
-                WeLogger.i(
-                    TAG,
-                    "hijacked startActivity via token: $className -> $proxyClass"
-                )
             }
+                .also {
+                    WeLogger.i(
+                        TAG,
+                        "hijacked startActivity via token: $className -> $proxyClass",
+                    )
+                }
         }
     }
 
@@ -215,7 +231,7 @@ object ActivityProxy {
 
         override fun handleMessage(msg: Message): Boolean {
             when (msg.what) {
-                100 -> handleLaunchActivity(msg)     // LAUNCH_ACTIVITY (< Android 9)
+                100 -> handleLaunchActivity(msg) // LAUNCH_ACTIVITY (< Android 9)
                 159 -> handleExecuteTransaction(msg) // EXECUTE_TRANSACTION (>= Android 9)
             }
             return runCatching { next?.handleMessage(msg) == true }
@@ -229,11 +245,14 @@ object ActivityProxy {
             wrapper.setExtrasClassLoader(cl)
             if (!wrapper.hasExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN)) return null
 
-            val token = wrapper.getStringExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN) ?: return null
-            val real = IntentTokenCache.get(token) ?: run {
-                WeLogger.w(TAG, "token expired or lost in handler: $token")
-                return null
-            }
+            val token =
+                wrapper.getStringExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN) ?: return null
+            val real =
+                IntentTokenCache.get(token)
+                    ?: run {
+                        WeLogger.w(TAG, "token expired or lost in handler: $token")
+                        return null
+                    }
             real.setExtrasClassLoader(cl)
             real.extras?.classLoader = cl
             return RecoveredIntent(token, real)
@@ -242,27 +261,29 @@ object ActivityProxy {
         private fun handleLaunchActivity(msg: Message) {
             runCatching {
                 val record = msg.obj
-                val intentField =
-                    record.javaClass.getDeclaredField("intent").makeAccessible()
+                val intentField = record.javaClass.getDeclaredField("intent").makeAccessible()
                 val wrapper = intentField.get(record) as? Intent
                 recoverIntent(wrapper)?.let { recovered ->
                     intentField.set(record, recovered.intent)
                     IntentTokenCache.remove(recovered.token)
                 }
-            }.onFailure { WeLogger.e(TAG, "handleLaunchActivity error", it) }
+            }
+                .onFailure { WeLogger.e(TAG, "handleLaunchActivity error", it) }
         }
 
         private fun handleExecuteTransaction(msg: Message) {
             runCatching {
                 val transaction = msg.obj
-                val callbacks = transaction.javaClass.getDeclaredMethod("getCallbacks")
-                    .makeAccessible()
-                    .invoke(transaction) as? List<*> ?: return
+                val callbacks =
+                    transaction.javaClass
+                        .getDeclaredMethod("getCallbacks")
+                        .makeAccessible()
+                        .invoke(transaction) as? List<*> ?: return
 
                 callbacks.forEach { item ->
                     if (item != null && item.javaClass.name.contains("LaunchActivityItem")) {
-                        val intentField = item.javaClass.getDeclaredField("mIntent")
-                            .makeAccessible()
+                        val intentField =
+                            item.javaClass.getDeclaredField("mIntent").makeAccessible()
                         val wrapper = intentField.get(item) as? Intent
                         recoverIntent(wrapper)?.let { recovered ->
                             intentField.set(item, recovered.intent)
@@ -270,7 +291,10 @@ object ActivityProxy {
                             // Android 12 keeps a second ActivityClientRecord while launching.
                             // Updating only LaunchActivityItem leaves the proxy intent in that
                             // record, so ActivityThread instantiates the proxy activity instead.
-                            if (Build.VERSION.SDK_INT in Build.VERSION_CODES.S..Build.VERSION_CODES.S_V2) {
+                            if (
+                                Build.VERSION.SDK_INT in
+                                    Build.VERSION_CODES.S..Build.VERSION_CODES.S_V2
+                            ) {
                                 updateLaunchingActivityIntent(transaction, recovered.intent)
                             }
 
@@ -278,19 +302,19 @@ object ActivityProxy {
                         }
                     }
                 }
-            }.onFailure { WeLogger.e(TAG, "handleExecuteTransaction error", it) }
+            }
+                .onFailure { WeLogger.e(TAG, "handleExecuteTransaction error", it) }
         }
 
         private fun updateLaunchingActivityIntent(transaction: Any, intent: Intent) {
-            val token = transaction.javaClass.getMethod("getActivityToken")
-                .invoke(transaction) as IBinder
+            val token =
+                transaction.javaClass.getMethod("getActivityToken").invoke(transaction) as IBinder
             val activityThread = ActivityThread.currentActivityThread()
-            val record = activityThread.javaClass
-                .getMethod("getLaunchingActivity", IBinder::class.java)
-                .invoke(activityThread, token) ?: return
-            record.javaClass.getDeclaredField("intent")
-                .makeAccessible()
-                .set(record, intent)
+            val record =
+                activityThread.javaClass
+                    .getMethod("getLaunchingActivity", IBinder::class.java)
+                    .invoke(activityThread, token) ?: return
+            record.javaClass.getDeclaredField("intent").makeAccessible().set(record, intent)
         }
     }
 
@@ -312,20 +336,23 @@ object ActivityProxy {
         override fun newActivity(cl: ClassLoader, className: String, intent: Intent): Activity {
             var resolvedIntent = intent
             var resolvedClass = className
-            tryRecoverIntent(intent)?.takeIf { it.component != null }?.let {
-                resolvedIntent = it
-                resolvedClass = it.component!!.className
-                WeLogger.w(
-                    "ProxyInstrumentation",
-                    "recovered intent in newActivity fallback: $resolvedClass"
-                )
-            }
+            tryRecoverIntent(intent)
+                ?.takeIf { it.component != null }
+                ?.let {
+                    resolvedIntent = it
+                    resolvedClass = it.component!!.className
+                    WeLogger.w(
+                        "ProxyInstrumentation",
+                        "recovered intent in newActivity fallback: $resolvedClass",
+                    )
+                }
             // fast path
             // also fixes compatibility with FunBox Zygisk
             // I haven't the foggiest idea of why upstream chose to use try-catch for this
             if (ActProxyMgr.isModuleProxyActivity(resolvedClass)) {
                 return ClassLoaders.MODULE.loadClass(resolvedClass)
-                    .getDeclaredConstructor().newInstance() as Activity
+                    .getDeclaredConstructor()
+                    .newInstance() as Activity
             }
             return base.newActivity(cl, resolvedClass, resolvedIntent)
         }
@@ -340,7 +367,7 @@ object ActivityProxy {
             title: CharSequence,
             parent: Activity?,
             id: String?,
-            lastNonConfigurationInstance: Any?
+            lastNonConfigurationInstance: Any?,
         ): Activity =
             base.newActivity(
                 clazz,
@@ -352,7 +379,7 @@ object ActivityProxy {
                 title,
                 parent,
                 id,
-                lastNonConfigurationInstance
+                lastNonConfigurationInstance,
             )
 
         override fun callActivityOnCreate(activity: Activity, icicle: Bundle?) {
@@ -360,8 +387,11 @@ object ActivityProxy {
             if (ActProxyMgr.isModuleProxyActivity(activity.javaClass.name)) {
                 val cl = ParcelableFixer.hybridClassLoader
                 runCatching {
-                    Activity::class.java.getDeclaredField("mClassLoader")
-                        .makeAccessible().set(activity, cl)
+                    Activity::class
+                        .java
+                        .getDeclaredField("mClassLoader")
+                        .makeAccessible()
+                        .set(activity, cl)
                 }
                 activity.intent?.let { intent ->
                     intent.setExtrasClassLoader(cl)
@@ -374,51 +404,74 @@ object ActivityProxy {
         override fun callActivityOnCreate(
             activity: Activity,
             icicle: Bundle?,
-            persistentState: PersistableBundle?
+            persistentState: PersistableBundle?,
         ) {
             ResourcesInjector.injectModuleRes(activity.resources)
             base.callActivityOnCreate(activity, icicle, persistentState)
         }
 
         override fun onCreate(arguments: Bundle?) = base.onCreate(arguments)
+
         override fun start() = base.start()
+
         override fun onStart() = base.onStart()
+
         override fun onException(obj: Any?, e: Throwable?) = base.onException(obj, e)
+
         override fun sendStatus(resultCode: Int, results: Bundle?) =
             base.sendStatus(resultCode, results)
 
         override fun addResults(results: Bundle?) = base.addResults(results)
+
         override fun finish(resultCode: Int, results: Bundle?) = base.finish(resultCode, results)
+
         override fun setAutomaticPerformanceSnapshots() = base.setAutomaticPerformanceSnapshots()
+
         override fun startPerformanceSnapshot() = base.startPerformanceSnapshot()
+
         override fun endPerformanceSnapshot() = base.endPerformanceSnapshot()
+
         override fun onDestroy() = base.onDestroy()
+
         override fun getContext(): Context? = base.context
+
         override fun getComponentName(): ComponentName? = base.componentName
+
         override fun getTargetContext(): Context? = base.targetContext
+
         override fun getProcessName(): String? = base.processName
+
         override fun isProfiling() = base.isProfiling
+
         override fun startProfiling() = base.startProfiling()
+
         override fun stopProfiling() = base.stopProfiling()
+
         override fun setInTouchMode(inTouch: Boolean) = base.setInTouchMode(inTouch)
+
         override fun waitForIdle(recipient: Runnable?) = base.waitForIdle(recipient)
+
         override fun waitForIdleSync() = base.waitForIdleSync()
+
         override fun runOnMainSync(runner: Runnable?) = base.runOnMainSync(runner)
+
         override fun startActivitySync(intent: Intent): Activity? = base.startActivitySync(intent)
+
         override fun startActivitySync(intent: Intent, options: Bundle?): Activity =
             base.startActivitySync(intent, options)
 
         override fun addMonitor(monitor: ActivityMonitor?) = base.addMonitor(monitor)
+
         override fun addMonitor(
             filter: IntentFilter?,
             result: ActivityResult?,
-            block: Boolean
+            block: Boolean,
         ): ActivityMonitor? = base.addMonitor(filter, result, block)
 
         override fun addMonitor(
             cls: String?,
             result: ActivityResult?,
-            block: Boolean
+            block: Boolean,
         ): ActivityMonitor? = base.addMonitor(cls, result, block)
 
         override fun checkMonitorHit(monitor: ActivityMonitor?, minHits: Int) =
@@ -429,10 +482,11 @@ object ActivityProxy {
 
         override fun waitForMonitorWithTimeout(
             monitor: ActivityMonitor?,
-            timeOut: Long
+            timeOut: Long,
         ): Activity? = base.waitForMonitorWithTimeout(monitor, timeOut)
 
         override fun removeMonitor(monitor: ActivityMonitor?) = base.removeMonitor(monitor)
+
         override fun invokeMenuActionSync(targetActivity: Activity?, id: Int, flag: Int) =
             base.invokeMenuActionSync(targetActivity, id, flag)
 
@@ -440,32 +494,38 @@ object ActivityProxy {
             base.invokeContextMenuAction(targetActivity, id, flag)
 
         override fun sendStringSync(text: String?) = base.sendStringSync(text)
+
         override fun sendKeySync(event: KeyEvent?) = base.sendKeySync(event)
+
         override fun sendKeyDownUpSync(key: Int) = base.sendKeyDownUpSync(key)
+
         override fun sendCharacterSync(keyCode: Int) = base.sendCharacterSync(keyCode)
+
         override fun sendPointerSync(event: MotionEvent?) = base.sendPointerSync(event)
+
         override fun sendTrackballEventSync(event: MotionEvent?) =
             base.sendTrackballEventSync(event)
 
         override fun newApplication(
             cl: ClassLoader?,
             className: String?,
-            context: Context?
+            context: Context?,
         ): Application = base.newApplication(cl, className, context)
 
         override fun callApplicationOnCreate(app: Application?) = base.callApplicationOnCreate(app)
+
         override fun callActivityOnDestroy(activity: Activity?) =
             base.callActivityOnDestroy(activity)
 
         override fun callActivityOnRestoreInstanceState(
             activity: Activity,
-            savedInstanceState: Bundle
+            savedInstanceState: Bundle,
         ) = base.callActivityOnRestoreInstanceState(activity, savedInstanceState)
 
         override fun callActivityOnRestoreInstanceState(
             activity: Activity,
             savedInstanceState: Bundle?,
-            persistentState: PersistableBundle?
+            persistentState: PersistableBundle?,
         ) = base.callActivityOnRestoreInstanceState(activity, savedInstanceState, persistentState)
 
         override fun callActivityOnPostCreate(activity: Activity, savedInstanceState: Bundle?) =
@@ -474,28 +534,32 @@ object ActivityProxy {
         override fun callActivityOnPostCreate(
             activity: Activity,
             savedInstanceState: Bundle?,
-            persistentState: PersistableBundle?
+            persistentState: PersistableBundle?,
         ) = base.callActivityOnPostCreate(activity, savedInstanceState, persistentState)
 
         override fun callActivityOnNewIntent(activity: Activity?, intent: Intent?) =
             base.callActivityOnNewIntent(activity, intent)
 
         override fun callActivityOnStart(activity: Activity?) = base.callActivityOnStart(activity)
+
         override fun callActivityOnRestart(activity: Activity?) =
             base.callActivityOnRestart(activity)
 
         override fun callActivityOnResume(activity: Activity?) = base.callActivityOnResume(activity)
+
         override fun callActivityOnStop(activity: Activity?) = base.callActivityOnStop(activity)
+
         override fun callActivityOnSaveInstanceState(activity: Activity, outState: Bundle) =
             base.callActivityOnSaveInstanceState(activity, outState)
 
         override fun callActivityOnSaveInstanceState(
             activity: Activity,
             outState: Bundle,
-            outPersistentState: PersistableBundle
+            outPersistentState: PersistableBundle,
         ) = base.callActivityOnSaveInstanceState(activity, outState, outPersistentState)
 
         override fun callActivityOnPause(activity: Activity?) = base.callActivityOnPause(activity)
+
         override fun callActivityOnUserLeaving(activity: Activity?) =
             base.callActivityOnUserLeaving(activity)
 
@@ -506,10 +570,15 @@ object ActivityProxy {
         @Suppress("DEPRECATION")
         @Deprecated("Deprecated")
         override fun stopAllocCounting() = base.stopAllocCounting()
+
         override fun getAllocCounts(): Bundle = base.allocCounts
+
         override fun getBinderCounts(): Bundle = base.binderCounts
+
         override fun getUiAutomation(): UiAutomation = base.uiAutomation
+
         override fun getUiAutomation(flags: Int): UiAutomation = base.getUiAutomation(flags)
+
         override fun acquireLooperManager(looper: Looper): TestLooperManager =
             base.acquireLooperManager(looper)
     }
@@ -523,9 +592,10 @@ object ActivityProxy {
                         is ComponentName -> component = arg
                     }
                 }
-                if (component != null &&
-                    component.packageName == HostInfo.packageName &&
-                    ActProxyMgr.isModuleProxyActivity(component.className)
+                if (
+                    component != null &&
+                        component.packageName == HostInfo.packageName &&
+                        ActProxyMgr.isModuleProxyActivity(component.className)
                 ) {
                     return CounterfeitActivityInfoFactory.makeProxyActivityInfo(component.className)
                 }
@@ -539,23 +609,26 @@ object ActivityProxy {
     }
 
     object CounterfeitActivityInfoFactory {
-        fun makeProxyActivityInfo(className: String) = ActivityInfo().apply {
-            name = className
-            packageName = HostInfo.packageName
-            enabled = true
-            exported = false
-            processName = HostInfo.packageName
-            applicationInfo = runCatching { HostInfo.appInfo }.getOrElse {
-                ApplicationInfo().apply { packageName = HostInfo.packageName }
+        fun makeProxyActivityInfo(className: String) =
+            ActivityInfo().apply {
+                name = className
+                packageName = HostInfo.packageName
+                enabled = true
+                exported = false
+                processName = HostInfo.packageName
+                applicationInfo =
+                    runCatching { HostInfo.appInfo }
+                        .getOrElse {
+                            ApplicationInfo().apply { packageName = HostInfo.packageName }
+                        }
+                launchMode = ActivityInfo.LAUNCH_MULTIPLE
             }
-            launchMode = ActivityInfo.LAUNCH_MULTIPLE
-        }
     }
 
     private object IntentTokenCache {
         private data class Entry(
             val intent: Intent,
-            val timestamp: Long = System.currentTimeMillis()
+            val timestamp: Long = System.currentTimeMillis(),
         )
 
         private val cache = ConcurrentHashMap<String, Entry>()

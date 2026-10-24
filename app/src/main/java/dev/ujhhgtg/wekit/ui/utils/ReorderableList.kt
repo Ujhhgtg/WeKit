@@ -53,74 +53,80 @@ fun <T> ReorderableList(
         ) { _, item ->
             val key = itemKey(item)
             val isDragging = draggingKey == key
-            val dragHandleModifier = Modifier.pointerInput(key) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        if (listState.layoutInfo.visibleItemsInfo.any { it.key == key }) {
-                            draggingKey = key
-                            dragOffset = 0f
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        }
-                    },
-                    onDragCancel = {
-                        draggingKey = null
-                        dragOffset = 0f
-                    },
-                    onDragEnd = {
-                        draggingKey = null
-                        dragOffset = 0f
-                    },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        if (draggingKey != key) return@detectDragGesturesAfterLongPress
-                        dragOffset += amount.y
-
-                        val currentInfo = listState.layoutInfo.visibleItemsInfo
-                            .firstOrNull { it.key == key }
-                            ?: return@detectDragGesturesAfterLongPress
-                        val currentIndex = currentInfo.index
-                        val start = currentInfo.offset + dragOffset
-                        val end = start + currentInfo.size
-                        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { targetInfo ->
-                            if (targetInfo.index == currentIndex) {
-                                false
-                            } else if (dragOffset > 0f) {
-                                targetInfo.index > currentIndex &&
-                                        end > targetInfo.offset + targetInfo.size / 2
-                            } else {
-                                targetInfo.index < currentIndex &&
-                                        start < targetInfo.offset + targetInfo.size / 2
+            val dragHandleModifier =
+                Modifier.pointerInput(key) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            if (listState.layoutInfo.visibleItemsInfo.any { it.key == key }) {
+                                draggingKey = key
+                                dragOffset = 0f
+                                hapticFeedback.performHapticFeedback(
+                                    HapticFeedbackType.ContextClick,
+                                )
                             }
-                        }
-                        if (target != null) {
-                            onMove(currentIndex, target.index)
-                            dragOffset -= target.offset - currentInfo.offset
-                        }
+                        },
+                        onDragCancel = {
+                            draggingKey = null
+                            dragOffset = 0f
+                        },
+                        onDragEnd = {
+                            draggingKey = null
+                            dragOffset = 0f
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            if (draggingKey != key) return@detectDragGesturesAfterLongPress
+                            dragOffset += amount.y
 
-                        val viewport = listState.layoutInfo
-                        val center = currentInfo.offset + dragOffset + currentInfo.size / 2
-                        when {
-                            center < viewport.viewportStartOffset + 56 && listState.canScrollBackward ->
-                                coroutineScope.launch { listState.scrollBy(-12f) }
+                            val currentInfo =
+                                listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+                                    ?: return@detectDragGesturesAfterLongPress
+                            val currentIndex = currentInfo.index
+                            val start = currentInfo.offset + dragOffset
+                            val end = start + currentInfo.size
+                            val target =
+                                listState.layoutInfo.visibleItemsInfo.firstOrNull { targetInfo ->
+                                    if (targetInfo.index == currentIndex) {
+                                        false
+                                    } else if (dragOffset > 0f) {
+                                        targetInfo.index > currentIndex &&
+                                            end > targetInfo.offset + targetInfo.size / 2
+                                    } else {
+                                        targetInfo.index < currentIndex &&
+                                            start < targetInfo.offset + targetInfo.size / 2
+                                    }
+                                }
+                            if (target != null) {
+                                onMove(currentIndex, target.index)
+                                dragOffset -= target.offset - currentInfo.offset
+                            }
 
-                            center > viewport.viewportEndOffset - 56 && listState.canScrollForward ->
-                                coroutineScope.launch { listState.scrollBy(12f) }
-                        }
-                    },
-                )
-            }
+                            val viewport = listState.layoutInfo
+                            val center = currentInfo.offset + dragOffset + currentInfo.size / 2
+                            when {
+                                center < viewport.viewportStartOffset + 56 &&
+                                    listState.canScrollBackward ->
+                                    coroutineScope.launch { listState.scrollBy(-12f) }
+
+                                center > viewport.viewportEndOffset - 56 &&
+                                    listState.canScrollForward ->
+                                    coroutineScope.launch { listState.scrollBy(12f) }
+                            }
+                        },
+                    )
+                }
 
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(if (isDragging) 1f else 0f)
-                    .graphicsLayer {
-                        translationY = if (isDragging) dragOffset else 0f
-                        scaleX = if (isDragging) 1.02f else 1f
-                        scaleY = if (isDragging) 1.02f else 1f
-                        shadowElevation = if (isDragging) 8.dp.toPx() else 0f
-                    }
-                    .then(if (isDragging) Modifier else Modifier.animateItem())
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer {
+                            translationY = if (isDragging) dragOffset else 0f
+                            scaleX = if (isDragging) 1.02f else 1f
+                            scaleY = if (isDragging) 1.02f else 1f
+                            shadowElevation = if (isDragging) 8.dp.toPx() else 0f
+                        }
+                        .then(if (isDragging) Modifier else Modifier.animateItem()),
             ) {
                 itemContent(item, dragHandleModifier)
             }

@@ -5,13 +5,14 @@ import org.junit.jupiter.api.Test
 
 class HomeSidePanelCityIndexTest {
 
-    private val cities = listOf(
-        WeatherCity("CN", "北京", "北京", null, "101010100"),
-        WeatherCity("CN", "北京", "北京", "海淀", "101010200"),
-        WeatherCity("CN", "广东", "广州", null, "101280101"),
-        WeatherCity("HK", "香港", "香港", null, "101320101"),
-        WeatherCity("TW", "台湾", "台北", null, "101340101"),
-    )
+    private val cities =
+        listOf(
+            WeatherCity("CN", "北京", "北京", null, "101010100"),
+            WeatherCity("CN", "北京", "北京", "海淀", "101010200"),
+            WeatherCity("CN", "广东", "广州", null, "101280101"),
+            WeatherCity("HK", "香港", "香港", null, "101320101"),
+            WeatherCity("TW", "台湾", "台北", null, "101340101"),
+        )
 
     private val matcher = HomeSidePanelCityMatcher(cities)
 

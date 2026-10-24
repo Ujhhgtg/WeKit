@@ -18,8 +18,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 崩溃信息收集工具类
- * 负责收集设备信息、应用信息、线程信息、堆栈信息等
+ * 崩溃信息收集工具类 负责收集设备信息、应用信息、线程信息、堆栈信息等
  *
  * @author cwuom
  * @since 1.0.0
@@ -28,7 +27,7 @@ object CrashInfoCollector {
     /**
      * 收集完整的崩溃信息
      *
-     * @param context   上下文
+     * @param context 上下文
      * @param throwable 异常对象
      * @param crashType 崩溃类型 (JAVA/NATIVE)
      * @return 格式化的崩溃信息
@@ -36,39 +35,51 @@ object CrashInfoCollector {
     fun collectCrashInfo(context: Context, throwable: Throwable, crashType: String): String {
         // 崩溃头部信息
 
-        val sb = "========================================\n" +
+        val sb =
+            "========================================\n" +
                 "WeKit Crash Report\n" +
                 "========================================\n\n" +
-                "Crash Time: " + currentTime + "\n" +
-                "Crash Type: " + crashType + "\n\n" +
+                "Crash Time: " +
+                currentTime +
+                "\n" +
+                "Crash Type: " +
+                crashType +
+                "\n\n" +
                 "========================================\n" +
                 "Device Information\n" +
                 "========================================\n" +
-                collectDeviceInfo() + "\n" +
+                collectDeviceInfo() +
+                "\n" +
                 "========================================\n" +
                 "Application Information\n" +
                 "========================================\n" +
-                collectAppInfo(context) + "\n" +
+                collectAppInfo(context) +
+                "\n" +
                 "========================================\n" +
                 "Module Information\n" +
                 "========================================\n" +
-                collectModuleInfo() + "\n" +
+                collectModuleInfo() +
+                "\n" +
                 "========================================\n" +
                 "Memory Information\n" +
                 "========================================\n" +
-                collectMemoryInfo(context) + "\n" +
+                collectMemoryInfo(context) +
+                "\n" +
                 "========================================\n" +
                 "Thread Information\n" +
                 "========================================\n" +
-                collectThreadInfo() + "\n" +
+                collectThreadInfo() +
+                "\n" +
                 "========================================\n" +
                 "Exception Stack Trace\n" +
                 "========================================\n" +
-                getStackTraceString(throwable) + "\n" +
+                getStackTraceString(throwable) +
+                "\n" +
                 "========================================\n" +
                 "All Threads Stack Trace\n" +
                 "========================================\n" +
-                collectAllThreadsStackTrace() + "\n" +
+                collectAllThreadsStackTrace() +
+                "\n" +
                 "========================================\n" +
                 "End of Crash Report\n" +
                 "========================================\n"
@@ -77,20 +88,17 @@ object CrashInfoCollector {
     }
 
     private val currentTime: String
-        /**
-         * 获取当前时间
-         */
+        /** 获取当前时间 */
         get() {
-            val sdf = SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss.SSS",
-                Locale.getDefault()
-            )
+            val sdf =
+                SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss.SSS",
+                    Locale.getDefault(),
+                )
             return sdf.format(Date())
         }
 
-    /**
-     * 收集设备信息
-     */
+    /** 收集设备信息 */
     private fun collectDeviceInfo(): String {
         val sb = StringBuilder()
         sb.append("Brand: ").append(Build.BRAND).append("\n")
@@ -112,14 +120,11 @@ object CrashInfoCollector {
         return sb.toString()
     }
 
-    /**
-     * 收集应用信息
-     */
+    /** 收集应用信息 */
     private fun collectAppInfo(context: Context): String {
         val sb = StringBuilder()
         try {
-            val packageInfo =
-                context.packageManager.getPackageInfo(context.packageName, 0)
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             sb.append("Package Name: ").append(packageInfo.packageName).append("\n")
             sb.append("Version Name: ").append(packageInfo.versionName).append("\n")
             sb.append("Version Code: ").append(packageInfo.longVersionCode).append("\n")
@@ -139,9 +144,7 @@ object CrashInfoCollector {
         }
     }
 
-    /**
-     * 收集内存信息
-     */
+    /** 收集内存信息 */
     private fun collectMemoryInfo(context: Context): String {
         val sb = StringBuilder()
         try {
@@ -168,9 +171,11 @@ object CrashInfoCollector {
             val activityManager = context.getSystemService<ActivityManager>()
             val systemMemInfo = ActivityManager.MemoryInfo()
             activityManager.getMemoryInfo(systemMemInfo)
-            sb.append("System Available Memory: ").append(systemMemInfo.availMem / 1024 / 1024)
+            sb.append("System Available Memory: ")
+                .append(systemMemInfo.availMem / 1024 / 1024)
                 .append(" MB\n")
-            sb.append("System Total Memory: ").append(systemMemInfo.totalMem / 1024 / 1024)
+            sb.append("System Total Memory: ")
+                .append(systemMemInfo.totalMem / 1024 / 1024)
                 .append(" MB\n")
             sb.append("System Low Memory: ").append(systemMemInfo.lowMemory).append("\n")
         } catch (e: Exception) {
@@ -179,9 +184,7 @@ object CrashInfoCollector {
         return sb.toString()
     }
 
-    /**
-     * 收集线程信息
-     */
+    /** 收集线程信息 */
     private fun collectThreadInfo(): String {
         val sb = StringBuilder()
         try {
@@ -190,7 +193,8 @@ object CrashInfoCollector {
             sb.append("Thread ID: ").append(currentThread.getThreadId()).append("\n")
             sb.append("Thread Priority: ").append(currentThread.priority).append("\n")
             sb.append("Thread State: ").append(currentThread.state).append("\n")
-            sb.append("Thread Group: ").append(currentThread.threadGroup!!.name ?: "null")
+            sb.append("Thread Group: ")
+                .append(currentThread.threadGroup!!.name ?: "null")
                 .append("\n")
 
             // 活跃线程数
@@ -205,9 +209,7 @@ object CrashInfoCollector {
         return sb.toString()
     }
 
-    /**
-     * 获取异常堆栈字符串
-     */
+    /** 获取异常堆栈字符串 */
     private fun getStackTraceString(throwable: Throwable): String {
         val sw = StringWriter()
         val pw = PrintWriter(sw)
@@ -216,9 +218,7 @@ object CrashInfoCollector {
         return sw.toString()
     }
 
-    /**
-     * 收集所有线程的堆栈信息
-     */
+    /** 收集所有线程的堆栈信息 */
     private fun collectAllThreadsStackTrace(): String {
         val sb = StringBuilder()
         try {
@@ -229,10 +229,14 @@ object CrashInfoCollector {
                 val thread = entry.key
                 val stackTrace = entry.value
 
-                sb.append("Thread: ").append(thread.name)
-                    .append(" (ID: ").append(thread.getThreadId())
-                    .append(", State: ").append(thread.state)
-                    .append(", Priority: ").append(thread.priority)
+                sb.append("Thread: ")
+                    .append(thread.name)
+                    .append(" (ID: ")
+                    .append(thread.getThreadId())
+                    .append(", State: ")
+                    .append(thread.state)
+                    .append(", Priority: ")
+                    .append(thread.priority)
                     .append(")\n")
 
                 if (stackTrace != null && stackTrace.size > 0) {
@@ -250,14 +254,11 @@ object CrashInfoCollector {
         return sb.toString()
     }
 
-    /**
-     * 获取进程名称
-     */
+    /** 获取进程名称 */
     private fun getProcessName(context: Context): String {
         try {
             val pid = Process.myPid()
-            val activityManager =
-                context.getSystemService<ActivityManager>()
+            val activityManager = context.getSystemService<ActivityManager>()
             for (processInfo in activityManager.runningAppProcesses) {
                 if (processInfo.pid == pid) {
                     return processInfo.processName

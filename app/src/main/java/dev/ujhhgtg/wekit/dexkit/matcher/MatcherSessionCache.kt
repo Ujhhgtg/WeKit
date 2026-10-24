@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.dexkit.matcher
 
-import kotlinx.serialization.json.JsonObject
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Bounded caches shared by every query-matcher delegate of one DexSQL session.
@@ -12,9 +12,9 @@ import java.util.concurrent.ConcurrentHashMap
  * repeated across converted delegates of a feature). The native bridge and metadata documents are
  * immutable for the lifetime of a session, so results can be memoized across delegates.
  *
- * Everything is bounded: candidate lists larger than [MAX_CACHED_DESCRIPTORS] are never cached,
- * and each map stops growing at [MAX_ENTRIES]. Values are plain immutable snapshots; the cache is
- * keyed weakly by the DexSQL session object so sessions do not leak.
+ * Everything is bounded: candidate lists larger than [MAX_CACHED_DESCRIPTORS] are never cached, and
+ * each map stops growing at [MAX_ENTRIES]. Values are plain immutable snapshots; the cache is keyed
+ * weakly by the DexSQL session object so sessions do not leak.
  */
 class MatcherSessionCache internal constructor() {
     private val candidateRowsBySql = ConcurrentHashMap<String, List<String>>()
@@ -23,7 +23,9 @@ class MatcherSessionCache internal constructor() {
 
     /** Memoized candidate SQL rows (only small enough result sets). */
     fun candidateRows(sql: String, load: () -> List<String>): List<String> {
-        candidateRowsBySql[sql]?.let { return it }
+        candidateRowsBySql[sql]?.let {
+            return it
+        }
         val rows = load()
         if (rows.size <= MAX_CACHED_DESCRIPTORS && candidateRowsBySql.size < MAX_ENTRIES) {
             candidateRowsBySql.putIfAbsent(sql, rows)
@@ -33,17 +35,19 @@ class MatcherSessionCache internal constructor() {
 
     /** Memoized raw metadata document for a kind/descriptor pair. */
     fun rawDocument(key: String, load: () -> JsonObject?): JsonObject? {
-        rawDocuments[key]?.let { return it }
+        rawDocuments[key]?.let {
+            return it
+        }
         val document = load() ?: return null
         if (rawDocuments.size < MAX_ENTRIES) rawDocuments.putIfAbsent(key, document)
         return document
     }
 
     /**
-     * Classes whose methods contain a given string literal, keyed by match mode + literal.
-     * One canonical method_strings query populates the whole set: class-level usingStrings
-     * evaluation then becomes an O(1) descriptor lookup instead of one SQL query per candidate
-     * class. Empty and negative results are cached too (the empty set is the negative result).
+     * Classes whose methods contain a given string literal, keyed by match mode + literal. One
+     * canonical method_strings query populates the whole set: class-level usingStrings evaluation
+     * then becomes an O(1) descriptor lookup instead of one SQL query per candidate class. Empty
+     * and negative results are cached too (the empty set is the negative result).
      */
     fun stringClasses(key: String): Set<String>? = stringClassesByLiteral[key]
 
@@ -63,8 +67,9 @@ class MatcherSessionCache internal constructor() {
         private val bySession = WeakHashMap<Any, MatcherSessionCache>()
 
         /** One shared cache per DexSQL session object (weak keys, so sessions do not leak). */
-        fun forSession(session: Any): MatcherSessionCache = synchronized(bySession) {
-            bySession.getOrPut(session) { MatcherSessionCache() }
-        }
+        fun forSession(session: Any): MatcherSessionCache =
+            synchronized(bySession) {
+                bySession.getOrPut(session) { MatcherSessionCache() }
+            }
     }
 }

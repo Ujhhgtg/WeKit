@@ -28,7 +28,9 @@ object ModuleLoader {
     fun startPayload(environment: PayloadEnvironment) {
         // PayloadEntryImpl is created reflectively by the bootstrap. Keep an explicit D8 edge so
         // debug payload builds do not discard the entry class before the reflective load.
-        check(PayloadEntryImpl::class.java.name.isNotEmpty()) { "payload entry class is unavailable" }
+        check(PayloadEntryImpl::class.java.name.isNotEmpty()) {
+            "payload entry class is unavailable"
+        }
         check(!started) { "business payload has already started in this process" }
         // Publish the actual hook bridge before any business hook helper is used.
         StartupInfo.payloadEnvironment = environment
@@ -40,10 +42,22 @@ object ModuleLoader {
         HybridClassLoader.moduleParentClassLoader = self.parent!!
         HybridClassLoader.moduleClassLoader = self
         HybridClassLoader.hostClassLoader = environment.hostClassLoader
-        self.reflekt().firstField { name = "parent"; superclass() }.set(HybridClassLoader)
-        check(R.string.res_inject_success ushr 24 == 0x69) { "payload resource package ID must be 0x69" }
-        NativeLoader.configurePayload(environment.payloadApk, environment.payloadSha256,
-            environment.nativeDirectory, environment.bootstrapApk)
+        self
+            .reflekt()
+            .firstField {
+                name = "parent"
+                superclass()
+            }
+            .set(HybridClassLoader)
+        check(R.string.res_inject_success ushr 24 == 0x69) {
+            "payload resource package ID must be 0x69"
+        }
+        NativeLoader.configurePayload(
+            environment.payloadApk,
+            environment.payloadSha256,
+            environment.nativeDirectory,
+            environment.bootstrapApk,
+        )
         HostInfo.init(environment.hostApplication)
         NativeLoader.init()
         launch(environment.hostApplication)
@@ -51,7 +65,10 @@ object ModuleLoader {
     }
 
     private fun launch(context: Context) {
-        WeLogger.d(TAG, "loading in process name=${TargetProcesses.currentName}, type=${TargetProcesses.currentType}")
+        WeLogger.d(
+            TAG,
+            "loading in process name=${TargetProcesses.currentName}, type=${TargetProcesses.currentType}",
+        )
 
         ParcelableFixer.init()
 
@@ -65,12 +82,16 @@ object ModuleLoader {
             ActivityProxy.init(appContext)
 
             val prefs =
-                context.getSharedPreferences("${PackageNames.WECHAT}_preferences", Context.MODE_PRIVATE)
+                context.getSharedPreferences(
+                    "${PackageNames.WECHAT}_preferences",
+                    Context.MODE_PRIVATE,
+                )
             RuntimeConfig.mmPrefs = prefs
         }
 
         runCatching {
             FeaturesLoader.loadFeatures()
-        }.onFailure { WeLogger.e(TAG, "failed to load features", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to load features", it) }
     }
 }

@@ -16,10 +16,15 @@ import okhttp3.Request
 
 sealed interface CloudDexNotice {
     data object ReportNotFound : CloudDexNotice
+
     data class NetworkFailure(val message: String) : CloudDexNotice
+
     data class InvalidReport(val message: String) : CloudDexNotice
+
     data class CacheWriteFailure(val message: String) : CloudDexNotice
+
     data object NoMatchingEntries : CloudDexNotice
+
     data class Partial(val importedCount: Int, val remainingCount: Int) : CloudDexNotice
 }
 
@@ -44,73 +49,88 @@ object CloudDexResolver {
             .build()
     }
 
-    suspend fun resolve(items: List<IResolveDex>): CloudDexResolutionResult = withContext(Dispatchers.IO) {
-        val host = CloudDexHost(
-            versionName = HostInfo.versionName,
-            versionCode = HostInfo.versionCode,
-            isGooglePlay = HostInfo.isHostGooglePlay,
-        )
-        val reportText = try {
-            fetchReport(host)
-        } catch (_: ReportNotFoundException) {
-            return@withContext failure(items, CloudDexNotice.ReportNotFound)
-        } catch (error: IOException) {
-            WeLogger.e(TAG, "failed to download cloud Dex report", error)
-            return@withContext failure(
-                items,
-                CloudDexNotice.NetworkFailure(error.message.orEmpty()),
-            )
-        }
-
-        val selection = try {
-            CloudDexReport.select(
-                jsonText = reportText,
-                host = host,
-            items = items.map { item ->
-                val feature = item as BaseFeature
-                CurrentDexItem(
-                    technicalId = feature.technicalId,
-                    methodHash = DexCacheManager.methodHash(item),
-                    delegateKeys = item.dexDelegates.mapTo(linkedSetOf()) { it.key },
+    suspend fun resolve(items: List<IResolveDex>): CloudDexResolutionResult =
+        withContext(Dispatchers.IO) {
+            val host =
+                CloudDexHost(
+                    versionName = HostInfo.versionName,
+                    versionCode = HostInfo.versionCode,
+                    isGooglePlay = HostInfo.isHostGooglePlay,
                 )
-            },
+            val reportText =
+                try {
+                    fetchReport(host)
+                } catch (_: ReportNotFoundException) {
+                    return@withContext failure(items, CloudDexNotice.ReportNotFound)
+                } catch (error: IOException) {
+                    WeLogger.e(TAG, "failed to download cloud Dex report", error)
+                    return@withContext failure(
+                        items,
+                        CloudDexNotice.NetworkFailure(error.message.orEmpty()),
+                    )
+                }
+
+            val selection =
+                try {
+                    CloudDexReport.select(
+                        jsonText = reportText,
+                        host = host,
+                        items =
+                            items.map { item ->
+                                val feature = item as BaseFeature
+                                CurrentDexItem(
+                                    technicalId = feature.technicalId,
+                                    methodHash = DexCacheManager.methodHash(item),
+                                    delegateKeys =
+                                        item.dexDelegates.mapTo(linkedSetOf()) { it.key },
+                                )
+                            },
+                    )
+                } catch (error: SerializationException) {
+                    WeLogger.e(TAG, "cloud Dex report is malformed", error)
+                    return@withContext failure(
+                        items,
+                        CloudDexNotice.InvalidReport(error.message.orEmpty()),
+                    )
+                } catch (error: IllegalArgumentException) {
+                    WeLogger.e(TAG, "cloud Dex report is incompatible", error)
+                    return@withContext failure(
+                        items,
+                        CloudDexNotice.InvalidReport(error.message.orEmpty()),
+                    )
+                }
+
+            if (selection.entries.isEmpty()) {
+                return@withContext failure(items, CloudDexNotice.NoMatchingEntries)
+            }
+
+            try {
+                DexCacheManager.importCloudCaches(selection.entries)
+            } catch (error: Exception) {
+                WeLogger.e(TAG, "failed to import cloud Dex caches", error)
+                return@withContext failure(
+                    items,
+                    CloudDexNotice.CacheWriteFailure(error.message.orEmpty()),
+                )
+            }
+
+            val remainingItems = DexCacheManager.getOutdatedItems(items)
+            val importedCount = items.size - remainingItems.size
+            CloudDexResolutionResult(
+                importedCount = importedCount,
+                remainingItems = remainingItems,
+                notice =
+                    if (remainingItems.isEmpty()) {
+                        null
+                    } else {
+                        CloudDexNotice.Partial(importedCount, remainingItems.size)
+                    },
             )
-        } catch (error: SerializationException) {
-            WeLogger.e(TAG, "cloud Dex report is malformed", error)
-            return@withContext failure(items, CloudDexNotice.InvalidReport(error.message.orEmpty()))
-        } catch (error: IllegalArgumentException) {
-            WeLogger.e(TAG, "cloud Dex report is incompatible", error)
-            return@withContext failure(items, CloudDexNotice.InvalidReport(error.message.orEmpty()))
         }
-
-        if (selection.entries.isEmpty()) {
-            return@withContext failure(items, CloudDexNotice.NoMatchingEntries)
-        }
-
-        try {
-            DexCacheManager.importCloudCaches(selection.entries)
-        } catch (error: Exception) {
-            WeLogger.e(TAG, "failed to import cloud Dex caches", error)
-            return@withContext failure(items, CloudDexNotice.CacheWriteFailure(error.message.orEmpty()))
-        }
-
-        val remainingItems = DexCacheManager.getOutdatedItems(items)
-        val importedCount = items.size - remainingItems.size
-        CloudDexResolutionResult(
-            importedCount = importedCount,
-            remainingItems = remainingItems,
-            notice = if (remainingItems.isEmpty()) {
-                null
-            } else {
-                CloudDexNotice.Partial(importedCount, remainingItems.size)
-            },
-        )
-    }
 
     private fun fetchReport(host: CloudDexHost): String {
-        val request = Request.Builder()
-            .url("$RELEASE_BASE_URL/${CloudDexReport.assetName(host)}")
-            .build()
+        val request =
+            Request.Builder().url("$RELEASE_BASE_URL/${CloudDexReport.assetName(host)}").build()
         httpClient.newCall(request).execute().use { response ->
             if (response.code == 404) throw ReportNotFoundException()
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
@@ -142,11 +162,12 @@ object CloudDexResolver {
     private fun failure(
         items: List<IResolveDex>,
         notice: CloudDexNotice,
-    ) = CloudDexResolutionResult(
-        importedCount = 0,
-        remainingItems = items,
-        notice = notice,
-    )
+    ) =
+        CloudDexResolutionResult(
+            importedCount = 0,
+            remainingItems = items,
+            notice = notice,
+        )
 
     private class ReportNotFoundException : IOException()
 }

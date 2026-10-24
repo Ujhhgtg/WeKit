@@ -39,7 +39,7 @@ object JavaCrashHandler : Thread.UncaughtExceptionHandler {
         if (isHandlingOnThisThread.get()!!) {
             WeLogger.e(
                 TAG,
-                "recursive crash detected, delegating to default handler"
+                "recursive crash detected, delegating to default handler",
             )
             terminate(thread, throwable)
             return
@@ -50,12 +50,13 @@ object JavaCrashHandler : Thread.UncaughtExceptionHandler {
         try {
             // 另一个线程正在写崩溃日志时先等它写完, 不要并发跑 collectCrashInfo/saveCrashLog,
             // 更不要抢在它前面让进程退出 (那样真正的崩溃报告就丢了)。
-            locked = try {
-                handlerLock.tryLock(HANDOFF_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                false
-            }
+            locked =
+                try {
+                    handlerLock.tryLock(HANDOFF_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    false
+                }
 
             if (locked) {
                 collectAndSave(thread, throwable)
@@ -82,7 +83,7 @@ object JavaCrashHandler : Thread.UncaughtExceptionHandler {
         WeLogger.e(TAG, "Uncaught exception detected!")
         WeLogger.e(
             TAG,
-            "Thread: " + thread.name + " (ID: " + thread.getThreadId() + ")"
+            "Thread: " + thread.name + " (ID: " + thread.getThreadId() + ")",
         )
         WeLogger.e(TAG, "Exception: " + throwable.javaClass.name)
         WeLogger.e(TAG, "Message: " + throwable.message)

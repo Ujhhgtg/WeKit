@@ -56,17 +56,20 @@ class OpcodeAnnotationTest {
         put("annotations", JsonArray(listOf(signatureAnnotation())))
     }
 
-    private val provider = object : DexMetadataProvider {
-        override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? = when {
-            kind == DexMetadataKind.Method && descriptor == methodDescriptor -> methodDoc
-            kind == DexMetadataKind.Class && descriptor == "Lcom/test/Sample;" -> classDoc
-            else -> null
+    private val provider =
+        object : DexMetadataProvider {
+            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? =
+                when {
+                    kind == DexMetadataKind.Method && descriptor == methodDescriptor -> methodDoc
+                    kind == DexMetadataKind.Class && descriptor == "Lcom/test/Sample;" -> classDoc
+                    else -> null
+                }
         }
-    }
     private val metadata = DexMetadata(provider)
     private val evaluator = DexMatcherEvaluator(metadata)
 
     private fun method() = DexMethodInfo(methodDoc, metadata)
+
     private fun sampleClass() = DexClassInfo(classDoc, metadata)
 
     private fun signatureAnnotation(): JsonObject = buildJsonObject {
@@ -83,10 +86,11 @@ class OpcodeAnnotationTest {
                             "value",
                             JsonArray(
                                 listOf(
-                                    "Lcom/tencent/mm/sdk/event/IListener<",
-                                    "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
-                                    ">;",
-                                ).map { JsonPrimitive(it) },
+                                        "Lcom/tencent/mm/sdk/event/IListener<",
+                                        "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
+                                        ">;",
+                                    )
+                                    .map { JsonPrimitive(it) },
                             ),
                         )
                     },
@@ -95,43 +99,62 @@ class OpcodeAnnotationTest {
         )
     }
 
-    private val signatureSpec = AnnotationSpec(
-        type = NameSpec("dalvik.annotation.Signature"),
-        visibility = AnnotationVisibility.System,
-        elements = listOf(
-            AnnotationElementSpec(
-                NameSpec("value"),
-                AnnotationValue.ListValue(
-                    listOf(
-                        AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
-                        AnnotationValue.Text("Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;"),
-                        AnnotationValue.Text(">;"),
+    private val signatureSpec =
+        AnnotationSpec(
+            type = NameSpec("dalvik.annotation.Signature"),
+            visibility = AnnotationVisibility.System,
+            elements =
+                listOf(
+                    AnnotationElementSpec(
+                        NameSpec("value"),
+                        AnnotationValue.ListValue(
+                            listOf(
+                                AnnotationValue.Text("Lcom/tencent/mm/sdk/event/IListener<"),
+                                AnnotationValue.Text(
+                                    "Lcom/tencent/mm/autogen/events/MultiTalkActionEvent;",
+                                ),
+                                AnnotationValue.Text(">;"),
+                            ),
+                        ),
                     ),
                 ),
-            ),
-        ),
-    )
+        )
 
     @Test
     fun opcodeContainsAndCountConstraints() {
-        assertTrue(evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(listOf("new-instance")))))
+        assertTrue(
+            evaluator.matchesMethod(
+                method(),
+                MethodSpec(opcodes = OpcodeSpec(listOf("new-instance"))),
+            ),
+        )
         assertTrue(
             evaluator.matchesMethod(
                 method(),
                 MethodSpec(opcodes = OpcodeSpec(listOf("return-void", "new-instance"))),
             ),
         )
-        assertFalse(evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(listOf("missing-op")))))
-        assertTrue(evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(count = 0..10))))
-        assertFalse(evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(count = 0..2))))
+        assertFalse(
+            evaluator.matchesMethod(
+                method(),
+                MethodSpec(opcodes = OpcodeSpec(listOf("missing-op"))),
+            ),
+        )
+        assertTrue(
+            evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(count = 0..10))),
+        )
+        assertFalse(
+            evaluator.matchesMethod(method(), MethodSpec(opcodes = OpcodeSpec(count = 0..2))),
+        )
         assertTrue(
             evaluator.matchesMethod(
                 method(),
                 MethodSpec(
-                    opcodes = OpcodeSpec(
-                        names = listOf("new-instance", "invoke-direct", "return-void"),
-                        matchType = OpcodeMatchType.Equals,
-                    ),
+                    opcodes =
+                        OpcodeSpec(
+                            names = listOf("new-instance", "invoke-direct", "return-void"),
+                            matchType = OpcodeMatchType.Equals,
+                        ),
                 ),
             ),
         )
@@ -139,10 +162,11 @@ class OpcodeAnnotationTest {
             evaluator.matchesMethod(
                 method(),
                 MethodSpec(
-                    opcodes = OpcodeSpec(
-                        names = listOf("new-instance", "return-void"),
-                        matchType = OpcodeMatchType.Equals,
-                    ),
+                    opcodes =
+                        OpcodeSpec(
+                            names = listOf("new-instance", "return-void"),
+                            matchType = OpcodeMatchType.Equals,
+                        ),
                 ),
             ),
         )
@@ -162,56 +186,75 @@ class OpcodeAnnotationTest {
                 MethodSpec(opcodes = OpcodeSpec(listOf("new-instance"))),
             ),
         )
-        assertFalse(evaluator.matchesMethod(noCodeMethod, MethodSpec(opcodes = OpcodeSpec(count = 0..10))))
+        assertFalse(
+            evaluator.matchesMethod(noCodeMethod, MethodSpec(opcodes = OpcodeSpec(count = 0..10))),
+        )
     }
 
     @Test
     fun classAnnotationConstraints() {
-        assertTrue(evaluator.matchesClass(sampleClass(), ClassSpec(annotations = listOf(signatureSpec))))
-        assertFalse(
-            evaluator.matchesClass(
-                sampleClass(),
-                ClassSpec(annotations = listOf(signatureSpec.copy(type = NameSpec("java.lang.Deprecated")))),
-            ),
+        assertTrue(
+            evaluator.matchesClass(sampleClass(), ClassSpec(annotations = listOf(signatureSpec))),
         )
         assertFalse(
             evaluator.matchesClass(
                 sampleClass(),
-                ClassSpec(annotations = listOf(signatureSpec.copy(visibility = AnnotationVisibility.Runtime))),
+                ClassSpec(
+                    annotations =
+                        listOf(signatureSpec.copy(type = NameSpec("java.lang.Deprecated"))),
+                ),
             ),
         )
         assertFalse(
             evaluator.matchesClass(
                 sampleClass(),
                 ClassSpec(
-                    annotations = listOf(
-                        signatureSpec.copy(
-                            elements = listOf(
-                                AnnotationElementSpec(
-                                    NameSpec("value"),
-                                    AnnotationValue.ListValue(listOf(AnnotationValue.Text("wrong"))),
-                                ),
-                            ),
-                        ),
-                    ),
+                    annotations =
+                        listOf(signatureSpec.copy(visibility = AnnotationVisibility.Runtime)),
                 ),
             ),
         )
-        val noAnnotations = DexClassInfo(
-            buildJsonObject {
-                classDoc.forEach { (key, value) ->
-                    if (key != "annotations") put(key, value)
-                }
-                put("annotations", JsonArray(emptyList()))
-            },
-            metadata,
+        assertFalse(
+            evaluator.matchesClass(
+                sampleClass(),
+                ClassSpec(
+                    annotations =
+                        listOf(
+                            signatureSpec.copy(
+                                elements =
+                                    listOf(
+                                        AnnotationElementSpec(
+                                            NameSpec("value"),
+                                            AnnotationValue.ListValue(
+                                                listOf(AnnotationValue.Text("wrong")),
+                                            ),
+                                        ),
+                                    ),
+                            ),
+                        ),
+                ),
+            ),
         )
-        assertFalse(evaluator.matchesClass(noAnnotations, ClassSpec(annotations = listOf(signatureSpec))))
+        val noAnnotations =
+            DexClassInfo(
+                buildJsonObject {
+                    classDoc.forEach { (key, value) ->
+                        if (key != "annotations") put(key, value)
+                    }
+                    put("annotations", JsonArray(emptyList()))
+                },
+                metadata,
+            )
+        assertFalse(
+            evaluator.matchesClass(noAnnotations, ClassSpec(annotations = listOf(signatureSpec))),
+        )
     }
 
     @Test
     fun methodAnnotationAndEncodedValues() {
-        assertTrue(evaluator.matchesMethod(method(), MethodSpec(annotations = listOf(signatureSpec))))
+        assertTrue(
+            evaluator.matchesMethod(method(), MethodSpec(annotations = listOf(signatureSpec))),
+        )
 
         val annotatedDoc = buildJsonObject {
             methodDoc.forEach { (key, value) -> put(key, value) }
@@ -248,21 +291,31 @@ class OpcodeAnnotationTest {
             )
         }
         val annotated = DexMethodInfo(annotatedDoc, metadata)
-        val markerSpec = AnnotationSpec(
-            type = NameSpec("Lcom/test/Marker;"),
-            visibility = AnnotationVisibility.Runtime,
-            elements = listOf(
-                AnnotationElementSpec(NameSpec("count"), AnnotationValue.NumberValue(42)),
-                AnnotationElementSpec(NameSpec("enabled"), AnnotationValue.BooleanValue(true)),
-                AnnotationElementSpec(NameSpec("target"), AnnotationValue.DescriptorValue("com.x.Y")),
-            ),
-        )
+        val markerSpec =
+            AnnotationSpec(
+                type = NameSpec("Lcom/test/Marker;"),
+                visibility = AnnotationVisibility.Runtime,
+                elements =
+                    listOf(
+                        AnnotationElementSpec(NameSpec("count"), AnnotationValue.NumberValue(42)),
+                        AnnotationElementSpec(
+                            NameSpec("enabled"),
+                            AnnotationValue.BooleanValue(true),
+                        ),
+                        AnnotationElementSpec(
+                            NameSpec("target"),
+                            AnnotationValue.DescriptorValue("com.x.Y"),
+                        ),
+                    ),
+            )
         assertTrue(evaluator.matchesMethod(annotated, MethodSpec(annotations = listOf(markerSpec))))
         // Requested elements are a subset requirement: fewer requested elements still match.
         assertTrue(
             evaluator.matchesMethod(
                 annotated,
-                MethodSpec(annotations = listOf(markerSpec.copy(elements = markerSpec.elements.take(2)))),
+                MethodSpec(
+                    annotations = listOf(markerSpec.copy(elements = markerSpec.elements.take(2))),
+                ),
             ),
         )
         // A requested element must be present with the exact encoded value.
@@ -270,16 +323,18 @@ class OpcodeAnnotationTest {
             evaluator.matchesMethod(
                 annotated,
                 MethodSpec(
-                    annotations = listOf(
-                        markerSpec.copy(
-                            elements = listOf(
-                                AnnotationElementSpec(
-                                    NameSpec("enabled"),
-                                    AnnotationValue.BooleanValue(false),
-                                ),
+                    annotations =
+                        listOf(
+                            markerSpec.copy(
+                                elements =
+                                    listOf(
+                                        AnnotationElementSpec(
+                                            NameSpec("enabled"),
+                                            AnnotationValue.BooleanValue(false),
+                                        ),
+                                    ),
                             ),
                         ),
-                    ),
                 ),
             ),
         )

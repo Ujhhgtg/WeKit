@@ -37,7 +37,8 @@ enum class TargetProcess {
 
 object TargetProcesses {
 
-    val isInMain get() = currentType == TargetProcess.MAIN
+    val isInMain
+        get() = currentType == TargetProcess.MAIN
 
     val currentName by lazy {
         var retry = 0
@@ -49,7 +50,10 @@ object TargetProcesses {
 
                 val name = am.runningAppProcesses?.find { it?.pid == myPid }?.processName
                 if (name != null) return@lazy name
-            }.onFailure { WeLogger.e("TargetProcesses", "failed to get current process name", it) }
+            }
+                .onFailure {
+                    WeLogger.e("TargetProcesses", "failed to get current process name", it)
+                }
             retry++
         } while (retry < 3)
         "unknown"
@@ -84,14 +88,15 @@ object TargetProcesses {
                 "playcore_missing_splits_activity" -> TargetProcess.PLAYCORE
                 "hldfl" -> TargetProcess.HLDFL
                 "magic_emoji" -> TargetProcess.MAGIC_EMOJI
-                else -> when {
-                    tail.startsWith("appbrand") -> TargetProcess.APPBRAND
-                    tail.startsWith("tools") -> TargetProcess.TOOLS
-                    tail.startsWith("hotpot") -> TargetProcess.HOTPOT
-                    tail.startsWith("isolated_process") -> TargetProcess.ISOLATED
-                    tail.startsWith("backtrace") -> TargetProcess.BACKTRACE
-                    else -> TargetProcess.OTHERS
-                }
+                else ->
+                    when {
+                        tail.startsWith("appbrand") -> TargetProcess.APPBRAND
+                        tail.startsWith("tools") -> TargetProcess.TOOLS
+                        tail.startsWith("hotpot") -> TargetProcess.HOTPOT
+                        tail.startsWith("isolated_process") -> TargetProcess.ISOLATED
+                        tail.startsWith("backtrace") -> TargetProcess.BACKTRACE
+                        else -> TargetProcess.OTHERS
+                    }
             }
         }
     }

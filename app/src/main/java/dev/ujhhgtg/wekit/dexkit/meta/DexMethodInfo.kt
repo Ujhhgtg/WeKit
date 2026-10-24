@@ -11,7 +11,8 @@ import kotlinx.serialization.json.jsonObject
  * method document through the session [DexMetadata] cache when absent inline. [declaredClass]
  * resolves through the same cache on demand; it is null for external classes.
  */
-class DexMethodInfo internal constructor(
+class DexMethodInfo
+internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
@@ -25,16 +26,8 @@ class DexMethodInfo internal constructor(
     /** Method name ("name"); constructors use "<init>". */
     val name: String = json.requiredString("name")
 
-    /** DexKit alias for [name]. */
-    val methodName: String
-        get() = name
-
     /** Dotted Java name of the declaring class. */
     val declaredClassName: String = json.requiredString("declared_class_name")
-
-    /** DexKit alias for [declaredClassName]. */
-    val className: String
-        get() = declaredClassName
 
     /** Prototype sign "(params)return", without the method name. */
     val methodSign: String = json.stringOrNull("method_sign") ?: methodDescriptorSign(descriptor)
@@ -65,9 +58,9 @@ class DexMethodInfo internal constructor(
     }
 
     /**
-     * DexKit MethodData.returnType semantics: resolved class metadata for object return types,
-     * null for primitives, void and array types. Only object types trigger a metadata lookup, and
-     * the result is resolved lazily through the session cache (null for external classes).
+     * DexKit MethodData.returnType semantics: resolved class metadata for object return types, null
+     * for primitives, void and array types. Only object types trigger a metadata lookup, and the
+     * result is resolved lazily through the session cache (null for external classes).
      */
     val returnType: DexClassInfo? by lazy {
         if (isPrimitiveOrArrayReturnType) null else metadata.classInfoByName(returnTypeName)
@@ -77,9 +70,9 @@ class DexMethodInfo internal constructor(
         returnTypeName in PRIMITIVE_JAVA_TYPE_NAMES || returnTypeName.endsWith("]")
 
     /**
-     * JSON that carries the relation lists. Top-level method documents include them inline;
-     * shallow class member refs resolve the full top-level document through the session cache.
-     * The self-check prevents a recursive lookup when a method document has no relation keys.
+     * JSON that carries the relation lists. Top-level method documents include them inline; shallow
+     * class member refs resolve the full top-level document through the session cache. The
+     * self-check prevents a recursive lookup when a method document has no relation keys.
      */
     private val relationsJson: JsonObject by lazy {
         if (json.hasMethodRelations()) {
@@ -100,7 +93,9 @@ class DexMethodInfo internal constructor(
 
     /** Fields used by this method, in code order, with read/write direction. */
     val usingFields: List<DexFieldAccess> by lazy {
-        relationsJson.arrayOrEmpty("using_fields").map { DexFieldAccess.parse(it.jsonObject, metadata) }
+        relationsJson.arrayOrEmpty("using_fields").map {
+            DexFieldAccess.parse(it.jsonObject, metadata)
+        }
     }
 
     /** String constants referenced by this method, in code order. */
@@ -109,12 +104,12 @@ class DexMethodInfo internal constructor(
     }
 
     /** Fields read by this method (DexKit MethodData.readFields() equivalent). */
-    fun readFields(): List<DexFieldInfo> =
-        usingFields.filter { it.usingType.isRead }.map { it.field }.distinctBy { it.descriptor }
+    val readFields: List<DexFieldInfo>
+        get() = usingFields.filter { it.usingType.isRead }.map { it.field }.distinctBy { it.descriptor }
 
     /** Fields written by this method. */
-    fun writeFields(): List<DexFieldInfo> =
-        usingFields.filter { it.usingType.isWrite }.map { it.field }.distinctBy { it.descriptor }
+    val writeFields: List<DexFieldInfo>
+        get() = usingFields.filter { it.usingType.isWrite }.map { it.field }.distinctBy { it.descriptor }
 
     override fun toString(): String = descriptor
 }

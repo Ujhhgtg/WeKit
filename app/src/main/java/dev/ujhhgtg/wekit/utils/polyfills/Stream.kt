@@ -11,4 +11,3 @@ fun <T> Stream<T>.intoList(): List<T> {
         toArray().toList() as List<T>
     }
 }
-

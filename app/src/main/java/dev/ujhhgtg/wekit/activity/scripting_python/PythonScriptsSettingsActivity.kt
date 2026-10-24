@@ -1,4 +1,3 @@
-
 package dev.ujhhgtg.wekit.activity.scripting_python
 
 import android.content.Intent
@@ -98,6 +97,7 @@ import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import kotlin.io.path.div
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,7 +110,6 @@ import top.yukonga.scripta.editor.CodeEditor
 import top.yukonga.scripta.editor.EditorColors
 import top.yukonga.scripta.editor.EditorLanguage
 import top.yukonga.scripta.editor.rememberCodeEditorController
-import kotlin.io.path.div
 
 @Keep
 class PythonScriptsSettingsActivity : ComponentActivity() {
@@ -128,9 +127,13 @@ class PythonScriptsSettingsActivity : ComponentActivity() {
 @Serializable
 private sealed interface PythonSettingsRoute : NavKey {
     @Serializable data object Home : PythonSettingsRoute
+
     @Serializable data class PluginInfo(val pluginId: String?) : PythonSettingsRoute
+
     @Serializable data class Detail(val pluginId: String) : PythonSettingsRoute
+
     @Serializable data class Edit(val pluginId: String) : PythonSettingsRoute
+
     @Serializable data class Diagnostics(val pluginId: String) : PythonSettingsRoute
 }
 
@@ -150,12 +153,16 @@ private fun PythonSettingsRoot(activity: ComponentActivity, onFinish: () -> Unit
                     activity,
                     onFinish,
                     { navigator.push(PythonSettingsRoute.PluginInfo(null)) },
-                ) { navigator.push(PythonSettingsRoute.Detail(it)) }
+                ) {
+                    navigator.push(PythonSettingsRoute.Detail(it))
+                }
             }
-            entry<PythonSettingsRoute.PluginInfo>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            entry<PythonSettingsRoute.PluginInfo>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                route ->
                 PythonPluginInfoScreen(route.pluginId, navigator::pop)
             }
-            entry<PythonSettingsRoute.Detail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            entry<PythonSettingsRoute.Detail>(swipeDismiss = NavSwipeDirection.LeftToRight) { route
+                ->
                 PythonDetailScreen(
                     route.pluginId,
                     navigator::pop,
@@ -168,7 +175,8 @@ private fun PythonSettingsRoot(activity: ComponentActivity, onFinish: () -> Unit
             entry<PythonSettingsRoute.Edit>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
                 PythonEditorScreen(route.pluginId, navigator::pop)
             }
-            entry<PythonSettingsRoute.Diagnostics>(swipeDismiss = NavSwipeDirection.LeftToRight) { route ->
+            entry<PythonSettingsRoute.Diagnostics>(swipeDismiss = NavSwipeDirection.LeftToRight) {
+                route ->
                 PythonDiagnosticsScreen(route.pluginId, navigator::pop)
             }
         }
@@ -193,32 +201,44 @@ private fun PythonHomeScreen(
     val importSuccessText = stringResource(R.string.python_import_success)
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { PythonPluginManager.discover() } }
 
-    val importZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        coroutineScope.launch {
-            importing = true
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val temp = java.io.File(context.cacheDir, "plugin-import-${System.currentTimeMillis()}.zip")
-                    try {
-                        context.contentResolver.openInputStream(uri)!!.use { input ->
-                            temp.outputStream().use(input::copyTo)
+    val importZipLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            coroutineScope.launch {
+                importing = true
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            val temp =
+                                java.io.File(
+                                    context.cacheDir,
+                                    "plugin-import-${System.currentTimeMillis()}.zip",
+                                )
+                            try {
+                                context.contentResolver.openInputStream(uri)!!.use { input ->
+                                    temp.outputStream().use(input::copyTo)
+                                }
+                                PythonPluginManager.importPlugin(temp)
+                            } finally {
+                                temp.delete()
+                            }
                         }
-                        PythonPluginManager.importPlugin(temp)
-                    } finally {
-                        temp.delete()
                     }
-                }
+                importing = false
+                result.fold(
+                    onSuccess = { showToast(context, importSuccessText) },
+                    onFailure = {
+                        showToast(
+                            context,
+                            localizedContext.getString(
+                                R.string.python_import_failed,
+                                it.message ?: "",
+                            ),
+                        )
+                    },
+                )
             }
-            importing = false
-            result.fold(
-                onSuccess = { showToast(context, importSuccessText) },
-                onFailure = {
-                    showToast(context, localizedContext.getString(R.string.python_import_failed, it.message ?: ""))
-                },
-            )
         }
-    }
 
     SettingsScaffold(stringResource(R.string.python_scripts_title), onBack) {
         item {
@@ -226,8 +246,11 @@ private fun PythonHomeScreen(
                 item {
                     BaseWidget(
                         title = stringResource(R.string.extensions_pack_python_runtime_name),
-                        description = runtime.state.name + (runtime.version?.let { " · $it" } ?: ""),
-                        onClick = { ExtensionPackDialogs.openExtensions(activity, PythonRuntimePack, false) },
+                        description =
+                            runtime.state.name + (runtime.version?.let { " · $it" } ?: ""),
+                        onClick = {
+                            ExtensionPackDialogs.openExtensions(activity, PythonRuntimePack, false)
+                        },
                     )
                 }
             }
@@ -257,12 +280,14 @@ private fun PythonHomeScreen(
                         item(key = record.id) {
                             SwitchWidget(
                                 title = record.manifest?.name ?: record.id,
-                                description = "${record.id} · ${record.status.name}" +
-                                    (record.lastError?.let { "\n$it" } ?: ""),
+                                description =
+                                    "${record.id} · ${record.status.name}" +
+                                        (record.lastError?.let { "\n$it" } ?: ""),
                                 checked = record.desiredEnabled,
-                                enabled = record.manifest != null &&
-                                    record.status != PythonPluginStatus.LOADING &&
-                                    record.status != PythonPluginStatus.UNLOADING,
+                                enabled =
+                                    record.manifest != null &&
+                                        record.status != PythonPluginStatus.LOADING &&
+                                        record.status != PythonPluginStatus.UNLOADING,
                                 onClick = { openPlugin(record.id) },
                                 trailingDivider = true,
                                 onCheckedChange = { enabled ->
@@ -270,7 +295,10 @@ private fun PythonHomeScreen(
                                         pendingTrustPlugin = record.id
                                     } else {
                                         coroutineScope.launch(Dispatchers.IO) {
-                                            PythonPluginManager.setDesiredEnabled(record.id, enabled)
+                                            PythonPluginManager.setDesiredEnabled(
+                                                record.id,
+                                                enabled,
+                                            )
                                         }
                                     }
                                 },
@@ -320,7 +348,11 @@ private fun PythonHomeScreen(
         onConfirm = {
             showImportWarning = false
             importZipLauncher.launch(
-                arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"),
+                arrayOf(
+                    "application/zip",
+                    "application/x-zip-compressed",
+                    "application/octet-stream",
+                ),
             )
         },
         onDismiss = { showImportWarning = false },
@@ -348,25 +380,37 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
     var draftDescription by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
 
-    val savable = PythonPluginManager.isValidPluginId(draftId.trim()) &&
-        draftName.isNotBlank() && draftVersion.isNotBlank()
+    val savable =
+        PythonPluginManager.isValidPluginId(draftId.trim()) &&
+            draftName.isNotBlank() &&
+            draftVersion.isNotBlank()
     val guardedBack = rememberCreationBackGuard(creating && savable, onBack)
     val confirmLabel = stringResource(R.string.dialog_confirm)
     val cancelLabel = stringResource(R.string.dialog_cancel)
 
     fun commitInfo(transform: (PythonPluginManifest) -> PythonPluginManifest) {
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { PythonPluginManager.updatePluginInfo(pluginId!!, transform(manifest!!)) }
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        PythonPluginManager.updatePluginInfo(pluginId!!, transform(manifest!!))
+                    }
+                }
             result.onFailure {
-                showToast(localizedContext.getString(R.string.python_manifest_save_failed, it.message ?: ""))
+                showToast(
+                    localizedContext.getString(
+                        R.string.python_manifest_save_failed,
+                        it.message ?: "",
+                    ),
+                )
             }
         }
     }
 
     SettingsScaffold(
-        title = if (creating) stringResource(R.string.python_new_plugin) else manifest?.name ?: pluginId,
+        title =
+            if (creating) stringResource(R.string.python_new_plugin)
+            else manifest?.name ?: pluginId,
         onBack = guardedBack,
     ) {
         item {
@@ -427,12 +471,19 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
                     }
                 } else {
                     val m = manifest!!
-                    item { BaseWidget(title = stringResource(R.string.python_plugin_id_label), description = pluginId) }
+                    item {
+                        BaseWidget(
+                            title = stringResource(R.string.python_plugin_id_label),
+                            description = pluginId,
+                        )
+                    }
                     item {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.python_plugin_name_label),
                             value = m.name,
-                            onValueChange = { value -> commitInfo { info -> info.copy(name = value.trim()) } },
+                            onValueChange = { value ->
+                                commitInfo { info -> info.copy(name = value.trim()) }
+                            },
                             dialogTitle = stringResource(R.string.python_plugin_name_label),
                             confirmLabel = confirmLabel,
                             dismissLabel = cancelLabel,
@@ -442,7 +493,9 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.python_plugin_version_label),
                             value = m.version,
-                            onValueChange = { value -> commitInfo { info -> info.copy(version = value.trim()) } },
+                            onValueChange = { value ->
+                                commitInfo { info -> info.copy(version = value.trim()) }
+                            },
                             dialogTitle = stringResource(R.string.python_plugin_version_label),
                             confirmLabel = confirmLabel,
                             dismissLabel = cancelLabel,
@@ -452,7 +505,9 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.python_plugin_author_label),
                             value = m.author,
-                            onValueChange = { value -> commitInfo { info -> info.copy(author = value.trim()) } },
+                            onValueChange = { value ->
+                                commitInfo { info -> info.copy(author = value.trim()) }
+                            },
                             dialogTitle = stringResource(R.string.python_plugin_author_label),
                             confirmLabel = confirmLabel,
                             dismissLabel = cancelLabel,
@@ -462,7 +517,9 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.python_plugin_description_label),
                             value = m.description,
-                            onValueChange = { value -> commitInfo { info -> info.copy(description = value.trim()) } },
+                            onValueChange = { value ->
+                                commitInfo { info -> info.copy(description = value.trim()) }
+                            },
                             dialogTitle = stringResource(R.string.python_plugin_description_label),
                             confirmLabel = confirmLabel,
                             dismissLabel = cancelLabel,
@@ -483,17 +540,18 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
                         onClick = {
                             saving = true
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        PythonPluginManager.createPlugin(
-                                            draftId.trim(),
-                                            draftName.trim(),
-                                            draftVersion.trim(),
-                                            draftAuthor.trim(),
-                                            draftDescription.trim(),
-                                        )
+                                val result =
+                                    withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            PythonPluginManager.createPlugin(
+                                                draftId.trim(),
+                                                draftName.trim(),
+                                                draftVersion.trim(),
+                                                draftAuthor.trim(),
+                                                draftDescription.trim(),
+                                            )
+                                        }
                                     }
-                                }
                                 saving = false
                                 result.fold(
                                     onSuccess = { onBack() },
@@ -534,26 +592,35 @@ private fun PythonDetailScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val exportSuccessText = stringResource(R.string.python_export_success)
     val exportZipLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/zip"),
+        ) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
             coroutineScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    runCatching {
-                        context.contentResolver.openOutputStream(uri, "w")!!.use { output ->
-                            PythonPluginManager.exportPlugin(pluginId, output)
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            context.contentResolver.openOutputStream(uri, "w")!!.use { output ->
+                                PythonPluginManager.exportPlugin(pluginId, output)
+                            }
                         }
                     }
-                }
                 result.fold(
                     onSuccess = { showToast(context, exportSuccessText) },
                     onFailure = {
-                        showToast(context, localizedContext.getString(R.string.python_export_failed, it.message ?: ""))
+                        showToast(
+                            context,
+                            localizedContext.getString(
+                                R.string.python_export_failed,
+                                it.message ?: "",
+                            ),
+                        )
                     },
                 )
             }
         }
-    val inFlight = record.status == PythonPluginStatus.LOADING ||
-        record.status == PythonPluginStatus.UNLOADING
+    val inFlight =
+        record.status == PythonPluginStatus.LOADING || record.status == PythonPluginStatus.UNLOADING
     // 基本信息写入 plugin.json,插件运行中禁止编辑;开关本身保持可用以便停用。
     val infoEditable = !inFlight && record.status != PythonPluginStatus.ACTIVE
     SettingsScaffold(record.manifest?.name ?: pluginId, onBack) {
@@ -600,15 +667,21 @@ private fun PythonDetailScreen(
                         title = stringResource(R.string.python_open_directory),
                         icon = MaterialSymbols.Outlined.Folder,
                         onClick = {
-                            val relative = record.root.relativeTo(Environment.getExternalStorageDirectory())
-                                .path.replace(java.io.File.separatorChar, '/')
-                            val uri = DocumentsContract.buildDocumentUri(
-                                "com.android.externalstorage.documents",
-                                "primary:$relative",
+                            val relative =
+                                record.root
+                                    .relativeTo(Environment.getExternalStorageDirectory())
+                                    .path
+                                    .replace(java.io.File.separatorChar, '/')
+                            val uri =
+                                DocumentsContract.buildDocumentUri(
+                                    "com.android.externalstorage.documents",
+                                    "primary:$relative",
+                                )
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
+                                },
                             )
-                            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
-                            })
                         },
                     )
                 }
@@ -621,7 +694,11 @@ private fun PythonDetailScreen(
                         title = stringResource(R.string.python_reload_plugin),
                         icon = MaterialSymbols.Outlined.Refresh,
                         enabled = record.desiredEnabled && !inFlight,
-                        onClick = { coroutineScope.launch(Dispatchers.IO) { PythonPluginManager.reload(pluginId) } },
+                        onClick = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                PythonPluginManager.reload(pluginId)
+                            }
+                        },
                     )
                 }
                 item {
@@ -691,15 +768,19 @@ private fun PythonDetailScreen(
         onConfirm = {
             confirmDelete = false
             coroutineScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    runCatching { PythonPluginManager.deletePlugin(pluginId) }
-                }
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching { PythonPluginManager.deletePlugin(pluginId) }
+                    }
                 result.fold(
                     onSuccess = { onDeleted() },
                     onFailure = {
                         showToast(
                             context,
-                            localizedContext.getString(R.string.python_delete_failed, it.message ?: ""),
+                            localizedContext.getString(
+                                R.string.python_delete_failed,
+                                it.message ?: "",
+                            ),
                         )
                     },
                 )
@@ -731,8 +812,9 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
     val record = records[pluginId] ?: return
     val entry = record.manifest?.entry ?: return
     val entryPath = java.io.File(record.root, entry.replace('.', java.io.File.separatorChar))
-    val sourceFile = java.io.File(entryPath.path + ".py").takeIf { it.isFile }
-        ?: java.io.File(entryPath, "__init__.py")
+    val sourceFile =
+        java.io.File(entryPath.path + ".py").takeIf { it.isFile }
+            ?: java.io.File(entryPath, "__init__.py")
     val controller = rememberCodeEditorController()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -743,13 +825,14 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
     val discardTitle = stringResource(R.string.python_discard_changes_title)
     val discardMessage = stringResource(R.string.python_discard_changes_message)
     val discardConfirm = stringResource(R.string.python_discard_changes_confirm)
-    val guardedBack = rememberCreationBackGuard(
-        controller.isModified,
-        onBack,
-        dialogTitle = discardTitle,
-        dialogMessage = discardMessage,
-        confirmLabel = discardConfirm,
-    )
+    val guardedBack =
+        rememberCreationBackGuard(
+            controller.isModified,
+            onBack,
+            dialogTitle = discardTitle,
+            dialogMessage = discardMessage,
+            confirmLabel = discardConfirm,
+        )
     LaunchedEffect(sourceFile) {
         controller.setDocument(withContext(Dispatchers.IO) { sourceFile.readText() })
     }
@@ -777,14 +860,18 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
                             softWrap = !softWrap
                             Preferences.pythonEditorSoftWrap = softWrap
                         },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (softWrap) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                            contentColor = if (softWrap) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            } else {
-                                LocalContentColor.current
-                            },
-                        ),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor =
+                                    if (softWrap) MaterialTheme.colorScheme.secondaryContainer
+                                    else Color.Transparent,
+                                contentColor =
+                                    if (softWrap) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        LocalContentColor.current
+                                    },
+                            ),
                     ) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Wrap_text,
@@ -798,16 +885,19 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
                             val text = controller.getText(controller.lineEnding)
                             saving = true
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    runCatching { sourceFile.writeText(text) }
-                                }
+                                val result =
+                                    withContext(Dispatchers.IO) {
+                                        runCatching { sourceFile.writeText(text) }
+                                    }
                                 saving = false
                                 result.fold(
                                     onSuccess = {
                                         controller.markSaved(version)
                                         showToast(context, savedText)
                                     },
-                                    onFailure = { showToast(context, it.message ?: saveFailedText) },
+                                    onFailure = {
+                                        showToast(context, it.message ?: saveFailedText)
+                                    },
                                 )
                             }
                         },
@@ -825,10 +915,11 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = barBackdrop.m3AppBarColor(),
-                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = barBackdrop.m3AppBarColor(),
+                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                    ),
             )
         },
     ) { innerPadding ->
@@ -836,12 +927,13 @@ private fun PythonEditorScreen(pluginId: String, onBack: () -> Unit) {
             controller = controller,
             language = EditorLanguage.PlainText,
             highlighter = remember { PythonHighlighter() },
-            colors = if (ThemeSettings.themeMode.resolve()) EditorColors.Default else EditorColors.Light,
+            colors =
+                if (ThemeSettings.themeMode.resolve()) EditorColors.Default else EditorColors.Light,
             softWrap = softWrap,
-            modifier = Modifier
-                .fillMaxSize()
-                .m3BackdropLayer(barBackdrop)
-                .padding(top = innerPadding.calculateTopPadding()),
+            modifier =
+                Modifier.fillMaxSize()
+                    .m3BackdropLayer(barBackdrop)
+                    .padding(top = innerPadding.calculateTopPadding()),
         )
     }
 }
@@ -851,7 +943,8 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
     val records by PythonPluginManager.records.collectAsState()
     val runtime by PythonRuntimeLoader.status.collectAsState()
     val record = records[pluginId] ?: return
-    val crashMarker = remember(pluginId) { PythonCrashGuard.suspect()?.takeIf { it.pluginId == pluginId } }
+    val crashMarker =
+        remember(pluginId) { PythonCrashGuard.suspect()?.takeIf { it.pluginId == pluginId } }
     val mountedRuntime = PythonRuntimePack.mounted()
     val context = LocalContext.current
     val environment = remember {
@@ -861,29 +954,36 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
             "loader=${StartupInfo.loaderService.javaClass.name}\n" +
             "moduleClassLoader=${PythonRuntimeLoader::class.java.classLoader}"
     }
-    val runtimePackText = mountedRuntime?.let {
-        "version=${it.manifest.version}\nsha256=${it.manifest.sha256}\napk=${it.runtimeApk}\nnative=${it.nativeDirectory}"
-    } ?: stringResource(R.string.python_diag_not_mounted)
+    val runtimePackText =
+        mountedRuntime?.let {
+            "version=${it.manifest.version}\nsha256=${it.manifest.sha256}\napk=${it.runtimeApk}\nnative=${it.nativeDirectory}"
+        } ?: stringResource(R.string.python_diag_not_mounted)
     val runtimeTitle = stringResource(R.string.python_diag_runtime)
     val runtimePackTitle = stringResource(R.string.python_diag_runtime_pack)
     val environmentTitle = stringResource(R.string.python_diag_environment)
     val pluginTitle = stringResource(R.string.python_diag_plugin)
     val tracebackTitle = stringResource(R.string.python_traceback)
     val diagnosticsText = buildString {
-        appendLine(runtimeTitle); appendLine(runtime)
+        appendLine(runtimeTitle)
+        appendLine(runtime)
         appendLine()
-        appendLine(runtimePackTitle); appendLine(runtimePackText)
+        appendLine(runtimePackTitle)
+        appendLine(runtimePackText)
         appendLine()
-        appendLine(environmentTitle); appendLine(environment)
+        appendLine(environmentTitle)
+        appendLine(environment)
         appendLine()
-        appendLine(pluginTitle); appendLine(record.status.name)
+        appendLine(pluginTitle)
+        appendLine(record.status.name)
         crashMarker?.let {
             appendLine()
-            appendLine("CrashGuard"); appendLine(it)
+            appendLine("CrashGuard")
+            appendLine(it)
         }
         record.traceback?.let {
             appendLine()
-            appendLine(tracebackTitle); appendLine(it)
+            appendLine(tracebackTitle)
+            appendLine(it)
         }
     }
     val copiedText = stringResource(R.string.copied_to_clipboard)
@@ -891,10 +991,12 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
         title = stringResource(R.string.python_diagnostics_title),
         onBack = onBack,
         actions = {
-            IconButton(onClick = {
-                copyToClipboard(context, diagnosticsText)
-                showToast(context, copiedText)
-            }) {
+            IconButton(
+                onClick = {
+                    copyToClipboard(context, diagnosticsText)
+                    showToast(context, copiedText)
+                },
+            ) {
                 Icon(
                     imageVector = MaterialSymbols.Outlined.Content_copy,
                     contentDescription = stringResource(R.string.python_diagnostics_copy),
@@ -904,22 +1006,50 @@ private fun PythonDiagnosticsScreen(pluginId: String, onBack: () -> Unit) {
     ) {
         item {
             SegmentedColumn {
-                item { BaseWidget(title = stringResource(R.string.python_diag_runtime), description = runtime.toString()) }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_diag_runtime),
+                        description = runtime.toString(),
+                    )
+                }
                 item {
                     BaseWidget(
                         title = stringResource(R.string.python_diag_runtime_pack),
-                        description = mountedRuntime?.let {
-                            "version=${it.manifest.version}\nsha256=${it.manifest.sha256}\napk=${it.runtimeApk}\nnative=${it.nativeDirectory}"
-                        } ?: stringResource(R.string.python_diag_not_mounted),
+                        description =
+                            mountedRuntime?.let {
+                                "version=${it.manifest.version}\nsha256=${it.manifest.sha256}\napk=${it.runtimeApk}\nnative=${it.nativeDirectory}"
+                            } ?: stringResource(R.string.python_diag_not_mounted),
                     )
                 }
-                item { BaseWidget(title = stringResource(R.string.python_diag_environment), description = environment) }
-                item { BaseWidget(title = stringResource(R.string.python_diag_plugin), description = record.status.name) }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_diag_environment),
+                        description = environment,
+                    )
+                }
+                item {
+                    BaseWidget(
+                        title = stringResource(R.string.python_diag_plugin),
+                        description = record.status.name,
+                    )
+                }
                 crashMarker?.let { marker ->
-                    item { BaseWidget(title = "CrashGuard", description = marker.toString(), isError = true) }
+                    item {
+                        BaseWidget(
+                            title = "CrashGuard",
+                            description = marker.toString(),
+                            isError = true,
+                        )
+                    }
                 }
                 record.traceback?.let { traceback ->
-                    item { BaseWidget(title = stringResource(R.string.python_traceback), description = traceback, isError = true) }
+                    item {
+                        BaseWidget(
+                            title = stringResource(R.string.python_traceback),
+                            description = traceback,
+                            isError = true,
+                        )
+                    }
                 }
             }
         }
@@ -931,4 +1061,5 @@ private fun PythonPluginRecord.description(): String = buildList {
     manifest?.author?.takeIf(String::isNotBlank)?.let(::add)
     manifest?.description?.takeIf(String::isNotBlank)?.let(::add)
     add(status.name)
-}.joinToString(" · ")
+}
+    .joinToString(" · ")

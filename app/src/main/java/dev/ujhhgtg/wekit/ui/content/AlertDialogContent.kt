@@ -52,7 +52,9 @@ fun AlertDialogContent(
     ) {
         Column(modifier = Modifier.padding(DialogPadding)) {
             icon?.let {
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.secondary) {
+                CompositionLocalProvider(
+                    LocalContentColor provides MaterialTheme.colorScheme.secondary,
+                ) {
                     Box(Modifier.padding(IconPadding).align(Alignment.CenterHorizontally)) {
                         it()
                     }
@@ -66,7 +68,9 @@ fun AlertDialogContent(
                     Box(
                         // Align the title to the center when an icon is present.
                         Modifier.padding(TitlePadding)
-                            .align(if (icon == null) Alignment.Start else Alignment.CenterHorizontally)
+                            .align(
+                                if (icon == null) Alignment.Start else Alignment.CenterHorizontally,
+                            ),
                     ) {
                         it()
                     }
@@ -80,7 +84,7 @@ fun AlertDialogContent(
                     Box(
                         Modifier.weight(weight = 1f, fill = false)
                             .padding(TextPadding)
-                            .align(Alignment.Start)
+                            .align(Alignment.Start),
                     ) {
                         it()
                     }
@@ -93,9 +97,14 @@ fun AlertDialogContent(
                         textStyle = MaterialTheme.typography.labelLarge,
                     ) {
                         val buttonPaddingFromMics =
-                            LocalMinimumInteractiveComponentSize.current.takeOrElse { 0.dp } - ButtonDefaults.MinHeight
+                            LocalMinimumInteractiveComponentSize.current.takeOrElse { 0.dp } -
+                                ButtonDefaults.MinHeight
                         DialogButtonsFlowRow(
-                            crossAxisSpacing = (ButtonsSpacing - buttonPaddingFromMics).coerceIn(0.dp, ButtonsSpacing),
+                            crossAxisSpacing =
+                                (ButtonsSpacing - buttonPaddingFromMics).coerceIn(
+                                    0.dp,
+                                    ButtonsSpacing,
+                                ),
                         ) {
                             confirmButton?.invoke()
                             dismissButton?.invoke()
@@ -117,13 +126,18 @@ private fun DialogButtonsFlowRow(
     content: @Composable () -> Unit,
 ) {
     val originalLayoutDirection = LocalLayoutDirection.current
-    val flipped = if (originalLayoutDirection == LayoutDirection.Ltr) LayoutDirection.Rtl else LayoutDirection.Ltr
+    val flipped =
+        if (originalLayoutDirection == LayoutDirection.Ltr) LayoutDirection.Rtl
+        else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides flipped) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(ButtonsSpacing),
             verticalArrangement = Arrangement.spacedBy(crossAxisSpacing),
         ) {
-            CompositionLocalProvider(LocalLayoutDirection provides originalLayoutDirection, content = content)
+            CompositionLocalProvider(
+                LocalLayoutDirection provides originalLayoutDirection,
+                content = content,
+            )
         }
     }
 }

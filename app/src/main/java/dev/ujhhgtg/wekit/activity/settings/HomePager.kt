@@ -49,7 +49,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.currentHookBridge
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
-
 // ---------------------------------------------------------------------------
 //  Page 0 — Home
 // ---------------------------------------------------------------------------
@@ -80,9 +79,7 @@ private fun StatusCard() {
     val hookBridgeName = currentHookBridge.hookBridgeName
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
@@ -114,13 +111,14 @@ private fun StatusCard() {
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             },
-            colors = ListItemDefaults.colors(
-                containerColor = Color.Transparent,
-                contentColor = contentColor,
-                leadingContentColor = contentColor,
-                trailingContentColor = contentColor,
-                supportingContentColor = contentColor.copy(alpha = 0.7f),
-            ),
+            colors =
+                ListItemDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = contentColor,
+                    leadingContentColor = contentColor,
+                    trailingContentColor = contentColor,
+                    supportingContentColor = contentColor.copy(alpha = 0.7f),
+                ),
             content = {
                 Text(
                     text = statusTitle,
@@ -147,12 +145,12 @@ private fun StatusCard() {
 @Composable
 private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color) {
     Box(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(4.dp),
-            )
+        modifier =
+            Modifier.padding(end = 4.dp)
+                .background(
+                    color = backgroundColor,
+                    shape = RoundedCornerShape(4.dp),
+                ),
     ) {
         Text(
             text = label,
@@ -171,18 +169,24 @@ private fun DeviceInformation() {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Chat,
                 title = stringResource(R.string.home_wechat_version),
-                description = stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
+                description =
+                    stringResource(
+                        R.string.home_version_value,
+                        HostInfo.versionName,
+                        HostInfo.versionCode,
+                    ),
             )
         }
         item {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Deployed_code,
                 title = stringResource(R.string.home_module_version),
-                description = stringResource(
-                    R.string.home_version_value,
-                    BuildConfig.VERSION_NAME,
-                    BuildConfig.VERSION_CODE,
-                ),
+                description =
+                    stringResource(
+                        R.string.home_version_value,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ),
             )
         }
         item {
@@ -196,29 +200,36 @@ private fun DeviceInformation() {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Smartphone,
                 title = stringResource(R.string.home_device_model),
-                description = stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
+                description =
+                    stringResource(
+                        R.string.home_device_model_value,
+                        Build.MANUFACTURER,
+                        Build.MODEL,
+                    ),
             )
         }
         item {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Android,
                 title = stringResource(R.string.home_android_version),
-                description = stringResource(
-                    R.string.home_android_version_value,
-                    Build.VERSION.RELEASE,
-                    Build.VERSION.SDK_INT,
-                ),
+                description =
+                    stringResource(
+                        R.string.home_android_version_value,
+                        Build.VERSION.RELEASE,
+                        Build.VERSION.SDK_INT,
+                    ),
             )
         }
         item {
             BaseWidget(
                 icon = MaterialSymbols.Outlined.Layers,
                 title = stringResource(R.string.home_loading_environment),
-                description = stringResource(
-                    R.string.home_loading_environment_value,
-                    loaderName,
-                    currentHookBridge.hookBridgeName,
-                ),
+                description =
+                    stringResource(
+                        R.string.home_loading_environment_value,
+                        loaderName,
+                        currentHookBridge.hookBridgeName,
+                    ),
             )
         }
     }

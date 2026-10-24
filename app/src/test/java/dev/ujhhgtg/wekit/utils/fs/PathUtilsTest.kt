@@ -11,8 +11,7 @@ import org.junit.jupiter.api.io.TempDir
 
 class PathUtilsTest {
 
-    @TempDir
-    lateinit var directory: Path
+    @TempDir lateinit var directory: Path
 
     @Test
     fun `moveReplacing replaces an existing target`() {

@@ -488,7 +488,6 @@ class DexSqlQueryTest {
         )
     }
 
-
     // ------------------------------------------------------------------
     // sqlField
     // ------------------------------------------------------------------
@@ -706,19 +705,22 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass {}
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass {
                     usingStrings()
                 }
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 superClass {}
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
@@ -728,7 +730,8 @@ class DexSqlQueryTest {
                 declaredClass {
                     usingEqStrings("b")
                 }
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1046,7 +1049,8 @@ class DexSqlQueryTest {
                 name = "run"
             }
         }
-        val expected = "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND cm1.name = 'run' ORDER BY cm.class_descriptor;"
+        val expected =
+            "SELECT DISTINCT cm.class_descriptor AS descriptor FROM methods cm JOIN method_strings ms0 ON ms0.method = cm.descriptor JOIN methods cm1 ON cm1.class_descriptor = cm.class_descriptor WHERE ms0.file_id = cm.file_id AND ms0.method_idx = cm.method_idx AND ms0.value = 'a' AND cm1.file_id = cm.file_id AND cm1.class_idx = cm.class_idx AND cm1.name = 'run' ORDER BY cm.class_descriptor;"
         assertEquals(expected, query.toSql())
         assertEquals(expected, query.toSql())
     }
@@ -1115,7 +1119,8 @@ class DexSqlQueryTest {
 
     @Test
     fun emptyNonEqualsLiteralFallsBackToEquals() {
-        val expected = "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = '' ORDER BY m.descriptor;"
+        val expected =
+            "SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor WHERE ms0.file_id = m.file_id AND ms0.method_idx = m.method_idx AND ms0.value = '' ORDER BY m.descriptor;"
         assertSql(expected, sqlMethod { usingStrings("") })
         assertSql(expected, sqlMethod { usingPrefixStrings("") })
         assertSql(expected, sqlMethod { usingSuffixStrings("") })
@@ -1135,7 +1140,6 @@ class DexSqlQueryTest {
     // Rejected declarations
     // ------------------------------------------------------------------
 
-
     @Test
     fun emptyQueriesThrow() {
         assertThrows(IllegalArgumentException::class.java) { sqlMethod {}.toSql() }
@@ -1148,7 +1152,8 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 method {}
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1158,7 +1163,8 @@ class DexSqlQueryTest {
             sqlClass {
                 usingEqStrings("a")
                 method {}
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1167,7 +1173,8 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 limit(1)
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1176,7 +1183,8 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlConstructor {
                 name = "notAConstructor"
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1186,7 +1194,8 @@ class DexSqlQueryTest {
             sqlMethod {
                 name = "doThing"
                 offset(1)
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1196,14 +1205,16 @@ class DexSqlQueryTest {
             sqlMethod {
                 name = "doThing"
                 limit(-1)
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 name = "doThing"
                 limit(1)
                 offset(-2)
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1215,7 +1226,8 @@ class DexSqlQueryTest {
                 method {
                     searchPackages("com.tencent.mm")
                 }
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlField {
@@ -1223,7 +1235,8 @@ class DexSqlQueryTest {
                 readMethod {
                     limit(1)
                 }
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1232,17 +1245,20 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 declaredClass = "   "
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 returnType = " "
-            }.toSql()
+            }
+                .toSql()
         }
         assertThrows(IllegalArgumentException::class.java) {
             sqlClass {
                 className = ""
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1343,7 +1359,8 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 paramTypes("  ")
-            }.toSql()
+            }
+                .toSql()
         }
     }
 
@@ -1479,7 +1496,9 @@ class DexSqlQueryTest {
     fun classQueryNameMatchModesUseCDescriptor() {
         assertSql(
             "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE instr(c.descriptor, 'Lcom/tencent/mm/plugin/newtips/model') = 1 ORDER BY c.descriptor;",
-            sqlClass { className(SqlStringMatchMode.StartsWith, "com.tencent.mm.plugin.newtips.model") },
+            sqlClass {
+                className(SqlStringMatchMode.StartsWith, "com.tencent.mm.plugin.newtips.model")
+            },
         )
         assertSql(
             "SELECT DISTINCT c.descriptor AS descriptor FROM classes c WHERE instr(c.superclass_descriptor, 'Landroid/app') = 1 ORDER BY c.descriptor;",
@@ -1571,7 +1590,8 @@ class DexSqlQueryTest {
         assertThrows(IllegalArgumentException::class.java) {
             sqlMethod {
                 returnType(SqlStringMatchMode.EndsWith, "java.lang.String")
-            }.toSql()
+            }
+                .toSql()
         }
     }
 

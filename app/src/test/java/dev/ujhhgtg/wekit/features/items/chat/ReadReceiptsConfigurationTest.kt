@@ -9,10 +9,11 @@ class ReadReceiptsConfigurationTest {
 
     @Test
     fun `round trips a third party configuration`() {
-        val configuration = ReadReceiptsConfiguration(
-            thirdPartyUrl = "https://receipts.example",
-            pollIntervalSecs = 7,
-        )
+        val configuration =
+            ReadReceiptsConfiguration(
+                thirdPartyUrl = "https://receipts.example",
+                pollIntervalSecs = 7,
+            )
 
         assertEquals(
             configuration,
@@ -24,9 +25,10 @@ class ReadReceiptsConfigurationTest {
 
     @Test
     fun `canonicalizes a valid third party configuration endpoint`() {
-        val submitted = ReadReceiptsConfiguration(
-            thirdPartyUrl = "HTTPS://Example.COM/receipts/",
-        )
+        val submitted =
+            ReadReceiptsConfiguration(
+                thirdPartyUrl = "HTTPS://Example.COM/receipts/",
+            )
 
         assertEquals(
             submitted.copy(thirdPartyUrl = "https://example.com/receipts"),
@@ -38,16 +40,18 @@ class ReadReceiptsConfigurationTest {
 
     @Test
     fun `rejects invalid active third party endpoint on encode and decode`() {
-        val valid = ReadReceiptsConfiguration(
-            thirdPartyUrl = "https://receipts.example",
-        )
+        val valid =
+            ReadReceiptsConfiguration(
+                thirdPartyUrl = "https://receipts.example",
+            )
         val encoded = ReadReceiptsConfigurationCodec.encode(valid)
-        val invalidEndpoints = listOf(
-            "https://user@receipts.example",
-            "https://receipts.example?token=secret",
-            " https://receipts.example",
-            "https://receipts.example" + "/".repeat(2048),
-        )
+        val invalidEndpoints =
+            listOf(
+                "https://user@receipts.example",
+                "https://receipts.example?token=secret",
+                " https://receipts.example",
+                "https://receipts.example" + "/".repeat(2048),
+            )
 
         invalidEndpoints.forEach { endpoint ->
             assertThrows(IllegalArgumentException::class.java) {
@@ -78,6 +82,10 @@ class ReadReceiptsConfigurationTest {
     fun `rejects unsupported and malformed snapshots`() {
         assertNull(ReadReceiptsConfigurationCodec.decode("{\"version\":99}"))
         assertNull(ReadReceiptsConfigurationCodec.decode("not json"))
-        assertNull(ReadReceiptsConfigurationCodec.decode("{\"version\":1,\"thirdPartyUrl\":\"\",\"pollIntervalSecs\":5}"))
+        assertNull(
+            ReadReceiptsConfigurationCodec.decode(
+                "{\"version\":1,\"thirdPartyUrl\":\"\",\"pollIntervalSecs\":5}",
+            ),
+        )
     }
 }

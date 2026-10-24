@@ -1,4 +1,3 @@
-
 package dev.ujhhgtg.wekit.activity.settings
 
 import android.os.Bundle
@@ -73,14 +72,15 @@ import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -94,7 +94,6 @@ import dev.ujhhgtg.wekit.ui.navigation.Navigator
 import dev.ujhhgtg.wekit.ui.navigation.rememberM3NavEffects
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
-import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -119,7 +118,7 @@ class SettingsActivity : ComponentActivity() {
 
         setContent {
             CompositionLocalProvider(
-                LocalComponentActivity provides this
+                LocalComponentActivity provides this,
             ) {
                 WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
                     ModuleTheme {
@@ -141,32 +140,113 @@ data class FeatureCategory(
     val icon: ImageVector,
 )
 
-val FEATURE_CATEGORIES = listOf(
-    FeatureCategory(FeatureCategoryIds.CHAT, R.string.feature_category_chat_title, MaterialSymbols.Outlined.Chat),
-    FeatureCategory(FeatureCategoryIds.CHAT_INPUT_BAR_MENU, R.string.feature_category_chat_input_bar_menu_title, MaterialSymbols.Outlined.Add_circle),
-    FeatureCategory(FeatureCategoryIds.CONTACTS_GROUPS, R.string.feature_category_contacts_groups_title, MaterialSymbols.Outlined.Contacts),
-    FeatureCategory(FeatureCategoryIds.PAYMENT, R.string.feature_category_payment_title, MaterialSymbols.Outlined.Payments),
-    FeatureCategory(FeatureCategoryIds.MOMENTS, R.string.feature_category_moments_title, MaterialSymbols.Outlined.Camera),
-    FeatureCategory(FeatureCategoryIds.SYSTEM_PRIVACY, R.string.feature_category_system_privacy_title, MaterialSymbols.Outlined.Wand_stars),
-    FeatureCategory(FeatureCategoryIds.VOIP, R.string.feature_category_voip_title, MaterialSymbols.Outlined.Call),
-    FeatureCategory(FeatureCategoryIds.NOTIFICATIONS, R.string.feature_category_notifications_title, MaterialSymbols.Outlined.Notifications),
-    FeatureCategory(FeatureCategoryIds.BEAUTIFY, R.string.feature_category_beautify_title, MaterialSymbols.Outlined.Imagesearch_roller),
-    FeatureCategory(FeatureCategoryIds.OFFICIAL_ACCOUNTS, R.string.feature_category_official_accounts_title, MaterialSymbols.Outlined.Newspaper),
-    FeatureCategory(FeatureCategoryIds.MINIAPPS, R.string.feature_category_miniapps_title, MaterialSymbols.Outlined.Package_2),
-    FeatureCategory(FeatureCategoryIds.CHANNELS, R.string.feature_category_channels_title, MaterialSymbols.Outlined.Movie),
-    FeatureCategory(FeatureCategoryIds.PROFILE, R.string.feature_category_profile_title, MaterialSymbols.Outlined.Account_circle),
-    FeatureCategory(FeatureCategoryIds.DEBUG, R.string.feature_category_debug_title, MaterialSymbols.Outlined.Bug_report),
-    FeatureCategory(FeatureCategoryIds.SCRIPTING_JAVA, R.string.feature_category_scripting_java_title, MaterialSymbols.Outlined.Terminal),
-    FeatureCategory(FeatureCategoryIds.SCRIPTING_PYTHON, R.string.feature_category_scripting_python_title, MaterialSymbols.Outlined.Code),
-    FeatureCategory(FeatureCategoryIds.ENTERTAIN, R.string.feature_category_entertain_title, MaterialSymbols.Outlined.Comedy_mask),
-    FeatureCategory(FeatureCategoryIds.BATCH, R.string.feature_category_batch_title, MaterialSymbols.Outlined.Checklist),
-    FeatureCategory(FeatureCategoryIds.HOME_SCREEN_MENU, R.string.feature_category_home_screen_menu_title, MaterialSymbols.Outlined.Add_circle),
-    FeatureCategory(FeatureCategoryIds.CONTACT_DETAILS, R.string.feature_category_contact_details_title, MaterialSymbols.Outlined.Contact_page),
-)
+val FEATURE_CATEGORIES =
+    listOf(
+        FeatureCategory(
+            FeatureCategoryIds.CHAT,
+            R.string.feature_category_chat_title,
+            MaterialSymbols.Outlined.Chat,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.CHAT_INPUT_BAR_MENU,
+            R.string.feature_category_chat_input_bar_menu_title,
+            MaterialSymbols.Outlined.Add_circle,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.CONTACTS_GROUPS,
+            R.string.feature_category_contacts_groups_title,
+            MaterialSymbols.Outlined.Contacts,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.PAYMENT,
+            R.string.feature_category_payment_title,
+            MaterialSymbols.Outlined.Payments,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.MOMENTS,
+            R.string.feature_category_moments_title,
+            MaterialSymbols.Outlined.Camera,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.SYSTEM_PRIVACY,
+            R.string.feature_category_system_privacy_title,
+            MaterialSymbols.Outlined.Wand_stars,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.VOIP,
+            R.string.feature_category_voip_title,
+            MaterialSymbols.Outlined.Call,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.NOTIFICATIONS,
+            R.string.feature_category_notifications_title,
+            MaterialSymbols.Outlined.Notifications,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.BEAUTIFY,
+            R.string.feature_category_beautify_title,
+            MaterialSymbols.Outlined.Imagesearch_roller,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.OFFICIAL_ACCOUNTS,
+            R.string.feature_category_official_accounts_title,
+            MaterialSymbols.Outlined.Newspaper,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.MINIAPPS,
+            R.string.feature_category_miniapps_title,
+            MaterialSymbols.Outlined.Package_2,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.CHANNELS,
+            R.string.feature_category_channels_title,
+            MaterialSymbols.Outlined.Movie,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.PROFILE,
+            R.string.feature_category_profile_title,
+            MaterialSymbols.Outlined.Account_circle,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.DEBUG,
+            R.string.feature_category_debug_title,
+            MaterialSymbols.Outlined.Bug_report,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.SCRIPTING_JAVA,
+            R.string.feature_category_scripting_java_title,
+            MaterialSymbols.Outlined.Terminal,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.SCRIPTING_PYTHON,
+            R.string.feature_category_scripting_python_title,
+            MaterialSymbols.Outlined.Code,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.ENTERTAIN,
+            R.string.feature_category_entertain_title,
+            MaterialSymbols.Outlined.Comedy_mask,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.BATCH,
+            R.string.feature_category_batch_title,
+            MaterialSymbols.Outlined.Checklist,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.HOME_SCREEN_MENU,
+            R.string.feature_category_home_screen_menu_title,
+            MaterialSymbols.Outlined.Add_circle,
+        ),
+        FeatureCategory(
+            FeatureCategoryIds.CONTACT_DETAILS,
+            R.string.feature_category_contact_details_title,
+            MaterialSymbols.Outlined.Contact_page,
+        ),
+    )
 
 /**
- * Pseudo-category shown above the real ones. Deliberately kept out of [FEATURE_CATEGORIES] —
- * it isn't something a feature can declare in its `categoryIds` property.
+ * Pseudo-category shown above the real ones. Deliberately kept out of [FEATURE_CATEGORIES] — it
+ * isn't something a feature can declare in its `categoryIds` property.
  */
 const val NEW_FEATURES_CATEGORY = "new_features"
 const val ENABLED_FEATURES_CATEGORY = "enabled_features"
@@ -197,12 +277,11 @@ val NEW_FEATURE_ITEMS: List<BaseFeature>
 /** Navigation targets for the Settings activity's stack. */
 @Serializable
 sealed interface SettingsRoute : NavKey {
-    @Serializable
-    data object Main : SettingsRoute
-    @Serializable
-    data class Category(val id: String) : SettingsRoute
-    @Serializable
-    data object License : SettingsRoute
+    @Serializable data object Main : SettingsRoute
+
+    @Serializable data class Category(val id: String) : SettingsRoute
+
+    @Serializable data object License : SettingsRoute
 }
 
 @Composable
@@ -251,29 +330,25 @@ private fun MainPagerScreen(
 ) {
     val scope = rememberCoroutineScope()
     val backdrop = rememberLayerBackdrop()
-    val barBottomPadding = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val flingBehavior = PagerDefaults.flingBehavior(
-        state = pagerState,
-        snapAnimationSpec = PagerNavigationSpringSpec,
-    )
+    val barBottomPadding =
+        12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val flingBehavior =
+        PagerDefaults.flingBehavior(
+            state = pagerState,
+            snapAnimationSpec = PagerNavigationSpringSpec,
+        )
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .layerBackdrop(backdrop),
+            modifier = Modifier.fillMaxSize().layerBackdrop(backdrop),
         ) {
             // Cross-Axis interception: horizontal swipes switch pages even while a page's list
             // is flinging or bouncing back. It replaces the pager's own touch scrolling.
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pagerGestureOverride(pagerState, flingBehavior),
+                modifier = Modifier.fillMaxSize().pagerGestureOverride(pagerState, flingBehavior),
                 userScrollEnabled = false,
                 flingBehavior = flingBehavior,
                 pageNestedScrollConnection = PagerGestureNestedScrollConnection,
@@ -290,18 +365,17 @@ private fun MainPagerScreen(
 
         FloatingBottomBar(
             items = TAB_ITEMS,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = barBottomPadding),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = barBottomPadding),
             selectedIndex = { pagerState.targetPage },
             onSelected = { scope.launch { pagerState.springAnimateToPage(it) } },
             backdrop = backdrop,
-            colors = FloatingBottomBarDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                indicatorColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                activeContentColor = MaterialTheme.colorScheme.primary,
-            ),
+            colors =
+                FloatingBottomBarDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    indicatorColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    activeContentColor = MaterialTheme.colorScheme.primary,
+                ),
             iconContent = { item, index, _ ->
                 Crossfade(
                     targetState = index == pagerState.targetPage,
@@ -321,7 +395,7 @@ private fun MainPagerScreen(
                     lineHeight = 14.sp,
                     maxLines = 1,
                     softWrap = false,
-                    overflow = TextOverflow.Visible
+                    overflow = TextOverflow.Visible,
                 )
             },
         )
@@ -334,12 +408,29 @@ private data class NavItem(
     val filled: ImageVector,
 )
 
-private val TAB_ITEMS = listOf(
-    NavItem(R.string.nav_home, MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home),
-    NavItem(R.string.nav_features, MaterialSymbols.Outlined.Tune, MaterialSymbols.OutlinedFilled.Tune),
-    NavItem(R.string.nav_logs, MaterialSymbols.Outlined.Article, MaterialSymbols.OutlinedFilled.Article),
-    NavItem(R.string.nav_settings, MaterialSymbols.Outlined.Settings, MaterialSymbols.OutlinedFilled.Settings),
-)
+private val TAB_ITEMS =
+    listOf(
+        NavItem(
+            R.string.nav_home,
+            MaterialSymbols.Outlined.Home,
+            MaterialSymbols.OutlinedFilled.Home,
+        ),
+        NavItem(
+            R.string.nav_features,
+            MaterialSymbols.Outlined.Tune,
+            MaterialSymbols.OutlinedFilled.Tune,
+        ),
+        NavItem(
+            R.string.nav_logs,
+            MaterialSymbols.Outlined.Article,
+            MaterialSymbols.OutlinedFilled.Article,
+        ),
+        NavItem(
+            R.string.nav_settings,
+            MaterialSymbols.Outlined.Settings,
+            MaterialSymbols.OutlinedFilled.Settings,
+        ),
+    )
 
 /** Bottom padding so scrollable content clears the floating bar. */
 val CONTENT_BOTTOM_INSET = 88.dp
@@ -354,12 +445,11 @@ fun M3ListScaffold(
     navigationIcon: @Composable (() -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val barBackdrop = rememberMaterial3BlurBackdrop()
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             ExpressiveCollapsingTopAppBar(
@@ -367,17 +457,18 @@ fun M3ListScaffold(
                 title = title,
                 navigationIcon = { navigationIcon?.invoke() },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = barBackdrop.m3AppBarColor(),
-                    scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = barBackdrop.m3AppBarColor(),
+                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                    ),
             )
         },
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
+            modifier =
+                Modifier.fillMaxSize()
+                    .then(barBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
             contentPadding = innerPadding,
             content = content,
         )
@@ -400,9 +491,10 @@ fun FeatureRow(
     val localizedName = item.localizedName(localizedContext)
     val localizedDescription = item.localizedDescription(localizedContext)
     // Declared errors may depend on other features' states, so recompute after any toggle.
-    val errorLines = remember(configKey, localizedContext, FeatureCategoryState.revision) {
-        item.errors.map { it.localizedMessage(localizedContext) }
-    }
+    val errorLines =
+        remember(configKey, localizedContext, FeatureCategoryState.revision) {
+            item.errors.map { it.localizedMessage(localizedContext) }
+        }
     // A feature with errors can still be turned off, but never turned on.
     val switchEnabled = errorLines.isEmpty() || checked
 
@@ -429,7 +521,13 @@ fun FeatureRow(
         is ClickableFeature -> {
             val openConfig: () -> Unit = {
                 runCatching { item.onClick(context) }
-                    .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.technicalPath}", it) }
+                    .onFailure {
+                        WeLogger.e(
+                            "SettingsActivity",
+                            "onClick failed for ${item.technicalPath}",
+                            it,
+                        )
+                    }
             }
 
             if (item.noSwitchWidget) {
@@ -465,14 +563,15 @@ fun FeatureRow(
             }
         }
 
-        is SwitchFeature -> SwitchWidget(
-            iconPlaceholder = false,
-            title = localizedName,
-            description = localizedDescription,
-            errorLines = errorLines,
-            switchEnabled = switchEnabled,
-            checked = checked,
-            onCheckedChange = { toggle(it) },
-        )
+        is SwitchFeature ->
+            SwitchWidget(
+                iconPlaceholder = false,
+                title = localizedName,
+                description = localizedDescription,
+                errorLines = errorLines,
+                switchEnabled = switchEnabled,
+                checked = checked,
+                onCheckedChange = { toggle(it) },
+            )
     }
 }

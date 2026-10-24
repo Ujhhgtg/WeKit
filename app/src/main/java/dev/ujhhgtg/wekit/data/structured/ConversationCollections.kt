@@ -3,10 +3,22 @@ package dev.ujhhgtg.wekit.data.structured
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class ConversationGroupType { MANUAL, PRESET_UNREAD, PRESET_GROUPS, PRESET_FRIENDS, PRESET_OFFICIALS, SQL }
+enum class ConversationGroupType {
+    MANUAL,
+    PRESET_UNREAD,
+    PRESET_GROUPS,
+    PRESET_FRIENDS,
+    PRESET_OFFICIALS,
+    SQL,
+}
 
 @Serializable
-enum class BuiltInGroupLabel { UNREAD, GROUPS, FRIENDS, OFFICIALS }
+enum class BuiltInGroupLabel {
+    UNREAD,
+    GROUPS,
+    FRIENDS,
+    OFFICIALS,
+}
 
 @Serializable
 data class ConversationGroup(
@@ -20,7 +32,12 @@ data class ConversationGroup(
 )
 
 @Serializable
-enum class ConversationFolderType { MANUAL, PRESET_GROUPS, PRESET_OFFICIALS, SQL }
+enum class ConversationFolderType {
+    MANUAL,
+    PRESET_GROUPS,
+    PRESET_OFFICIALS,
+    SQL,
+}
 
 @Serializable
 data class ConversationFolder(

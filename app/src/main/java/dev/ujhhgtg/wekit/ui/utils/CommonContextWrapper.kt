@@ -22,10 +22,13 @@ class CommonContextWrapper(
 
     override fun getClassLoader(): ClassLoader = ClassLoaders.MODULE
 
-    // Explicit dialog/panel contexts need the host window service so their windows get a valid token.
+    // Explicit dialog/panel contexts need the host window service so their windows get a valid
+    // token.
     override fun getSystemService(name: String): Any? {
         if (name == WINDOW_SERVICE) {
-            windowContext?.let { return it.getSystemService(name) }
+            windowContext?.let {
+                return it.getSystemService(name)
+            }
         }
         return super.getSystemService(name)
     }
@@ -40,7 +43,10 @@ fun Context.resolveWindowContext(): Context? {
     while (current != null) {
         when (current) {
             is Activity -> return current
-            is CommonContextWrapper -> current.windowContext?.let { return it }
+            is CommonContextWrapper ->
+                current.windowContext?.let {
+                    return it
+                }
         }
         current = (current as? ContextWrapper)?.baseContext
     }

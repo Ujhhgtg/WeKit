@@ -268,11 +268,11 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
             .filter { it.name in recyclerInterfaceNames }
             .filter { candidate ->
                 candidate.methods.any {
-                    it.methodName == "getCount" &&
+                    it.name == "getCount" &&
                         it.paramTypeNames.isEmpty() &&
                         it.returnTypeName == "int"
                 } && candidate.methods.any {
-                    it.methodName == "getItem" && it.paramTypeNames == listOf("int")
+                    it.name == "getItem" && it.paramTypeNames == listOf("int")
                 }
             }
         require(adapterInterfaces.size == 1) {
@@ -282,12 +282,12 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
         val adapterInterface = adapterInterfaces.single()
         classConversationAdapter.setDescriptor(adapterInterface)
         methodAdapterGetCount.setDescriptor(adapterInterface.methods.single {
-            it.methodName == "getCount" &&
+            it.name == "getCount" &&
                 it.paramTypeNames.isEmpty() &&
                 it.returnTypeName == "int"
         })
         methodAdapterGetItem.setDescriptor(adapterInterface.methods.single {
-            it.methodName == "getItem" && it.paramTypeNames == listOf("int")
+            it.name == "getItem" && it.paramTypeNames == listOf("int")
         })
 
         methodRecyclerConversationBind.find(

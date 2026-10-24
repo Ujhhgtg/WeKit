@@ -10,17 +10,18 @@ class DexDescriptorConversionsTest {
 
     @Test
     fun primitiveDescriptorsMapToJavaNames() {
-        val expected = mapOf(
-            "V" to "void",
-            "Z" to "boolean",
-            "B" to "byte",
-            "S" to "short",
-            "C" to "char",
-            "I" to "int",
-            "J" to "long",
-            "F" to "float",
-            "D" to "double",
-        )
+        val expected =
+            mapOf(
+                "V" to "void",
+                "Z" to "boolean",
+                "B" to "byte",
+                "S" to "short",
+                "C" to "char",
+                "I" to "int",
+                "J" to "long",
+                "F" to "float",
+                "D" to "double",
+            )
         expected.forEach { (descriptor, name) ->
             assertEquals(name, descriptorToJavaName(descriptor))
             assertEquals(descriptor, javaNameToDescriptor(name))
@@ -72,9 +73,13 @@ class DexDescriptorConversionsTest {
         assertThrows(IllegalArgumentException::class.java) { descriptorToJavaName("") }
         assertThrows(IllegalArgumentException::class.java) { descriptorToJavaName("X") }
         assertThrows(IllegalArgumentException::class.java) { parseMethodDescriptor("Lcom/x/Y;") }
-        assertThrows(IllegalArgumentException::class.java) { parseMethodDescriptor("Lcom/x/Y;run()V") }
+        assertThrows(IllegalArgumentException::class.java) {
+            parseMethodDescriptor("Lcom/x/Y;run()V")
+        }
         assertThrows(IllegalArgumentException::class.java) { methodSignReturnDescriptor("(I") }
-        assertThrows(IllegalArgumentException::class.java) { buildMethodDescriptor("com/x/Y", "run", "()V") }
+        assertThrows(IllegalArgumentException::class.java) {
+            buildMethodDescriptor("com/x/Y", "run", "()V")
+        }
     }
 
     @Test
@@ -91,7 +96,8 @@ class DexDescriptorConversionsTest {
         )
 
         // Method descriptor <-> split parts and Java type names from the snapshot.
-        val methodJson = SnapshotFixture.entry(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD)
+        val methodJson =
+            SnapshotFixture.entry(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD)
         val parts = parseMethodDescriptor(methodJson.getValue("descriptor").jsonPrimitive.content)
         assertEquals(methodJson.getValue("name").jsonPrimitive.content, parts.name)
         assertEquals(methodJson.getValue("method_sign").jsonPrimitive.content, parts.methodSign)
@@ -99,7 +105,8 @@ class DexDescriptorConversionsTest {
             methodJson.getValue("return_type_name").jsonPrimitive.content,
             descriptorToJavaName(parts.returnTypeDescriptor),
         )
-        val paramNames = methodJson.getValue("param_type_names").jsonArray.map { it.jsonPrimitive.content }
+        val paramNames =
+            methodJson.getValue("param_type_names").jsonArray.map { it.jsonPrimitive.content }
         assertEquals(paramNames, parts.paramDescriptors.map(::descriptorToJavaName))
         assertEquals(
             methodJson.getValue("descriptor").jsonPrimitive.content,

@@ -3,12 +3,12 @@ package dev.ujhhgtg.wekit.dexkit
 import android.content.pm.ApplicationInfo
 import androidx.annotation.Keep
 import dev.ujhhgtg.wekit.utils.HostInfo
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
 
 /** Owned, allocation-safe representation of one DexSQL query result. */
 @Keep
@@ -27,10 +27,10 @@ class DexSqlProtocolException(message: String, cause: Throwable? = null) :
 /**
  * Kotlin owner for one native DexSQL dataset.
  *
- * A bridge may be shared by callers. Queries use the read side of a lifecycle lock, while
- * [close] takes the write side and therefore waits for in-flight calls before releasing the
- * native handle. Closing is idempotent; every other operation after close fails loudly.
- * Prefer `DexSqlBridge.open(...).use { ... }` so the native dataset is always released.
+ * A bridge may be shared by callers. Queries use the read side of a lifecycle lock, while [close]
+ * takes the write side and therefore waits for in-flight calls before releasing the native handle.
+ * Closing is idempotent; every other operation after close fails loudly. Prefer
+ * `DexSqlBridge.open(...).use { ... }` so the native dataset is always released.
  *
  * This class only runs queries. Which row is "the" answer, and whether an empty result is an
  * expected failure, is resolver policy owned by WeKit's Dex delegate layer.
@@ -53,8 +53,8 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
     fun queryResult(sql: String): Result<DexSqlQueryResult> = runCatching { query(sql) }
 
     /**
-     * Read one indexed metadata document for a class, method or field descriptor.
-     * Missing descriptors return null; malformed requests or native failures throw.
+     * Read one indexed metadata document for a class, method or field descriptor. Missing
+     * descriptors return null; malformed requests or native failures throw.
      */
     fun metadata(kind: String, descriptor: String): JsonObject? = withHandle { handle ->
         decodeMetadata(DexSqlNative.metadata(handle, kind, descriptor))
@@ -93,9 +93,7 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
 
         /** Open one or more DEX/APK/JAR/ZIP paths. */
         fun open(paths: Iterable<String>): DexSqlBridge {
-            val inputs = paths
-                .filter(String::isNotEmpty)
-                .distinct()
+            val inputs = paths.filter(String::isNotEmpty).distinct()
             require(inputs.isNotEmpty()) { "DexSQL requires at least one input path" }
             val handle = DexSqlNative.open(inputs.toTypedArray())
             if (handle == 0L) throw DexSqlException("DexSQL native open failed")
@@ -109,7 +107,9 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         fun openHost(applicationInfo: ApplicationInfo): DexSqlBridge =
             open(hostApkPaths(applicationInfo))
 
-        /** Collect sourceDir followed by splitSourceDirs, preserving order and removing duplicates. */
+        /**
+         * Collect sourceDir followed by splitSourceDirs, preserving order and removing duplicates.
+         */
         fun hostApkPaths(applicationInfo: ApplicationInfo): List<String> = buildList {
             add(applicationInfo.sourceDir)
             applicationInfo.splitSourceDirs.orEmpty().forEach(::add)
@@ -136,19 +136,20 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
         }
 
         private fun decodeEnvelope(raw: String, operation: String): NativeResponse {
-            val response = try {
-                json.decodeFromString<NativeResponse>(raw)
-            } catch (error: Throwable) {
-                throw DexSqlProtocolException(
-                    "DexSQL $operation returned malformed JSON: " +
-                        (error.message ?: error.javaClass.simpleName),
-                    error,
-                )
-            }
+            val response =
+                try {
+                    json.decodeFromString<NativeResponse>(raw)
+                } catch (error: Throwable) {
+                    throw DexSqlProtocolException(
+                        "DexSQL $operation returned malformed JSON: " +
+                            (error.message ?: error.javaClass.simpleName),
+                        error,
+                    )
+                }
             if (!response.ok) {
                 val error = response.error
                 throw DexSqlException(
-                    error?.message ?: error?.kind ?: "DexSQL $operation failed"
+                    error?.message ?: error?.kind ?: "DexSQL $operation failed",
                 )
             }
             return response

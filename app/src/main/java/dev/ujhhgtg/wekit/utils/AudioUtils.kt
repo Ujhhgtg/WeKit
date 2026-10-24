@@ -13,12 +13,13 @@ object AudioUtils {
             val temporaryPcm = File.createTempFile("wekit-audio-", ".pcm", silkFile.parentFile)
             pcmFile = temporaryPcm
             val decoded = AndroidAudioDecoder.decodeToPcm16(sourcePath, temporaryPcm)
-            val converted = pcmToSilk(
-                temporaryPcm.absolutePath,
-                silkPath,
-                decoded.sampleRate,
-                decoded.channelCount,
-            )
+            val converted =
+                pcmToSilk(
+                    temporaryPcm.absolutePath,
+                    silkPath,
+                    decoded.sampleRate,
+                    decoded.channelCount,
+                )
             if (!converted) silkFile.delete()
             converted
         } catch (error: Exception) {
@@ -31,6 +32,7 @@ object AudioUtils {
     }
 
     private external fun nativeAnyToSilk(sourcePath: String, silkPath: String): Boolean
+
     private external fun pcmToSilk(
         pcmPath: String,
         silkPath: String,
@@ -39,6 +41,8 @@ object AudioUtils {
     ): Boolean
 
     external fun silkToPcm(silkPath: String, pcmPath: String): Boolean
+
     external fun pcmToMp3(silkPath: String, pcmPath: String): Boolean
+
     external fun getDurationMs(path: String): Long
 }

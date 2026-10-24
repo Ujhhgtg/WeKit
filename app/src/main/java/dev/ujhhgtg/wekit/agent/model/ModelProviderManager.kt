@@ -24,21 +24,23 @@ import kotlinx.serialization.json.jsonPrimitive
  * Builds and caches [LlmClient] adapters per model provider, and resolves a stored [ModelEntity]
  * into a ready-to-send [LlmRequest] shell (model id + reasoning gear + custom-JSON override).
  *
- * One shared [HttpClient] (Ktor CIO) is reused across all adapters, mirroring [dev.ujhhgtg.wekit.utils.EdgeTtsClient]'s
- * singleton pattern. A long read timeout accommodates slow streaming completions.
+ * One shared [HttpClient] (Ktor CIO) is reused across all adapters, mirroring
+ * [dev.ujhhgtg.wekit.utils.EdgeTtsClient]'s singleton pattern. A long read timeout accommodates
+ * slow streaming completions.
  */
 object ModelProviderManager {
 
-    private val httpClient = HttpClient(CIO) {
-        install(UserAgent) {
-            agent = "WeAgent/${BuildConfig.VERSION_NAME}"
+    private val httpClient =
+        HttpClient(CIO) {
+            install(UserAgent) {
+                agent = "WeAgent/${BuildConfig.VERSION_NAME}"
+            }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 600_000
+                socketTimeoutMillis = 600_000
+                connectTimeoutMillis = 30_000
+            }
         }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 600_000
-            socketTimeoutMillis = 600_000
-            connectTimeoutMillis = 30_000
-        }
-    }
 
     // providerId -> adapter, rebuilt when the provider's config changes.
     private val clientCache = HashMap<String, CachedClient>()
@@ -52,29 +54,41 @@ object ModelProviderManager {
      */
     @Synchronized
     fun clientFor(provider: ModelProviderEntity): LlmClient {
-        val hash = provider.type.hashCode() * 31 + provider.baseUrl.hashCode() * 31 + provider.apiKey.hashCode()
+        val hash =
+            provider.type.hashCode() * 31 +
+                provider.baseUrl.hashCode() * 31 +
+                provider.apiKey.hashCode()
         clientCache[provider.id]?.let { if (it.configHash == hash) return it.client }
         val client = build(provider)
         clientCache[provider.id] = CachedClient(hash, client)
         return client
     }
 
-    private fun build(provider: ModelProviderEntity): LlmClient = when (provider.type) {
-        ModelProviderType.OPENAI_CHAT_COMPLETION ->
-            OpenAiChatCompletionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+    private fun build(provider: ModelProviderEntity): LlmClient =
+        when (provider.type) {
+            ModelProviderType.OPENAI_CHAT_COMPLETION ->
+                OpenAiChatCompletionsClient(
+                    httpClient,
+                    provider.baseUrl.trimEnd('/'),
+                    provider.apiKey,
+                )
 
-        ModelProviderType.OPENAI_RESPONSES ->
-            OpenAiResponsesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            ModelProviderType.OPENAI_RESPONSES ->
+                OpenAiResponsesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
 
-        ModelProviderType.ANTHROPIC_MESSAGES ->
-            AnthropicMessagesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            ModelProviderType.ANTHROPIC_MESSAGES ->
+                AnthropicMessagesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
 
-        ModelProviderType.GEMINI_GENERATE_CONTENT ->
-            GeminiGenerateContentClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            ModelProviderType.GEMINI_GENERATE_CONTENT ->
+                GeminiGenerateContentClient(
+                    httpClient,
+                    provider.baseUrl.trimEnd('/'),
+                    provider.apiKey,
+                )
 
-        ModelProviderType.GEMINI_INTERACTIONS ->
-            GeminiInteractionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
-    }
+            ModelProviderType.GEMINI_INTERACTIONS ->
+                GeminiInteractionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+        }
 
     /**
      * Resolves a [ModelEntity] + a fully-composed message/tool set into an [LlmRequest]. The stored
@@ -89,9 +103,10 @@ object ModelProviderManager {
         stream: Boolean = true,
     ): LlmRequest {
         val effort = model.reasoningEffort?.takeIf { it.isNotBlank() && it != "off" }
-        val override = model.customJsonOverride
-            ?.takeIf { it.isNotBlank() }
-            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+        val override =
+            model.customJsonOverride
+                ?.takeIf { it.isNotBlank() }
+                ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
         return LlmRequest(
             modelIdRemote = model.modelIdRemote,
             messages = messages,
@@ -112,12 +127,12 @@ object ModelProviderManager {
 
     /**
      * Fetches the provider's available model ids. Three list-endpoint shapes are supported:
-     *  - **OpenAI** (`OPENAI_CHAT_COMPLETION` / `OPENAI_RESPONSES`):
-     *    `GET {baseUrl}/models` → `{ "data": [ { "id": "…" }, … ] }`. Auth: `Authorization: Bearer`.
-     *  - **Gemini** (`GEMINI_GENERATE_CONTENT` / `GEMINI_INTERACTIONS`): `GET {baseUrl}/models` →
-     *    `{ "models": [ { "name": "models/gemini-…", … }, … ] }`. Auth: `x-goog-api-key`.
-     *    We strip the `"models/"` prefix so the stored id matches what goes in the URL / request.
-     *  - **Anthropic** (`ANTHROPIC_MESSAGES`): no public list endpoint; returns a failure.
+     * - **OpenAI** (`OPENAI_CHAT_COMPLETION` / `OPENAI_RESPONSES`): `GET {baseUrl}/models` → `{
+     *   "data": [ { "id": "…" }, … ] }`. Auth: `Authorization: Bearer`.
+     * - **Gemini** (`GEMINI_GENERATE_CONTENT` / `GEMINI_INTERACTIONS`): `GET {baseUrl}/models` → `{
+     *   "models": [ { "name": "models/gemini-…", … }, … ] }`. Auth: `x-goog-api-key`. We strip the
+     *   `"models/"` prefix so the stored id matches what goes in the URL / request.
+     * - **Anthropic** (`ANTHROPIC_MESSAGES`): no public list endpoint; returns a failure.
      *
      * [provider] must carry a decrypted API key.
      */
@@ -125,42 +140,48 @@ object ModelProviderManager {
         if (provider.type == ModelProviderType.ANTHROPIC_MESSAGES) {
             return Result.failure(LlmException("Anthropic 不支持自动获取模型列表，请手动添加。"))
         }
-        val isGemini = provider.type == ModelProviderType.GEMINI_GENERATE_CONTENT
-                || provider.type == ModelProviderType.GEMINI_INTERACTIONS
+        val isGemini =
+            provider.type == ModelProviderType.GEMINI_GENERATE_CONTENT ||
+                provider.type == ModelProviderType.GEMINI_INTERACTIONS
         val resolvedBase = provider.baseUrl.trimEnd('/')
         val endpoint = "$resolvedBase/models"
         return runCatching {
-            val resp = httpClient.get(endpoint) {
-                if (provider.apiKey.isNotBlank()) {
-                    if (isGemini) {
-                        header(GeminiCommon.API_KEY_HEADER, provider.apiKey)
-                    } else {
-                        header(HttpHeaders.Authorization, "Bearer ${provider.apiKey}")
+            val resp =
+                httpClient.get(endpoint) {
+                    if (provider.apiKey.isNotBlank()) {
+                        if (isGemini) {
+                            header(GeminiCommon.API_KEY_HEADER, provider.apiKey)
+                        } else {
+                            header(HttpHeaders.Authorization, "Bearer ${provider.apiKey}")
+                        }
                     }
                 }
-            }
             if (!resp.status.isSuccess()) {
                 throw LlmException("HTTP ${resp.status.value}: ${resp.bodyAsText().take(300)}")
             }
             val root = Json.parseToJsonElement(resp.bodyAsText()).jsonObject
             if (isGemini) {
                 // Gemini: { "models": [ { "name": "models/gemini-…" }, … ] }
-                root["models"]?.jsonArray
+                root["models"]
+                    ?.jsonArray
                     ?.mapNotNull {
-                        it.jsonObject["name"]?.jsonPrimitive?.content
+                        it.jsonObject["name"]
+                            ?.jsonPrimitive
+                            ?.content
                             ?.removePrefix("models/")
                             ?.takeIf(String::isNotBlank)
                     }
                     ?.distinct()
-                    ?.sorted()
-                    ?: emptyList()
+                    ?.sorted() ?: emptyList()
             } else {
                 // OpenAI: { "data": [ { "id": "…" }, … ] }
-                root["data"]?.jsonArray
-                    ?.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank) }
+                root["data"]
+                    ?.jsonArray
+                    ?.mapNotNull {
+                        it.jsonObject["id"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank)
+                    }
                     ?.distinct()
-                    ?.sorted()
-                    ?: emptyList()
+                    ?.sorted() ?: emptyList()
             }
         }
     }

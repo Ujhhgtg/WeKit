@@ -6,9 +6,14 @@ data class MonetResourceKey(val type: String, val name: String) : Serializable
 
 sealed interface MonetResourceValue : Serializable {
     data class Literal(val valueType: String, val data: Long) : MonetResourceValue
-    data class Reference(val resourceId: Int, val valueType: String = "REFERENCE") : MonetResourceValue
+
+    data class Reference(val resourceId: Int, val valueType: String = "REFERENCE") :
+        MonetResourceValue
+
     data class File(val path: String, val structure: MonetFileStructure?) : MonetResourceValue
+
     data class Text(val value: String) : MonetResourceValue
+
     data class Complex(val parentId: Int, val items: List<MonetComplexValue>) : MonetResourceValue
 }
 
@@ -26,7 +31,10 @@ data class MonetFileStructure(
 ) : Serializable
 
 data class MonetComplexValue(val nameId: Int, val value: MonetResourceValue) : Serializable
-data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) : Serializable
+
+data class MonetConfiguredValue(val qualifiers: String, val value: MonetResourceValue) :
+    Serializable
+
 data class MonetResourceNode(
     val id: Int,
     val key: MonetResourceKey,
@@ -53,7 +61,9 @@ class MonetResourceGraph(
     private val xmlByOwner: Map<Int, List<MonetXmlElement>> = emptyMap(),
     /** The host package's type string pool in table order (`typeId == index + 1`). */
     val typeNames: List<String> = emptyList(),
-    /** Resource-table spec flags (config-change sensitivity) by resource ID, OR-ed across splits. */
+    /**
+     * Resource-table spec flags (config-change sensitivity) by resource ID, OR-ed across splits.
+     */
     private val specFlags: Map<Int, Int> = emptyMap(),
 ) : Serializable {
     private val byId = nodes.associateBy(MonetResourceNode::id)
@@ -64,31 +74,43 @@ class MonetResourceGraph(
             xmlByOwner[id].orEmpty().forEach { it.collectReferences(references) }
         }
     }
-    private val incomingById: Map<Int, Set<Int>> = HashMap<Int, MutableSet<Int>>().also { incoming ->
-        outgoingById.forEach { (sourceId, targets) ->
-            targets.forEach { targetId ->
-                incoming.getOrPut(targetId, ::linkedSetOf).add(sourceId)
+    private val incomingById: Map<Int, Set<Int>> =
+        HashMap<Int, MutableSet<Int>>().also { incoming ->
+            outgoingById.forEach { (sourceId, targets) ->
+                targets.forEach { targetId ->
+                    incoming.getOrPut(targetId, ::linkedSetOf).add(sourceId)
+                }
             }
         }
-    }
 
     init {
         require(byId.size == nodes.size) { "duplicate resource ID" }
         require(byKey.size == nodes.size) { "duplicate resource key" }
-        require(xmlByOwner.keys.all(byId::containsKey)) { "XML owner is absent from resource table" }
+        require(xmlByOwner.keys.all(byId::containsKey)) {
+            "XML owner is absent from resource table"
+        }
     }
 
     fun node(id: Int): MonetResourceNode? = byId[id]
+
     fun node(key: MonetResourceKey): MonetResourceNode? = byKey[key]
+
     fun nodes(type: String): List<MonetResourceNode> = byId.values.filter { it.key.type == type }
+
     fun xmlTrees(ownerId: Int): List<MonetXmlElement> = xmlByOwner[ownerId].orEmpty()
 
     fun specFlags(id: Int): Int = specFlags[id] ?: 0
 
     fun withXmlTree(ownerId: Int, tree: MonetXmlElement): MonetResourceGraph =
-        MonetResourceGraph(byId.values.toList(), xmlByOwner + (ownerId to xmlTrees(ownerId) + tree), typeNames, specFlags)
+        MonetResourceGraph(
+            byId.values.toList(),
+            xmlByOwner + (ownerId to xmlTrees(ownerId) + tree),
+            typeNames,
+            specFlags,
+        )
 
     fun outgoing(id: Int): Set<Int> = outgoingById[id].orEmpty()
+
     fun incoming(id: Int): Set<Int> = incomingById[id].orEmpty()
 }
 
@@ -106,7 +128,6 @@ private fun MonetResourceValue.collectReferences(result: MutableSet<Int>) {
         }
         is MonetResourceValue.File,
         is MonetResourceValue.Text,
-        is MonetResourceValue.Literal,
-        -> Unit
+        is MonetResourceValue.Literal -> Unit
     }
 }

@@ -44,6 +44,7 @@ jsch = "2.28.7"
 sqliteJdbc = "3.53.4.0"
 arsclib = "1.4.0"
 bouncycastle = "1.86"
+spotless = "8.10.4"
 
 # noinspection UnusedVersionCatalogEntry
 pythonRuntimeChaquopy = "17.0.0"
@@ -167,3 +168,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
 aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutlibraries" }
 hiddenapirefine = { id = "dev.rikka.tools.refine", version.ref = "hiddenapirefine" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

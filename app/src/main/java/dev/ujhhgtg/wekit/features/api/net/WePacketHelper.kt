@@ -264,7 +264,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         ).firstOrNull()
 
         if (dispatchMethod != null) {
-            classNetDispatcher.setDescriptor(dispatchMethod.className)
+            classNetDispatcher.setDescriptor(dispatchMethod.declaredClassName)
         }
 
         val directOplogReq = DexResolutionContext.matcher.findClasses(

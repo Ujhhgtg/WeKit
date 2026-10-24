@@ -30,7 +30,8 @@ class ForegroundSessionReconciliationTest {
                     "messages:$sessionId"
                 },
                 publishMessagesIfCurrent = { sessionId, _ ->
-                    if (currentSessionId != sessionId) false else true.also { published += sessionId }
+                    if (currentSessionId != sessionId) false
+                    else true.also { published += sessionId }
                 },
             )
         }

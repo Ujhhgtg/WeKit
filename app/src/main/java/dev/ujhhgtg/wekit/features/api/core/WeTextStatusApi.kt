@@ -113,7 +113,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         val latestStatusMethod = methodLatestStatusByUsername.data
         val storageInterface = latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
             candidate.methods.any { method ->
-                method.methodName == latestStatusMethod.methodName &&
+                method.name == latestStatusMethod.name &&
                     method.paramTypeNames == latestStatusMethod.paramTypeNames &&
                     method.returnTypeName == latestStatusMethod.returnTypeName
             }

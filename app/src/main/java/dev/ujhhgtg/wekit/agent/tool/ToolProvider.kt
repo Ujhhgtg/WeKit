@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.agent.tool
 import kotlinx.serialization.json.JsonObject
 
 /**
- * A source of tools for the agent. Either the fixed "builtin" provider (backed by the
- * `@AgentTool` registry) or one MCP server (§3.4). Both are structurally identical to the model.
+ * A source of tools for the agent. Either the fixed "builtin" provider (backed by the `@AgentTool`
+ * registry) or one MCP server (§3.4). Both are structurally identical to the model.
  */
 interface ToolProvider {
     /** Stable id used as the `providerId` in the Room permission table. */
@@ -21,11 +21,17 @@ interface ToolProvider {
     /** Snapshot of the tools this provider currently exposes. */
     fun listTools(): List<ProviderTool>
 
-    /** Execute a tool by its bare name with the given JSON arguments, returning a model-readable result. */
+    /**
+     * Execute a tool by its bare name with the given JSON arguments, returning a model-readable
+     * result.
+     */
     suspend fun execute(toolName: String, arguments: JsonObject): String
 }
 
-enum class ProviderKind { BUILTIN, MCP }
+enum class ProviderKind {
+    BUILTIN,
+    MCP,
+}
 
 /**
  * A tool as advertised by a [ToolProvider]. [sideEffect] drives the session permission level's

@@ -10,7 +10,10 @@ import dev.ujhhgtg.wekit.data.entity.AutomationScopeFieldEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopeListValueEntity
 import dev.ujhhgtg.wekit.data.entity.AutomationScopePresetEntity
 
-/** All rows of one automation feature, decoded by [dev.ujhhgtg.wekit.features.automation.AutomationStore]. */
+/**
+ * All rows of one automation feature, decoded by
+ * [dev.ujhhgtg.wekit.features.automation.AutomationStore].
+ */
 class AutomationFeatureRows(
     val scopes: List<AutomationScopeEntity>,
     val fields: List<AutomationScopeFieldEntity>,
@@ -28,7 +31,9 @@ class AutomationScopeRows(
 
 @Dao
 abstract class AutomationDao {
-    @Query("SELECT * FROM automation_scopes WHERE feature = :feature ORDER BY scopeType, position, scopeId, memberId")
+    @Query(
+        "SELECT * FROM automation_scopes WHERE feature = :feature ORDER BY scopeType, position, scopeId, memberId",
+    )
     abstract suspend fun readScopes(feature: String): List<AutomationScopeEntity>
 
     @Query("SELECT * FROM automation_scope_fields WHERE feature = :feature")
@@ -40,43 +45,75 @@ abstract class AutomationDao {
     @Query("SELECT * FROM automation_scope_presets WHERE feature = :feature ORDER BY position")
     abstract suspend fun readPresetRefs(feature: String): List<AutomationScopePresetEntity>
 
-    @Upsert
-    abstract suspend fun upsertScope(row: AutomationScopeEntity)
+    @Upsert abstract suspend fun upsertScope(row: AutomationScopeEntity)
 
-    @Insert
-    abstract suspend fun insertFields(rows: List<AutomationScopeFieldEntity>)
+    @Insert abstract suspend fun insertFields(rows: List<AutomationScopeFieldEntity>)
 
-    @Insert
-    abstract suspend fun insertListValues(rows: List<AutomationScopeListValueEntity>)
+    @Insert abstract suspend fun insertListValues(rows: List<AutomationScopeListValueEntity>)
 
-    @Insert
-    abstract suspend fun insertPresetRefs(rows: List<AutomationScopePresetEntity>)
+    @Insert abstract suspend fun insertPresetRefs(rows: List<AutomationScopePresetEntity>)
 
-    @Query("DELETE FROM automation_scopes WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
-    abstract suspend fun deleteScope(feature: String, scopeType: String, scopeId: String, memberId: String)
+    @Query(
+        "DELETE FROM automation_scopes WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId",
+    )
+    abstract suspend fun deleteScope(
+        feature: String,
+        scopeType: String,
+        scopeId: String,
+        memberId: String,
+    )
 
-    @Query("DELETE FROM automation_scope_fields WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
-    abstract suspend fun deleteFields(feature: String, scopeType: String, scopeId: String, memberId: String)
+    @Query(
+        "DELETE FROM automation_scope_fields WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId",
+    )
+    abstract suspend fun deleteFields(
+        feature: String,
+        scopeType: String,
+        scopeId: String,
+        memberId: String,
+    )
 
-    @Query("DELETE FROM automation_scope_list_values WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
-    abstract suspend fun deleteListValues(feature: String, scopeType: String, scopeId: String, memberId: String)
+    @Query(
+        "DELETE FROM automation_scope_list_values WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId",
+    )
+    abstract suspend fun deleteListValues(
+        feature: String,
+        scopeType: String,
+        scopeId: String,
+        memberId: String,
+    )
 
-    @Query("DELETE FROM automation_scope_presets WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId")
-    abstract suspend fun deletePresetRefs(feature: String, scopeType: String, scopeId: String, memberId: String)
+    @Query(
+        "DELETE FROM automation_scope_presets WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = :memberId",
+    )
+    abstract suspend fun deletePresetRefs(
+        feature: String,
+        scopeType: String,
+        scopeId: String,
+        memberId: String,
+    )
 
     @Query("DELETE FROM automation_scope_presets WHERE feature = :feature AND presetId = :presetId")
     abstract suspend fun deleteReferencesTo(feature: String, presetId: String)
 
-    @Query("UPDATE automation_scopes SET position = :position WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = ''")
-    abstract suspend fun updatePosition(feature: String, scopeType: String, scopeId: String, position: Int)
+    @Query(
+        "UPDATE automation_scopes SET position = :position WHERE feature = :feature AND scopeType = :scopeType AND scopeId = :scopeId AND memberId = ''",
+    )
+    abstract suspend fun updatePosition(
+        feature: String,
+        scopeType: String,
+        scopeId: String,
+        position: Int,
+    )
 
     @Transaction
-    open suspend fun readFeature(feature: String) = AutomationFeatureRows(
-        scopes = readScopes(feature),
-        fields = readFields(feature),
-        listValues = readListValues(feature),
-        presets = readPresetRefs(feature),
-    )
+    open suspend fun readFeature(feature: String) =
+        AutomationFeatureRows(
+            scopes = readScopes(feature),
+            fields = readFields(feature),
+            listValues = readListValues(feature),
+            presets = readPresetRefs(feature),
+        )
 
     /** Replaces one scope, or deletes it when [keepScope] is false. */
     @Transaction

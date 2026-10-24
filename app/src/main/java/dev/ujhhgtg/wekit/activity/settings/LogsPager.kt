@@ -1,20 +1,19 @@
-
 package dev.ujhhgtg.wekit.activity.settings
 
-import dev.ujhhgtg.wekit.utils.fs.copyTo
 import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween as animTween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,9 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -98,21 +97,24 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import dev.ujhhgtg.wekit.utils.fs.copyTo
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.name
 import kotlin.io.path.readText
-import androidx.compose.animation.core.tween as animTween
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val LOGS_TAG = "SettingsActivity"
 
 /** Which log kind a page is showing. */
-private enum class LogKind { RUN, CRASH }
+private enum class LogKind {
+    RUN,
+    CRASH,
+}
 
 private data class LogRefreshRequest(
     val generation: Int,
@@ -124,7 +126,9 @@ private data class LogRefreshRequest(
 //  Parsed models
 // ---------------------------------------------------------------------------
 
-/** One run-log entry: a header line plus any continuation (stack-trace) lines folded into [message]. */
+/**
+ * One run-log entry: a header line plus any continuation (stack-trace) lines folded into [message].
+ */
 private data class RunLogEntry(
     val time: String?,
     val level: Char?,
@@ -144,9 +148,10 @@ private data class CrashSection(
 //   $TAG  = BuildConfig.TAG (the module tag), $tag = caller tag
 // e.g. "2026-07-05 14:30:22.123 E/WeKit AggregateChats: something failed"
 // Groups: 1=date 2=time(+ms) 3=level 4=moduleTag 5=callerTag 6=message
-private val RUN_LOG_REGEX = Regex(
-    """^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) ([VDIWEAF])/(\S+)\s+([^:]*): (.*)$""",
-)
+private val RUN_LOG_REGEX =
+    Regex(
+        """^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) ([VDIWEAF])/(\S+)\s+([^:]*): (.*)$""",
+    )
 
 /**
  * Parses raw run-log lines into [RunLogEntry] cards. A line matching [RUN_LOG_REGEX] starts a new
@@ -173,7 +178,11 @@ private fun parseRunLog(text: String): List<RunLogEntry> {
 
             out.isNotEmpty() -> {
                 val prev = out.removeAt(out.size - 1)
-                out.add(prev.copy(message = if (prev.message.isEmpty()) line else prev.message + "\n" + line))
+                out.add(
+                    prev.copy(
+                        message = if (prev.message.isEmpty()) line else prev.message + "\n" + line,
+                    ),
+                )
             }
 
             else -> out.add(RunLogEntry(time = null, level = null, tag = null, message = line))
@@ -196,7 +205,8 @@ private fun parseCrashLog(text: String): List<CrashSection> {
     val preamble = StringBuilder()
     // Collect anything before the first fenced title as a preamble card.
     while (i < lines.size && !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)) {
-        preamble.appendLine(lines[i]); i++
+        preamble.appendLine(lines[i])
+        i++
     }
     val pre = preamble.toString().trim()
     if (pre.isNotEmpty()) out.add(CrashSection(title = "", body = pre))
@@ -207,8 +217,12 @@ private fun parseCrashLog(text: String): List<CrashSection> {
             val title = lines[i + 1].trim()
             i += 3
             val body = StringBuilder()
-            while (i < lines.size && !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)) {
-                body.appendLine(lines[i]); i++
+            while (
+                i < lines.size &&
+                    !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)
+            ) {
+                body.appendLine(lines[i])
+                i++
             }
             out.add(CrashSection(title = title, body = body.toString().trim()))
         } else {
@@ -225,7 +239,8 @@ private fun parseCrashLog(text: String): List<CrashSection> {
 /**
  * Shares a log file as a text/plain attachment. Uses WeChat's built-in FileProvider authority
  * (`<host>.external.fileprovider`, whose paths cover external + root storage) since this activity
- * runs inside the host process. Falls back to sharing the file's text inline if the provider throws.
+ * runs inside the host process. Falls back to sharing the file's text inline if the provider
+ * throws.
  */
 private fun shareLogFile(context: Context, localizedContext: Context, file: Path) {
     val f = file.toFile()
@@ -238,19 +253,21 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
             putExtra(Intent.EXTRA_SUBJECT, f.name)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    }.getOrElse {
-        WeLogger.w(LOGS_TAG, "FileProvider share failed, falling back to inline text", it)
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, f.name)
-            putExtra(Intent.EXTRA_TEXT, runCatching { file.readText() }.getOrDefault(""))
-        }
     }
-    val chooser = Intent.createChooser(
-        sendIntent,
-        localizedContext.getString(R.string.logs_share_chooser),
-    )
-        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        .getOrElse {
+            WeLogger.w(LOGS_TAG, "FileProvider share failed, falling back to inline text", it)
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, f.name)
+                putExtra(Intent.EXTRA_TEXT, runCatching { file.readText() }.getOrDefault(""))
+            }
+        }
+    val chooser =
+        Intent.createChooser(
+                sendIntent,
+                localizedContext.getString(R.string.logs_share_chooser),
+            )
+            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
     runCatching { context.startActivity(chooser) }
         .onFailure { WeLogger.e(LOGS_TAG, "failed to launch share chooser", it) }
 }
@@ -261,26 +278,34 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
  */
 private fun saveLogFile(context: Context, localizedContext: () -> Context, file: Path) {
     TransparentActivity.launch(context) {
-        val launcher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument("text/plain"),
-        ) { uri ->
-            if (uri == null) {
-                finish(); return@registerForActivityResult
-            }
-            lifecycleScope.launch(Dispatchers.IO) {
-                runCatching {
-                    contentResolver.openOutputStream(uri, "w")!!.use { out ->
-                        file.copyTo(out)
-                    }
-                }.onFailure {
-                    WeLogger.e(LOGS_TAG, "failed to save log", it)
-                    showToastSuspend(localizedContext().getString(R.string.logs_save_failed))
-                }.onSuccess {
-                    showToastSuspend(localizedContext().getString(R.string.logs_save_success))
+        val launcher =
+            registerForActivityResult(
+                ActivityResultContracts.CreateDocument("text/plain"),
+            ) { uri ->
+                if (uri == null) {
+                    finish()
+                    return@registerForActivityResult
                 }
-                withContext(Dispatchers.Main) { finish() }
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openOutputStream(uri, "w")!!.use { out ->
+                            file.copyTo(out)
+                        }
+                    }
+                        .onFailure {
+                            WeLogger.e(LOGS_TAG, "failed to save log", it)
+                            showToastSuspend(
+                                localizedContext().getString(R.string.logs_save_failed),
+                            )
+                        }
+                        .onSuccess {
+                            showToastSuspend(
+                                localizedContext().getString(R.string.logs_save_success),
+                            )
+                        }
+                    withContext(Dispatchers.Main) { finish() }
+                }
             }
-        }
         launcher.launch(file.name)
     }
 }
@@ -328,9 +353,7 @@ fun LogsPager() {
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             // The blur layer spans the app bar and the tab row beneath it, mirroring the old
@@ -339,38 +362,53 @@ fun LogsPager() {
                 TopAppBar(
                     title = { Text(stringResource(R.string.nav_logs)) },
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = barBackdrop.m3AppBarColor(),
-                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = barBackdrop.m3AppBarColor(),
+                            scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                        ),
                     actions = {
-                        IconButton(onClick = {
-                            currentFile?.let { shareLogFile(context, localizedContext, it) }
-                                ?: scope.launch {
-                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_share))
-                                }
-                        }) {
+                        IconButton(
+                            onClick = {
+                                currentFile?.let { shareLogFile(context, localizedContext, it) }
+                                    ?: scope.launch {
+                                        showToastSuspend(
+                                            localizedContext.getString(
+                                                R.string.logs_nothing_to_share,
+                                            ),
+                                        )
+                                    }
+                            },
+                        ) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Share,
                                 contentDescription = stringResource(R.string.logs_share),
                             )
                         }
-                        IconButton(onClick = {
-                            currentFile?.let { saveLogFile(context, { localizedContext }, it) }
-                                ?: scope.launch {
-                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
-                                }
-                        }) {
+                        IconButton(
+                            onClick = {
+                                currentFile?.let { saveLogFile(context, { localizedContext }, it) }
+                                    ?: scope.launch {
+                                        showToastSuspend(
+                                            localizedContext.getString(
+                                                R.string.logs_nothing_to_save,
+                                            ),
+                                        )
+                                    }
+                            },
+                        ) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Save,
                                 contentDescription = stringResource(R.string.logs_save),
                             )
                         }
-                        // Overflow menu anchored to the icon, matching the Settings-page dropdown style.
+                        // Overflow menu anchored to the icon, matching the Settings-page dropdown
+                        // style.
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.More_vert,
-                                contentDescription = stringResource(R.string.accessibility_overflow_menu),
+                                contentDescription =
+                                    stringResource(R.string.accessibility_overflow_menu),
                             )
                         }
                         DropdownMenu(
@@ -393,10 +431,13 @@ fun LogsPager() {
                                     scope.launch {
                                         withContext(Dispatchers.IO) {
                                             when (kind) {
-                                                LogKind.RUN -> WeLogger.allLogFiles
-                                                    .forEach { runCatching { it.toFile().delete() } }
+                                                LogKind.RUN ->
+                                                    WeLogger.allLogFiles.forEach {
+                                                        runCatching { it.toFile().delete() }
+                                                    }
 
-                                                LogKind.CRASH -> CrashLogsManager.deleteAllCrashLogs()
+                                                LogKind.CRASH ->
+                                                    CrashLogsManager.deleteAllCrashLogs()
                                             }
                                         }
                                         requestRefresh(kind, fromPull = false)
@@ -407,9 +448,7 @@ fun LogsPager() {
                     },
                 )
                 Box(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 ) {
                     PrimaryTabRow(
                         selectedTabIndex = selectedTab,
@@ -426,8 +465,8 @@ fun LogsPager() {
                                     Text(
                                         stringResource(
                                             if (tabKind == LogKind.RUN) R.string.logs_tab_runtime
-                                            else R.string.logs_tab_crash
-                                        )
+                                            else R.string.logs_tab_crash,
+                                        ),
                                     )
                                 },
                             )
@@ -452,7 +491,8 @@ fun LogsPager() {
                 backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
                 refreshRequest = request,
-                isPullRefreshing = activePullRequests[k] == request && request?.ownsPullIndicator == true,
+                isPullRefreshing =
+                    activePullRequests[k] == request && request?.ownsPullIndicator == true,
                 onRefreshRequested = { requestRefresh(k, fromPull = true) },
                 onRefreshFinished = { completedRequest ->
                     if (activePullRequests[k] == completedRequest) activePullRequests.remove(k)
@@ -493,19 +533,23 @@ private fun LogTabContent(
 
     // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
     LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
-        val shouldRelist = !listed || refreshRequest != null && refreshRequest.generation != handledRefreshGeneration
+        val shouldRelist =
+            !listed ||
+                refreshRequest != null && refreshRequest.generation != handledRefreshGeneration
         var completedSuccessfully = false
         loading = true
         try {
             if (shouldRelist) {
-                val result = withContext(Dispatchers.IO) {
-                    when (kind) {
-                        LogKind.RUN -> WeLogger.allLogFiles
-                        LogKind.CRASH -> CrashLogsManager.allCrashLogs
+                val result =
+                    withContext(Dispatchers.IO) {
+                        when (kind) {
+                            LogKind.RUN -> WeLogger.allLogFiles
+                            LogKind.CRASH -> CrashLogsManager.allCrashLogs
+                        }
                     }
-                }
                 files = result
-                val normalizedIndex = if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
+                val normalizedIndex =
+                    if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
                 if (selectedIndex != normalizedIndex) selectedIndex = normalizedIndex
                 listed = true
                 refreshRequest?.let { handledRefreshGeneration = it.generation }
@@ -519,8 +563,10 @@ private fun LogTabContent(
             } else {
                 val text = withContext(Dispatchers.IO) { readLog(localizedContext, selectedFile) }
                 when (kind) {
-                    LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
-                    LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
+                    LogKind.RUN ->
+                        runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
+                    LogKind.CRASH ->
+                        crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
                 }
             }
             completedSuccessfully = true
@@ -541,9 +587,9 @@ private fun LogTabContent(
         state = pullToRefreshState,
         indicator = {
             PullToRefreshDefaults.LoadingIndicator(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = innerPadding.calculateTopPadding()),
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding()),
                 state = pullToRefreshState,
                 isRefreshing = isPullRefreshing,
                 color = MaterialTheme.colorScheme.primary,
@@ -553,9 +599,7 @@ private fun LogTabContent(
     ) {
         LazyColumn(
             state = listState,
-            modifier = backdropLayer
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
+            modifier = backdropLayer.fillMaxSize().padding(horizontal = 12.dp),
             contentPadding = innerPadding,
         ) {
             item(key = "picker") {
@@ -572,55 +616,68 @@ private fun LogTabContent(
             }
 
             if (files.isEmpty()) {
-                // Only announce "no logs" once listing has finished, so it doesn't flash under the spinner.
+                // Only announce "no logs" once listing has finished, so it doesn't flash under the
+                // spinner.
                 if (listed) {
                     item(key = "empty-files") {
                         LogsEmpty(
                             stringResource(
-                                if (kind == LogKind.RUN) R.string.logs_no_runtime else R.string.logs_no_crash
+                                if (kind == LogKind.RUN) R.string.logs_no_runtime
+                                else R.string.logs_no_crash,
                             ),
                             modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
-            } else when (kind) {
-                LogKind.RUN -> {
-                    if (runEntries.isEmpty() && !loading) {
-                        item(key = "empty-run") {
-                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+            } else
+                when (kind) {
+                    LogKind.RUN -> {
+                        if (runEntries.isEmpty() && !loading) {
+                            item(key = "empty-run") {
+                                LogsEmpty(
+                                    stringResource(R.string.logs_file_empty),
+                                    Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        items(runEntries.size, key = { "run-$it" }) { i ->
+                            RunLogCard(
+                                runEntries[i],
+                                Modifier.padding(
+                                    top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap,
+                                ),
+                            )
                         }
                     }
-                    items(runEntries.size, key = { "run-$it" }) { i ->
-                        RunLogCard(
-                            runEntries[i],
-                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
-                        )
-                    }
-                }
 
-                LogKind.CRASH -> {
-                    if (crashSections.isEmpty() && !loading) {
-                        item(key = "empty-crash") {
-                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+                    LogKind.CRASH -> {
+                        if (crashSections.isEmpty() && !loading) {
+                            item(key = "empty-crash") {
+                                LogsEmpty(
+                                    stringResource(R.string.logs_file_empty),
+                                    Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        items(crashSections.size, key = { "crash-$it" }) { i ->
+                            CrashSectionCard(
+                                crashSections[i],
+                                Modifier.padding(
+                                    top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap,
+                                ),
+                            )
                         }
                     }
-                    items(crashSections.size, key = { "crash-$it" }) { i ->
-                        CrashSectionCard(
-                            crashSections[i],
-                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
-                        )
-                    }
                 }
-            }
 
             item(key = "bottom-inset") { Spacer(Modifier.height(LOGS_CONTENT_BOTTOM_INSET)) }
         }
 
         LogScrollButtons(
             listState = listState,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = LOGS_BOTTOM_BAR_INSET),
+            modifier =
+                Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = LOGS_BOTTOM_BAR_INSET),
         )
     }
 }
@@ -688,9 +745,11 @@ private fun LogScrollButtons(
 }
 
 /** Reads the full log file (modern devices handle multi-MB logs fine). */
-private fun readLog(context: Context, file: Path): String =
-    runCatching { file.readText() }
-        .getOrElse { context.getString(R.string.logs_read_failed, it.message.orEmpty()) }
+private fun readLog(context: Context, file: Path): String = runCatching {
+    file.readText()
+}
+    .getOrElse { context.getString(R.string.logs_read_failed, it.message.orEmpty()) }
+
 // ---------------------------------------------------------------------------
 //  File selector + cards + empty state
 // ---------------------------------------------------------------------------
@@ -704,23 +763,26 @@ private fun FileSelector(
     modifier: Modifier = Modifier,
 ) {
     if (files.isEmpty()) return
-    fun displayDate(file: Path): String = when (kind) {
-        LogKind.RUN -> formatEpoch(file.getLastModifiedTime().toMillis(), "yyyy/MM/dd")
-        LogKind.CRASH -> formatEpoch(file.getLastModifiedTime().toMillis(), true)
-    }
-    val labels = remember(kind, files) {
-        files.map {
-            "${displayDate(it)}  ·  " +
-                formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
+    fun displayDate(file: Path): String =
+        when (kind) {
+            LogKind.RUN -> formatEpoch(file.getLastModifiedTime().toMillis(), "yyyy/MM/dd")
+            LogKind.CRASH -> formatEpoch(file.getLastModifiedTime().toMillis(), true)
         }
-    }
+    val labels =
+        remember(kind, files) {
+            files.map {
+                "${displayDate(it)}  ·  " +
+                    formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
+            }
+        }
     Box(modifier.fillMaxWidth()) {
         DropDownMenuWidget(
             iconPlaceholder = false,
             title = stringResource(R.string.logs_select_file),
-            description = files.getOrNull(selectedIndex)?.let {
-                displayDate(it)
-            },
+            description =
+                files.getOrNull(selectedIndex)?.let {
+                    displayDate(it)
+                },
             value = selectedIndex,
             options = labels.mapIndexed { index, label -> DropdownOption(index, label) },
             onValueChange = onSelected,
@@ -742,23 +804,29 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
     val head = remember(lines) { lines.take(RUN_LOG_COLLAPSE_LINES).joinToString("\n") }
     val rest = remember(lines) { lines.drop(RUN_LOG_COLLAPSE_LINES).joinToString("\n") }
     var expanded by remember(entry) { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = animTween(250),
-        label = "chevron",
-    )
+    val chevronRotation by
+        animateFloatAsState(
+            targetValue = if (expanded) 180f else 0f,
+            animationSpec = animTween(250),
+            label = "chevron",
+        )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 entry.level?.let { level ->
                     Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(levelColor(level))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        modifier =
+                            Modifier.clip(RoundedCornerShape(4.dp))
+                                .background(levelColor(level))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
-                        Text(level.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(
+                            level.toString(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        )
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -774,7 +842,11 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
                         )
                     }
                     entry.time?.let {
-                        Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            it,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 if (isLong) {
@@ -784,13 +856,12 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
                     ) {
                         Icon(
                             imageVector = MaterialSymbols.Outlined.Expand_more,
-                            contentDescription = stringResource(
-                                if (expanded) R.string.logs_collapse else R.string.logs_expand
-                            ),
+                            contentDescription =
+                                stringResource(
+                                    if (expanded) R.string.logs_collapse else R.string.logs_expand,
+                                ),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(20.dp)
-                                .rotate(chevronRotation),
+                            modifier = Modifier.size(20.dp).rotate(chevronRotation),
                         )
                     }
                 }
@@ -833,11 +904,12 @@ private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifie
     val head = remember(lines) { lines.take(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
     val rest = remember(lines) { lines.drop(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
     var expanded by rememberSaveable(section.title, section.body) { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = animTween(250),
-        label = "crashChevron",
-    )
+    val chevronRotation by
+        animateFloatAsState(
+            targetValue = if (expanded) 180f else 0f,
+            animationSpec = animTween(250),
+            label = "crashChevron",
+        )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
@@ -861,13 +933,13 @@ private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifie
                         ) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Expand_more,
-                                contentDescription = stringResource(
-                                    if (expanded) R.string.logs_collapse else R.string.logs_expand
-                                ),
+                                contentDescription =
+                                    stringResource(
+                                        if (expanded) R.string.logs_collapse
+                                        else R.string.logs_expand,
+                                    ),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .rotate(chevronRotation),
+                                modifier = Modifier.size(20.dp).rotate(chevronRotation),
                             )
                         }
                     }
@@ -905,9 +977,7 @@ private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifie
 @Composable
 private fun LogsEmpty(text: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 64.dp),
+        modifier = modifier.fillMaxWidth().padding(top = 64.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -915,11 +985,14 @@ private fun LogsEmpty(text: String, modifier: Modifier = Modifier) {
 }
 
 /** Log-level chip background color, matching the run-log level chars WeLogger emits. */
-private fun levelColor(level: Char): Color = when (level) {
-    'E', 'F', 'A' -> Color(0xFFD32F2F)
-    'W' -> Color(0xFFF57C00)
-    'I' -> Color(0xFF388E3C)
-    'D' -> Color(0xFF1976D2)
-    'V' -> Color(0xFF757575)
-    else -> Color(0xFF9E9E9E)
-}
+private fun levelColor(level: Char): Color =
+    when (level) {
+        'E',
+        'F',
+        'A' -> Color(0xFFD32F2F)
+        'W' -> Color(0xFFF57C00)
+        'I' -> Color(0xFF388E3C)
+        'D' -> Color(0xFF1976D2)
+        'V' -> Color(0xFF757575)
+        else -> Color(0xFF9E9E9E)
+    }

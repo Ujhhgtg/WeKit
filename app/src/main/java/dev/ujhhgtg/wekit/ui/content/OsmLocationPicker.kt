@@ -50,6 +50,7 @@ import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.ui.utils.LocationOnRedIcon
+import kotlin.math.roundToInt
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.BitmapPool
@@ -67,56 +68,65 @@ import org.osmdroid.views.Projection
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
-import kotlin.math.roundToInt
-
 
 /**
- * A tile source that mirrors OSM tiles from within mainland China.
- * Uses [osm.open.cn](https://osm.open.cn/) — a community CDN accessible behind the GFW.
- * No API key required.
+ * A tile source that mirrors OSM tiles from within mainland China. Uses
+ * [osm.open.cn](https://osm.open.cn/) — a community CDN accessible behind the GFW. No API key
+ * required.
  */
-val CHINA_OSM_TILE_SOURCE: ITileSource = XYTileSource(
-    "ChinaOSM", 0, 19, 256, ".png",
-    arrayOf("https://osm.open.cn/"),
-    "© OpenStreetMap contributors"
-)
+val CHINA_OSM_TILE_SOURCE: ITileSource =
+    XYTileSource(
+        "ChinaOSM",
+        0,
+        19,
+        256,
+        ".png",
+        arrayOf("https://osm.open.cn/"),
+        "© OpenStreetMap contributors",
+    )
 
 /**
- * Creates a tile source backed by [天地图](http://lbs.tianditu.gov.cn/),
- * China's official national geographic information service.
- * Requires a free API key (register at the link above).
+ * Creates a tile source backed by [天地图](http://lbs.tianditu.gov.cn/), China's official national
+ * geographic information service. Requires a free API key (register at the link above).
  *
  * Uses the vector base map in Web Mercator projection (EPSG:3857, `vec_w` layer).
  */
-fun tiandituTileSource(apiKey: String): ITileSource = object : OnlineTileSourceBase(
-    "Tianditu", 0, 19, 256, "",
-    arrayOf(
-        "https://t0.tianditu.gov.cn/vec_w/wmts?" +
-                "SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0" +
-                "&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&tk=$apiKey"
-    ),
-    "© 天地图"
-) {
-    override fun getTileURLString(pMapTileIndex: Long): String =
-        baseUrl +
-                "&TILECOL=" + MapTileIndex.getX(pMapTileIndex) +
-                "&TILEROW=" + MapTileIndex.getY(pMapTileIndex) +
-                "&TILEMATRIX=" + MapTileIndex.getZoom(pMapTileIndex)
-}
+fun tiandituTileSource(apiKey: String): ITileSource =
+    object :
+        OnlineTileSourceBase(
+            "Tianditu",
+            0,
+            19,
+            256,
+            "",
+            arrayOf(
+                "https://t0.tianditu.gov.cn/vec_w/wmts?" +
+                    "SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0" +
+                    "&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&tk=$apiKey",
+            ),
+            "© 天地图",
+        ) {
+        override fun getTileURLString(pMapTileIndex: Long): String =
+            baseUrl +
+                "&TILECOL=" +
+                MapTileIndex.getX(pMapTileIndex) +
+                "&TILEROW=" +
+                MapTileIndex.getY(pMapTileIndex) +
+                "&TILEMATRIX=" +
+                MapTileIndex.getZoom(pMapTileIndex)
+    }
 
 /**
- * A dialog wrapping an osmdroid [MapView] (OpenStreetMap, FOSS).
- * The user taps anywhere on the map to drop a pin; tapping Confirm fires
- * [onLocationSelected] with the chosen [GeoPoint].
+ * A dialog wrapping an osmdroid [MapView] (OpenStreetMap, FOSS). The user taps anywhere on the map
+ * to drop a pin; tapping Confirm fires [onLocationSelected] with the chosen [GeoPoint].
  *
- * @param initialLocation    Camera target on open (defaults to Shanghai).
- * @param initialZoom        Initial zoom level (0–19, defaults to 12).
- * @param tileSource         Tile source. Default is [CHINA_OSM_TILE_SOURCE],
- *                           an OSM mirror hosted in mainland China (no API key).
- *                           Pass [tiandituTileSource] with a Tianditu API key for
- *                           an official China-government-backed tile source.
+ * @param initialLocation Camera target on open (defaults to Shanghai).
+ * @param initialZoom Initial zoom level (0–19, defaults to 12).
+ * @param tileSource Tile source. Default is [CHINA_OSM_TILE_SOURCE], an OSM mirror hosted in
+ *   mainland China (no API key). Pass [tiandituTileSource] with a Tianditu API key for an official
+ *   China-government-backed tile source.
  * @param onLocationSelected Called with the confirmed [GeoPoint]; dismiss here.
- * @param onDismiss          Called when the user cancels.
+ * @param onDismiss Called when the user cancels.
  */
 @Composable
 fun OsmLocationPicker(
@@ -139,9 +149,7 @@ fun OsmLocationPicker(
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(fraction = 0.9f),
+        modifier = Modifier.fillMaxWidth().fillMaxHeight(fraction = 0.9f),
         shape = MaterialTheme.shapes.large,
         tonalElevation = 6.dp,
     ) {
@@ -157,9 +165,7 @@ fun OsmLocationPicker(
 
             // ── Map ───────────────────────────────────────────────────
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clipToBounds()
+                modifier = Modifier.weight(1f).clipToBounds(),
             ) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -173,29 +179,36 @@ fun OsmLocationPicker(
                             minZoomLevel = 3.0
                             maxZoomLevel = 19.0
 
-                            val eventsOverlay = MapEventsOverlay(
-                                object : MapEventsReceiver {
-                                    override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                                        pickedPoint = p
+                            val eventsOverlay =
+                                MapEventsOverlay(
+                                    object : MapEventsReceiver {
+                                        override fun singleTapConfirmedHelper(
+                                            p: GeoPoint,
+                                        ): Boolean {
+                                            pickedPoint = p
 
-                                        val existing = markerRef.value
-                                        if (existing != null) {
-                                            existing.position = p
-                                        } else {
-                                            val m = CustomOsmMarker(this@apply).apply {
-                                                position = p
-                                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                            val existing = markerRef.value
+                                            if (existing != null) {
+                                                existing.position = p
+                                            } else {
+                                                val m =
+                                                    CustomOsmMarker(this@apply).apply {
+                                                        position = p
+                                                        setAnchor(
+                                                            Marker.ANCHOR_CENTER,
+                                                            Marker.ANCHOR_BOTTOM,
+                                                        )
+                                                    }
+                                                overlays.add(m)
+                                                markerRef.value = m
                                             }
-                                            overlays.add(m)
-                                            markerRef.value = m
+                                            invalidate()
+                                            return true
                                         }
-                                        invalidate()
-                                        return true
-                                    }
 
-                                    override fun longPressHelper(p: GeoPoint) = false
-                                }
-                            )
+                                        override fun longPressHelper(p: GeoPoint) = false
+                                    },
+                                )
                             overlays.add(0, eventsOverlay)
                         }
                     },
@@ -216,9 +229,7 @@ fun OsmLocationPicker(
                 // Hint overlay – hidden once a point is chosen
                 if (pickedPoint == null) {
                     Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 12.dp),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
                         shape = MaterialTheme.shapes.small,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                     ) {
@@ -235,7 +246,7 @@ fun OsmLocationPicker(
             HorizontalDivider()
             OsmCoordinateReadout(
                 point = pickedPoint,
-                onClick = { showManualDialog = true }
+                onClick = { showManualDialog = true },
             )
         }
     }
@@ -256,17 +267,18 @@ fun OsmLocationPicker(
                     if (existing != null) {
                         existing.position = newPoint
                     } else {
-                        val m = CustomOsmMarker(mv).apply {
-                            position = newPoint
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        }
+                        val m =
+                            CustomOsmMarker(mv).apply {
+                                position = newPoint
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            }
                         mv.overlays.add(m)
                         markerRef.value = m
                     }
                     mv.controller.animateTo(newPoint)
                     mv.invalidate()
                 }
-            }
+            },
         )
     }
 }
@@ -280,9 +292,7 @@ private fun OsmPickerHeader(
     onConfirm: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onDismiss) {
@@ -315,25 +325,25 @@ private fun OsmPickerHeader(
 @Composable
 private fun OsmCoordinateReadout(
     point: GeoPoint?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         OsmCoordinateChip(
             label = stringResource(R.string.location_latitude),
-            value = point?.let { "%.6f".format(it.latitude) }
-                ?: stringResource(R.string.common_not_available),
-            onClick = onClick
+            value =
+                point?.let { "%.6f".format(it.latitude) }
+                    ?: stringResource(R.string.common_not_available),
+            onClick = onClick,
         )
         OsmCoordinateChip(
             label = stringResource(R.string.location_longitude),
-            value = point?.let { "%.6f".format(it.longitude) }
-                ?: stringResource(R.string.common_not_available),
-            onClick = onClick
+            value =
+                point?.let { "%.6f".format(it.longitude) }
+                    ?: stringResource(R.string.common_not_available),
+            onClick = onClick,
         )
     }
 }
@@ -342,7 +352,7 @@ private fun OsmCoordinateReadout(
 private fun OsmCoordinateChip(
     label: String,
     value: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
@@ -373,7 +383,7 @@ private fun OsmCoordinateChip(
 private fun ManualCoordinateDialog(
     initialPoint: GeoPoint?,
     onConfirm: (Double, Double) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     var latText by remember { mutableStateOf(initialPoint?.latitude?.toString() ?: "") }
     var lngText by remember { mutableStateOf(initialPoint?.longitude?.toString() ?: "") }
@@ -397,7 +407,7 @@ private fun ManualCoordinateDialog(
                     isError = latError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = lngText,
@@ -410,7 +420,7 @@ private fun ManualCoordinateDialog(
                     isError = lngError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
@@ -429,7 +439,7 @@ private fun ManualCoordinateDialog(
                     if (isLatValid && isLngValid) {
                         onConfirm(lat, lng)
                     }
-                }
+                },
             ) {
                 Text(stringResource(R.string.dialog_confirm))
             }
@@ -438,7 +448,7 @@ private fun ManualCoordinateDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.dialog_cancel))
             }
-        }
+        },
     )
 }
 
@@ -469,6 +479,7 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
 
     var isDisplayed: Boolean = false
         private set
+
     private val mRect = Rect()
     private val mOrientedMarkerRect = Rect()
 
@@ -500,12 +511,13 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
         get() = mPosition
         set(position) {
             mPosition = position!!.clone()
-            mBounds = BoundingBox(
-                position.latitude,
-                position.longitude,
-                position.latitude,
-                position.longitude
-            )
+            mBounds =
+                BoundingBox(
+                    position.latitude,
+                    position.longitude,
+                    position.latitude,
+                    position.longitude,
+                )
         }
 
     fun setAnchor(anchorU: Float, anchorV: Float) {
@@ -536,9 +548,12 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
     }
 
     fun hitTest(event: MotionEvent): Boolean {
-        return mIcon != null && isDisplayed && mOrientedMarkerRect.contains(
-            event.x.toInt(), event.y.toInt()
-        )
+        return mIcon != null &&
+            isDisplayed &&
+            mOrientedMarkerRect.contains(
+                event.x.toInt(),
+                event.y.toInt(),
+            )
     }
 
     override fun onSingleTapConfirmed(event: MotionEvent, mapView: MapView): Boolean {
@@ -553,14 +568,14 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
     }
 
     fun moveToEventPosition(event: MotionEvent, mapView: MapView) {
-        val offsetY = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_MM,
-            mDragOffsetY,
-            mapView.context.resources.displayMetrics
-        )
+        val offsetY =
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_MM,
+                mDragOffsetY,
+                mapView.context.resources.displayMetrics,
+            )
         val pj = mapView.getProjection()
-        position =
-            pj.fromPixels(event.x.toInt(), (event.y - offsetY).toInt()) as GeoPoint?
+        position = pj.fromPixels(event.x.toInt(), (event.y - offsetY).toInt()) as GeoPoint?
         mapView.invalidate()
     }
 
@@ -602,7 +617,9 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
 
     interface OnMarkerDragListener {
         fun onMarkerDrag(marker: CustomOsmMarker?)
+
         fun onMarkerDragEnd(marker: CustomOsmMarker?)
+
         fun onMarkerDragStart(marker: CustomOsmMarker?)
     }
 

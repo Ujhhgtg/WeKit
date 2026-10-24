@@ -25,9 +25,10 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * [LlmClient] adapter for the OpenAI **Chat Completions** wire format (`POST {baseUrl}/chat/completions`).
- * Compatible with OpenAI, DeepSeek, Ollama, OpenRouter, and most local servers. Reasoning effort is
- * placed at the top-level `reasoning_effort` field (verified against the current OpenAI docs).
+ * [LlmClient] adapter for the OpenAI **Chat Completions** wire format (`POST
+ * {baseUrl}/chat/completions`). Compatible with OpenAI, DeepSeek, Ollama, OpenRouter, and most
+ * local servers. Reasoning effort is placed at the top-level `reasoning_effort` field (verified
+ * against the current OpenAI docs).
  */
 class OpenAiChatCompletionsClient(
     private val http: HttpClient,
@@ -37,71 +38,89 @@ class OpenAiChatCompletionsClient(
     private val endpoint = "${baseUrl.trimEnd('/')}/chat/completions"
 
     override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
-        val body = LlmJson.shallowMerge(buildBody(request, stream = true), request.customJsonOverride)
+        val body =
+            LlmJson.shallowMerge(buildBody(request, stream = true), request.customJsonOverride)
         // The response is scoped to `execute { … }`: every early exit below (HTTP error, break on
         // [DONE]) previously abandoned an open SSE body channel, leaking the connection until GC.
         // `execute` releases it on every path, including exceptions.
-        http.preparePost(endpoint) {
-            header("x-opencode-session", request.sessionId)
-            header(HttpHeaders.Authorization, "Bearer $apiKey")
-            contentType(ContentType.Application.Json)
-            setBody(LlmJson.json.encodeToString(JsonObject.serializer(), body))
-        }.execute { resp ->
-            if (!resp.status.isSuccess()) {
-                emit(LlmStreamEvent.Failed(LlmException("HTTP ${resp.status.value}: ${readBodyText(resp)}")))
-                return@execute
+        http
+            .preparePost(endpoint) {
+                header("x-opencode-session", request.sessionId)
+                header(HttpHeaders.Authorization, "Bearer $apiKey")
+                contentType(ContentType.Application.Json)
+                setBody(LlmJson.json.encodeToString(JsonObject.serializer(), body))
             }
-            val acc = ToolCallAccumulator()
-            val textBuf = StringBuilder()
-            val reasoningBuf = StringBuilder()
-            var finishReason: String? = null
-            var usage: LlmUsage? = null
-
-            val channel = resp.bodyAsChannel()
-            while (true) {
-                @Suppress("DEPRECATION")
-                val line = channel.readUTF8Line() ?: break
-                val data = SseParser.dataOrNull(line) ?: continue
-                if (data == "[DONE]") break
-
-                val chunk = runCatching { LlmJson.json.parseToJsonElement(data).jsonObject }.getOrNull() ?: continue
-                // The final chunk (with stream_options.include_usage) carries `usage` and an empty
-                // `choices` array, so parse usage before the empty-choices `continue` below.
-                chunk["usage"]?.let { if (it is JsonObject) usage = parseUsage(it) }
-                val choice = chunk["choices"]?.jsonArray?.firstOrNull()?.jsonObject ?: continue
-                choice["finish_reason"]?.jsonPrimitive?.contentOrNullSafe()?.let { finishReason = it }
-
-                val delta = choice["delta"]?.jsonObject ?: continue
-                delta["content"]?.jsonPrimitive?.contentOrNullSafe()?.let {
-                    if (it.isNotEmpty()) {
-                        textBuf.append(it); emit(LlmStreamEvent.TextDelta(it))
-                    }
+            .execute { resp ->
+                if (!resp.status.isSuccess()) {
+                    emit(
+                        LlmStreamEvent.Failed(
+                            LlmException("HTTP ${resp.status.value}: ${readBodyText(resp)}"),
+                        ),
+                    )
+                    return@execute
                 }
-                // Some providers expose reasoning under `reasoning` or `reasoning_content`.
-                (delta["reasoning"] ?: delta["reasoning_content"])?.jsonPrimitive?.contentOrNullSafe()?.let {
-                    if (it.isNotEmpty()) {
-                        // On the very first reasoning chunk, emit an empty sentinel so the UI shows the
-                        // "思考中..." card immediately — before the first real token is appended.
-                        if (reasoningBuf.isEmpty()) emit(LlmStreamEvent.ReasoningDelta(""))
-                        reasoningBuf.append(it); emit(LlmStreamEvent.ReasoningDelta(it))
-                    }
-                }
-                delta["tool_calls"]?.jsonArray?.forEach { acc.accept(it.jsonObject) }
-            }
+                val acc = ToolCallAccumulator()
+                val textBuf = StringBuilder()
+                val reasoningBuf = StringBuilder()
+                var finishReason: String? = null
+                var usage: LlmUsage? = null
 
-            emit(
-                LlmStreamEvent.Completed(
-                    LlmMessage(
-                        role = LlmRole.ASSISTANT,
-                        content = textBuf.toString().ifEmpty { null },
-                        reasoning = reasoningBuf.toString().ifEmpty { null },
-                        toolCalls = acc.build(),
+                val channel = resp.bodyAsChannel()
+                while (true) {
+                    @Suppress("DEPRECATION") val line = channel.readUTF8Line() ?: break
+                    val data = SseParser.dataOrNull(line) ?: continue
+                    if (data == "[DONE]") break
+
+                    val chunk =
+                        runCatching { LlmJson.json.parseToJsonElement(data).jsonObject }.getOrNull()
+                            ?: continue
+                    // The final chunk (with stream_options.include_usage) carries `usage` and an
+                    // empty
+                    // `choices` array, so parse usage before the empty-choices `continue` below.
+                    chunk["usage"]?.let { if (it is JsonObject) usage = parseUsage(it) }
+                    val choice = chunk["choices"]?.jsonArray?.firstOrNull()?.jsonObject ?: continue
+                    choice["finish_reason"]?.jsonPrimitive?.contentOrNullSafe()?.let {
+                        finishReason = it
+                    }
+
+                    val delta = choice["delta"]?.jsonObject ?: continue
+                    delta["content"]?.jsonPrimitive?.contentOrNullSafe()?.let {
+                        if (it.isNotEmpty()) {
+                            textBuf.append(it)
+                            emit(LlmStreamEvent.TextDelta(it))
+                        }
+                    }
+                    // Some providers expose reasoning under `reasoning` or `reasoning_content`.
+                    (delta["reasoning"] ?: delta["reasoning_content"])
+                        ?.jsonPrimitive
+                        ?.contentOrNullSafe()
+                        ?.let {
+                            if (it.isNotEmpty()) {
+                                // On the very first reasoning chunk, emit an empty sentinel so the
+                                // UI shows the
+                                // "思考中..." card immediately — before the first real token is
+                                // appended.
+                                if (reasoningBuf.isEmpty()) emit(LlmStreamEvent.ReasoningDelta(""))
+                                reasoningBuf.append(it)
+                                emit(LlmStreamEvent.ReasoningDelta(it))
+                            }
+                        }
+                    delta["tool_calls"]?.jsonArray?.forEach { acc.accept(it.jsonObject) }
+                }
+
+                emit(
+                    LlmStreamEvent.Completed(
+                        LlmMessage(
+                            role = LlmRole.ASSISTANT,
+                            content = textBuf.toString().ifEmpty { null },
+                            reasoning = reasoningBuf.toString().ifEmpty { null },
+                            toolCalls = acc.build(),
+                        ),
+                        finishReason,
+                        usage,
                     ),
-                    finishReason,
-                    usage,
                 )
-            )
-        }
+            }
     }
 
     // -- request body ---------------------------------------------------------
@@ -142,9 +161,14 @@ class OpenAiChatCompletionsClient(
         // without, it stays a plain string for maximum server compatibility.
         if (msg.images.isNotEmpty()) {
             putJsonArray("content") {
-                msg.content?.takeIf { it.isNotEmpty() }?.let {
-                    addJsonObject { put("type", "text"); put("text", it) }
-                }
+                msg.content
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let {
+                        addJsonObject {
+                            put("type", "text")
+                            put("text", it)
+                        }
+                    }
                 msg.images.forEach { img ->
                     addJsonObject {
                         put("type", "image_url")
@@ -173,23 +197,31 @@ class OpenAiChatCompletionsClient(
     }
 
     private suspend fun readBodyText(resp: io.ktor.client.statement.HttpResponse): String =
-        runCatching { resp.bodyAsChannel().readRemainingText() }.getOrElse { "<unreadable>" }
-            .also { WeLogger.w(TAG, "error response: $it") }
+        runCatching {
+            resp.bodyAsChannel().readRemainingText()
+        }
+        .getOrElse { "<unreadable>" }
+        .also { WeLogger.w(TAG, "error response: $it") }
 
     private val LlmRole.wire: String
-        get() = when (this) {
-            LlmRole.SYSTEM -> "system"
-            LlmRole.USER -> "user"
-            LlmRole.ASSISTANT -> "assistant"
-            LlmRole.TOOL -> "tool"
-        }
+        get() =
+            when (this) {
+                LlmRole.SYSTEM -> "system"
+                LlmRole.USER -> "user"
+                LlmRole.ASSISTANT -> "assistant"
+                LlmRole.TOOL -> "tool"
+            }
 
     /**
-     * Chat Completions streams tool calls as fragments keyed by array `index`; the id/name arrive in
-     * the first fragment and `arguments` accumulate across fragments. This reassembles them.
+     * Chat Completions streams tool calls as fragments keyed by array `index`; the id/name arrive
+     * in the first fragment and `arguments` accumulate across fragments. This reassembles them.
      */
     private class ToolCallAccumulator {
-        private data class Partial(var id: String = "", var name: String = "", val args: StringBuilder = StringBuilder())
+        private data class Partial(
+            var id: String = "",
+            var name: String = "",
+            val args: StringBuilder = StringBuilder(),
+        )
 
         private val byIndex = sortedMapOf<Int, Partial>()
 
@@ -198,13 +230,22 @@ class OpenAiChatCompletionsClient(
             val p = byIndex.getOrPut(index) { Partial() }
             obj["id"]?.jsonPrimitive?.contentOrNullSafe()?.let { if (it.isNotEmpty()) p.id = it }
             val fn = obj["function"]?.jsonObject
-            fn?.get("name")?.jsonPrimitive?.contentOrNullSafe()?.let { if (it.isNotEmpty()) p.name = it }
+            fn?.get("name")?.jsonPrimitive?.contentOrNullSafe()?.let {
+                if (it.isNotEmpty()) p.name = it
+            }
             fn?.get("arguments")?.jsonPrimitive?.contentOrNullSafe()?.let { p.args.append(it) }
         }
 
-        fun build(): List<LlmToolCall> = byIndex.values
-            .filter { it.name.isNotEmpty() }
-            .map { LlmToolCall(it.id.ifEmpty { "call_${it.name}" }, it.name, it.args.toString().ifEmpty { "{}" }) }
+        fun build(): List<LlmToolCall> =
+            byIndex.values
+                .filter { it.name.isNotEmpty() }
+                .map {
+                    LlmToolCall(
+                        it.id.ifEmpty { "call_${it.name}" },
+                        it.name,
+                        it.args.toString().ifEmpty { "{}" },
+                    )
+                }
     }
 
     private companion object {

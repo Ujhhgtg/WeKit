@@ -23,14 +23,20 @@ object ToolDiscovery {
         val keyword = args["keyword"]?.jsonPrimitive?.content
 
         return when (action) {
-            "list_providers" -> registry.allProviders()
-                .filter { it.isAvailable }
-                .joinToString("\n") { "provider=${it.id} (${it.name}), kind=${it.kind}" }
-                .ifEmpty { "No providers." }
+            "list_providers" ->
+                registry
+                    .allProviders()
+                    .filter { it.isAvailable }
+                    .joinToString("\n") { "provider=${it.id} (${it.name}), kind=${it.kind}" }
+                    .ifEmpty { "No providers." }
 
             "list_tools" -> {
-                val tools = registry.resolveVisibleTools(visibility)
-                    .filter { providerFilter == null || it.provider.id == providerFilter || it.provider.name == providerFilter }
+                val tools =
+                    registry.resolveVisibleTools(visibility).filter {
+                        providerFilter == null ||
+                            it.provider.id == providerFilter ||
+                            it.provider.name == providerFilter
+                    }
                 tools.forEach { discovered += it.exposedName }
                 renderTools(tools)
             }
@@ -42,16 +48,19 @@ object ToolDiscovery {
                 val kw = keyword?.trim()?.lowercase()
                 if (kw.isNullOrEmpty()) {
                     return "Error: 'keyword' is required for search_tools and must not be blank. " +
-                            "Use action=list_tools (optionally with a 'provider') if you really want the full catalog."
+                        "Use action=list_tools (optionally with a 'provider') if you really want the full catalog."
                 }
-                val tools = registry.resolveVisibleTools(visibility).filter {
-                    it.exposedName.lowercase().contains(kw) || it.description.lowercase().contains(kw)
-                }
+                val tools =
+                    registry.resolveVisibleTools(visibility).filter {
+                        it.exposedName.lowercase().contains(kw) ||
+                            it.description.lowercase().contains(kw)
+                    }
                 tools.forEach { discovered += it.exposedName }
                 renderTools(tools)
             }
 
-            else -> "Error: unknown action '$action'. Use list_providers | list_tools | search_tools."
+            else ->
+                "Error: unknown action '$action'. Use list_providers | list_tools | search_tools."
         }
     }
 

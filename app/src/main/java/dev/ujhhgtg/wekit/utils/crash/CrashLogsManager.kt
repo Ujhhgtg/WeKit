@@ -65,8 +65,11 @@ object CrashLogsManager {
     val allCrashLogs: List<Path>
         get() {
             ensureCrashLogDirExists()
-            return crashLogsDir.listDirectoryEntries()
-                .filter { it.name.startsWith(CRASH_LOGS_PREFIX) && it.name.endsWith(CRASH_LOG_SUFFIX) }
+            return crashLogsDir
+                .listDirectoryEntries()
+                .filter {
+                    it.name.startsWith(CRASH_LOGS_PREFIX) && it.name.endsWith(CRASH_LOG_SUFFIX)
+                }
                 .sortedByDescending { it.getLastModifiedTime() }
         }
 
@@ -78,15 +81,15 @@ object CrashLogsManager {
             if (fileSize > MAX_LOG_CONTENT_SIZE) {
                 WeLogger.w(
                     TAG,
-                    "crash log file is too large ($fileSize bytes), reading first $MAX_LOG_CONTENT_SIZE bytes"
+                    "crash log file is too large ($fileSize bytes), reading first $MAX_LOG_CONTENT_SIZE bytes",
                 )
                 val buffer = ByteArray(MAX_LOG_CONTENT_SIZE)
                 val bytesRead = logFile.inputStream().use { it.read(buffer) }
                 String(buffer, 0, bytesRead, StandardCharsets.UTF_8) +
-                        "\n\n========================================\n" +
-                        "【提示】日志内容过长，此处仅展示部分内容。\n" +
-                        "请点击「导出文件」以保存完整日志。\n" +
-                        "========================================"
+                    "\n\n========================================\n" +
+                    "【提示】日志内容过长，此处仅展示部分内容。\n" +
+                    "请点击「导出文件」以保存完整日志。\n" +
+                    "========================================"
             } else {
                 logFile.readText()
             }
@@ -156,13 +159,15 @@ object CrashLogsManager {
 
     fun hasPendingCrash(): Boolean = pendingCrashLogFile != null
 
-    val crashLogDirPath: String get() = crashLogsDir.absolutePathString()
+    val crashLogDirPath: String
+        get() = crashLogsDir.absolutePathString()
 
     /**
      * File-name prefix every crash report must carry — [allCrashLogs] filters on it. Handed to the
      * native handler at install time so it names its reports the same way this object does.
      */
-    val crashLogFileNamePrefix: String get() = CRASH_LOGS_PREFIX
+    val crashLogFileNamePrefix: String
+        get() = CRASH_LOGS_PREFIX
 
     fun setPendingJavaCrashFlag(logFileName: String) {
         try {
@@ -191,7 +196,8 @@ object CrashLogsManager {
 
     fun hasPendingJavaCrash(): Boolean = pendingJavaCrashLogFile != null
 
-    val pendingNativeCrashLogFile: Path? get() = pendingCrashLogFile
+    val pendingNativeCrashLogFile: Path?
+        get() = pendingCrashLogFile
 
     fun clearPendingNativeCrashFlag() = clearPendingCrashFlag()
 
@@ -222,7 +228,8 @@ object CrashLogsManager {
     private const val CRASH_LOGS_DIR = "crashes"
 
     // Unified with the run-log naming style (logs/wekit-*.log): "wekit-crash-" prefix plus a
-    // dash-separated timestamp precise to the millisecond so multiple crashes per second stay unique.
+    // dash-separated timestamp precise to the millisecond so multiple crashes per second stay
+    // unique.
     private const val CRASH_LOGS_PREFIX = "wekit-crash-"
     private const val CRASH_LOG_SUFFIX = ".log"
     private const val PENDING_CRASH_FLAG = "pending_crash.flag"

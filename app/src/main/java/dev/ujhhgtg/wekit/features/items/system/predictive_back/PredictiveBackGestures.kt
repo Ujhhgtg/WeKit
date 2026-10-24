@@ -305,7 +305,7 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
             methodChatbotPanelOpen.markExpectedFailure()
         } else {
             methodChatbotPanelOpen.setDescriptor(dispatchInvokes.single {
-                it.declaredClassName == CHATBOT_UIC && it.methodName != "onBackPressed" && it.isNoArgBoolean()
+                it.declaredClassName == CHATBOT_UIC && it.name != "onBackPressed" && it.isNoArgBoolean()
             })
         }
         methodCurrentTabFragment.setDescriptor(dispatchInvokes.single {

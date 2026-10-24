@@ -10,8 +10,8 @@ import kotlin.coroutines.CoroutineContext
  * [dev.ujhhgtg.wekit.agent.ui.UiImageSink].
  *
  * The tool-invoker layer has no session parameter, so trigger tools (which need to know "which
- * session am I in" to create a SESSION-scoped trigger by default) read it from the current coroutine
- * context. Installed by WeAgentService around both `runTurn` and `runTriggeredTurn`.
+ * session am I in" to create a SESSION-scoped trigger by default) read it from the current
+ * coroutine context. Installed by WeAgentService around both `runTurn` and `runTriggeredTurn`.
  */
 class AgentSessionContext(
     val sessionId: String,

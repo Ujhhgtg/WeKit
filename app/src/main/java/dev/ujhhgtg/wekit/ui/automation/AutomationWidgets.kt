@@ -24,19 +24,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,7 +64,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationScopeType
-import androidx.compose.material3.AlertDialog
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactAvatar
@@ -93,10 +93,11 @@ fun AutomationSheet(
     footerStart: @Composable RowScope.((() -> Unit) -> Unit) -> Unit = { _ -> },
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden,
-        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-    )
+    val sheetState =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
     val scope = rememberCoroutineScope()
 
     fun finishSheet(action: () -> Unit) {
@@ -120,40 +121,48 @@ fun AutomationSheet(
             ) {
                 if (icon != null) {
                     Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                        modifier =
+                            Modifier.size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
+                    ) {
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
                 }
                 Column {
                     Text(title, style = MaterialTheme.typography.headlineSmall)
                     if (subtitle != null) {
-                        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
             Column(
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                modifier =
+                    Modifier.weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 content = content,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 footerStart(::finishSheet)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { finishSheet(onDismiss) }) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(onClick = { finishSheet(onDismiss) }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
                 if (onConfirm != null) {
                     val confirm = onConfirm
                     Button(onClick = { finishSheet(confirm) }, enabled = confirmEnabled) {
@@ -167,7 +176,11 @@ fun AutomationSheet(
 
 /** Label above a group of controls inside a sheet. */
 @Composable
-fun AutomationFieldLabel(text: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
+fun AutomationFieldLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = text,
@@ -184,7 +197,9 @@ fun AutomationSheetNote(text: String, isError: Boolean = false) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
-        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        color =
+            if (isError) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
@@ -206,19 +221,27 @@ fun AutomationNumberDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { text = it.filter(Char::isDigit).take(range.last.toString().length) },
+                onValueChange = {
+                    text = it.filter(Char::isDigit).take(range.last.toString().length)
+                },
                 singleLine = true,
                 suffix = { Text(unit) },
                 isError = parsed == null,
-                supportingText = { Text(stringResource(R.string.automation_number_range, range.first, range.last)) },
+                supportingText = {
+                    Text(stringResource(R.string.automation_number_range, range.first, range.last))
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
-            TextButton(enabled = parsed != null, onClick = { onConfirm(parsed!!) }) { Text(stringResource(R.string.dialog_confirm)) }
+            TextButton(enabled = parsed != null, onClick = { onConfirm(parsed!!) }) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
     )
 }
 
@@ -239,24 +262,35 @@ fun <T> AutomationChoiceGroup(
     }
 }
 
-/** The switch used on rule rows, with check / close thumb icons like [dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget]. */
+/**
+ * The switch used on rule rows, with check / close thumb icons like
+ * [dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget].
+ */
 @Composable
-fun AutomationSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
+fun AutomationSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
     val haptic = LocalHapticFeedback.current
     Switch(
         checked = checked,
         enabled = enabled,
         onCheckedChange = {
-            haptic.performHapticFeedback(if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+            haptic.performHapticFeedback(
+                if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
+            )
             onCheckedChange(it)
         },
-        colors = SwitchDefaults.colors(
-            checkedIconColor = MaterialTheme.colorScheme.primary,
-            uncheckedIconColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
+        colors =
+            SwitchDefaults.colors(
+                checkedIconColor = MaterialTheme.colorScheme.primary,
+                uncheckedIconColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
         thumbContent = {
             Icon(
-                imageVector = if (checked) MaterialSymbols.Outlined.Check else MaterialSymbols.Outlined.Close,
+                imageVector =
+                    if (checked) MaterialSymbols.Outlined.Check else MaterialSymbols.Outlined.Close,
                 contentDescription = null,
                 modifier = Modifier.size(SwitchDefaults.IconSize),
             )
@@ -266,7 +300,12 @@ fun AutomationSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabl
 
 /** A labelled switch on a surface card, for use inside rows and sheets. */
 @Composable
-fun AutomationInlineSwitch(title: String, checked: Boolean, description: String? = null, onCheckedChange: (Boolean) -> Unit) {
+fun AutomationInlineSwitch(
+    title: String,
+    checked: Boolean,
+    description: String? = null,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     Surface(
         onClick = { onCheckedChange(!checked) },
         shape = RoundedCornerShape(16.dp),
@@ -280,7 +319,11 @@ fun AutomationInlineSwitch(title: String, checked: Boolean, description: String?
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 if (description != null) {
-                    Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             AutomationSwitch(checked, onCheckedChange)
@@ -332,11 +375,19 @@ fun AutomationNumberSlider(
 /** Filter chips toggling members of [selected], with select-all / clear actions. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun <V> AutomationChipSet(options: List<Pair<V, String>>, selected: Set<V>, onChange: (Set<V>) -> Unit) {
+fun <V> AutomationChipSet(
+    options: List<Pair<V, String>>,
+    selected: Set<V>,
+    onChange: (Set<V>) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AutomationFieldLabel("${selected.size} / ${options.size}") {
-            TextButton(onClick = { onChange(options.map { it.first }.toSet()) }) { Text(stringResource(R.string.automation_select_all)) }
-            TextButton(onClick = { onChange(emptySet()) }) { Text(stringResource(R.string.automation_select_none)) }
+            TextButton(onClick = { onChange(options.map { it.first }.toSet()) }) {
+                Text(stringResource(R.string.automation_select_all))
+            }
+            TextButton(onClick = { onChange(emptySet()) }) {
+                Text(stringResource(R.string.automation_select_none))
+            }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { (option, label) ->
@@ -345,9 +396,16 @@ fun <V> AutomationChipSet(options: List<Pair<V, String>>, selected: Set<V>, onCh
                     selected = on,
                     onClick = { onChange(if (on) selected - option else selected + option) },
                     label = { Text(label) },
-                    leadingIcon = if (on) {
-                        { Icon(MaterialSymbols.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
-                    } else null,
+                    leadingIcon =
+                        if (on) {
+                            {
+                                Icon(
+                                    MaterialSymbols.Outlined.Check,
+                                    null,
+                                    Modifier.size(FilterChipDefaults.IconSize),
+                                )
+                            }
+                        } else null,
                 )
             }
         }
@@ -366,73 +424,103 @@ fun AutomationMiniChips(items: List<String>, max: Int = 4) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        (items.take(max) + listOfNotNull((items.size - max).takeIf { it > 0 }?.let { "+$it" })).forEach {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-            )
-        }
+        (items.take(max) + listOfNotNull((items.size - max).takeIf { it > 0 }?.let { "+$it" }))
+            .forEach {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier =
+                        Modifier.clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
     }
 }
 
 /** Small pill label (InstallerX's CapsuleTag). */
 @Composable
-fun AutomationTag(text: String, modifier: Modifier = Modifier, tone: AutomationTagTone = AutomationTagTone.Primary) {
-    val (container, content) = when (tone) {
-        AutomationTagTone.Primary -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) to MaterialTheme.colorScheme.primary
-        AutomationTagTone.Muted -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
-        AutomationTagTone.Tertiary -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        AutomationTagTone.Warning -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    }
+fun AutomationTag(
+    text: String,
+    modifier: Modifier = Modifier,
+    tone: AutomationTagTone = AutomationTagTone.Primary,
+) {
+    val (container, content) =
+        when (tone) {
+            AutomationTagTone.Primary ->
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) to
+                    MaterialTheme.colorScheme.primary
+            AutomationTagTone.Muted ->
+                MaterialTheme.colorScheme.surfaceContainerHighest to
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            AutomationTagTone.Tertiary ->
+                MaterialTheme.colorScheme.tertiaryContainer to
+                    MaterialTheme.colorScheme.onTertiaryContainer
+            AutomationTagTone.Warning ->
+                MaterialTheme.colorScheme.errorContainer to
+                    MaterialTheme.colorScheme.onErrorContainer
+        }
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = content,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier
-            .clip(CircleShape)
-            .background(container)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+        modifier =
+            modifier
+                .clip(CircleShape)
+                .background(container)
+                .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
 
-enum class AutomationTagTone { Primary, Muted, Tertiary, Warning }
+enum class AutomationTagTone {
+    Primary,
+    Muted,
+    Tertiary,
+    Warning,
+}
 
 /** A 24-hour bar highlighting the window [startSecond]..[endSecond], wrapping past midnight. */
 @Composable
-fun AutomationDayLine(startSecond: Int, endSecond: Int, height: Int = 8, modifier: Modifier = Modifier) {
+fun AutomationDayLine(
+    startSecond: Int,
+    endSecond: Int,
+    height: Int = 8,
+    modifier: Modifier = Modifier,
+) {
     val day = SECONDS_PER_DAY.toFloat()
-    val segments = when {
-        startSecond == endSecond -> listOf(0f to 1f)
-        startSecond < endSecond -> listOf(startSecond / day to endSecond / day)
-        else -> listOf(0f to endSecond / day, startSecond / day to 1f)
-    }
+    val segments =
+        when {
+            startSecond == endSecond -> listOf(0f to 1f)
+            startSecond < endSecond -> listOf(startSecond / day to endSecond / day)
+            else -> listOf(0f to endSecond / day, startSecond / day to 1f)
+        }
     AutomationFractionBar(segments, height, modifier)
 }
 
 /** A track with filled [segments], each a fraction range of the width. */
 @Composable
-fun AutomationFractionBar(segments: List<Pair<Float, Float>>, height: Int = 8, modifier: Modifier = Modifier) {
+fun AutomationFractionBar(
+    segments: List<Pair<Float, Float>>,
+    height: Int = 8,
+    modifier: Modifier = Modifier,
+) {
     BoxWithConstraints(
-        modifier = modifier
-            .padding(top = 6.dp)
-            .fillMaxWidth()
-            .height(height.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        modifier =
+            modifier
+                .padding(top = 6.dp)
+                .fillMaxWidth()
+                .height(height.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
         segments.forEach { (from, to) ->
             Box(
-                Modifier
-                    .offset(x = maxWidth * from)
+                Modifier.offset(x = maxWidth * from)
                     .width(maxWidth * (to - from))
                     .height(height.dp)
                     .clip(CircleShape)
@@ -446,14 +534,26 @@ fun AutomationFractionBar(segments: List<Pair<Float, Float>>, height: Int = 8, m
 @Composable
 fun AutomationRevertButton(onClick: () -> Unit) {
     FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
-        Icon(MaterialSymbols.Outlined.Undo, contentDescription = stringResource(R.string.automation_revert), modifier = Modifier.size(20.dp))
+        Icon(
+            MaterialSymbols.Outlined.Undo,
+            contentDescription = stringResource(R.string.automation_revert),
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
 /** Trailing marker on inherited rows: tapping the row overrides the rule here. */
 @Composable
 fun AutomationOverrideMarker() {
-    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceBright, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceBright,
+        border =
+            androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant,
+            ),
+    ) {
         Icon(
             MaterialSymbols.Outlined.Add,
             contentDescription = stringResource(R.string.automation_override),
@@ -471,9 +571,10 @@ fun rememberContactName(wxId: String): String =
     remember(wxId) { WeDatabaseApi.getDisplayName(wxId).ifBlank { wxId } }
 
 @Composable
-fun rememberMemberName(groupId: String, memberId: String): String = remember(groupId, memberId) {
-    WeDatabaseApi.getGroupMemberDisplayName(groupId, memberId).ifBlank { memberId }
-}
+fun rememberMemberName(groupId: String, memberId: String): String =
+    remember(groupId, memberId) {
+        WeDatabaseApi.getGroupMemberDisplayName(groupId, memberId).ifBlank { memberId }
+    }
 
 @Composable
 fun AutomationAvatar(wxId: String, size: androidx.compose.ui.unit.Dp = 40.dp) {

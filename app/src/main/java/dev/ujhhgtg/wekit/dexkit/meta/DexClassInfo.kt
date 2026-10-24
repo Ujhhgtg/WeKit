@@ -13,7 +13,8 @@ import kotlinx.serialization.json.put
  * descriptor/name references; use [name]/[descriptor] there. Deeper member lookups go through the
  * session [DexMetadata] cache on demand.
  */
-class DexClassInfo internal constructor(
+class DexClassInfo
+internal constructor(
     private val json: JsonObject,
     private val metadata: DexMetadata,
 ) {
@@ -22,7 +23,11 @@ class DexClassInfo internal constructor(
         get() = json
 
     /** Shallow descriptor/name reference for classes without dataset metadata (e.g. framework). */
-    internal constructor(descriptor: String, name: String, metadata: DexMetadata) : this(
+    internal constructor(
+        descriptor: String,
+        name: String,
+        metadata: DexMetadata,
+    ) : this(
         buildJsonObject {
             put("descriptor", descriptor)
             put("name", name)
@@ -52,8 +57,8 @@ class DexClassInfo internal constructor(
     val isArray: Boolean = json.booleanOr("is_array", false)
 
     /**
-     * Superclass metadata. Defined superclasses resolve full metadata through the session
-     * provider; external classes fall back to a shallow descriptor/name reference.
+     * Superclass metadata. Defined superclasses resolve full metadata through the session provider;
+     * external classes fall back to a shallow descriptor/name reference.
      */
     val superClass: DexClassInfo? by lazy {
         json.objectOrNull("super_class")?.let { resolveReferencedClass(it) }

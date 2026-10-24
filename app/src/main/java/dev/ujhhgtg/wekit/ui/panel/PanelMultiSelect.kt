@@ -20,46 +20,47 @@ fun <T> panelMultiSelectActions(
     onClose: () -> Unit,
     onSelectionChange: (Set<String>) -> Unit,
     onTerminalAction: (List<T>) -> Unit,
-): List<PanelAction> = listOf(
-    PanelAction(
-        MaterialSymbols.Outlined.Close,
-        stringResource(R.string.dialog_close),
-        headerStart = true,
-        onClick = onClose,
-    ),
-    PanelAction(
-        MaterialSymbols.Outlined.Select_all,
-        stringResource(R.string.panel_action_select_all),
-        enabled = items.isNotEmpty(),
-        showLabel = true,
-    ) {
-        onSelectionChange(items.mapTo(linkedSetOf(), key))
-    },
-    PanelAction(
-        MaterialSymbols.Outlined.Deselect,
-        stringResource(R.string.panel_action_invert_selection),
-        enabled = items.isNotEmpty(),
-        showLabel = true,
-    ) {
-        onSelectionChange(invertPanelSelection(selectedKeys, items, key))
-    },
-    PanelAction(
-        MaterialSymbols.Outlined.Done_all,
-        stringResource(R.string.panel_action_select_range),
-        enabled = selectedKeys.size > 1,
-        showLabel = true,
-    ) {
-        onSelectionChange(closePanelSelectionRange(selectedKeys, items, key))
-    },
-    PanelAction(
-        terminalIcon,
-        terminalLabel,
-        enabled = selectedKeys.isNotEmpty(),
-        showLabel = true,
-    ) {
-        onTerminalAction(items.filter { key(it) in selectedKeys })
-    },
-)
+): List<PanelAction> =
+    listOf(
+        PanelAction(
+            MaterialSymbols.Outlined.Close,
+            stringResource(R.string.dialog_close),
+            headerStart = true,
+            onClick = onClose,
+        ),
+        PanelAction(
+            MaterialSymbols.Outlined.Select_all,
+            stringResource(R.string.panel_action_select_all),
+            enabled = items.isNotEmpty(),
+            showLabel = true,
+        ) {
+            onSelectionChange(items.mapTo(linkedSetOf(), key))
+        },
+        PanelAction(
+            MaterialSymbols.Outlined.Deselect,
+            stringResource(R.string.panel_action_invert_selection),
+            enabled = items.isNotEmpty(),
+            showLabel = true,
+        ) {
+            onSelectionChange(invertPanelSelection(selectedKeys, items, key))
+        },
+        PanelAction(
+            MaterialSymbols.Outlined.Done_all,
+            stringResource(R.string.panel_action_select_range),
+            enabled = selectedKeys.size > 1,
+            showLabel = true,
+        ) {
+            onSelectionChange(closePanelSelectionRange(selectedKeys, items, key))
+        },
+        PanelAction(
+            terminalIcon,
+            terminalLabel,
+            enabled = selectedKeys.isNotEmpty(),
+            showLabel = true,
+        ) {
+            onTerminalAction(items.filter { key(it) in selectedKeys })
+        },
+    )
 
 fun <T> invertPanelSelection(
     current: Set<String>,

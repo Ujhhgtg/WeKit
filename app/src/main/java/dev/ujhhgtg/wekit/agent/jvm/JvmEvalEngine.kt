@@ -10,8 +10,8 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
  * host + module classes via [ClassLoaders.HYBRID].
  *
  * The interpreter is persistent across calls within the process, so the model can define variables
- * in one call and use them in the next. The handle registry is exposed to scripts as `handles`
- * (so `handles.ref(12)` fetches object `#12`) alongside `hostContext`.
+ * in one call and use them in the next. The handle registry is exposed to scripts as `handles` (so
+ * `handles.ref(12)` fetches object `#12`) alongside `hostContext`.
  */
 object JvmEvalEngine {
 

@@ -7,9 +7,7 @@ import android.content.res.ResourcesHidden
 import dev.rikka.tools.refine.Refine
 
 @Suppress("NOTHING_TO_INLINE")
-inline fun Resources.asHidden(): ResourcesHidden =
-    Refine.unsafeCast(this)
+inline fun Resources.asHidden(): ResourcesHidden = Refine.unsafeCast(this)
 
 @Suppress("NOTHING_TO_INLINE")
-inline fun AssetManager.asHidden(): AssetManagerHidden =
-    Refine.unsafeCast(this)
+inline fun AssetManager.asHidden(): AssetManagerHidden = Refine.unsafeCast(this)

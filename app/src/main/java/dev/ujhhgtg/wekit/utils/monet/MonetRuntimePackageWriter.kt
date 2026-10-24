@@ -26,14 +26,25 @@ import java.util.zip.ZipEntry
 object MonetRuntimePackageWriter {
     sealed interface ColorValue {
         data class Reference(val id: Int) : ColorValue
+
         data class Literal(val argb: Int) : ColorValue
     }
 
-    data class ColorTarget(val binding: MonetBinding, val light: ColorValue?, val night: ColorValue?) {
-        init { require(light != null || night != null) }
+    data class ColorTarget(
+        val binding: MonetBinding,
+        val light: ColorValue?,
+        val night: ColorValue?,
+    ) {
+        init {
+            require(light != null || night != null)
+        }
     }
 
-    data class DrawableTarget(val binding: MonetBinding, val light: XmlNode, val night: XmlNode? = null)
+    data class DrawableTarget(
+        val binding: MonetBinding,
+        val light: XmlNode,
+        val night: XmlNode? = null,
+    )
 
     data class XmlNode(
         val name: String,
@@ -45,17 +56,23 @@ object MonetRuntimePackageWriter {
 
     sealed interface XmlValue {
         data class Reference(val id: Int) : XmlValue
+
         data class Color(val argb: Int) : XmlValue
+
         data class Dimension(val dp: kotlin.Float) : XmlValue
+
         data class Integer(val value: Int) : XmlValue
+
         data class Boolean(val value: kotlin.Boolean) : XmlValue
+
         data class Float(val value: kotlin.Float) : XmlValue
+
         data class String(val value: kotlin.String) : XmlValue
     }
 
     /**
-     * @param pathPrefix unique per build; `ResourcesImpl` caches parsed XML by (path, cookie), and a
-     * swapped provider reuses the same cookie slot.
+     * @param pathPrefix unique per build; `ResourcesImpl` caches parsed XML by (path, cookie), and
+     *   a swapped provider reuses the same cookie slot.
      */
     fun write(
         output: File,
@@ -66,7 +83,9 @@ object MonetRuntimePackageWriter {
     ) {
         require(typeNames.isNotEmpty()) { "WeChat type pool is empty" }
         val targets = colors.map { it.binding } + drawables.map { it.binding }
-        require(targets.distinctBy(MonetBinding::id).size == targets.size) { "duplicate Monet target" }
+        require(targets.distinctBy(MonetBinding::id).size == targets.size) {
+            "duplicate Monet target"
+        }
         val apk = ApkModule()
         val table = TableBlock()
         apk.tableBlock = table
@@ -76,7 +95,8 @@ object MonetRuntimePackageWriter {
 
         colors.forEach { color ->
             configsFor(color.binding, color.night != null).forEach { (config, night) ->
-                // A missing side keeps WeChat's own value: no loader entry means WeChat's config wins.
+                // A missing side keeps WeChat's own value: no loader entry means WeChat's config
+                // wins.
                 val value = (if (night) color.night else color.light) ?: return@forEach
                 pkg.entry(color.binding, config) { setColorValue(value) }
                 specFlags.record(color.binding, config)
@@ -85,7 +105,8 @@ object MonetRuntimePackageWriter {
         drawables.forEach { drawable ->
             configsFor(drawable.binding, drawable.night != null).forEach { (config, night) ->
                 val node = if (night) drawable.night ?: return@forEach else drawable.light
-                val path = "res/$pathPrefix/${drawable.binding.type}${config.qualifiers}/${drawable.binding.name}.xml"
+                val path =
+                    "res/$pathPrefix/${drawable.binding.type}${config.qualifiers}/${drawable.binding.name}.xml"
                 pkg.entry(drawable.binding, config) { valueAsString = path }
                 val document = ResXmlDocument().apply { packageBlock = pkg }
                 document.newElement(node.name).write(node)
@@ -97,8 +118,10 @@ object MonetRuntimePackageWriter {
 
         table.refreshFull()
         specFlags.forEach { (binding, flags) ->
-            requireNotNull(pkg.getSpecTypePair(binding.typeId)).specBlock
-                .getSpecFlag(binding.entryId).integer = binding.specFlags or flags
+            requireNotNull(pkg.getSpecTypePair(binding.typeId))
+                .specBlock
+                .getSpecFlag(binding.entryId)
+                .integer = binding.specFlags or flags
         }
         apk.refreshTable()
         freezeCanonicalTable(apk, table)
@@ -110,38 +133,50 @@ object MonetRuntimePackageWriter {
     /**
      * WeChat's configs for [binding], each paired with whether it takes the night value. When the
      * target has a night value but WeChat never declares a night config, a night twin of every
-     * config is added: uiMode ranks above density/version in `ResTable_config::isBetterThan`, so the
-     * twins win as better matches instead of relying on equal-config overlay. A config whose side
-     * has no value is skipped by the caller, leaving WeChat's value in effect for that mode.
+     * config is added: uiMode ranks above density/version in `ResTable_config::isBetterThan`, so
+     * the twins win as better matches instead of relying on equal-config overlay. A config whose
+     * side has no value is skipped by the caller, leaving WeChat's value in effect for that mode.
      */
     fun configsFor(binding: MonetBinding, hasNight: Boolean): List<Pair<ResConfig, Boolean>> {
         val declared = binding.qualifiers.ifEmpty { listOf("") }.map(ResConfig::parse)
-        val twins = if (hasNight && declared.none { it.isNight }) {
-            declared.map { config ->
-                ResConfig().apply {
-                    copyFrom(config)
-                    uiModeNight = ResConfig.UiModeNight.NIGHT
+        val twins =
+            if (hasNight && declared.none { it.isNight }) {
+                declared.map { config ->
+                    ResConfig().apply {
+                        copyFrom(config)
+                        uiModeNight = ResConfig.UiModeNight.NIGHT
+                    }
                 }
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
         return (declared + twins).distinctBy { it.qualifiers }.map { it to it.isNight }
     }
 
-    private val ResConfig.isNight: Boolean get() = uiModeNight == ResConfig.UiModeNight.NIGHT
+    private val ResConfig.isNight: Boolean
+        get() = uiModeNight == ResConfig.UiModeNight.NIGHT
 
-    private val MonetBinding.typeId: Int get() = id ushr 16 and 0xff
-    private val MonetBinding.entryId: Int get() = id and 0xffff
+    private val MonetBinding.typeId: Int
+        get() = id ushr 16 and 0xff
+
+    private val MonetBinding.entryId: Int
+        get() = id and 0xffff
 
     /** Names the entry after [setValue]: assigning a value rebuilds the entry's table record. */
-    private fun PackageBlock.entry(binding: MonetBinding, config: ResConfig, setValue: Entry.() -> Unit) {
-        require(binding.id ushr 24 == PACKAGE_ID) { "not a WeChat resource: ${binding.id.toUInt().toString(16)}" }
+    private fun PackageBlock.entry(
+        binding: MonetBinding,
+        config: ResConfig,
+        setValue: Entry.() -> Unit,
+    ) {
+        require(binding.id ushr 24 == PACKAGE_ID) {
+            "not a WeChat resource: ${binding.id.toUInt().toString(16)}"
+        }
         require(typeNameOf(binding.typeId) == binding.type) {
             "type ${binding.typeId} is ${typeNameOf(binding.typeId)}, expected ${binding.type}"
         }
-        val entry = getOrCreateSpecTypePair(binding.typeId, binding.type)
-            .getOrCreateEntry(binding.entryId.toShort(), config)
+        val entry =
+            getOrCreateSpecTypePair(binding.typeId, binding.type)
+                .getOrCreateEntry(binding.entryId.toShort(), config)
         entry.setValue()
         entry.name = binding.name
     }
@@ -175,9 +210,9 @@ object MonetRuntimePackageWriter {
     }
 
     /**
-     * ARSCLib 1.4.0 leaves several aapt2 resource-table fields unset when a table is created
-     * from scratch. Android's readers are not required to repair those fields. Freeze a canonical
-     * byte source after the final refresh so a later BlockInputSource refresh cannot erase them.
+     * ARSCLib 1.4.0 leaves several aapt2 resource-table fields unset when a table is created from
+     * scratch. Android's readers are not required to repair those fields. Freeze a canonical byte
+     * source after the final refresh so a later BlockInputSource refresh cannot erase them.
      */
     private fun freezeCanonicalTable(apk: ApkModule, table: TableBlock) {
         val bytes = table.bytes
@@ -197,10 +232,12 @@ object MonetRuntimePackageWriter {
         }
 
         apk.removeInputSource(TableBlock.FILE_NAME)
-        apk.add(ByteInputSource(bytes, TableBlock.FILE_NAME).apply {
-            method = ZipEntry.STORED
-            sort = 1
-        })
+        apk.add(
+            ByteInputSource(bytes, TableBlock.FILE_NAME).apply {
+                method = ZipEntry.STORED
+                sort = 1
+            },
+        )
     }
 
     private fun putU16(bytes: ByteArray, offset: Int, value: Int) {

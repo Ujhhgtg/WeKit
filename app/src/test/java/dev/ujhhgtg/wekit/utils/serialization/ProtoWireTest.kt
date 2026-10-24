@@ -7,14 +7,35 @@ import org.junit.jupiter.api.Test
 
 class ProtoWireTest {
 
-    // field 1: string "a"; field 5: string "hi"; field 7: varint 300; field 11: fixed64; field 12: fixed32
-    private val message = byteArrayOf(
-        0x0A, 0x01, 'a'.code.toByte(),
-        0x2A, 0x02, 'h'.code.toByte(), 'i'.code.toByte(),
-        0x38, 0xAC.toByte(), 0x02,
-        0x59, 1, 2, 3, 4, 5, 6, 7, 8,
-        0x65, 1, 2, 3, 4,
-    )
+    // field 1: string "a"; field 5: string "hi"; field 7: varint 300; field 11: fixed64; field 12:
+    // fixed32
+    private val message =
+        byteArrayOf(
+            0x0A,
+            0x01,
+            'a'.code.toByte(),
+            0x2A,
+            0x02,
+            'h'.code.toByte(),
+            'i'.code.toByte(),
+            0x38,
+            0xAC.toByte(),
+            0x02,
+            0x59,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            0x65,
+            1,
+            2,
+            3,
+            4,
+        )
 
     @Test
     fun readsFieldsAcrossAllWireTypes() {
@@ -31,7 +52,10 @@ class ProtoWireTest {
 
         assertEquals("你好", ProtoWire.string(edited, 5))
         assertArrayEquals(message.copyOfRange(0, 3), edited.copyOfRange(0, 3))
-        assertArrayEquals(message.copyOfRange(7, message.size), edited.copyOfRange(edited.size - (message.size - 7), edited.size))
+        assertArrayEquals(
+            message.copyOfRange(7, message.size),
+            edited.copyOfRange(edited.size - (message.size - 7), edited.size),
+        )
     }
 
     @Test

@@ -16,10 +16,12 @@ inline fun showToast(context: Context, content: String) {
 
 inline fun showToast(content: String) = showToast(HostInfo.application, content)
 
-suspend inline fun showToastSuspend(context: Context, content: String) = withContext(Dispatchers.Main) {
-    showToast(context, content)
-}
+suspend inline fun showToastSuspend(context: Context, content: String) =
+    withContext(Dispatchers.Main) {
+        showToast(context, content)
+    }
 
-suspend inline fun showToastSuspend(content: String) = withContext(Dispatchers.Main) {
-    showToast(content)
-}
+suspend inline fun showToastSuspend(content: String) =
+    withContext(Dispatchers.Main) {
+        showToast(content)
+    }

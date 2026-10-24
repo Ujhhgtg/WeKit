@@ -1,20 +1,21 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlin.time.TimeSource
 
 sealed interface DexResolutionEvent {
     val item: IResolveDex
 
     data class Start(override val item: IResolveDex) : DexResolutionEvent
+
     data class Finished(
         override val item: IResolveDex,
         val error: Exception?,
@@ -50,18 +51,23 @@ suspend fun resolveDexBatch(
                             val item = roots[index]
                             events.send(DexResolutionEvent.Start(item))
                             val started = TimeSource.Monotonic.markNow()
-                            val error = try {
-                                item.resolveAllDex(host, coordinator, dexSql)
-                                null
-                            } catch (error: CancellationException) {
-                                throw error
-                            } catch (error: Exception) {
-                                error
-                            }
+                            val error =
+                                try {
+                                    item.resolveAllDex(host, coordinator, dexSql)
+                                    null
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Exception) {
+                                    error
+                                }
                             ensureActive()
-                            events.send(DexResolutionEvent.Finished(
-                                item, error, started.elapsedNow().inWholeMilliseconds,
-                            ))
+                            events.send(
+                                DexResolutionEvent.Finished(
+                                    item,
+                                    error,
+                                    started.elapsedNow().inWholeMilliseconds,
+                                ),
+                            )
                         }
                     }
                 }

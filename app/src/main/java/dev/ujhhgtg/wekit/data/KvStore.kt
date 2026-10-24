@@ -8,18 +8,20 @@ import kotlin.reflect.KProperty
 /**
  * Global key-value store backed by the unified Room database.
  *
- * The SQL work is deliberately kept small and indexed so host hooks can read synchronously;
- * larger documents and assets use their own repositories.
+ * The SQL work is deliberately kept small and indexed so host hooks can read synchronously; larger
+ * documents and assets use their own repositories.
  */
 object KvStore {
     /** Room namespace of every global preference row. */
     private const val NAMESPACE = "wekit_prefs"
 
-    private val database get() = WeKitDatabase.instance
-    private val sql get() = database.openHelper.writableDatabase
+    private val database
+        get() = WeKitDatabase.instance
 
-    @Volatile
-    private var initialized = false
+    private val sql
+        get() = database.openHelper.writableDatabase
+
+    @Volatile private var initialized = false
 
     /**
      * Defers database opening to the first preference access. Feature classes initialize their
@@ -67,12 +69,20 @@ object KvStore {
 
     fun getObject(key: String): Any? {
         val entry = read(key) ?: return null
-        return decode(entry.valueType, entry.valueText, entry.valueLong, entry.valueDouble, entry.valueBlob, key)
+        return decode(
+            entry.valueType,
+            entry.valueText,
+            entry.valueLong,
+            entry.valueDouble,
+            entry.valueBlob,
+            key,
+        )
     }
 
     fun getBytes(key: String, defValue: ByteArray?): ByteArray? = read(key)?.valueBlob ?: defValue
 
-    fun getBytesOrDefault(key: String, defValue: ByteArray): ByteArray = getBytes(key, null) ?: defValue
+    fun getBytesOrDefault(key: String, defValue: ByteArray): ByteArray =
+        getBytes(key, null) ?: defValue
 
     // ── Write helpers ─────────────────────────────────────────────────────────
 
@@ -84,7 +94,10 @@ object KvStore {
         ensureInitialized()
         transaction {
             write(key, TYPE_STRING_SET)
-            sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
+            sql.execSQL(
+                "DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?",
+                arrayOf(NAMESPACE, key),
+            )
             values.forEach {
                 sql.execSQL(
                     "INSERT OR REPLACE INTO preference_set_members(namespace, `key`, member) VALUES (?, ?, ?)",
@@ -109,7 +122,8 @@ object KvStore {
             is Boolean -> putBool(key, obj)
             is Int -> putInt(key, obj)
             is Long -> putLong(key, obj)
-            is Float, is Double -> putFloat(key, (obj as Number).toFloat())
+            is Float,
+            is Double -> putFloat(key, (obj as Number).toFloat())
             is String -> putString(key, obj)
             is Set<*> -> putStringSet(key, obj.filterIsInstance<String>().toSet())
             is ByteArray -> putBytes(key, obj)
@@ -120,8 +134,14 @@ object KvStore {
     fun remove(key: String) {
         ensureInitialized()
         transaction {
-            sql.execSQL("DELETE FROM preference_entries WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
-            sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
+            sql.execSQL(
+                "DELETE FROM preference_entries WHERE namespace = ? AND `key` = ?",
+                arrayOf(NAMESPACE, key),
+            )
+            sql.execSQL(
+                "DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?",
+                arrayOf(NAMESPACE, key),
+            )
         }
     }
 
@@ -129,7 +149,10 @@ object KvStore {
         ensureInitialized()
         transaction {
             sql.execSQL("DELETE FROM preference_entries WHERE namespace = ?", arrayOf(NAMESPACE))
-            sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ?", arrayOf(NAMESPACE))
+            sql.execSQL(
+                "DELETE FROM preference_set_members WHERE namespace = ?",
+                arrayOf(NAMESPACE),
+            )
         }
     }
 
@@ -137,7 +160,8 @@ object KvStore {
 
     fun prefOption(key: String, default: String): ReadWriteProperty<Any?, String> =
         object : ReadWriteProperty<Any?, String> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): String = getStringOrDef(key, default)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): String =
+                getStringOrDef(key, default)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
                 putString(key, value)
@@ -146,7 +170,8 @@ object KvStore {
 
     fun prefOption(key: String, default: Int): ReadWriteProperty<Any?, Int> =
         object : ReadWriteProperty<Any?, Int> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): Int = getIntOrDef(key, default)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): Int =
+                getIntOrDef(key, default)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: Int) {
                 putInt(key, value)
@@ -155,7 +180,8 @@ object KvStore {
 
     fun prefOption(key: String, defValue: Boolean): ReadWriteProperty<Any?, Boolean> =
         object : ReadWriteProperty<Any?, Boolean> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): Boolean = getBoolean(key, defValue)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): Boolean =
+                getBoolean(key, defValue)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: Boolean) {
                 putBool(key, value)
@@ -164,7 +190,8 @@ object KvStore {
 
     fun prefOption(key: String, default: Long): ReadWriteProperty<Any?, Long> =
         object : ReadWriteProperty<Any?, Long> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): Long = getLongOrDef(key, default)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): Long =
+                getLongOrDef(key, default)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: Long) {
                 putLong(key, value)
@@ -173,7 +200,8 @@ object KvStore {
 
     fun prefOption(key: String, default: Float): ReadWriteProperty<Any?, Float> =
         object : ReadWriteProperty<Any?, Float> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): Float = getFloatOrDef(key, default)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): Float =
+                getFloatOrDef(key, default)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: Float) {
                 putFloat(key, value)
@@ -203,7 +231,8 @@ object KvStore {
     @JvmName("prefOptionNullable")
     fun prefOption(key: String, defValue: String?): ReadWriteProperty<Any?, String?> =
         object : ReadWriteProperty<Any?, String?> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): String? = getStringOrDef(key, defValue)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): String? =
+                getStringOrDef(key, defValue)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: String?) {
                 if (value != null) putString(key, value) else remove(key)
@@ -213,7 +242,8 @@ object KvStore {
     @JvmName("prefOptionNullableBytes")
     fun prefOption(key: String, defValue: ByteArray?): ReadWriteProperty<Any?, ByteArray?> =
         object : ReadWriteProperty<Any?, ByteArray?> {
-            override fun getValue(thisRef: Any?, property: KProperty<*>): ByteArray? = getBytes(key, defValue)
+            override fun getValue(thisRef: Any?, property: KProperty<*>): ByteArray? =
+                getBytes(key, defValue)
 
             override fun setValue(thisRef: Any?, property: KProperty<*>, value: ByteArray?) {
                 if (value != null) putBytes(key, value) else remove(key)
@@ -244,9 +274,11 @@ object KvStore {
 
     private fun getLong(key: String, defValue: Long): Long = read(key)?.valueLong ?: defValue
 
-    private fun getFloat(key: String, defValue: Float): Float = read(key)?.valueDouble?.toFloat() ?: defValue
+    private fun getFloat(key: String, defValue: Float): Float =
+        read(key)?.valueDouble?.toFloat() ?: defValue
 
-    private fun getString(key: String, defValue: String?): String? = read(key)?.valueText ?: defValue
+    private fun getString(key: String, defValue: String?): String? =
+        read(key)?.valueText ?: defValue
 
     private fun getStringSet(key: String, defValues: Set<String>?): Set<String>? {
         ensureInitialized()
@@ -255,17 +287,18 @@ object KvStore {
         var valueType: String? = null
         val members = LinkedHashSet<String>()
         sql.query(
-            "SELECT e.valueType, m.member FROM preference_entries e " +
+                "SELECT e.valueType, m.member FROM preference_entries e " +
                     "LEFT JOIN preference_set_members m " +
                     "ON m.namespace = e.namespace AND m.`key` = e.`key` " +
                     "WHERE e.namespace = ? AND e.`key` = ? ORDER BY m.member",
-            arrayOf(NAMESPACE, key),
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                valueType = cursor.getString(0)
-                if (!cursor.isNull(1)) members += cursor.getString(1)
+                arrayOf(NAMESPACE, key),
+            )
+            .use { cursor ->
+                while (cursor.moveToNext()) {
+                    valueType = cursor.getString(0)
+                    if (!cursor.isNull(1)) members += cursor.getString(1)
+                }
             }
-        }
         if (valueType != TYPE_STRING_SET) return defValues
         return members
     }
@@ -273,43 +306,82 @@ object KvStore {
     private fun read(key: String): PreferenceEntryEntity? {
         ensureInitialized()
         sql.query(
-            "SELECT namespace, `key`, valueType, valueText, valueLong, valueDouble, valueBlob, encodingVersion, revision, updatedAt, exportable FROM preference_entries WHERE namespace = ? AND `key` = ?",
-            arrayOf(NAMESPACE, key),
-        ).use { cursor ->
-            if (!cursor.moveToFirst()) return null
-            return PreferenceEntryEntity(
-                namespace = cursor.getString(0), key = cursor.getString(1), valueType = cursor.getString(2),
-                valueText = cursor.getStringOrNull(3), valueLong = cursor.getLongOrNull(4), valueDouble = cursor.getDoubleOrNull(5),
-                valueBlob = cursor.getBlobOrNull(6), encodingVersion = cursor.getInt(7), revision = cursor.getLong(8), updatedAt = cursor.getLong(9), exportable = cursor.getInt(10) != 0,
+                "SELECT namespace, `key`, valueType, valueText, valueLong, valueDouble, valueBlob, encodingVersion, revision, updatedAt, exportable FROM preference_entries WHERE namespace = ? AND `key` = ?",
+                arrayOf(NAMESPACE, key),
             )
-        }
+            .use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                return PreferenceEntryEntity(
+                    namespace = cursor.getString(0),
+                    key = cursor.getString(1),
+                    valueType = cursor.getString(2),
+                    valueText = cursor.getStringOrNull(3),
+                    valueLong = cursor.getLongOrNull(4),
+                    valueDouble = cursor.getDoubleOrNull(5),
+                    valueBlob = cursor.getBlobOrNull(6),
+                    encodingVersion = cursor.getInt(7),
+                    revision = cursor.getLong(8),
+                    updatedAt = cursor.getLong(9),
+                    exportable = cursor.getInt(10) != 0,
+                )
+            }
     }
 
-    private fun write(key: String, type: String, text: String? = null, long: Long? = null, double: Double? = null, blob: ByteArray? = null) {
+    private fun write(
+        key: String,
+        type: String,
+        text: String? = null,
+        long: Long? = null,
+        double: Double? = null,
+        blob: ByteArray? = null,
+    ) {
         ensureInitialized()
         transaction {
             sql.execSQL(
                 "INSERT OR REPLACE INTO preference_entries(namespace, `key`, valueType, valueText, valueLong, valueDouble, valueBlob, encodingVersion, revision, updatedAt, exportable) VALUES (?, ?, ?, ?, ?, ?, ?, 1, COALESCE((SELECT revision + 1 FROM preference_entries WHERE namespace = ? AND `key` = ?), 1), ?, ?)",
-                arrayOf(NAMESPACE, key, type, text, long, double, blob, NAMESPACE, key, System.currentTimeMillis(), if (key == "payment_pswd_encdata") 0 else 1),
+                arrayOf(
+                    NAMESPACE,
+                    key,
+                    type,
+                    text,
+                    long,
+                    double,
+                    blob,
+                    NAMESPACE,
+                    key,
+                    System.currentTimeMillis(),
+                    if (key == "payment_pswd_encdata") 0 else 1,
+                ),
             )
             if (type != TYPE_STRING_SET) {
                 // Replacing a set with a scalar must remove its normalized members in the same
                 // transaction as the entry replacement; otherwise stale members survive forever.
-                sql.execSQL("DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?", arrayOf(NAMESPACE, key))
+                sql.execSQL(
+                    "DELETE FROM preference_set_members WHERE namespace = ? AND `key` = ?",
+                    arrayOf(NAMESPACE, key),
+                )
             }
         }
     }
 
-    private fun decode(type: String, text: String?, long: Long?, double: Double?, blob: ByteArray?, key: String): Any? = when (type) {
-        TYPE_BOOL -> long?.let { it != 0L }
-        TYPE_INT -> long?.toInt()
-        TYPE_LONG -> long
-        TYPE_FLOAT -> double?.toFloat()
-        TYPE_STRING -> text
-        TYPE_STRING_SET -> getStringSet(key, emptySet())
-        TYPE_BYTES -> blob
-        else -> null
-    }
+    private fun decode(
+        type: String,
+        text: String?,
+        long: Long?,
+        double: Double?,
+        blob: ByteArray?,
+        key: String,
+    ): Any? =
+        when (type) {
+            TYPE_BOOL -> long?.let { it != 0L }
+            TYPE_INT -> long?.toInt()
+            TYPE_LONG -> long
+            TYPE_FLOAT -> double?.toFloat()
+            TYPE_STRING -> text
+            TYPE_STRING_SET -> getStringSet(key, emptySet())
+            TYPE_BYTES -> blob
+            else -> null
+        }
 
     /** Runs a small preference mutation atomically, reusing an enclosing transaction. */
     private inline fun <T> transaction(block: () -> T): T {
@@ -325,11 +397,11 @@ object KvStore {
     private fun cleanupOrphanStringSetMembers() {
         sql.execSQL(
             "DELETE FROM preference_set_members " +
-                    "WHERE namespace = ? AND NOT EXISTS (" +
-                    "SELECT 1 FROM preference_entries e " +
-                    "WHERE e.namespace = preference_set_members.namespace " +
-                    "AND e.`key` = preference_set_members.`key` " +
-                    "AND e.valueType = ?)",
+                "WHERE namespace = ? AND NOT EXISTS (" +
+                "SELECT 1 FROM preference_entries e " +
+                "WHERE e.namespace = preference_set_members.namespace " +
+                "AND e.`key` = preference_set_members.`key` " +
+                "AND e.valueType = ?)",
             arrayOf(NAMESPACE, TYPE_STRING_SET),
         )
     }
@@ -344,7 +416,14 @@ object KvStore {
 }
 
 private fun Long.toIntOrNull(type: String?): Int? = if (type == "int") toInt() else null
-private fun Cursor.getStringOrNull(index: Int): String? = if (isNull(index)) null else getString(index)
+
+private fun Cursor.getStringOrNull(index: Int): String? =
+    if (isNull(index)) null else getString(index)
+
 private fun Cursor.getLongOrNull(index: Int): Long? = if (isNull(index)) null else getLong(index)
-private fun Cursor.getDoubleOrNull(index: Int): Double? = if (isNull(index)) null else getDouble(index)
-private fun Cursor.getBlobOrNull(index: Int): ByteArray? = if (isNull(index)) null else getBlob(index)
+
+private fun Cursor.getDoubleOrNull(index: Int): Double? =
+    if (isNull(index)) null else getDouble(index)
+
+private fun Cursor.getBlobOrNull(index: Int): ByteArray? =
+    if (isNull(index)) null else getBlob(index)

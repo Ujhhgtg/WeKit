@@ -22,9 +22,13 @@ import androidx.compose.ui.zIndex
  * [reorderableItem], its drag handle [reorderHandle]. Items shift live while dragging; [onMove]
  * runs once on release with the original and target index.
  */
-class AutomationReorderState(private val onMove: (from: Int, to: Int) -> Unit, private val onStart: () -> Unit) {
+class AutomationReorderState(
+    private val onMove: (from: Int, to: Int) -> Unit,
+    private val onStart: () -> Unit,
+) {
     var dragged by mutableStateOf<Int?>(null)
         private set
+
     private var offset by mutableFloatStateOf(0f)
     private val tops = HashMap<Int, Float>()
     private val heights = HashMap<Int, Int>()
@@ -101,21 +105,22 @@ fun rememberAutomationReorderState(onMove: (from: Int, to: Int) -> Unit): Automa
     }
 }
 
-fun Modifier.reorderableItem(state: AutomationReorderState, index: Int): Modifier = this
-    .onGloballyPositioned { state.place(index, it.positionInParent().y, it.size.height) }
-    .zIndex(if (state.dragged == index) 1f else 0f)
-    .graphicsLayer {
-        translationY = state.translation(index)
-        if (state.dragged == index) shadowElevation = 12f
-    }
+fun Modifier.reorderableItem(state: AutomationReorderState, index: Int): Modifier =
+    this.onGloballyPositioned { state.place(index, it.positionInParent().y, it.size.height) }
+        .zIndex(if (state.dragged == index) 1f else 0f)
+        .graphicsLayer {
+            translationY = state.translation(index)
+            if (state.dragged == index) shadowElevation = 12f
+        }
 
-fun Modifier.reorderHandle(state: AutomationReorderState, index: Int): Modifier = pointerInput(state, index) {
-    detectDragGestures(
-        onDragStart = { state.start(index) },
-        onDragEnd = { state.end() },
-        onDragCancel = { state.cancel() },
-    ) { change, amount ->
-        change.consume()
-        state.drag(amount.y)
+fun Modifier.reorderHandle(state: AutomationReorderState, index: Int): Modifier =
+    pointerInput(state, index) {
+        detectDragGestures(
+            onDragStart = { state.start(index) },
+            onDragEnd = { state.end() },
+            onDragCancel = { state.cancel() },
+        ) { change, amount ->
+            change.consume()
+            state.drag(amount.y)
+        }
     }
-}

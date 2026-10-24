@@ -1,18 +1,18 @@
 package dev.ujhhgtg.wekit.agent.bridge
 
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
+import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.security.SecureRandom
 import kotlin.coroutines.CoroutineContext
-import dev.ujhhgtg.wekit.agent.terminal.TerminalManager
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class ToolBridgeServer(
     private val registry: ToolRegistry,
@@ -23,7 +23,8 @@ class ToolBridgeServer(
     private val tokens = java.util.concurrent.ConcurrentHashMap<String, ToolBridgeSession>()
     private val connectionPermits = java.util.concurrent.Semaphore(MAX_CONNECTIONS)
     private var server: ServerSocket? = null
-    val port: Int get() = server?.localPort ?: error("bridge is not running")
+    val port: Int
+        get() = server?.localPort ?: error("bridge is not running")
 
     fun start(): Int {
         check(server == null)
@@ -31,9 +32,15 @@ class ToolBridgeServer(
         scope.launch(Dispatchers.IO) {
             while (true) {
                 val socket = runCatching { server!!.accept() }.getOrNull() ?: break
-                if (!connectionPermits.tryAcquire()) socket.close() else launch(Dispatchers.IO) {
-                    try { serve(socket) } finally { connectionPermits.release() }
-                }
+                if (!connectionPermits.tryAcquire()) socket.close()
+                else
+                    launch(Dispatchers.IO) {
+                        try {
+                            serve(socket)
+                        } finally {
+                            connectionPermits.release()
+                        }
+                    }
             }
         }
         return port
@@ -46,13 +53,30 @@ class ToolBridgeServer(
         visibility: ToolVisibility,
         context: CoroutineContext,
     ): ToolBridgeSession {
-        val token = ByteArray(ToolBridgeProtocol.TOKEN_BYTES).also(SecureRandom()::nextBytes)
-            .joinToString("") { "%02x".format(it) }
-        return ToolBridgeSession(registry, executorFactory(owner), visibility, context, token, owner, audit,
-            environmentId, parentToolCallId).also { tokens[token] = it }
+        val token =
+            ByteArray(ToolBridgeProtocol.TOKEN_BYTES).also(SecureRandom()::nextBytes).joinToString(
+                "",
+            ) {
+                "%02x".format(it)
+            }
+        return ToolBridgeSession(
+                registry,
+                executorFactory(owner),
+                visibility,
+                context,
+                token,
+                owner,
+                audit,
+                environmentId,
+                parentToolCallId,
+            )
+            .also { tokens[token] = it }
     }
 
-    fun revoke(session: ToolBridgeSession) { tokens.remove(session.token); session.revoke() }
+    fun revoke(session: ToolBridgeSession) {
+        tokens.remove(session.token)
+        session.revoke()
+    }
 
     suspend fun <T> withOneShot(
         owner: String,
@@ -63,7 +87,11 @@ class ToolBridgeServer(
         block: suspend (Endpoint) -> T,
     ): T {
         val session = open(owner, environmentId, parentToolCallId, visibility, context)
-        return try { block(Endpoint(port, session.token)) } finally { revoke(session) }
+        return try {
+            block(Endpoint(port, session.token))
+        } finally {
+            revoke(session)
+        }
     }
 
     suspend fun openForTerminal(
@@ -85,10 +113,11 @@ class ToolBridgeServer(
     }
 
     data class Endpoint(val port: Int, val token: String) {
-        fun environment(): Map<String, String> = mapOf(
-            "WEAGENT_BRIDGE_PORT" to port.toString(),
-            "WEAGENT_BRIDGE_TOKEN" to token,
-        )
+        fun environment(): Map<String, String> =
+            mapOf(
+                "WEAGENT_BRIDGE_PORT" to port.toString(),
+                "WEAGENT_BRIDGE_TOKEN" to token,
+            )
 
         fun environment(remoteForwardPort: Int): Map<String, String> {
             require(remoteForwardPort in 1..65535)
@@ -99,7 +128,12 @@ class ToolBridgeServer(
         }
     }
 
-    fun close() { server?.close(); server = null; tokens.values.forEach(ToolBridgeSession::revoke); tokens.clear() }
+    fun close() {
+        server?.close()
+        server = null
+        tokens.values.forEach(ToolBridgeSession::revoke)
+        tokens.clear()
+    }
 
     private fun serve(socket: java.net.Socket) {
         socket.use {
@@ -107,12 +141,17 @@ class ToolBridgeServer(
             val frame = runCatching { ToolBridgeProtocol.read(it.getInputStream()) }.getOrNull()
             if (frame == null) return
             val session = tokens[frame.token]
-            val response = if (session == null) "{\"ok\":false,\"error\":\"unauthorized\"}" else
-                kotlinx.coroutines.runBlocking { withTimeout(REQUEST_TIMEOUT_MS) { session.handle(frame.payload) } }
-            val writeDeadline = scope.launch(Dispatchers.IO) {
-                delay(SOCKET_TIMEOUT_MS.toLong())
-                runCatching { it.close() }
-            }
+            val response =
+                if (session == null) "{\"ok\":false,\"error\":\"unauthorized\"}"
+                else
+                    kotlinx.coroutines.runBlocking {
+                        withTimeout(REQUEST_TIMEOUT_MS) { session.handle(frame.payload) }
+                    }
+            val writeDeadline =
+                scope.launch(Dispatchers.IO) {
+                    delay(SOCKET_TIMEOUT_MS.toLong())
+                    runCatching { it.close() }
+                }
             try {
                 ToolBridgeProtocol.write(it.getOutputStream(), frame.token, response)
             } finally {

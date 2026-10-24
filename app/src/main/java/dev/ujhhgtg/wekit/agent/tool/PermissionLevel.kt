@@ -8,7 +8,8 @@ package dev.ujhhgtg.wekit.agent.tool
  * - [REQUEST_APPROVAL]: side-effect-free tools run directly; everything else waits for a manual
  *   decision.
  * - [AUTO_EDIT]: like REQUEST_APPROVAL, but the builtin `edit` tool also runs directly.
- * - [AUTO_APPROVAL]: side-effect-free tools run directly; the rest get the small-model smart review.
+ * - [AUTO_APPROVAL]: side-effect-free tools run directly; the rest get the small-model smart
+ *   review.
  * - [FULL_ACCESS]: every tool runs directly.
  *
  * Declaration order is the user-facing order (settings picker + panel menu).

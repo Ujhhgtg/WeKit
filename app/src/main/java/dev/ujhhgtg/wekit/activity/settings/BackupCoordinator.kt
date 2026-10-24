@@ -3,10 +3,11 @@ package dev.ujhhgtg.wekit.activity.settings
 import android.content.Context
 import android.os.Build
 import dev.ujhhgtg.wekit.BuildConfig
-import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.restartHost
+import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -20,38 +21,36 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
 /**
  * Creates and restores the user-facing WeKit backup format.
  *
- * The archive deliberately has a small, explicit allow-list. Runtime artifacts, caches,
- * diagnostics and host data are never discovered by walking the whole module directory.
+ * The archive deliberately has a small, explicit allow-list. Runtime artifacts, caches, diagnostics
+ * and host data are never discovered by walking the whole module directory.
  */
 object BackupCoordinator {
     private const val FORMAT_VERSION = 1
     private const val MANIFEST = "manifest.json"
     private const val DATABASE = "wekit.sqlite"
 
-    private val managedDirectories = listOf(
-        "assets",
-        "themes",
-        "sticker_panel",
-        "voice_panel",
-        "scripts_java",
-        "scripts_python",
-        "agent/skills",
-        "python/data",
-    )
+    private val managedDirectories =
+        listOf(
+            "assets",
+            "themes",
+            "sticker_panel",
+            "voice_panel",
+            "scripts_java",
+            "scripts_python",
+            "agent/skills",
+            "python/data",
+        )
 
     /** Explicitly owned root files. Caches and logs are intentionally excluded. */
     private val managedFiles = emptyList<String>()
@@ -74,48 +73,55 @@ object BackupCoordinator {
         val files: List<ManifestFile>,
     )
 
-    fun create(context: Context, output: File): Result = withStorageLock(context) {
-        val root = storageRoot(context)
-        require(root.isDirectory) { "WeKit 数据目录不存在" }
-        val database = WeKitDatabase.file
-        require(database.isFile) { "统一数据库不存在，无法创建完整备份" }
+    fun create(context: Context, output: File): Result =
+        withStorageLock(context) {
+            val root = storageRoot(context)
+            require(root.isDirectory) { "WeKit 数据目录不存在" }
+            val database = WeKitDatabase.file
+            require(database.isFile) { "统一数据库不存在，无法创建完整备份" }
 
-        val scratch = File(context.cacheDir, ".wekit-backup-${UUID.randomUUID()}.sqlite")
-        val files = ArrayList<ManifestFile>()
-        val extensions = installedExtensions()
-        try {
-            snapshotDatabase(database, scratch)
-            files += ManifestFile(DATABASE, scratch.length(), sha256(scratch))
-            val schemaVersion = databaseSchemaVersion(scratch)
-            ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
-                writeFile(zip, MANIFEST, manifestJson(context, files, extensions, schemaVersion).toByteArray(Charsets.UTF_8))
-                writeFile(zip, DATABASE, scratch)
-                for (directory in managedDirectories) {
-                    val source = File(root, directory)
-                    if (!source.isDirectory) continue
-                    source.walkTopDown()
-                        .filter { it.isFile && !it.isSymbolicLink() }
-                        .forEach { file ->
-                            val relative = file.relativeTo(source).invariantSeparatorsPath
-                            val archivePath = "$directory/$relative"
-                            files += ManifestFile(archivePath, file.length(), sha256(file))
-                            writeFile(zip, archivePath, file)
-                        }
+            val scratch = File(context.cacheDir, ".wekit-backup-${UUID.randomUUID()}.sqlite")
+            val files = ArrayList<ManifestFile>()
+            val extensions = installedExtensions()
+            try {
+                snapshotDatabase(database, scratch)
+                files += ManifestFile(DATABASE, scratch.length(), sha256(scratch))
+                val schemaVersion = databaseSchemaVersion(scratch)
+                ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
+                    writeFile(
+                        zip,
+                        MANIFEST,
+                        manifestJson(context, files, extensions, schemaVersion)
+                            .toByteArray(Charsets.UTF_8),
+                    )
+                    writeFile(zip, DATABASE, scratch)
+                    for (directory in managedDirectories) {
+                        val source = File(root, directory)
+                        if (!source.isDirectory) continue
+                        source
+                            .walkTopDown()
+                            .filter { it.isFile && !it.isSymbolicLink() }
+                            .forEach { file ->
+                                val relative = file.relativeTo(source).invariantSeparatorsPath
+                                val archivePath = "$directory/$relative"
+                                files += ManifestFile(archivePath, file.length(), sha256(file))
+                                writeFile(zip, archivePath, file)
+                            }
+                    }
+                    for (relative in managedFiles) {
+                        val source = File(root, relative)
+                        if (!source.isFile || source.isSymbolicLink()) continue
+                        files += ManifestFile(relative, source.length(), sha256(source))
+                        writeFile(zip, relative, source)
+                    }
                 }
-                for (relative in managedFiles) {
-                    val source = File(root, relative)
-                    if (!source.isFile || source.isSymbolicLink()) continue
-                    files += ManifestFile(relative, source.length(), sha256(source))
-                    writeFile(zip, relative, source)
-                }
+                // The manifest must describe all entries, including the files added after the DB.
+                rewriteManifest(output, context, files, extensions, schemaVersion)
+                return@withStorageLock Result(output, files.size)
+            } finally {
+                scratch.delete()
             }
-            // The manifest must describe all entries, including the files added after the DB.
-            rewriteManifest(output, context, files, extensions, schemaVersion)
-            return@withStorageLock Result(output, files.size)
-        } finally {
-            scratch.delete()
         }
-    }
 
     /** Writes a package to the app-private backup directory before an import replaces data. */
     fun createPreImportBackup(context: Context): File {
@@ -147,12 +153,20 @@ object BackupCoordinator {
             checkHashes(staging, manifest.files)
 
             return withStorageLock(context) {
-                // This callback point is intentionally kept in one place: the database owner can close
-                // its Room instance before the file swap without making import know its implementation.
+                // This callback point is intentionally kept in one place: the database owner can
+                // close
+                // its Room instance before the file swap without making import know its
+                // implementation.
                 beforeDatabaseReplace?.invoke()
                 val oldRoot = File(root.parentFile, ".wekit-before-import-${UUID.randomUUID()}")
                 BackupManagedDataReplacement.replace(
-                    root, staging, oldRoot, WeKitDatabase.file, managedDirectories, managedFiles, DATABASE,
+                    root,
+                    staging,
+                    oldRoot,
+                    WeKitDatabase.file,
+                    managedDirectories,
+                    managedFiles,
+                    DATABASE,
                 )
                 oldRoot.deleteRecursively()
                 ImportResult(manifest.files.size)
@@ -171,14 +185,15 @@ object BackupCoordinator {
      * Clears every module-owned path under the managed root. Host files and public Downloads are
      * intentionally outside this root and are never touched.
      */
-    fun clearAll(context: Context) = withStorageLock(context) {
-        beforeDatabaseReplace?.invoke()
-        val root = storageRoot(context)
-        root.deleteRecursively()
-        // Runtime artifacts kept outside the managed root.
-        File(HostInfo.application.dataDir, ".wekit-native").deleteRecursively()
-        File(HostInfo.application.codeCacheDir, "generated_proxy_classes").deleteRecursively()
-    }
+    fun clearAll(context: Context) =
+        withStorageLock(context) {
+            beforeDatabaseReplace?.invoke()
+            val root = storageRoot(context)
+            root.deleteRecursively()
+            // Runtime artifacts kept outside the managed root.
+            File(HostInfo.application.dataDir, ".wekit-native").deleteRecursively()
+            File(HostInfo.application.codeCacheDir, "generated_proxy_classes").deleteRecursively()
+        }
 
     fun storageRoot(context: Context): File = File(context.filesDir, "wekit")
 
@@ -188,31 +203,46 @@ object BackupCoordinator {
         extensions: List<ExtensionRequirement>,
         schemaVersion: Int,
     ): String =
-        DefaultJson.encodeToString(buildJsonObject {
-            put("formatVersion", FORMAT_VERSION)
-            put("packageName", context.packageName)
-            put("moduleVersion", BuildConfig.VERSION_NAME)
-            put("schemaVersion", schemaVersion)
-            put("abis", buildJsonArray { Build.SUPPORTED_ABIS.forEach { add(JsonPrimitive(it)) } })
-            put("extensions", buildJsonArray {
-                extensions.forEach { extension ->
-                    add(buildJsonObject {
-                        put("id", extension.id)
-                        put("version", extension.version)
-                        put("sha256", extension.sha256)
-                    })
-                }
-            })
-            put("files", buildJsonArray {
-                files.forEach { file ->
-                    add(buildJsonObject {
-                        put("path", file.path)
-                        put("size", file.size)
-                        put("sha256", file.sha256)
-                    })
-                }
-            })
-        })
+        DefaultJson.encodeToString(
+            buildJsonObject {
+                put("formatVersion", FORMAT_VERSION)
+                put("packageName", context.packageName)
+                put("moduleVersion", BuildConfig.VERSION_NAME)
+                put("schemaVersion", schemaVersion)
+                put(
+                    "abis",
+                    buildJsonArray { Build.SUPPORTED_ABIS.forEach { add(JsonPrimitive(it)) } },
+                )
+                put(
+                    "extensions",
+                    buildJsonArray {
+                        extensions.forEach { extension ->
+                            add(
+                                buildJsonObject {
+                                    put("id", extension.id)
+                                    put("version", extension.version)
+                                    put("sha256", extension.sha256)
+                                },
+                            )
+                        }
+                    },
+                )
+                put(
+                    "files",
+                    buildJsonArray {
+                        files.forEach { file ->
+                            add(
+                                buildJsonObject {
+                                    put("path", file.path)
+                                    put("size", file.size)
+                                    put("sha256", file.sha256)
+                                },
+                            )
+                        }
+                    },
+                )
+            },
+        )
 
     private fun rewriteManifest(
         output: File,
@@ -233,7 +263,12 @@ object BackupCoordinator {
                     }
                     entry = input.nextEntry
                 }
-                writeFile(zip, MANIFEST, manifestJson(context, files, extensions, schemaVersion).toByteArray(Charsets.UTF_8))
+                writeFile(
+                    zip,
+                    MANIFEST,
+                    manifestJson(context, files, extensions, schemaVersion)
+                        .toByteArray(Charsets.UTF_8),
+                )
             }
         }
         check(temp.renameTo(output)) { "无法写入备份清单" }
@@ -261,7 +296,12 @@ object BackupCoordinator {
                 check(!entry.isDirectory) { "备份包含目录条目" }
                 val path = safeArchivePath(entry.name)
                 check(entryNames.add(path)) { "备份包含重复文件：$path" }
-                check(path == MANIFEST || path == DATABASE || managedFiles.contains(path) || managedDirectories.any { path.startsWith("$it/") }) {
+                check(
+                    path == MANIFEST ||
+                        path == DATABASE ||
+                        managedFiles.contains(path) ||
+                        managedDirectories.any { path.startsWith("$it/") },
+                ) {
                     "备份包含不允许的文件：$path"
                 }
                 val destination = File(staging, path)
@@ -284,14 +324,15 @@ object BackupCoordinator {
 
     private fun parseManifest(raw: String): Manifest {
         val json = Json.parseToJsonElement(raw).jsonObject
-        val files = json["files"]!!.jsonArray.map { item ->
-            val obj = item.jsonObject
-            ManifestFile(
-                obj["path"]!!.jsonPrimitive.content,
-                obj["size"]!!.jsonPrimitive.content.toLong(),
-                obj["sha256"]!!.jsonPrimitive.content,
-            )
-        }
+        val files =
+            json["files"]!!.jsonArray.map { item ->
+                val obj = item.jsonObject
+                ManifestFile(
+                    obj["path"]!!.jsonPrimitive.content,
+                    obj["size"]!!.jsonPrimitive.content.toLong(),
+                    obj["sha256"]!!.jsonPrimitive.content,
+                )
+            }
         return Manifest(
             json["formatVersion"]!!.jsonPrimitive.content.toInt(),
             json["packageName"]!!.jsonPrimitive.content,
@@ -319,11 +360,14 @@ object BackupCoordinator {
 
     private fun checkExtensions(requirements: List<ExtensionRequirement>) {
         requirements.forEach { requirement ->
-            val pack = ExtensionPacks.byId(requirement.id)
-                ?: error("备份需要未安装的扩展包：${requirement.id}")
-            val installed = pack.installedManifest()
-                ?: error("备份需要扩展包：${requirement.id} ${requirement.version}")
-            check(installed.version == requirement.version && installed.sha256.equals(requirement.sha256, true)) {
+            val pack = ExtensionPacks.byId(requirement.id) ?: error("备份需要未安装的扩展包：${requirement.id}")
+            val installed =
+                pack.installedManifest()
+                    ?: error("备份需要扩展包：${requirement.id} ${requirement.version}")
+            check(
+                installed.version == requirement.version &&
+                    installed.sha256.equals(requirement.sha256, true),
+            ) {
                 "扩展包不匹配：${requirement.id}，请先安装 ${requirement.version}"
             }
         }
@@ -343,11 +387,12 @@ object BackupCoordinator {
     }
 
     private fun validateDatabase(database: File) {
-        val sqlite = android.database.sqlite.SQLiteDatabase.openDatabase(
-            database.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
-        )
+        val sqlite =
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                database.absolutePath,
+                null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
+            )
         sqlite.use { db ->
             db.rawQuery("PRAGMA integrity_check", null).use { cursor ->
                 check(cursor.moveToFirst() && cursor.getString(0) == "ok") { "数据库完整性校验失败" }
@@ -356,11 +401,12 @@ object BackupCoordinator {
     }
 
     private fun databaseSchemaVersion(database: File): Int {
-        val sqlite = android.database.sqlite.SQLiteDatabase.openDatabase(
-            database.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
-        )
+        val sqlite =
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                database.absolutePath,
+                null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
+            )
         return sqlite.use { db ->
             db.rawQuery("PRAGMA user_version", null).use { cursor ->
                 check(cursor.moveToFirst()) { "无法读取数据库 schema 版本" }
@@ -373,11 +419,12 @@ object BackupCoordinator {
         // Checkpoint first, and fail if SQLite reports a busy writer. VACUUM INTO then takes a
         // consistent SQLite snapshot while holding the required lock; copying the main file
         // directly is unsafe because another process may append to the WAL between the two steps.
-        val sqlite = android.database.sqlite.SQLiteDatabase.openDatabase(
-            source.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
-        )
+        val sqlite =
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                source.absolutePath,
+                null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
+            )
         sqlite.use { db ->
             db.rawQuery("PRAGMA busy_timeout=10000", null).use { it.moveToFirst() }
             db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
@@ -393,34 +440,43 @@ object BackupCoordinator {
     }
 
     private fun sanitizeSnapshot(database: File) {
-        val sqlite = android.database.sqlite.SQLiteDatabase.openDatabase(
-            database.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
-        )
+        val sqlite =
+            android.database.sqlite.SQLiteDatabase.openDatabase(
+                database.absolutePath,
+                null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
+            )
         sqlite.use { db ->
-            for (table in listOf("preference_entries", "preference_set_members", "documents", "settings")) {
+            for (table in
+                listOf("preference_entries", "preference_set_members", "documents", "settings")) {
                 if (!tableExists(db, table)) continue
-                val columns = db.rawQuery("PRAGMA table_info(\"$table\")", null).use { cursor ->
-                    buildList {
-                        val nameIndex = cursor.getColumnIndex("name")
-                        while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+                val columns =
+                    db.rawQuery("PRAGMA table_info(\"$table\")", null).use { cursor ->
+                        buildList {
+                            val nameIndex = cursor.getColumnIndex("name")
+                            while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+                        }
                     }
-                }
                 if ("key" in columns) {
-                    db.delete(table, "key = ? OR key LIKE ?", arrayOf("payment_pswd_encdata", "%payment_pswd_encdata%"))
+                    db.delete(
+                        table,
+                        "key = ? OR key LIKE ?",
+                        arrayOf("payment_pswd_encdata", "%payment_pswd_encdata%"),
+                    )
                 }
             }
             if (tableExists(db, "preference_entries")) {
                 db.delete("preference_entries", "exportable = 0", null)
             }
-            if (tableExists(db, "preference_set_members") && tableExists(db, "preference_entries")) {
+            if (
+                tableExists(db, "preference_set_members") && tableExists(db, "preference_entries")
+            ) {
                 db.execSQL(
                     "DELETE FROM preference_set_members WHERE NOT EXISTS (" +
-                            "SELECT 1 FROM preference_entries e " +
-                            "WHERE e.namespace = preference_set_members.namespace " +
-                            "AND e.`key` = preference_set_members.`key` " +
-                            "AND e.valueType = 'string_set' AND e.exportable = 1)",
+                        "SELECT 1 FROM preference_entries e " +
+                        "WHERE e.namespace = preference_set_members.namespace " +
+                        "AND e.`key` = preference_set_members.`key` " +
+                        "AND e.valueType = 'string_set' AND e.exportable = 1)",
                 )
             }
             if (tableExists(db, "documents")) {
@@ -430,10 +486,14 @@ object BackupCoordinator {
                 db.delete("assets", "exportable = 0", null)
             }
             if (tableExists(db, "asset_chunks")) {
-                db.execSQL("DELETE FROM asset_chunks WHERE assetId NOT IN (SELECT assetId FROM assets)")
+                db.execSQL(
+                    "DELETE FROM asset_chunks WHERE assetId NOT IN (SELECT assetId FROM assets)",
+                )
             }
             if (tableExists(db, "asset_bindings")) {
-                db.execSQL("DELETE FROM asset_bindings WHERE assetId NOT IN (SELECT assetId FROM assets)")
+                db.execSQL(
+                    "DELETE FROM asset_bindings WHERE assetId NOT IN (SELECT assetId FROM assets)",
+                )
             }
             // Rebuild the export copy after filtering device-local payment data so deleted
             // ciphertext cannot remain in free pages of the backup database.
@@ -443,13 +503,16 @@ object BackupCoordinator {
 
     private fun tableExists(db: android.database.sqlite.SQLiteDatabase, table: String): Boolean =
         db.rawQuery(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-            arrayOf(table),
-        ).use { it.moveToFirst() }
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                arrayOf(table),
+            )
+            .use { it.moveToFirst() }
 
     private fun safeArchivePath(path: String): String {
         val normalized = path.replace('\\', '/')
-        require(normalized.isNotEmpty() && !normalized.startsWith('/') && !normalized.contains("../")) {
+        require(
+            normalized.isNotEmpty() && !normalized.startsWith('/') && !normalized.contains("../"),
+        ) {
             "备份路径越界"
         }
         require(normalized == normalized.trimStart('/')) { "备份路径越界" }
@@ -471,11 +534,11 @@ object BackupCoordinator {
 
     private fun <T> withStorageLock(context: Context, block: () -> T): T {
         val file = File(context.filesDir, ".wekit-storage-operation.lock")
-        return FileChannel.open(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE).use { channel ->
-            channel.lock().use { block() }
-        }
+        return FileChannel.open(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+            .use { channel ->
+                channel.lock().use { block() }
+            }
     }
 
-    private fun File.isSymbolicLink(): Boolean =
-        java.nio.file.Files.isSymbolicLink(toPath())
+    private fun File.isSymbolicLink(): Boolean = java.nio.file.Files.isSymbolicLink(toPath())
 }

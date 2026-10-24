@@ -11,14 +11,15 @@ import kotlin.system.exitProcess
 
 fun restartHost() {
     WeLogger.i("KillHostUtils", "restarting host")
-    val context = LocalizedContextFactory.create(
-        HostInfo.application,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.InjectedHost,
-    )
+    val context =
+        LocalizedContextFactory.create(
+            HostInfo.application,
+            WeKitLocaleController.resolvedLocale,
+            LocaleResourceMode.InjectedHost,
+        )
     showToast(context, context.getString(R.string.noncompose_restarting_host))
-    val instance = "com.tencent.mm.process.KillProcessHelperActivity".toClass()
-        .reflekt().firstField().get()!!
+    val instance =
+        "com.tencent.mm.process.KillProcessHelperActivity".toClass().reflekt().firstField().get()!!
     instance.reflekt().firstMethod().invoke(HostInfo.application, true)
 }
 

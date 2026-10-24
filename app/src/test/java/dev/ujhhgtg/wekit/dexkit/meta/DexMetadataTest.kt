@@ -47,7 +47,8 @@ class DexMetadataTest {
         assertEquals(2, info.methodCount)
         assertEquals(1, info.fieldCount)
 
-        // Inline members must not trigger provider queries; external super/interface misses are cached.
+        // Inline members must not trigger provider queries; external super/interface misses are
+        // cached.
         assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_CLASS))
         assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Object;"))
         assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Runnable;"))
@@ -62,10 +63,9 @@ class DexMetadataTest {
 
         val ctor = info.methods[0]
         assertEquals("<init>", ctor.name)
-        assertEquals(ctor.name, ctor.methodName)
         assertEquals("(Lcom/tencent/mm/storage/e9;)V", ctor.methodSign)
         assertEquals("com.tencent.mm.pluginsdk.model.app.c0", ctor.declaredClassName)
-        assertEquals(ctor.declaredClassName, ctor.className)
+        assertEquals(ctor.declaredClassName, ctor.declaredClassName)
         assertEquals(65537, ctor.accessFlags)
         assertEquals(1, ctor.modifiers) // engine strips ACC_CONSTRUCTOR from modifiers
         assertEquals("void", ctor.returnTypeName)
@@ -89,7 +89,8 @@ class DexMetadataTest {
         assertEquals(field.typeDescriptor, field.typeSign)
         assertEquals(4113, field.modifiers)
 
-        // declaredClass of inline members resolves through the session cache (already parsed class).
+        // declaredClass of inline members resolves through the session cache (already parsed
+        // class).
         assertSame(info, run.declaredClass)
         assertSame(info, field.declaredClass)
         assertEquals(1, provider.totalQueries)
@@ -103,7 +104,6 @@ class DexMetadataTest {
 
         assertEquals("Lcom/tencent/mm/ui/chatting/x0;->G(Z)V", method.descriptor)
         assertEquals("G", method.name)
-        assertEquals("G", method.methodName)
         assertEquals("Lcom/tencent/mm/ui/chatting/x0;->G(Z)V", method.descriptor)
         assertEquals("(Z)V", method.methodSign)
         assertEquals("com.tencent.mm.ui.chatting.x0", method.declaredClassName)
@@ -116,7 +116,7 @@ class DexMetadataTest {
         assertEquals(2, method.invokes.size)
         val valueOf = method.invokes[0]
         assertEquals("java.lang.Boolean", valueOf.declaredClassName)
-        assertEquals("valueOf", valueOf.methodName)
+        assertEquals("valueOf", valueOf.name)
         assertEquals("java.lang.Boolean", valueOf.returnTypeName)
         assertEquals(listOf("boolean"), valueOf.paramTypeNames)
         assertFalse(valueOf.isConstructor)
@@ -133,8 +133,8 @@ class DexMetadataTest {
         assertEquals("w", using.field.name)
         assertEquals("boolean", using.field.typeName)
         assertEquals("Lcom/tencent/mm/ui/chatting/x0;->w:Z", using.field.descriptor)
-        assertEquals(emptyList<DexFieldInfo>(), method.readFields())
-        assertEquals(listOf(using.field), method.writeFields())
+        assertEquals(emptyList<DexFieldInfo>(), method.readFields)
+        assertEquals(listOf(using.field), method.writeFields)
         assertEquals(listOf("MicroMsg.AutoPlay", "speakerOn has been set %s"), method.usingStrings)
 
         // Everything above is inline in the method JSON.
@@ -151,10 +151,10 @@ class DexMetadataTest {
         val method = metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD_READ_WRITE)!!
 
         assertEquals(5, method.usingFields.size)
-        assertEquals(1, method.readFields().size)
-        assertEquals("g", method.readFields().single().name)
-        assertEquals("fm.f10", method.readFields().single().typeName)
-        assertEquals(4, method.writeFields().size)
+        assertEquals(1, method.readFields.size)
+        assertEquals("g", method.readFields.single().name)
+        assertEquals("fm.f10", method.readFields.single().typeName)
+        assertEquals(4, method.writeFields.size)
         assertEquals(FieldUsingType.Read, method.usingFields[0].usingType)
         assertTrue(method.usingFields[0].usingType.isRead)
         assertFalse(method.usingFields[0].usingType.isWrite)
@@ -223,7 +223,8 @@ class DexMetadataTest {
         assertEquals(1, provider.count(DexMetadataKind.Class, "Ljava/lang/Object;"))
 
         // Defined superclass -> full metadata through the session provider.
-        val definedSuper = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_WITH_SUPER)!!.superClass!!
+        val definedSuper =
+            metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_WITH_SUPER)!!.superClass!!
         assertEquals(SnapshotFixture.SAMPLE_SUPER_CLASS, definedSuper.descriptor)
         assertEquals("com.tencent.mm.plugin.luckymoney.model.h6", definedSuper.name)
         assertEquals("h6", definedSuper.simpleName)
@@ -239,8 +240,10 @@ class DexMetadataTest {
         val provider = CountingMetadataProvider()
         val metadata = DexMetadata(provider)
 
-        val interfaceInfo = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_NESTED_INTERFACE)!!
-            .interfaces.single { it.descriptor == SnapshotFixture.SAMPLE_INTERFACE }
+        val interfaceInfo =
+            metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_NESTED_INTERFACE)!!.interfaces.single {
+                it.descriptor == SnapshotFixture.SAMPLE_INTERFACE
+            }
         assertEquals("com.tencent.mm.network.l0", interfaceInfo.name)
         assertNotNull(interfaceInfo.sourceFile)
         assertEquals(1, interfaceInfo.methods.size)
@@ -249,7 +252,8 @@ class DexMetadataTest {
         assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_INTERFACE))
 
         // External interface (c0 implements java.lang.Runnable) keeps the shallow fallback.
-        val externalInterface = metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!.interfaces.single()
+        val externalInterface =
+            metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!.interfaces.single()
         assertEquals("java.lang.Runnable", externalInterface.name)
         assertNull(externalInterface.sourceFile)
     }
@@ -264,7 +268,10 @@ class DexMetadataTest {
         assertEquals(SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN, returnType.descriptor)
         assertSame(returnType, metadata.classInfo(SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN))
         assertSame(returnType, method.declaredClass)
-        assertEquals(1, provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN))
+        assertEquals(
+            1,
+            provider.count(DexMetadataKind.Class, SnapshotFixture.SAMPLE_CLASS_OBJECT_RETURN),
+        )
     }
 
     @Test
@@ -273,49 +280,61 @@ class DexMetadataTest {
         val metadata = DexMetadata(provider)
 
         assertNull(metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD)!!.returnType) // void
-        assertNull(metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD_READ_WRITE)!!.returnType) // boolean
+        assertNull(
+            metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD_READ_WRITE)!!.returnType,
+        ) // boolean
         val queriesBeforeArray = provider.totalQueries
         assertEquals(2, queriesBeforeArray)
 
-        val arrayMethod = DexMethodInfo(
-            Json.parseToJsonElement(
-                """{"descriptor":"Lcom/x/Y;->bytes()[B","name":"bytes","declared_class_name":"com.x.Y","method_sign":"()[B","return_type_name":"byte[]","param_type_names":[],"param_count":0}""",
-            ).jsonObject,
-            metadata,
-        )
+        val arrayMethod =
+            DexMethodInfo(
+                Json.parseToJsonElement(
+                        """{"descriptor":"Lcom/x/Y;->bytes()[B","name":"bytes","declared_class_name":"com.x.Y","method_sign":"()[B","return_type_name":"byte[]","param_type_names":[],"param_count":0}""",
+                    )
+                    .jsonObject,
+                metadata,
+            )
         assertNull(arrayMethod.returnType)
         assertEquals(queriesBeforeArray, provider.totalQueries)
     }
 
     @Test
     fun usingTypeAcceptsLowercaseAndCapitalizedEngineValues() {
-        val methodJson = Json.parseToJsonElement(
-            """
-            {
-              "descriptor": "Lcom/x/Y;->m()V",
-              "name": "m",
-              "declared_class_name": "com.x.Y",
-              "method_sign": "()V",
-              "return_type_name": "void",
-              "param_type_names": [],
-              "param_count": 0,
-              "using_fields": [
-                {"field": {"descriptor": "Lcom/x/Y;->a:I", "name": "a", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "read"},
-                {"field": {"descriptor": "Lcom/x/Y;->b:I", "name": "b", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "write"},
-                {"field": {"descriptor": "Lcom/x/Y;->c:I", "name": "c", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Read"},
-                {"field": {"descriptor": "Lcom/x/Y;->d:I", "name": "d", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Write"}
-              ]
-            }
-            """.trimIndent(),
-        ).jsonObject
+        val methodJson =
+            Json.parseToJsonElement(
+                    """
+                    {
+                      "descriptor": "Lcom/x/Y;->m()V",
+                      "name": "m",
+                      "declared_class_name": "com.x.Y",
+                      "method_sign": "()V",
+                      "return_type_name": "void",
+                      "param_type_names": [],
+                      "param_count": 0,
+                      "using_fields": [
+                        {"field": {"descriptor": "Lcom/x/Y;->a:I", "name": "a", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "read"},
+                        {"field": {"descriptor": "Lcom/x/Y;->b:I", "name": "b", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "write"},
+                        {"field": {"descriptor": "Lcom/x/Y;->c:I", "name": "c", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Read"},
+                        {"field": {"descriptor": "Lcom/x/Y;->d:I", "name": "d", "declared_class_name": "com.x.Y", "type_name": "int", "modifiers": 1, "access_flags": 1}, "using_type": "Write"}
+                      ]
+                    }
+                    """
+                        .trimIndent(),
+                )
+                .jsonObject
         val method = DexMethodInfo(methodJson, DexMetadata(CountingMetadataProvider()))
 
         assertEquals(
-            listOf(FieldUsingType.Read, FieldUsingType.Write, FieldUsingType.Read, FieldUsingType.Write),
+            listOf(
+                FieldUsingType.Read,
+                FieldUsingType.Write,
+                FieldUsingType.Read,
+                FieldUsingType.Write,
+            ),
             method.usingFields.map { it.usingType },
         )
-        assertEquals(2, method.readFields().size)
-        assertEquals(2, method.writeFields().size)
+        assertEquals(2, method.readFields.size)
+        assertEquals(2, method.writeFields.size)
     }
 
     @Test
@@ -325,9 +344,12 @@ class DexMetadataTest {
         val fullDoc = SnapshotFixture.entry(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD)
         // Engine class JSON methods[] entries carry scalar fields only. Strip the relation lists to
         // model a shallow inline member reference.
-        val shallowRef = JsonObject(
-            fullDoc.filterKeys { it != "invokes" && it != "using_fields" && it != "using_strings" },
-        )
+        val shallowRef =
+            JsonObject(
+                fullDoc.filterKeys {
+                    it != "invokes" && it != "using_fields" && it != "using_strings"
+                },
+            )
         val classJson = buildJsonObject {
             put("descriptor", "Lcom/x/ShallowClass;")
             put("name", "com.x.ShallowClass")
@@ -376,15 +398,16 @@ class DexMetadataTest {
         val metadata = DexMetadata(provider)
         val pool = Executors.newFixedThreadPool(8)
         try {
-            val futures = (1..32).map { index ->
-                pool.submit<Any> {
-                    if (index % 2 == 0) {
-                        metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!
-                    } else {
-                        metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD)!!
+            val futures =
+                (1..32).map { index ->
+                    pool.submit<Any> {
+                        if (index % 2 == 0) {
+                            metadata.classInfo(SnapshotFixture.SAMPLE_CLASS)!!
+                        } else {
+                            metadata.methodInfo(SnapshotFixture.SAMPLE_METHOD)!!
+                        }
                     }
                 }
-            }
             val results = futures.map { it.get(10, TimeUnit.SECONDS) }
             assertEquals(1, results.filterIsInstance<DexClassInfo>().distinct().size)
             assertEquals(1, results.filterIsInstance<DexMethodInfo>().distinct().size)

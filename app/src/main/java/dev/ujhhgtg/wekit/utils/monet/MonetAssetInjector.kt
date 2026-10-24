@@ -41,30 +41,46 @@ object MonetAssetInjector {
 
     /**
      * WeChat's resource APKs as actually loaded by [assets] (base, resource splits, or Tinker's
-     * `<dataDir>/tinker/patch-<version>/res/resources.apk`), base first. Loader assets, the framework,
-     * shared libraries such as WebView, and APKs other modules add from the data dir are excluded.
+     * `<dataDir>/tinker/patch-<version>/res/resources.apk`), base first. Loader assets, the
+     * framework, shared libraries such as WebView, and APKs other modules add from the data dir are
+     * excluded.
      */
-    fun hostResourceApks(assets: AssetManager, sourceDirs: List<String>, dataDirs: List<String>): List<String> {
+    fun hostResourceApks(
+        assets: AssetManager,
+        sourceDirs: List<String>,
+        dataDirs: List<String>,
+    ): List<String> {
         val sources = sourceDirs.mapTo(hashSetOf(), ::canonical)
         val tinkerRoots = dataDirs.map { canonical(it) + "/tinker/" }
-        return assets.asHidden().apkAssets.filterNot(ApkAssets::isForLoader).map { it.assetPath }.filter { path ->
-            val canonical = canonical(path)
-            canonical in sources ||
-                tinkerRoots.any(canonical::startsWith) && canonical.endsWith("/res/resources.apk")
+        return assets
+            .asHidden()
+            .apkAssets
+            .filterNot(ApkAssets::isForLoader)
+            .map { it.assetPath }
+            .filter { path ->
+                val canonical = canonical(path)
+                canonical in sources ||
+                    tinkerRoots.any(canonical::startsWith) &&
+                        canonical.endsWith("/res/resources.apk")
+            }
+    }
+
+    fun init(hostApks: List<String>) =
+        synchronized(lock) {
+            ownedPaths = hostApks.mapTo(hashSetOf(), ::canonical)
         }
-    }
 
-    fun init(hostApks: List<String>) = synchronized(lock) {
-        ownedPaths = hostApks.mapTo(hashSetOf(), ::canonical)
-    }
-
-    /** Adds the loader to [assets] if it belongs to WeChat; other packages' tables must stay untouched. */
-    fun attach(assets: AssetManager): Unit = synchronized(lock) {
-        if (!isOwned(assets)) return
-        assetManagers[assets] = Unit
-        val current = assets.asHidden().loaders
-        if (loader !in current) setLoaders(assets, current + loader)
-    }
+    /**
+     * Adds the loader to [assets] if it belongs to WeChat; other packages' tables must stay
+     * untouched.
+     */
+    fun attach(assets: AssetManager): Unit =
+        synchronized(lock) {
+            if (!isOwned(assets)) return
+            assetManagers[assets] = Unit
+            val current = assets.asHidden().loaders
+            if (loader !in current) setLoaders(assets, current + loader)
+        }
 
     /**
      * Tracks [resources]' implementation for cache flushes. [flush] is for implementations that
@@ -73,20 +89,23 @@ object MonetAssetInjector {
     fun register(resources: Resources, flush: Boolean) =
         registerImpl(resources.asHidden().impl!!, flush)
 
-    fun registerImpl(impl: ResourcesImpl, flush: Boolean): Unit = synchronized(lock) {
-        val assets = impl.assets
-        if (!isOwned(assets)) return
-        attach(assets)
-        val known = impl in impls
-        impls[impl] = Unit
-        if (flush && !known) flush(impl)
-    }
+    fun registerImpl(impl: ResourcesImpl, flush: Boolean): Unit =
+        synchronized(lock) {
+            val assets = impl.assets
+            if (!isOwned(assets)) return
+            attach(assets)
+            val known = impl in impls
+            impls[impl] = Unit
+            if (flush && !known) flush(impl)
+        }
 
     /** Every `ResourcesImpl` `ResourcesManager` currently knows about (not WeChat's wrappers). */
     fun managedImpls(): List<ResourcesImpl> {
         val manager = ResourcesManager.getInstance()
         @Suppress("UNCHECKED_CAST")
-        val implMap = manager.reflekt().firstField { name = "mResourceImpls" }.get() as ArrayMap<*, WeakReference<ResourcesImpl>>
+        val implMap =
+            manager.reflekt().firstField { name = "mResourceImpls" }.get()
+                as ArrayMap<*, WeakReference<ResourcesImpl>>
         // API 31+ guards the map with mLock; API 30 synchronizes on the manager itself.
         val managerLock = manager.reflekt().firstFieldOrNull { name = "mLock" }?.get() ?: manager
         return synchronized(managerLock) {
@@ -96,13 +115,16 @@ object MonetAssetInjector {
 
     /** Replaces the provider in place on every tracked AssetManager; `null` clears the theme. */
     @MainThread
-    fun swap(provider: ResourcesProvider?) = synchronized(lock) {
-        loader.setProviders(listOfNotNull(provider))
-        // An implementation may have been handed a new AssetManager since (Tinker re-patching).
-        impls.keys.toList().forEach { attach(it.assets) }
-        assetManagers.keys.toList().forEach { assets -> setLoaders(assets, assets.asHidden().loaders) }
-        impls.keys.toList().forEach(::flush)
-    }
+    fun swap(provider: ResourcesProvider?) =
+        synchronized(lock) {
+            loader.setProviders(listOfNotNull(provider))
+            // An implementation may have been handed a new AssetManager since (Tinker re-patching).
+            impls.keys.toList().forEach { attach(it.assets) }
+            assetManagers.keys.toList().forEach { assets ->
+                setLoaders(assets, assets.asHidden().loaders)
+            }
+            impls.keys.toList().forEach(::flush)
+        }
 
     private fun isOwned(assets: AssetManager): Boolean =
         assets.asHidden().apkAssets.any { !it.isForLoader && canonical(it.assetPath) in ownedPaths }
@@ -112,11 +134,14 @@ object MonetAssetInjector {
     private fun flush(impl: ResourcesImpl) {
         CACHE_FIELDS.forEach { field ->
             val cache = ResourcesImpl::class.reflekt().firstField { name = field }.get(impl)!!
-            cache.reflekt().firstMethod {
-                name = "clear"
-                parameterCount = 0
-                superclass()
-            }.invoke()
+            cache
+                .reflekt()
+                .firstMethod {
+                    name = "clear"
+                    parameterCount = 0
+                    superclass()
+                }
+                .invoke()
         }
         impl.flushLayoutCache()
     }
@@ -126,15 +151,17 @@ object MonetAssetInjector {
         assets.reflekt().firstMethod { name = "setLoaders" }.invoke(loaders)
     }
 
-    private fun canonical(path: String): String = synchronized(canonicalPaths) {
-        canonicalPaths.getOrPut(path) { File(path).canonicalPath }
-    }
+    private fun canonical(path: String): String =
+        synchronized(canonicalPaths) {
+            canonicalPaths.getOrPut(path) { File(path).canonicalPath }
+        }
 
-    private val CACHE_FIELDS = listOf(
-        "mDrawableCache",
-        "mColorDrawableCache",
-        "mComplexColorCache",
-        "mAnimatorCache",
-        "mStateListAnimatorCache",
-    )
+    private val CACHE_FIELDS =
+        listOf(
+            "mDrawableCache",
+            "mColorDrawableCache",
+            "mComplexColorCache",
+            "mAnimatorCache",
+            "mStateListAnimatorCache",
+        )
 }

@@ -77,15 +77,11 @@ fun BaseContactSelector(
 
                 if (sections.isEmpty()) {
                     ContactNoMatches(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                        Modifier.weight(1f).fillMaxWidth(),
                     )
                 } else {
                     Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
                         LazyColumn(
                             state = listState,
@@ -100,7 +96,11 @@ fun BaseContactSelector(
                                     ) {
                                         Text(
                                             text = contactSectionTitle(section.key),
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                            modifier =
+                                                Modifier.padding(
+                                                    horizontal = 16.dp,
+                                                    vertical = 4.dp,
+                                                ),
                                             style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.primary,
                                         )
@@ -108,23 +108,31 @@ fun BaseContactSelector(
                                 }
                                 items(items = section.contacts, key = { it.wxId }) { contact ->
                                     Row(
-                                        modifier = Modifier
-                                            .animateItem()
-                                            .fillMaxWidth()
-                                            .clickable { onItemClick(contact) }
-                                            .padding(vertical = 12.dp, horizontal = 4.dp),
+                                        modifier =
+                                            Modifier.animateItem()
+                                                .fillMaxWidth()
+                                                .clickable { onItemClick(contact) }
+                                                .padding(vertical = 12.dp, horizontal = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         if (leadingControl != null) {
                                             leadingControl(contact)
                                             Spacer(modifier = Modifier.width(12.dp))
                                         }
-                                        ContactAvatar(avatarModelProvider?.invoke(contact) ?: contact.avatarUrl)
+                                        ContactAvatar(
+                                            avatarModelProvider?.invoke(contact)
+                                                ?: contact.avatarUrl,
+                                        )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = contact.displayName, style = MaterialTheme.typography.bodyLarge)
                                             Text(
-                                                text = subtitleProvider?.invoke(contact) ?: contact.wxId,
+                                                text = contact.displayName,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                            )
+                                            Text(
+                                                text =
+                                                    subtitleProvider?.invoke(contact)
+                                                        ?: contact.wxId,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
@@ -140,10 +148,10 @@ fun BaseContactSelector(
                         AlphabetIndexBar(
                             state = state,
                             sections = sections,
-                            onScrollTo = { index -> coroutineScope.launch { listState.scrollToItem(index) } },
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .padding(start = 8.dp, end = 4.dp),
+                            onScrollTo = { index ->
+                                coroutineScope.launch { listState.scrollToItem(index) }
+                            },
+                            modifier = Modifier.fillMaxHeight().padding(start = 8.dp, end = 4.dp),
                         )
                     }
                 }
@@ -154,13 +162,14 @@ fun BaseContactSelector(
                 Text(dismissButtonText ?: stringResource(R.string.dialog_cancel))
             }
         },
-        confirmButton = if (showConfirmButton) {
-            {
-                Button(onClick = onConfirm, enabled = confirmButtonEnabled) {
-                    Text(confirmButtonText)
+        confirmButton =
+            if (showConfirmButton) {
+                {
+                    Button(onClick = onConfirm, enabled = confirmButtonEnabled) {
+                        Text(confirmButtonText)
+                    }
                 }
-            }
-        } else null,
+            } else null,
     )
 }
 
@@ -183,7 +192,9 @@ fun SingleContactSelector(
         onConfirm = { onConfirm(selectedWxId!!) },
         selectionKey = selectedWxId,
         isSelected = { it.wxId == selectedWxId },
-        leadingControl = { contact -> RadioButton(selected = contact.wxId == selectedWxId, onClick = null) },
+        leadingControl = { contact ->
+            RadioButton(selected = contact.wxId == selectedWxId, onClick = null)
+        },
         onItemClick = { contact -> selectedWxId = contact.wxId },
     )
 }
@@ -201,15 +212,20 @@ fun ContactsSelector(
     BaseContactSelector(
         title = title,
         contacts = contacts,
-        confirmButtonText = stringResource(R.string.contact_confirm_selected_count, selectedWxIds.size),
+        confirmButtonText =
+            stringResource(R.string.contact_confirm_selected_count, selectedWxIds.size),
         confirmButtonEnabled = true,
         onDismiss = onDismiss,
         onConfirm = { onConfirm(selectedWxIds) },
         selectionKey = selectedWxIds,
         isSelected = { it.wxId in selectedWxIds },
-        leadingControl = { contact -> Checkbox(checked = contact.wxId in selectedWxIds, onCheckedChange = null) },
+        leadingControl = { contact ->
+            Checkbox(checked = contact.wxId in selectedWxIds, onCheckedChange = null)
+        },
         onItemClick = { contact ->
-            selectedWxIds = if (contact.wxId in selectedWxIds) selectedWxIds - contact.wxId else selectedWxIds + contact.wxId
+            selectedWxIds =
+                if (contact.wxId in selectedWxIds) selectedWxIds - contact.wxId
+                else selectedWxIds + contact.wxId
         },
         selectionActions = multiSelectActions({ selectedWxIds }) { selectedWxIds = it },
     )

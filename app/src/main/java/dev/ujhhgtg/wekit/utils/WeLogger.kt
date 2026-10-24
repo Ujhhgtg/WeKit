@@ -34,9 +34,11 @@ object WeLogger {
         output = null
         currentLogDate = null
 
-        val logsDir = runCatching {
-            (KnownPaths.moduleRoot / "logs").createDirsSafe()
-        }.getOrNull() ?: return null
+        val logsDir =
+            runCatching {
+                (KnownPaths.moduleRoot / "logs").createDirsSafe()
+            }
+                .getOrNull() ?: return null
 
         // Clean up logs older than 3 days during rotation/initialization
         deleteOldLogs(logsDir)
@@ -48,7 +50,8 @@ object WeLogger {
                 output = it
                 currentLogDate = logDate
             }
-        }.getOrNull()
+        }
+            .getOrNull()
     }
 
     private fun deleteOldLogs(logsDir: java.nio.file.Path) {
@@ -74,8 +77,8 @@ object WeLogger {
     /**
      * Writes one record synchronously. The stream is unbuffered and each record goes out in a
      * single append-mode `write()`, so once this returns the bytes are in the kernel page cache:
-     * they survive the process being killed right afterwards, and records from different threads
-     * or WeChat processes sharing the file never interleave.
+     * they survive the process being killed right afterwards, and records from different threads or
+     * WeChat processes sharing the file never interleave.
      */
     private fun writeRecord(level: String, tag: String?, msg: String, throwable: Throwable?) {
         val timestamp = LocalDateTime.now()
@@ -94,7 +97,8 @@ object WeLogger {
                 append(Log.getStackTraceString(throwable))
             }
             append('\n')
-        }.toByteArray()
+        }
+            .toByteArray()
 
         synchronized(this) {
             val out = getOrRotateOutput(timestamp.toLocalDate()) ?: return
@@ -115,12 +119,13 @@ object WeLogger {
             val dir = logsDir ?: return emptyList()
             val regex = Regex("""wekit-\d{4}-\d{2}-\d{2}\.log""")
             return runCatching {
-                dir.toFile().listFiles()
-                    ?.filter { it.isFile && regex.matches(it.name) }
-                    ?.sortedByDescending { it.name }
-                    ?.map { it.toPath() }
-                    ?: emptyList()
-            }.getOrDefault(emptyList())
+                    dir.toFile()
+                        .listFiles()
+                        ?.filter { it.isFile && regex.matches(it.name) }
+                        ?.sortedByDescending { it.name }
+                        ?.map { it.toPath() } ?: emptyList()
+                }
+                .getOrDefault(emptyList())
         }
 
     // ========== Tag + String ==========
@@ -181,7 +186,8 @@ object WeLogger {
 
     val currentStackTrace: String
         get() {
-            return Thread.currentThread().stackTrace
+            return Thread.currentThread()
+                .stackTrace
                 .drop(2) // drop getStackTrace + this function
                 .joinToString(separator = "\n") { element ->
                     "at ${element.className}.${element.methodName}(${element.fileName}:${element.lineNumber})"
@@ -224,17 +230,19 @@ object WeLogger {
     }
 
     fun logChunkedI(tag: String, msg: String) = logChunked(Log.INFO, tag, msg)
+
     fun logChunkedD(tag: String, msg: String) = logChunked(Log.DEBUG, tag, msg)
 
     // ========== Helpers ==========
 
-    private fun Int.toPriorityChar(): String = when (this) {
-        Log.VERBOSE -> "V"
-        Log.DEBUG -> "D"
-        Log.INFO -> "I"
-        Log.WARN -> "W"
-        Log.ERROR -> "E"
-        Log.ASSERT -> "A"
-        else -> "?"
-    }
+    private fun Int.toPriorityChar(): String =
+        when (this) {
+            Log.VERBOSE -> "V"
+            Log.DEBUG -> "D"
+            Log.INFO -> "I"
+            Log.WARN -> "W"
+            Log.ERROR -> "E"
+            Log.ASSERT -> "A"
+            else -> "?"
+        }
 }

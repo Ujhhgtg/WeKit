@@ -19,9 +19,10 @@ data class SessionEntity(
     val linuxEnvironmentId: String?,
     val lastEffectiveLinuxEnvironmentId: String?,
     /**
-     * Bound model id, or null for "默认" — meaning follow [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved
-     * at turn time (like [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply
-     * to existing sessions instead of snapshotting the model at creation.
+     * Bound model id, or null for "默认" — meaning follow
+     * [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved at turn time (like
+     * [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply to
+     * existing sessions instead of snapshotting the model at creation.
      */
     val modelId: String?,
     /**
@@ -50,7 +51,12 @@ data class SessionEntity(
     val contextWindow: Int? = null,
 )
 
-enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }
+enum class MessageRole {
+    USER,
+    ASSISTANT,
+    TOOL,
+    SYSTEM,
+}
 
 @Entity(
     tableName = "messages",
@@ -77,7 +83,13 @@ data class MessageEntity(
     val reasoningSignature: String? = null,
 )
 
-enum class ApprovalStatus { AUTO_ALLOWED, USER_APPROVED, USER_REJECTED, AI_APPROVED, AI_REJECTED }
+enum class ApprovalStatus {
+    AUTO_ALLOWED,
+    USER_APPROVED,
+    USER_REJECTED,
+    AI_APPROVED,
+    AI_REJECTED,
+}
 
 @Entity(
     tableName = "tool_calls",
@@ -126,7 +138,10 @@ data class BridgeToolAuditEntity(
 // Tool providers (§10)
 // ---------------------------------------------------------------------------
 
-enum class McpTransport { STREAMABLE_HTTP, SSE }
+enum class McpTransport {
+    STREAMABLE_HTTP,
+    SSE,
+}
 
 @Entity(tableName = "providers")
 data class ProviderEntity(

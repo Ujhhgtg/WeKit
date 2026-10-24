@@ -16,7 +16,8 @@ import kotlinx.serialization.json.intOrNull
  * Pure evaluator for [ClassSpec]/[MethodSpec]/[FieldSpec] over the DexSQL metadata API, mirroring
  * the remaining DexKit matcher semantics used by WeKit:
  *
- * - nested method/field/interface lists are injective (each spec is satisfied by a distinct member);
+ * - nested method/field/interface lists are injective (each spec is satisfied by a distinct
+ *   member);
  * - count ranges apply to the actual member list size;
  * - class-level usingStrings is existential over all strings of the class's methods;
  * - modifiers use Contains semantics: (modifiers and mask) == mask;
@@ -43,6 +44,7 @@ internal class DexMatcherEvaluator(
             // External classes have no dataset metadata: DexKit only matches their names; any
             // structural/count/member constraint cannot be satisfied.
             return spec.className != null &&
+                matchesPackages(info.name, spec.packages) &&
                 spec.superClass == null &&
                 spec.interfaces.isEmpty() &&
                 spec.fields.isEmpty() &&
@@ -52,8 +54,10 @@ internal class DexMatcherEvaluator(
                 spec.interfaceCount == null &&
                 spec.modifiers == null &&
                 spec.usingStrings.isEmpty() &&
+                spec.usingNumbers.isEmpty() &&
                 spec.annotations.isEmpty()
         }
+        if (!matchesPackages(info.name, spec.packages)) return false
         spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
         spec.interfaceCount?.let { if (info.interfaces.size !in it) return false }
         spec.methodCount?.let { if (info.methods.size !in it) return false }
@@ -62,7 +66,8 @@ internal class DexMatcherEvaluator(
             val superInfo = info.superClass ?: return false
             if (!matchesClass(superInfo, superSpec)) return false
         }
-        if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) }) return false
+        if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) })
+            return false
         if (!injectiveMatch(spec.fields, info.fields) { s, c -> matchesField(c, s) }) return false
         // Array-class member refs (e.g. "[Lx;->clone()...") and any other malformed member
         // descriptors are not real class members; their metadata documents cannot be resolved.
@@ -71,21 +76,33 @@ internal class DexMatcherEvaluator(
         if (!injectiveMatch(spec.methods, realMethods) { s, c -> matchesMethod(c, s) }) return false
         // Class-level string semantics cover every real method's string constants. If the strict
         // member filter selected nothing (defensive: never silently drop class-level strings), fall
-        // back to the weaker array-ref filter; classMethodUsingStrings ignores unreadable documents.
-        val stringSourceMethods = if (realMethods.isNotEmpty()) {
-            realMethods
-        } else {
-            info.methods.filterNot { it.descriptor.startsWith("[") }
-        }
+        // back to the weaker array-ref filter; classMethodUsingStrings ignores unreadable
+        // documents.
+        val classMemberMethods =
+            if (realMethods.isNotEmpty()) {
+                realMethods
+            } else {
+                info.methods.filterNot { it.descriptor.startsWith("[") }
+            }
         for (stringSpec in spec.usingStrings) {
-            val matched = classUsingString?.invoke(info, stringSpec)
-                ?: stringSourceMethods.any { method ->
-                    classMethodUsingStrings(method).any { stringSpec.matches(it) }
-                }
+            val matched =
+                classUsingString?.invoke(info, stringSpec)
+                    ?: classMemberMethods.any { method ->
+                        classMethodUsingStrings(method).any { stringSpec.matches(it) }
+                    }
             if (!matched) return false
         }
-        if (spec.annotations.isNotEmpty() &&
-            !matchesAnnotations(info.rawJson["annotations"], spec.annotations)
+        // Class-level numeric operands mirror the class-level string literals: each requested value
+        // must be used by at least one method of the class (existential per value, not injective).
+        for (number in spec.usingNumbers) {
+            val matched = classMemberMethods.any { method ->
+                usingNumbers(method).any { matchesNumber(number, it) }
+            }
+            if (!matched) return false
+        }
+        if (
+            spec.annotations.isNotEmpty() &&
+                !matchesAnnotations(info.rawJson["annotations"], spec.annotations)
         ) {
             return false
         }
@@ -100,21 +117,23 @@ internal class DexMatcherEvaluator(
      * whole class evaluation.
      */
     private fun classMethodUsingStrings(method: DexMethodInfo): List<String> {
-        val full = try {
-            metadata.methodInfo(method.descriptor)
-        } catch (e: DexSqlException) {
-            null
-        }
+        val full =
+            try {
+                metadata.methodInfo(method.descriptor)
+            } catch (e: DexSqlException) {
+                null
+            }
         if (full != null) {
             val inline = full.rawJson["using_strings"] as? JsonArray
             if (inline != null) {
                 return inline.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
             }
-            val resolved = try {
-                full.usingStrings
-            } catch (e: DexSqlException) {
-                emptyList()
-            }
+            val resolved =
+                try {
+                    full.usingStrings
+                } catch (e: DexSqlException) {
+                    emptyList()
+                }
             if (resolved.isNotEmpty()) return resolved
         }
         return try {
@@ -135,14 +154,18 @@ internal class DexMatcherEvaluator(
             } else {
                 if (types.size != info.paramCount) return false
                 types.forEachIndexed { index, type ->
-                    if (type != null && !typeSpecMatchesJavaName(type, info.paramTypeNames[index])) {
+                    if (
+                        type != null && !typeSpecMatchesJavaName(type, info.paramTypeNames[index])
+                    ) {
                         return false
                     }
                 }
             }
         }
+        if (!matchesPackages(info.declaredClassName, spec.packages)) return false
         spec.declaredClass?.let { classSpec ->
-            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) return false
+            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
+                return false
         }
         spec.returnType?.let { typeSpec ->
             // Never resolve class metadata for primitive/array return types: the meta layer's
@@ -160,28 +183,35 @@ internal class DexMatcherEvaluator(
         }
         if (spec.usingNumbers.isNotEmpty()) {
             val candidateNumbers = usingNumbers(info)
-            if (!injectiveMatch(spec.usingNumbers, candidateNumbers) { expected, actual ->
+            if (
+                !injectiveMatch(spec.usingNumbers, candidateNumbers) { expected, actual ->
                     matchesNumber(expected, actual)
                 }
-            ) return false
+            )
+                return false
         }
-        if (!injectiveMatch(spec.usingFields, info.usingFields) { fieldSpec, access ->
+        if (
+            !injectiveMatch(spec.usingFields, info.usingFields) { fieldSpec, access ->
                 (fieldSpec.usingType == null || fieldSpec.usingType == access.usingType) &&
                     matchesField(access.field, fieldSpec.field)
             }
-        ) return false
-        if (!injectiveMatch(spec.invokeMethods, info.invokes) { s, c -> matchesMethod(c, s) }) return false
+        )
+            return false
+        if (!injectiveMatch(spec.invokeMethods, info.invokes) { s, c -> matchesMethod(c, s) })
+            return false
         if (spec.callerMethods.isNotEmpty()) {
             val callers = (relations ?: missingRelations("callerMethods")).callers(info.descriptor)
-            if (!injectiveMatch(spec.callerMethods, callers) { s, c -> matchesMethod(c, s) }) return false
+            if (!injectiveMatch(spec.callerMethods, callers) { s, c -> matchesMethod(c, s) })
+                return false
         }
         for (child in spec.allOf) if (!matchesMethod(info, child)) return false
         if (spec.anyOf.isNotEmpty() && spec.anyOf.none { matchesMethod(info, it) }) return false
         spec.opcodes?.let { opcodeSpec ->
             if (!matchesOpcodes(fullMethodJson(info), opcodeSpec)) return false
         }
-        if (spec.annotations.isNotEmpty() &&
-            !matchesAnnotations(fullMethodJson(info)["annotations"], spec.annotations)
+        if (
+            spec.annotations.isNotEmpty() &&
+                !matchesAnnotations(fullMethodJson(info)["annotations"], spec.annotations)
         ) {
             return false
         }
@@ -190,42 +220,54 @@ internal class DexMatcherEvaluator(
 
     fun matchesField(info: DexFieldInfo, spec: FieldSpec): Boolean {
         spec.name?.let { if (!it.matches(info.name)) return false }
+        if (!matchesPackages(info.declaredClassName, spec.packages)) return false
         spec.modifiers?.let { if ((info.modifiers and it) != it) return false }
         spec.type?.let { typeSpec ->
             if (!matchesFieldType(info.typeName, typeSpec)) return false
         }
         spec.declaredClass?.let { classSpec ->
-            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) return false
+            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
+                return false
         }
-        val resolvedRelations = if (spec.readMethods.isNotEmpty() || spec.writeMethods.isNotEmpty()) {
-            relations ?: missingRelations("field read/write methods")
-        } else {
-            null
-        }
+        val resolvedRelations =
+            if (spec.readMethods.isNotEmpty() || spec.writeMethods.isNotEmpty()) {
+                relations ?: missingRelations("field read/write methods")
+            } else {
+                null
+            }
         if (spec.readMethods.isNotEmpty()) {
             val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "get")
-            if (!injectiveMatch(spec.readMethods, methods) { s, c -> matchesMethod(c, s) }) return false
+            if (!injectiveMatch(spec.readMethods, methods) { s, c -> matchesMethod(c, s) })
+                return false
         }
         if (spec.writeMethods.isNotEmpty()) {
             val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "put")
-            if (!injectiveMatch(spec.writeMethods, methods) { s, c -> matchesMethod(c, s) }) return false
+            if (!injectiveMatch(spec.writeMethods, methods) { s, c -> matchesMethod(c, s) })
+                return false
         }
         return true
     }
 
-    private fun missingRelations(feature: String): Nothing = throw UnsupportedOperationException(
-        "Query matcher " + feature + " require DexMatcherRelations (none configured)",
-    )
+    private fun missingRelations(feature: String): Nothing =
+        throw UnsupportedOperationException(
+            "Query matcher " + feature + " require DexMatcherRelations (none configured)",
+        )
 
     /** Parsed DexKit usingNumbers operand: engine collapses DEX literal labels to long/double. */
     private data class CandidateNumber(val longValue: Long?, val doubleValue: Double?)
 
     private fun usingNumbers(info: DexMethodInfo): List<CandidateNumber> {
-        val raw = numbersJson(info)["using_numbers"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        val raw =
+            numbersJson(info)["using_numbers"] as? kotlinx.serialization.json.JsonArray
+                ?: return emptyList()
         return raw.mapNotNull { element ->
             val entry = element as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
-            val kind = (entry["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
-            val value = (entry["value"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+            val kind =
+                (entry["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    ?: return@mapNotNull null
+            val value =
+                (entry["value"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    ?: return@mapNotNull null
             when (kind) {
                 "long" -> value.toLongOrNull()?.let { CandidateNumber(it, null) }
                 "double" -> value.toDoubleOrNull()?.let { CandidateNumber(null, it) }
@@ -249,12 +291,13 @@ internal class DexMatcherEvaluator(
      */
     private fun fullMethodJson(info: DexMethodInfo): JsonObject {
         val shallow = info.rawJson
-        if (shallow.containsKey("annotations") ||
-            shallow.containsKey("opcode_count") ||
-            shallow.containsKey("invokes") ||
-            shallow.containsKey("using_numbers") ||
-            shallow.containsKey("using_fields") ||
-            shallow.containsKey("using_strings")
+        if (
+            shallow.containsKey("annotations") ||
+                shallow.containsKey("opcode_count") ||
+                shallow.containsKey("invokes") ||
+                shallow.containsKey("using_numbers") ||
+                shallow.containsKey("using_fields") ||
+                shallow.containsKey("using_strings")
         ) {
             return shallow
         }
@@ -273,9 +316,9 @@ internal class DexMatcherEvaluator(
         val count = (json["opcode_count"] as? JsonPrimitive)?.intOrNull ?: return false
         spec.count?.let { if (count !in it) return false }
         if (spec.names.isEmpty()) return true
-        val names = (json["opcodes"] as? JsonArray)
-            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-            ?: emptyList()
+        val names =
+            (json["opcodes"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                ?: emptyList()
         return when (spec.matchType) {
             OpcodeMatchType.Contains -> spec.names.all { requested -> names.contains(requested) }
             OpcodeMatchType.Equals -> names == spec.names
@@ -292,9 +335,10 @@ internal class DexMatcherEvaluator(
 
     private fun matchesAnnotation(annotation: JsonObject, spec: AnnotationSpec): Boolean {
         spec.type?.let { typeSpec ->
-            val typeName = (annotation["type_name"] as? JsonPrimitive)?.contentOrNull
-                ?: (annotation["type"] as? JsonPrimitive)?.contentOrNull?.let(::javaTypeNameOf)
-                ?: return false
+            val typeName =
+                (annotation["type_name"] as? JsonPrimitive)?.contentOrNull
+                    ?: (annotation["type"] as? JsonPrimitive)?.contentOrNull?.let(::javaTypeNameOf)
+                    ?: return false
             if (!nameSpecMatchesJavaName(typeSpec, typeName)) return false
         }
         spec.visibility?.let { visibility ->
@@ -302,12 +346,13 @@ internal class DexMatcherEvaluator(
             if (!visibility.matches(name)) return false
         }
         if (spec.elements.isNotEmpty()) {
-            val elements = (annotation["elements"] as? JsonArray)
-                ?.mapNotNull { it as? JsonObject }
-                ?: return false
+            val elements =
+                (annotation["elements"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+                    ?: return false
             for (elementSpec in spec.elements) {
                 val matched = elements.any { element ->
-                    val name = (element["name"] as? JsonPrimitive)?.contentOrNull ?: return@any false
+                    val name =
+                        (element["name"] as? JsonPrimitive)?.contentOrNull ?: return@any false
                     nameSpecMatchesJavaName(elementSpec.name, name) &&
                         matchesAnnotationValue(element["value"], elementSpec.value)
                 }
@@ -332,7 +377,8 @@ internal class DexMatcherEvaluator(
                     actual.contentOrNull?.toBooleanStrictOrNull() == expected.value
             is AnnotationValue.NumberValue -> {
                 val content = (actual as? JsonPrimitive)?.contentOrNull
-                content != null && content.toDoubleOrNull()?.let { it == expected.value.toDouble() } == true
+                content != null &&
+                    content.toDoubleOrNull()?.let { it == expected.value.toDouble() } == true
             }
             is AnnotationValue.ListValue -> {
                 val array = actual as? JsonArray ?: return false
@@ -354,8 +400,7 @@ internal class DexMatcherEvaluator(
         return if (expected is Float || expected is Double) {
             val expectedDouble = expected.toDouble()
             val actualDouble = actual.doubleValue ?: return false
-            actualDouble == expectedDouble ||
-                kotlin.math.abs(actualDouble - expectedDouble) < 1e-6
+            actualDouble == expectedDouble || kotlin.math.abs(actualDouble - expectedDouble) < 1e-6
         } else {
             actual.longValue != null && actual.longValue == expected.toLong()
         }
@@ -384,7 +429,8 @@ internal class DexMatcherEvaluator(
         val nameSpec = spec.className ?: return false
         if (nameSpec.match != NameMatch.Equals) return false
         if (javaTypeNameOf(actualName) != javaTypeNameOf(nameSpec.value)) return false
-        return spec.superClass == null &&
+        return spec.packages.isEmpty() &&
+            spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
             spec.methods.isEmpty() &&
@@ -392,7 +438,8 @@ internal class DexMatcherEvaluator(
             spec.methodCount == null &&
             spec.interfaceCount == null &&
             spec.modifiers == null &&
-            spec.usingStrings.isEmpty()
+            spec.usingStrings.isEmpty() &&
+            spec.usingNumbers.isEmpty()
     }
 
     private fun matchesClassReference(
@@ -404,6 +451,7 @@ internal class DexMatcherEvaluator(
         // External/non-dataset class: only the name is available (mirrors DexKit's name-only path).
         val nameSpec = spec.className ?: return false
         return nameSpecMatchesJavaName(nameSpec, fallbackName) &&
+            matchesPackages(fallbackName, spec.packages) &&
             spec.superClass == null &&
             spec.interfaces.isEmpty() &&
             spec.fields.isEmpty() &&
@@ -412,13 +460,18 @@ internal class DexMatcherEvaluator(
             spec.methodCount == null &&
             spec.interfaceCount == null &&
             spec.modifiers == null &&
-            spec.usingStrings.isEmpty()
+            spec.usingStrings.isEmpty() &&
+            spec.usingNumbers.isEmpty()
     }
 
+    /**
+     * DexSQL searchPackages semantics: class name equals one of [packages] or starts with it + '.'.
+     */
+    private fun matchesPackages(javaName: String, packages: List<String>): Boolean =
+        packages.isEmpty() || packages.any { javaName == it || javaName.startsWith(it + ".") }
 
     /** True when this instance is the shallow fallback produced for a non-dataset class. */
-    private fun isShallow(info: DexClassInfo): Boolean =
-        metadata.classInfo(info.descriptor) == null
+    private fun isShallow(info: DexClassInfo): Boolean = metadata.classInfo(info.descriptor) == null
 }
 
 /**
@@ -436,7 +489,8 @@ internal fun <S, C> injectiveMatch(
 
     fun assign(specIndex: Int, visited: BooleanArray): Boolean {
         for (candidateIndex in candidates.indices) {
-            if (visited[candidateIndex] || !matches(specs[specIndex], candidates[candidateIndex])) continue
+            if (visited[candidateIndex] || !matches(specs[specIndex], candidates[candidateIndex]))
+                continue
             visited[candidateIndex] = true
             val owner = candidateOwner[candidateIndex]
             if (owner == -1 || assign(owner, visited)) {

@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,8 +32,13 @@ import com.composables.icons.materialsymbols.outlined.Send
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.EDGE_TTS_VOICES
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 
-enum class TtsMode { SYSTEM, EDGE, CLONE }
+enum class TtsMode {
+    SYSTEM,
+    EDGE,
+    CLONE,
+}
 
 @Composable
 fun TtsContent(
@@ -59,9 +63,24 @@ fun TtsContent(
     ) {
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { TtsModeOption(stringResource(R.string.tts_mode_system), mode == TtsMode.SYSTEM) { onModeChange(TtsMode.SYSTEM) } }
-                item { TtsModeOption(stringResource(R.string.tts_mode_edge), mode == TtsMode.EDGE) { onModeChange(TtsMode.EDGE) } }
-                item { TtsModeOption(stringResource(R.string.tts_mode_clone), mode == TtsMode.CLONE) { onModeChange(TtsMode.CLONE) } }
+                item {
+                    TtsModeOption(
+                        stringResource(R.string.tts_mode_system),
+                        mode == TtsMode.SYSTEM,
+                    ) {
+                        onModeChange(TtsMode.SYSTEM)
+                    }
+                }
+                item {
+                    TtsModeOption(stringResource(R.string.tts_mode_edge), mode == TtsMode.EDGE) {
+                        onModeChange(TtsMode.EDGE)
+                    }
+                }
+                item {
+                    TtsModeOption(stringResource(R.string.tts_mode_clone), mode == TtsMode.CLONE) {
+                        onModeChange(TtsMode.CLONE)
+                    }
+                }
             }
         }
         item {
@@ -70,19 +89,36 @@ fun TtsContent(
                 onValueChange = onTextChange,
                 label = { Text(stringResource(R.string.tts_text_label)) },
                 supportingText = {
-                    Text(stringResource(R.string.tts_text_counter, text.codePointCount(0, text.length), 256))
+                    Text(
+                        stringResource(
+                            R.string.tts_text_counter,
+                            text.codePointCount(0, text.length),
+                            256,
+                        ),
+                    )
                 },
-                trailingIcon = if (text.isNotEmpty()) ({
-                    IconButton(onClick = { onTextChange("") }) {
-                        Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.tts_clear_text))
-                    }
-                }) else null,
+                trailingIcon =
+                    if (text.isNotEmpty())
+                        ({
+                            IconButton(onClick = { onTextChange("") }) {
+                                Icon(
+                                    MaterialSymbols.Outlined.Close,
+                                    stringResource(R.string.tts_clear_text),
+                                )
+                            }
+                        })
+                    else null,
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
         if (mode == TtsMode.EDGE) {
-            item { Text(stringResource(R.string.tts_choose_voice), style = MaterialTheme.typography.titleSmall) }
+            item {
+                Text(
+                    stringResource(R.string.tts_choose_voice),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
             items(EDGE_TTS_VOICES, key = { it.id }) { voice ->
                 ListItem(
                     modifier = Modifier.clickable { onSelectEdgeVoice(voice.id) },
@@ -99,8 +135,14 @@ fun TtsContent(
         } else if (mode == TtsMode.CLONE) {
             item {
                 Column {
-                    Text(stringResource(R.string.tts_current_voice), style = MaterialTheme.typography.titleSmall)
-                    Text(selectedClone?.name ?: stringResource(R.string.panel_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.tts_current_voice),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        selectedClone?.name ?: stringResource(R.string.panel_none),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             item {
@@ -108,7 +150,9 @@ fun TtsContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    OutlinedButton(onClick = onChooseOrManage) { Text(stringResource(R.string.tts_choose_or_manage_voice)) }
+                    OutlinedButton(onClick = onChooseOrManage) {
+                        Text(stringResource(R.string.tts_choose_or_manage_voice))
+                    }
                 }
             }
         }
@@ -120,11 +164,17 @@ fun TtsContent(
                 if (converted) {
                     OutlinedButton(onClick = onPreviewConverted, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Play_arrow, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.panel_action_preview), Modifier.padding(start = 8.dp))
+                        Text(
+                            stringResource(R.string.panel_action_preview),
+                            Modifier.padding(start = 8.dp),
+                        )
                     }
                     Button(onClick = onSendConverted, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Send, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.panel_action_send), Modifier.padding(start = 8.dp))
+                        Text(
+                            stringResource(R.string.panel_action_send),
+                            Modifier.padding(start = 8.dp),
+                        )
                     }
                 } else {
                     OutlinedButton(onClick = onConvert, modifier = Modifier.weight(1f)) {
@@ -132,7 +182,10 @@ fun TtsContent(
                     }
                     Button(onClick = onSynthesize, modifier = Modifier.weight(1f)) {
                         Icon(MaterialSymbols.Outlined.Send, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.tts_convert_and_send), Modifier.padding(start = 8.dp))
+                        Text(
+                            stringResource(R.string.tts_convert_and_send),
+                            Modifier.padding(start = 8.dp),
+                        )
                     }
                 }
             }
@@ -142,7 +195,10 @@ fun TtsContent(
 
 @Composable
 private fun TtsModeOption(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(onClick = onClick)) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
         RadioButton(selected, onClick)
         Text(label)
     }

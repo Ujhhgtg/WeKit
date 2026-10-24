@@ -9,12 +9,13 @@ val FastOutExtraSlowIn: Easing = run {
     val knotX = 0.166666f
     val knotY = 0.4f
     val first = CubicBezierEasing(0.05f / knotX, 0f, 0.133333f / knotX, 0.06f / knotY)
-    val second = CubicBezierEasing(
-        (0.208333f - knotX) / (1f - knotX),
-        (0.82f - knotY) / (1f - knotY),
-        (0.25f - knotX) / (1f - knotX),
-        (1f - knotY) / (1f - knotY),
-    )
+    val second =
+        CubicBezierEasing(
+            (0.208333f - knotX) / (1f - knotX),
+            (0.82f - knotY) / (1f - knotY),
+            (0.25f - knotX) / (1f - knotX),
+            (1f - knotY) / (1f - knotY),
+        )
     Easing { fraction ->
         if (fraction < knotX) {
             knotY * first.transform(fraction / knotX)

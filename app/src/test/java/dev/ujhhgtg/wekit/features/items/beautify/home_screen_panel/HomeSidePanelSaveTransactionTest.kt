@@ -13,11 +13,12 @@ class HomeSidePanelSaveTransactionTest {
         val storageFailure = IllegalStateException("storage failed")
         var promotionCalls = 0
 
-        val result = commitHomeSidePanelEdit(
-            editor = editor,
-            persist = { Result.failure(storageFailure) },
-            promote = { promotionCalls++ },
-        )
+        val result =
+            commitHomeSidePanelEdit(
+                editor = editor,
+                persist = { Result.failure(storageFailure) },
+                promote = { promotionCalls++ },
+            )
 
         val retained = assertInstanceOf(HomeSidePanelEditCommit.Retained::class.java, result)
         assertSame(storageFailure, retained.failure)
@@ -31,14 +32,15 @@ class HomeSidePanelSaveTransactionTest {
         val promotionFailure = IllegalStateException("promotion failed")
         var persisted: HomeSidePanelLayout? = null
 
-        val result = commitHomeSidePanelEdit(
-            editor = editor,
-            persist = { layout ->
-                persisted = layout
-                Result.success(Unit)
-            },
-            promote = { throw promotionFailure },
-        )
+        val result =
+            commitHomeSidePanelEdit(
+                editor = editor,
+                persist = { layout ->
+                    persisted = layout
+                    Result.success(Unit)
+                },
+                promote = { throw promotionFailure },
+            )
 
         val committed = assertInstanceOf(HomeSidePanelEditCommit.Committed::class.java, result)
         assertEquals(editor.draft, persisted)
@@ -48,34 +50,38 @@ class HomeSidePanelSaveTransactionTest {
 
     @Test
     fun validationFailureSkipsStorageAndPromotion() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(cards = listOf(HitokotoCardConfig("hitokoto"))),
-            HomeSidePanelIdGenerator { "unused" },
-        )
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(cards = listOf(HitokotoCardConfig("hitokoto"))),
+                HomeSidePanelIdGenerator { "unused" },
+            )
         editor.updateHitokoto("hitokoto") {
             it.copy(settings = it.settings.copy(categories = emptySet()))
         }
         var storageCalls = 0
         var promotionCalls = 0
 
-        val result = commitHomeSidePanelEdit(
-            editor = editor,
-            persist = {
-                storageCalls++
-                Result.success(Unit)
-            },
-            promote = { promotionCalls++ },
-        )
+        val result =
+            commitHomeSidePanelEdit(
+                editor = editor,
+                persist = {
+                    storageCalls++
+                    Result.success(Unit)
+                },
+                promote = { promotionCalls++ },
+            )
 
         assertInstanceOf(HomeSidePanelEditCommit.Retained::class.java, result)
         assertEquals(0, storageCalls)
         assertEquals(0, promotionCalls)
     }
 
-    private fun editorWithWalletDraft(): HomeSidePanelEditSession = HomeSidePanelEditSession(
-        HomeSidePanelLayout(cards = listOf(WalletCardConfig("wallet"))),
-        HomeSidePanelIdGenerator { "unused" },
-    ).also { editor ->
-        editor.updateWallet("wallet") { it.copy(hideBalanceByDefault = true) }
-    }
+    private fun editorWithWalletDraft(): HomeSidePanelEditSession =
+        HomeSidePanelEditSession(
+                HomeSidePanelLayout(cards = listOf(WalletCardConfig("wallet"))),
+                HomeSidePanelIdGenerator { "unused" },
+            )
+            .also { editor ->
+                editor.updateWallet("wallet") { it.copy(hideBalanceByDefault = true) }
+            }
 }

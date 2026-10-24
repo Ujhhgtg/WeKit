@@ -31,14 +31,16 @@ class HomeSidePanelRequestPoolTest {
             val starts = AtomicInteger()
             val started = CompletableDeferred<Unit>()
             val result = CompletableDeferred<Int>()
-            val first = pool.subscribe("same") {
-                starts.incrementAndGet()
-                started.complete(Unit)
-                result.await()
-            }
-            val second = pool.subscribe("same") {
-                error("A shared key must not start a second request")
-            }
+            val first =
+                pool.subscribe("same") {
+                    starts.incrementAndGet()
+                    started.complete(Unit)
+                    result.await()
+                }
+            val second =
+                pool.subscribe("same") {
+                    error("A shared key must not start a second request")
+                }
 
             withTimeout(TEST_TIMEOUT_MS) { started.await() }
             result.complete(26)
@@ -60,15 +62,16 @@ class HomeSidePanelRequestPoolTest {
             val started = CompletableDeferred<Unit>()
             val canceled = CompletableDeferred<Unit>()
             val result = CompletableDeferred<Int>()
-            val first = pool.subscribe("same") {
-                started.complete(Unit)
-                try {
-                    result.await()
-                } catch (error: CancellationException) {
-                    canceled.complete(Unit)
-                    throw error
+            val first =
+                pool.subscribe("same") {
+                    started.complete(Unit)
+                    try {
+                        result.await()
+                    } catch (error: CancellationException) {
+                        canceled.complete(Unit)
+                        throw error
+                    }
                 }
-            }
             val second = pool.subscribe("same") { error("duplicate request") }
             val firstWaiter = async(start = CoroutineStart.UNDISPATCHED) { first.await() }
             val secondWaiter = async(start = CoroutineStart.UNDISPATCHED) { second.await() }
@@ -93,15 +96,16 @@ class HomeSidePanelRequestPoolTest {
             val started = CompletableDeferred<Unit>()
             val canceled = CompletableDeferred<Unit>()
             val never = CompletableDeferred<Int>()
-            val first = pool.subscribe("same") {
-                started.complete(Unit)
-                try {
-                    never.await()
-                } catch (error: CancellationException) {
-                    canceled.complete(Unit)
-                    throw error
+            val first =
+                pool.subscribe("same") {
+                    started.complete(Unit)
+                    try {
+                        never.await()
+                    } catch (error: CancellationException) {
+                        canceled.complete(Unit)
+                        throw error
+                    }
                 }
-            }
             val second = pool.subscribe("same") { error("duplicate request") }
             val firstWaiter = async(start = CoroutineStart.UNDISPATCHED) { first.await() }
             val secondWaiter = async(start = CoroutineStart.UNDISPATCHED) { second.await() }
@@ -131,38 +135,40 @@ class HomeSidePanelRequestPoolTest {
         val runningRequests = AtomicInteger()
         var replacementWaiter: Deferred<Int>? = null
         try {
-            val first = pool.subscribe("same") {
-                runningRequests.incrementAndGet()
-                firstStarted.complete(Unit)
-                try {
-                    CompletableDeferred<Int>().await()
-                } finally {
-                    cleanupStarted.complete(Unit)
-                    withContext(NonCancellable) {
-                        allowCleanup.await()
+            val first =
+                pool.subscribe("same") {
+                    runningRequests.incrementAndGet()
+                    firstStarted.complete(Unit)
+                    try {
+                        CompletableDeferred<Int>().await()
+                    } finally {
+                        cleanupStarted.complete(Unit)
+                        withContext(NonCancellable) {
+                            allowCleanup.await()
+                        }
+                        runningRequests.decrementAndGet()
+                        cleanupFinished.complete(Unit)
                     }
-                    runningRequests.decrementAndGet()
-                    cleanupFinished.complete(Unit)
                 }
-            }
             val firstWaiter = async(start = CoroutineStart.UNDISPATCHED) { first.await() }
 
             withTimeout(TEST_TIMEOUT_MS) { firstStarted.await() }
             firstWaiter.cancelAndJoin()
             withTimeout(TEST_TIMEOUT_MS) { cleanupStarted.await() }
 
-            replacementWaiter = async(start = CoroutineStart.UNDISPATCHED) {
-                pool.await("same") {
-                    if (!cleanupFinished.isCompleted) admittedBeforeCleanup.complete(Unit)
-                    runningRequests.incrementAndGet()
-                    replacementStarted.complete(Unit)
-                    try {
-                        2
-                    } finally {
-                        runningRequests.decrementAndGet()
+            replacementWaiter =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    pool.await("same") {
+                        if (!cleanupFinished.isCompleted) admittedBeforeCleanup.complete(Unit)
+                        runningRequests.incrementAndGet()
+                        replacementStarted.complete(Unit)
+                        try {
+                            2
+                        } finally {
+                            runningRequests.decrementAndGet()
+                        }
                     }
                 }
-            }
 
             assertFalse(replacementStarted.isCompleted)
             assertFalse(admittedBeforeCleanup.isCompleted)
@@ -189,15 +195,16 @@ class HomeSidePanelRequestPoolTest {
         val allowCleanup = CompletableDeferred<Unit>()
         val replacementStarted = CompletableDeferred<Unit>()
         try {
-            val first = pool.subscribe("same") {
-                firstStarted.complete(Unit)
-                try {
-                    CompletableDeferred<Int>().await()
-                } finally {
-                    cleanupStarted.complete(Unit)
-                    withContext(NonCancellable) { allowCleanup.await() }
+            val first =
+                pool.subscribe("same") {
+                    firstStarted.complete(Unit)
+                    try {
+                        CompletableDeferred<Int>().await()
+                    } finally {
+                        cleanupStarted.complete(Unit)
+                        withContext(NonCancellable) { allowCleanup.await() }
+                    }
                 }
-            }
             val firstWaiter = async(start = CoroutineStart.UNDISPATCHED) { first.await() }
 
             withTimeout(TEST_TIMEOUT_MS) { firstStarted.await() }
@@ -205,19 +212,21 @@ class HomeSidePanelRequestPoolTest {
             withTimeout(TEST_TIMEOUT_MS) { cleanupStarted.await() }
 
             supervisorScope {
-                val replacementWaiter = async(start = CoroutineStart.UNDISPATCHED) {
-                    pool.await("same") {
-                        replacementStarted.complete(Unit)
-                        2
+                val replacementWaiter =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        pool.await("same") {
+                            replacementStarted.complete(Unit)
+                            2
+                        }
                     }
-                }
                 try {
                     assertFalse(replacementStarted.isCompleted)
                     pool.close()
 
                     val failure = runCatching {
                         withTimeout(TEST_TIMEOUT_MS) { replacementWaiter.await() }
-                    }.exceptionOrNull()
+                    }
+                        .exceptionOrNull()
                     assertInstanceOf(IllegalStateException::class.java, failure)
                     assertFalse(replacementStarted.isCompleted)
                 } finally {
@@ -240,14 +249,16 @@ class HomeSidePanelRequestPoolTest {
             val secondStarted = CompletableDeferred<Unit>()
             val firstResult = CompletableDeferred<Int>()
             val secondResult = CompletableDeferred<Int>()
-            val first = pool.subscribe("first") {
-                firstStarted.complete(Unit)
-                firstResult.await()
-            }
-            val second = pool.subscribe("second") {
-                secondStarted.complete(Unit)
-                secondResult.await()
-            }
+            val first =
+                pool.subscribe("first") {
+                    firstStarted.complete(Unit)
+                    firstResult.await()
+                }
+            val second =
+                pool.subscribe("second") {
+                    secondStarted.complete(Unit)
+                    secondResult.await()
+                }
 
             withTimeout(TEST_TIMEOUT_MS) {
                 firstStarted.await()
@@ -272,14 +283,16 @@ class HomeSidePanelRequestPoolTest {
         val secondStarted = CompletableDeferred<Unit>()
         val firstCanceled = CompletableDeferred<Unit>()
         val secondCanceled = CompletableDeferred<Unit>()
-        val first = pool.subscribe("first") {
-            firstStarted.complete(Unit)
-            awaitCancellation(firstCanceled)
-        }
-        val second = pool.subscribe("second") {
-            secondStarted.complete(Unit)
-            awaitCancellation(secondCanceled)
-        }
+        val first =
+            pool.subscribe("first") {
+                firstStarted.complete(Unit)
+                awaitCancellation(firstCanceled)
+            }
+        val second =
+            pool.subscribe("second") {
+                secondStarted.complete(Unit)
+                awaitCancellation(secondCanceled)
+            }
         val firstWaiter = async(start = CoroutineStart.UNDISPATCHED) { first.await() }
         val secondWaiter = async(start = CoroutineStart.UNDISPATCHED) { second.await() }
 

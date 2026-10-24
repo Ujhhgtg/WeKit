@@ -29,23 +29,25 @@ fun PlaceholderChips(
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
     ) {
         placeholders.forEach { placeholder ->
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .clickable {
-                        val selection = if (isFieldFocused) value.selection else TextRange(value.text.length)
-                        val rangeStart = minOf(selection.start, selection.end)
-                        val rangeEnd = maxOf(selection.start, selection.end)
-                        val text = value.text.replaceRange(rangeStart, rangeEnd, placeholder)
-                        onValueChange(TextFieldValue(text, TextRange(rangeStart + placeholder.length)))
-                    }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier =
+                    Modifier.clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable {
+                            val selection =
+                                if (isFieldFocused) value.selection
+                                else TextRange(value.text.length)
+                            val rangeStart = minOf(selection.start, selection.end)
+                            val rangeEnd = maxOf(selection.start, selection.end)
+                            val text = value.text.replaceRange(rangeStart, rangeEnd, placeholder)
+                            onValueChange(
+                                TextFieldValue(text, TextRange(rangeStart + placeholder.length)),
+                            )
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 Text(
                     text = placeholder,

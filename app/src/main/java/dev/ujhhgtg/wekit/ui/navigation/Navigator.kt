@@ -7,7 +7,7 @@ import top.yukonga.miuix.kmp.nav.core.NavKey
 
 // kang from KernelSU manager, with the anti-reenter pop fix from ReSukiSU manager
 class Navigator(
-    val backStack: NavBackStack
+    val backStack: NavBackStack,
 ) {
     fun push(key: NavKey) {
         if (backStack.lastOrNull() == key) {
@@ -57,6 +57,7 @@ class Navigator(
     fun backStackSize(): Int = backStack.size
 }
 
-val LocalNavigator = staticCompositionLocalOf<Navigator> {
-    error("LocalNavigator not provided")
-}
+val LocalNavigator =
+    staticCompositionLocalOf<Navigator> {
+        error("LocalNavigator not provided")
+    }

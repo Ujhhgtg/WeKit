@@ -16,12 +16,14 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
     lateinit var moduleClassLoader: ClassLoader
     lateinit var hostClassLoader: ClassLoader
     val additionalLoaders = CopyOnWriteArrayList<ClassLoader>()
-    private val resolvingAdditionalLoaders = ThreadLocal.withInitial<MutableSet<ClassLoader>> {
-        Collections.newSetFromMap(IdentityHashMap())
-    }
-    private val resolvingResourceLoaders = ThreadLocal.withInitial<MutableSet<ClassLoader>> {
-        Collections.newSetFromMap(IdentityHashMap())
-    }
+    private val resolvingAdditionalLoaders =
+        ThreadLocal.withInitial<MutableSet<ClassLoader>> {
+            Collections.newSetFromMap(IdentityHashMap())
+        }
+    private val resolvingResourceLoaders =
+        ThreadLocal.withInitial<MutableSet<ClassLoader>> {
+            Collections.newSetFromMap(IdentityHashMap())
+        }
 
     private val moduleFindClassMethod: Method by lazy {
         ClassLoader::class.java.getDeclaredMethod("findClass", String::class.java).apply {
@@ -45,7 +47,9 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
                 if (::hostClassLoader.isInitialized) {
                     return hostClassLoader.loadClass(name.removePrefix(PREFIX_HOST))
                 }
-                throw ClassNotFoundException("Forced HOST route failed: hostClassLoader is not initialized. Class: $name")
+                throw ClassNotFoundException(
+                    "Forced HOST route failed: hostClassLoader is not initialized. Class: $name",
+                )
             }
         }
 
@@ -84,8 +88,7 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
                 if (!resolving.add(loader)) return@forEach
                 try {
                     return loader.loadClass(name)
-                } catch (_: ClassNotFoundException) {
-                } finally {
+                } catch (_: ClassNotFoundException) {} finally {
                     resolving.remove(loader)
                 }
             }
@@ -102,7 +105,9 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
             for (loader in resourceLoaders()) {
                 if (!resolving.add(loader)) continue
                 try {
-                    loader.getResource(name)?.let { return it }
+                    loader.getResource(name)?.let {
+                        return it
+                    }
                 } finally {
                     resolving.remove(loader)
                 }
@@ -168,17 +173,19 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
         throw ClassNotFoundException("Forced MODULE route failed. Class: $name")
     }
 
-    private fun findModuleOwnClass(name: String): Class<*> = try {
-        moduleFindClassMethod.invoke(moduleClassLoader, name) as Class<*>
-    } catch (e: InvocationTargetException) {
-        throw e.targetException
-    }
+    private fun findModuleOwnClass(name: String): Class<*> =
+        try {
+            moduleFindClassMethod.invoke(moduleClassLoader, name) as Class<*>
+        } catch (e: InvocationTargetException) {
+            throw e.targetException
+        }
 
-    private val SHARED_PREFIXES = listOf(
-        "dev.ujhhgtg.wekit.loader.abc.",
-        "dev.ujhhgtg.wekit.loader.api.",
-        "dev.ujhhgtg.wekit.bootstrap.",
-        "dev.ujhhgtg.reflekt.",
-        "kotlin.",
-    )
+    private val SHARED_PREFIXES =
+        listOf(
+            "dev.ujhhgtg.wekit.loader.abc.",
+            "dev.ujhhgtg.wekit.loader.api.",
+            "dev.ujhhgtg.wekit.bootstrap.",
+            "dev.ujhhgtg.reflekt.",
+            "kotlin.",
+        )
 }

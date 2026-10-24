@@ -16,7 +16,13 @@ object ProtoWire {
     private const val WIRE_LEN = 2
     private const val WIRE_FIXED32 = 5
 
-    private class Field(val number: Int, val wireType: Int, val start: Int, val valueStart: Int, val end: Int)
+    private class Field(
+        val number: Int,
+        val wireType: Int,
+        val start: Int,
+        val valueStart: Int,
+        val end: Int,
+    )
 
     private fun readVarint(bytes: ByteArray, pos: IntArray): Long {
         var result = 0L
@@ -63,12 +69,16 @@ object ProtoWire {
     }
 
     fun varint(bytes: ByteArray, number: Int): Long? {
-        val field = fields(bytes).lastOrNull { it.number == number && it.wireType == WIRE_VARINT } ?: return null
+        val field =
+            fields(bytes).lastOrNull { it.number == number && it.wireType == WIRE_VARINT }
+                ?: return null
         return readVarint(bytes, intArrayOf(field.valueStart))
     }
 
     fun string(bytes: ByteArray, number: Int): String? {
-        val field = fields(bytes).lastOrNull { it.number == number && it.wireType == WIRE_LEN } ?: return null
+        val field =
+            fields(bytes).lastOrNull { it.number == number && it.wireType == WIRE_LEN }
+                ?: return null
         val pos = intArrayOf(field.valueStart)
         val length = readVarint(bytes, pos).toInt()
         return String(bytes, pos[0], length, Charsets.UTF_8)
@@ -80,11 +90,14 @@ object ProtoWire {
      */
     fun withString(bytes: ByteArray, number: Int, value: String): ByteArray {
         val valueBytes = value.toByteArray(Charsets.UTF_8)
-        val encoded = ByteArrayOutputStream().apply {
-            writeVarint((number.toLong() shl 3) or WIRE_LEN.toLong())
-            writeVarint(valueBytes.size.toLong())
-            write(valueBytes)
-        }.toByteArray()
+        val encoded =
+            ByteArrayOutputStream()
+                .apply {
+                    writeVarint((number.toLong() shl 3) or WIRE_LEN.toLong())
+                    writeVarint(valueBytes.size.toLong())
+                    write(valueBytes)
+                }
+                .toByteArray()
 
         val matches = fields(bytes).filter { it.number == number }
         if (matches.isEmpty()) return bytes + encoded

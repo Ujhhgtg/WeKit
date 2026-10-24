@@ -9,7 +9,10 @@ object NativeCrashHandler {
     var isInstalled: Boolean = false
 
     // Native 方法声明
-    private external fun installNative(crashLogDir: String?, crashLogFileNamePrefix: String): Boolean
+    private external fun installNative(
+        crashLogDir: String?,
+        crashLogFileNamePrefix: String,
+    ): Boolean
 
     private external fun uninstallNative()
 
@@ -29,10 +32,11 @@ object NativeCrashHandler {
         try {
             // CrashLogsManager owns the crash-log naming; hand the prefix down so native reports
             // land under the same file names and stay visible to allCrashLogs / cleanOldLogs.
-            val result = installNative(
-                CrashLogsManager.crashLogDirPath,
-                CrashLogsManager.crashLogFileNamePrefix,
-            )
+            val result =
+                installNative(
+                    CrashLogsManager.crashLogDirPath,
+                    CrashLogsManager.crashLogFileNamePrefix,
+                )
 
             if (result) {
                 isInstalled = true
@@ -48,9 +52,7 @@ object NativeCrashHandler {
         }
     }
 
-    /**
-     * 卸载 Native 崩溃拦截器
-     */
+    /** 卸载 Native 崩溃拦截器 */
     fun uninstall() {
         if (!isInstalled) {
             return
@@ -68,12 +70,8 @@ object NativeCrashHandler {
     /**
      * 触发测试崩溃
      *
-     * @param crashType 崩溃类型
-     * 0 = SIGSEGV (空指针访问)
-     * 1 = SIGABRT (abort)
-     * 2 = SIGFPE (除零错误)
-     * 3 = SIGILL (非法指令)
-     * 4 = SIGBUS (总线错误)
+     * @param crashType 崩溃类型 0 = SIGSEGV (空指针访问) 1 = SIGABRT (abort) 2 = SIGFPE (除零错误) 3 = SIGILL
+     *   (非法指令) 4 = SIGBUS (总线错误)
      */
     fun triggerCrash(crashType: Int) {
         WeLogger.w(TAG, "triggering test crash: type=$crashType")

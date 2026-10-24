@@ -7,9 +7,8 @@ import top.yukonga.scripta.editor.highlight.SyntaxHighlighter
 import top.yukonga.scripta.editor.highlight.TokenType
 
 /**
- * Python 语法高亮插件（行级增量）。跨行结构只有三引号字符串：经 [LineState] 在行间传递，
- * 空行保持状态。行内为一遍游标扫描：注释、字符串（含 f/r/b 前缀与三引号）、数字、关键字、
- * 内置名、装饰器、`def`/`class` 后的名称，以及调用位置（标识符后随 `(`）。
+ * Python 语法高亮插件（行级增量）。跨行结构只有三引号字符串：经 [LineState] 在行间传递， 空行保持状态。行内为一遍游标扫描：注释、字符串（含 f/r/b
+ * 前缀与三引号）、数字、关键字、 内置名、装饰器、`def`/`class` 后的名称，以及调用位置（标识符后随 `(`）。
  */
 class PythonHighlighter : SyntaxHighlighter {
 
@@ -20,7 +19,11 @@ class PythonHighlighter : SyntaxHighlighter {
     override fun highlightLine(text: String, entryState: LineState?): LineHighlight {
         if (entryState is TripleStringState) {
             val close = text.indexOf(entryState.quote.toString().repeat(3))
-            if (close < 0) return LineHighlight(listOf(HighlightSpan(0, text.length, TokenType.String)), entryState)
+            if (close < 0)
+                return LineHighlight(
+                    listOf(HighlightSpan(0, text.length, TokenType.String)),
+                    entryState,
+                )
             val closeEnd = close + 3
             val scanner = Scanner(text, closeEnd)
             val rest = scanner.scanLine()
@@ -120,8 +123,14 @@ class PythonHighlighter : SyntaxHighlighter {
             var j = i
             while (j < text.length) {
                 val c = text[j]
-                if (c.isDigit() || c == '_' || c in "xXoObBeE" || c == '.' ||
-                    ((c == '+' || c == '-') && j > i && (text[j - 1] == 'e' || text[j - 1] == 'E'))
+                if (
+                    c.isDigit() ||
+                        c == '_' ||
+                        c in "xXoObBeE" ||
+                        c == '.' ||
+                        ((c == '+' || c == '-') &&
+                            j > i &&
+                            (text[j - 1] == 'e' || text[j - 1] == 'E'))
                 ) {
                     j++
                 } else {
@@ -137,23 +146,28 @@ class PythonHighlighter : SyntaxHighlighter {
             val end = wordEnd(i)
             val word = text.substring(i, end)
             // f/r/b/u 前缀 + 引号：前缀并入字符串着色。
-            if (word.length <= 2 && word.isNotEmpty() && word.all { it in "fFrRbBuU" } &&
-                end < text.length && (text[end] == '"' || text[end] == '\'')
+            if (
+                word.length <= 2 &&
+                    word.isNotEmpty() &&
+                    word.all { it in "fFrRbBuU" } &&
+                    end < text.length &&
+                    (text[end] == '"' || text[end] == '\'')
             ) {
                 scanString()
                 return
             }
-            val type = when {
-                word in KEYWORDS -> TokenType.Keyword
-                word == "None" -> TokenType.Null
-                word == "True" || word == "False" -> TokenType.Boolean
-                word == "self" || word == "cls" -> TokenType.Variable
-                lastWord == "def" -> TokenType.Function
-                lastWord == "class" -> TokenType.Type
-                word in BUILTINS -> TokenType.Function
-                text.startsWith("(", end) -> TokenType.Function
-                else -> null
-            }
+            val type =
+                when {
+                    word in KEYWORDS -> TokenType.Keyword
+                    word == "None" -> TokenType.Null
+                    word == "True" || word == "False" -> TokenType.Boolean
+                    word == "self" || word == "cls" -> TokenType.Variable
+                    lastWord == "def" -> TokenType.Function
+                    lastWord == "class" -> TokenType.Type
+                    word in BUILTINS -> TokenType.Function
+                    text.startsWith("(", end) -> TokenType.Function
+                    else -> null
+                }
             if (type != null) spans.add(HighlightSpan(i, end, type))
             i = end
             lastWord = word
@@ -175,21 +189,103 @@ class PythonHighlighter : SyntaxHighlighter {
     }
 
     companion object {
-        private val KEYWORDS = setOf(
-            "and", "as", "assert", "async", "await", "break", "case", "class", "continue",
-            "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
-            "if", "import", "in", "is", "lambda", "match", "nonlocal", "not", "or",
-            "pass", "raise", "return", "try", "while", "with", "yield",
-        )
+        private val KEYWORDS =
+            setOf(
+                "and",
+                "as",
+                "assert",
+                "async",
+                "await",
+                "break",
+                "case",
+                "class",
+                "continue",
+                "def",
+                "del",
+                "elif",
+                "else",
+                "except",
+                "finally",
+                "for",
+                "from",
+                "global",
+                "if",
+                "import",
+                "in",
+                "is",
+                "lambda",
+                "match",
+                "nonlocal",
+                "not",
+                "or",
+                "pass",
+                "raise",
+                "return",
+                "try",
+                "while",
+                "with",
+                "yield",
+            )
 
-        private val BUILTINS = setOf(
-            "abs", "all", "any", "bin", "bool", "bytearray", "bytes", "callable", "chr",
-            "classmethod", "dict", "dir", "divmod", "enumerate", "eval", "exec", "filter",
-            "float", "format", "getattr", "hasattr", "hash", "hex", "id", "input", "int",
-            "isinstance", "issubclass", "iter", "len", "list", "map", "max", "min", "next",
-            "object", "oct", "open", "ord", "pow", "print", "property", "range", "repr",
-            "reversed", "round", "set", "setattr", "sorted", "staticmethod", "str", "sum",
-            "super", "tuple", "type", "vars", "zip",
-        )
+        private val BUILTINS =
+            setOf(
+                "abs",
+                "all",
+                "any",
+                "bin",
+                "bool",
+                "bytearray",
+                "bytes",
+                "callable",
+                "chr",
+                "classmethod",
+                "dict",
+                "dir",
+                "divmod",
+                "enumerate",
+                "eval",
+                "exec",
+                "filter",
+                "float",
+                "format",
+                "getattr",
+                "hasattr",
+                "hash",
+                "hex",
+                "id",
+                "input",
+                "int",
+                "isinstance",
+                "issubclass",
+                "iter",
+                "len",
+                "list",
+                "map",
+                "max",
+                "min",
+                "next",
+                "object",
+                "oct",
+                "open",
+                "ord",
+                "pow",
+                "print",
+                "property",
+                "range",
+                "repr",
+                "reversed",
+                "round",
+                "set",
+                "setattr",
+                "sorted",
+                "staticmethod",
+                "str",
+                "sum",
+                "super",
+                "tuple",
+                "type",
+                "vars",
+                "zip",
+            )
     }
 }

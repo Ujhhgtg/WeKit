@@ -10,12 +10,13 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 object MotionPhotoFilePublisher {
     fun publishPair(photoStage: File, videoStage: File, photoOutput: File, videoOutput: File) {
         val photoBackup = backup(photoOutput, ".jpg")
-        val videoBackup = try {
-            backup(videoOutput, ".mp4")
-        } catch (failure: IOException) {
-            photoBackup?.delete()
-            throw failure
-        }
+        val videoBackup =
+            try {
+                backup(videoOutput, ".mp4")
+            } catch (failure: IOException) {
+                photoBackup?.delete()
+                throw failure
+            }
 
         try {
             videoStage.toPath().moveReplacing(videoOutput.toPath())
@@ -32,7 +33,8 @@ object MotionPhotoFilePublisher {
     private fun backup(output: File, suffix: String): File? {
         if (!output.exists()) return null
         // Scoped storage determines media type from the extension, including temporary files.
-        val backup = File.createTempFile("wekit-livephoto-backup-", suffix, output.absoluteFile.parentFile)
+        val backup =
+            File.createTempFile("wekit-livephoto-backup-", suffix, output.absoluteFile.parentFile)
         try {
             Files.copy(output.toPath(), backup.toPath(), REPLACE_EXISTING)
         } catch (failure: IOException) {

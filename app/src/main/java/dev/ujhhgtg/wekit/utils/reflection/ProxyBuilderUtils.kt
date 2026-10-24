@@ -24,11 +24,11 @@ fun <T : Any> createProxyBuilder(
 }
 
 fun ProxyBuilder<*>.buildClass(handler: InvocationHandler): Class<*> {
-    return this.buildProxyClass()
-        .also {
-            // if generating a proxy class with buildProxyClass(), instances do not automatically have a handler set
-            it.reflekt().firstConstructor().hookAfterDirectly {
-                ProxyBuilder.setInvocationHandler(thisObject, handler)
-            }
+    return this.buildProxyClass().also {
+        // if generating a proxy class with buildProxyClass(), instances do not automatically have a
+        // handler set
+        it.reflekt().firstConstructor().hookAfterDirectly {
+            ProxyBuilder.setInvocationHandler(thisObject, handler)
         }
+    }
 }

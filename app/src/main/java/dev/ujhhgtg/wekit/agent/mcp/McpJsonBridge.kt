@@ -14,17 +14,19 @@ import kotlinx.serialization.json.longOrNull
  * client SDK's `callTool(name, arguments: Map<String, Any?>)` overload.
  */
 object McpJsonBridge {
-    fun toPlain(e: JsonElement): Any? = when (e) {
-        is JsonNull -> null
-        is JsonPrimitive -> when {
-            e.isString -> e.content
-            e.booleanOrNull != null -> e.booleanOrNull
-            e.longOrNull != null -> e.longOrNull
-            e.doubleOrNull != null -> e.doubleOrNull
-            else -> e.content
-        }
+    fun toPlain(e: JsonElement): Any? =
+        when (e) {
+            is JsonNull -> null
+            is JsonPrimitive ->
+                when {
+                    e.isString -> e.content
+                    e.booleanOrNull != null -> e.booleanOrNull
+                    e.longOrNull != null -> e.longOrNull
+                    e.doubleOrNull != null -> e.doubleOrNull
+                    else -> e.content
+                }
 
-        is JsonArray -> e.map { toPlain(it) }
-        is JsonObject -> e.mapValues { toPlain(it.value) }
-    }
+            is JsonArray -> e.map { toPlain(it) }
+            is JsonObject -> e.mapValues { toPlain(it.value) }
+        }
 }

@@ -1,16 +1,15 @@
 package dev.ujhhgtg.wekit.utils.livephoto
 
+import java.io.File
+import java.io.IOException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.io.File
-import java.io.IOException
 
 class MotionPhotoFilePublisherTest {
-    @TempDir
-    lateinit var directory: File
+    @TempDir lateinit var directory: File
 
     @Test
     fun `publishes a new pair and consumes both stages`() {
@@ -76,7 +75,8 @@ class MotionPhotoFilePublisherTest {
         assertEquals(emptySet<String>(), directory.list()!!.toSet())
     }
 
-    private fun file(name: String, content: String) = File(directory, name).apply { writeText(content) }
+    private fun file(name: String, content: String) =
+        File(directory, name).apply { writeText(content) }
 
     private fun assertOnlyOutputs() {
         assertEquals(setOf("output.jpg", "output.mp4"), directory.list()!!.toSet())

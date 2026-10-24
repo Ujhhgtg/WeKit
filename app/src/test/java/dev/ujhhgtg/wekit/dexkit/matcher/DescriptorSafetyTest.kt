@@ -2,14 +2,12 @@ package dev.ujhhgtg.wekit.dexkit.matcher
 
 import dev.ujhhgtg.wekit.dexkit.DexSqlException
 import dev.ujhhgtg.wekit.dexkit.DexSqlQueryResult
-import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataKind
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadataProvider
 import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -85,58 +83,114 @@ class DescriptorSafetyTest {
 
     @Test
     fun evaluatorFieldTypeArrayAndPrimitiveNeverCrash() {
-        val arrayField = fieldInfo(
-            descriptor = "Lcom/test/Alpha;->names:[B",
-            name = "names",
-            typeName = "[B",
-            declaredClassName = "com.test.Alpha",
-        )
+        val arrayField =
+            fieldInfo(
+                descriptor = "Lcom/test/Alpha;->names:[B",
+                name = "names",
+                typeName = "[B",
+                declaredClassName = "com.test.Alpha",
+            )
         // No match for incompatible primitive/object specs, and no metadata conversion.
-        assertFalse(evaluator.matchesField(arrayField, FieldSpec(type = ClassSpec(className = NameSpec("int")))))
-        assertFalse(evaluator.matchesField(arrayField, FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String")))))
-        assertFalse(evaluator.matchesField(arrayField, FieldSpec(type = ClassSpec(className = NameSpec("byte", NameMatch.Contains)))))
-        // Explicitly compatible exact specs match (Java name or descriptor form).
-        assertTrue(evaluator.matchesField(arrayField, FieldSpec(type = ClassSpec(className = NameSpec("byte[]")))))
-        assertTrue(evaluator.matchesField(arrayField, FieldSpec(type = ClassSpec(className = NameSpec("[B")))))
-
-        val objectArrayField = fieldInfo(
-            descriptor = "Lcom/test/Alpha;->items:[Lcom/x/Y;",
-            name = "items",
-            typeName = "com.x.Y[]",
-            declaredClassName = "com.test.Alpha",
+        assertFalse(
+            evaluator.matchesField(
+                arrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("int"))),
+            ),
         )
-        assertFalse(evaluator.matchesField(objectArrayField, FieldSpec(type = ClassSpec(className = NameSpec("com.x", NameMatch.Contains)))))
-        assertFalse(evaluator.matchesField(objectArrayField, FieldSpec(type = ClassSpec(className = NameSpec("com.x", NameMatch.StartsWith)))))
-        assertFalse(evaluator.matchesField(objectArrayField, FieldSpec(type = ClassSpec(className = NameSpec("Y[]", NameMatch.EndsWith)))))
-        assertTrue(evaluator.matchesField(objectArrayField, FieldSpec(type = ClassSpec(className = NameSpec("com.x.Y[]")))))
+        assertFalse(
+            evaluator.matchesField(
+                arrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("java.lang.String"))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesField(
+                arrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("byte", NameMatch.Contains))),
+            ),
+        )
+        // Explicitly compatible exact specs match (Java name or descriptor form).
+        assertTrue(
+            evaluator.matchesField(
+                arrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("byte[]"))),
+            ),
+        )
+        assertTrue(
+            evaluator.matchesField(
+                arrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("[B"))),
+            ),
+        )
+
+        val objectArrayField =
+            fieldInfo(
+                descriptor = "Lcom/test/Alpha;->items:[Lcom/x/Y;",
+                name = "items",
+                typeName = "com.x.Y[]",
+                declaredClassName = "com.test.Alpha",
+            )
+        assertFalse(
+            evaluator.matchesField(
+                objectArrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("com.x", NameMatch.Contains))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesField(
+                objectArrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("com.x", NameMatch.StartsWith))),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesField(
+                objectArrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("Y[]", NameMatch.EndsWith))),
+            ),
+        )
+        assertTrue(
+            evaluator.matchesField(
+                objectArrayField,
+                FieldSpec(type = ClassSpec(className = NameSpec("com.x.Y[]"))),
+            ),
+        )
     }
 
     @Test
     fun evaluatorMethodParamAndReturnArrayDescriptors() {
-        val method = methodInfo(
-            descriptor = "Lcom/test/Alpha;->run([B)[Lcom/x/Y;",
-            name = "run",
-            declaredClassName = "com.test.Alpha",
-            returnTypeName = "[Lcom/x/Y;",
-            paramTypeNames = listOf("byte[]"),
-            paramCount = 1,
-        )
+        val method =
+            methodInfo(
+                descriptor = "Lcom/test/Alpha;->run([B)[Lcom/x/Y;",
+                name = "run",
+                declaredClassName = "com.test.Alpha",
+                returnTypeName = "[Lcom/x/Y;",
+                paramTypeNames = listOf("byte[]"),
+                paramCount = 1,
+            )
         assertTrue(evaluator.matchesMethod(method, MethodSpec(paramTypes = listOf(TypeSpec("[B")))))
-        assertTrue(evaluator.matchesMethod(method, MethodSpec(paramTypes = listOf(TypeSpec("byte[]")))))
-        assertFalse(evaluator.matchesMethod(method, MethodSpec(paramTypes = listOf(TypeSpec("int")))))
+        assertTrue(
+            evaluator.matchesMethod(method, MethodSpec(paramTypes = listOf(TypeSpec("byte[]")))),
+        )
+        assertFalse(
+            evaluator.matchesMethod(method, MethodSpec(paramTypes = listOf(TypeSpec("int")))),
+        )
 
         // Array return types only match explicitly compatible exact specs; Contains/StartsWith/
         // EndsWith must be a clean no-match (the DexKit returnType class cannot match arrays).
         assertFalse(
             evaluator.matchesMethod(
                 method,
-                MethodSpec(returnType = ClassSpec(className = NameSpec("com.x", NameMatch.Contains))),
+                MethodSpec(
+                    returnType = ClassSpec(className = NameSpec("com.x", NameMatch.Contains)),
+                ),
             ),
         )
         assertFalse(
             evaluator.matchesMethod(
                 method,
-                MethodSpec(returnType = ClassSpec(className = NameSpec("com.x", NameMatch.StartsWith))),
+                MethodSpec(
+                    returnType = ClassSpec(className = NameSpec("com.x", NameMatch.StartsWith)),
+                ),
             ),
         )
         assertTrue(
@@ -151,14 +205,15 @@ class DescriptorSafetyTest {
                 MethodSpec(returnType = ClassSpec(className = NameSpec("[Lcom/x/Y;"))),
             ),
         )
-        val primitiveMethod = methodInfo(
-            descriptor = "Lcom/test/Alpha;->count()I",
-            name = "count",
-            declaredClassName = "com.test.Alpha",
-            returnTypeName = "int",
-            paramTypeNames = emptyList(),
-            paramCount = 0,
-        )
+        val primitiveMethod =
+            methodInfo(
+                descriptor = "Lcom/test/Alpha;->count()I",
+                name = "count",
+                declaredClassName = "com.test.Alpha",
+                returnTypeName = "int",
+                paramTypeNames = emptyList(),
+                paramCount = 0,
+            )
         assertFalse(
             evaluator.matchesMethod(
                 primitiveMethod,
@@ -235,19 +290,21 @@ class DescriptorSafetyTest {
         val scope = QueryMatcherScope(metadata, query)
         val results = scope.findClasses(classSpec { className("Lcom/test/Alpha;") })
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
-        assertTrue(query.queries.single().contains("c.descriptor = 'Lcom/test/Alpha;'"), query.queries.single())
+        assertTrue(
+            query.queries.single().contains("c.descriptor = 'Lcom/test/Alpha;'"),
+            query.queries.single(),
+        )
     }
 
     @Test
     fun invalidArrayDescriptorsAreSkippedBeforeMetadataLookup() {
-        val throwingProvider = object : DexMetadataProvider {
-            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+        val throwingProvider =
+            DexMetadataProvider { kind, descriptor ->
                 if (descriptor.startsWith("[")) {
-                    throw IllegalArgumentException("malformed class descriptor " + descriptor)
+                    throw IllegalArgumentException("malformed class descriptor $descriptor")
                 }
-                return MatcherFixtures.provider.query(kind, descriptor)
+                MatcherFixtures.provider.query(kind, descriptor)
             }
-        }
         val metadata = DexMetadata(throwingProvider)
         val methodQuery = RecordingDescriptorQuery {
             listOf("[Lcom/x/Y;", "[B", MatcherFixtures.ALPHA_HELPER)
@@ -260,9 +317,10 @@ class DescriptorSafetyTest {
             listOf("[Lcom/x/Y;", "[B", MatcherFixtures.ALPHA)
         }
         val classScope = QueryMatcherScope(metadata, classQuery)
-        val classes = classScope.findClasses(
-            classSpec { className("com.test", NameMatch.StartsWith) },
-        )
+        val classes =
+            classScope.findClasses(
+                classSpec { className("com.test", NameMatch.StartsWith) },
+            )
         assertEquals(listOf(MatcherFixtures.ALPHA), classes.map { it.descriptor })
     }
 
@@ -273,22 +331,26 @@ class DescriptorSafetyTest {
     @Test
     fun fieldAccessRelationSelectsAccessingMethodDescriptor() {
         var capturedSql = ""
-        val relations = BridgeMatcherRelations(
-            callersOf = { null },
-            query = { sql ->
-                capturedSql = sql
-                DexSqlQueryResult(
-                    columns = listOf("descriptor"),
-                    rows = listOf(listOf(MatcherFixtures.ALPHA_RUN)),
-                )
-            },
-            metadata = metadata,
-        )
+        val relations =
+            BridgeMatcherRelations(
+                callersOf = { null },
+                query = { sql ->
+                    capturedSql = sql
+                    DexSqlQueryResult(
+                        columns = listOf("descriptor"),
+                        rows = listOf(listOf(MatcherFixtures.ALPHA_RUN)),
+                    )
+                },
+                metadata = metadata,
+            )
         val methods = relations.fieldAccessMethods(MatcherFixtures.ALPHA_COUNT_FIELD, "get")
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), methods.map { it.descriptor })
         assertTrue(capturedSql.contains("SELECT DISTINCT m.descriptor AS method"), capturedSql)
         assertFalse(capturedSql.contains("SELECT DISTINCT fm0.descriptor"), capturedSql)
-        assertTrue(capturedSql.contains("JOIN method_field_accesses fa0 ON fa0.method = m.descriptor"), capturedSql)
+        assertTrue(
+            capturedSql.contains("JOIN method_field_accesses fa0 ON fa0.method = m.descriptor"),
+            capturedSql,
+        )
         assertTrue(capturedSql.contains("fa0.file_id = m.file_id"), capturedSql)
         assertTrue(capturedSql.contains("fa0.method_idx = m.method_idx"), capturedSql)
     }
@@ -296,23 +358,25 @@ class DescriptorSafetyTest {
     @Test
     fun nativeMethodDocumentFailureSkipsCandidateInsteadOfAborting() {
         val failingDescriptor = MatcherFixtures.ALPHA_RUN
-        val throwingProvider = object : DexMetadataProvider {
-            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+        val throwingProvider =
+            DexMetadataProvider { kind, descriptor ->
                 if (kind == DexMetadataKind.Method && descriptor == failingDescriptor) {
-                    throw DexSqlException("malformed class descriptor \"[B\": expected Lpkg/Class;")
+                    throw DexSqlException(
+                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                    )
                 }
-                return MatcherFixtures.provider.query(kind, descriptor)
+                MatcherFixtures.provider.query(kind, descriptor)
             }
-        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery {
             listOf(MatcherFixtures.ALPHA_RUN, MatcherFixtures.ALPHA_HELPER)
         }
-        val scope = QueryMatcherScope(
-            metadata = metadata,
-            query = query,
-            rawMetadata = throwingProvider::query,
-        )
+        val scope =
+            QueryMatcherScope(
+                metadata = metadata,
+                query = query,
+                rawMetadata = throwingProvider::query,
+            )
         val results = scope.findMethods(MethodSpec(name = NameSpec("helper")))
         assertEquals(listOf(MatcherFixtures.ALPHA_HELPER), results.map { it.descriptor })
     }
@@ -320,30 +384,33 @@ class DescriptorSafetyTest {
     @Test
     fun classStringsEvaluationNeverReadsNativeMethodDocuments() {
         var methodDocumentQueries = 0
-        val throwingProvider = object : DexMetadataProvider {
-            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+        val throwingProvider =
+            DexMetadataProvider { kind, descriptor ->
                 if (kind == DexMetadataKind.Method) {
                     methodDocumentQueries++
-                    throw DexSqlException("malformed class descriptor \"[B\": expected Lpkg/Class;")
+                    throw DexSqlException(
+                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                    )
                 }
-                return MatcherFixtures.provider.query(kind, descriptor)
+                MatcherFixtures.provider.query(kind, descriptor)
             }
-        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {
                 sql.contains("FROM classes") -> MatcherFixtures.classDescriptors()
                 sql.contains("class_descriptor = '") ->
-                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'")) MatcherFixtures.methodDescriptors()
+                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'"))
+                        MatcherFixtures.methodDescriptors()
                     else emptyList()
                 else -> MatcherFixtures.methodDescriptors()
             }
         }
-        val scope = QueryMatcherScope(
-            metadata = metadata,
-            query = query,
-            rawMetadata = throwingProvider::query,
-        )
+        val scope =
+            QueryMatcherScope(
+                metadata = metadata,
+                query = query,
+                rawMetadata = throwingProvider::query,
+            )
         // classStorageFeatureService-like shape: class can only be found through package scan and
         // its method specs constrain return-type classes usingStrings (no metadata method docs).
         val spec = classSpec {
@@ -357,30 +424,33 @@ class DescriptorSafetyTest {
     @Test
     fun classBaseSettingItemShapeMapsCandidatesWithoutMethodDocuments() {
         var methodDocumentQueries = 0
-        val throwingProvider = object : DexMetadataProvider {
-            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+        val throwingProvider =
+            DexMetadataProvider { kind, descriptor ->
                 if (kind == DexMetadataKind.Method) {
                     methodDocumentQueries++
-                    throw DexSqlException("malformed class descriptor \"[B\": expected Lpkg/Class;")
+                    throw DexSqlException(
+                        "malformed class descriptor \"[B\": expected Lpkg/Class;",
+                    )
                 }
-                return MatcherFixtures.provider.query(kind, descriptor)
+                MatcherFixtures.provider.query(kind, descriptor)
             }
-        }
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {
                 sql.contains("class_descriptor = '") ->
-                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'")) MatcherFixtures.methodDescriptors()
+                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'"))
+                        MatcherFixtures.methodDescriptors()
                     else emptyList()
                 sql.contains("FROM classes") -> MatcherFixtures.classDescriptors()
                 else -> MatcherFixtures.methodDescriptors()
             }
         }
-        val scope = QueryMatcherScope(
-            metadata = metadata,
-            query = query,
-            rawMetadata = throwingProvider::query,
-        )
+        val scope =
+            QueryMatcherScope(
+                metadata = metadata,
+                query = query,
+                rawMetadata = throwingProvider::query,
+            )
         // classBaseSettingItem-like shape: class-level strings + nested init method + interfaces.
         scope.findClasses(
             classSpec {
@@ -411,7 +481,12 @@ class DescriptorSafetyTest {
                 paramTypes(TypeSpec("[B"), TypeSpec("[Lx/Y;"))
             },
         )
-        scope.findFields(fieldSpec { name("names"); type { className("com.x.Y[][]") } })
+        scope.findFields(
+            fieldSpec {
+                name("names")
+                type { className("com.x.Y[][]") }
+            },
+        )
         for (sql in queries) {
             assertFalse(sql.contains("class_descriptor = '["), sql)
             assertFalse(sql.contains("superclass_descriptor = '["), sql)
@@ -429,15 +504,16 @@ class DescriptorSafetyTest {
         name: String,
         typeName: String,
         declaredClassName: String,
-    ): DexFieldInfo = DexFieldInfo(
-        buildJsonObject {
-            put("descriptor", descriptor)
-            put("name", name)
-            put("type_name", typeName)
-            put("declared_class_name", declaredClassName)
-        },
-        metadata,
-    )
+    ): DexFieldInfo =
+        DexFieldInfo(
+            buildJsonObject {
+                put("descriptor", descriptor)
+                put("name", name)
+                put("type_name", typeName)
+                put("declared_class_name", declaredClassName)
+            },
+            metadata,
+        )
 
     private fun methodInfo(
         descriptor: String,
@@ -446,21 +522,25 @@ class DescriptorSafetyTest {
         returnTypeName: String,
         paramTypeNames: List<String>,
         paramCount: Int,
-    ): DexMethodInfo = DexMethodInfo(
-        buildJsonObject {
-            put("descriptor", descriptor)
-            put("name", name)
-            put("declared_class_name", declaredClassName)
-            put("method_sign", "(...)...")
-            put("modifiers", 1)
-            put("access_flags", 1)
-            put("return_type_name", returnTypeName)
-            put("param_type_names", JsonArray(paramTypeNames.map { kotlinx.serialization.json.JsonPrimitive(it) }))
-            put("param_count", paramCount)
-            put("is_constructor", false)
-            put("is_static_initializer", false)
-            put("is_method", true)
-        },
-        metadata,
-    )
+    ): DexMethodInfo =
+        DexMethodInfo(
+            buildJsonObject {
+                put("descriptor", descriptor)
+                put("name", name)
+                put("declared_class_name", declaredClassName)
+                put("method_sign", "(...)...")
+                put("modifiers", 1)
+                put("access_flags", 1)
+                put("return_type_name", returnTypeName)
+                put(
+                    "param_type_names",
+                    JsonArray(paramTypeNames.map { kotlinx.serialization.json.JsonPrimitive(it) }),
+                )
+                put("param_count", paramCount)
+                put("is_constructor", false)
+                put("is_static_initializer", false)
+                put("is_method", true)
+            },
+            metadata,
+        )
 }

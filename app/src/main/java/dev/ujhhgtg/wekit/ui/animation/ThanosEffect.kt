@@ -28,13 +28,12 @@ import kotlin.math.sqrt
 /**
  * Telegram 的「灭霸」粒子消散特效 (`org.telegram.ui.Components.ThanosEffect`) 的移植。
  *
- * 全窗口透明 [TextureView], GL 线程上用 transform feedback 双缓冲驱动粒子: 每个粒子
- * 采样位图上一格像素, 从左到右依次被「吹散」并淡出。着色器与物理参数与 Telegram 一致。
+ * 全窗口透明 [TextureView], GL 线程上用 transform feedback 双缓冲驱动粒子: 每个粒子 采样位图上一格像素, 从左到右依次被「吹散」并淡出。着色器与物理参数与
+ * Telegram 一致。
  *
  * 与原实现的差异:
  * - 只保留「给定位图 + 位置」一种入口, 不依赖 Telegram 的 ChatMessageCell 绘制细节;
- * - 位图可为 HARDWARE 配置, 在 GL 线程上复制为 ARGB_8888 后裁掉全透明边缘再上传,
- *   让粒子预算集中在可见内容上;
+ * - 位图可为 HARDWARE 配置, 在 GL 线程上复制为 ARGB_8888 后裁掉全透明边缘再上传, 让粒子预算集中在可见内容上;
  * - GL 初始化/交换失败时置 [supported] = false (Telegram 的 `nothanos`), 调用方回退淡出。
  *
  * 所有动画结束 (或出错/表面销毁) 后调用 [onFinished], 由调用方把本视图移出父布局。
@@ -49,7 +48,8 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
         var supported = true
             private set
 
-        private val VERTEX_SHADER = """
+        private val VERTEX_SHADER =
+            """
             #version 300 es
             precision highp float;
             layout(location = 0) in vec2 inUV;
@@ -107,9 +107,11 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
               uvcenter = uv;
               uvsize = (vec2(gridSize.z + 1.) / rectSize.xy);
             }
-        """.trimIndent()
+            """
+                .trimIndent()
 
-        private val FRAGMENT_SHADER = """
+        private val FRAGMENT_SHADER =
+            """
             #version 300 es
             precision highp float;
             in vec2 uvcenter;
@@ -123,7 +125,8 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
               }
               fragColor = texture(tex, uvcenter + gl_PointCoord * uvsize).rgba * alpha;
             }
-        """.trimIndent()
+            """
+                .trimIndent()
 
         private const val MAX_PARTICLES = 120_000
         private const val LONGEVITY = 1.5f
@@ -136,45 +139,55 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
     private val queued = ArrayList<Animation>()
     private var finished = false
 
-    private val frameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            val thread = drawThread ?: return
-            thread.requestDraw()
-            if (thread.running) Choreographer.getInstance().postFrameCallback(this)
+    private val frameCallback =
+        object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                val thread = drawThread ?: return
+                thread.requestDraw()
+                if (thread.running) Choreographer.getInstance().postFrameCallback(this)
+            }
         }
-    }
 
     init {
         isOpaque = false
-        surfaceTextureListener = object : SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                drawThread?.kill()
-                val thread = DrawingThread(surface, width, height)
-                drawThread = thread
-                queued.forEach(thread::add)
-                queued.clear()
-                scheduleFrames()
-            }
+        surfaceTextureListener =
+            object : SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(
+                    surface: SurfaceTexture,
+                    width: Int,
+                    height: Int,
+                ) {
+                    drawThread?.kill()
+                    val thread = DrawingThread(surface, width, height)
+                    drawThread = thread
+                    queued.forEach(thread::add)
+                    queued.clear()
+                    scheduleFrames()
+                }
 
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-                drawThread?.resize(width, height)
-            }
+                override fun onSurfaceTextureSizeChanged(
+                    surface: SurfaceTexture,
+                    width: Int,
+                    height: Int,
+                ) {
+                    drawThread?.resize(width, height)
+                }
 
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                drawThread?.kill()
-                drawThread = null
-                finish()
-                // DrawingThread 在退出时自行 release
-                return false
-            }
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                    drawThread?.kill()
+                    drawThread = null
+                    finish()
+                    // DrawingThread 在退出时自行 release
+                    return false
+                }
 
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
-        }
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+            }
     }
 
     /**
-     * 在本视图坐标 ([left], [top]) 处把 [bitmap] 粒子化消散。
-     * [onStart] 在首帧粒子上屏后调用 (此时应隐藏原内容), [onDone] 在动画结束或被中止时调用。
+     * 在本视图坐标 ([left], [top]) 处把 [bitmap] 粒子化消散。 [onStart] 在首帧粒子上屏后调用 (此时应隐藏原内容), [onDone]
+     * 在动画结束或被中止时调用。
      */
     fun animate(bitmap: Bitmap, left: Float, top: Float, onStart: () -> Unit, onDone: () -> Unit) {
         val animation = Animation(bitmap, left, top, onStart, onDone)
@@ -237,16 +250,23 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
         val buffer = IntArray(2)
         val glMatrixValues = FloatArray(9)
 
-        val isDead get() = time > LONGEVITY + .9f
+        val isDead
+            get() = time > LONGEVITY + .9f
 
         /** 在主线程或 GL 线程调用均可; 回调只执行一次且总在主线程 */
         fun start() {
-            startCallback?.let { startCallback = null; onUiThread(it) }
+            startCallback?.let {
+                startCallback = null
+                onUiThread(it)
+            }
         }
 
         fun finish() {
             start()
-            doneCallback?.let { doneCallback = null; onUiThread(it) }
+            doneCallback?.let {
+                doneCallback = null
+                onUiThread(it)
+            }
         }
     }
 
@@ -256,11 +276,9 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
         private var height: Int,
     ) : HandlerThread("WeKit.ThanosEffect") {
 
-        @Volatile
-        var running = true
+        @Volatile var running = true
 
-        @Volatile
-        private var alive = true
+        @Volatile private var alive = true
         private val handler: Handler
 
         private lateinit var egl: EGL10
@@ -321,9 +339,11 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
 
         /** GL 线程已退出时丢弃 [action] 并在主线程调用 [onDropped] */
         private fun post(onDropped: () -> Unit = {}, action: () -> Unit) {
-            val posted = alive && handler.post {
-                if (alive) action() else onDropped()
-            }
+            val posted =
+                alive &&
+                    handler.post {
+                        if (alive) action() else onDropped()
+                    }
             if (!posted) onDropped()
         }
 
@@ -336,24 +356,36 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
                 return false
             }
             val configs = arrayOfNulls<EGLConfig>(1)
-            val configAttributes = intArrayOf(
-                EGL14.EGL_RED_SIZE, 8,
-                EGL14.EGL_GREEN_SIZE, 8,
-                EGL14.EGL_BLUE_SIZE, 8,
-                EGL14.EGL_ALPHA_SIZE, 8,
-                EGL14.EGL_RENDERABLE_TYPE, EGLExt.EGL_OPENGL_ES3_BIT_KHR,
-                EGL14.EGL_NONE,
-            )
+            val configAttributes =
+                intArrayOf(
+                    EGL14.EGL_RED_SIZE,
+                    8,
+                    EGL14.EGL_GREEN_SIZE,
+                    8,
+                    EGL14.EGL_BLUE_SIZE,
+                    8,
+                    EGL14.EGL_ALPHA_SIZE,
+                    8,
+                    EGL14.EGL_RENDERABLE_TYPE,
+                    EGLExt.EGL_OPENGL_ES3_BIT_KHR,
+                    EGL14.EGL_NONE,
+                )
             val numConfigs = IntArray(1)
-            if (!egl.eglChooseConfig(display, configAttributes, configs, 1, numConfigs) || numConfigs[0] == 0) {
+            if (
+                !egl.eglChooseConfig(display, configAttributes, configs, 1, numConfigs) ||
+                    numConfigs[0] == 0
+            ) {
                 WeLogger.e(TAG, "eglChooseConfig failed")
                 return false
             }
             val config = configs[0]
-            val context = egl.eglCreateContext(
-                display, config, EGL10.EGL_NO_CONTEXT,
-                intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
-            )
+            val context =
+                egl.eglCreateContext(
+                    display,
+                    config,
+                    EGL10.EGL_NO_CONTEXT,
+                    intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
+                )
             if (context == null || context === EGL10.EGL_NO_CONTEXT) {
                 WeLogger.e(TAG, "eglCreateContext failed")
                 return false
@@ -371,7 +403,8 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             }
 
             val vertexShader = compileShader(GLES31.GL_VERTEX_SHADER, VERTEX_SHADER) ?: return false
-            val fragmentShader = compileShader(GLES31.GL_FRAGMENT_SHADER, FRAGMENT_SHADER) ?: return false
+            val fragmentShader =
+                compileShader(GLES31.GL_FRAGMENT_SHADER, FRAGMENT_SHADER) ?: return false
             program = GLES31.glCreateProgram()
             if (program == 0) {
                 WeLogger.e(TAG, "glCreateProgram failed")
@@ -435,11 +468,12 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
         private fun addInternal(animation: Animation) {
             val source = animation.bitmap!!
             animation.bitmap = null
-            val software = if (source.config == Bitmap.Config.HARDWARE) {
-                source.copy(Bitmap.Config.ARGB_8888, false)
-            } else {
-                source
-            }
+            val software =
+                if (source.config == Bitmap.Config.HARDWARE) {
+                    source.copy(Bitmap.Config.ARGB_8888, false)
+                } else {
+                    source
+                }
             val cropped = cropTransparentEdges(software, animation)
             if (cropped == null) {
                 // 位图完全透明, 没有可消散的内容
@@ -448,10 +482,26 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             }
             GLES31.glGenTextures(1, animation.texture, 0)
             GLES31.glBindTexture(GLES31.GL_TEXTURE_2D, animation.texture[0])
-            GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_MIN_FILTER, GLES31.GL_LINEAR)
-            GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_MAG_FILTER, GLES31.GL_LINEAR)
-            GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_WRAP_S, GLES31.GL_CLAMP_TO_EDGE)
-            GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_WRAP_T, GLES31.GL_CLAMP_TO_EDGE)
+            GLES31.glTexParameteri(
+                GLES31.GL_TEXTURE_2D,
+                GLES31.GL_TEXTURE_MIN_FILTER,
+                GLES31.GL_LINEAR,
+            )
+            GLES31.glTexParameteri(
+                GLES31.GL_TEXTURE_2D,
+                GLES31.GL_TEXTURE_MAG_FILTER,
+                GLES31.GL_LINEAR,
+            )
+            GLES31.glTexParameteri(
+                GLES31.GL_TEXTURE_2D,
+                GLES31.GL_TEXTURE_WRAP_S,
+                GLES31.GL_CLAMP_TO_EDGE,
+            )
+            GLES31.glTexParameteri(
+                GLES31.GL_TEXTURE_2D,
+                GLES31.GL_TEXTURE_WRAP_T,
+                GLES31.GL_CLAMP_TO_EDGE,
+            )
             GLUtils.texImage2D(GLES31.GL_TEXTURE_2D, 0, cropped, 0)
             GLES31.glBindTexture(GLES31.GL_TEXTURE_2D, 0)
             if (cropped !== source) cropped.recycle()
@@ -487,7 +537,13 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             animation.viewWidth = maxX - minX + 1
             animation.viewHeight = maxY - minY + 1
             if (minX == 0 && minY == 0 && maxX == w - 1 && maxY == h - 1) return bitmap
-            return Bitmap.createBitmap(bitmap, minX, minY, animation.viewWidth, animation.viewHeight)
+            return Bitmap.createBitmap(
+                bitmap,
+                minX,
+                minY,
+                animation.viewWidth,
+                animation.viewHeight,
+            )
         }
 
         private fun calcParticlesGrid(animation: Animation) {
@@ -497,7 +553,8 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             val w = animation.viewWidth
             val h = animation.viewHeight
             // 与 Telegram 的 Utilities.clamp(value, max, min) 相同
-            val count = min(max((w * h / (p * p)).toInt(), 10), max((MAX_PARTICLES * part).toInt(), 10))
+            val count =
+                min(max((w * h / (p * p)).toInt(), 10), max((MAX_PARTICLES * part).toInt(), 10))
             val aspectRatio = w.toFloat() / h
             var gridHeight = max(sqrt(count / aspectRatio).roundToInt(), 1)
             var gridWidth = max((count.toFloat() / gridHeight).roundToInt(), 1)
@@ -513,7 +570,10 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             for (i in 0..1) {
                 GLES31.glBindBuffer(GLES31.GL_ARRAY_BUFFER, animation.buffer[i])
                 GLES31.glBufferData(
-                    GLES31.GL_ARRAY_BUFFER, animation.particlesCount * STRIDE, null, GLES31.GL_DYNAMIC_DRAW,
+                    GLES31.GL_ARRAY_BUFFER,
+                    animation.particlesCount * STRIDE,
+                    null,
+                    GLES31.GL_DYNAMIC_DRAW,
                 )
             }
 
@@ -569,7 +629,8 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
 
         private fun drawAnimation(animation: Animation) {
             val now = System.nanoTime()
-            val deltaTime = if (animation.lastDrawTime < 0) 0f else (now - animation.lastDrawTime) / 1e9f
+            val deltaTime =
+                if (animation.lastDrawTime < 0) 0f else (now - animation.lastDrawTime) / 1e9f
             animation.lastDrawTime = now
             animation.time += deltaTime * TIME_SCALE
 
@@ -578,12 +639,19 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             GLES31.glUniform1f(timeHandle, animation.time)
             GLES31.glUniform1f(deltaTimeHandle, deltaTime * TIME_SCALE)
             GLES31.glUniform3f(
-                gridSizeHandle, animation.gridWidth.toFloat(), animation.gridHeight.toFloat(), animation.gridSize,
+                gridSizeHandle,
+                animation.gridWidth.toFloat(),
+                animation.gridHeight.toFloat(),
+                animation.gridSize,
             )
             GLES31.glUniform2f(offsetHandle, 0f, 0f)
             GLES31.glUniform1f(scaleHandle, 1f)
             GLES31.glUniform1f(uvOffsetHandle, .6f)
-            GLES31.glUniform2f(rectSizeHandle, animation.viewWidth.toFloat(), animation.viewHeight.toFloat())
+            GLES31.glUniform2f(
+                rectSizeHandle,
+                animation.viewWidth.toFloat(),
+                animation.viewHeight.toFloat(),
+            )
             GLES31.glUniform1f(seedHandle, animation.seed)
             GLES31.glUniform1f(densityHandle, density)
 
@@ -601,7 +669,9 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             GLES31.glVertexAttribPointer(3, 1, GLES31.GL_FLOAT, false, STRIDE, 24)
             GLES31.glEnableVertexAttribArray(3)
             GLES31.glBindBufferBase(
-                GLES31.GL_TRANSFORM_FEEDBACK_BUFFER, 0, animation.buffer[1 - animation.currentBuffer],
+                GLES31.GL_TRANSFORM_FEEDBACK_BUFFER,
+                0,
+                animation.buffer[1 - animation.currentBuffer],
             )
 
             GLES31.glBeginTransformFeedback(GLES31.GL_POINTS)
@@ -640,7 +710,12 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
             val display = eglDisplay
             if (display != null) {
                 if (program != 0) GLES31.glDeleteProgram(program)
-                egl.eglMakeCurrent(display, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT)
+                egl.eglMakeCurrent(
+                    display,
+                    EGL10.EGL_NO_SURFACE,
+                    EGL10.EGL_NO_SURFACE,
+                    EGL10.EGL_NO_CONTEXT,
+                )
                 eglSurface?.let { egl.eglDestroySurface(display, it) }
                 eglContext?.let { egl.eglDestroyContext(display, it) }
             }

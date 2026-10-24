@@ -22,25 +22,27 @@ object CryptoManager {
     @RequiresApi(Build.VERSION_CODES.R)
     private fun getOrCreateSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).also { it.load(null) }
-        keyStore.getKey(KEY_ALIAS, null)?.let { return it as SecretKey }
+        keyStore.getKey(KEY_ALIAS, null)?.let {
+            return it as SecretKey
+        }
 
         val keyGenerator =
             KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER)
         keyGenerator.init(
             KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-            )
+                    KEY_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
                 .setUserAuthenticationRequired(true) // Requires biometric/PIN
                 .setUserAuthenticationParameters(
                     0, // 0 = auth required every use
-                    KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                    KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
                 )
                 .setInvalidatedByBiometricEnrollment(true) // Invalidate if new biometric added
-                .build()
+                .build(),
         )
         return keyGenerator.generateKey()
     }
@@ -67,7 +69,7 @@ object CryptoManager {
         val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return EncryptedData(
             ciphertext = Base64.encodeToString(ciphertext, Base64.DEFAULT),
-            iv = Base64.encodeToString(cipher.iv, Base64.DEFAULT)
+            iv = Base64.encodeToString(cipher.iv, Base64.DEFAULT),
         )
     }
 

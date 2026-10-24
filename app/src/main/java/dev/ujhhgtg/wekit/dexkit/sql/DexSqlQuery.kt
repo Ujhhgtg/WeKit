@@ -4,11 +4,12 @@ package dev.ujhhgtg.wekit.dexkit.sql
  * A canonical DexSQL query produced by [sqlMethod], [sqlConstructor], [sqlClass] or [sqlField].
  *
  * The builder block is lazy: it runs on every [toSql] call, never at declaration time. Delegate
- * declarations can therefore read other delegates' metadata naturally, for example
- * declaredClass = classFoo.data.name, exactly like DexKit matcher blocks. The emitted static text
- * is byte-for-byte identical to the canonical migration extractor output.
+ * declarations can therefore read other delegates' metadata naturally, for example declaredClass =
+ * classFoo.data.name, exactly like DexKit matcher blocks. The emitted static text is byte-for-byte
+ * identical to the canonical migration extractor output.
  */
-class DexSqlQuery internal constructor(
+internal class DexSqlQuery
+internal constructor(
     private val factory: () -> String,
 ) {
     /** Compiles the query; the builder block runs on every call (evaluate it during resolution). */
@@ -18,46 +19,48 @@ class DexSqlQuery internal constructor(
 /**
  * Case-sensitive name match mode for class/type descriptor matchers (DexKit StringMatchType).
  *
- * The SQL engine has no case-insensitive or regex name predicates, so only these modes are
- * exposed: [Equals] keeps the plain descriptor equality, [StartsWith] emits
- * instr(col, 'Lconverted') = 1, [Contains] emits instr(col, 'converted') > 0 and [EndsWith] emits
- * substr(col, -N) = 'converted;' (N includes the descriptor terminator). Literal values are Java
- * names and are converted to descriptor form by the builder.
+ * The SQL engine has no case-insensitive or regex name predicates, so only these modes are exposed:
+ * [Equals] keeps the plain descriptor equality, [StartsWith] emits instr(col, 'Lconverted') = 1,
+ * [Contains] emits instr(col, 'converted') > 0 and [EndsWith] emits substr(col, -N) = 'converted;'
+ * (N includes the descriptor terminator). Literal values are Java names and are converted to
+ * descriptor form by the builder.
  */
-enum class SqlStringMatchMode {
+internal enum class SqlStringMatchMode {
     Equals,
     StartsWith,
     Contains,
     EndsWith,
 }
 
-/** Build a dexMethod query. The block runs when [DexSqlQuery.toSql] is called; an empty block throws
- * then. Only predicates DexSQL can express are exposed on the builder. */
-fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+/**
+ * Build a dexMethod query. The block runs when [DexSqlQuery.toSql] is called; an empty block throws
+ * then. Only predicates DexSQL can express are exposed on the builder.
+ */
+internal fun sqlMethod(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
     val query = SqlMethodQuery()
     query.block()
     emitMethod(query, constructor = false)
 }
 
 /**
- * Build a dexConstructor query. DexKit forces the method name for constructor matchers, so
- * m.name = '<init>' is always emitted as the first WHERE condition.
+ * Build a dexConstructor query. DexKit forces the method name for constructor matchers, so m.name =
+ * '<init>' is always emitted as the first WHERE condition.
  */
-fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+internal fun sqlConstructor(block: SqlMethodQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
     val query = SqlMethodQuery()
     query.block()
     emitMethod(query, constructor = true)
 }
 
 /** Build a dexClass query; class-level literal and nested method matchers are existential units. */
-fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+internal fun sqlClass(block: SqlClassQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
     val query = SqlClassQuery()
     query.block()
     emitClass(query)
 }
 
 /** Build a dexField query; a query without a field predicate or access matcher throws. */
-fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
+internal fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
     val query = SqlFieldQuery()
     query.block()
     emitField(query)
@@ -71,7 +74,7 @@ fun sqlField(block: SqlFieldQuery.() -> Unit): DexSqlQuery = DexSqlQuery {
  * Only DexKit predicates that DexSQL can express are exposed; unsupported constructs are Kotlin
  * compile errors instead of silently dropped predicates.
  */
-class SqlMethodQuery internal constructor() {
+internal class SqlMethodQuery internal constructor() {
     /** Exact method name (m.name); constructors use "<init>". */
     var name: String? = null
 
@@ -82,12 +85,14 @@ class SqlMethodQuery internal constructor() {
             declaredClassMatch = null
         }
 
-    /** Name-match slot for [declaredClass]; the exact property maps to [SqlStringMatchMode.Equals]. */
+    /**
+     * Name-match slot for [declaredClass]; the exact property maps to [SqlStringMatchMode.Equals].
+     */
     internal var declaredClassMatch: SqlNameMatch? = null
 
     /**
-     * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[], or
-     * an L...; descriptor.
+     * Return type (m.return_descriptor); accepts void, int, java.lang.String, java.lang.String[],
+     * or an L...; descriptor.
      */
     var returnType: String? = null
         set(value) {
@@ -167,8 +172,8 @@ class SqlMethodQuery internal constructor() {
 
     /** Inclusive parameter count range; min == max keeps the canonical equality form. */
     fun paramCount(min: Int, max: Int) {
-        require(min >= 0 && min <= max) {
-            "DexSQL paramCount range must satisfy 0 <= min <= max, was " + min + ".." + max
+        require(min in 0..max) {
+            "DexSQL paramCount range must satisfy 0 <= min <= max, was $min..$max"
         }
         paramCount = null
         paramCountRange = min..max
@@ -179,8 +184,8 @@ class SqlMethodQuery internal constructor() {
 
     /** Inclusive instruction-count range (m.opcode_count). */
     fun opcodeCount(min: Int, max: Int) {
-        require(min >= 0 && min <= max) {
-            "DexSQL opcodeCount range must satisfy 0 <= min <= max, was " + min + ".." + max
+        require(min in 0..max) {
+            "DexSQL opcodeCount range must satisfy 0 <= min <= max, was $min..$max"
         }
         opcodeCountRange = min..max
     }
@@ -192,9 +197,8 @@ class SqlMethodQuery internal constructor() {
      * Positional parameter types (m.param_descriptors). A null entry matches exactly one parameter
      * of any type (DexKit ParametersMatcher wildcard); zero arguments require exactly zero
      * parameters. With no null entries and at least one type the existing exact equality form is
-     * kept (param_descriptors = 'I,J'); otherwise the canonical
-     * param_types_match(..., '<pattern>') form is emitted with '?' per wildcard. Repeated calls
-     * replace the previous value.
+     * kept (param_descriptors = 'I,J'); otherwise the canonical param_types_match(..., '<pattern>')
+     * form is emitted with '?' per wildcard. Repeated calls replace the previous value.
      */
     fun paramTypes(vararg types: Any?) {
         types.forEach { type ->
@@ -225,7 +229,9 @@ class SqlMethodQuery internal constructor() {
     /** Add one method_strings.value = 'value' (equals) predicate. */
     fun addEqString(value: Any) = literals.addEqString(value)
 
-    /** Add method_using_numbers predicates; integers use long_value, Float/Double use double_value. */
+    /**
+     * Add method_using_numbers predicates; integers use long_value, Float/Double use double_value.
+     */
     fun usingNumbers(vararg values: Any) = literals.usingNumbers(*values)
 
     /** Restrict the declaring class package; several packages are OR-joined inside parentheses. */
@@ -249,7 +255,7 @@ class SqlMethodQuery internal constructor() {
  * Class-level literal matchers and nested [method] matchers are existential over the methods of the
  * matched class (DexKit semantics), so different literals may come from different methods.
  */
-class SqlClassQuery internal constructor() {
+internal class SqlClassQuery internal constructor() {
     /**
      * Exact class descriptor. Emitted against cm.class_descriptor when the query is method-scoped
      * and against c.descriptor otherwise.
@@ -276,9 +282,9 @@ class SqlClassQuery internal constructor() {
     internal var superClassConstraint: SqlClassLiteralConstraint? = null
 
     /**
-     * Access-flag mask (decimal) of the matched class, emitted as
-     * ((c.access_flags & mask) = mask); DexKit modifiers semantics require every masked bit to be
-     * set. Assign this property or call [modifiers].
+     * Access-flag mask (decimal) of the matched class, emitted as ((c.access_flags & mask) = mask);
+     * DexKit modifiers semantics require every masked bit to be set. Assign this property or call
+     * [modifiers].
      */
     var modifiers: Int? = null
 
@@ -357,7 +363,7 @@ class SqlClassQuery internal constructor() {
  * [readMethod] and [writeMethod] constrain the methods that access the field
  * (method_field_accesses.using_type); they are not field-name predicates.
  */
-class SqlFieldQuery internal constructor() {
+internal class SqlFieldQuery internal constructor() {
     /** Exact field name (f.name). */
     var name: String? = null
 
@@ -411,7 +417,7 @@ private fun classLiteralConstraint(
             constraint.classNameMatch != null ||
             constraint.superClassMatch != null,
     ) {
-        "sql* " + owner + " { } requires at least one literal or name-match call"
+        "sql* $owner { } requires at least one literal or name-match call"
     }
     return constraint
 }
@@ -425,7 +431,7 @@ private fun classLiteralConstraint(
  * class-level constructs exist on this builder, so any other DexKit construct is a Kotlin compile
  * error instead of a silently dropped predicate.
  */
-class SqlClassLiteralConstraint internal constructor() {
+internal class SqlClassLiteralConstraint internal constructor() {
     internal val calls = mutableListOf<SqlLiteralCall>()
     internal var classNameMatch: SqlNameMatch? = null
     internal var superClassMatch: SqlNameMatch? = null

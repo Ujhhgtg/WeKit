@@ -13,21 +13,31 @@ class QueryMatcherTest {
     private val evaluator = DexMatcherEvaluator(metadata)
 
     private fun run() = metadata.methodInfo(MatcherFixtures.ALPHA_RUN)!!
+
     private fun helper() = metadata.methodInfo(MatcherFixtures.ALPHA_HELPER)!!
+
     private fun alpha() = metadata.classInfo(MatcherFixtures.ALPHA)!!
+
     private fun gamma() = metadata.classInfo(MatcherFixtures.GAMMA)!!
 
-    private fun scope(): QueryMatcherScope = QueryMatcherScope(
-        metadata,
-        RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() },
-    )
+    private fun scope(): QueryMatcherScope =
+        QueryMatcherScope(
+            metadata,
+            RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() },
+        )
 
     @Test
     fun methodNameMatchModes() {
         assertTrue(evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("run"))))
-        assertTrue(evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("ru", NameMatch.StartsWith))))
-        assertTrue(evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("u", NameMatch.Contains))))
-        assertTrue(evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("un", NameMatch.EndsWith))))
+        assertTrue(
+            evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("ru", NameMatch.StartsWith))),
+        )
+        assertTrue(
+            evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("u", NameMatch.Contains))),
+        )
+        assertTrue(
+            evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("un", NameMatch.EndsWith))),
+        )
         assertFalse(evaluator.matchesMethod(run(), MethodSpec(name = NameSpec("ru"))))
     }
 
@@ -40,13 +50,24 @@ class QueryMatcherTest {
 
     @Test
     fun paramTypesWildcardArityAndModes() {
-        assertTrue(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(TypeSpec("int")))))
-        assertTrue(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf<TypeSpec?>(null))))
+        assertTrue(
+            evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(TypeSpec("int")))),
+        )
+        assertTrue(
+            evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf<TypeSpec?>(null))),
+        )
         assertTrue(evaluator.matchesMethod(run(), MethodSpec(paramTypes = emptyList())))
         assertFalse(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = emptyList())))
         assertFalse(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(null, null))))
-        assertFalse(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(TypeSpec("long")))))
-        assertTrue(evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(TypeSpec("nt", NameMatch.EndsWith)))))
+        assertFalse(
+            evaluator.matchesMethod(helper(), MethodSpec(paramTypes = listOf(TypeSpec("long")))),
+        )
+        assertTrue(
+            evaluator.matchesMethod(
+                helper(),
+                MethodSpec(paramTypes = listOf(TypeSpec("nt", NameMatch.EndsWith))),
+            ),
+        )
     }
 
     @Test
@@ -58,20 +79,27 @@ class QueryMatcherTest {
 
     @Test
     fun usingStringsRequireEveryLiteralExistentially() {
-        val spec = MethodSpec(
-            usingStrings = listOf(StringSpec("alpha marker"), StringSpec("marker")),
-        )
+        val spec =
+            MethodSpec(
+                usingStrings = listOf(StringSpec("alpha marker"), StringSpec("marker")),
+            )
         assertTrue(evaluator.matchesMethod(run(), spec))
-        assertFalse(evaluator.matchesMethod(run(), MethodSpec(usingStrings = listOf(StringSpec("missing")))))
+        assertFalse(
+            evaluator.matchesMethod(
+                run(),
+                MethodSpec(usingStrings = listOf(StringSpec("missing"))),
+            ),
+        )
         assertFalse(evaluator.matchesMethod(helper(), spec))
     }
 
     @Test
     fun usingFieldsAreInjectiveAndFilterByDirection() {
-        val readCount = UsingFieldSpec(
-            field = FieldSpec(name = NameSpec("count")),
-            usingType = FieldUsingType.Read,
-        )
+        val readCount =
+            UsingFieldSpec(
+                field = FieldSpec(name = NameSpec("count")),
+                usingType = FieldUsingType.Read,
+            )
         assertTrue(evaluator.matchesMethod(run(), MethodSpec(usingFields = listOf(readCount))))
         assertTrue(
             evaluator.matchesMethod(
@@ -113,10 +141,11 @@ class QueryMatcherTest {
             evaluator.matchesMethod(
                 run(),
                 MethodSpec(
-                    invokeMethods = listOf(
-                        MethodSpec(name = NameSpec("helper")),
-                        MethodSpec(name = NameSpec("helper")),
-                    ),
+                    invokeMethods =
+                        listOf(
+                            MethodSpec(name = NameSpec("helper")),
+                            MethodSpec(name = NameSpec("helper")),
+                        ),
                 ),
             ),
         )
@@ -124,31 +153,62 @@ class QueryMatcherTest {
 
     @Test
     fun anyOfAndAllOf() {
-        val anyOf = MethodSpec(
-            anyOf = listOf(MethodSpec(name = NameSpec("other")), MethodSpec(name = NameSpec("run"))),
-        )
+        val anyOf =
+            MethodSpec(
+                anyOf =
+                    listOf(
+                        MethodSpec(name = NameSpec("other")),
+                        MethodSpec(name = NameSpec("run")),
+                    ),
+            )
         assertTrue(evaluator.matchesMethod(run(), anyOf))
-        assertFalse(evaluator.matchesMethod(run(), MethodSpec(anyOf = listOf(MethodSpec(name = NameSpec("other"))))))
+        assertFalse(
+            evaluator.matchesMethod(
+                run(),
+                MethodSpec(anyOf = listOf(MethodSpec(name = NameSpec("other")))),
+            ),
+        )
         assertTrue(
             evaluator.matchesMethod(
                 run(),
-                MethodSpec(allOf = listOf(MethodSpec(name = NameSpec("run")), MethodSpec(modifiers = 1))),
+                MethodSpec(
+                    allOf = listOf(MethodSpec(name = NameSpec("run")), MethodSpec(modifiers = 1)),
+                ),
             ),
         )
         assertFalse(
             evaluator.matchesMethod(
                 run(),
-                MethodSpec(allOf = listOf(MethodSpec(name = NameSpec("run")), MethodSpec(modifiers = 8))),
+                MethodSpec(
+                    allOf = listOf(MethodSpec(name = NameSpec("run")), MethodSpec(modifiers = 8)),
+                ),
             ),
         )
     }
 
     @Test
     fun classMembersAndCountsAreInjective() {
-        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(className = NameSpec("com.test.Alpha"))))
-        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(className = NameSpec("com.test", NameMatch.StartsWith))))
-        assertFalse(evaluator.matchesClass(alpha(), ClassSpec(className = NameSpec("com.test.Beta", NameMatch.StartsWith))))
-        assertTrue(evaluator.matchesClass(alpha(), ClassSpec(methodCount = 3..3, fieldCount = 2..2, interfaceCount = 1..1)))
+        assertTrue(
+            evaluator.matchesClass(alpha(), ClassSpec(className = NameSpec("com.test.Alpha"))),
+        )
+        assertTrue(
+            evaluator.matchesClass(
+                alpha(),
+                ClassSpec(className = NameSpec("com.test", NameMatch.StartsWith)),
+            ),
+        )
+        assertFalse(
+            evaluator.matchesClass(
+                alpha(),
+                ClassSpec(className = NameSpec("com.test.Beta", NameMatch.StartsWith)),
+            ),
+        )
+        assertTrue(
+            evaluator.matchesClass(
+                alpha(),
+                ClassSpec(methodCount = 3..3, fieldCount = 2..2, interfaceCount = 1..1),
+            ),
+        )
         assertFalse(evaluator.matchesClass(alpha(), ClassSpec(methodCount = 1..2)))
         assertFalse(evaluator.matchesClass(alpha(), ClassSpec(modifiers = 8)))
         assertTrue(
@@ -161,10 +221,11 @@ class QueryMatcherTest {
             evaluator.matchesClass(
                 alpha(),
                 ClassSpec(
-                    methods = listOf(
-                        MethodSpec(name = NameSpec("run")),
-                        MethodSpec(name = NameSpec("helper")),
-                    ),
+                    methods =
+                        listOf(
+                            MethodSpec(name = NameSpec("run")),
+                            MethodSpec(name = NameSpec("helper")),
+                        ),
                 ),
             ),
         )
@@ -173,10 +234,11 @@ class QueryMatcherTest {
             evaluator.matchesClass(
                 alpha(),
                 ClassSpec(
-                    methods = listOf(
-                        MethodSpec(name = NameSpec("run")),
-                        MethodSpec(name = NameSpec("run")),
-                    ),
+                    methods =
+                        listOf(
+                            MethodSpec(name = NameSpec("run")),
+                            MethodSpec(name = NameSpec("run")),
+                        ),
                 ),
             ),
         )
@@ -184,11 +246,17 @@ class QueryMatcherTest {
 
     @Test
     fun classUsingStringsAreExistentialAcrossMethods() {
-        val spec = ClassSpec(
-            usingStrings = listOf(StringSpec("alpha marker"), StringSpec("other")),
-        )
+        val spec =
+            ClassSpec(
+                usingStrings = listOf(StringSpec("alpha marker"), StringSpec("other")),
+            )
         assertTrue(evaluator.matchesClass(alpha(), spec))
-        assertFalse(evaluator.matchesClass(alpha(), ClassSpec(usingStrings = listOf(StringSpec("missing")))))
+        assertFalse(
+            evaluator.matchesClass(
+                alpha(),
+                ClassSpec(usingStrings = listOf(StringSpec("missing"))),
+            ),
+        )
     }
 
     @Test
@@ -219,10 +287,14 @@ class QueryMatcherTest {
         val count = metadata.fieldInfo(MatcherFixtures.ALPHA_COUNT_FIELD)!!
         val label = metadata.fieldInfo(MatcherFixtures.ALPHA_NAME_FIELD)!!
         assertTrue(evaluator.matchesField(count, FieldSpec(name = NameSpec("count"))))
-        assertTrue(evaluator.matchesField(count, FieldSpec(name = NameSpec("cou", NameMatch.StartsWith))))
+        assertTrue(
+            evaluator.matchesField(count, FieldSpec(name = NameSpec("cou", NameMatch.StartsWith))),
+        )
         assertTrue(evaluator.matchesField(count, FieldSpec(modifiers = 8)))
         assertFalse(evaluator.matchesField(count, FieldSpec(modifiers = 1)))
-        assertTrue(evaluator.matchesField(count, FieldSpec(type = ClassSpec(className = NameSpec("int")))))
+        assertTrue(
+            evaluator.matchesField(count, FieldSpec(type = ClassSpec(className = NameSpec("int")))),
+        )
         assertTrue(
             evaluator.matchesField(
                 count,
@@ -241,13 +313,14 @@ class QueryMatcherTest {
     fun candidateMethodQueryUsesCheapPredicates() {
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         val scope = QueryMatcherScope(metadata, query)
-        val results = scope.findMethods(
-            MethodSpec(
-                name = NameSpec("helper"),
-                paramCount = 1..1,
-                usingStrings = listOf(StringSpec("other")),
-            ),
-        )
+        val results =
+            scope.findMethods(
+                MethodSpec(
+                    name = NameSpec("helper"),
+                    paramCount = 1..1,
+                    usingStrings = listOf(StringSpec("other")),
+                ),
+            )
         assertEquals(listOf(MatcherFixtures.ALPHA_HELPER), results.map { it.descriptor })
         val sql = query.queries.single()
         assertTrue(sql.contains("m.name = 'helper'"), sql)
@@ -272,13 +345,15 @@ class QueryMatcherTest {
     @Test
     fun packagesAndExcludePackagesFilterCandidates() {
         val scope = scope()
-        val inPackage = scope.findMethods(MethodSpec(paramCount = 0..10), packages = listOf("com.test"))
+        val inPackage =
+            scope.findMethods(MethodSpec(paramCount = 0..10), packages = listOf("com.test"))
         assertEquals(MatcherFixtures.methodDescriptors().size, inPackage.size)
-        val excluded = scope.findMethods(
-            MethodSpec(paramCount = 0..10),
-            packages = listOf("com.test"),
-            excludePackages = listOf("com.test"),
-        )
+        val excluded =
+            scope.findMethods(
+                MethodSpec(paramCount = 0..10),
+                packages = listOf("com.test"),
+                excludePackages = listOf("com.test"),
+            )
         assertTrue(excluded.isEmpty())
     }
 
@@ -291,17 +366,19 @@ class QueryMatcherTest {
                     if (sql.contains("'alpha marker'")) listOf(MatcherFixtures.ALPHA_RUN)
                     else MatcherFixtures.methodDescriptors()
                 !sql.contains("class_descriptor = '") -> MatcherFixtures.classDescriptors()
-                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") -> MatcherFixtures.methodDescriptors()
+                sql.contains("class_descriptor = 'Lcom/test/Alpha;'") ->
+                    MatcherFixtures.methodDescriptors()
                 else -> emptyList()
             }
         }
         val scope = QueryMatcherScope(metadata, query)
-        val results = scope.findClasses(
-            ClassSpec(
-                className = NameSpec("com.test", NameMatch.StartsWith),
-                usingStrings = listOf(StringSpec("alpha marker")),
-            ),
-        )
+        val results =
+            scope.findClasses(
+                ClassSpec(
+                    className = NameSpec("com.test", NameMatch.StartsWith),
+                    usingStrings = listOf(StringSpec("alpha marker")),
+                ),
+            )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
         val classScan = query.queries.first { it.contains("instr(c.descriptor, 'Lcom/test') = 1") }
         assertFalse(classScan.contains("JOIN method_strings"))
@@ -311,12 +388,13 @@ class QueryMatcherTest {
     fun fieldCandidateQueryUsesFieldPredicates() {
         val query = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
         val scope = QueryMatcherScope(metadata, query)
-        val results = scope.findFields(
-            FieldSpec(
-                name = NameSpec("count"),
-                declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
-            ),
-        )
+        val results =
+            scope.findFields(
+                FieldSpec(
+                    name = NameSpec("count"),
+                    declaredClass = ClassSpec(className = NameSpec("com.test.Alpha")),
+                ),
+            )
         assertEquals(listOf(MatcherFixtures.ALPHA_COUNT_FIELD), results.map { it.descriptor })
         val sql = query.queries.single()
         assertTrue(sql.contains("f.name = 'count'"), sql)
@@ -387,10 +465,11 @@ class QueryMatcherTest {
             evaluator.matchesMethod(
                 run(),
                 MethodSpec(
-                    callerMethods = listOf(
-                        MethodSpec(name = NameSpec("helper")),
-                        MethodSpec(name = NameSpec("helper")),
-                    ),
+                    callerMethods =
+                        listOf(
+                            MethodSpec(name = NameSpec("helper")),
+                            MethodSpec(name = NameSpec("helper")),
+                        ),
                 ),
             ),
         )
@@ -425,12 +504,13 @@ class QueryMatcherTest {
     fun callerFilteringUsesRelationsWithCheapCandidatePredicate() {
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         val scope = QueryMatcherScope(metadata, query, evaluatorRelations())
-        val results = scope.findMethods(
-            MethodSpec(
-                name = NameSpec("run"),
-                callerMethods = listOf(MethodSpec(name = NameSpec("helper"))),
-            ),
-        )
+        val results =
+            scope.findMethods(
+                MethodSpec(
+                    name = NameSpec("run"),
+                    callerMethods = listOf(MethodSpec(name = NameSpec("helper"))),
+                ),
+            )
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
         val sql = query.queries.single()
         assertTrue(sql.contains("m.name = 'run'"), sql)
@@ -450,13 +530,16 @@ class QueryMatcherTest {
         }
     }
 
-    private fun evaluatorRelations(): FakeMatcherRelations = FakeMatcherRelations(
-        metadata = metadata,
-        callersByMethod = mapOf(MatcherFixtures.ALPHA_RUN to listOf(MatcherFixtures.CALL_HELPER)),
-        fieldAccessByKey = mapOf(
-            MatcherFixtures.ALPHA_COUNT_FIELD + "|get" to listOf(MatcherFixtures.ALPHA_RUN),
-        ),
-    )
+    private fun evaluatorRelations(): FakeMatcherRelations =
+        FakeMatcherRelations(
+            metadata = metadata,
+            callersByMethod =
+                mapOf(MatcherFixtures.ALPHA_RUN to listOf(MatcherFixtures.CALL_HELPER)),
+            fieldAccessByKey =
+                mapOf(
+                    MatcherFixtures.ALPHA_COUNT_FIELD + "|get" to listOf(MatcherFixtures.ALPHA_RUN),
+                ),
+        )
 
     private fun evaluatorWithRelations(): DexMatcherEvaluator =
         DexMatcherEvaluator(metadata, evaluatorRelations())

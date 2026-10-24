@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.dexkit.meta
 
-import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.serialization.json.JsonObject
 
 /** Metadata entity kind; [key] matches the DexSQL native metadata JSON bucket. */
 enum class DexMetadataKind(val key: String) {
@@ -57,7 +57,10 @@ class DexMetadata(private val provider: DexMetadataProvider) {
         kind: DexMetadataKind,
         descriptor: String,
         factory: (JsonObject) -> T,
-    ): T? = cache.computeIfAbsent(descriptor) {
-        lazy { provider.query(kind, descriptor)?.let(factory) }
-    }.value
+    ): T? =
+        cache
+            .computeIfAbsent(descriptor) {
+                lazy { provider.query(kind, descriptor)?.let(factory) }
+            }
+            .value
 }

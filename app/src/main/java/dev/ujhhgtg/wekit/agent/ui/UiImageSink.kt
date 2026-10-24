@@ -13,13 +13,13 @@ import kotlin.coroutines.CoroutineContext
  * Why a side-channel and not the tool's return string: tool results are text-only in every provider
  * wire format, and OpenAI/Anthropic reject images inside a `tool`/`tool_result` message. So the
  * screenshot tool returns a short text acknowledgement AND stages the raw image here; the engine
- * drains the staged images after each tool call and appends them as a normal `user` message (a valid
- * position for image content in all three APIs).
+ * drains the staged images after each tool call and appends them as a normal `user` message (a
+ * valid position for image content in all three APIs).
  *
  * Installed by [dev.ujhhgtg.wekit.features.api.agent.WeAgentService] around
- * [dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine.runTurn]. Screenshots are intentionally NOT persisted to
- * Room — they live only for the current turn (context economy; a stale screenshot is worse than
- * none).
+ * [dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine.runTurn]. Screenshots are intentionally NOT
+ * persisted to Room — they live only for the current turn (context economy; a stale screenshot is
+ * worse than none).
  */
 class UiImageSink : AbstractCoroutineContextElement(UiImageSink) {
     companion object Key : CoroutineContext.Key<UiImageSink>

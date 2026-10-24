@@ -10,15 +10,15 @@ import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 
 /**
  * Lists model providers; opens each for editing; adds a new one via the detail screen's creation
@@ -31,7 +31,10 @@ fun ModelProvidersScreen(
 ) {
     val providers by WeAgentRepository.observeModelProviders().collectAsState(initial = emptyList())
 
-    SettingsScaffold(title = stringResource(R.string.agent_model_providers_title), onBack = onBack) {
+    SettingsScaffold(
+        title = stringResource(R.string.agent_model_providers_title),
+        onBack = onBack,
+    ) {
         if (providers.isEmpty()) {
             item {
                 SettingsEmptyState(
@@ -48,9 +51,20 @@ fun ModelProvidersScreen(
                     BaseWidget(
                         iconPlaceholder = false,
                         title = p.name.ifBlank { p.baseUrl },
-                        description = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
+                        description =
+                            stringResource(
+                                R.string.agent_provider_summary,
+                                p.type.label(),
+                                p.baseUrl,
+                            ),
                         onClick = { onOpenProvider(p.id) },
-                        trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        trailingContent = {
+                            Icon(
+                                MaterialSymbols.Outlined.Chevron_right,
+                                null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
                     )
                 }
             }
@@ -68,10 +82,16 @@ fun ModelProvidersScreen(
 }
 
 @Composable
-fun ModelProviderType.label(): String = stringResource(when (this) {
-    ModelProviderType.OPENAI_CHAT_COMPLETION -> R.string.agent_provider_type_openai_chat_completion
-    ModelProviderType.OPENAI_RESPONSES -> R.string.agent_provider_type_openai_responses
-    ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
-    ModelProviderType.GEMINI_GENERATE_CONTENT -> R.string.agent_provider_type_gemini_generate_content
-    ModelProviderType.GEMINI_INTERACTIONS -> R.string.agent_provider_type_gemini_interactions
-})
+fun ModelProviderType.label(): String =
+    stringResource(
+        when (this) {
+            ModelProviderType.OPENAI_CHAT_COMPLETION ->
+                R.string.agent_provider_type_openai_chat_completion
+            ModelProviderType.OPENAI_RESPONSES -> R.string.agent_provider_type_openai_responses
+            ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
+            ModelProviderType.GEMINI_GENERATE_CONTENT ->
+                R.string.agent_provider_type_gemini_generate_content
+            ModelProviderType.GEMINI_INTERACTIONS ->
+                R.string.agent_provider_type_gemini_interactions
+        },
+    )

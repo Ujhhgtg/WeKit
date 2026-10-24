@@ -30,12 +30,11 @@ fun WeKitBasicDialog(
 ) {
     if (!show) return
 
-    val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.9f).toDp() }
+    val maxHeight =
+        with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.9f).toDp() }
     BasicAlertDialog(onDismissRequest = onDismissRequest) {
         Surface(
-            modifier = Modifier
-                .widthIn(max = 560.dp)
-                .heightIn(max = maxHeight),
+            modifier = Modifier.widthIn(max = 560.dp).heightIn(max = maxHeight),
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 6.dp,
@@ -44,9 +43,7 @@ fun WeKitBasicDialog(
                 Text(title, style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.height(16.dp))
                 Column(
-                    Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 ) {
                     WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
                         content()

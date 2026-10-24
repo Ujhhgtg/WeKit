@@ -42,8 +42,8 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.restartHost
 import java.io.PrintWriter
 import java.io.StringWriter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,13 +58,18 @@ enum class DexResolutionMode {
 
 private sealed interface DialogPhase {
     data object Ready : DialogPhase
+
     data object DownloadingCloud : DialogPhase
+
     data class ResolvingLocal(val total: Int) : DialogPhase
 }
 
 private const val TAG = "DexResolver"
 
-/** Below this many items, local resolution is fast enough that the cloud report is not worth fetching. */
+/**
+ * Below this many items, local resolution is fast enough that the cloud report is not worth
+ * fetching.
+ */
 private const val CLOUD_MIN_ITEMS = 20
 
 @Composable
@@ -90,57 +95,75 @@ fun DexResolver(
     }
 
     fun startResolution() {
-        phase = if (items.size < CLOUD_MIN_ITEMS) DialogPhase.ResolvingLocal(items.size) else DialogPhase.DownloadingCloud
+        phase =
+            if (items.size < CLOUD_MIN_ITEMS) DialogPhase.ResolvingLocal(items.size)
+            else DialogPhase.DownloadingCloud
         scope.launch {
             if (mode == DexResolutionMode.Rerun) {
                 withContext(Dispatchers.IO) { DexCacheManager.clearAllCache() }
             }
-            val remainingItems = if (items.size < CLOUD_MIN_ITEMS) {
-                items
-            } else {
-                try {
-                    CloudDexResolver.resolve(items).remainingItems
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    WeLogger.e(TAG, "cloud resolution failed", error)
+            val remainingItems =
+                if (items.size < CLOUD_MIN_ITEMS) {
                     items
+                } else {
+                    try {
+                        CloudDexResolver.resolve(items).remainingItems
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        WeLogger.e(TAG, "cloud resolution failed", error)
+                        items
+                    }
                 }
-            }
             withContext(Dispatchers.Main.immediate) {
                 pendingItems = remainingItems
             }
 
-            val errorReport = if (remainingItems.isEmpty()) {
-                null
-            } else {
-                withContext(Dispatchers.Main.immediate) {
-                    currentTask = null
-                    completed = 0
-                    localResults.clear()
-                    phase = DialogPhase.ResolvingLocal(remainingItems.size)
-                }
-                try {
-                    val result = LocalDexResolver.resolve(remainingItems) { progress ->
-                        withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
+            val errorReport =
+                if (remainingItems.isEmpty()) {
+                    null
+                } else {
+                    withContext(Dispatchers.Main.immediate) {
+                        currentTask = null
+                        completed = 0
+                        localResults.clear()
+                        phase = DialogPhase.ResolvingLocal(remainingItems.size)
                     }
-                    result.failures.takeIf { it.isNotEmpty() }?.let { buildErrorReport(localizedContext, it) }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    // LocalDexResolver has recorded every unfinished item as failed with this error.
-                    WeLogger.e(TAG, "local resolution failed", error)
-                    buildErrorReport(
-                        localizedContext,
-                        listOf(LocalDexFailure(localizedContext.getString(R.string.dex_cache_batch_failure_subject), error)),
-                    )
+                    try {
+                        val result =
+                            LocalDexResolver.resolve(remainingItems) { progress ->
+                                withContext(Dispatchers.Main.immediate) { updateProgress(progress) }
+                            }
+                        result.failures
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { buildErrorReport(localizedContext, it) }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        // LocalDexResolver has recorded every unfinished item as failed with this
+                        // error.
+                        WeLogger.e(TAG, "local resolution failed", error)
+                        buildErrorReport(
+                            localizedContext,
+                            listOf(
+                                LocalDexFailure(
+                                    localizedContext.getString(
+                                        R.string.dex_cache_batch_failure_subject,
+                                    ),
+                                    error,
+                                ),
+                            ),
+                        )
+                    }
                 }
-            }
 
             withContext(Dispatchers.Main) {
                 if (errorReport != null) {
                     copyToClipboard(localizedContext, errorReport)
-                    showToast(localizedContext, localizedContext.getString(R.string.dex_cache_error_report_copied))
+                    showToast(
+                        localizedContext,
+                        localizedContext.getString(R.string.dex_cache_error_report_copied),
+                    )
                 }
                 dismiss()
                 restartHost()
@@ -180,13 +203,18 @@ fun DexResolver(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                val tipText = when (phase) {
-                    is DialogPhase.Ready ->
-                        pluralStringResource(R.plurals.dex_cache_rerun_message, pendingItems.size, pendingItems.size)
-                    is DialogPhase.DownloadingCloud ->
-                        stringResource(R.string.dex_cache_cloud_downloading)
-                    is DialogPhase.ResolvingLocal -> null
-                }
+                val tipText =
+                    when (phase) {
+                        is DialogPhase.Ready ->
+                            pluralStringResource(
+                                R.plurals.dex_cache_rerun_message,
+                                pendingItems.size,
+                                pendingItems.size,
+                            )
+                        is DialogPhase.DownloadingCloud ->
+                            stringResource(R.string.dex_cache_cloud_downloading)
+                        is DialogPhase.ResolvingLocal -> null
+                    }
                 if (tipText != null) {
                     Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
                 }
@@ -198,17 +226,20 @@ fun DexResolver(
                 val localPhase = phase as? DialogPhase.ResolvingLocal
                 AnimatedVisibility(visible = localPhase != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val currentTaskText = when (val task = currentTask) {
-                            is LocalDexProgress.Complete -> stringResource(
-                                R.string.dex_cache_status_completed,
-                                task.displayName,
-                            )
-                            is LocalDexProgress.Failed -> stringResource(
-                                R.string.dex_cache_status_failed,
-                                task.displayName,
-                            )
-                            else -> stringResource(R.string.dex_cache_status_resolving)
-                        }
+                        val currentTaskText =
+                            when (val task = currentTask) {
+                                is LocalDexProgress.Complete ->
+                                    stringResource(
+                                        R.string.dex_cache_status_completed,
+                                        task.displayName,
+                                    )
+                                is LocalDexProgress.Failed ->
+                                    stringResource(
+                                        R.string.dex_cache_status_failed,
+                                        task.displayName,
+                                    )
+                                else -> stringResource(R.string.dex_cache_status_resolving)
+                            }
                         Text(text = currentTaskText, style = MaterialTheme.typography.bodyMedium)
                         LinearWavyProgressIndicator(
                             progress = {
@@ -224,11 +255,12 @@ fun DexResolver(
                             },
                         )
                         Text(
-                            text = stringResource(
-                                R.string.dex_cache_total_progress,
-                                completed,
-                                localPhase?.total ?: 0,
-                            ),
+                            text =
+                                stringResource(
+                                    R.string.dex_cache_total_progress,
+                                    completed,
+                                    localPhase?.total ?: 0,
+                                ),
                             style = MaterialTheme.typography.labelSmall,
                         )
                         LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())

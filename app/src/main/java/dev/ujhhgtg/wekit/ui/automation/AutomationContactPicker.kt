@@ -28,7 +28,9 @@ sealed interface AutomationPick {
         val onConfirm: (Set<String>) -> Unit,
     ) : AutomationPick
 
-    /** Tapping a contact picks it; [isMarked] contacts (e.g. already configured) are listed first. */
+    /**
+     * Tapping a contact picks it; [isMarked] contacts (e.g. already configured) are listed first.
+     */
     class Contact(
         override val title: String,
         val loadContacts: () -> List<IWeContact>,
@@ -67,21 +69,23 @@ fun AutomationPickerHost(picker: AutomationPicker) {
     val pick = picker.current ?: return
     Dialog(
         onDismissRequest = picker::close,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        properties =
+            DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         key(pick) {
             when (pick) {
                 is AutomationPick.Contacts -> ContactsPick(pick, picker)
                 is AutomationPick.Contact -> ContactPick(pick, picker)
-                is AutomationPick.Favorites -> AutomationFavoritePickerScreen(
-                    title = pick.title,
-                    initialSelected = pick.initialSelected,
-                    onBack = picker::close,
-                    onConfirm = { ids ->
-                        picker.close()
-                        pick.onConfirm(ids)
-                    },
-                )
+                is AutomationPick.Favorites ->
+                    AutomationFavoritePickerScreen(
+                        title = pick.title,
+                        initialSelected = pick.initialSelected,
+                        onBack = picker::close,
+                        onConfirm = { ids ->
+                            picker.close()
+                            pick.onConfirm(ids)
+                        },
+                    )
             }
         }
     }

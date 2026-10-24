@@ -6,9 +6,9 @@ import androidx.room.Index
 /**
  * A typed global preference value written by [dev.ujhhgtg.wekit.data.KvStore].
  *
- * Values are deliberately represented as a small set of nullable columns instead of a
- * polymorphic blob.  This keeps the database exportable without depending on Java
- * serialization.  [valueType] identifies which column is populated.
+ * Values are deliberately represented as a small set of nullable columns instead of a polymorphic
+ * blob. This keeps the database exportable without depending on Java serialization. [valueType]
+ * identifies which column is populated.
  */
 @Entity(
     tableName = "preference_entries",
@@ -96,8 +96,8 @@ data class AssetBindingEntity(
 )
 
 /**
- * Index for a script directory. Script source and companion files remain files and are never
- * copied into a BLOB column; [relativePath] is relative to the managed WeKit root.
+ * Index for a script directory. Script source and companion files remain files and are never copied
+ * into a BLOB column; [relativePath] is relative to the managed WeKit root.
  */
 @Entity(
     tableName = "script_catalog",

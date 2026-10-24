@@ -27,12 +27,15 @@ data class AutomationScopeEntity(
 @Entity(
     tableName = "automation_scope_fields",
     primaryKeys = ["feature", "scopeType", "scopeId", "memberId", "ruleKey", "field"],
-    foreignKeys = [ForeignKey(
-        entity = AutomationScopeEntity::class,
-        parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        childColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        onDelete = ForeignKey.CASCADE,
-    )],
+    foreignKeys =
+        [
+            ForeignKey(
+                entity = AutomationScopeEntity::class,
+                parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                childColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
+        ],
 )
 data class AutomationScopeFieldEntity(
     val feature: String,
@@ -47,12 +50,15 @@ data class AutomationScopeFieldEntity(
 @Entity(
     tableName = "automation_scope_list_values",
     primaryKeys = ["feature", "scopeType", "scopeId", "memberId", "ruleKey", "field", "position"],
-    foreignKeys = [ForeignKey(
-        entity = AutomationScopeEntity::class,
-        parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        childColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        onDelete = ForeignKey.CASCADE,
-    )],
+    foreignKeys =
+        [
+            ForeignKey(
+                entity = AutomationScopeEntity::class,
+                parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                childColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
+        ],
 )
 data class AutomationScopeListValueEntity(
     val feature: String,
@@ -69,12 +75,15 @@ data class AutomationScopeListValueEntity(
 @Entity(
     tableName = "automation_scope_presets",
     primaryKeys = ["feature", "scopeType", "scopeId", "memberId", "position"],
-    foreignKeys = [ForeignKey(
-        entity = AutomationScopeEntity::class,
-        parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        childColumns = ["feature", "scopeType", "scopeId", "memberId"],
-        onDelete = ForeignKey.CASCADE,
-    )],
+    foreignKeys =
+        [
+            ForeignKey(
+                entity = AutomationScopeEntity::class,
+                parentColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                childColumns = ["feature", "scopeType", "scopeId", "memberId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
+        ],
 )
 data class AutomationScopePresetEntity(
     val feature: String,

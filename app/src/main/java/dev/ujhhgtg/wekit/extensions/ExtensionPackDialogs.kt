@@ -61,10 +61,14 @@ private fun PackDialog(
         title = { Text(stringResource(titleRes, name)) },
         text = { Text(stringResource(messageRes, name)) },
         confirmButton = {
-            TextButton(onClick = {
-                onDismiss()
-                onConfirm()
-            }) { Text(stringResource(R.string.extensions_pack_action_install)) }
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onConfirm()
+                },
+            ) {
+                Text(stringResource(R.string.extensions_pack_action_install))
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }

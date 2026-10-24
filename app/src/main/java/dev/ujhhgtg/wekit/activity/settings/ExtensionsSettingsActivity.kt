@@ -1,4 +1,3 @@
-
 package dev.ujhhgtg.wekit.activity.settings
 
 import android.os.Bundle
@@ -42,21 +41,20 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.UpdateAvailable
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import java.util.Locale
 
 /**
- * 扩展包管理页。入口：设置页“更新”分组的“扩展包”行；依赖弹窗带
- * EXTRA_PACK_ID + EXTRA_AUTO_DOWNLOAD 跳入并立即开始下载。
+ * 扩展包管理页。入口：设置页“更新”分组的“扩展包”行；依赖弹窗带 EXTRA_PACK_ID + EXTRA_AUTO_DOWNLOAD 跳入并立即开始下载。
  *
  * 命名以 SettingsActivity 结尾，使 ActivityProxy 走透明启动代理。
  */
@@ -130,65 +128,76 @@ private fun PackGroup(pack: ExtensionPack) {
             )
         }
         when (val s = state) {
-            is Downloading -> item(key = "downloading") {
-                BaseItemContainer {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        LinearProgressIndicator(
-                            progress = { s.progress },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text(
-                            text = "${formatBytes(s.bytesDownloaded)} / ${formatBytes(s.bytesTotal)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
-                            TextButton(onClick = { ExtensionPacks.cancelDownload(pack) }) {
-                                Text(stringResource(R.string.extensions_pack_cancel))
+            is Downloading ->
+                item(key = "downloading") {
+                    BaseItemContainer {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            LinearProgressIndicator(
+                                progress = { s.progress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text =
+                                    "${formatBytes(s.bytesDownloaded)} / ${formatBytes(s.bytesTotal)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(onClick = { ExtensionPacks.cancelDownload(pack) }) {
+                                    Text(stringResource(R.string.extensions_pack_cancel))
+                                }
                             }
                         }
                     }
                 }
-            }
-            is Verifying -> item(key = "verifying") {
-                BaseWidget(
-                    title = stringResource(R.string.extensions_pack_verifying),
-                    description = stringResource(R.string.extensions_pack_downloading),
-                )
-            }
-            else -> item(key = "actions") {
-                BaseItemContainer {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        SettingsListActionButton(
-                            label = stringResource(
-                                when (s) {
-                                    is UpdateAvailable -> R.string.extensions_pack_update
-                                    is Failed -> R.string.extensions_pack_retry
-                                    else -> R.string.extensions_pack_download
-                                }
-                            ),
-                            icon = MaterialSymbols.Outlined.Cloud_download,
-                            onClick = { ExtensionPacks.download(pack) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        OutlinedButton(
-                            onClick = { confirmDelete = true },
-                            enabled = (s is Installed || s is UpdateAvailable) && !pack.isInUse(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(R.string.extensions_pack_delete)) }
+            is Verifying ->
+                item(key = "verifying") {
+                    BaseWidget(
+                        title = stringResource(R.string.extensions_pack_verifying),
+                        description = stringResource(R.string.extensions_pack_downloading),
+                    )
+                }
+            else ->
+                item(key = "actions") {
+                    BaseItemContainer {
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            SettingsListActionButton(
+                                label =
+                                    stringResource(
+                                        when (s) {
+                                            is UpdateAvailable -> R.string.extensions_pack_update
+                                            is Failed -> R.string.extensions_pack_retry
+                                            else -> R.string.extensions_pack_download
+                                        },
+                                    ),
+                                icon = MaterialSymbols.Outlined.Cloud_download,
+                                onClick = { ExtensionPacks.download(pack) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(
+                                onClick = { confirmDelete = true },
+                                enabled =
+                                    (s is Installed || s is UpdateAvailable) && !pack.isInUse(),
+                                colors =
+                                    ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error,
+                                    ),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(stringResource(R.string.extensions_pack_delete))
+                            }
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -204,10 +213,11 @@ private fun PackGroup(pack: ExtensionPack) {
                 confirmDelete = false
                 if (!ExtensionPacks.delete(pack)) {
                     Toast.makeText(
-                        context,
-                        localizedContext.getString(R.string.extensions_pack_in_use),
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                            context,
+                            localizedContext.getString(R.string.extensions_pack_in_use),
+                            Toast.LENGTH_SHORT,
+                        )
+                        .show()
                 }
             },
             onDismiss = { confirmDelete = false },
@@ -218,18 +228,30 @@ private fun PackGroup(pack: ExtensionPack) {
 @Composable
 private fun descriptionLine(pack: ExtensionPack, state: ExtensionPackState): String {
     val base = stringResource(pack.descriptionRes)
-    val status = when (state) {
-        is NotInstalled -> stringResource(R.string.extensions_pack_state_not_installed)
-        is Downloading -> stringResource(R.string.extensions_pack_downloading)
-        is Verifying -> stringResource(R.string.extensions_pack_verifying)
-        is Installed -> stringResource(R.string.extensions_pack_installed_version, state.version)
-        is UpdateAvailable -> stringResource(R.string.extensions_pack_state_update_available, state.installedVersion, state.latestVersion)
-        is Failed -> stringResource(R.string.extensions_pack_state_failed, state.reason)
-    }
-    val mountedVersion = if (pack === PythonRuntimePack) PythonRuntimePack.mounted()?.manifest?.version else null
-    val restart = if (
-        mountedVersion != null && mountedVersion != PythonRuntimePack.installedManifest()?.version
-    ) "\n${stringResource(R.string.extensions_pack_python_restart_required)}" else ""
+    val status =
+        when (state) {
+            is NotInstalled -> stringResource(R.string.extensions_pack_state_not_installed)
+            is Downloading -> stringResource(R.string.extensions_pack_downloading)
+            is Verifying -> stringResource(R.string.extensions_pack_verifying)
+            is Installed ->
+                stringResource(R.string.extensions_pack_installed_version, state.version)
+            is UpdateAvailable ->
+                stringResource(
+                    R.string.extensions_pack_state_update_available,
+                    state.installedVersion,
+                    state.latestVersion,
+                )
+            is Failed -> stringResource(R.string.extensions_pack_state_failed, state.reason)
+        }
+    val mountedVersion =
+        if (pack === PythonRuntimePack) PythonRuntimePack.mounted()?.manifest?.version else null
+    val restart =
+        if (
+            mountedVersion != null &&
+                mountedVersion != PythonRuntimePack.installedManifest()?.version
+        )
+            "\n${stringResource(R.string.extensions_pack_python_restart_required)}"
+        else ""
     return "$base\n$status$restart"
 }
 

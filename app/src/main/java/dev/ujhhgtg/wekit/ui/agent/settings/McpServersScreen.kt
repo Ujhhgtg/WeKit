@@ -25,12 +25,6 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Refresh
 import com.composables.icons.materialsymbols.outlined.Save
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
-import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
-import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.McpTransport
@@ -45,32 +39,41 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
+import dev.ujhhgtg.wekit.ui.content.m3.rememberCreationBackGuard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 /**
  * Observes one live provider's connection state / last error / tool list.
  *
- * [McpToolProvider] publishes these as a [kotlinx.coroutines.flow.StateFlow] because it mutates them
- * from its connect/refresh coroutines; collecting here is what makes both the list row and the
- * detail page update the moment a refresh or reconnect lands instead of only on re-entry. [provider]
- * is null while the server has no live client yet, which reads as DISCONNECTED.
+ * [McpToolProvider] publishes these as a [kotlinx.coroutines.flow.StateFlow] because it mutates
+ * them from its connect/refresh coroutines; collecting here is what makes both the list row and the
+ * detail page update the moment a refresh or reconnect lands instead of only on re-entry.
+ * [provider] is null while the server has no live client yet, which reads as DISCONNECTED.
  */
 @Composable
 private fun rememberMcpStatus(provider: McpToolProvider?): McpProviderStatus =
     produceState(McpProviderStatus(), provider) {
-        val p = provider
-        if (p == null) {
-            value = McpProviderStatus()
-            return@produceState
+            val p = provider
+            if (p == null) {
+                value = McpProviderStatus()
+                return@produceState
+            }
+            p.status.collect { value = it }
         }
-        p.status.collect { value = it }
-    }.value
+        .value
 
-/** Lists MCP servers (row → detail) and adds new ones via the detail screen's creation mode (§4). */
+/**
+ * Lists MCP servers (row → detail) and adds new ones via the detail screen's creation mode (§4).
+ */
 @Composable
 fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Unit) {
     val allProviders by WeAgentRepository.observeProviders().collectAsState(initial = emptyList())
@@ -95,20 +98,28 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
                     item {
                         BaseWidget(
                             title = s.name.ifBlank { s.endpointUrl ?: s.id },
-                            description = status.lastError?.let {
-                                stringResource(
-                                    R.string.agent_mcp_server_summary_error,
-                                    s.transport?.name ?: "?",
-                                    mcpStateLabel(status.state),
-                                    it,
-                                )
-                            } ?: stringResource(
-                                R.string.agent_mcp_server_summary,
-                                s.transport?.name ?: "?",
-                                mcpStateLabel(status.state),
-                            ),
+                            description =
+                                status.lastError?.let {
+                                    stringResource(
+                                        R.string.agent_mcp_server_summary_error,
+                                        s.transport?.name ?: "?",
+                                        mcpStateLabel(status.state),
+                                        it,
+                                    )
+                                }
+                                    ?: stringResource(
+                                        R.string.agent_mcp_server_summary,
+                                        s.transport?.name ?: "?",
+                                        mcpStateLabel(status.state),
+                                    ),
                             onClick = { onOpenServer(s.id) },
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingContent = {
+                                Icon(
+                                    MaterialSymbols.Outlined.Chevron_right,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
                         )
                     }
                 }
@@ -128,10 +139,10 @@ fun McpServersScreen(onBack: () -> Unit, onOpenServer: (serverId: String) -> Uni
 
 /**
  * MCP server detail: refresh/status, delete (moved here from the list), and a per-tool permission
- * list like the built-in providers (§4). Tools come from the live connected provider, if any.
- * A blank [serverId] starts a new server as an in-memory draft: status/tools/delete are hidden,
- * 保存 persists it and switches the screen to edit mode in place, and leaving with a savable
- * draft asks for confirmation first.
+ * list like the built-in providers (§4). Tools come from the live connected provider, if any. A
+ * blank [serverId] starts a new server as an in-memory draft: status/tools/delete are hidden, 保存
+ * persists it and switches the screen to edit mode in place, and leaving with a savable draft asks
+ * for confirmation first.
  */
 @Composable
 fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
@@ -139,7 +150,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val allProviders by WeAgentRepository.observeProviders().collectAsState(initial = emptyList())
     // Draft shown while creating; once saved, [savedId] repoints the screen at the Room entity.
     var draft by remember {
-        mutableStateOf(ProviderEntity("", ProviderKind.MCP, "", McpTransport.STREAMABLE_HTTP, "", null, true))
+        mutableStateOf(
+            ProviderEntity("", ProviderKind.MCP, "", McpTransport.STREAMABLE_HTTP, "", null, true),
+        )
     }
     // Saveable so that re-entering this entry after the in-place save reloads the saved server.
     var savedId by rememberSaveable { mutableStateOf("") }
@@ -177,8 +190,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val guardedBack = rememberCreationBackGuard(!editing && savable, onBack)
 
     SettingsScaffold(
-        title = if (!editing) stringResource(R.string.agent_add_mcp_server)
-        else server?.name ?: stringResource(R.string.agent_mcp_servers_title),
+        title =
+            if (!editing) stringResource(R.string.agent_add_mcp_server)
+            else server?.name ?: stringResource(R.string.agent_mcp_servers_title),
         onBack = guardedBack,
     ) {
         srv?.let { s ->
@@ -188,7 +202,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.agent_field_name),
                             value = s.name,
-                            onValueChange = { value -> commitServer(rebuild = false) { it.copy(name = value) } },
+                            onValueChange = { value ->
+                                commitServer(rebuild = false) { it.copy(name = value) }
+                            },
                             dialogTitle = stringResource(R.string.agent_field_name),
                             confirmLabel = stringResource(R.string.dialog_confirm),
                             dismissLabel = stringResource(R.string.dialog_cancel),
@@ -198,7 +214,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                         TextFieldDialogWidget(
                             title = stringResource(R.string.agent_server_url),
                             value = s.endpointUrl.orEmpty(),
-                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(endpointUrl = value) } },
+                            onValueChange = { value ->
+                                commitServer(rebuild = true) { it.copy(endpointUrl = value) }
+                            },
                             dialogTitle = stringResource(R.string.agent_server_url),
                             confirmLabel = stringResource(R.string.dialog_confirm),
                             dismissLabel = stringResource(R.string.dialog_cancel),
@@ -212,11 +230,14 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                             title = stringResource(R.string.agent_transport),
                             description = null,
                             value = s.transport ?: McpTransport.STREAMABLE_HTTP,
-                            options = listOf(
-                                DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
-                                DropdownOption(McpTransport.SSE, "SSE"),
-                            ),
-                            onValueChange = { value -> commitServer(rebuild = true) { it.copy(transport = value) } },
+                            options =
+                                listOf(
+                                    DropdownOption(McpTransport.STREAMABLE_HTTP, "Streamable HTTP"),
+                                    DropdownOption(McpTransport.SSE, "SSE"),
+                                ),
+                            onValueChange = { value ->
+                                commitServer(rebuild = true) { it.copy(transport = value) }
+                            },
                         )
                     }
                     item {
@@ -224,7 +245,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                             title = stringResource(R.string.agent_custom_headers_json),
                             value = s.headersJson.orEmpty(),
                             onValueChange = { value ->
-                                commitServer(rebuild = true) { it.copy(headersJson = value.ifBlank { null }) }
+                                commitServer(rebuild = true) {
+                                    it.copy(headersJson = value.ifBlank { null })
+                                }
                             },
                             dialogTitle = stringResource(R.string.agent_custom_headers_json),
                             confirmLabel = stringResource(R.string.dialog_confirm),
@@ -249,7 +272,10 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                                 val id = UUID.randomUUID().toString()
                                 // A blank name falls back to the URL, like the old add dialog did.
                                 WeAgentRepository.upsertMcpProvider(
-                                    current.copy(id = id, name = current.name.ifBlank { current.endpointUrl!! }),
+                                    current.copy(
+                                        id = id,
+                                        name = current.name.ifBlank { current.endpointUrl!! },
+                                    ),
                                 )
                                 // Stay in place: savedId switches the screen to edit mode and
                                 // reveals status/tools as the Room flow emits the new row.
@@ -265,14 +291,25 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                     item {
                         BaseWidget(
                             title = stringResource(R.string.agent_connection_status),
-                            description = stringResource(
-                                R.string.agent_connection_summary,
-                                status.lastError?.let {
-                                    stringResource(R.string.agent_mcp_status_error, mcpStateLabel(status.state), it)
-                                } ?: mcpStateLabel(status.state),
-                            ),
+                            description =
+                                stringResource(
+                                    R.string.agent_connection_summary,
+                                    status.lastError?.let {
+                                        stringResource(
+                                            R.string.agent_mcp_status_error,
+                                            mcpStateLabel(status.state),
+                                            it,
+                                        )
+                                    } ?: mcpStateLabel(status.state),
+                                ),
                             onClick = { scope.launch { McpClientManager.refreshTools(activeId) } },
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingContent = {
+                                Icon(
+                                    MaterialSymbols.Outlined.Refresh,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
                         )
                     }
                 }
@@ -282,8 +319,13 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
                 SettingsActionRow {
                     OutlinedButton(
                         onClick = { showDeleteConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text(stringResource(R.string.action_delete)) }
+                        colors =
+                            ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
             }
 
@@ -329,7 +371,9 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     )
 }
 
-/** Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily. */
+/**
+ * Mirrors [SegmentedColumn]'s section title styling for sections whose rows are laid out lazily.
+ */
 @Composable
 private fun McpSectionTitle(text: String) {
     Text(
@@ -341,11 +385,12 @@ private fun McpSectionTitle(text: String) {
 }
 
 @Composable
-private fun mcpStateLabel(state: McpConnectionState): String = stringResource(
-    when (state) {
-        McpConnectionState.DISCONNECTED -> R.string.agent_mcp_state_disconnected
-        McpConnectionState.CONNECTING -> R.string.agent_mcp_state_connecting
-        McpConnectionState.CONNECTED -> R.string.agent_mcp_state_connected
-        McpConnectionState.FAILED -> R.string.agent_mcp_state_failed
-    }
-)
+private fun mcpStateLabel(state: McpConnectionState): String =
+    stringResource(
+        when (state) {
+            McpConnectionState.DISCONNECTED -> R.string.agent_mcp_state_disconnected
+            McpConnectionState.CONNECTING -> R.string.agent_mcp_state_connecting
+            McpConnectionState.CONNECTED -> R.string.agent_mcp_state_connected
+            McpConnectionState.FAILED -> R.string.agent_mcp_state_failed
+        },
+    )

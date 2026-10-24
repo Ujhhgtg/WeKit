@@ -1,19 +1,29 @@
 package dev.ujhhgtg.wekit.loader.environment
 
+import java.util.Properties
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import java.util.Properties
 
 class NormsgRootCodecTest {
-    private fun resource(name: String) = javaClass.getResourceAsStream("/environment/$name")!!.use { it.readBytes() }
+    private fun resource(name: String) =
+        javaClass.getResourceAsStream("/environment/$name")!!.use { it.readBytes() }
+
     private val report by lazy { NormsgReportCodec(resource("normsg-tables.bin")) }
-    private val policy = EnvironmentReportPolicy("dev.ujhhgtg.wekit", "/data/app/module/base.apk", "/data/user/0/com.tencent.mm/files/wekit")
+    private val policy =
+        EnvironmentReportPolicy(
+            "dev.ujhhgtg.wekit",
+            "/data/app/module/base.apk",
+            "/data/user/0/com.tencent.mm/files/wekit",
+        )
 
     @Test
     fun nativeOracleProvesEncodingAndPreservationOfUnknownBits() {
         val cases = (0..13).map { "inner-oracle-$it" } + "inner-root-microzero"
         for (name in cases) {
-            val input = Properties().apply { resource("normsg/$name.properties").inputStream().use { load(it) } }
+            val input =
+                Properties().apply {
+                    resource("normsg/$name.properties").inputStream().use { load(it) }
+                }
             val original = resource("normsg/$name.return")
             val message = ReportWire.bytes(report.decode(original), 3)
             val codec = NormsgRootCodec(message)

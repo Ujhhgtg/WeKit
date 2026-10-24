@@ -40,8 +40,8 @@ data class ModelEntity(
     /** Custom context window (tokens) for usage %; null = unknown (percentage hidden). */
     val contextWindow: Int? = null,
     /**
-     * Max output/completion tokens per response; null = omit the field (server default). Mapped
-     * per wire format: OpenAI Chat Completions sends BOTH `max_tokens` and `max_completion_tokens`
+     * Max output/completion tokens per response; null = omit the field (server default). Mapped per
+     * wire format: OpenAI Chat Completions sends BOTH `max_tokens` and `max_completion_tokens`
      * (some Chinese providers use the non-standard `max_tokens`); OpenAI Responses uses
      * `max_output_tokens`; Anthropic uses `max_tokens` (required — overrides its 4096 default).
      */
@@ -79,7 +79,10 @@ data class PerTurnPromptEntity(
     val enabled: Boolean,
 )
 
-/** A conditional prompt: when [enabled], [regex] is matched against each model reply and [content] is injected on a hit. */
+/**
+ * A conditional prompt: when [enabled], [regex] is matched against each model reply and [content]
+ * is injected on a hit.
+ */
 @Entity(tableName = "conditional_prompts")
 data class ConditionalPromptEntity(
     @PrimaryKey val id: String,
@@ -122,19 +125,27 @@ data class LinuxEnvironmentEntity(
     val sshHostKeyFingerprint: String? = null,
     val bridgePath: String? = null,
 ) {
-    override fun equals(other: Any?): Boolean = other is LinuxEnvironmentEntity &&
-            id == other.id && name == other.name && type == other.type &&
+    override fun equals(other: Any?): Boolean =
+        other is LinuxEnvironmentEntity &&
+            id == other.id &&
+            name == other.name &&
+            type == other.type &&
             workingDirectory == other.workingDirectory &&
             environmentVariablesJson == other.environmentVariablesJson &&
-            createdAt == other.createdAt && sshHost == other.sshHost && sshPort == other.sshPort &&
-            sshUsername == other.sshUsername && sshAuthenticationType == other.sshAuthenticationType &&
-            sshPassword == other.sshPassword && sshPrivateKey == other.sshPrivateKey &&
+            createdAt == other.createdAt &&
+            sshHost == other.sshHost &&
+            sshPort == other.sshPort &&
+            sshUsername == other.sshUsername &&
+            sshAuthenticationType == other.sshAuthenticationType &&
+            sshPassword == other.sshPassword &&
+            sshPrivateKey == other.sshPrivateKey &&
             sshPrivateKeyPassphrase == other.sshPrivateKeyPassphrase &&
             sshCredentialCiphertext.contentEqualsNullable(other.sshCredentialCiphertext) &&
             sshCredentialIv.contentEqualsNullable(other.sshCredentialIv) &&
             sshCredentialReference == other.sshCredentialReference &&
             sshHostKeyAlgorithm == other.sshHostKeyAlgorithm &&
-            sshHostKeyFingerprint == other.sshHostKeyFingerprint && bridgePath == other.bridgePath
+            sshHostKeyFingerprint == other.sshHostKeyFingerprint &&
+            bridgePath == other.bridgePath
 
     override fun hashCode(): Int = id.hashCode()
 }
@@ -149,8 +160,8 @@ data class SettingEntity(
 )
 
 /**
- * Per-service API key storage for external network integrations (Exa, Brave, etc.).
- * Keys are stored as-is; see [dev.ujhhgtg.wekit.agent.net.ExternalServiceId] for known ids.
+ * Per-service API key storage for external network integrations (Exa, Brave, etc.). Keys are stored
+ * as-is; see [dev.ujhhgtg.wekit.agent.net.ExternalServiceId] for known ids.
  */
 @Entity(tableName = "external_services")
 data class ExternalServiceEntity(

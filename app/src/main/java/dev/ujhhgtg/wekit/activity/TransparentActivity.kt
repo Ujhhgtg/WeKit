@@ -23,18 +23,23 @@ class TransparentActivity : FragmentActivity() {
             requestFeature(Window.FEATURE_NO_TITLE)
             addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
             WindowCompat.setDecorFitsSystemWindows(this, false)
-            WindowInsetsControllerCompat(this, this.decorView).isAppearanceLightStatusBars = !isDarkMode
+            WindowInsetsControllerCompat(this, this.decorView).isAppearanceLightStatusBars =
+                !isDarkMode
         }
         setTheme(android.R.style.Theme_Translucent_NoTitleBar_Fullscreen)
 
-        val action = pendingAction ?: run { finish(); return }
+        val action =
+            pendingAction
+                ?: run {
+                    finish()
+                    return
+                }
         pendingAction = null
         action(this)
     }
 
     companion object {
-        @Volatile
-        private var pendingAction: (FragmentActivity.() -> Unit)? = null
+        @Volatile private var pendingAction: (FragmentActivity.() -> Unit)? = null
 
         fun launch(context: Context, action: FragmentActivity.() -> Unit) {
             pendingAction = action
@@ -42,7 +47,7 @@ class TransparentActivity : FragmentActivity() {
                 Intent(context, TransparentActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     putExtra(BuildConfig.TAG, true)
-                }
+                },
             )
         }
     }

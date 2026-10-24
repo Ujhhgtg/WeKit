@@ -9,7 +9,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.materialkolor.dynamicColorScheme
-import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver.customSeed
 
 /**
  * Single source of truth for turning [ThemeSettings] into a concrete accent seed and the derived
@@ -31,14 +30,16 @@ object SeedResolver {
 
     /** The platform wallpaper accent when enabled, otherwise the user's chosen seed color. */
     fun customSeed(context: Context, dark: Boolean): Int =
-        if (ThemeSettings.dynamicWallpaper) wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
+        if (ThemeSettings.dynamicWallpaper)
+            wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
         else ThemeSettings.seedColor
 
     /** Material 3 [ColorScheme] generated from [seed] with the current palette style + spec. */
-    fun materialScheme(seed: Int, dark: Boolean): ColorScheme = dynamicColorScheme(
-        seedColor = Color(seed),
-        isDark = dark,
-        style = ThemeSettings.paletteStyle.materialKolor,
-        specVersion = ThemeSettings.effectiveColorSpec.materialKolor,
-    )
+    fun materialScheme(seed: Int, dark: Boolean): ColorScheme =
+        dynamicColorScheme(
+            seedColor = Color(seed),
+            isDark = dark,
+            style = ThemeSettings.paletteStyle.materialKolor,
+            specVersion = ThemeSettings.effectiveColorSpec.materialKolor,
+        )
 }

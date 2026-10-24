@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.extensions
 
-import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import android.os.Build
 import android.os.Process
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -10,6 +9,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.scripting_python.PythonScriptingFeature
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginManager
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import java.io.File
 
 data class MountedPythonRuntime(
@@ -33,8 +33,7 @@ object PythonRuntimePack : ExtensionPack {
 
     private val lifecycleLock = Any()
 
-    @Volatile
-    private var mountedRuntime: MountedPythonRuntime? = null
+    @Volatile private var mountedRuntime: MountedPythonRuntime? = null
 
     private val baseDir: File
         get() = KnownPaths.moduleRoot.resolve("extensions/$ID").toFile()
@@ -46,42 +45,67 @@ object PythonRuntimePack : ExtensionPack {
     override fun isSupported(): Boolean =
         Process.is64Bit() && Build.SUPPORTED_64_BIT_ABIS.contains(ABI)
 
-    override fun installedManifest(): PackManifest? = synchronized(lifecycleLock) {
-        publishedVersionsLocked().maxByOrNull { it.first.installedAtEpochMs }?.first
-    }
+    override fun installedManifest(): PackManifest? =
+        synchronized(lifecycleLock) {
+            publishedVersionsLocked().maxByOrNull { it.first.installedAtEpochMs }?.first
+        }
 
     override fun isInUse(): Boolean = mountedRuntime != null
 
     fun mounted(): MountedPythonRuntime? = mountedRuntime
 
-    fun selectForMount(): MountedPythonRuntime? = synchronized(lifecycleLock) {
-        mountedRuntime?.let { return@synchronized it }
-        val (manifest, directory) = publishedVersionsLocked()
-            .maxByOrNull { it.first.installedAtEpochMs }
-            ?: return@synchronized null
-        val runtimeApk = File(directory, "runtime.apk")
-        require(PackFs.verify(runtimeApk, manifest.sha256)) { "Installed Python runtime SHA-256 mismatch" }
-        val contents = PythonRuntimeArchive.inspect(
-            runtimeApk,
-            requireNotNull(manifest.meta) { "Installed Python runtime metadata is missing" },
-        )
-        val nativeDirectory = File(directory, "native")
-        require(nativeDirectory.isDirectory) { "Python runtime native directory is missing" }
-        contents.metadata.nativeLibraries.forEach { name ->
-            require(File(nativeDirectory, name).isFile) { "Installed Python runtime is missing $name" }
+    fun selectForMount(): MountedPythonRuntime? =
+        synchronized(lifecycleLock) {
+            mountedRuntime?.let {
+                return@synchronized it
+            }
+            val (manifest, directory) =
+                publishedVersionsLocked().maxByOrNull { it.first.installedAtEpochMs }
+                    ?: return@synchronized null
+            val runtimeApk = File(directory, "runtime.apk")
+            require(PackFs.verify(runtimeApk, manifest.sha256)) {
+                "Installed Python runtime SHA-256 mismatch"
+            }
+            val contents =
+                PythonRuntimeArchive.inspect(
+                    runtimeApk,
+                    requireNotNull(manifest.meta) {
+                        "Installed Python runtime metadata is missing"
+                    },
+                )
+            val nativeDirectory = File(directory, "native")
+            require(nativeDirectory.isDirectory) { "Python runtime native directory is missing" }
+            contents.metadata.nativeLibraries.forEach { name ->
+                require(File(nativeDirectory, name).isFile) {
+                    "Installed Python runtime is missing $name"
+                }
+            }
+            val sdkDirectory = File(directory, "sdk")
+            require(
+                File(sdkDirectory, "wekit/__init__.py").isFile ||
+                    File(sdkDirectory, "wekit/__init__.pyc").isFile,
+            ) {
+                "Python runtime SDK is missing"
+            }
+            MountedPythonRuntime(
+                    manifest,
+                    directory,
+                    runtimeApk,
+                    nativeDirectory,
+                    sdkDirectory,
+                    contents.metadata,
+                )
+                .also { mountedRuntime = it }
         }
-        val sdkDirectory = File(directory, "sdk")
-        require(
-            File(sdkDirectory, "wekit/__init__.py").isFile ||
-                File(sdkDirectory, "wekit/__init__.pyc").isFile,
-        ) { "Python runtime SDK is missing" }
-        MountedPythonRuntime(manifest, directory, runtimeApk, nativeDirectory, sdkDirectory, contents.metadata)
-            .also { mountedRuntime = it }
-    }
 
     override fun install(verifiedTmp: File, version: String, sha256: String, meta: String?) {
         synchronized(lifecycleLock) {
-            require(version.isNotBlank() && !version.startsWith('.') && '/' !in version && '\\' !in version) {
+            require(
+                version.isNotBlank() &&
+                    !version.startsWith('.') &&
+                    '/' !in version &&
+                    '\\' !in version,
+            ) {
                 "Invalid Python runtime version: $version"
             }
             require(meta != null) { "Python runtime index metadata is missing" }
@@ -94,7 +118,11 @@ object PythonRuntimePack : ExtensionPack {
                 val runtimeApk = File(staging, "runtime.apk")
                 verifiedTmp.inputStream().use { runtimeApk.toPath().copyFrom(it) }
                 val contents = PythonRuntimeArchive.inspect(runtimeApk, meta)
-                PythonRuntimeArchive.extractNativeLibraries(runtimeApk, contents, File(staging, "native"))
+                PythonRuntimeArchive.extractNativeLibraries(
+                    runtimeApk,
+                    contents,
+                    File(staging, "native"),
+                )
                 PythonRuntimeArchive.extractSdk(runtimeApk, File(staging, "sdk"))
                 val installedMeta = PythonRuntimeArchive.encodeMetadata(contents.metadata)
                 PackFs.writeManifest(
@@ -109,7 +137,9 @@ object PythonRuntimePack : ExtensionPack {
                     }
                     staging.deleteRecursively()
                 } else {
-                    require(staging.renameTo(destination)) { "Cannot publish Python runtime $version" }
+                    require(staging.renameTo(destination)) {
+                        "Cannot publish Python runtime $version"
+                    }
                 }
                 sweepUnusedVersionsLocked()
             } catch (error: Throwable) {
@@ -119,11 +149,12 @@ object PythonRuntimePack : ExtensionPack {
         }
     }
 
-    override fun deleteInstalled(): Boolean = synchronized(lifecycleLock) {
-        if (mountedRuntime != null) return@synchronized false
-        baseDir.deleteRecursively()
-        !baseDir.exists()
-    }
+    override fun deleteInstalled(): Boolean =
+        synchronized(lifecycleLock) {
+            if (mountedRuntime != null) return@synchronized false
+            baseDir.deleteRecursively()
+            !baseDir.exists()
+        }
 
     override fun onInstalled() {
         if (PythonScriptingFeature.isActive) PythonPluginManager.activateDesired()
@@ -135,14 +166,16 @@ object PythonRuntimePack : ExtensionPack {
         val published = publishedVersionsLocked()
         val newest = published.maxByOrNull { it.first.installedAtEpochMs }?.first?.version
         val keep = setOfNotNull(newest, mountedRuntime?.manifest?.version)
-        baseDir.listFiles()
+        baseDir
+            .listFiles()
             .orEmpty()
             .filter { it.isDirectory && !it.name.startsWith('.') && it.name !in keep }
             .forEach(File::deleteRecursively)
     }
 
     private fun publishedVersionsLocked(): List<Pair<PackManifest, File>> =
-        baseDir.listFiles()
+        baseDir
+            .listFiles()
             .orEmpty()
             .filter { it.isDirectory && !it.name.startsWith('.') }
             .mapNotNull { directory ->

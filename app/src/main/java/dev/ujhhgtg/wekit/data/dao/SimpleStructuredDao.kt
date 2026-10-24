@@ -15,8 +15,7 @@ interface SimpleStructuredDao {
     @Query("SELECT * FROM moment_custom_details")
     suspend fun getCustomDetails(): List<MomentCustomDetailEntity>
 
-    @Upsert
-    suspend fun putCustomDetail(value: MomentCustomDetailEntity)
+    @Upsert suspend fun putCustomDetail(value: MomentCustomDetailEntity)
 
     @Query("DELETE FROM moment_custom_details WHERE snsId = :snsId")
     suspend fun removeCustomDetail(snsId: String)
@@ -24,8 +23,7 @@ interface SimpleStructuredDao {
     @Query("SELECT * FROM spoofed_chat_messages")
     suspend fun getSpoofedMessages(): List<SpoofedChatMessageEntity>
 
-    @Upsert
-    suspend fun putSpoofedMessage(value: SpoofedChatMessageEntity)
+    @Upsert suspend fun putSpoofedMessage(value: SpoofedChatMessageEntity)
 
     @Query("DELETE FROM spoofed_chat_messages WHERE talker = :talker AND msgId = :msgId")
     suspend fun removeSpoofedMessage(talker: String, msgId: Long)
@@ -33,8 +31,7 @@ interface SimpleStructuredDao {
     @Query("SELECT * FROM feature_flag_overrides")
     suspend fun getFlagOverrides(): List<FeatureFlagOverrideEntity>
 
-    @Upsert
-    suspend fun putFlagOverride(value: FeatureFlagOverrideEntity)
+    @Upsert suspend fun putFlagOverride(value: FeatureFlagOverrideEntity)
 
     @Query("DELETE FROM feature_flag_overrides WHERE runtimeKey = :runtimeKey")
     suspend fun removeFlagOverride(runtimeKey: String)
@@ -42,14 +39,12 @@ interface SimpleStructuredDao {
     @Query("SELECT * FROM contact_real_name_parts WHERE kind = :kind")
     suspend fun getRealNameParts(kind: String): List<ContactRealNamePartEntity>
 
-    @Upsert
-    suspend fun putRealNamePart(value: ContactRealNamePartEntity)
+    @Upsert suspend fun putRealNamePart(value: ContactRealNamePartEntity)
 
     @Query("SELECT * FROM real_name_scan_progress")
     suspend fun getScanProgress(): List<RealNameScanProgressEntity>
 
-    @Upsert
-    suspend fun putScanProgress(value: RealNameScanProgressEntity)
+    @Upsert suspend fun putScanProgress(value: RealNameScanProgressEntity)
 
     @Query("DELETE FROM real_name_scan_progress WHERE wxId = :wxId")
     suspend fun removeScanProgress(wxId: String)
