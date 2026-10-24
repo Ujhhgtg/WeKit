@@ -134,11 +134,17 @@ fn native_string(env: *mut RawJNIEnv, value: &str) -> jstring {
         return std::ptr::null_mut();
     }
 
+    // Use UTF-16 (NewString) instead of Modified UTF-8 (NewStringUTF): metadata and query
+    // payloads carry arbitrary host strings (emoji/supplementary-plane characters, and JSON
+    // escapes with NUL), which NewStringUTF mangles or rejects and Kotlin then sees as malformed JSON.
+    let utf16: Vec<u16> = value.encode_utf16().collect();
     unsafe {
         let fns = *env;
-        let c_str = CString::new(value)
-            .unwrap_or_else(|_| CString::new("native conversion failed").unwrap());
-        ((*fns).v1_6.NewStringUTF)(env, c_str.as_ptr())
+        ((*fns).v1_6.NewString)(
+            env,
+            utf16.as_ptr(),
+            i32::try_from(utf16.len()).unwrap_or(i32::MAX),
+        )
     }
 }
 
