@@ -10,10 +10,15 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** T5/T6-oriented candidate-query coverage: structural class/method/field shapes and groups. */
+/**
+ * Canonical-fast-path candidate coverage. The pinned DexSQL engine fast-paths only the shapes the
+ * SQL DSL emits; hand-built relation joins fall into the generic executor and OOM a 10G worker, so
+ * these tests assert both the generated SQL shape and the matcher behaviour.
+ */
 class StructuralCandidateTest {
     private val metadata = MatcherFixtures.metadata
     private val relations = FakeMatcherRelations(
@@ -24,122 +29,186 @@ class StructuralCandidateTest {
         ),
     )
 
+    private fun scopeFor(query: DexDescriptorQuery): QueryMatcherScope = QueryMatcherScope(
+        metadata = metadata,
+        query = query,
+        relations = relations,
+        rawMetadata = MatcherFixtures.provider::query,
+    )
+
     private fun methodScope(): Pair<QueryMatcherScope, RecordingDescriptorQuery> {
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
-        return QueryMatcherScope(metadata, query, relations) to query
+        return scopeFor(query) to query
     }
 
     private fun classScope(): Pair<QueryMatcherScope, RecordingDescriptorQuery> {
         val query = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
-        return QueryMatcherScope(metadata, query, relations) to query
+        return scopeFor(query) to query
     }
 
     private fun fieldScope(): Pair<QueryMatcherScope, RecordingDescriptorQuery> {
         val query = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
-        return QueryMatcherScope(metadata, query, relations) to query
+        return scopeFor(query) to query
     }
 
+    // ------------------------------------------------------------------
+    // Canonical candidate SQL shapes
+    // ------------------------------------------------------------------
+
     @Test
-    fun classCandidateFromInterfaceJoin() {
-        val (scope, query) = classScope()
-        val results = scope.findClasses(classSpec { interfaceSpec { className("com.test.I1") } })
-        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+    fun methodCandidateUsesCanonicalMethodLookupShape() {
+        val (scope, query) = methodScope()
+        val results = scope.findMethods(
+            methodSpec {
+                name("helper")
+                paramCount = 1..1
+                paramTypes(TypeSpec("int"))
+                usingStrings("other")
+            },
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA_HELPER), results.map { it.descriptor })
         val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN class_interfaces"), sql)
-        assertTrue(sql.contains("interface_descriptor = 'Lcom/test/I1;'"), sql)
+        assertTrue(sql.startsWith("SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings ms0 ON ms0.method = m.descriptor"), sql)
+        assertTrue(sql.contains("ms0.file_id = m.file_id"), sql)
+        assertTrue(sql.contains("ms0.method_idx = m.method_idx"), sql)
+        assertTrue(sql.contains("m.name = 'helper'"), sql)
+        assertTrue(sql.contains("m.param_count = 1"), sql)
+        assertTrue(sql.contains("m.param_descriptors = 'I'"), sql)
+        assertTrue(sql.contains("instr(ms0.value, 'other') > 0"), sql)
+        assertTrue(sql.endsWith("ORDER BY m.descriptor;"), sql)
+        assertNoRawRelationTables(sql)
+        assertEveryJoinOnIsSingleEquality(sql)
     }
 
     @Test
-    fun classCandidateFromFieldJoin() {
-        val (scope, query) = classScope()
-        val results = scope.findClasses(classSpec { field { name("count") } })
-        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+    fun declaredClassUsingStringsCandidateUsesCanonicalLiteralUnits() {
+        val (scope, query) = methodScope()
+        val results = scope.findMethods(
+            methodSpec {
+                name("run")
+                declaredClass { usingString("alpha marker") }
+            },
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
         val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN fields"), sql)
-        assertTrue(sql.contains("cf0.name = 'count'"), sql)
+        assertTrue(sql.contains("JOIN methods ccm0 ON ccm0.class_descriptor = m.class_descriptor"), sql)
+        assertTrue(sql.contains("JOIN method_strings ms0 ON ms0.method = ccm0.descriptor"), sql)
+        assertTrue(sql.contains("ccm0.file_id = m.file_id"), sql)
+        assertTrue(sql.contains("ccm0.class_idx = m.class_idx"), sql)
+        assertTrue(sql.contains("ms0.file_id = ccm0.file_id"), sql)
+        assertTrue(sql.contains("ms0.method_idx = ccm0.method_idx"), sql)
+        assertTrue(sql.contains("instr(ms0.value, 'alpha marker') > 0"), sql)
+        assertNoRawRelationTables(sql)
+        assertEveryJoinOnIsSingleEquality(sql)
     }
 
     @Test
-    fun classCandidateFromMethodJoin() {
-        val (scope, query) = classScope()
+    fun classUsingStringsCandidateResolvesInTwoCanonicalSteps() {
+        val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        val scope = scopeFor(query)
+        val results = scope.findClasses(
+            classSpec {
+                usingString("alpha marker")
+                usingString("other")
+            },
+        )
+        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+        assertEquals(2, query.queries.size)
+        for (sql in query.queries) {
+            assertTrue(sql.startsWith("SELECT DISTINCT m.descriptor AS method FROM methods m JOIN method_strings"), sql)
+            assertTrue(sql.contains("ON ms0.method = m.descriptor"), sql)
+            assertTrue(sql.contains("ORDER BY m.descriptor;"), sql)
+            assertFalse(sql.contains("JOIN classes"), sql)
+            assertNoRawRelationTables(sql)
+            assertEveryJoinOnIsSingleEquality(sql)
+        }
+    }
+
+    @Test
+    fun classNestedMethodCandidateResolvesViaCanonicalMethodLookup() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        val scope = scopeFor(query)
         val results = scope.findClasses(classSpec { method { name("run") } })
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
         val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN methods"), sql)
-        assertTrue(sql.contains("cm0.name = 'run'"), sql)
+        assertTrue(sql.contains("m.name = 'run'"), sql)
+        assertFalse(sql.contains("JOIN classes"), sql)
+        assertNoRawRelationTables(sql)
     }
 
     @Test
-    fun classCandidateFromSuperClass() {
+    fun classNestedFieldCandidateResolvesViaCanonicalFieldLookup() {
+        val query = RecordingDescriptorQuery { sql ->
+            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
+            else MatcherFixtures.classDescriptors()
+        }
+        val scope = scopeFor(query)
+        val results = scope.findClasses(classSpec { field { name("count") } })
+        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
+        val sql = query.queries.single()
+        assertTrue(sql.startsWith("SELECT DISTINCT f.descriptor AS descriptor FROM fields f"), sql)
+        assertTrue(sql.contains("f.name = 'count'"), sql)
+        assertNoRawRelationTables(sql)
+    }
+
+    @Test
+    fun classSuperClassCandidateUsesCanonicalSuperclassShape() {
         val (scope, query) = classScope()
         val results = scope.findClasses(classSpec { superClass { className("com.test.Base") } })
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
-        assertTrue(query.queries.single().contains("superclass_descriptor = 'Lcom/test/Base;'"), query.queries.single())
+        val sql = query.queries.single()
+        assertTrue(sql.contains("c.superclass_descriptor = 'Lcom/test/Base;'"), sql)
     }
 
     @Test
-    fun countOnlyClassSpecUsesBroadFallback() {
-        val (scope, query) = classScope()
-        val results = scope.findClasses(classSpec { methodCount = 3..3 })
-        assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
-        assertEquals(
-            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c ORDER BY c.descriptor;",
-            query.queries.single(),
+    fun unsupportedCandidateShapesFailLoudlyWithoutRunningSql() {
+        val methodQuery = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(methodQuery).findMethods(
+                MethodSpec(invokeMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+            )
+        }
+        assertTrue(methodQuery.queries.isEmpty())
+        assertTrue(
+            assertThrows(UnsupportedOperationException::class.java) {
+                scopeFor(methodQuery).uniqueMethod(
+                    MethodSpec(callerMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+                )
+            }.message!!.contains("candidate shape is unsupported"),
         )
+
+        val classQuery = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(classQuery).findClasses(
+                classSpec { interfaceSpec { className("com.test.I1") } },
+            )
+        }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(classQuery).findClasses(classSpec { methodCount = 3..3 })
+        }
+        assertTrue(classQuery.queries.isEmpty())
+
+        val fieldQuery = RecordingDescriptorQuery { MatcherFixtures.fieldDescriptors() }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scopeFor(fieldQuery).findFields(
+                fieldSpec { readMethod { name("run") } },
+            )
+        }
+        assertTrue(fieldQuery.queries.isEmpty())
     }
 
     @Test
-    fun methodCandidateFromDeclaredClassSuperClassJoin() {
+    fun anyOfRunsUnionOfCanonicalChildCandidates() {
         val (scope, query) = methodScope()
-        val spec = methodSpec {
-            name("run")
-            declaredClass { superClass { className("com.test.Base") } }
-        }
-        val results = scope.findMethods(spec)
-        assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
-        val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN classes dc0 ON dc0.descriptor = m.class_descriptor"), sql)
-        assertTrue(sql.contains("dc0.superclass_descriptor = 'Lcom/test/Base;'"), sql)
-        assertTrue(sql.contains("m.name = 'run'"), sql)
-    }
-
-    @Test
-    fun methodCandidateFromReturnTypeStructuralJoin() {
-        val (scope, query) = methodScope()
-        val spec = methodSpec {
-            name("make")
-            returnType { modifiers = 1 }
-        }
-        val results = scope.findMethods(spec)
-        assertEquals(listOf(MatcherFixtures.CALL_MAKE), results.map { it.descriptor })
-        val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN classes rc0 ON rc0.descriptor = m.return_descriptor"), sql)
-        assertTrue(sql.contains("rc0.access_flags & 1"), sql)
-    }
-
-    @Test
-    fun fieldCandidateFromReadMethodAccessJoin() {
-        val (scope, query) = fieldScope()
-        val spec = fieldSpec {
-            name("count")
-            readMethod { name("run") }
-        }
-        val results = scope.findFields(spec)
-        assertEquals(listOf(MatcherFixtures.ALPHA_COUNT_FIELD), results.map { it.descriptor })
-        val sql = query.queries.single()
-        assertTrue(sql.contains("JOIN method_field_accesses"), sql)
-        assertTrue(sql.contains("using_type = 'get'"), sql)
-        assertTrue(sql.contains("fam1.name = 'run'"), sql)
-    }
-
-    @Test
-    fun anyOfRunsUnionOfCheapChildCandidates() {
-        val (scope, query) = methodScope()
-        val spec = methodSpec {
-            anyOf { name("run") }
-            anyOf { name("helper") }
-        }
-        val results = scope.findMethods(spec)
+        val results = scope.findMethods(
+            methodSpec {
+                anyOf { name("run") }
+                anyOf { name("helper") }
+            },
+        )
         assertEquals(
             listOf(
                 MatcherFixtures.ALPHA_RUN,
@@ -150,46 +219,112 @@ class StructuralCandidateTest {
             results.map { it.descriptor }.sorted(),
         )
         assertEquals(2, query.queries.size)
-        assertTrue(query.queries.any { it.contains("m.name = 'run'") })
-        assertTrue(query.queries.any { it.contains("m.name = 'helper'") })
+        assertTrue(query.queries.all { it.endsWith("ORDER BY m.descriptor;") }, query.queries.joinToString(" | "))
     }
 
     @Test
-    fun allOfUsesFirstCheapChildCandidate() {
+    fun allOfUsesFirstCanonicalChildCandidate() {
         val (scope, query) = methodScope()
-        val spec = methodSpec {
-            allOf { name("run") }
-            allOf { invokeMethod { name("helper") } }
-        }
-        val results = scope.findMethods(spec)
+        val results = scope.findMethods(
+            methodSpec {
+                allOf { name("run") }
+                allOf { invokeMethod { name("helper") } }
+            },
+        )
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
         val sql = query.queries.single()
         assertTrue(sql.contains("m.name = 'run'"), sql)
     }
 
     @Test
-    fun anyOfWithUncheapChildFallsBackToBroadScan() {
+    fun anyOfWithUnsupportedChildFailsLoudly() {
         val (scope, query) = methodScope()
-        val spec = methodSpec {
-            anyOf { name("run") }
-            anyOf { invokeMethod { name("helper") } }
+        assertThrows(UnsupportedOperationException::class.java) {
+            scope.findMethods(
+                methodSpec {
+                    anyOf { name("run") }
+                    anyOf { invokeMethod { name("helper") } }
+                },
+            )
         }
-        val results = scope.findMethods(spec)
-        assertEquals(
-            listOf(MatcherFixtures.ALPHA_RUN, MatcherFixtures.GAMMA_RUN).sorted(),
-            results.map { it.descriptor }.sorted(),
-        )
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m ORDER BY m.descriptor;",
-            query.queries.single(),
+        assertTrue(query.queries.isEmpty())
+    }
+
+    // ------------------------------------------------------------------
+    // Bounded unique search
+    // ------------------------------------------------------------------
+
+    @Test
+    fun uniqueStopsEvaluatingAfterSecondMethodMatch() {
+        var methodDocumentFetches = 0
+        val countingProvider = object : DexMetadataProvider {
+            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+                if (kind == DexMetadataKind.Method) methodDocumentFetches++
+                return MatcherFixtures.provider.query(kind, descriptor)
+            }
+        }
+        val metadata = DexMetadata(countingProvider)
+        val query = RecordingDescriptorQuery {
+            listOf(
+                MatcherFixtures.ALPHA_RUN,
+                MatcherFixtures.GAMMA_RUN,
+                MatcherFixtures.ALPHA_HELPER,
+                MatcherFixtures.CALL_HELPER,
+            )
+        }
+        val scope = QueryMatcherScope(metadata, query, rawMetadata = countingProvider::query)
+        assertThrows(IllegalStateException::class.java) {
+            scope.uniqueMethod(MethodSpec(name = NameSpec("run")))
+        }
+        assertEquals(2, methodDocumentFetches)
+    }
+
+    @Test
+    fun uniqueClassStopsEvaluatingAfterSecondMatch() {
+        // A candidate may legitimately be fetched twice (raw JSON prefilter + parsed model), so count
+        // distinct class descriptors: early exit must stop before the whole candidate set is visited.
+        val classDescriptorsFetched = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+        val countingProvider = object : DexMetadataProvider {
+            override fun query(kind: DexMetadataKind, descriptor: String): JsonObject? {
+                if (kind == DexMetadataKind.Class) classDescriptorsFetched += descriptor
+                return MatcherFixtures.provider.query(kind, descriptor)
+            }
+        }
+        val metadata = DexMetadata(countingProvider)
+        val query = RecordingDescriptorQuery { MatcherFixtures.classDescriptors() }
+        val scope = QueryMatcherScope(metadata, query, rawMetadata = countingProvider::query)
+        assertThrows(IllegalStateException::class.java) {
+            scope.uniqueClass(ClassSpec(className = NameSpec("com.test", NameMatch.StartsWith)))
+        }
+        assertTrue(
+            classDescriptorsFetched.size < MatcherFixtures.classDescriptors().size,
+            "expected early exit before visiting every candidate, fetched=" + classDescriptorsFetched,
         )
     }
 
     @Test
+    fun uniquePagesFilteredCandidatesUntilMatch() {
+        val query = PagingDescriptorQuery(MatcherFixtures.methodDescriptors(), pageSize = 2)
+        val scope = QueryMatcherScope(
+            metadata = MatcherFixtures.metadata,
+            query = query,
+            relations = relations,
+            rawMetadata = MatcherFixtures.provider::query,
+            candidatePageSize = 2,
+        )
+        val descriptor = scope.uniqueMethod(MethodSpec(name = NameSpec("make")))
+        assertEquals(MatcherFixtures.CALL_MAKE, descriptor)
+        assertTrue(query.queries.size >= 3, query.queries.joinToString(" | "))
+        assertTrue(query.queries.all { it.contains("LIMIT 2") }, query.queries.joinToString(" | "))
+        assertTrue(query.queries.all { it.contains("OFFSET") }, query.queries.joinToString(" | "))
+    }
+
+    // ------------------------------------------------------------------
+    // T4 regressions: primitive returnType candidate and array-class data
+    // ------------------------------------------------------------------
+
+    @Test
     fun primitiveReturnTypeUsesDescriptorConditionInsteadOfClassJoin() {
-        // Regression for PreventModuleDataDeletion.methodNativeFileSystemEntryDelete: a
-        // structural declaredClass must not turn a name-only primitive returnType into a classes
-        // join; the Java type name has to be converted to its descriptor ('Z' for boolean).
         val (scope, query) = methodScope()
         val spec = methodSpec {
             declaredClass {
@@ -205,8 +340,11 @@ class StructuralCandidateTest {
         }
         scope.findMethods(spec)
         val sql = query.queries.single()
-        assertFalse(sql.contains("JOIN classes rc"), sql)
+        assertFalse(sql.contains("JOIN classes"), sql)
         assertTrue(sql.contains("m.return_descriptor = 'Z'"), sql)
+        assertTrue(sql.contains("m.param_descriptors = 'Ljava/lang/String;'"), sql)
+        assertNoRawRelationTables(sql)
+        assertEveryJoinOnIsSingleEquality(sql)
     }
 
     @Test
@@ -279,46 +417,21 @@ class StructuralCandidateTest {
         )
     }
 
-    @Test
-    fun structuralCandidateJoinsUseSingleEqualityOnConditions() {
-        // The DexSQL executor only supports one equality in a JOIN ON clause; the extra scoping
-        // predicates (file_id/method_idx/field_idx/using_type) must live in WHERE.
-        val (classMatcher, classSqlQuery) = classScope()
-        classMatcher.findClasses(
-            classSpec {
-                interfaceSpec { className("com.test.I1") }
-                field { name("count") }
-                method { name("run") }
-                usingString("alpha marker")
-            },
-        )
-        val (methodMatcher, methodSqlQuery) = methodScope()
-        methodMatcher.findMethods(
-            methodSpec {
-                declaredClass {
-                    superClass { className("com.test.Base") }
-                    usingString("x")
-                }
-                returnType { modifiers = 1 }
-                usingStrings("one", "two")
-            },
-        )
-        val (fieldMatcher, fieldSqlQuery) = fieldScope()
-        fieldMatcher.findFields(
-            fieldSpec {
-                name("count")
-                readMethod { name("run") }
-            },
-        )
+    // ------------------------------------------------------------------
+    // Shared canonical-shape assertions
+    // ------------------------------------------------------------------
 
-        val sqls = classSqlQuery.queries + methodSqlQuery.queries + fieldSqlQuery.queries
-        assertTrue(sqls.isNotEmpty())
-        sqls.forEach(::assertEveryJoinOnIsSingleEquality)
-        val allSql = sqls.joinToString(" ")
-        assertTrue(allSql.contains(".file_id = "), allSql)
-        assertTrue(allSql.contains(".method_idx = "), allSql)
-        assertTrue(allSql.contains(".field_idx = "), allSql)
-        assertTrue(allSql.contains(".using_type = 'get'"), allSql)
+    private fun assertNoRawRelationTables(sql: String) {
+        listOf(
+            "JOIN class_interfaces",
+            "JOIN class_fields",
+            "JOIN class_methods",
+            "JOIN fields cf",
+            "JOIN method_field_accesses fa",
+            "JOIN methods cm0",
+        ).forEach { forbidden ->
+            assertFalse(sql.contains(forbidden), "raw relation join '" + forbidden + "' in: " + sql)
+        }
     }
 
     private fun assertEveryJoinOnIsSingleEquality(sql: String) {
@@ -348,5 +461,20 @@ class StructuralCandidateTest {
             searchFrom = onIndex + 4
         }
         assertTrue(joinCount > 0, "expected at least one JOIN in: " + sql)
+    }
+
+    /** Fake executor that honours LIMIT/OFFSET so the scope's paging can be exercised. */
+    private class PagingDescriptorQuery(
+        private val rows: List<String>,
+        private val pageSize: Int,
+    ) : DexDescriptorQuery {
+        val queries = mutableListOf<String>()
+
+        override fun descriptors(sql: String): List<String> {
+            queries += sql
+            val limit = Regex("LIMIT (\\d+)").find(sql)?.groupValues?.get(1)?.toInt() ?: pageSize
+            val offset = Regex("OFFSET (\\d+)").find(sql)?.groupValues?.get(1)?.toInt() ?: 0
+            return rows.drop(offset).take(limit)
+        }
     }
 }

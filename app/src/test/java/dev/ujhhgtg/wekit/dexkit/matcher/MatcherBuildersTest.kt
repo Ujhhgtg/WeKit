@@ -87,11 +87,12 @@ class MatcherBuildersTest {
     }
 
     @Test
-    fun exactDescriptorCandidateQueryAvoidsBroadScan() {
+    fun exactDescriptorCandidateRunsNoSql() {
+        // Exact descriptor specs short-circuit to a single known candidate: no SQL scan at all.
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         val scope = QueryMatcherScope(metadata, query)
         val results = scope.findMethods(MethodSpec(descriptor = MatcherFixtures.ALPHA_HELPER))
         assertEquals(listOf(MatcherFixtures.ALPHA_HELPER), results.map { it.descriptor })
-        assertTrue(query.queries.single().contains("m.descriptor = 'Lcom/test/Alpha;->helper(I)V'"), query.queries.single())
+        assertTrue(query.queries.isEmpty())
     }
 }

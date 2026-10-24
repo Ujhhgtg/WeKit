@@ -48,6 +48,9 @@ internal class QueryMatcherSpec(
                 query = bridge::query,
                 metadata = metadata,
             ),
+            // Cheap prefilters read the raw JSON document; rejected candidates therefore do not
+            // enter the session metadata cache during candidate scans.
+            rawMetadata = callerSource::query,
         )
     }
 }

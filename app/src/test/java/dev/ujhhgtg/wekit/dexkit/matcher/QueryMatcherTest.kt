@@ -256,17 +256,17 @@ class QueryMatcherTest {
     }
 
     @Test
-    fun broadFallbackIsDeterministicWhenNoCheapPredicateExists() {
+    fun relationOnlySpecIsRejectedAsUnsupportedCandidateShape() {
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         val scope = QueryMatcherScope(metadata, query)
-        val results = scope.findMethods(
-            MethodSpec(invokeMethods = listOf(MethodSpec(name = NameSpec("helper")))),
-        )
-        assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m ORDER BY m.descriptor;",
-            query.queries.single(),
-        )
+        // Broad table scans are forbidden (the generic executor OOMs on the pinned engine):
+        // relation-only specs must add a fast-path predicate or fail loudly during development.
+        assertThrows(UnsupportedOperationException::class.java) {
+            scope.findMethods(
+                MethodSpec(invokeMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+            )
+        }
+        assertTrue(query.queries.isEmpty())
     }
 
     @Test
@@ -294,8 +294,9 @@ class QueryMatcherTest {
         )
         assertEquals(listOf(MatcherFixtures.ALPHA), results.map { it.descriptor })
         val sql = query.queries.single()
-        assertTrue(sql.contains("instr(cm.class_descriptor, 'Lcom/test') = 1"), sql)
-        assertTrue(sql.contains("instr(ms0.value, 'alpha marker') > 0"), sql)
+        // Class-level usingStrings are two-step resolved; the SQL is the canonical class scan.
+        assertTrue(sql.contains("instr(c.descriptor, 'Lcom/test') = 1"), sql)
+        assertFalse(sql.contains("JOIN method_strings"), sql)
     }
 
     @Test
@@ -413,18 +414,19 @@ class QueryMatcherTest {
     }
 
     @Test
-    fun scopeCallerFilteringUsesRelationsWithBroadFallback() {
+    fun callerFilteringUsesRelationsWithCheapCandidatePredicate() {
         val query = RecordingDescriptorQuery { MatcherFixtures.methodDescriptors() }
         val scope = QueryMatcherScope(metadata, query, evaluatorRelations())
         val results = scope.findMethods(
-            MethodSpec(callerMethods = listOf(MethodSpec(name = NameSpec("helper")))),
+            MethodSpec(
+                name = NameSpec("run"),
+                callerMethods = listOf(MethodSpec(name = NameSpec("helper"))),
+            ),
         )
         assertEquals(listOf(MatcherFixtures.ALPHA_RUN), results.map { it.descriptor })
-        // Caller-only specs have no cheap predicate: deterministic broad fallback.
-        assertEquals(
-            "SELECT DISTINCT m.descriptor AS method FROM methods m ORDER BY m.descriptor;",
-            query.queries.single(),
-        )
+        val sql = query.queries.single()
+        assertTrue(sql.contains("m.name = 'run'"), sql)
+        assertFalse(sql.contains("JOIN classes"), sql)
     }
 
     @Test
