@@ -14,7 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -57,12 +57,12 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                             tempPath.outputStream().use(input::copyTo)
                         }
                             ?: error(
-                                localizedChatString(R.string.chat_voice_file_read_selected_failed),
+                                localizedString(R.string.chat_voice_file_read_selected_failed),
                             )
                         val format =
                             MediaFileTypeDetector.detectAudio(tempPath)
                                 ?: error(
-                                    localizedChatString(
+                                    localizedString(
                                         R.string.chat_voice_file_unsupported_format,
                                     ),
                                 )
@@ -81,13 +81,13 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                             finish()
                             showToast(
                                 prepareResult.exceptionOrNull()?.message
-                                    ?: localizedChatString(R.string.chat_voice_file_read_failed),
+                                    ?: localizedString(R.string.chat_voice_file_read_failed),
                             )
                         }
                         return@launch
                     }
                     val (isSilk, durationMs) = prepareResult.getOrThrow()
-                    showToastSuspend(localizedChatString(R.string.chat_voice_file_ready))
+                    showToastSuspend(localizedString(R.string.chat_voice_file_ready))
 
                     withContext(Dispatchers.Main) {
                         finish()
@@ -131,7 +131,7 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                             val durMs = durationInput.toLongOrNull()
                                             if (durMs == null) {
                                                 showToast(
-                                                    localizedChatString(
+                                                    localizedString(
                                                         R.string.chat_voice_file_invalid_duration,
                                                     ),
                                                 )
@@ -145,7 +145,7 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                                 try {
                                                     if (isSilk) {
                                                         showToast(
-                                                            localizedChatString(
+                                                            localizedString(
                                                                 R.string
                                                                     .chat_voice_file_sending_silk,
                                                             ),
@@ -157,7 +157,7 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                                         )
                                                     } else {
                                                         showToast(
-                                                            localizedChatString(
+                                                            localizedString(
                                                                 R.string
                                                                     .chat_voice_file_converting_silk,
                                                             ),
@@ -175,7 +175,7 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                                             )
                                                         } else {
                                                             showToast(
-                                                                localizedChatString(
+                                                                localizedString(
                                                                     R.string
                                                                         .chat_voice_file_conversion_failed,
                                                                 ),
@@ -188,7 +188,7 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                                     tempPath.deleteIfExists()
                                                 }
                                             showToast(
-                                                localizedChatString(
+                                                localizedString(
                                                     if (success) {
                                                         R.string.chat_voice_file_send_success
                                                     } else {

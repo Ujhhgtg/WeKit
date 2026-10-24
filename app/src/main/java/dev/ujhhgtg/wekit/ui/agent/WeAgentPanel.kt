@@ -94,7 +94,7 @@ import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -1010,7 +1010,7 @@ private fun MessageBubble(
     prevAssistantTimestamp: java.time.Instant? = null,
 ) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     when (row.role) {
         ChatRow.Role.TOOL -> {
             ToolCard(row)
@@ -1227,7 +1227,7 @@ private fun ToolCard(row: ChatRow) {
     var expanded by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val caretRotation by
         animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
 
@@ -1369,7 +1369,7 @@ private fun ReasoningCard(
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     // expanded tracks the user's manual preference. effectiveExpanded also opens the body
     // automatically while streaming so reasoning text is visible as it arrives.
     var expanded by remember { mutableStateOf(false) }

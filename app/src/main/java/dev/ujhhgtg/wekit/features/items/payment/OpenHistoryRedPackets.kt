@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -164,8 +165,7 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                title =
-                    activity.localizedPaymentString(R.string.feature_open_history_red_packets_name),
+                title = activity.localizedString(R.string.feature_open_history_red_packets_name),
                 position = 1,
                 onClick = onClick@{ activity ->
                         val clickedConvId = WeCurrentConversationApi.value

@@ -43,7 +43,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.core.models.WeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -105,7 +105,7 @@ private fun ChatRecordXmlGeneratorDialog(contacts: List<WeContact>, onDismiss: (
     }
 
     val context = LocalContext.current
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     val contactsByWxId = remember(contacts) { contacts.associateBy { it.wxId } }
 
     val canGenerate by

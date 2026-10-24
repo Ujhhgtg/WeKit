@@ -6,6 +6,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -30,14 +32,14 @@ object BatchMarkAsRead : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_mark_read_select),
+                title = context.localizedString(R.string.batch_mark_read_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
                         showToast(
-                            context.localizedBatchString(
+                            context.localizedString(
                                 R.string.batch_select_at_least_one_conversation,
                             ),
                         )
@@ -60,7 +62,7 @@ object BatchMarkAsRead : ClickableFeature() {
             }
             WeConversationApi.reloadConversations()
             showToastSuspend(
-                localizedBatchQuantity(R.plurals.batch_mark_read_done, wxIds.size, wxIds.size),
+                localizedQuantity(R.plurals.batch_mark_read_done, wxIds.size, wxIds.size),
             )
         }
     }

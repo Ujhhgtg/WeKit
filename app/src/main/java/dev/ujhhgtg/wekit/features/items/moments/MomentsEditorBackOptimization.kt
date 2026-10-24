@@ -11,6 +11,7 @@ import android.widget.TextView
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 /**
@@ -67,7 +68,7 @@ object MomentsEditorBackOptimization : SwitchFeature() {
     @SuppressLint("SetTextI18n")
     private fun TextView.appendBackHint() {
         val current = text?.toString().orEmpty()
-        val backHint = context.localizedMomentsString(R.string.moments_editor_back_hint)
+        val backHint = context.localizedString(R.string.moments_editor_back_hint)
         if (backHint !in current) {
             text = current + backHint
         }

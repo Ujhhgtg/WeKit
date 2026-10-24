@@ -26,7 +26,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
 import dev.ujhhgtg.wekit.ui.automation.AutomationSheetNote
 import dev.ujhhgtg.wekit.ui.automation.delayEditor
@@ -200,23 +200,23 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
         val amount = rules[amountRange]
         if (validates(keyIds, amountRange) && amount.enabled) {
             if (amount.minimumYuan.isBlank() && amount.maximumYuan.isBlank()) {
-                return localizedAutomationString(R.string.payment_transfer_amount_boundary_required)
+                return localizedString(R.string.payment_transfer_amount_boundary_required)
             }
             val minimum = amount.minimumYuan.toCentsOrNull()
             val maximum = amount.maximumYuan.toCentsOrNull()
             if (amount.minimumYuan.isNotBlank() && minimum == null) {
-                return localizedAutomationString(R.string.payment_transfer_invalid_minimum)
+                return localizedString(R.string.payment_transfer_invalid_minimum)
             }
             if (amount.maximumYuan.isNotBlank() && maximum == null) {
-                return localizedAutomationString(R.string.payment_transfer_invalid_maximum)
+                return localizedString(R.string.payment_transfer_invalid_maximum)
             }
             if (minimum != null && maximum != null && minimum > maximum) {
-                return localizedAutomationString(R.string.payment_transfer_minimum_above_maximum)
+                return localizedString(R.string.payment_transfer_minimum_above_maximum)
             }
         }
         if (validates(keyIds, memoKeyword)) {
             rules[memoKeyword]
-                .validationError(localizedAutomationString(R.string.payment_transfer_memo_keywords))
+                .validationError(localizedString(R.string.payment_transfer_memo_keywords))
                 ?.let {
                     return it
                 }

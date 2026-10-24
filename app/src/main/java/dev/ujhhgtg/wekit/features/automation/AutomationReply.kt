@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.automation
 
+import dev.ujhhgtg.wekit.i18n.localizedString
+
 /**
  * One outgoing action of a reply sequence; see [AutomationReplyExecutor] for each kind's content.
  */
@@ -43,7 +45,7 @@ data class AutomationReplyRule(
     fun validationError(): String? {
         if (!enabled) return null
         if (steps.isEmpty()) {
-            return localizedAutomationString(dev.ujhhgtg.wekit.R.string.automation_reply_required)
+            return localizedString(dev.ujhhgtg.wekit.R.string.automation_reply_required)
         }
         return null
     }

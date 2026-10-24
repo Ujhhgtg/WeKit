@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.io.ByteArrayOutputStream
@@ -109,7 +109,7 @@ object FunBoxServiceClient {
             if (!response.isSuccessful) throw HttpStatusException(response.code, response.message)
             val bytes = response.body.bytes()
             WeLogger.d(TAG, "operation=$operation responseBytes=${bytes.size}")
-            require(bytes.isNotEmpty()) { localizedChatString(R.string.chat_funbox_server_empty) }
+            require(bytes.isNotEmpty()) { localizedString(R.string.chat_funbox_server_empty) }
             val responseEnvelope = FunBoxBinaryReader(bytes)
             val encrypted = responseEnvelope.bytes()
             val status = responseEnvelope.int()
@@ -118,7 +118,7 @@ object FunBoxServiceClient {
                 "operation=$operation envelopeStatus=$status encryptedBytes=${encrypted.size}",
             )
             check(status == 0) {
-                localizedChatString(R.string.chat_funbox_server_error_code, status)
+                localizedString(R.string.chat_funbox_server_error_code, status)
             }
             val decodedPayload = FunBoxCrypto.teaDecrypt(sessionKey, encrypted)
             return decode(FunBoxBinaryReader(decodedPayload))
@@ -219,7 +219,7 @@ object FunBoxServiceClient {
         val host =
             resolved.first.firstOrNull { candidate ->
                 candidate != excludedHost && probeApi(candidate)
-            } ?: error(localizedChatString(R.string.chat_funbox_api_unreachable))
+            } ?: error(localizedString(R.string.chat_funbox_api_unreachable))
         KvStore.putString(API_CACHE_KEY, host)
         WeLogger.i(TAG, "selected API host=$host")
         return host
@@ -237,7 +237,7 @@ object FunBoxServiceClient {
         val host =
             resolved.second.firstOrNull { candidate ->
                 candidate != excludedHost && probeObject(candidate)
-            } ?: error(localizedChatString(R.string.chat_funbox_object_service_unreachable))
+            } ?: error(localizedString(R.string.chat_funbox_object_service_unreachable))
         KvStore.putString(OBJECT_CACHE_KEY, host)
         WeLogger.i(TAG, "selected object host=$host")
         return host
@@ -255,7 +255,7 @@ object FunBoxServiceClient {
                 .use { response ->
                     WeLogger.d(TAG, "resolver HTTP ${response.code}")
                     check(response.isSuccessful) {
-                        localizedChatString(R.string.chat_funbox_resolver_failed, response.code)
+                        localizedString(R.string.chat_funbox_resolver_failed, response.code)
                     }
                     response.body.string()
                 }
@@ -269,7 +269,7 @@ object FunBoxServiceClient {
                 ?.filter { it.isNotBlank() }
                 ?.joinToString("")
                 ?.takeIf { it.isNotBlank() }
-                ?: error(localizedChatString(R.string.chat_funbox_resolver_empty))
+                ?: error(localizedString(R.string.chat_funbox_resolver_empty))
         val decoded = String(Base64.getDecoder().decode(answer))
         val json = DefaultJson.parseToJsonElement(decoded).jsonObject
         val api = json["vapi"]!!.jsonArray.map { it.jsonPrimitive.content }

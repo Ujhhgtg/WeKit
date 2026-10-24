@@ -143,8 +143,8 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.MonetEngine
 import dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel.HomeSidePanel
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
-import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -427,7 +427,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     setContent {
                         InjectedUiTheme {
                             val localizedContext by
-                                rememberUpdatedState(LocalWeKitLocalizedContext.current)
+                                rememberUpdatedState(LocalLocalizedContext.current)
                             var selectedGroupId by selectedGroupIdState
                             var groups by groupsState
 
@@ -562,7 +562,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         },
                         onFailure = {
                             showToast(
-                                HostLocalizedStrings.get(
+                                localizedString(
                                     R.string.conversation_grouping_swipe_prepare_failed,
                                 ),
                             )
@@ -1621,7 +1621,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             MonetEngine.surfaceColors(isSystemInDarkTheme())?.page?.let(::Color)
                 ?: if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFEDEDED),
     ) {
-        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+        val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
         val commitScope = rememberCoroutineScope()
         var savingOrder by remember { mutableStateOf(false) }
         val capsuleStyle = usesFloatingTabs
@@ -2094,7 +2094,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     @Composable
     private fun groupDisplayName(group: ChatGroup): String =
-        localizedGroupName(LocalWeKitLocalizedContext.current, group)
+        localizedGroupName(LocalLocalizedContext.current, group)
 
     /** Widths include the label and its existing side padding, which also houses the badge. */
     @Composable
@@ -2739,7 +2739,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         onSavingChanged: (Boolean) -> Unit,
         onSave: suspend (ChatGroup) -> Unit,
     ) {
-        val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+        val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
         val scope = rememberCoroutineScope()
         var saving by remember { mutableStateOf(false) }
         var failed by remember { mutableStateOf(false) }

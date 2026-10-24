@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -51,7 +50,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PerTurnPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.PresetPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveCollapsingTopAppBar
@@ -89,7 +88,7 @@ private val PROMPT_TAB_LABELS =
 @Composable
 fun PromptsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     val systemPrompts by
         WeAgentRepository.observeSystemPrompts().collectAsState(initial = emptyList())
     val perTurn by WeAgentRepository.observePerTurnPrompts().collectAsState(initial = emptyList())

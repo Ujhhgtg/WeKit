@@ -18,8 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 
 @Composable
 fun WeKitBasicDialog(
@@ -45,7 +44,7 @@ fun WeKitBasicDialog(
                 Column(
                     Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 ) {
-                    WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+                    LocaleProvider {
                         content()
                     }
                 }

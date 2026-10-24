@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.VisibilityIcon
 import dev.ujhhgtg.wekit.ui.utils.VisibilityOffIcon
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -29,14 +30,14 @@ object ToggleAllConversationsVisibility :
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
                 777010,
-                localizedHomeMenuString(R.string.home_menu_show_conversations),
+                localizedString(R.string.home_menu_show_conversations),
                 VisibilityIcon,
             ) {
                 WeConversationApi.setAllConversationVisibility(true)
             },
             WeHomeScreenPopupMenuApi.MenuItem(
                 777011,
-                localizedHomeMenuString(R.string.home_menu_hide_conversations),
+                localizedString(R.string.home_menu_hide_conversations),
                 VisibilityOffIcon,
             ) {
                 WeConversationApi.setAllConversationVisibility(false)

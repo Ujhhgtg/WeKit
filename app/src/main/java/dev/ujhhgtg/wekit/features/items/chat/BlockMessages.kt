@@ -28,9 +28,9 @@ import dev.ujhhgtg.wekit.features.automation.AutomationSection
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
 import dev.ujhhgtg.wekit.ui.automation.loadAutomationContacts
 import dev.ujhhgtg.wekit.ui.automation.messageTypeEditor
@@ -108,7 +108,7 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         if (validates(keyIds, textKeyword)) {
             return rules[textKeyword].validationError(
-                localizedAutomationString(R.string.block_messages_text_keyword),
+                localizedString(R.string.block_messages_text_keyword),
             )
         }
         return null
@@ -265,7 +265,7 @@ fun showConversationGroupBlockDialog(
     conversationIds: List<String>,
 ) {
     if (conversationIds.isEmpty()) {
-        showToast(context, localizedAutomationString(R.string.block_messages_group_empty))
+        showToast(context, localizedString(R.string.block_messages_group_empty))
         return
     }
     val blocked = conversationIds.filter(BlockMessagesAutomation::isBlockAll)
@@ -322,7 +322,7 @@ private fun pickAndApply(context: Context, ids: List<String>, block: Boolean) {
             }
     }
     val title =
-        localizedAutomationString(
+        localizedString(
             if (block) R.string.block_messages_group_pick_block
             else R.string.block_messages_group_pick_unblock,
         )
@@ -338,14 +338,14 @@ private fun pickAndApply(context: Context, ids: List<String>, block: Boolean) {
                 try {
                     BlockMessagesAutomation.setBlockAll(selected, block)
                     if (block && !BlockMessages.isEnabled) BlockMessages.applyToggle(true)
-                    showToast(context, localizedAutomationString(R.string.settings_saved))
+                    showToast(context, localizedString(R.string.settings_saved))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     WeLogger.e("BlockMessages", "failed to update group block", e)
                     showToast(
                         context,
-                        localizedAutomationString(R.string.structured_storage_save_failed),
+                        localizedString(R.string.structured_storage_save_failed),
                     )
                 }
                 onDismiss()

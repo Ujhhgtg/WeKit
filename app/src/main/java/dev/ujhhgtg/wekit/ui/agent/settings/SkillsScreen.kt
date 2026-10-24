@@ -28,7 +28,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.skill.SkillStore
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
 import dev.ujhhgtg.wekit.ui.content.m3.SettingsConfirmDialog
@@ -51,7 +51,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SkillsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     // SkillStore is filesystem-backed (no Flow); reload via a tick after each mutation.
     var reloadTick by remember { mutableIntStateOf(0) }
     var skills by remember { mutableStateOf<List<SkillStore.Skill>>(emptyList()) }

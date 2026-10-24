@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,7 +24,7 @@ object SplitGroupChats : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             SingleContactSelector(
-                context.localizedContactsString(R.string.feature_split_group_chats_name),
+                context.localizedString(R.string.feature_split_group_chats_name),
                 WeDatabaseApi.getGroups(),
                 initialSelectedWxId = null,
                 onDismiss = onDismiss,

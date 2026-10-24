@@ -7,9 +7,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 /**
@@ -30,13 +28,6 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
 ): ActivityResultLauncher<String> {
     var pendingResult: String? = null
 
-    fun localizedContext() =
-        LocalizedContextFactory.create(
-            this,
-            WeKitLocaleController.resolvedLocale,
-            LocaleResourceMode.ModuleApp,
-        )
-
     val saveFileLauncher =
         registerForActivityResult(
             ActivityResultContracts.CreateDocument("text/plain"),
@@ -46,8 +37,7 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                 if (text != null) {
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(text.toByteArray())
-                        val context = localizedContext()
-                        showToast(context, context.getString(R.string.noncompose_bsh_saved, uri))
+                        showToast(localizedString(R.string.noncompose_bsh_saved, uri))
                     }
                 }
                 pendingResult = null
@@ -66,8 +56,7 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                     val result = BshSnapshotDecompiler.decompileStream(inputStream).trim()
                     Log.i(BuildConfig.TAG, "decompiled successfully (${result.length} chars)")
                     if (result.isEmpty()) {
-                        val context = localizedContext()
-                        showToast(context, context.getString(R.string.noncompose_bsh_empty_result))
+                        showToast(localizedString(R.string.noncompose_bsh_empty_result))
                         onFinished()
                         return@use
                     }
@@ -77,10 +66,8 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                 }
             } catch (ex: Exception) {
                 Log.e(BuildConfig.TAG, "exception thrown", ex)
-                val context = localizedContext()
                 showToast(
-                    context,
-                    context.getString(
+                    localizedString(
                         R.string.noncompose_bsh_error,
                         ex.message ?: ex.javaClass.simpleName,
                     ),
@@ -88,8 +75,7 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                 onFinished()
             }
         } else {
-            val context = localizedContext()
-            showToast(context, context.getString(R.string.noncompose_bsh_selection_cancelled))
+            showToast(localizedString(R.string.noncompose_bsh_selection_cancelled))
             onFinished()
         }
     }

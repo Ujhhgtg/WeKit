@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -109,7 +110,7 @@ object AutoCleanCache : ClickableFeature() {
 
             val timeText =
                 if (isEnabled) {
-                    context.localizedSystemString(
+                    context.localizedString(
                         R.string.system_auto_clean_next,
                         formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL),
                     )
@@ -119,7 +120,7 @@ object AutoCleanCache : ClickableFeature() {
 
             showToastSuspend(
                 context,
-                context.localizedSystemString(
+                context.localizedString(
                     R.string.system_auto_clean_complete,
                     sizeText,
                     timeText,

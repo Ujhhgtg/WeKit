@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -78,7 +79,7 @@ fun readReceiptNetworkFailureCategory(failure: Throwable): String =
     }
 
 class ReadReceiptError(@StringRes private val id: Int, private vararg val formatArgs: Any) {
-    fun message(context: Context): String = context.localizedChatString(id, *formatArgs)
+    fun message(context: Context): String = context.localizedString(id, *formatArgs)
 }
 
 object ReadReceipts :
@@ -405,12 +406,12 @@ object ReadReceipts :
             WeChatInputBarMenuApi.ActionItem(
                 id = "send_read_receipt_message",
                 icon = MaterialSymbols.Outlined.Receipt_long,
-                label = localizedChatString(R.string.read_receipts_menu_label),
+                label = localizedString(R.string.read_receipts_menu_label),
                 onClick = { context, chatFooter ->
                     if (chatFooter.lastText.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatString(R.string.read_receipts_input_empty),
+                            context.localizedString(R.string.read_receipts_input_empty),
                         )
                         return@ActionItem
                     }
@@ -469,7 +470,7 @@ object ReadReceipts :
                 val error = ReadReceiptError(R.string.chat_read_receipts_server_missing)
                 showToast(
                     chatFooter.context,
-                    chatFooter.context.localizedChatString(
+                    chatFooter.context.localizedString(
                         R.string.read_receipts_error_prefix,
                         error.message(chatFooter.context),
                     ),
@@ -488,7 +489,7 @@ object ReadReceipts :
                     )
                 showToast(
                     chatFooter.context,
-                    chatFooter.context.localizedChatString(
+                    chatFooter.context.localizedString(
                         R.string.read_receipts_error_prefix,
                         error.message(chatFooter.context),
                     ),
@@ -553,7 +554,7 @@ object ReadReceipts :
                         if (!ReadReceipts.isActive) return@withContext
                         showToast(
                             chatFooter.context,
-                            chatFooter.context.localizedChatString(
+                            chatFooter.context.localizedString(
                                 R.string.read_receipts_error_prefix,
                                 registrationError.message(chatFooter.context),
                             ),
@@ -569,7 +570,7 @@ object ReadReceipts :
                         val error = ReadReceiptError(R.string.read_receipts_send_failed)
                         showToast(
                             chatFooter.context,
-                            chatFooter.context.localizedChatString(
+                            chatFooter.context.localizedString(
                                 R.string.read_receipts_error_prefix,
                                 error.message(chatFooter.context),
                             ),
@@ -580,7 +581,7 @@ object ReadReceipts :
                     if (chatFooter.lastText == text) chatFooter.lastText = ""
                     showToast(
                         chatFooter.context,
-                        chatFooter.context.localizedChatString(R.string.chat_read_receipts_sent),
+                        chatFooter.context.localizedString(R.string.chat_read_receipts_sent),
                     )
                 }
             }

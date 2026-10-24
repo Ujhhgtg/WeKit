@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
@@ -34,7 +35,7 @@ object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.ICo
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                title = activity.localizedContactsString(R.string.contacts_group_message_history),
+                title = activity.localizedString(R.string.contacts_group_message_history),
                 position = 1,
                 onClick = onClick@{ activity ->
                         val groupId = WeCurrentConversationApi.value
@@ -46,7 +47,7 @@ object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.ICo
                                 putExtra("room_member", memberId)
                                 putExtra(
                                     "title",
-                                    activity.localizedContactsString(
+                                    activity.localizedString(
                                         R.string.feature_display_group_member_messages_name,
                                     ),
                                 )

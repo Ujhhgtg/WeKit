@@ -23,7 +23,8 @@ import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -75,14 +76,14 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777017,
-                localizedMomentsString(R.string.moments_custom_details_menu),
+                localizedString(R.string.moments_custom_details_menu),
                 EditIcon,
                 { _, _ -> true },
             ) click@{ moment ->
                 val snsId = resolveSnsId(moment.snsInfo)
                 if (snsId == null) {
                     showToast(
-                        moment.activity.localizedMomentsString(R.string.moments_sns_id_not_found),
+                        moment.activity.localizedString(R.string.moments_sns_id_not_found),
                     )
                     return@click
                 }
@@ -102,7 +103,7 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             var saving by remember { mutableStateOf(false) }
             var saveFailed by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
-            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.moments_custom_details_title)) },

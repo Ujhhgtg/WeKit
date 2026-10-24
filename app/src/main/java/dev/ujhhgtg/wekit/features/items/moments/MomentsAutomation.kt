@@ -17,7 +17,8 @@ import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
 import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.AutomationChipSet
 import dev.ujhhgtg.wekit.ui.automation.AutomationMiniChips
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
@@ -361,11 +362,11 @@ private constructor(id: String, override val titleRes: Int, val includeAction: B
         if (validates(keyIds, this.interval) && interval.enabled) {
             val value =
                 interval.milliseconds.toLongOrNull()
-                    ?: return localizedAutomationString(
+                    ?: return localizedString(
                         R.string.moments_automation_invalid_interval,
                     )
             if (value !in 0L..MAX_ACTION_DELAY_MS) {
-                return dev.ujhhgtg.wekit.features.items.payment.localizedPaymentQuantityString(
+                return localizedQuantity(
                     R.plurals.moments_automation_interval_too_large,
                     MAX_ACTION_DELAY_MS.toInt(),
                     MAX_ACTION_DELAY_MS,
@@ -375,7 +376,7 @@ private constructor(id: String, override val titleRes: Int, val includeAction: B
         if (validates(keyIds, keyword)) {
             rules[keyword]
                 .validationError(
-                    localizedAutomationString(R.string.moments_automation_content_keywords),
+                    localizedString(R.string.moments_automation_content_keywords),
                 )
                 ?.let {
                     return it
@@ -385,13 +386,13 @@ private constructor(id: String, override val titleRes: Int, val includeAction: B
             validates(keyIds, contentType) &&
                 rules[contentType].let { it.enabled && it.typeIds.isEmpty() }
         ) {
-            return localizedAutomationString(R.string.moments_automation_select_type)
+            return localizedString(R.string.moments_automation_select_type)
         }
         if (
             validates(keyIds, maximumAge) &&
                 rules[maximumAge].let { it.enabled && it.maximumHours.toLongOrNull() == null }
         ) {
-            return localizedAutomationString(R.string.moments_automation_invalid_maximum_age)
+            return localizedString(R.string.moments_automation_invalid_maximum_age)
         }
         return null
     }

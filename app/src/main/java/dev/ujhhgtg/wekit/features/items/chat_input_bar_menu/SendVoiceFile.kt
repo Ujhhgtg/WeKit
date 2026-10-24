@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.selectAndSendVoice
+import dev.ujhhgtg.wekit.i18n.localizedString
 
 object SendVoiceFile : SwitchFeature() {
 
@@ -22,7 +23,7 @@ object SendVoiceFile : SwitchFeature() {
             WeChatInputBarMenuApi.ActionItem(
                 id = "send_voice_file",
                 icon = MaterialSymbols.Outlined.Voice_chat,
-                label = localizedChatInputString(R.string.feature_send_voice_file_name),
+                label = localizedString(R.string.feature_send_voice_file_name),
                 onClick = { context, _ ->
                     selectAndSendVoice(context, WeCurrentConversationApi.value)
                 },

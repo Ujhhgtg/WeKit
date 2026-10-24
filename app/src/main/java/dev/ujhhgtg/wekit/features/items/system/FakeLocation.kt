@@ -20,7 +20,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.OsmLocationPicker
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -229,14 +230,14 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun launchWechatLocationPicker() {
         val activity = getTopMostActivity()
         if (activity == null) {
-            showToast(localizedSystemString(R.string.system_fake_location_no_activity))
+            showToast(localizedString(R.string.system_fake_location_no_activity))
             return
         }
 
         val redirectUiClass = "${activity.packageName}.plugin.location.ui.RedirectUI".toClass()
 
         if (!ensureWeChatPickerHooked(redirectUiClass)) {
-            showToast(localizedSystemString(R.string.system_fake_location_listener_failed))
+            showToast(localizedString(R.string.system_fake_location_listener_failed))
             return
         }
 
@@ -253,7 +254,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                 pendingWeChatPicker = false
                 WeLogger.e(TAG, "failed to launch native location picker", it)
                 showToast(
-                    localizedSystemString(
+                    localizedString(
                         R.string.system_fake_location_launch_failed,
                         it.message.orEmpty(),
                     ),
@@ -328,7 +329,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
         val longitude = match?.groupValues?.getOrNull(2)?.toFloatOrNull()
         if (latitude == null || longitude == null) {
             WeLogger.w(TAG, "failed to parse native location result: $locationData")
-            showToast(localizedSystemString(R.string.system_fake_location_parse_failed))
+            showToast(localizedString(R.string.system_fake_location_parse_failed))
             return
         }
 
@@ -338,9 +339,9 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun saveLocation(latitude: Float, longitude: Float) {
         this.latitude = latitude
         this.longitude = longitude
-        val locale = Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag)
+        val locale = Locale.forLanguageTag(LocaleController.resolvedLocale.androidTag)
         showToast(
-            localizedSystemString(
+            localizedString(
                 R.string.system_fake_location_selected,
                 String.format(locale, "%.4f", latitude),
                 String.format(locale, "%.4f", longitude),

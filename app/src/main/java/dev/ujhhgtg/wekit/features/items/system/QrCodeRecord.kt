@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.home_screen_menu.localizedHomeMenuString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.QrCodeIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -75,7 +75,7 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
                 777031,
-                localizedHomeMenuString(R.string.qr_code_record_home_menu_title),
+                localizedString(R.string.qr_code_record_home_menu_title),
                 QrCodeIcon,
             ) {
                 val activity = LauncherUI.getInstance()!!

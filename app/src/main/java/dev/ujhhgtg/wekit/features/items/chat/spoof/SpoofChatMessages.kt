@@ -36,7 +36,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
@@ -239,7 +239,7 @@ object SpoofChatMessages :
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 MENU_ITEM_ID,
-                localizedChatString(R.string.chat_spoof_message_menu),
+                localizedString(R.string.chat_spoof_message_menu),
                 EditIcon,
                 MaterialSymbols.Outlined.Edit_note,
                 { msg -> SpoofKind.of(msg) != null },

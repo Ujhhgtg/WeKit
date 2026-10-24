@@ -30,6 +30,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyRule
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.payment.RedPacketAutomation.ReceiveMode
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -530,12 +531,12 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
         val displayName = WeDatabaseApi.getDisplayName(info.talker)
         val isGroup = info.talker.isGroupChatWxId
         val sourceLabel =
-            localizedPaymentString(
+            localizedString(
                 if (isGroup) R.string.payment_source_group
                 else R.string.payment_source_private_chat,
             )
         showToast(
-            localizedPaymentString(
+            localizedString(
                 R.string.payment_red_packet_received,
                 sourceLabel,
                 displayName,

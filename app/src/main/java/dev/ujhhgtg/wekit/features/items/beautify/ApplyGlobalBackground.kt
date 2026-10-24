@@ -41,7 +41,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -240,7 +241,7 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
             var restartRequired by remember { mutableStateOf(false) }
             val currentRestartRequired by rememberUpdatedState(restartRequired)
-            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
             DisposableEffect(Unit) {
                 onDispose {
@@ -506,13 +507,13 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                     if (ok) {
                         backgroundUri = backgroundImageFile.asAndroidUri.toString()
                         showToast(
-                            context.localizedBeautifyString(
+                            context.localizedString(
                                 R.string.beautify_global_background_selected,
                             ),
                         )
                     } else {
                         showToast(
-                            context.localizedBeautifyString(
+                            context.localizedString(
                                 R.string.beautify_global_background_import_failed,
                             ),
                         )

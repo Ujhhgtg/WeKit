@@ -33,7 +33,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.launch
@@ -82,7 +82,7 @@ private fun PanelPackPickerContent(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val currentLocalizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val currentLocalizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     var creating by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(false) }
 

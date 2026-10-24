@@ -77,9 +77,8 @@ import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
@@ -120,7 +119,7 @@ class SettingsActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalComponentActivity provides this,
             ) {
-                WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+                LocaleProvider {
                     ModuleTheme {
                         SettingsRoot(onFinish = { finish() })
                     }
@@ -478,7 +477,7 @@ fun M3ListScaffold(
 @Composable
 fun FeatureRow(item: BaseFeature, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val context = LocalComponentActivity.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val configKey = item.technicalId
     val localizedName = item.localizedName(localizedContext)
     val localizedDescription = item.localizedDescription(localizedContext)

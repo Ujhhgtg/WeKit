@@ -35,6 +35,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -327,7 +328,7 @@ object AntiMessageRecall :
         val badgeView: View =
             if (badgeType == BADGE_TYPE_TEXT) {
                 TextView(context).apply {
-                    text = context.localizedChatString(R.string.chat_anti_recall_badge_text_content)
+                    text = context.localizedString(R.string.chat_anti_recall_badge_text_content)
                     textSize = 12f
                     setTextColor(iconColor)
                     includeFontPadding = false

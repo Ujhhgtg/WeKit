@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -35,7 +36,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777013,
-                localizedMomentsString(R.string.moments_repost_menu),
+                localizedString(R.string.moments_repost_menu),
                 ShareIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -47,7 +48,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             },
             WeMomentsContextMenuApi.MenuItem(
                 777014,
-                localizedMomentsString(R.string.moments_quick_repost_menu),
+                localizedString(R.string.moments_quick_repost_menu),
                 SendIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -70,7 +71,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             )
             showToast(
                 activity,
-                activity.localizedMomentsString(R.string.moments_repost_parse_failed),
+                activity.localizedString(R.string.moments_repost_parse_failed),
             )
             return
         }
@@ -86,7 +87,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
 
                 showToast(
                     activity,
-                    activity.localizedMomentsString(R.string.moments_repost_preparing_images),
+                    activity.localizedString(R.string.moments_repost_preparing_images),
                 )
                 CoroutineScope(Dispatchers.Main).launch {
                     val tempPaths =
@@ -98,7 +99,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     if (tempPaths == null) {
                         showToastSuspend(
                             activity,
-                            activity.localizedMomentsString(
+                            activity.localizedString(
                                 R.string.moments_repost_image_download_failed,
                             ),
                         )
@@ -112,14 +113,14 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             5 -> { // 视频
                 showToast(
                     activity,
-                    activity.localizedMomentsString(R.string.moments_repost_preparing_video),
+                    activity.localizedString(R.string.moments_repost_preparing_video),
                 )
                 CoroutineScope(Dispatchers.Main).launch {
                     val video = WeMomentsApi.ensureVideoPaths(activity, data)
                     if (video == null) {
                         showToastSuspend(
                             activity,
-                            activity.localizedMomentsString(
+                            activity.localizedString(
                                 R.string.moments_repost_video_download_failed,
                             ),
                         )
@@ -134,7 +135,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     if (albumVideoPath == null) {
                         showToastSuspend(
                             activity,
-                            activity.localizedMomentsString(
+                            activity.localizedString(
                                 R.string.moments_repost_video_save_failed,
                             ),
                         )
@@ -151,7 +152,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     ) {
                         showToastSuspend(
                             activity,
-                            activity.localizedMomentsString(
+                            activity.localizedString(
                                 R.string.moments_repost_video_select_failed,
                             ),
                         )
@@ -165,7 +166,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     WeLogger.i(TAG, "card type ${data.type} not editor-capable")
                     showToast(
                         activity,
-                        activity.localizedMomentsString(R.string.moments_repost_card_unsupported),
+                        activity.localizedString(R.string.moments_repost_card_unsupported),
                     )
                 }
             }
@@ -184,7 +185,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         val activity = context.activity
         showToast(
             activity,
-            activity.localizedMomentsString(R.string.moments_repost_preparing_live_photo),
+            activity.localizedString(R.string.moments_repost_preparing_live_photo),
         )
         CoroutineScope(Dispatchers.Main).launch {
             val result =
@@ -214,14 +215,14 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             )
             showToast(
                 activity,
-                activity.localizedMomentsString(R.string.moments_repost_parse_failed),
+                activity.localizedString(R.string.moments_repost_parse_failed),
             )
             return
         }
 
         showToast(
             activity,
-            activity.localizedMomentsString(R.string.moments_quick_repost_preparing),
+            activity.localizedString(R.string.moments_quick_repost_preparing),
         )
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -234,5 +235,5 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
     }
 
     private fun Context.localizedRepostResult(result: WeMomentsApi.ActionResult): String =
-        result.messageRes?.let(::localizedMomentsString) ?: result.message
+        result.messageRes?.let { localizedString(it) } ?: result.message
 }

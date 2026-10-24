@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -54,7 +55,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777008,
-                localizedChatString(R.string.chat_repeat_menu),
+                localizedString(R.string.chat_repeat_menu),
                 ExposurePlus1Icon,
                 MaterialSymbols.Outlined.Exposure_plus_1,
                 isSupported = ::isSupported,
@@ -66,7 +67,7 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
                         if (!sent) {
                             showToastSuspend(
                                 context,
-                                context.localizedChatString(R.string.chat_repeat_failed),
+                                context.localizedString(R.string.chat_repeat_failed),
                             )
                         }
                     }

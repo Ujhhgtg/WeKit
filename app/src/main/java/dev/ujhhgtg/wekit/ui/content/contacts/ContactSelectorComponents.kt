@@ -49,7 +49,7 @@ import com.composables.icons.materialsymbols.outlined.Select_all
 import com.composables.icons.materialsymbols.outlined.Swap_vert
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -155,7 +155,7 @@ fun ContactFilterPanel(
                 ChipRow(horizontalPadding) {
                     item {
                         val context = LocalContext.current
-                        val localizedContext = LocalWeKitLocalizedContext.current
+                        val localizedContext = LocalLocalizedContext.current
                         ContactFilterChip(
                             selected = true,
                             onClick = {

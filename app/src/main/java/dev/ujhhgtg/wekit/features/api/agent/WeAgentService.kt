@@ -694,7 +694,8 @@ object WeAgentService : TriggerManager.TriggerHost {
 
     private suspend fun loadMessages(sessionId: String): List<ChatRow> {
         val rows = mutableListOf<ChatRow>()
-        for ((id, _, role, content, createdAt, reasoning) in WeAgentRepository.getMessages(sessionId)) {
+        for ((id, _, role, content, createdAt, reasoning) in
+            WeAgentRepository.getMessages(sessionId)) {
             when (role) {
                 MessageRole.USER -> {
                     rows += ChatRow(id, ChatRow.Role.USER, content, createdAt = createdAt)
@@ -741,8 +742,7 @@ object WeAgentService : TriggerManager.TriggerHost {
                 }
 
                 MessageRole.SYSTEM -> {
-                    rows +=
-                        ChatRow(id, ChatRow.Role.SYSTEM_NOTE, content, createdAt = createdAt)
+                    rows += ChatRow(id, ChatRow.Role.SYSTEM_NOTE, content, createdAt = createdAt)
                 }
             }
         }

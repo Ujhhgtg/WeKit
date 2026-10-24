@@ -98,7 +98,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -489,7 +489,7 @@ object AddMainScreenFab : ClickableFeature() {
 
                 setContent {
                     InjectedUiTheme {
-                        val localizedContext = LocalWeKitLocalizedContext.current
+                        val localizedContext = LocalLocalizedContext.current
                         val menuItems = configList.map { item ->
                             val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
                             val action: () -> Unit =
@@ -1076,7 +1076,7 @@ object AddMainScreenFab : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             var currentItems by remember { mutableStateOf(loadConfig()) }
 
             fun moveItem(from: Int, to: Int) {

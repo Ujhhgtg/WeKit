@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -58,14 +59,14 @@ object BatchAddLabel : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_add_label_select_friends),
+                title = context.localizedString(R.string.batch_add_label_select_friends),
                 contacts = friends,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
                         showToast(
-                            context.localizedBatchString(R.string.batch_select_at_least_one_friend),
+                            context.localizedString(R.string.batch_select_at_least_one_friend),
                         )
                         return@ContactsSelector
                     }
@@ -157,7 +158,7 @@ object BatchAddLabel : ClickableFeature() {
                     if (labelId == null) {
                         showToastSuspend(
                             context,
-                            context.localizedBatchString(
+                            context.localizedString(
                                 R.string.batch_add_label_create_failed,
                                 labelName,
                             ),

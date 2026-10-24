@@ -48,7 +48,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
 import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.WeKitBasicDialog
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -80,7 +80,7 @@ fun ModelProviderDetailScreen(
 ) {
     val creating = providerId.isBlank()
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     var provider by remember { mutableStateOf<ModelProviderEntity?>(null) }
     var showDeleteProviderConfirm by remember { mutableStateOf(false) }
     // Creation only: the id assigned by 保存. Saveable so that re-entering this entry after the
@@ -396,7 +396,7 @@ fun ModelProviderDetailScreen(
 fun ModelDetailScreen(providerId: String, modelId: String, onBack: () -> Unit) {
     val creating = modelId.isBlank()
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     // Blank modelId = adding (a draft until saved); otherwise null until the entity loads.
     var model by remember { mutableStateOf<ModelEntity?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }

@@ -100,9 +100,9 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleController
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.DexResolutionMode
 import dev.ujhhgtg.wekit.ui.content.DexResolutionPrompt
@@ -142,7 +142,6 @@ import kotlinx.coroutines.withContext
 fun SettingsPager(onOpenLicense: () -> Unit) {
     val context = LocalComponentActivity.current
     val platformContext = LocalContext.current
-    val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
     var showClearConfirm by remember { mutableStateOf(false) }
 
@@ -206,11 +205,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_export_config_title),
                         summary = stringResource(R.string.settings_export_config_summary),
                         icon = MaterialSymbols.Outlined.Upload,
-                        onClick = {
-                            SettingsConfigActions.export(platformContext) {
-                                currentLocalizedContext.value
-                            }
-                        },
+                        onClick = { SettingsConfigActions.export(platformContext) },
                     )
                 }
                 item {
@@ -218,11 +213,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_import_config_title),
                         summary = stringResource(R.string.settings_import_config_summary),
                         icon = MaterialSymbols.Outlined.Download,
-                        onClick = {
-                            SettingsConfigActions.importFromDocument(platformContext) {
-                                currentLocalizedContext.value
-                            }
-                        },
+                        onClick = { SettingsConfigActions.importFromDocument(platformContext) },
                     )
                 }
                 item {
@@ -427,9 +418,9 @@ private fun AvatarPlaceholder() {
 
 @Composable
 private fun ThemeSection() {
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
-    val selectedLanguage = WeKitLocaleController.selection
-    val resolvedLanguage = WeKitLocaleController.resolvedLocale
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
+    val selectedLanguage = LocaleController.selection
+    val resolvedLanguage = LocaleController.resolvedLocale
     val languageLabels =
         mapOf(
             LanguageSelection.SYSTEM to stringResource(R.string.language_follow_system),
@@ -490,7 +481,7 @@ private fun ThemeSection() {
                 description = languageSummary,
                 value = selectedLanguage,
                 options = languageLabels.map { DropdownOption(it.key, it.value) },
-                onValueChange = WeKitLocaleController::updateSelection,
+                onValueChange = LocaleController::updateSelection,
                 icon = MaterialSymbols.Outlined.Language,
             )
         }
@@ -707,7 +698,7 @@ private fun SecuritySwitch(context: Context) {
 
 @Composable
 private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     ConfirmDialog(
         show = show,
         title = stringResource(R.string.clear_config_dialog_title),

@@ -35,7 +35,7 @@ import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexFailure
 import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexProgress
 import dev.ujhhgtg.wekit.dexkit.resolution.LocalDexResolver
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -79,7 +79,7 @@ fun DexResolver(
     scope: CoroutineScope,
     dismiss: () -> Unit,
 ) {
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     var phase by remember { mutableStateOf<DialogPhase>(DialogPhase.Ready) }
     var pendingItems by remember { mutableStateOf(items) }
     var currentTask by remember { mutableStateOf<LocalDexProgress?>(null) }

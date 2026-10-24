@@ -15,6 +15,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -77,7 +79,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
                                         voice.filePath,
                                         voice.durationMs,
                                     )
-                                    showToast(ctx, ctx.localizedChatString(R.string.chat_sent))
+                                    showToast(ctx, ctx.localizedString(R.string.chat_sent))
                                     onDismiss()
                                     getTopMostActivity()?.finish()
                                 },
@@ -89,7 +91,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
                                     copyToClipboard(ctx, voice.filePath)
                                     showToast(
                                         ctx,
-                                        ctx.localizedChatString(R.string.chat_path_copied),
+                                        ctx.localizedString(R.string.chat_path_copied),
                                     )
                                 },
                             ) {
@@ -157,11 +159,11 @@ object ForwardFavoriteVoices : SwitchFeature() {
                         context,
                         when (successCount) {
                             recipients.size if recipients.size == 1 -> {
-                                context.localizedChatString(R.string.chat_sent)
+                                context.localizedString(R.string.chat_sent)
                             }
 
                             recipients.size -> {
-                                context.localizedChatQuantity(
+                                context.localizedQuantity(
                                     R.plurals.chat_forwarded_to_recipients,
                                     recipients.size,
                                     recipients.size,
@@ -169,7 +171,7 @@ object ForwardFavoriteVoices : SwitchFeature() {
                             }
 
                             else -> {
-                                context.localizedChatQuantity(
+                                context.localizedQuantity(
                                     R.plurals.chat_forwarded_partial_recipients,
                                     recipients.size,
                                     successCount,

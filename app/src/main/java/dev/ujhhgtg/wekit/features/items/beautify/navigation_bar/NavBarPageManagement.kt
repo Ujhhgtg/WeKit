@@ -44,7 +44,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Notifications_off
 import com.composables.icons.materialsymbols.outlinedfilled.Notifications
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.InfoTipCard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -54,7 +54,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  */
 @Composable
 fun PageManagementPage(session: NavBarSession, config: NavBarConfig) {
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val haptic = LocalHapticFeedback.current
     val darkTheme = isSystemInDarkTheme()
     val nativeIcons =

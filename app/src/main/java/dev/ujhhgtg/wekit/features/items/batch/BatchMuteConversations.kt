@@ -11,6 +11,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -79,7 +81,7 @@ object BatchMuteConversations : ClickableFeature() {
         showComposeDialog(context) {
             ContactsSelector(
                 title =
-                    context.localizedBatchString(
+                    context.localizedString(
                         if (mute) {
                             R.string.batch_mute_select_enable
                         } else {
@@ -92,7 +94,7 @@ object BatchMuteConversations : ClickableFeature() {
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
                         showToast(
-                            context.localizedBatchString(
+                            context.localizedString(
                                 R.string.batch_select_at_least_one_conversation,
                             ),
                         )
@@ -109,7 +111,7 @@ object BatchMuteConversations : ClickableFeature() {
     private fun apply(wxIds: Set<String>, mute: Boolean) {
         CoroutineScope(Dispatchers.IO).launch {
             showToastSuspend(
-                localizedBatchQuantity(R.plurals.batch_mute_progress, wxIds.size, wxIds.size),
+                localizedQuantity(R.plurals.batch_mute_progress, wxIds.size, wxIds.size),
             )
             wxIds.forEach { wxId ->
                 runCatching { WeConversationApi.setDnd(wxId, mute) }
@@ -118,7 +120,7 @@ object BatchMuteConversations : ClickableFeature() {
             }
             WeConversationApi.reloadConversations()
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     if (mute) R.plurals.batch_mute_enabled else R.plurals.batch_mute_disabled,
                     wxIds.size,
                     wxIds.size,

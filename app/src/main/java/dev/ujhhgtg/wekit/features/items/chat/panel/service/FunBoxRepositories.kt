@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.service
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatQuantity
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneExample
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
@@ -11,6 +9,8 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -64,7 +64,7 @@ object FunBoxStickerRepository {
                             cover = thumbId,
                             source = PanelSource.ONLINE,
                             badge =
-                                localizedChatString(
+                                localizedString(
                                     R.string.chat_funbox_click_download_badge,
                                     clickCount,
                                     downloadCount,
@@ -109,7 +109,7 @@ object FunBoxStickerRepository {
                         cover = thumbId,
                         source = PanelSource.ONLINE,
                         badge =
-                            localizedChatString(
+                            localizedString(
                                 R.string.chat_funbox_status_click_download_badge,
                                 reviewState,
                                 clickCount,
@@ -141,7 +141,7 @@ object FunBoxStickerRepository {
                 val message = response.string()
                 check(status == 0) {
                     message.ifBlank {
-                        localizedChatString(R.string.chat_funbox_sticker_pack_load_failed)
+                        localizedString(R.string.chat_funbox_sticker_pack_load_failed)
                     }
                 }
                 items.map { it.copy(packId = pack.id) }
@@ -152,7 +152,7 @@ object FunBoxStickerRepository {
     }
 
     suspend fun searchSimilar(imageBytes: ByteArray): Result<List<StickerItem>> {
-        require(imageBytes.isNotEmpty()) { localizedChatString(R.string.chat_funbox_image_empty) }
+        require(imageBytes.isNotEmpty()) { localizedString(R.string.chat_funbox_image_empty) }
         val request = FunBoxBinaryWriter().apply { bytes(imageBytes) }.build()
         WeLogger.d(TAG, "similarity search start imageBytes=${imageBytes.size}")
         val result =
@@ -169,7 +169,7 @@ object FunBoxStickerRepository {
                         source = PanelSource.ONLINE,
                         packId = packId,
                         title =
-                            localizedChatString(
+                            localizedString(
                                 R.string.chat_funbox_similarity,
                                 (score * 100).toInt(),
                             ),
@@ -182,7 +182,7 @@ object FunBoxStickerRepository {
     }
 
     suspend fun searchText(query: String): Result<List<StickerItem>> {
-        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
+        require(query.isNotBlank()) { localizedString(R.string.chat_funbox_search_empty) }
         WeLogger.d(TAG, "text search start")
         val request =
             FunBoxBinaryWriter()
@@ -204,7 +204,7 @@ object FunBoxStickerRepository {
         runCatching {
             val localPaths = pack.items.mapNotNull { it.localPath }.map { it.asPath }
             require(localPaths.isNotEmpty()) {
-                localizedChatString(R.string.chat_funbox_sticker_pack_empty)
+                localizedString(R.string.chat_funbox_sticker_pack_empty)
             }
             WeLogger.d(TAG, "pack upload start items=${localPaths.size}")
             val hashes = localPaths.map { md5(it.readBytes()) }
@@ -228,13 +228,13 @@ object FunBoxStickerRepository {
                     .getOrThrow()
             check(preflight.status != 2) {
                 preflight.message.ifBlank {
-                    localizedChatString(R.string.chat_funbox_sticker_upload_rejected)
+                    localizedString(R.string.chat_funbox_sticker_upload_rejected)
                 }
             }
             if (preflight.status == 3) {
                 error(
                     preflight.message.ifBlank {
-                        localizedChatString(
+                        localizedString(
                             R.string.chat_funbox_sticker_duplicate_confirmation_required,
                         )
                     },
@@ -265,11 +265,11 @@ object FunBoxStickerRepository {
                     }
                     .getOrThrow()
             if (session.status == 2) {
-                return@runCatching localizedChatString(R.string.chat_funbox_upload_pending_review)
+                return@runCatching localizedString(R.string.chat_funbox_upload_pending_review)
             }
             check(session.status == 0) {
                 session.message.ifBlank {
-                    localizedChatString(R.string.chat_funbox_upload_session_create_failed)
+                    localizedString(R.string.chat_funbox_upload_session_create_failed)
                 }
             }
             val chunks =
@@ -306,7 +306,7 @@ object FunBoxStickerRepository {
                         result.exceptionOrNull()
                             ?: IllegalStateException(
                                 response?.message
-                                    ?: localizedChatString(
+                                    ?: localizedString(
                                         R.string.chat_funbox_chunk_upload_failed,
                                     ),
                             )
@@ -314,7 +314,7 @@ object FunBoxStickerRepository {
                 }
                 check(uploaded) {
                     lastFailure?.message
-                        ?: localizedChatString(R.string.chat_funbox_chunk_upload_failed)
+                        ?: localizedString(R.string.chat_funbox_chunk_upload_failed)
                 }
                 onProgress((index + 1f) / chunks.size)
             }
@@ -334,10 +334,10 @@ object FunBoxStickerRepository {
                     .getOrThrow()
             check(confirmation.status == 0) {
                 confirmation.message.ifBlank {
-                    localizedChatString(R.string.chat_funbox_upload_confirm_failed)
+                    localizedString(R.string.chat_funbox_upload_confirm_failed)
                 }
             }
-            localizedChatString(R.string.chat_funbox_upload_pending_review)
+            localizedString(R.string.chat_funbox_upload_pending_review)
         }
         .logNetworkResult(TAG, "pack upload") { "completed" }
 
@@ -408,7 +408,7 @@ object FunBoxStickerRepository {
         java.util.zip.ZipOutputStream(output).use { zip ->
             paths.forEachIndexed { index, path ->
                 require(path.isRegularFile()) {
-                    localizedChatString(R.string.chat_funbox_sticker_file_missing, path)
+                    localizedString(R.string.chat_funbox_sticker_file_missing, path)
                 }
                 zip.putNextEntry(java.util.zip.ZipEntry(index.toString()))
                 path.copyTo(zip)
@@ -479,7 +479,7 @@ private data class FunBoxStickerPackSnapshot(
             cover = thumbId,
             source = PanelSource.ONLINE,
             badge =
-                localizedChatString(
+                localizedString(
                     R.string.chat_funbox_click_download_badge,
                     clickCount,
                     downloadCount,
@@ -515,7 +515,7 @@ object FunBoxVoiceRepository {
                     parent.metadata["packId"]
                         ?: return Result.failure(
                             IllegalArgumentException(
-                                localizedChatString(R.string.chat_funbox_voice_pack_invalid),
+                                localizedString(R.string.chat_funbox_voice_pack_invalid),
                             ),
                         )
                 loadSharedPack(packId).map { VoiceProviderPage(it, page, false) }
@@ -526,7 +526,7 @@ object FunBoxVoiceRepository {
     }
 
     suspend fun searchSharedVoices(query: String, page: Int): Result<VoiceProviderPage> {
-        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
+        require(query.isNotBlank()) { localizedString(R.string.chat_funbox_search_empty) }
         WeLogger.d(TAG, "shared search start page=$page")
         val request =
             FunBoxBinaryWriter()
@@ -575,7 +575,7 @@ object FunBoxVoiceRepository {
                 val items = response.objects(::decodeSharedVoice)
                 check(status == 0) {
                     message.ifBlank {
-                        localizedChatString(R.string.chat_funbox_voice_pack_load_failed)
+                        localizedString(R.string.chat_funbox_voice_pack_load_failed)
                     }
                 }
                 items
@@ -650,7 +650,7 @@ object FunBoxVoiceRepository {
                 val message = response.string()
                 response.bytes()
                 check(status == 0) {
-                    message.ifBlank { localizedChatString(R.string.chat_funbox_operation_failed) }
+                    message.ifBlank { localizedString(R.string.chat_funbox_operation_failed) }
                 }
                 message
             }
@@ -661,7 +661,7 @@ object FunBoxVoiceRepository {
                 val status = response.int()
                 val message = response.string()
                 check(status == 0) {
-                    message.ifBlank { localizedChatString(R.string.chat_funbox_operation_failed) }
+                    message.ifBlank { localizedString(R.string.chat_funbox_operation_failed) }
                 }
                 message
             }
@@ -681,10 +681,10 @@ object FunBoxVoiceRepository {
             itemCount = count,
             badge =
                 when (state) {
-                    0 -> localizedChatString(R.string.chat_funbox_status_draft)
-                    1 -> localizedChatString(R.string.chat_funbox_status_under_review)
-                    2 -> localizedChatString(R.string.chat_funbox_status_published)
-                    3 -> localizedChatString(R.string.chat_funbox_status_rejected)
+                    0 -> localizedString(R.string.chat_funbox_status_draft)
+                    1 -> localizedString(R.string.chat_funbox_status_under_review)
+                    2 -> localizedString(R.string.chat_funbox_status_published)
+                    3 -> localizedString(R.string.chat_funbox_status_rejected)
                     else -> state.toString()
                 },
         )
@@ -724,13 +724,13 @@ object FunBoxCloneVoiceRepository {
         fileName: String,
     ): Result<ByteArray> {
         require(text.isNotBlank()) {
-            localizedChatString(R.string.chat_funbox_conversion_text_empty)
+            localizedString(R.string.chat_funbox_conversion_text_empty)
         }
         require(text.codePointCount(0, text.length) <= 256) {
-            localizedChatQuantity(R.plurals.chat_funbox_conversion_text_too_long, 256, 256)
+            localizedQuantity(R.plurals.chat_funbox_conversion_text_too_long, 256, 256)
         }
         require(voiceBytes.isNotEmpty()) {
-            localizedChatString(R.string.chat_voice_tone_unreadable)
+            localizedString(R.string.chat_voice_tone_unreadable)
         }
         WeLogger.d(TAG, "clone synthesis start voiceBytes=${voiceBytes.size}")
         val request =
@@ -748,7 +748,7 @@ object FunBoxCloneVoiceRepository {
                 val audio = response.bytes()
                 check(status == 0 && audio.isNotEmpty()) {
                     message.ifBlank {
-                        localizedChatString(R.string.chat_funbox_clone_synthesis_failed)
+                        localizedString(R.string.chat_funbox_clone_synthesis_failed)
                     }
                 }
                 audio
@@ -776,7 +776,7 @@ object FunBoxCloneVoiceRepository {
                 val audio = response.bytes()
                 check(status == 0 && audio.isNotEmpty()) {
                     message.ifBlank {
-                        localizedChatString(R.string.chat_funbox_voice_example_load_failed)
+                        localizedString(R.string.chat_funbox_voice_example_load_failed)
                     }
                 }
                 audio
@@ -793,7 +793,7 @@ object FunBoxCloneVoiceRepository {
                 val names = response.strings()
                 check(status == 0) {
                     message.ifBlank {
-                        localizedChatString(R.string.chat_funbox_voice_example_load_failed)
+                        localizedString(R.string.chat_funbox_voice_example_load_failed)
                     }
                 }
                 names

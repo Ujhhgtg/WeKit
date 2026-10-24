@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -84,7 +85,7 @@ object CustomDpi : ClickableFeature(), IResolveDex {
                         onClick = {
                             val dpiInput = value.toIntOrNull()
                             if (dpiInput == null || dpiInput <= 0) {
-                                showToast(localizedSystemString(R.string.system_invalid_number))
+                                showToast(localizedString(R.string.system_invalid_number))
                                 return@TextButton
                             }
                             customDpi = dpiInput

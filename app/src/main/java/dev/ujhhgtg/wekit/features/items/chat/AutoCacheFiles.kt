@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -233,7 +234,7 @@ object AutoCacheFiles :
                                                 blacklist = selectedIds
                                             }
                                             showToast(
-                                                localizedChatQuantity(
+                                                localizedQuantity(
                                                     R.plurals.filter_list_contacts_saved,
                                                     selectedIds.size,
                                                     selectedIds.size,

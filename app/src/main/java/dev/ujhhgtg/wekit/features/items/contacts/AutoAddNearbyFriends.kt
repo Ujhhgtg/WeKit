@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.LinkedList
 
@@ -40,7 +41,7 @@ object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
                 .firstMethod {
                     parameters(int, CharSequence::class)
                 }
-                .invoke(6, localizedContactsString(R.string.contacts_auto_add_nearby_menu))
+                .invoke(6, localizedString(R.string.contacts_auto_add_nearby_menu))
         }
 
         methodMenuOnClick.hookBefore {

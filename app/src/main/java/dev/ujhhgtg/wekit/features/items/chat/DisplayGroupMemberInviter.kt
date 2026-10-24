@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -44,8 +45,8 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 
         return listOf(
             PreferenceItem(
-                title = activity.localizedChatString(R.string.chat_member_inviter_title),
-                summary = activity.localizedChatString(R.string.chat_contact_tap_to_view),
+                title = activity.localizedString(R.string.chat_member_inviter_title),
+                summary = activity.localizedString(R.string.chat_contact_tap_to_view),
                 position = 1,
                 onClick = onClick@{ activity ->
                         val groupId =
@@ -55,7 +56,7 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 
                         showToast(
                             activity,
-                            activity.localizedChatString(R.string.chat_member_inviter_querying),
+                            activity.localizedString(R.string.chat_member_inviter_querying),
                         )
                         CoroutineScope(Dispatchers.IO).launch {
                             val inviterId = runCatching {
@@ -73,13 +74,13 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
                             val message =
                                 when {
                                     inviterId.isEmpty() -> {
-                                        activity.localizedChatString(
+                                        activity.localizedString(
                                             R.string.chat_member_inviter_no_record,
                                         )
                                     }
 
                                     inviterId == clickedMemberId -> {
-                                        activity.localizedChatString(
+                                        activity.localizedString(
                                             R.string.chat_member_inviter_self_joined,
                                         )
                                     }
@@ -105,7 +106,7 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
                                             } else {
                                                 inviterName
                                             }
-                                        activity.localizedChatString(
+                                        activity.localizedString(
                                             R.string.chat_member_inviter_result,
                                             nameLabel,
                                         )

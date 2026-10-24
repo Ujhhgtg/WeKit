@@ -27,8 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.M3ListScaffold
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
@@ -44,7 +43,7 @@ class ReadReceiptsSettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 ModuleTheme {
                     ReadReceiptsHomeScreen(onFinish = ::finish)
                 }

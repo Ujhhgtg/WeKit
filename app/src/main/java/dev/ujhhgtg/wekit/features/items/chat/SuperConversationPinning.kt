@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
@@ -96,7 +97,7 @@ object SuperConversationPinning :
         listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = MENU_ITEM_ID,
-                text = localizedChatString(R.string.chat_pinning_set_priority),
+                text = localizedString(R.string.chat_pinning_set_priority),
                 drawable = EditIcon,
                 shouldShow = { context, _ -> context.talker.isNotEmpty() },
                 onClick = { context -> showPriorityDialog(context.activity, context.talker) },

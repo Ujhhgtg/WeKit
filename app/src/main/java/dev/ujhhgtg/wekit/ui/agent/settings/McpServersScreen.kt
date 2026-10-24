@@ -34,7 +34,7 @@ import dev.ujhhgtg.wekit.agent.mcp.McpConnectionState
 import dev.ujhhgtg.wekit.agent.mcp.McpProviderStatus
 import dev.ujhhgtg.wekit.agent.mcp.McpToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -163,7 +163,7 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
     val server = allProviders.firstOrNull { it.id == activeId }
     val srv = server ?: draft.takeIf { creating && !editing }
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val liveProviders by McpClientManager.providers.collectAsState()

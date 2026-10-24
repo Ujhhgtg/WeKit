@@ -56,9 +56,9 @@ import dev.ujhhgtg.wekit.features.automation.AutomationValueCodec
 import dev.ujhhgtg.wekit.features.automation.IncomingMessageEvents
 import dev.ujhhgtg.wekit.features.automation.NewFriendEvents
 import dev.ujhhgtg.wekit.features.automation.NewFriendRequest
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.AutomationFieldLabel
 import dev.ujhhgtg.wekit.ui.automation.AutomationMiniChips
 import dev.ujhhgtg.wekit.ui.automation.AutomationRuleEditor
@@ -218,12 +218,12 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         if (validates(keyIds, labels) && rules[labels].let { it.enabled && it.labels.isEmpty() }) {
-            return localizedAutomationString(R.string.friend_automation_labels_required)
+            return localizedString(R.string.friend_automation_labels_required)
         }
         if (
             validates(keyIds, remark) && rules[remark].let { it.enabled && it.template.isBlank() }
         ) {
-            return localizedAutomationString(R.string.friend_automation_remark_required)
+            return localizedString(R.string.friend_automation_remark_required)
         }
         if (validates(keyIds, reply)) return rules[reply].validationError()
         return null

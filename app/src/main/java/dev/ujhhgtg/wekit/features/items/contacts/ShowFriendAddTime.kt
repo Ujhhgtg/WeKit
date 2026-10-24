@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactHeaderApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import java.text.SimpleDateFormat
@@ -25,7 +26,7 @@ object ShowFriendAddTime :
 
     override fun getHeaderText(activity: Activity): String? {
         val addTime = readContactAddTime(activity) ?: return null
-        return activity.localizedContactsString(R.string.contacts_add_time_value, addTime)
+        return activity.localizedString(R.string.contacts_add_time_value, addTime)
     }
 
     override fun getContactInfoItem(
@@ -40,18 +41,18 @@ object ShowFriendAddTime :
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 title =
-                    activity.localizedContactsString(
+                    activity.localizedString(
                         R.string.contacts_add_time_value,
-                        activity.localizedContactsString(R.string.loading),
+                        activity.localizedString(R.string.loading),
                     ),
                 position = 1,
                 // The group lookup scans the group's system messages; on a cold database that
                 // takes hundreds of milliseconds of disk reads, too slow for initView.
                 loadTitle = {
-                    activity.localizedContactsString(
+                    activity.localizedString(
                         R.string.contacts_add_time_value,
                         readContactAddTime(activity)
-                            ?: activity.localizedContactsString(R.string.contacts_get_failed),
+                            ?: activity.localizedString(R.string.contacts_get_failed),
                     )
                 },
             ),
@@ -66,7 +67,7 @@ object ShowFriendAddTime :
                 wxId.startsWith("gh_") -> readOfficialAccountAddTime(wxId)
                 else -> readFriendAddTime(wxId)
             } ?: return null
-        if (millis == 0L) return activity.localizedContactsString(R.string.contacts_get_failed)
+        if (millis == 0L) return activity.localizedString(R.string.contacts_get_failed)
         return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date(millis))
     }
 

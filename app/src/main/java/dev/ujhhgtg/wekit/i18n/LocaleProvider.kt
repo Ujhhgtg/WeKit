@@ -16,19 +16,19 @@ import androidx.compose.ui.platform.LocalResources
  * Do not use it for an Activity, windows, Activity Result, SAF, system services, or third-party UI
  * construction.
  */
-val LocalWeKitLocalizedContext =
+val LocalLocalizedContext =
     staticCompositionLocalOf<Context> {
-        error("LocalWeKitLocalizedContext was not provided")
+        error("LocalLocalizedContext was not provided")
     }
 
 @Composable
-fun WeKitLocaleProvider(mode: LocaleResourceMode, content: @Composable () -> Unit) {
+fun LocaleProvider(content: @Composable () -> Unit) {
     val baseContext = LocalContext.current
     val parentConfiguration = LocalConfiguration.current
-    val locale = WeKitLocaleController.resolvedLocale
+    val locale = LocaleController.resolvedLocale
     val localizedContext =
-        remember(baseContext, parentConfiguration, locale, mode) {
-            LocalizedContextFactory.create(baseContext, locale, mode)
+        remember(baseContext, parentConfiguration, locale) {
+            LocalizedContextFactory.create(baseContext, locale)
         }
     val localizedConfiguration =
         remember(localizedContext, locale) {
@@ -38,7 +38,7 @@ fun WeKitLocaleProvider(mode: LocaleResourceMode, content: @Composable () -> Uni
     CompositionLocalProvider(
         LocalResources provides localizedContext.resources,
         LocalConfiguration provides localizedConfiguration,
-        LocalWeKitLocalizedContext provides localizedContext,
+        LocalLocalizedContext provides localizedContext,
         content = content,
     )
 }

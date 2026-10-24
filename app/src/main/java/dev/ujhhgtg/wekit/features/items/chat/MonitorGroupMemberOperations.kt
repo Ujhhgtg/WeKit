@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import kotlinx.serialization.decodeFromByteArray
@@ -133,7 +134,7 @@ object MonitorGroupMemberOperations :
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
             val content =
-                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_left)}"""
+                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedString(R.string.chat_group_member_left)}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,
@@ -162,15 +163,15 @@ object MonitorGroupMemberOperations :
             val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
             val oldShow = oldName.ifEmpty {
-                localizedChatString(R.string.chat_group_member_no_nickname)
+                localizedString(R.string.chat_group_member_no_nickname)
             }
             val newShow = newName.ifEmpty {
-                localizedChatString(R.string.chat_group_member_no_nickname)
+                localizedString(R.string.chat_group_member_no_nickname)
             }
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
             val content =
-                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(
+                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedString(
                     R.string.chat_group_member_nickname_changed,
                     oldShow,
                     newShow,

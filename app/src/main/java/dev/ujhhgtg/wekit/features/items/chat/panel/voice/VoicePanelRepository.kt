@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.voice
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelCustomOrders
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -12,6 +11,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
 import dev.ujhhgtg.wekit.features.items.chat.panel.customOrderIndex
 import dev.ujhhgtg.wekit.features.items.chat.panel.normalizedCustomOrder
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.fs.asPath
@@ -90,7 +90,7 @@ object VoicePanelRepository {
                 add(
                     VoicePack(
                         id = RECENT_PACK_ID,
-                        title = localizedChatString(R.string.chat_panel_recent),
+                        title = localizedString(R.string.chat_panel_recent),
                         source = PanelSource.RECENT,
                         itemCount = recentItems.size,
                         items = recentItems,
@@ -121,14 +121,14 @@ object VoicePanelRepository {
     fun saveItemOrder(packName: String, filePaths: List<String>): Result<Unit> = runCatching {
         val safePack = requirePackName(packName)
         val directory = packPath(safePack)
-        require(directory.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
+        require(directory.isDirectory()) { localizedString(R.string.chat_voice_pack_not_found) }
         val requested = filePaths.map { value ->
             value.asPath
                 .toAbsolutePath()
                 .normalize()
                 .also { path ->
                     require(path.parent == directory && path.isRegularFile() && isVoiceFile(path)) {
-                        localizedChatString(R.string.chat_voice_not_in_pack)
+                        localizedString(R.string.chat_voice_not_in_pack)
                     }
                 }
                 .name
@@ -164,12 +164,12 @@ object VoicePanelRepository {
 
     fun createPack(name: String): Result<String> = runCatching {
         val safeName = sanitizeName(name)
-        require(safeName.isNotBlank()) { localizedChatString(R.string.chat_voice_pack_name_empty) }
+        require(safeName.isNotBlank()) { localizedString(R.string.chat_voice_pack_name_empty) }
         require(safeName !in reservedNames) {
-            localizedChatString(R.string.chat_voice_pack_name_unavailable)
+            localizedString(R.string.chat_voice_pack_name_unavailable)
         }
         val destination = packPath(safeName)
-        require(destination.notExists()) { localizedChatString(R.string.chat_voice_pack_exists) }
+        require(destination.notExists()) { localizedString(R.string.chat_voice_pack_exists) }
         destination.createDirectories()
         safeName
     }
@@ -184,14 +184,14 @@ object VoicePanelRepository {
     fun renamePack(oldName: String, newName: String): Result<Unit> = runCatching {
         val safeOldName = requirePackName(oldName)
         val safeName = sanitizeName(newName)
-        require(safeName.isNotBlank()) { localizedChatString(R.string.chat_voice_pack_name_empty) }
+        require(safeName.isNotBlank()) { localizedString(R.string.chat_voice_pack_name_empty) }
         require(safeName !in reservedNames) {
-            localizedChatString(R.string.chat_voice_pack_name_unavailable)
+            localizedString(R.string.chat_voice_pack_name_unavailable)
         }
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
-        require(source.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
-        require(destination.notExists()) { localizedChatString(R.string.chat_voice_pack_exists) }
+        require(source.isDirectory()) { localizedString(R.string.chat_voice_pack_not_found) }
+        require(destination.notExists()) { localizedString(R.string.chat_voice_pack_exists) }
         source.moveTo(destination)
         migrateStatsPrefix(source, destination)
         migrateOrders(source.name, destination.name)
@@ -199,9 +199,9 @@ object VoicePanelRepository {
 
     fun deletePack(name: String): Result<Unit> = runCatching {
         val directory = packPath(requirePackName(name))
-        require(directory.isDirectory()) { localizedChatString(R.string.chat_voice_pack_not_found) }
+        require(directory.isDirectory()) { localizedString(R.string.chat_voice_pack_not_found) }
         require(directory.toFile().deleteRecursively()) {
-            localizedChatString(R.string.chat_voice_pack_delete_failed)
+            localizedString(R.string.chat_voice_pack_delete_failed)
         }
         removeStatsPrefix(directory)
         removePackOrder(directory.name)
@@ -219,14 +219,14 @@ object VoicePanelRepository {
                                 path.isRegularFile() &&
                                 isVoiceFile(path),
                         ) {
-                            localizedChatString(R.string.chat_voice_path_invalid)
+                            localizedString(R.string.chat_voice_path_invalid)
                         }
                     }
                 }
                 .distinct()
-        require(paths.isNotEmpty()) { localizedChatString(R.string.chat_voice_none_selected) }
+        require(paths.isNotEmpty()) { localizedString(R.string.chat_voice_none_selected) }
         paths.forEach { path ->
-            require(path.deleteIfExists()) { localizedChatString(R.string.chat_voice_not_found) }
+            require(path.deleteIfExists()) { localizedString(R.string.chat_voice_not_found) }
         }
 
         val deletedPaths = paths.mapTo(hashSetOf()) { it.absolutePathString() }
@@ -257,12 +257,12 @@ object VoicePanelRepository {
             try {
                 input.use(temporary::copyFrom)
                 require(temporary.fileSize() > 0L) {
-                    localizedChatString(R.string.chat_voice_file_empty)
+                    localizedString(R.string.chat_voice_file_empty)
                 }
                 val format =
                     MediaFileTypeDetector.detectAudio(temporary)
                         ?: throw IllegalArgumentException(
-                            localizedChatString(R.string.chat_voice_unsupported_format),
+                            localizedString(R.string.chat_voice_unsupported_format),
                         )
                 val destination =
                     uniquePath(
@@ -296,12 +296,12 @@ object VoicePanelRepository {
         try {
             input.use(temporary::copyFrom)
             require(temporary.fileSize() > 0L) {
-                localizedChatString(R.string.chat_voice_server_empty)
+                localizedString(R.string.chat_voice_server_empty)
             }
             val extension =
                 MediaFileTypeDetector.detectAudio(temporary)?.extension
                     ?: throw IllegalArgumentException(
-                        localizedChatString(R.string.chat_voice_server_unsupported_format),
+                        localizedString(R.string.chat_voice_server_unsupported_format),
                     )
             val destination = directory / "${identity.take(96)}.$extension"
             moveImportedFile(temporary, destination)
@@ -588,7 +588,7 @@ object VoicePanelRepository {
         val root = PanelPaths.voicePanelDir.toAbsolutePath().normalize()
         return root.resolve(name).normalize().also { path ->
             require(path.parent == root) {
-                localizedChatString(R.string.chat_voice_pack_path_invalid)
+                localizedString(R.string.chat_voice_pack_path_invalid)
             }
         }
     }

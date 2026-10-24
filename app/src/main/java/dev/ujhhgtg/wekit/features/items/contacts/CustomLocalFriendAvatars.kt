@@ -59,7 +59,8 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -409,7 +410,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         return listOf(
             PreferenceItem(
                 title =
-                    activity.localizedContactsString(
+                    activity.localizedString(
                         if (hasCustomAvatar) {
                             R.string.contacts_custom_avatar_change
                         } else {
@@ -784,7 +785,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                             onClick = {
                                 removeAvatar(wxId)
                                 showToast(
-                                    context.localizedContactsString(
+                                    context.localizedString(
                                         R.string.contacts_custom_avatar_cleared_reopen,
                                     ),
                                 )
@@ -834,7 +835,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                         .onSuccess { imported ->
                             if (imported) {
                                 showToast(
-                                    context.localizedContactsString(
+                                    context.localizedString(
                                         R.string.contacts_custom_avatar_set_reopen,
                                     ),
                                 )
@@ -963,7 +964,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         onSelectImage: (String) -> Unit,
         onRemove: (String) -> Unit,
     ) {
-        val localizedContext = LocalWeKitLocalizedContext.current
+        val localizedContext = LocalLocalizedContext.current
 
         val fullContactsList =
             remember(contacts, entries) {
@@ -994,7 +995,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             },
             subtitleProvider = { contact ->
                 if (contact.wxId in entries) {
-                    localizedContext.localizedContactsString(
+                    localizedContext.localizedString(
                         R.string.contacts_custom_avatar_configured,
                         contact.wxId,
                     )

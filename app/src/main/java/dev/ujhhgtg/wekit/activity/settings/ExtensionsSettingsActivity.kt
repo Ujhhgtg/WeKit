@@ -41,9 +41,8 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.UpdateAvailable
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
@@ -69,7 +68,7 @@ class ExtensionsSettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 ModuleTheme {
                     ExtensionsRoot(
                         autoPackId = intent.getStringExtra(EXTRA_PACK_ID),
@@ -116,7 +115,7 @@ private fun PackGroup(pack: ExtensionPack) {
     val state by ExtensionPacks.stateFlow(pack).collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
 
     SegmentedColumn {
         item(key = "info") {

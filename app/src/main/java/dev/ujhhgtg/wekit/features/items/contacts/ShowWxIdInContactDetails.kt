@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactHeaderApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -21,7 +22,7 @@ object ShowWxIdInContactDetails :
 
     override fun getHeaderText(activity: Activity): String? {
         val wxId = activity.currentWxId ?: return null
-        return activity.localizedContactsString(R.string.contacts_wechat_id_value, wxId)
+        return activity.localizedString(R.string.contacts_wechat_id_value, wxId)
     }
 
     override fun getContactInfoItem(
@@ -36,7 +37,7 @@ object ShowWxIdInContactDetails :
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 title =
-                    activity.localizedContactsString(
+                    activity.localizedString(
                         R.string.contacts_wechat_id_value,
                         wxId,
                     ),
@@ -46,7 +47,7 @@ object ShowWxIdInContactDetails :
                         copyToClipboard(itemActivity, id)
                         showToast(
                             itemActivity,
-                            itemActivity.localizedContactsString(R.string.contacts_copied),
+                            itemActivity.localizedString(R.string.contacts_copied),
                         )
                     },
             ),

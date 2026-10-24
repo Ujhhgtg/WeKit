@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -109,7 +110,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                             saveDir = pathInput
                             showToast(
                                 context,
-                                context.localizedChatString(
+                                context.localizedString(
                                     R.string.chat_redirect_default_restored,
                                 ),
                             )
@@ -126,7 +127,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                             runCatching { File(saveDir).mkdirs() }
                             showToast(
                                 context,
-                                context.localizedChatString(R.string.chat_redirect_saved),
+                                context.localizedString(R.string.chat_redirect_saved),
                             )
                             onDismiss()
                         },

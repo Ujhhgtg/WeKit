@@ -4,12 +4,12 @@ import android.annotation.SuppressLint
 import android.util.Xml
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSource
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
 import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxServiceClient
 import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxVoiceRepository
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.io.IOException
@@ -189,7 +189,7 @@ object UoiceVoiceProvider : VoiceProvider {
                     categories.map { category ->
                         VoiceItem(
                             id = "uoice:category:${category.sourceName}",
-                            title = localizedChatString(category.titleRes),
+                            title = localizedString(category.titleRes),
                             source = PanelSource.ONLINE,
                             isContainer = true,
                             metadata =
@@ -212,7 +212,7 @@ object UoiceVoiceProvider : VoiceProvider {
             }
             val category =
                 parent.metadata["category"]
-                    ?: error(localizedChatString(R.string.chat_voice_category_invalid))
+                    ?: error(localizedString(R.string.chat_voice_category_invalid))
             parseCatalog(
                 getText(categoryUrl(category).replace("{{PAGE}}", (page + 1).toString())),
                 page,
@@ -221,7 +221,7 @@ object UoiceVoiceProvider : VoiceProvider {
         .logProviderResult(name, "browse", page)
 
     override suspend fun search(query: String, page: Int): Result<VoiceProviderPage> = runCatching {
-        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
+        require(query.isNotBlank()) { localizedString(R.string.chat_funbox_search_empty) }
         val url =
             "https://uoice.com/v1/search/voice?page=${page + 1}&take=50&keyword=" +
                 URLEncoder.encode(query, StandardCharsets.UTF_8.name())
@@ -231,7 +231,7 @@ object UoiceVoiceProvider : VoiceProvider {
 
     override suspend fun resolveAudio(item: VoiceItem): Result<VoiceItem> = runCatching {
         require(item.id.startsWith("uoice:")) {
-            localizedChatString(R.string.chat_voice_item_invalid)
+            localizedString(R.string.chat_voice_item_invalid)
         }
         item.copy(
             remoteUrl = "https://uoice.com/v1/voice/audition?id=${item.id.substringAfterLast(':')}",
@@ -325,7 +325,7 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
                     categories.map { category ->
                         VoiceItem(
                             id = "ring:category:${category.id}",
-                            title = localizedChatString(category.titleRes),
+                            title = localizedString(category.titleRes),
                             source = PanelSource.ONLINE,
                             isContainer = true,
                             metadata =
@@ -341,7 +341,7 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
             }
             val category =
                 parent.metadata["category"]?.toIntOrNull()
-                    ?: error(localizedChatString(R.string.chat_voice_category_invalid))
+                    ?: error(localizedString(R.string.chat_voice_category_invalid))
             val plain =
                 CATEGORY_PREFIX +
                     category +
@@ -351,7 +351,7 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
         .logProviderResult(name, "browse", page)
 
     override suspend fun search(query: String, page: Int): Result<VoiceProviderPage> = runCatching {
-        require(query.isNotBlank()) { localizedChatString(R.string.chat_funbox_search_empty) }
+        require(query.isNotBlank()) { localizedString(R.string.chat_funbox_search_empty) }
         val plain =
             SEARCH_PREFIX +
                 query +
@@ -363,7 +363,7 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
 
     override suspend fun resolveAudio(item: VoiceItem): Result<VoiceItem> = runCatching {
         require(!item.remoteUrl.isNullOrBlank()) {
-            localizedChatString(R.string.chat_voice_download_url_unavailable)
+            localizedString(R.string.chat_voice_download_url_unavailable)
         }
         item
     }
@@ -456,8 +456,7 @@ object FunBoxShareVoiceProvider : VoiceProvider {
 
     override suspend fun resolveAudio(item: VoiceItem): Result<VoiceItem> = runCatching {
         val objectId =
-            item.remoteObjectId
-                ?: error(localizedChatString(R.string.chat_voice_object_unavailable))
+            item.remoteObjectId ?: error(localizedString(R.string.chat_voice_object_unavailable))
         item.copy(remoteUrl = FunBoxServiceClient.objectUrl("voice", objectId), format = "mp3")
     }
         .onSuccess {

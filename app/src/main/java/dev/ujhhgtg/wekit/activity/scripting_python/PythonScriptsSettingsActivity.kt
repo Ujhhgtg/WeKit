@@ -69,9 +69,8 @@ import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginMani
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginRecord
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginStatus
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -117,7 +116,7 @@ class PythonScriptsSettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 ModuleTheme { PythonSettingsRoot(this@PythonScriptsSettingsActivity, ::finish) }
             }
         }
@@ -194,7 +193,7 @@ private fun PythonHomeScreen(
     val runtime by PythonRuntimeLoader.status.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     var pendingTrustPlugin by remember { mutableStateOf<String?>(null) }
     var showImportWarning by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
@@ -372,7 +371,7 @@ private fun PythonPluginInfoScreen(pluginId: String?, onBack: () -> Unit) {
     val manifest = pluginId?.let(records::get)?.manifest
     if (!creating && manifest == null) return
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     var draftId by remember { mutableStateOf("") }
     var draftName by remember { mutableStateOf("") }
     var draftVersion by remember { mutableStateOf("1.0.0") }
@@ -586,7 +585,7 @@ private fun PythonDetailScreen(
     val record = records[pluginId] ?: return
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     var pendingTrustPlugin by remember { mutableStateOf<String?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }

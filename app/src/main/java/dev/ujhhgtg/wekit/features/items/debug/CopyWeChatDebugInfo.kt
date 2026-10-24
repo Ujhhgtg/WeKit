@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
@@ -33,7 +34,7 @@ object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
                 .hookBeforeDirectly {
                     val debugText = (args[0] as StringBuilder).toString()
                     copyToClipboard(context, debugText)
-                    showToast(context, context.localizedDebugString(R.string.debug_copied))
+                    showToast(context, context.localizedString(R.string.debug_copied))
                     throwable = RuntimeException("halt method")
                 }
 

@@ -23,6 +23,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -116,7 +117,7 @@ object BlockAtAllNotifications : ClickableFeature() {
                                                 blacklist = selectedIds
                                             }
                                             showToast(
-                                                localizedChatQuantity(
+                                                localizedQuantity(
                                                     R.plurals.chat_block_at_all_groups_saved,
                                                     selectedIds.size,
                                                     selectedIds.size,

@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -37,23 +38,23 @@ object DownloadFilesToLocalStorage :
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777022,
-                localizedChatString(R.string.chat_action_download),
+                localizedString(R.string.chat_action_download),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type == MessageType.FILE },
             ) { _, _, msgInfo ->
-                showToast(localizedChatString(R.string.chat_file_download_preparing))
+                showToast(localizedString(R.string.chat_file_download_preparing))
                 CoroutineScope(Dispatchers.IO).launch {
                     val path =
                         WeMessageApi.downloadFile(msgInfo.instance)
                             ?: run {
                                 WeLogger.e(TAG, "failed to cache & download file")
                                 showToastSuspend(
-                                    localizedChatString(R.string.chat_file_download_failed),
+                                    localizedString(R.string.chat_file_download_failed),
                                 )
                                 return@launch
                             }
-                    showToastSuspend(localizedChatString(R.string.chat_file_download_success, path))
+                    showToastSuspend(localizedString(R.string.chat_file_download_success, path))
                 }
             },
         )

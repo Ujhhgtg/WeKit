@@ -7,6 +7,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.UndoIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -29,7 +31,7 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777023,
-                localizedChatString(R.string.chat_batch_revoke_menu),
+                localizedString(R.string.chat_batch_revoke_menu),
                 UndoIcon,
                 MaterialSymbols.Outlined.Edit,
                 isSupported = { false },
@@ -56,7 +58,7 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
                             }
                             showToast(
                                 view.context,
-                                view.context.localizedChatQuantity(
+                                view.context.localizedQuantity(
                                     R.plurals.chat_batch_revoke_result,
                                     msgs.size,
                                     succeeded,

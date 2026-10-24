@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.moveReplacing
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
@@ -53,7 +53,7 @@ object TelegramStickerApiClient {
     ) =
         withContext(Dispatchers.IO) {
             require(isSafeFilePath(filePath)) {
-                localizedChatString(R.string.chat_telegram_invalid_file_path)
+                localizedString(R.string.chat_telegram_invalid_file_path)
             }
             val partial = destination.resolveSibling("${destination.fileName}.part")
             var existing = partial.takeIf { it.isRegularFile() }?.fileSize() ?: 0L
@@ -76,7 +76,7 @@ object TelegramStickerApiClient {
                         throw error
                     } catch (error: Throwable) {
                         throw IOException(
-                            localizedChatString(R.string.chat_telegram_file_service_unreachable),
+                            localizedString(R.string.chat_telegram_file_service_unreachable),
                             error.withoutSensitiveMessage(),
                         )
                     }
@@ -88,7 +88,7 @@ object TelegramStickerApiClient {
                     }
                     if (!it.isSuccessful) {
                         throw TelegramApiException(
-                            localizedChatString(
+                            localizedString(
                                 R.string.chat_telegram_file_download_failed,
                                 it.code,
                             ),
@@ -124,16 +124,16 @@ object TelegramStickerApiClient {
                 }
                 val downloadedSize = partial.fileSize()
                 require(downloadedSize > 0L) {
-                    localizedChatString(R.string.chat_telegram_file_empty)
+                    localizedString(R.string.chat_telegram_file_empty)
                 }
                 require(expectedSize == null || downloadedSize == expectedSize) {
-                    localizedChatString(R.string.chat_telegram_file_incomplete)
+                    localizedString(R.string.chat_telegram_file_incomplete)
                 }
                 moveCompletedDownload(partial, destination)
                 WeLogger.i(TAG, "download completed bytes=${destination.fileSize()}")
                 return@withContext
             }
-            error(localizedChatString(R.string.chat_telegram_file_resume_failed))
+            error(localizedString(R.string.chat_telegram_file_resume_failed))
         }
 
     private suspend inline fun <reified T> call(
@@ -161,7 +161,7 @@ object TelegramStickerApiClient {
                 } catch (error: Throwable) {
                     WeLogger.w(TAG, "$method failed before response: ${error.javaClass.simpleName}")
                     throw IOException(
-                        localizedChatString(R.string.chat_telegram_api_unreachable),
+                        localizedString(R.string.chat_telegram_api_unreachable),
                         error.withoutSensitiveMessage(),
                     )
                 }
@@ -176,19 +176,19 @@ object TelegramStickerApiClient {
                             "$method returned invalid JSON: ${error.javaClass.simpleName}",
                         )
                         throw TelegramApiException(
-                            localizedChatString(R.string.chat_telegram_api_invalid_data),
+                            localizedString(R.string.chat_telegram_api_invalid_data),
                         )
                     }
                 if (!decoded.ok) {
                     throw TelegramApiException(
                         decoded.description?.take(200)
-                            ?: localizedChatString(R.string.chat_telegram_api_request_failed),
+                            ?: localizedString(R.string.chat_telegram_api_request_failed),
                     )
                 }
                 WeLogger.i(TAG, "$method completed")
                 decoded.result
                     ?: throw TelegramApiException(
-                        localizedChatString(R.string.chat_telegram_api_missing_result),
+                        localizedString(R.string.chat_telegram_api_missing_result),
                     )
             }
         }

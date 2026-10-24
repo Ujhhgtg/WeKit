@@ -9,7 +9,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -37,7 +38,7 @@ object DisplayMessageDetails : SwitchFeature(), WeChatMessageContextMenuApi.IMen
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777005,
-                localizedChatString(R.string.chat_message_details_menu),
+                localizedString(R.string.chat_message_details_menu),
                 ChatInfoIcon,
                 MaterialSymbols.Outlined.Info,
                 { _ -> true },
@@ -46,21 +47,21 @@ object DisplayMessageDetails : SwitchFeature(), WeChatMessageContextMenuApi.IMen
             ) { view, _, msgInfo ->
                 val displayItems = mutableListOf<Pair<String, String>>()
                 displayItems +=
-                    view.context.localizedChatString(R.string.chat_message_details_type) to
+                    view.context.localizedString(R.string.chat_message_details_type) to
                         msgInfo.typeCode.toString()
                 displayItems += "ID" to msgInfo.id.toString()
                 displayItems +=
-                    view.context.localizedChatString(R.string.chat_message_details_talker_id) to
+                    view.context.localizedString(R.string.chat_message_details_talker_id) to
                         msgInfo.talker
                 displayItems +=
-                    view.context.localizedChatString(R.string.chat_message_details_sender_id) to
+                    view.context.localizedString(R.string.chat_message_details_sender_id) to
                         msgInfo.sender
                 displayItems +=
-                    view.context.localizedChatString(R.string.chat_message_details_content) to
+                    view.context.localizedString(R.string.chat_message_details_content) to
                         msgInfo.content
 
                 showComposeDialog(view.context) {
-                    val localizedContext = LocalWeKitLocalizedContext.current
+                    val localizedContext = LocalLocalizedContext.current
                     AlertDialogContent(
                         title = { Text(stringResource(R.string.chat_message_details_title)) },
                         text = {

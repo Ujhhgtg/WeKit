@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -36,7 +37,7 @@ object DownloadImagesToLocalStorage :
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777021,
-                localizedChatString(R.string.chat_action_download),
+                localizedString(R.string.chat_action_download),
                 DownloadIcon,
                 MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type == MessageType.IMAGE },
@@ -47,12 +48,12 @@ object DownloadImagesToLocalStorage :
                             ?: run {
                                 WeLogger.e(TAG, "failed to cache & download image")
                                 showToastSuspend(
-                                    localizedChatString(R.string.chat_image_download_failed),
+                                    localizedString(R.string.chat_image_download_failed),
                                 )
                                 return@launch
                             }
                     showToastSuspend(
-                        localizedChatString(R.string.chat_image_download_success, path),
+                        localizedString(R.string.chat_image_download_success, path),
                     )
                 }
             },

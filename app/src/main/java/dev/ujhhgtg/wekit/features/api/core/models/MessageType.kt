@@ -4,10 +4,7 @@ package dev.ujhhgtg.wekit.features.api.core.models
 
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.i18n.localizedString
 
 // type=0 post
 // type=1 plain text
@@ -76,13 +73,7 @@ enum class MessageType(val code: Int, @StringRes val displayNameRes: Int) {
     FILE(1090519089, R.string.message_type_file);
 
     val displayName: String
-        get() =
-            LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                )
-                .getString(displayNameRes)
+        get() = localizedString(displayNameRes)
 
     inline val isText
         get() = code == TEXT.code || code == QUOTE.code

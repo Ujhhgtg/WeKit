@@ -11,6 +11,8 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -43,7 +45,7 @@ object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItems
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777010,
-                localizedChatString(R.string.chat_forward_menu),
+                localizedString(R.string.chat_forward_menu),
                 ForwardIcon,
                 MaterialSymbols.Outlined.Forward,
                 isSupported = { true },
@@ -72,14 +74,14 @@ object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItems
             withContext(Dispatchers.Main) {
                 showComposeDialog(view.context) {
                     ContactsSelector(
-                        title = localizedChatString(R.string.chat_forward_select_recipients),
+                        title = localizedString(R.string.chat_forward_select_recipients),
                         contacts = contacts,
                         initialSelectedWxIds = emptySet(),
                         onDismiss = onDismiss,
                         onConfirm = { selectedWxIds ->
                             if (selectedWxIds.isEmpty()) {
                                 showToast(
-                                    localizedChatString(R.string.chat_forward_select_at_least_one),
+                                    localizedString(R.string.chat_forward_select_at_least_one),
                                 )
                                 return@ContactsSelector
                             }
@@ -97,7 +99,7 @@ object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItems
         CoroutineScope(Dispatchers.IO).launch {
             val total = msgInfos.size * wxIds.size
             showToastSuspend(
-                localizedChatQuantity(
+                localizedQuantity(
                     R.plurals.chat_forwarding_messages,
                     msgInfos.size,
                     msgInfos.size,
@@ -114,13 +116,13 @@ object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItems
 
             showToastSuspend(
                 if (success == total) {
-                    localizedChatQuantity(
+                    localizedQuantity(
                         R.plurals.chat_forwarded_to_recipients,
                         wxIds.size,
                         wxIds.size,
                     )
                 } else {
-                    localizedChatQuantity(
+                    localizedQuantity(
                         R.plurals.chat_forwarded_partial_messages,
                         total,
                         success,
@@ -166,7 +168,7 @@ object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItems
 
             else -> {
                 showToastSuspend(
-                    localizedChatString(R.string.chat_forward_untested_type_warning),
+                    localizedString(R.string.chat_forward_untested_type_warning),
                 )
                 WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
             }

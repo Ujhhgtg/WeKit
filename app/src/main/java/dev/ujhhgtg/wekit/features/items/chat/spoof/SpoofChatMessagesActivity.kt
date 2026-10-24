@@ -51,8 +51,7 @@ import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.entity.SpoofedChatMessageEntity
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.content.GlobalImageLoader
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -79,7 +78,7 @@ class SpoofChatMessagesActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 ModuleTheme {
                     SpoofChatMessagesScreen(onFinish = ::finish)
                 }

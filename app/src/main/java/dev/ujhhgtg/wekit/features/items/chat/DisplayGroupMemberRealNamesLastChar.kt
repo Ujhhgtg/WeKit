@@ -26,6 +26,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -255,11 +256,11 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
         return listOf(
             PreferenceItem(
-                title = activity.localizedChatString(R.string.chat_real_name_fetch_title),
+                title = activity.localizedString(R.string.chat_real_name_fetch_title),
                 summary =
                     realNames[memberId]?.let {
-                        activity.localizedChatString(R.string.chat_real_name_value, it)
-                    } ?: activity.localizedChatString(R.string.chat_contact_tap_to_fetch),
+                        activity.localizedString(R.string.chat_real_name_value, it)
+                    } ?: activity.localizedString(R.string.chat_contact_tap_to_fetch),
                 position = 1,
                 onClick = onClick@{ activity ->
                         activity.run {
@@ -273,7 +274,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                             if (cached != null) {
                                 showToast(
                                     activity,
-                                    activity.localizedChatString(
+                                    activity.localizedString(
                                         R.string.chat_real_name_value,
                                         cached,
                                     ),
@@ -283,7 +284,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
                             showToast(
                                 activity,
-                                activity.localizedChatString(R.string.chat_real_name_fetching),
+                                activity.localizedString(R.string.chat_real_name_fetching),
                             )
                             actualFetchRealName(clickedMemberId, groupId) { result ->
                                 mainHandler.post {
@@ -291,7 +292,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                         is FetchResult.Found -> {
                                             showToast(
                                                 activity,
-                                                activity.localizedChatString(
+                                                activity.localizedString(
                                                     R.string.chat_real_name_value,
                                                     result.realName,
                                                 ),
@@ -301,7 +302,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                         FetchResult.NoRealName -> {
                                             showToast(
                                                 activity,
-                                                activity.localizedChatString(
+                                                activity.localizedString(
                                                     R.string.chat_real_name_not_found,
                                                 ),
                                             )
@@ -310,7 +311,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                         FetchResult.SaveFailure -> {
                                             showToast(
                                                 activity,
-                                                activity.localizedChatString(
+                                                activity.localizedString(
                                                     R.string.structured_storage_save_failed,
                                                 ),
                                             )
@@ -319,7 +320,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                         is FetchResult.Failure -> {
                                             showToast(
                                                 activity,
-                                                activity.localizedChatString(
+                                                activity.localizedString(
                                                     R.string.chat_real_name_fetch_failed,
                                                     result.errMsg ?: result.errCode,
                                                 ),

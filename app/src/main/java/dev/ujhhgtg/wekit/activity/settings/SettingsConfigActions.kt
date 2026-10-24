@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -17,7 +18,7 @@ import kotlinx.coroutines.withContext
 
 /** Shared configuration I/O used by both settings engines. */
 object SettingsConfigActions {
-    fun export(platformContext: Context, localizedContext: () -> Context) {
+    fun export(platformContext: Context) {
         TransparentActivity.launch(platformContext) {
             val exportLauncher =
                 registerForActivityResult(
@@ -41,15 +42,11 @@ object SettingsConfigActions {
                             }
                         }
                         result.exceptionOrNull()?.let {
-                            showToastSuspend(
-                                localizedContext().getString(R.string.config_export_failed),
-                            )
+                            showToastSuspend(localizedString(R.string.config_export_failed))
                             WeLogger.e("BackupCoordinator", "failed to export backup", it)
                         }
                         if (result.isSuccess) {
-                            showToastSuspend(
-                                localizedContext().getString(R.string.config_export_success),
-                            )
+                            showToastSuspend(localizedString(R.string.config_export_success))
                         }
                         temporary.delete()
                         withContext(Dispatchers.Main) { finish() }
@@ -59,7 +56,7 @@ object SettingsConfigActions {
         }
     }
 
-    fun importFromDocument(platformContext: Context, localizedContext: () -> Context) {
+    fun importFromDocument(platformContext: Context) {
         TransparentActivity.launch(platformContext) {
             val importLauncher =
                 registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -82,15 +79,11 @@ object SettingsConfigActions {
                             BackupCoordinator.import(platformContext, temporary)
                         }
                         result.exceptionOrNull()?.let {
-                            showToastSuspend(
-                                localizedContext().getString(R.string.config_import_failed),
-                            )
+                            showToastSuspend(localizedString(R.string.config_import_failed))
                             WeLogger.e("BackupCoordinator", "failed to import backup", it)
                         }
                         if (result.isSuccess) {
-                            showToastSuspend(
-                                localizedContext().getString(R.string.config_import_success),
-                            )
+                            showToastSuspend(localizedString(R.string.config_import_success))
                         }
                         temporary.delete()
                         withContext(Dispatchers.Main) {

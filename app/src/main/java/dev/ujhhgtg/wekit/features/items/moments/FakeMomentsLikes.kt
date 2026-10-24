@@ -29,7 +29,9 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -86,7 +88,7 @@ object FakeMomentsLikes :
         return listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777006,
-                localizedMomentsString(R.string.moments_fake_likes_menu),
+                localizedString(R.string.moments_fake_likes_menu),
                 StarIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -98,7 +100,7 @@ object FakeMomentsLikes :
 
                 showComposeDialog(moment.activity) {
                     var countInput by remember { mutableStateOf("") }
-                    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+                    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
                     AlertDialogContent(
                         title = { Text(stringResource(R.string.moments_fake_likes_method_title)) },
@@ -127,7 +129,7 @@ object FakeMomentsLikes :
                                                     } else {
                                                         fakeLikeWxIds[snsId] = selectedWxids
                                                         showToast(
-                                                            localizedMomentsQuantity(
+                                                            localizedQuantity(
                                                                 R.plurals
                                                                     .moments_fake_likes_set_count,
                                                                 selectedWxids.size,
@@ -198,7 +200,7 @@ object FakeMomentsLikes :
                                                         .toSet()
                                                 fakeLikeWxIds[snsId] = selected
                                                 showToast(
-                                                    localizedMomentsQuantity(
+                                                    localizedQuantity(
                                                         R.plurals
                                                             .moments_fake_likes_random_set_count,
                                                         selected.size,

@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.Intent
 import dev.ujhhgtg.wekit.utils.android.baseActivity
 
@@ -89,8 +90,7 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
             noInteractionMessages = true
             val headerUic = extractHeaderUic(thisObject ?: return@hookAfter) ?: return@hookAfter
             notifyLayout(headerUic).isVisible = true
-            notifyContent(headerUic).text =
-                localizedMomentsString(R.string.moments_interaction_idle)
+            notifyContent(headerUic).text = localizedString(R.string.moments_interaction_idle)
             // 一条互动消息都没有, 没有可展示的头像
             notifyImg(headerUic).isVisible = false
         }

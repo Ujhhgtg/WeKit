@@ -43,6 +43,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.GroupMemberRoleSpan
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -101,7 +102,7 @@ object DisplayGroupMemberRoles :
         .getOrElse { fallback.toColorInt() }
 
     private fun roleText(value: String, defaultRes: Int): String = value.ifBlank {
-        localizedChatString(defaultRes)
+        localizedString(defaultRes)
     }
 
     override fun onClick(context: ComponentActivity) {

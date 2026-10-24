@@ -40,11 +40,11 @@ import dev.ujhhgtg.wekit.features.automation.AutomationMessageKind
 import dev.ujhhgtg.wekit.features.automation.AutomationRules
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.IncomingMessageEvents
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.BlockAtAllNotifications
 import dev.ujhhgtg.wekit.features.items.notifications.CustomNotifications.DEDUP_TTL_MS
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.MESSAGE_KIND_LABELS
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcess
@@ -502,9 +502,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
     private fun detailText(kind: AutomationMessageKind, content: String): String {
         fun label() =
-            "[" +
-                localizedAutomationString(MESSAGE_KIND_LABELS.first { it.first == kind }.second) +
-                "]"
+            "[" + localizedString(MESSAGE_KIND_LABELS.first { it.first == kind }.second) + "]"
         return when (kind) {
             AutomationMessageKind.TEXT -> {
                 sanitize(content)
@@ -535,7 +533,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private val TITLE_REGEX =
         Regex("<title>(?:<!\\[CDATA\\[)?(.*?)(?:]]>)?</title>", RegexOption.DOT_MATCHES_ALL)
 
-    private fun newMessageText() = localizedAutomationString(R.string.custom_notify_new_message)
+    private fun newMessageText() = localizedString(R.string.custom_notify_new_message)
 
     private fun sanitize(value: String) =
         value
@@ -581,7 +579,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         manager.createNotificationChannel(
             NotificationChannel(
                     channelId,
-                    localizedAutomationString(R.string.feature_custom_notifications_name),
+                    localizedString(R.string.feature_custom_notifications_name),
                     NotificationManager.IMPORTANCE_HIGH,
                 )
                 .apply {
@@ -625,8 +623,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             }
         val displayText =
             if (unread > 1) {
-                localizedAutomationString(R.string.custom_notify_unread_prefix, unread) +
-                    payload.text
+                localizedString(R.string.custom_notify_unread_prefix, unread) + payload.text
             } else {
                 payload.text
             }
@@ -668,7 +665,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 Notification.InboxStyle()
                     .setBigContentTitle(payload.title)
                     .setSummaryText(
-                        localizedAutomationString(R.string.custom_notify_merged_summary, unread),
+                        localizedString(R.string.custom_notify_merged_summary, unread),
                     )
                     .also { style -> lines.forEach(style::addLine) },
             )
@@ -802,7 +799,7 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             )
         return Notification.Action.Builder(
                 Icon.createWithResource(context, android.R.drawable.ic_menu_view),
-                localizedAutomationString(R.string.custom_notify_action_mark_read),
+                localizedString(R.string.custom_notify_action_mark_read),
                 pending,
             )
             .setSemanticAction(Notification.Action.SEMANTIC_ACTION_MARK_AS_READ)
@@ -835,11 +832,11 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             )
         val input =
             RemoteInput.Builder(REMOTE_INPUT_KEY)
-                .setLabel(localizedAutomationString(R.string.custom_notify_reply_hint))
+                .setLabel(localizedString(R.string.custom_notify_reply_hint))
                 .build()
         return Notification.Action.Builder(
                 Icon.createWithResource(context, android.R.drawable.ic_menu_send),
-                localizedAutomationString(R.string.custom_notify_action_reply),
+                localizedString(R.string.custom_notify_action_reply),
                 pending,
             )
             .addRemoteInput(input)
@@ -960,9 +957,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 .setOnlyAlertOnce(true)
                 .setContentText(
                     if (sent) {
-                        localizedAutomationString(R.string.custom_notify_replied, reply)
+                        localizedString(R.string.custom_notify_replied, reply)
                     } else {
-                        localizedAutomationString(R.string.custom_notify_reply_failed)
+                        localizedString(R.string.custom_notify_reply_failed)
                     },
                 )
                 .setExtras(Bundle(current.extras).apply { putLong(EXTRA_DONE_TOKEN, doneToken) })

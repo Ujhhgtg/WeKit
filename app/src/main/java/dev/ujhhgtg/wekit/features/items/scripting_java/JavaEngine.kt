@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -568,14 +569,14 @@ object JavaEngine {
                     val channelId = "script_${plugin.name}"
                     val localizedPluginName =
                         if (plugin.info.name == "unnamed") {
-                            localizedScriptingJavaString(R.string.java_script_unnamed)
+                            localizedString(R.string.java_script_unnamed)
                         } else {
                             plugin.info.name
                         }
                     val channel =
                         NotificationChannel(
                             channelId,
-                            localizedScriptingJavaString(
+                            localizedString(
                                 R.string.java_script_notification_channel,
                                 localizedPluginName,
                             ),

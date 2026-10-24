@@ -27,6 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -167,7 +168,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                                         count,
                                                     ) as Boolean
                                                 val result =
-                                                    localizedSystemString(
+                                                    localizedString(
                                                         if (ok) {
                                                             R.string.system_success
                                                         } else {
@@ -176,7 +177,7 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                                     )
                                                 showToast(
                                                     context,
-                                                    context.localizedSystemString(
+                                                    context.localizedString(
                                                         R.string.system_sports_upload_result,
                                                         result,
                                                     ),

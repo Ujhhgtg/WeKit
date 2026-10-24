@@ -51,8 +51,7 @@ import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Shopping_cart
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -77,7 +76,7 @@ class QrCodeRecordSettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 ModuleTheme {
                     QrCodeRecordSettingsScreen(
                         records = records,

@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -63,7 +64,7 @@ object FakeVoiceDuration : ClickableFeature(), IResolveDex {
                             val durationMs = durationInput.toLongOrNull()
                             if (durationMs == null) {
                                 showToast(
-                                    localizedChatString(R.string.chat_fake_voice_duration_invalid),
+                                    localizedString(R.string.chat_fake_voice_duration_invalid),
                                 )
                                 return@TextButton
                             }

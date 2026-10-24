@@ -25,7 +25,7 @@ import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.LauncherNavigati
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_CONTACTS
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_DISCOVER
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_ME
-import dev.ujhhgtg.wekit.i18n.HostLocalizedStrings
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.allViews
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
@@ -319,7 +319,7 @@ class HomeSession(
 
     private fun reportActionError(error: Exception) {
         WeLogger.e("BeautifyHome", "Native home action failed", error)
-        showToast(activity, HostLocalizedStrings.get(R.string.beautify_home_action_failed))
+        showToast(activity, localizedString(R.string.beautify_home_action_failed))
     }
 
     fun captureStatusBarHeight(view: View, height: Int): Boolean =

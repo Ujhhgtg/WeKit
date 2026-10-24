@@ -22,6 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
@@ -91,12 +92,12 @@ object SendSecMsg : ClickableFeature(), IResolveDex {
             WeChatInputBarMenuApi.ActionItem(
                 id = "send_sec_msg",
                 icon = MaterialSymbols.Outlined.Lock,
-                label = localizedChatString(R.string.send_sec_msg_menu_label),
+                label = localizedString(R.string.send_sec_msg_menu_label),
                 onClick = { context, chatFooter ->
                     if (chatFooter.lastText.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatString(R.string.send_sec_msg_input_empty),
+                            context.localizedString(R.string.send_sec_msg_input_empty),
                         )
                         return@ActionItem
                     }

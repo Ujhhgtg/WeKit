@@ -61,7 +61,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -78,7 +79,6 @@ import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.io.path.div
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -350,7 +350,7 @@ object ConversationAggregation :
     private fun removeMemberFromFolder(folderId: String, talker: String) {
         val folder = folderById(folderId) ?: return
         if (folder.type != FolderType.MANUAL || talker !in folder.members) {
-            showToast(localizedChatString(R.string.chat_aggregation_not_in_manual_folder))
+            showToast(localizedString(R.string.chat_aggregation_not_in_manual_folder))
             return
         }
         storageScope.launch {
@@ -364,12 +364,12 @@ object ConversationAggregation :
                 }
                 syncFoldersToDatabase()
                 showToast(
-                    localizedChatString(R.string.chat_aggregation_removed_from_folder, folder.name),
+                    localizedString(R.string.chat_aggregation_removed_from_folder, folder.name),
                 )
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 WeLogger.e(TAG, "Failed to remove folder member", error)
-                showToast(localizedChatString(R.string.logs_save_failed))
+                showToast(localizedString(R.string.logs_save_failed))
             }
         }
     }
@@ -622,7 +622,7 @@ object ConversationAggregation :
         listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = REMOVE_FROM_FOLDER_MENU_ID,
-                text = localizedChatString(R.string.chat_aggregation_remove_from_folder),
+                text = localizedString(R.string.chat_aggregation_remove_from_folder),
                 drawable = null,
                 scope = WeConversationContextMenuApi.MenuScope.AGGREGATED,
                 shouldShow = { context, _ ->
@@ -732,7 +732,7 @@ object ConversationAggregation :
     ) {
         val members = getFolderMembers(folder).filterNot(::isFolderId).distinct()
         if (members.isEmpty()) {
-            showToast(localizedChatString(R.string.chat_aggregation_folder_empty))
+            showToast(localizedString(R.string.chat_aggregation_folder_empty))
             return
         }
 
@@ -862,7 +862,7 @@ object ConversationAggregation :
 
         fragment.addIconOptionMenu(
             FOLDER_CONFIG_MENU_ID,
-            localizedChatString(R.string.chat_aggregation_configure),
+            localizedString(R.string.chat_aggregation_configure),
             EditIcon,
             listener,
         )
@@ -1121,7 +1121,7 @@ object ConversationAggregation :
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 WeLogger.e(TAG, "Failed to persist folder pin flags", error)
-                showToast(localizedChatString(R.string.logs_save_failed))
+                showToast(localizedString(R.string.logs_save_failed))
             }
         }
     }
@@ -1570,7 +1570,7 @@ object ConversationAggregation :
                     TextButton(
                         onClick = {
                             syncFoldersToDatabase()
-                            showToast(localizedChatString(R.string.chat_aggregation_index_rebuilt))
+                            showToast(localizedString(R.string.chat_aggregation_index_rebuilt))
                         },
                     ) {
                         Text(stringResource(R.string.chat_aggregation_reload))
@@ -1699,7 +1699,7 @@ object ConversationAggregation :
             scope.launch {
                 try {
                     action()
-                    showToast(localizedChatString(R.string.chat_aggregation_saved))
+                    showToast(localizedString(R.string.chat_aggregation_saved))
                 } catch (error: Exception) {
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     WeLogger.e(TAG, "Failed to save folder", error)
@@ -1845,7 +1845,7 @@ object ConversationAggregation :
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 val context = LocalContext.current
-                                val localizedContext = LocalWeKitLocalizedContext.current
+                                val localizedContext = LocalLocalizedContext.current
                                 Button(
                                     enabled = !saving,
                                     modifier = Modifier.weight(1f),
@@ -1891,7 +1891,7 @@ object ConversationAggregation :
                                     onClick = {
                                         if (!CustomLocalFriendAvatars.isEnabled) {
                                             showToast(
-                                                localizedChatString(
+                                                localizedString(
                                                     R.string.chat_aggregation_enable_custom_avatar,
                                                 ),
                                             )

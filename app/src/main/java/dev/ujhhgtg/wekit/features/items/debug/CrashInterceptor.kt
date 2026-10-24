@@ -4,6 +4,7 @@ import android.app.Activity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -37,7 +38,7 @@ object CrashInterceptor : SwitchFeature() {
                     TAG,
                     "pending Java crash detected, will show dialog when Activity is ready",
                 )
-                showToast(localizedDebugString(R.string.debug_java_crash_preparing_report))
+                showToast(localizedString(R.string.debug_java_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) { activity ->
                     showPendingJavaCrashDialog(activity)
                 }
@@ -81,7 +82,7 @@ object CrashInterceptor : SwitchFeature() {
                 line.contains("Exception Stack Trace") -> {
                     foundException = true
                     summary
-                        .append(localizedDebugString(R.string.debug_crash_exception_information))
+                        .append(localizedString(R.string.debug_crash_exception_information))
                         .append("\n")
                 }
 
@@ -95,9 +96,9 @@ object CrashInterceptor : SwitchFeature() {
             if (exceptionLineCount >= 10) break
         }
         if (summary.isEmpty()) {
-            return localizedDebugString(R.string.debug_crash_summary_parse_failed)
+            return localizedString(R.string.debug_crash_summary_parse_failed)
         }
-        summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
+        summary.append("\n").append(localizedString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }
 

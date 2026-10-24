@@ -34,6 +34,7 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -82,7 +83,7 @@ object FingerprintPay : ClickableFeature() {
                     encryptedData
                         ?: run {
                             showToast(
-                                localizedPaymentString(
+                                localizedString(
                                     R.string.payment_fingerprint_password_not_configured,
                                 ),
                             )
@@ -91,7 +92,7 @@ object FingerprintPay : ClickableFeature() {
                 val splitRawEncData = rawEncData.split(SPLIT_CHAR)
                 val encData = EncryptedData(splitRawEncData[0], splitRawEncData[1])
                 decryptWithBiometric(context, encData) { plaintext ->
-                    showToast(localizedPaymentString(R.string.payment_fingerprint_decrypted))
+                    showToast(localizedString(R.string.payment_fingerprint_decrypted))
                     for (char in plaintext) {
                         val digit = char.digitToInt()
                         digitViews[digit].performClick()
@@ -109,7 +110,7 @@ object FingerprintPay : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showToast(localizedPaymentString(R.string.payment_fingerprint_android_too_old))
+            showToast(localizedString(R.string.payment_fingerprint_android_too_old))
             return
         }
 
@@ -164,7 +165,7 @@ object FingerprintPay : ClickableFeature() {
                                 encryptedData
                                     ?: run {
                                         showToast(
-                                            localizedPaymentString(
+                                            localizedString(
                                                 R.string.payment_fingerprint_password_missing,
                                             ),
                                         )
@@ -174,7 +175,7 @@ object FingerprintPay : ClickableFeature() {
                             val encData = EncryptedData(splitRawEncData[0], splitRawEncData[1])
                             decryptWithBiometric(context, encData) { plaintext ->
                                 showToast(
-                                    localizedPaymentString(
+                                    localizedString(
                                         R.string.payment_fingerprint_decrypted_preview,
                                         plaintext.first(),
                                         plaintext.last(),
@@ -192,7 +193,7 @@ object FingerprintPay : ClickableFeature() {
                         onClick = {
                             if (plaintext.length != 6) {
                                 showToast(
-                                    localizedPaymentString(
+                                    localizedString(
                                         R.string.payment_fingerprint_invalid_length,
                                     ),
                                 )
@@ -202,7 +203,7 @@ object FingerprintPay : ClickableFeature() {
                             encryptWithBiometric(context, plaintext) { encData ->
                                 encryptedData = "${encData.ciphertext}${SPLIT_CHAR}${encData.iv}"
                                 showToast(
-                                    localizedPaymentString(R.string.payment_fingerprint_saved),
+                                    localizedString(R.string.payment_fingerprint_saved),
                                 )
                             }
                         },
@@ -231,7 +232,7 @@ object FingerprintPay : ClickableFeature() {
                 }
 
                 override fun onAuthenticationError(code: Int, msg: CharSequence) {
-                    showToast(localizedPaymentString(R.string.payment_fingerprint_auth_failed, msg))
+                    showToast(localizedString(R.string.payment_fingerprint_auth_failed, msg))
                     if (
                         code == BiometricPrompt.ERROR_CANCELED ||
                             code == BiometricPrompt.ERROR_USER_CANCELED
@@ -249,8 +250,8 @@ object FingerprintPay : ClickableFeature() {
     private val promptInfo: BiometricPrompt.PromptInfo
         get() =
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle(localizedPaymentString(R.string.payment_fingerprint_verify_title))
-                .setSubtitle(localizedPaymentString(R.string.payment_fingerprint_verify_subtitle))
+                .setTitle(localizedString(R.string.payment_fingerprint_verify_title))
+                .setSubtitle(localizedString(R.string.payment_fingerprint_verify_subtitle))
                 .setAllowedAuthenticators(
                     BiometricManager.Authenticators.BIOMETRIC_STRONG or
                         BiometricManager.Authenticators.DEVICE_CREDENTIAL,
@@ -268,10 +269,10 @@ object FingerprintPay : ClickableFeature() {
             try {
                 CryptoManager.getEncryptCipher()
             } catch (_: KeyPermanentlyInvalidatedException) {
-                showToast(localizedPaymentString(R.string.payment_fingerprint_key_reset))
+                showToast(localizedString(R.string.payment_fingerprint_key_reset))
                 return
             } catch (e: Exception) {
-                showToast(localizedPaymentString(R.string.payment_fingerprint_unhandled_error))
+                showToast(localizedString(R.string.payment_fingerprint_unhandled_error))
                 WeLogger.e(TAG, "unhandled exception", e)
                 return
             }
@@ -281,7 +282,7 @@ object FingerprintPay : ClickableFeature() {
                         result.cryptoObject?.cipher
                             ?: run {
                                 showToast(
-                                    localizedPaymentString(
+                                    localizedString(
                                         R.string.payment_fingerprint_missing_cipher,
                                     ),
                                 )
@@ -294,7 +295,7 @@ object FingerprintPay : ClickableFeature() {
                             WeLogger.e(TAG, "failed to encrypt", it)
                             showToast(
                                 context,
-                                context.localizedPaymentString(
+                                context.localizedString(
                                     R.string.payment_fingerprint_encrypt_failed,
                                 ),
                             )
@@ -318,10 +319,10 @@ object FingerprintPay : ClickableFeature() {
             try {
                 CryptoManager.getDecryptCipher(iv)
             } catch (_: KeyPermanentlyInvalidatedException) {
-                showToast(localizedPaymentString(R.string.payment_fingerprint_key_reset))
+                showToast(localizedString(R.string.payment_fingerprint_key_reset))
                 return
             } catch (e: Exception) {
-                showToast(localizedPaymentString(R.string.payment_fingerprint_unhandled_error))
+                showToast(localizedString(R.string.payment_fingerprint_unhandled_error))
                 WeLogger.e(TAG, "unhandled exception", e)
                 return
             }
@@ -331,7 +332,7 @@ object FingerprintPay : ClickableFeature() {
                         result.cryptoObject?.cipher
                             ?: run {
                                 showToast(
-                                    localizedPaymentString(
+                                    localizedString(
                                         R.string.payment_fingerprint_missing_cipher,
                                     ),
                                 )
@@ -344,7 +345,7 @@ object FingerprintPay : ClickableFeature() {
                             WeLogger.e(TAG, "failed to decrypt", it)
                             showToast(
                                 context,
-                                context.localizedPaymentString(
+                                context.localizedString(
                                     R.string.payment_fingerprint_decrypt_failed,
                                 ),
                             )
@@ -374,7 +375,7 @@ object FingerprintPay : ClickableFeature() {
                     },
                 )
             }
-            showToast(localizedPaymentString(R.string.payment_fingerprint_android_too_old))
+            showToast(localizedString(R.string.payment_fingerprint_android_too_old))
             return false
         }
 

@@ -62,6 +62,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -2504,8 +2505,7 @@ object FloatingChatHeader : ClickableFeature(), IResolveDex {
         ) {
             text.setPaddingRelative(original[0], original[1], reservedEnd, original[3])
         }
-        badge.text =
-            localizedChatString(R.string.chat_floating_header_overflow_badge, remainingCount)
+        badge.text = localizedString(R.string.chat_floating_header_overflow_badge, remainingCount)
         val color = text.currentTextColor
         badge.setTextColor(color and 0x00FFFFFF or (0x99 shl 24))
         badge.visibility = View.VISIBLE

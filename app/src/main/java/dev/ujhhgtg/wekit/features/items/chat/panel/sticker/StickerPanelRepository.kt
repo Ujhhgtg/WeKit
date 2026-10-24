@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.LocalSortMode
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelCustomOrders
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
@@ -12,6 +11,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.StickerItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.StickerPack
 import dev.ujhhgtg.wekit.features.items.chat.panel.customOrderIndex
 import dev.ujhhgtg.wekit.features.items.chat.panel.normalizedCustomOrder
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.fs.copyFrom
@@ -122,13 +122,13 @@ object StickerPanelRepository {
         val safePack = requirePackName(packName)
         val directory = packPath(safePack)
         require(directory.isDirectory()) {
-            localizedChatString(R.string.chat_sticker_pack_not_found)
+            localizedString(R.string.chat_sticker_pack_not_found)
         }
         val requested = filePaths.map { value ->
             requireLocalSticker(value)
                 .also { path ->
                     require(path.parent == directory) {
-                        localizedChatString(R.string.chat_sticker_not_in_pack)
+                        localizedString(R.string.chat_sticker_not_in_pack)
                     }
                 }
                 .name
@@ -162,7 +162,7 @@ object StickerPanelRepository {
                 .take(limit)
         return StickerPack(
             id = RECENT_PACK_ID,
-            title = localizedChatString(R.string.chat_panel_recent),
+            title = localizedString(R.string.chat_panel_recent),
             source = PanelSource.RECENT,
             itemCount = items.size,
             items = items,
@@ -184,13 +184,13 @@ object StickerPanelRepository {
     fun createPack(name: String): Result<String> = runCatching {
         val safeName = sanitizeName(name)
         require(safeName.isNotBlank()) {
-            localizedChatString(R.string.chat_sticker_pack_name_empty)
+            localizedString(R.string.chat_sticker_pack_name_empty)
         }
         require(safeName !in reservedNames) {
-            localizedChatString(R.string.chat_sticker_pack_name_unavailable)
+            localizedString(R.string.chat_sticker_pack_name_unavailable)
         }
         val destination = packPath(safeName)
-        require(destination.notExists()) { localizedChatString(R.string.chat_sticker_pack_exists) }
+        require(destination.notExists()) { localizedString(R.string.chat_sticker_pack_exists) }
         destination.createDirectories()
         safeName
     }
@@ -205,11 +205,11 @@ object StickerPanelRepository {
     fun setOnlinePackSource(packName: String, onlinePackId: String): Result<Unit> = runCatching {
         val safePack = requirePackName(packName)
         require(packPath(safePack).isDirectory()) {
-            localizedChatString(R.string.chat_sticker_pack_not_found)
+            localizedString(R.string.chat_sticker_pack_not_found)
         }
         val sourceId = onlinePackId.trim()
         require(sourceId.isNotEmpty()) {
-            localizedChatString(R.string.chat_sticker_online_source_empty)
+            localizedString(R.string.chat_sticker_online_source_empty)
         }
         atomicWrite(
             onlinePackSourcesFile,
@@ -221,24 +221,24 @@ object StickerPanelRepository {
         val safeOldName = requirePackName(oldName)
         val safeName = sanitizeName(newName)
         require(safeName.isNotBlank()) {
-            localizedChatString(R.string.chat_sticker_pack_name_empty)
+            localizedString(R.string.chat_sticker_pack_name_empty)
         }
         require(safeName !in reservedNames) {
-            localizedChatString(R.string.chat_sticker_pack_name_unavailable)
+            localizedString(R.string.chat_sticker_pack_name_unavailable)
         }
         val source = packPath(safeOldName)
         val destination = packPath(safeName)
-        require(source.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
-        require(destination.notExists()) { localizedChatString(R.string.chat_sticker_pack_exists) }
+        require(source.isDirectory()) { localizedString(R.string.chat_sticker_pack_not_found) }
+        require(destination.notExists()) { localizedString(R.string.chat_sticker_pack_exists) }
         source.moveTo(destination)
         migratePathPrefix(source, destination)
     }
 
     fun deletePack(name: String): Result<Unit> = runCatching {
         val dir = packPath(requirePackName(name))
-        require(dir.isDirectory()) { localizedChatString(R.string.chat_sticker_pack_not_found) }
+        require(dir.isDirectory()) { localizedString(R.string.chat_sticker_pack_not_found) }
         require(dir.toFile().deleteRecursively()) {
-            localizedChatString(R.string.chat_sticker_pack_delete_failed)
+            localizedString(R.string.chat_sticker_pack_delete_failed)
         }
         removePathPrefixFromMetadata(dir)
     }
@@ -254,12 +254,12 @@ object StickerPanelRepository {
         try {
             input.use(temporary::copyFrom)
             require(temporary.fileSize() > 0L) {
-                localizedChatString(R.string.chat_sticker_image_empty)
+                localizedString(R.string.chat_sticker_image_empty)
             }
             val format =
                 MediaFileTypeDetector.detectImage(temporary)
                     ?: throw IllegalArgumentException(
-                        localizedChatString(R.string.chat_sticker_unsupported_format),
+                        localizedString(R.string.chat_sticker_unsupported_format),
                     )
             val destination =
                 uniquePath(
@@ -296,12 +296,12 @@ object StickerPanelRepository {
         try {
             input.use(temporary::copyFrom)
             require(temporary.fileSize() > 0L) {
-                localizedChatString(R.string.chat_sticker_server_empty)
+                localizedString(R.string.chat_sticker_server_empty)
             }
             val extension =
                 MediaFileTypeDetector.detectImage(temporary)?.extension
                     ?: throw IllegalArgumentException(
-                        localizedChatString(R.string.chat_sticker_server_unsupported_format),
+                        localizedString(R.string.chat_sticker_server_unsupported_format),
                     )
             val destination = packDir / "$identity.$extension"
             temporary.moveReplacing(destination)
@@ -342,9 +342,9 @@ object StickerPanelRepository {
             packName = packName,
             identity = telegramIdentity(fileUniqueId),
             input = input,
-            emptyDataMessage = localizedChatString(R.string.chat_telegram_sticker_empty),
+            emptyDataMessage = localizedString(R.string.chat_telegram_sticker_empty),
             unsupportedFormatMessage =
-                localizedChatString(R.string.chat_telegram_sticker_unsupported_format),
+                localizedString(R.string.chat_telegram_sticker_unsupported_format),
         )
 
     fun importWeChatSticker(
@@ -356,9 +356,9 @@ object StickerPanelRepository {
             packName = packName,
             identity = weChatIdentity(md5),
             input = input,
-            emptyDataMessage = localizedChatString(R.string.chat_wechat_sticker_empty),
+            emptyDataMessage = localizedString(R.string.chat_wechat_sticker_empty),
             unsupportedFormatMessage =
-                localizedChatString(R.string.chat_wechat_sticker_unsupported_format),
+                localizedString(R.string.chat_wechat_sticker_unsupported_format),
         )
 
     private fun importStableSticker(

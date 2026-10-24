@@ -51,7 +51,7 @@ import com.composables.icons.materialsymbols.outlined.My_location
 import com.composables.icons.materialsymbols.outlined.Person_pin
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
@@ -430,7 +430,7 @@ fun HomeSidePanelHitokotoSettings(
         }
         if (runtime is HitokotoUiState.Error) {
             Text(
-                LocalWeKitLocalizedContext.current.resolveBeautifyText(runtime.message),
+                LocalLocalizedContext.current.resolveBeautifyText(runtime.message),
                 color = MaterialTheme.colorScheme.error,
             )
         }

@@ -52,6 +52,8 @@ import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.installVoipHooks
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.rewriteMomentsFeedSql
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.showSchedulesDialog
 import dev.ujhhgtg.wekit.features.items.contacts.hidecontacts.uninstallSchedules
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -350,12 +352,12 @@ object HideContacts :
     fun toggleTemporarilyShown(context: Context) {
         if (temporarilyShown) {
             temporarilyShown = false
-            showToast(context, context.localizedContactsString(R.string.contacts_hide_restored))
+            showToast(context, context.localizedString(R.string.contacts_hide_restored))
         } else {
             temporarilyShown = true
             showToast(
                 context,
-                context.localizedContactsString(R.string.contacts_hide_temporarily_shown),
+                context.localizedString(R.string.contacts_hide_temporarily_shown),
             )
         }
         WeConversationApi.reloadConversations()
@@ -385,7 +387,7 @@ object HideContacts :
                 if (temporarilyShown) {
                     showToast(
                         chatFooter.context,
-                        chatFooter.context.localizedContactsString(
+                        chatFooter.context.localizedString(
                             R.string.contacts_hide_already_shown,
                         ),
                     )
@@ -394,7 +396,7 @@ object HideContacts :
                 temporarilyShown = true
                 showToast(
                     chatFooter.context,
-                    chatFooter.context.localizedContactsString(
+                    chatFooter.context.localizedString(
                         R.string.contacts_hide_shown_command_hint,
                     ),
                 )
@@ -406,7 +408,7 @@ object HideContacts :
                 if (!temporarilyShown) {
                     showToast(
                         chatFooter.context,
-                        chatFooter.context.localizedContactsString(
+                        chatFooter.context.localizedString(
                             R.string.contacts_hide_nothing_to_restore,
                         ),
                     )
@@ -415,7 +417,7 @@ object HideContacts :
                 temporarilyShown = false
                 showToast(
                     chatFooter.context,
-                    chatFooter.context.localizedContactsString(R.string.contacts_hide_restored),
+                    chatFooter.context.localizedString(R.string.contacts_hide_restored),
                 )
                 WeConversationApi.reloadConversations()
             }
@@ -569,7 +571,7 @@ object HideContacts :
                                     showComposeDialog(context) {
                                         ContactsSelector(
                                             title =
-                                                context.localizedContactsString(
+                                                context.localizedString(
                                                     R.string.contacts_hide_select,
                                                 ),
                                             contacts = regularContacts,
@@ -577,7 +579,7 @@ object HideContacts :
                                             onDismiss = onDismiss,
                                         ) {
                                             showToast(
-                                                localizedContactsQuantity(
+                                                localizedQuantity(
                                                     R.plurals.contacts_hide_saved,
                                                     it.size,
                                                     it.size,

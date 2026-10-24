@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
-import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.toBitmap
 import dev.ujhhgtg.wekit.ui.utils.toDp
@@ -20,7 +19,7 @@ fun Uri.openInSystem(context: Context, useCustomTabs: Boolean = false) {
                 Intent(Intent.ACTION_SEND)
                     .setComponent(
                         ComponentName(
-                            if (HostInfo.isHost) context.packageName else PackageNames.WECHAT,
+                            HostInfo.packageName,
                             // although this activity is called 'ShareImg',
                             // it is actually used to handle all types
                             "com.tencent.mm.ui.tools.ShareImgUI",

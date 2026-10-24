@@ -28,6 +28,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -82,7 +83,7 @@ object AddToAggregationFolder :
         listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777019,
-                text = localizedChatString(R.string.chat_add_folder_menu),
+                text = localizedString(R.string.chat_add_folder_menu),
                 drawable = FolderAddIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker
@@ -97,14 +98,14 @@ object AddToAggregationFolder :
         if (!ConversationAggregation.isActive) {
             showToast(
                 context,
-                context.localizedChatString(R.string.chat_add_folder_enable_grouping_first),
+                context.localizedString(R.string.chat_add_folder_enable_grouping_first),
             )
             return
         }
 
         val folders = ConversationAggregation.aggregationFolders()
         if (folders.isEmpty()) {
-            showToast(context, context.localizedChatString(R.string.chat_add_folder_none_available))
+            showToast(context, context.localizedString(R.string.chat_add_folder_none_available))
             return
         }
 
@@ -138,7 +139,7 @@ object AddToAggregationFolder :
                                     if (folder.isAuto) {
                                         showToast(
                                             context,
-                                            context.localizedChatString(
+                                            context.localizedString(
                                                 R.string.chat_add_folder_automatic_unavailable,
                                                 folder.name,
                                             ),
@@ -157,7 +158,7 @@ object AddToAggregationFolder :
                                             ) {
                                                 showToast(
                                                     context,
-                                                    context.localizedChatString(
+                                                    context.localizedString(
                                                         R.string.chat_add_folder_manual_unavailable,
                                                         folder.name,
                                                     ),
@@ -165,7 +166,7 @@ object AddToAggregationFolder :
                                             } else {
                                                 showToast(
                                                     context,
-                                                    context.localizedChatString(
+                                                    context.localizedString(
                                                         R.string.chat_add_folder_success,
                                                         folder.name,
                                                     ),

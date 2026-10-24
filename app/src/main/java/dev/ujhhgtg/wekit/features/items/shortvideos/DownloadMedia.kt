@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.ui.utils.LinkIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -52,7 +53,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
         return listOf(
             WeShortVideosShareMenuApi.MenuItem(
                 777004,
-                localizedShortVideoString(R.string.shortvideos_copy_link),
+                localizedString(R.string.shortvideos_copy_link),
                 LinkIcon,
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
@@ -61,7 +62,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                     }
 
                     copyToClipboard(imageUrls.joinToString("\n"))
-                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
+                    showToast(localizedString(R.string.copied_to_clipboard))
                     return@MenuItem
                 }
 
@@ -81,9 +82,8 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                                 duration % 60,
                             )
                     val displaySize = formatBytesSize(size.toLong())
-                    clipItems +=
-                        localizedShortVideoString(R.string.shortvideos_duration) to displayDuration
-                    clipItems += localizedShortVideoString(R.string.shortvideos_size) to displaySize
+                    clipItems += localizedString(R.string.shortvideos_duration) to displayDuration
+                    clipItems += localizedString(R.string.shortvideos_size) to displaySize
 
                     val cdnInfo = json.optJSONObject("media_cdn_info")
                     if (cdnInfo == null || !cdnInfo.has("pcdn_url")) {
@@ -91,29 +91,26 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                         val urlToken = json.getString("url_token")
                         val decodeKey = json.getString("decodeKey")
                         clipItems +=
-                            localizedShortVideoString(R.string.shortvideos_protected_link) to
-                                url + urlToken
-                        clipItems +=
-                            localizedShortVideoString(R.string.shortvideos_key) to decodeKey
+                            localizedString(R.string.shortvideos_protected_link) to url + urlToken
+                        clipItems += localizedString(R.string.shortvideos_key) to decodeKey
                     } else {
                         clipItems +=
-                            localizedShortVideoString(R.string.shortvideos_link) to
-                                json.getString("pcdn_url")
+                            localizedString(R.string.shortvideos_link) to json.getString("pcdn_url")
                     }
 
                     copyToClipboard(
                         clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" },
                     )
-                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
+                    showToast(localizedString(R.string.copied_to_clipboard))
 
                     return@MenuItem
                 }
 
-                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
+                showToast(localizedString(R.string.shortvideos_unknown_media_type))
             },
             WeShortVideosShareMenuApi.MenuItem(
                 777007,
-                localizedShortVideoString(R.string.action_download),
+                localizedString(R.string.action_download),
                 DownloadIcon,
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
@@ -152,7 +149,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                     return@MenuItem
                 }
 
-                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
+                showToast(localizedString(R.string.shortvideos_unknown_media_type))
             },
         )
     }
@@ -163,7 +160,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                 val fileName = "image_${System.currentTimeMillis()}.png"
 
                 showToastSuspend(
-                    localizedShortVideoString(
+                    localizedString(
                         R.string.shortvideos_image_download_started,
                         index + 1,
                     ),
@@ -175,7 +172,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                     .onFailure {
                         WeLogger.e(TAG, "failed to download ${index + 1}th image", it)
                         showToastSuspend(
-                            localizedShortVideoString(
+                            localizedString(
                                 R.string.shortvideos_image_download_reported_success,
                                 index + 1,
                             ),
@@ -183,7 +180,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                     }
                     .onSuccess {
                         showToastSuspend(
-                            localizedShortVideoString(
+                            localizedString(
                                 R.string.shortvideos_image_downloaded_to,
                                 fileName,
                             ),
@@ -194,7 +191,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
 
     private suspend fun downloadAndDecryptVideo(decodeKey: String, url: String, urlToken: String) =
         withContext(Dispatchers.IO) {
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_downloading_video))
+            showToastSuspend(localizedString(R.string.shortvideos_downloading_video))
 
             val baseDir = KnownPaths.downloads
             val fileName = "video_${System.currentTimeMillis()}.mp4"
@@ -206,7 +203,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
             runCatching {
                 downloadFile(fullUrl, tempFilePath)
 
-                showToastSuspend(localizedShortVideoString(R.string.shortvideos_decrypting_video))
+                showToastSuspend(localizedString(R.string.shortvideos_decrypting_video))
                 val key = BigInteger(decodeKey)
                 decryptFile(tempFilePath, finalFilePath, key)
 
@@ -215,12 +212,12 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                 .onFailure {
                     WeLogger.e(TAG, "failed to download video", it)
                     showToastSuspend(
-                        localizedShortVideoString(R.string.shortvideos_video_download_failed),
+                        localizedString(R.string.shortvideos_video_download_failed),
                     )
                 }
                 .onSuccess {
                     showToastSuspend(
-                        localizedShortVideoString(
+                        localizedString(
                             R.string.shortvideos_video_downloaded_to,
                             fileName,
                         ),
@@ -230,7 +227,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
 
     private suspend fun downloadPcdnVideo(url: String) =
         withContext(Dispatchers.IO) {
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_started))
+            showToastSuspend(localizedString(R.string.shortvideos_video_download_started))
 
             val fileName = "video_${System.currentTimeMillis()}.mp4"
             runCatching {
@@ -239,12 +236,12 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                 .onFailure {
                     WeLogger.e(TAG, "failed to download video", it)
                     showToastSuspend(
-                        localizedShortVideoString(R.string.shortvideos_video_download_failed),
+                        localizedString(R.string.shortvideos_video_download_failed),
                     )
                 }
                 .onSuccess {
                     showToastSuspend(
-                        localizedShortVideoString(
+                        localizedString(
                             R.string.shortvideos_video_downloaded_to,
                             fileName,
                         ),

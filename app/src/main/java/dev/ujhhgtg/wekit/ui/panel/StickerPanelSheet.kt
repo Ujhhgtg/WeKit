@@ -124,7 +124,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImport
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerImportResult
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerPackRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskTelegramRootClient
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -321,7 +321,7 @@ private fun StickerPanelContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val currentLocalizedContext by rememberUpdatedState(localizedContext)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {

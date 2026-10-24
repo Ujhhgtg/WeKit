@@ -47,7 +47,7 @@ import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -653,7 +653,7 @@ object MonetEngine : ClickableFeature() {
                 mutableStateOf(MonetResolveProgress(MonetResolveStage.LOADING_APKS, "准备分析", 0, 1))
             }
             var failure by remember { mutableStateOf<String?>(null) }
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             LaunchedEffect(Unit) {
                 val live = hostResources()
                 val target = host ?: live

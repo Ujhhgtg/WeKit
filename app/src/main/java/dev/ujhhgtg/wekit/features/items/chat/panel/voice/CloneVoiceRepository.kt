@@ -1,9 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.voice
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.CloneVoice
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
 import dev.ujhhgtg.wekit.utils.fs.asPath
@@ -81,7 +81,7 @@ object CloneVoiceRepository {
     fun select(id: String?): Result<Unit> = runCatching {
         val store = requireStore()
         require(id == null || store.tones.any { it.id == id && voicePath(it).isRegularFile() }) {
-            localizedChatString(R.string.chat_voice_tone_not_found)
+            localizedString(R.string.chat_voice_tone_not_found)
         }
         writeStore(store.copy(selectedId = id.orEmpty()))
     }
@@ -91,10 +91,10 @@ object CloneVoiceRepository {
         runCatching {
             val safeName = name.trim()
             require(safeName.isNotBlank()) {
-                localizedChatString(R.string.chat_voice_tone_name_empty)
+                localizedString(R.string.chat_voice_tone_name_empty)
             }
             if (declaredSize != null && declaredSize > MAX_IMPORT_BYTES) {
-                error(localizedChatString(R.string.chat_voice_tone_max_size))
+                error(localizedString(R.string.chat_voice_tone_max_size))
             }
             val id = UUID.randomUUID().toString().replace("-", "")
             val temporary = PanelPaths.cloneVoiceDir / "$id.part"
@@ -110,21 +110,21 @@ object CloneVoiceRepository {
                             if (count < 0) break
                             total += count
                             if (total > MAX_IMPORT_BYTES) {
-                                error(localizedChatString(R.string.chat_voice_tone_max_size))
+                                error(localizedString(R.string.chat_voice_tone_max_size))
                             }
                             output.write(buffer, 0, count)
                         }
-                        require(total > 0) { localizedChatString(R.string.chat_voice_tone_empty) }
+                        require(total > 0) { localizedString(R.string.chat_voice_tone_empty) }
                     }
                 }
                 val format =
                     MediaFileTypeDetector.detectAudio(temporary)
-                        ?: error(localizedChatString(R.string.chat_voice_tone_unsupported_format))
+                        ?: error(localizedString(R.string.chat_voice_tone_unsupported_format))
                 val fileName = "$id.${format.extension}"
                 destination = PanelPaths.cloneVoiceDir / fileName
                 moveImportedFile(temporary, destination)
                 require(isReadableVoice(destination)) {
-                    localizedChatString(R.string.chat_voice_tone_unreadable)
+                    localizedString(R.string.chat_voice_tone_unreadable)
                 }
                 val clone = CloneVoice(id = id, name = safeName, fileName = fileName)
                 val store = requireStore()
@@ -145,7 +145,7 @@ object CloneVoiceRepository {
     @Synchronized
     fun importBytes(name: String, bytes: ByteArray): Result<CloneVoice> {
         require(bytes.size.toLong() <= MAX_IMPORT_BYTES) {
-            localizedChatString(R.string.chat_voice_tone_max_size)
+            localizedString(R.string.chat_voice_tone_max_size)
         }
         return import(name, bytes.inputStream(), bytes.size.toLong())
     }

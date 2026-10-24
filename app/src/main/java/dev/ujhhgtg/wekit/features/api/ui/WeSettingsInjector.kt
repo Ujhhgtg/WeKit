@@ -27,10 +27,7 @@ import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
 import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -242,15 +239,9 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
                     val prefInstance = IconPreference(context)
 
                     methodSetKey.method.invoke(prefInstance, PREFS_KEY)
-                    val localizedContext =
-                        LocalizedContextFactory.create(
-                            context,
-                            WeKitLocaleController.resolvedLocale,
-                            LocaleResourceMode.InjectedHost,
-                        )
                     methodSetTitle.method.invoke(
                         prefInstance,
-                        localizedContext.getString(R.string.noncompose_wekit_settings_entry),
+                        localizedString(R.string.noncompose_wekit_settings_entry),
                     )
 
                     val prefScreen =
@@ -370,21 +361,11 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
         settingsManager.createItem {
             key = "SettingGroup_Main_WeKitTest1"
             titleProvider = {
-                LocalizedContextFactory.create(
-                        HostInfo.application,
-                        WeKitLocaleController.resolvedLocale,
-                        LocaleResourceMode.InjectedHost,
-                    )
-                    .getString(R.string.noncompose_wekit_settings_entry)
+                localizedString(R.string.noncompose_wekit_settings_entry)
             }
             level = 1
             groupTitleProvider = {
-                LocalizedContextFactory.create(
-                        HostInfo.application,
-                        WeKitLocaleController.resolvedLocale,
-                        LocaleResourceMode.InjectedHost,
-                    )
-                    .getString(R.string.noncompose_wekit_settings_group)
+                localizedString(R.string.noncompose_wekit_settings_group)
             }
             pageClass = SettingGroupMain::class.java
             parentClass = SettingAdditionHeaderSearch::class.java

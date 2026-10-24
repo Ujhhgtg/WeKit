@@ -40,6 +40,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -157,7 +158,7 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
                             copyToClipboard(context, url.toString())
                             showToast(
                                 context,
-                                context.localizedSystemString(R.string.system_link_copied),
+                                context.localizedString(R.string.system_link_copied),
                             )
                             onDismiss()
                         },

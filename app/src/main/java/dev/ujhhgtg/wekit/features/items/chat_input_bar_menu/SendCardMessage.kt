@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object SendCardMessage : SwitchFeature() {
@@ -22,7 +23,7 @@ object SendCardMessage : SwitchFeature() {
             WeChatInputBarMenuApi.ActionItem(
                 id = "send_card_message",
                 icon = MaterialSymbols.Outlined.Send_time_extension,
-                label = localizedChatInputString(R.string.feature_send_card_message_name),
+                label = localizedString(R.string.feature_send_card_message_name),
                 onClick = { context, chatFooter ->
                     val currentConv = WeCurrentConversationApi.value
                     val content = chatFooter.lastText
@@ -30,7 +31,7 @@ object SendCardMessage : SwitchFeature() {
                     if (content.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatInputString(
+                            context.localizedString(
                                 R.string.send_card_message_input_empty,
                             ),
                         )
@@ -41,7 +42,7 @@ object SendCardMessage : SwitchFeature() {
                     if (!isSuccess) {
                         showToast(
                             context,
-                            context.localizedChatInputString(R.string.send_card_message_failed),
+                            context.localizedString(R.string.send_card_message_failed),
                         )
                         return@ActionItem
                     }

@@ -1,11 +1,8 @@
 package dev.ujhhgtg.wekit.features.automation
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.SECONDS_PER_DAY
-import dev.ujhhgtg.wekit.utils.HostInfo
 import java.util.Calendar
 import kotlin.random.Random
 
@@ -93,7 +90,7 @@ data class AutomationKeywordRule(
             AutomationKeywordMode.STRING_LIST,
             AutomationKeywordMode.EXACT -> {
                 if (strings.none(String::isNotBlank)) {
-                    localizedAutomationString(R.string.automation_keyword_list_required, label)
+                    localizedString(R.string.automation_keyword_list_required, label)
                 } else {
                     null
                 }
@@ -102,11 +99,11 @@ data class AutomationKeywordRule(
             AutomationKeywordMode.REGEX -> {
                 when {
                     regex.isBlank() -> {
-                        localizedAutomationString(R.string.automation_regex_required, label)
+                        localizedString(R.string.automation_regex_required, label)
                     }
 
                     runCatching { Regex(regex) }.isFailure -> {
-                        localizedAutomationString(
+                        localizedString(
                             R.string.automation_regex_invalid_for_label,
                             label,
                         )
@@ -139,10 +136,10 @@ data class AutomationDelayRule(
     fun validationError(): String? {
         if (!enabled) return null
         if (baseMs.toLongOrNull() == null) {
-            return localizedAutomationString(R.string.automation_invalid_base_delay)
+            return localizedString(R.string.automation_invalid_base_delay)
         }
         if (randomRangeMs.toLongOrNull() == null) {
-            return localizedAutomationString(R.string.automation_invalid_random_delay)
+            return localizedString(R.string.automation_invalid_random_delay)
         }
         return null
     }
@@ -241,11 +238,3 @@ data class AutomationTargetRule(
         }
     }
 }
-
-fun localizedAutomationString(resourceId: Int, vararg formatArgs: Any): String =
-    LocalizedContextFactory.create(
-            HostInfo.application,
-            WeKitLocaleController.resolvedLocale,
-            LocaleResourceMode.InjectedHost,
-        )
-        .getString(resourceId, *formatArgs)

@@ -83,7 +83,7 @@ import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -242,7 +242,7 @@ private fun parseCrashLog(text: String): List<CrashSection> {
  * runs inside the host process. Falls back to sharing the file's text inline if the provider
  * throws.
  */
-private fun shareLogFile(context: Context, localizedContext: Context, file: Path) {
+private fun shareLogFile(context: Context, file: Path) {
     val f = file.toFile()
     val authority = "${HostInfo.packageName}.external.fileprovider"
     val sendIntent = runCatching {
@@ -265,7 +265,7 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
     val chooser =
         Intent.createChooser(
                 sendIntent,
-                localizedContext.getString(R.string.logs_share_chooser),
+                localizedString(R.string.logs_share_chooser),
             )
             .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
     runCatching { context.startActivity(chooser) }
@@ -276,7 +276,7 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
  * Opens the system document creator so the user can save a copy of [file] wherever they choose,
  * mirroring the config-export flow in SettingsActivity.
  */
-private fun saveLogFile(context: Context, localizedContext: () -> Context, file: Path) {
+private fun saveLogFile(context: Context, file: Path) {
     TransparentActivity.launch(context) {
         val launcher =
             registerForActivityResult(
@@ -294,14 +294,10 @@ private fun saveLogFile(context: Context, localizedContext: () -> Context, file:
                     }
                         .onFailure {
                             WeLogger.e(LOGS_TAG, "failed to save log", it)
-                            showToastSuspend(
-                                localizedContext().getString(R.string.logs_save_failed),
-                            )
+                            showToastSuspend(localizedString(R.string.logs_save_failed))
                         }
                         .onSuccess {
-                            showToastSuspend(
-                                localizedContext().getString(R.string.logs_save_success),
-                            )
+                            showToastSuspend(localizedString(R.string.logs_save_success))
                         }
                     withContext(Dispatchers.Main) { finish() }
                 }
@@ -323,7 +319,6 @@ private val LOG_TABS = listOf(LogKind.RUN, LogKind.CRASH)
 @Composable
 fun LogsPager() {
     val context = LocalComponentActivity.current
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -370,12 +365,10 @@ fun LogsPager() {
                     actions = {
                         IconButton(
                             onClick = {
-                                currentFile?.let { shareLogFile(context, localizedContext, it) }
+                                currentFile?.let { shareLogFile(context, it) }
                                     ?: scope.launch {
                                         showToastSuspend(
-                                            localizedContext.getString(
-                                                R.string.logs_nothing_to_share,
-                                            ),
+                                            localizedString(R.string.logs_nothing_to_share),
                                         )
                                     }
                             },
@@ -387,12 +380,10 @@ fun LogsPager() {
                         }
                         IconButton(
                             onClick = {
-                                currentFile?.let { saveLogFile(context, { localizedContext }, it) }
+                                currentFile?.let { saveLogFile(context, it) }
                                     ?: scope.launch {
                                         showToastSuspend(
-                                            localizedContext.getString(
-                                                R.string.logs_nothing_to_save,
-                                            ),
+                                            localizedString(R.string.logs_nothing_to_save),
                                         )
                                     }
                             },
@@ -515,7 +506,6 @@ private fun LogTabContent(
     onRefreshFinished: (LogRefreshRequest) -> Unit,
     onCurrentFileChange: (Path?) -> Unit,
 ) {
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val pullToRefreshState = rememberPullToRefreshState()
     // Files available for this tab, newest first.
     var files by remember(kind) { mutableStateOf<List<Path>>(emptyList()) }
@@ -561,7 +551,7 @@ private fun LogTabContent(
                 runEntries = emptyList()
                 crashSections = emptyList()
             } else {
-                val text = withContext(Dispatchers.IO) { readLog(localizedContext, selectedFile) }
+                val text = withContext(Dispatchers.IO) { readLog(selectedFile) }
                 when (kind) {
                     LogKind.RUN ->
                         runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
@@ -745,10 +735,10 @@ private fun LogScrollButtons(
 }
 
 /** Reads the full log file (modern devices handle multi-MB logs fine). */
-private fun readLog(context: Context, file: Path): String = runCatching {
+private fun readLog(file: Path): String = runCatching {
     file.readText()
 }
-    .getOrElse { context.getString(R.string.logs_read_failed, it.message.orEmpty()) }
+    .getOrElse { localizedString(R.string.logs_read_failed, it.message.orEmpty()) }
 
 // ---------------------------------------------------------------------------
 //  File selector + cards + empty state

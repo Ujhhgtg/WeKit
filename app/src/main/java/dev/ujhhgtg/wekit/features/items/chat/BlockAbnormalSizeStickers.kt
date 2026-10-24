@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
@@ -30,7 +31,7 @@ object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
 
                 // If raw pixel data size (width * height * 4 bytes per pixel) exceeds 50MB
                 if (width.toLong() * height.toLong() * 4L > 52_428_800L) {
-                    showToast(localizedChatString(R.string.chat_abnormal_sticker_blocked))
+                    showToast(localizedString(R.string.chat_abnormal_sticker_blocked))
 
                     // Patch the dimensions down to a safe 32x32 stub to prevent OOM/Exploits
                     inputBytes[7] = 0.toByte()

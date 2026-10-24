@@ -9,8 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.agent.settings.ExternalServicesScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentDetailScreen
 import dev.ujhhgtg.wekit.ui.agent.settings.LinuxEnvironmentsScreen
@@ -55,7 +54,7 @@ class WeAgentSettingsActivity : ComponentActivity() {
         WeAgentService.init()
 
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 val dark = ThemeSettings.themeMode.resolve()
                 ModuleTheme(darkTheme = dark) {
                     WeAgentSettingsRoot(onFinish = { finish() })

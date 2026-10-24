@@ -35,7 +35,7 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Delete
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
-import dev.ujhhgtg.wekit.features.items.contacts.localizedContactsQuantity
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -372,7 +372,7 @@ fun HideContacts.showSchedulesDialog(context: Context) {
                             )
                             showToast(
                                 context,
-                                localizedContactsQuantity(
+                                localizedQuantity(
                                     R.plurals.contacts_schedule_dropped,
                                     dropped.size,
                                     dropped.size,

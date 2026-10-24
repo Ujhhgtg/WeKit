@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
 import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.Locale
@@ -202,7 +202,7 @@ fun rememberContactSelectorState(
     sortLocale: Locale = Locale.CHINA,
 ): ContactSelectorState {
     val context = LocalContext.current
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     val coroutineScope = rememberCoroutineScope()
     val state = remember {
         ContactSelectorState(coroutineScope) { res: Int ->

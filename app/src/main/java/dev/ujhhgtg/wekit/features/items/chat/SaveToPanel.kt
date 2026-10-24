@@ -14,6 +14,8 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerPanelRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoicePanelRepository
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.panel.PanelPackChoice
 import dev.ujhhgtg.wekit.ui.panel.showPanelPackPicker
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
@@ -47,7 +49,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 id = 777024,
-                text = localizedChatString(R.string.chat_save_to_panel_menu),
+                text = localizedString(R.string.chat_save_to_panel_menu),
                 drawable = DownloadIcon,
                 imageVector = MaterialSymbols.Outlined.Download,
                 isSupported = ::isSupportedMessage,
@@ -103,15 +105,15 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             showPanelPackPicker(
                 context = pending.context,
                 title =
-                    pending.context.localizedChatString(
+                    pending.context.localizedString(
                         R.string.chat_save_to_panel_select_sticker_pack,
                     ),
                 createLabel =
-                    pending.context.localizedChatString(
+                    pending.context.localizedString(
                         R.string.chat_save_to_panel_new_sticker_pack,
                     ),
                 itemCountLabel = {
-                    pending.context.localizedChatQuantity(
+                    pending.context.localizedQuantity(
                         R.plurals.chat_save_to_panel_sticker_count,
                         it,
                         it,
@@ -139,13 +141,13 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             showPanelPackPicker(
                 context = pending.context,
                 title =
-                    pending.context.localizedChatString(
+                    pending.context.localizedString(
                         R.string.chat_save_to_panel_select_voice_pack,
                     ),
                 createLabel =
-                    pending.context.localizedChatString(R.string.chat_save_to_panel_new_voice_pack),
+                    pending.context.localizedString(R.string.chat_save_to_panel_new_voice_pack),
                 itemCountLabel = {
-                    pending.context.localizedChatQuantity(
+                    pending.context.localizedQuantity(
                         R.plurals.chat_save_to_panel_voice_count,
                         it,
                         it,
@@ -192,30 +194,30 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         if (pending.messages.size == 1) {
             return when {
                 succeeded == 1 && pending.stickerPackId != null -> {
-                    pending.context.localizedChatString(
+                    pending.context.localizedString(
                         R.string.chat_save_to_panel_sticker_success,
                         pending.stickerPackId!!,
                     )
                 }
 
                 succeeded == 1 && pending.voicePackId != null -> {
-                    pending.context.localizedChatString(
+                    pending.context.localizedString(
                         R.string.chat_save_to_panel_voice_success,
                         pending.voicePackId!!,
                     )
                 }
 
                 pending.stickerMessages.isNotEmpty() -> {
-                    pending.context.localizedChatString(R.string.chat_sticker_save_failed)
+                    pending.context.localizedString(R.string.chat_sticker_save_failed)
                 }
 
                 else -> {
-                    pending.context.localizedChatString(R.string.chat_voice_save_failed)
+                    pending.context.localizedString(R.string.chat_voice_save_failed)
                 }
             }
         }
         if (pending.stickerMessages.isNotEmpty() && pending.voiceMessages.isNotEmpty()) {
-            return pending.context.localizedChatQuantity(
+            return pending.context.localizedQuantity(
                 R.plurals.chat_save_to_panel_messages_result,
                 pending.messages.size,
                 succeeded,
@@ -223,7 +225,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             )
         }
         return if (pending.stickerMessages.isNotEmpty()) {
-            pending.context.localizedChatQuantity(
+            pending.context.localizedQuantity(
                 R.plurals.chat_save_to_panel_stickers_result,
                 pending.messages.size,
                 succeeded,
@@ -231,7 +233,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
                 pending.stickerPackId!!,
             )
         } else {
-            pending.context.localizedChatQuantity(
+            pending.context.localizedQuantity(
                 R.plurals.chat_save_to_panel_voices_result,
                 pending.messages.size,
                 succeeded,

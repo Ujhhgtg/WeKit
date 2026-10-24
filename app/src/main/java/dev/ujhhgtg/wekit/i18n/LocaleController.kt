@@ -19,9 +19,8 @@ import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.data.KvStore
 import java.util.Locale
 
-object WeKitLocaleController : ComponentCallbacks {
+object LocaleController : ComponentCallbacks {
     private var initialized = false
-    private var hostPreferencesAvailable = false
     private lateinit var application: Application
     private var systemLocales by mutableStateOf(emptyList<Locale>())
 
@@ -38,26 +37,11 @@ object WeKitLocaleController : ComponentCallbacks {
             }
         }
 
-    /** The standalone module UID cannot access MMKV initialized inside WeChat's UID. */
-    fun initializeModuleProcess(application: Application) {
-        initialize(application, useHostPreferences = false)
-    }
-
-    /** Called only after the injected host process has initialized its MMKV storage. */
-    fun initializeInjectedHost(application: Application) {
-        initialize(application, useHostPreferences = true)
-    }
-
-    private fun initialize(application: Application, useHostPreferences: Boolean) {
+    /** Called once the injected host process has initialized its storage. */
+    fun initialize(application: Application) {
         if (initialized) return
         this.application = application
-        hostPreferencesAvailable = useHostPreferences
-        selection =
-            if (useHostPreferences) {
-                LanguageSelection.fromStored(KvStore.getString(Preferences.UI_LANGUAGE))
-            } else {
-                LanguageSelection.SYSTEM
-            }
+        selection = LanguageSelection.fromStored(KvStore.getString(Preferences.UI_LANGUAGE))
         refreshSystemLocales()
         application.registerComponentCallbacks(this)
         ContextCompat.registerReceiver(
@@ -70,9 +54,7 @@ object WeKitLocaleController : ComponentCallbacks {
     }
 
     fun updateSelection(value: LanguageSelection) {
-        if (hostPreferencesAvailable) {
-            KvStore.putString(Preferences.UI_LANGUAGE, value.storedValue)
-        }
+        KvStore.putString(Preferences.UI_LANGUAGE, value.storedValue)
         selection = value
     }
 

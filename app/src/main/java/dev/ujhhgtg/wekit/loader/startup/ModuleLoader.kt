@@ -7,7 +7,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.FeaturesLoader
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocaleController
 import dev.ujhhgtg.wekit.loader.api.PayloadEnvironment
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
@@ -76,7 +76,7 @@ object ModuleLoader {
 
         val appContext = context.applicationContext ?: context
         ResourcesInjector.injectModuleRes(appContext.resources)
-        WeKitLocaleController.initializeInjectedHost(HostInfo.application)
+        LocaleController.initialize(HostInfo.application)
 
         if (TargetProcesses.isInMain) {
             ActivityProxy.init(appContext)

@@ -14,7 +14,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTargetRule
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.choiceEditor
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
 import dev.ujhhgtg.wekit.ui.automation.limitEditor
@@ -177,15 +177,13 @@ object AutoReplyAutomation : AutomationSpec("AUTO_REPLY") {
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
         if (validates(keyIds, keyword)) {
-            rules[keyword]
-                .validationError(localizedAutomationString(R.string.auto_reply_keyword))
-                ?.let {
-                    return it
-                }
+            rules[keyword].validationError(localizedString(R.string.auto_reply_keyword))?.let {
+                return it
+            }
         }
         if (validates(keyIds, excludeKeyword)) {
             rules[excludeKeyword]
-                .validationError(localizedAutomationString(R.string.auto_reply_exclude_keyword))
+                .validationError(localizedString(R.string.auto_reply_exclude_keyword))
                 ?.let {
                     return it
                 }

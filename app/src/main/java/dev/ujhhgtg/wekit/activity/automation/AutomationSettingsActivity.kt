@@ -15,8 +15,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationScope
 import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationSpecs
 import dev.ujhhgtg.wekit.features.automation.AutomationStoredScope
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.ui.animation.predictiveback.weKitNavTransition
 import dev.ujhhgtg.wekit.ui.automation.AutomationEditorContext
 import dev.ujhhgtg.wekit.ui.automation.AutomationHomeScreen
@@ -52,7 +51,7 @@ class AutomationSettingsActivity : ComponentActivity() {
         val spec = AutomationSpecs.byId(intent.getStringExtra(EXTRA_FEATURE)!!)
 
         setContent {
-            WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+            LocaleProvider {
                 val dark = ThemeSettings.themeMode.resolve()
                 ModuleTheme(darkTheme = dark) {
                     AutomationSettingsRoot(spec, activity = this, onFinish = { finish() })

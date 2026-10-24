@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -85,7 +86,7 @@ object SendPacket : ClickableFeature() {
                             if (uri.isEmpty()) {
                                 showToast(
                                     context,
-                                    context.localizedDebugString(
+                                    context.localizedString(
                                         R.string.debug_send_packet_uri_required,
                                     ),
                                 )
@@ -95,7 +96,7 @@ object SendPacket : ClickableFeature() {
                             if (cmdId == null || funcId == null || routeId == null) {
                                 showToast(
                                     context,
-                                    context.localizedDebugString(
+                                    context.localizedString(
                                         R.string.debug_send_packet_integer_ids_required,
                                     ),
                                 )

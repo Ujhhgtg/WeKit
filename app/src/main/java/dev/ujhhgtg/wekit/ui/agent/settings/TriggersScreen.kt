@@ -42,7 +42,7 @@ import dev.ujhhgtg.wekit.agent.trigger.TriggerConditions
 import dev.ujhhgtg.wekit.agent.trigger.TriggerConditionsJson
 import dev.ujhhgtg.wekit.agent.trigger.TriggerScope
 import dev.ujhhgtg.wekit.agent.trigger.TriggerType
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TriggersScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     val triggers by remember {
         WeAgentRepository.observeTriggers()
     }

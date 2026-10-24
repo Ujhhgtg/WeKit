@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 
 @Suppress("DEPRECATION")
@@ -103,7 +104,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777009,
-                localizedMomentsString(R.string.moments_forward_messages_menu),
+                localizedString(R.string.moments_forward_messages_menu),
                 CameraIcon,
                 MaterialSymbols.Outlined.Camera,
                 isSupported = { it.type in SUPPORTED_MSG_TYPES },

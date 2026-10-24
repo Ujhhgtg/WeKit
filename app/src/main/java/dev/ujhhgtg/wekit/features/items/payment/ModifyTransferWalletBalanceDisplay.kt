@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -90,12 +91,12 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                 if (value == "CFT" && customCft != null) {
                     updateBalanceText(
                         obj,
-                        localizedPaymentString(R.string.payment_transfer_wallet_balance, customCft),
+                        localizedString(R.string.payment_transfer_wallet_balance, customCft),
                     )
                 } else if (value == "LQT" && customLqt != null) {
                     updateBalanceText(
                         obj,
-                        localizedPaymentString(R.string.payment_transfer_wealth_balance, customLqt),
+                        localizedString(R.string.payment_transfer_wealth_balance, customLqt),
                     )
                 }
             }

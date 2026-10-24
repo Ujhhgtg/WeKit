@@ -11,7 +11,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -59,21 +60,21 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                 val pattern =
                     when {
                         localDate == today -> {
-                            localizedPaymentString(R.string.payment_red_packet_date_today)
+                            localizedString(R.string.payment_red_packet_date_today)
                         }
 
                         localDate.year == today.year -> {
-                            localizedPaymentString(R.string.payment_red_packet_date_same_year)
+                            localizedString(R.string.payment_red_packet_date_same_year)
                         }
 
                         else -> {
-                            localizedPaymentString(R.string.payment_red_packet_date_other_year)
+                            localizedString(R.string.payment_red_packet_date_other_year)
                         }
                     }
                 val formatter =
                     DateTimeFormatter.ofPattern(
                         pattern,
-                        Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag),
+                        Locale.forLanguageTag(LocaleController.resolvedLocale.androidTag),
                     )
                 textView.text = localDateTime.format(formatter)
             }
@@ -145,7 +146,7 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
         val sb = StringBuilder()
         sb.append(
-                localizedPaymentString(
+                localizedString(
                     R.string.payment_red_packet_amount_details,
                     recAmount / 100.0,
                     totalAmount / 100.0,
@@ -153,13 +154,13 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
             )
             .append('\n')
         sb.append(
-                localizedPaymentString(R.string.payment_red_packet_count_details, recNum, totalNum),
+                localizedString(R.string.payment_red_packet_count_details, recNum, totalNum),
             )
             .append('\n')
 
         val remaining = (totalAmount - recAmount) / 100.0
         if (remaining > 0.0) {
-            sb.append(localizedPaymentString(R.string.payment_red_packet_remaining, remaining))
+            sb.append(localizedString(R.string.payment_red_packet_remaining, remaining))
                 .append('\n')
         }
 

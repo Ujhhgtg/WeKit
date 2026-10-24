@@ -36,8 +36,8 @@ import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleController
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -63,8 +63,8 @@ private fun featureChecked(item: BaseFeature): Boolean {
 
 @Composable
 fun FeaturesPager(onOpenCategory: (String) -> Unit) {
-    val context = LocalWeKitLocalizedContext.current
-    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val context = LocalLocalizedContext.current
+    val resolvedLocale = LocaleController.resolvedLocale
     val revision = FeatureCategoryState.revision
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
@@ -240,8 +240,8 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
 
 @Composable
 fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
-    val context = LocalWeKitLocalizedContext.current
-    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val context = LocalLocalizedContext.current
+    val resolvedLocale = LocaleController.resolvedLocale
     val revision = FeatureCategoryState.revision
     val featureNameCollator =
         remember(resolvedLocale) {

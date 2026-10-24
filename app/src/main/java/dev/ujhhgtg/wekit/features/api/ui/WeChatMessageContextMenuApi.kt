@@ -32,7 +32,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.MergeChatMessageContextMenuItems
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -542,7 +542,7 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
         if (adaptedRows.isEmpty() && autoRows.isEmpty()) {
             showToast(
                 view.context,
-                view.context.localizedChatString(R.string.noncompose_message_menu_no_actions),
+                view.context.localizedString(R.string.noncompose_message_menu_no_actions),
             )
             return
         }

@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.chat.panel.sticker
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelPaths
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.TelegramStickerConverter
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.moveReplacing
@@ -92,7 +92,7 @@ object TelegramStickerPackRepository {
             try {
                 val token = PanelSettings.telegramBotToken.trim()
                 require(PanelSettings.isValidTelegramBotToken(token)) {
-                    localizedChatString(R.string.chat_telegram_token_invalid)
+                    localizedString(R.string.chat_telegram_token_invalid)
                 }
                 val removeRoundedVideoMask = PanelSettings.stickerRemoveRoundedVideoMask
                 val tgsGifFrameRate =
@@ -105,12 +105,12 @@ object TelegramStickerPackRepository {
                 val requestedName =
                     extractStickerSetName(value)
                         ?: throw IllegalArgumentException(
-                            localizedChatString(R.string.chat_telegram_pack_name_invalid),
+                            localizedString(R.string.chat_telegram_pack_name_invalid),
                         )
                 val stickerSet = TelegramStickerApiClient.getStickerSet(token, requestedName)
                 val stickers = stickerSet.stickers.distinctBy(TelegramSticker::fileUniqueId)
                 require(stickers.isNotEmpty()) {
-                    localizedChatString(R.string.chat_telegram_pack_empty)
+                    localizedString(R.string.chat_telegram_pack_empty)
                 }
 
                 val stagingDir =
@@ -194,7 +194,7 @@ object TelegramStickerPackRepository {
                                     val remoteFile =
                                         TelegramStickerApiClient.getFile(token, sticker.fileId)
                                     require(remoteFile.fileUniqueId == sticker.fileUniqueId) {
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_telegram_file_identity_mismatch,
                                         )
                                     }
@@ -262,7 +262,7 @@ object TelegramStickerPackRepository {
                                         require(
                                             rawPath.isRegularFile() && rawPath.fileSize() > 0L,
                                         ) {
-                                            localizedChatString(
+                                            localizedString(
                                                 R.string.chat_telegram_sticker_unreadable,
                                             )
                                         }
@@ -377,9 +377,9 @@ object TelegramStickerPackRepository {
                 if (importedCount + unchangedCount == 0) {
                     val first =
                         failures.values.firstOrNull()
-                            ?: localizedChatString(R.string.chat_telegram_no_importable_stickers)
+                            ?: localizedString(R.string.chat_telegram_no_importable_stickers)
                     throw IllegalStateException(
-                        localizedChatString(R.string.chat_telegram_pack_import_failed, first),
+                        localizedString(R.string.chat_telegram_pack_import_failed, first),
                     )
                 }
                 Result.success(
@@ -480,7 +480,7 @@ object TelegramStickerPackRepository {
                 return it
             }
         }
-        error(localizedChatString(R.string.chat_telegram_local_pack_create_failed))
+        error(localizedString(R.string.chat_telegram_local_pack_create_failed))
     }
 
     @Synchronized

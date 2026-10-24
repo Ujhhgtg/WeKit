@@ -10,6 +10,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -40,14 +42,14 @@ object BatchDeleteFriends : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_delete_friends_select),
+                title = context.localizedString(R.string.batch_delete_friends_select),
                 contacts = friends,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
                         showToast(
-                            context.localizedBatchString(R.string.batch_select_at_least_one_friend),
+                            context.localizedString(R.string.batch_select_at_least_one_friend),
                         )
                         return@ContactsSelector
                     }
@@ -100,7 +102,7 @@ object BatchDeleteFriends : ClickableFeature() {
     private fun deleteFriends(wxIds: Set<String>, mode: WeContactApi.DeleteMode) {
         CoroutineScope(Dispatchers.IO).launch {
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     R.plurals.batch_delete_friends_progress,
                     wxIds.size,
                     wxIds.size,
@@ -115,7 +117,7 @@ object BatchDeleteFriends : ClickableFeature() {
             }
 
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     if (success == wxIds.size) {
                         R.plurals.batch_delete_friends_done
                     } else {

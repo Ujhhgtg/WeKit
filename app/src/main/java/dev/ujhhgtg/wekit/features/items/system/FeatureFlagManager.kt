@@ -54,6 +54,7 @@ import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
 import dev.ujhhgtg.wekit.dexkit.withDexSql
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -570,7 +571,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             Modifier.clickable {
                                 if (runtimeKey == null) {
                                     showToast(
-                                        localizedSystemString(
+                                        localizedString(
                                             R.string.system_feature_flags_key_unavailable,
                                         ),
                                     )
@@ -699,7 +700,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                     onClick = {
                         if (overrides[runtimeKey] == null) {
                             showToast(
-                                localizedSystemString(
+                                localizedString(
                                     R.string.system_feature_flags_override_not_found,
                                 ),
                             )
@@ -737,7 +738,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                     val v = rawValueStr.toIntOrNull()
                                     if (v == null) {
                                         showToast(
-                                            localizedSystemString(
+                                            localizedString(
                                                 R.string.system_feature_flags_invalid_value,
                                             ),
                                         )
@@ -751,7 +752,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                     val v = rawValueStr.toLongOrNull()
                                     if (v == null) {
                                         showToast(
-                                            localizedSystemString(
+                                            localizedString(
                                                 R.string.system_feature_flags_invalid_value,
                                             ),
                                         )
@@ -765,7 +766,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                     val v = rawValueStr.toFloatOrNull()
                                     if (v == null) {
                                         showToast(
-                                            localizedSystemString(
+                                            localizedString(
                                                 R.string.system_feature_flags_invalid_value,
                                             ),
                                         )
@@ -776,7 +777,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
                                 else -> {
                                     showToast(
-                                        localizedSystemString(
+                                        localizedString(
                                             R.string.system_feature_flags_invalid_type,
                                         ),
                                     )

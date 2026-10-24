@@ -31,6 +31,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyConversationList
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -459,19 +460,19 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         // revealed).
         // 删除 is last and drawn on top so it can expand to cover others on over-drag.
         val pin =
-            button(context.localizedChatString(R.string.chat_conversation_pin), COLOR_PIN) {
+            button(context.localizedString(R.string.chat_conversation_pin), COLOR_PIN) {
                 onAction(s, Action.PIN)
             }
         val mute =
-            button(context.localizedChatString(R.string.chat_conversation_mute), COLOR_MUTE) {
+            button(context.localizedString(R.string.chat_conversation_mute), COLOR_MUTE) {
                 onAction(s, Action.MUTE)
             }
         val hide =
-            button(context.localizedChatString(R.string.chat_conversation_hide), COLOR_HIDE) {
+            button(context.localizedString(R.string.chat_conversation_hide), COLOR_HIDE) {
                 onAction(s, Action.HIDE)
             }
         val del =
-            button(context.localizedChatString(R.string.action_delete), COLOR_DELETE) {
+            button(context.localizedString(R.string.action_delete), COLOR_DELETE) {
                 onAction(s, Action.DELETE, context)
             }
 
@@ -624,7 +625,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                         s.isPinned = WeConversationApi.isPinned(talker)
                         s.isDnd = WeConversationApi.isDnd(talker)
                         (s.pinBtn as? TextView)?.text =
-                            localizedChatString(
+                            localizedString(
                                 if (s.isPinned) {
                                     R.string.chat_conversation_unpin
                                 } else {
@@ -632,7 +633,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                                 },
                             )
                         (s.muteBtn as? TextView)?.text =
-                            localizedChatString(
+                            localizedString(
                                 if (s.isDnd) {
                                     R.string.chat_conversation_unmute
                                 } else {
@@ -779,7 +780,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                                         onDismiss()
                                         WeConversationApi.deleteConversation(talker, conversation)
                                         showToast(
-                                            localizedChatString(R.string.chat_conversation_deleted),
+                                            localizedString(R.string.chat_conversation_deleted),
                                         )
                                     },
                                 ) {
@@ -797,7 +798,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
 
                 Action.HIDE -> {
                     WeConversationApi.hideConversation(talker)
-                    showToast(localizedChatString(R.string.chat_conversation_hidden))
+                    showToast(localizedString(R.string.chat_conversation_hidden))
                     settleClosed(s)
                     if (openState === s) openState = null
                 }
@@ -806,7 +807,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     val newTop = !s.isPinned
                     WeConversationApi.setPinned(talker, newTop)
                     showToast(
-                        localizedChatString(
+                        localizedString(
                             if (newTop) {
                                 R.string.chat_conversation_pinned
                             } else {
@@ -816,7 +817,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     )
                     s.isPinned = newTop
                     (s.pinBtn as? TextView)?.text =
-                        localizedChatString(
+                        localizedString(
                             if (newTop) {
                                 R.string.chat_conversation_unpin
                             } else {
@@ -831,7 +832,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     val newMute = !s.isDnd
                     WeConversationApi.setDnd(talker, newMute)
                     showToast(
-                        localizedChatString(
+                        localizedString(
                             if (newMute) {
                                 R.string.chat_conversation_muted
                             } else {
@@ -841,7 +842,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     )
                     s.isDnd = newMute
                     (s.muteBtn as? TextView)?.text =
-                        localizedChatString(
+                        localizedString(
                             if (newMute) {
                                 R.string.chat_conversation_unmute
                             } else {

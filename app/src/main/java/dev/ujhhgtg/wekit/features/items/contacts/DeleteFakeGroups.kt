@@ -11,6 +11,8 @@ import dev.ujhhgtg.wekit.features.api.core.models.WeGroup
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.contacts.DeleteFakeGroups.isFakeGroup
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -34,14 +36,14 @@ object DeleteFakeGroups : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         val fakeGroups = getFakeGroups()
         if (fakeGroups.isEmpty()) {
-            showToast(localizedContactsString(R.string.contacts_delete_fake_none))
+            showToast(localizedString(R.string.contacts_delete_fake_none))
             return
         }
 
         showComposeDialog(context) {
             ContactsSelector(
                 title =
-                    context.localizedContactsQuantity(
+                    context.localizedQuantity(
                         R.plurals.contacts_delete_fake_select_title,
                         fakeGroups.size,
                         fakeGroups.size,
@@ -51,7 +53,7 @@ object DeleteFakeGroups : ClickableFeature() {
                 onDismiss = onDismiss,
                 onConfirm = { selectedIds ->
                     if (selectedIds.isEmpty()) {
-                        showToast(localizedContactsString(R.string.contacts_delete_fake_select_one))
+                        showToast(localizedString(R.string.contacts_delete_fake_select_one))
                         return@ContactsSelector
                     }
                     onDismiss()
@@ -92,7 +94,7 @@ object DeleteFakeGroups : ClickableFeature() {
                                 )
                                 postOnUiThread {
                                     showToast(
-                                        localizedContactsQuantity(
+                                        localizedQuantity(
                                             R.plurals.contacts_delete_fake_done,
                                             selectedIds.size,
                                             selectedIds.size,

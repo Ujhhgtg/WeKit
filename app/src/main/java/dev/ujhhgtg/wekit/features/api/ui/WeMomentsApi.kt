@@ -32,7 +32,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.moments.localizedMomentsString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -2267,7 +2267,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 bigPath
             } else {
                 if (warnOnThumb) {
-                    showToast(localizedMomentsString(R.string.noncompose_moments_thumbnail_warning))
+                    showToast(localizedString(R.string.noncompose_moments_thumbnail_warning))
                 }
                 val thumbPath = resolveThumbImagePath(media, nativeMedia)
                 if (thumbPath != null && vfsFileExists(thumbPath)) thumbPath else null

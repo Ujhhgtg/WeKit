@@ -19,6 +19,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -117,7 +119,7 @@ object MassSendMessage : ClickableFeature() {
                     onClick = {
                         if (text.isBlank()) {
                             showToast(
-                                context.localizedBatchString(
+                                context.localizedString(
                                     R.string.batch_mass_send_enter_content,
                                 ),
                             )
@@ -142,14 +144,14 @@ object MassSendMessage : ClickableFeature() {
     ) {
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_mass_send_select_title),
+                title = context.localizedString(R.string.batch_mass_send_select_title),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
                         showToast(
-                            context.localizedBatchString(
+                            context.localizedString(
                                 R.string.batch_mass_send_select_at_least_one,
                             ),
                         )
@@ -166,7 +168,7 @@ object MassSendMessage : ClickableFeature() {
     private fun sendToAll(wxIds: Set<String>, mode: SendMode, text: String) {
         CoroutineScope(Dispatchers.IO).launch {
             showToastSuspend(
-                localizedBatchQuantity(R.plurals.batch_mass_send_progress, wxIds.size, wxIds.size),
+                localizedQuantity(R.plurals.batch_mass_send_progress, wxIds.size, wxIds.size),
             )
 
             var success = 0
@@ -186,7 +188,7 @@ object MassSendMessage : ClickableFeature() {
             }
 
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     if (success == wxIds.size) {
                         R.plurals.batch_mass_send_done
                     } else {

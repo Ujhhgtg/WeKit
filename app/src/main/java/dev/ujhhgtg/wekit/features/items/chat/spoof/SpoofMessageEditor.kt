@@ -29,8 +29,8 @@ import com.composables.icons.materialsymbols.outlined.Payments
 import com.composables.icons.materialsymbols.outlined.Photo_library
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
-import dev.ujhhgtg.wekit.features.items.chat.localizedChatString
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -70,7 +70,7 @@ object SpoofMessageEditor {
             var busy by remember { mutableStateOf(false) }
             var failed by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
-            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
             fun perform(doneMessage: Int, action: suspend () -> Unit) {
                 busy = true
@@ -216,16 +216,16 @@ object SpoofMessageEditor {
 
     /** Imports picked media in the background; large videos take a while to copy into Room. */
     fun importMedia(target: SpoofTarget, uri: Uri) {
-        showToast(localizedChatString(R.string.spoof_message_importing))
+        showToast(localizedString(R.string.spoof_message_importing))
         importScope.launch {
             try {
                 SpoofedMessageStore.saveMedia(HostInfo.application, target, uri)
-                showToast(localizedChatString(R.string.spoof_message_saved))
+                showToast(localizedString(R.string.spoof_message_saved))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 WeLogger.e(TAG, "failed to import spoofed media for ${target.key}", e)
-                showToast(localizedChatString(R.string.spoof_message_save_failed))
+                showToast(localizedString(R.string.spoof_message_save_failed))
             }
         }
     }

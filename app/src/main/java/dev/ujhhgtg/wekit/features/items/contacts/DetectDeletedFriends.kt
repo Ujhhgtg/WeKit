@@ -34,6 +34,8 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -328,7 +330,7 @@ object DetectDeletedFriends : ClickableFeature() {
                         if (rateLimited) {
                             showToast(
                                 context,
-                                context.localizedContactsString(
+                                context.localizedString(
                                     R.string.contacts_detect_rate_limited,
                                 ),
                             )
@@ -356,7 +358,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                 dialog.setCancelable(true)
                                 showToastSuspend(
                                     context,
-                                    context.localizedContactsString(
+                                    context.localizedString(
                                         R.string.contacts_detect_create_label_failed,
                                         markingPhase.labelName,
                                     ),
@@ -390,7 +392,7 @@ object DetectDeletedFriends : ClickableFeature() {
                             dialog.setCancelable(true)
                             showToastSuspend(
                                 context,
-                                context.localizedContactsString(
+                                context.localizedString(
                                     R.string.contacts_detect_marking_done,
                                 ),
                             )
@@ -433,7 +435,7 @@ object DetectDeletedFriends : ClickableFeature() {
                             dialog.setCancelable(true)
                             showToastSuspend(
                                 context,
-                                context.localizedContactsQuantity(
+                                context.localizedQuantity(
                                     R.plurals.contacts_detect_delete_done,
                                     deleted.size,
                                     deleted.size,
@@ -850,7 +852,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                                 DialogPhase.SelectLabel(
                                                     friends = abnormalFriends,
                                                     suggestedLabelName =
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             R.string
                                                                 .contacts_detect_suggested_label,
                                                             formatEpoch(
@@ -882,30 +884,30 @@ object DetectDeletedFriends : ClickableFeature() {
                                                 val friend = abnormalFriend.contact
                                                 buildString {
                                                     appendLine(
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             abnormalFriend.status.labelRes,
                                                         ),
                                                     )
                                                     appendLine(
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             R.string.contacts_detect_nickname,
                                                             friend.nickname,
                                                         ),
                                                     )
                                                     appendLine(
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             R.string.contacts_detect_remark,
                                                             friend.remarkName,
                                                         ),
                                                     )
                                                     appendLine(
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             R.string.contacts_wechat_id_value,
                                                             friend.wxId,
                                                         ),
                                                     )
                                                     appendLine(
-                                                        context.localizedContactsString(
+                                                        context.localizedString(
                                                             R.string.contacts_detect_wechat_number,
                                                             friend.customWxId,
                                                         ),
@@ -915,7 +917,7 @@ object DetectDeletedFriends : ClickableFeature() {
                                         copyToClipboard(context, text)
                                         showToast(
                                             context,
-                                            context.localizedContactsString(
+                                            context.localizedString(
                                                 R.string.contacts_copied,
                                             ),
                                         )

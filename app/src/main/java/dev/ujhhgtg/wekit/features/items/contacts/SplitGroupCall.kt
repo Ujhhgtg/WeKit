@@ -42,6 +42,8 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoPro
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.SingleContactSelector
@@ -284,7 +286,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             SingleContactSelector(
-                context.localizedContactsString(R.string.feature_split_group_call_name),
+                context.localizedString(R.string.feature_split_group_call_name),
                 WeDatabaseApi.getGroups(),
                 initialSelectedWxId = null,
                 onDismiss = onDismiss,
@@ -301,7 +303,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
         return listOf(
             PreferenceItem(
-                title = activity.localizedContactsString(R.string.feature_split_group_call_name),
+                title = activity.localizedString(R.string.feature_split_group_call_name),
                 position = 1,
                 onClick = onClick@{ activity ->
                         val clickedWxId = activity.currentWxId ?: return@onClick
@@ -410,7 +412,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                             val count = repeatCount.toIntOrNull()
                             if (count == null || count <= 0) {
                                 showToast(
-                                    context.localizedContactsString(
+                                    context.localizedString(
                                         R.string.contacts_split_call_invalid_repeat,
                                     ),
                                 )
@@ -418,7 +420,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                             }
                             if (!batchRunning.compareAndSet(false, true)) {
                                 showToast(
-                                    context.localizedContactsString(
+                                    context.localizedString(
                                         R.string.contacts_split_call_already_running,
                                     ),
                                 )
@@ -501,7 +503,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
 
                 postOnUiThread {
                     showToast(
-                        context.localizedContactsQuantity(
+                        context.localizedQuantity(
                             if (cleanupFailed) {
                                 R.plurals.contacts_split_call_done_cleanup_failed
                             } else {

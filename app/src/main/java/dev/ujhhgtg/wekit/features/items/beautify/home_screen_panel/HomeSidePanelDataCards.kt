@@ -76,7 +76,7 @@ import com.composables.icons.materialsymbols.outlined.Weather_hail
 import com.composables.icons.materialsymbols.outlined.Weather_snowy
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -105,7 +105,7 @@ fun HomeSidePanelDateTimeCard(
             DateTimeCardContent.Runtime -> rememberHomeSidePanelNow()
             is DateTimeCardContent.Preview -> content.now
         }
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val dateText =
         now.format(
             DateTimeFormatter.ofPattern(
@@ -214,7 +214,7 @@ fun HomeSidePanelWeatherCard(
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val runtime = content as? WeatherCardContent.Runtime
     val weather = runtime?.state
     val snapshot =
@@ -553,7 +553,7 @@ fun HomeSidePanelHitokotoCard(
     onEditCard: ((String) -> Unit)? = null,
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val runtime = content as? HitokotoCardContent.Runtime
     val hitokoto = runtime?.state
     val snapshot =

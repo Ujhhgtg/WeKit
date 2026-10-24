@@ -37,6 +37,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -688,7 +689,7 @@ object SwipeMessageOperations :
         CoroutineScope(Dispatchers.IO).launch {
             val sent = RepeatMessages.repeatMessage(msgInfo)
             if (!sent) {
-                showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
+                showToastSuspend(context, context.localizedString(R.string.chat_repeat_failed))
             }
         }
     }

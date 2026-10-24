@@ -58,7 +58,8 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.ICON_TINT_TAG
 import dev.ujhhgtg.wekit.features.items.beautify.CustomMessageBubbles.bubbleCache
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -322,7 +323,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             parseColor(
                 context,
                 rawColor,
-                label = context.localizedBeautifyString(R.string.beautify_bubble_background_color),
+                label = context.localizedString(R.string.beautify_bubble_background_color),
                 fallback = 0,
             )
 
@@ -474,7 +475,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     colorParseErrorToasted = true
                     showToast(
                         context,
-                        context.localizedBeautifyString(
+                        context.localizedString(
                             R.string.beautify_bubble_color_parse_failed,
                             label,
                         ),
@@ -494,7 +495,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
         return parseColor(
             context,
             rawColor,
-            label = context.localizedBeautifyString(R.string.beautify_bubble_foreground_color),
+            label = context.localizedString(R.string.beautify_bubble_foreground_color),
             fallback = -1,
         )
     }
@@ -566,7 +567,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     if (bytes == null) {
                         showToast(
                             context,
-                            context.localizedBeautifyString(
+                            context.localizedString(
                                 R.string.beautify_bubble_import_failed,
                                 label,
                             ),
@@ -582,7 +583,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     if (width < MIN_BUBBLE_SIZE_PX || height < MIN_BUBBLE_SIZE_PX) {
                         showToast(
                             context,
-                            context.localizedBeautifyString(
+                            context.localizedString(
                                 R.string.beautify_bubble_image_too_small,
                                 label,
                                 MIN_BUBBLE_SIZE_PX,
@@ -593,7 +594,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     if (width > MAX_BUBBLE_SIZE_PX || height > MAX_BUBBLE_SIZE_PX) {
                         showToast(
                             context,
-                            context.localizedBeautifyString(
+                            context.localizedString(
                                 R.string.beautify_bubble_image_too_large,
                                 label,
                                 width,
@@ -617,7 +618,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
                     bubbleCache.remove(fileName)
                     showToast(
                         context,
-                        context.localizedBeautifyString(
+                        context.localizedString(
                             if (ok) R.string.beautify_bubble_import_succeeded
                             else R.string.beautify_bubble_import_failed,
                             label,
@@ -640,10 +641,10 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
             .getOrDefault(false)
 
         bubbleCache.remove(side.fileName)
-        val sideTitle = context.localizedBeautifyString(side.titleRes)
+        val sideTitle = context.localizedString(side.titleRes)
         showToast(
             context,
-            context.localizedBeautifyString(
+            context.localizedString(
                 if (ok) R.string.beautify_bubble_deleted
                 else R.string.beautify_bubble_delete_failed,
                 sideTitle,
@@ -761,7 +762,7 @@ object CustomMessageBubbles : ClickableFeature(), WeChatMessageViewApi.ICreateVi
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             var selectedSide by remember { mutableStateOf(BubbleSide.OTHER) }
             var pendingDeletion by remember { mutableStateOf<BubbleSide?>(null) }
             var otherForm by remember {

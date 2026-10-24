@@ -6,12 +6,9 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.DexResolutionMode
 import dev.ujhhgtg.wekit.ui.content.DexResolutionPrompt
-import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -77,13 +74,7 @@ object FeaturesLoader {
         WeLogger.i(TAG, "loading all features took $elapsed")
 
         if (TargetProcesses.isInMain && Preferences.showStartupToast) {
-            val context =
-                LocalizedContextFactory.create(
-                    HostInfo.application,
-                    WeKitLocaleController.resolvedLocale,
-                    LocaleResourceMode.InjectedHost,
-                )
-            showToast(context, context.getString(R.string.noncompose_features_loaded))
+            showToast(localizedString(R.string.noncompose_features_loaded))
         }
     }
 

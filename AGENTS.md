@@ -191,7 +191,7 @@
 - Package namespace: `dev.ujhhgtg.wekit`
 - `app` is an application module; don't use Kotlin `internal` in `app/src/main` (it provides no
   boundary) — use the default `public`.
-- Min SDK 28, target SDK 37, compile SDK 37
+- Min SDK 29, target SDK 37, compile SDK 37
 - Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.79. Current host info in `HostInfo`
 - Process targeting via `TargetProcesses`: override `startup()` to check
   `TargetProcesses.isInMain` / `TargetProcesses.currentType`. Default: main process only.
@@ -215,10 +215,15 @@
   their code (`dexkit/dsl/`, `dexkit/matcher/`, `dexkit/sql/`, and the dexsql repo's
   schema/tools) before using them; don't hallucinate APIs.
 - In Compose, `LocalContext` is always the platform context and is never localized by WeKit. Use
-  standard Compose resource APIs for composable text and `LocalWeKitLocalizedContext` only for
+  standard Compose resource APIs for composable text and `LocalLocalizedContext` only for
   imperative WeKit resource reads; mixed platform/resource operations read both. Use
   `LocalActivity.current` for Activity-only APIs, and never add AndroidX owner forwarding to
-  `WeKitLocaleProvider`.
+  `LocaleProvider`.
+- Outside Compose, read WeKit resources only through `i18n/LocalizedResources.kt`:
+  `localizedString` / `Context.localizedString` for strings and `localizedQuantity` /
+  `Context.localizedQuantity` for plurals. Don't add per-feature wrappers such as
+  `localizedChatString` and don't call `LocalizedContextFactory` directly (`LocaleProvider` is the
+  only exception). Resolve at display time; never cache localized strings in long-lived state.
 
 ## Material 3 UI Standards
 

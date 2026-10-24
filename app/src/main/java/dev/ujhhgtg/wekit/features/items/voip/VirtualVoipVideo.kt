@@ -34,6 +34,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -383,7 +384,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                                         )
                                                         showToast(
                                                             context,
-                                                            localizedVoipString(
+                                                            localizedString(
                                                                 R.string
                                                                     .voip_virtual_video_open_failed,
                                                             ),
@@ -394,7 +395,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                                                 fileExists = true
                                                 showToast(
                                                     context,
-                                                    localizedVoipString(
+                                                    localizedString(
                                                         R.string.voip_virtual_video_imported,
                                                     ),
                                                 )

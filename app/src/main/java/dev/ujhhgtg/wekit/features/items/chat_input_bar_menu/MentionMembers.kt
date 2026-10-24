@@ -27,7 +27,9 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
@@ -104,7 +106,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
             WeChatInputBarMenuApi.ActionItem(
                 id = "mention_members",
                 icon = MaterialSymbols.Outlined.Alternate_email,
-                label = localizedChatInputString(R.string.mention_members_action_label),
+                label = localizedString(R.string.mention_members_action_label),
                 isSupported = { _, _ ->
                     WeCurrentConversationApi.value.isGroupChatWxId
                 },
@@ -113,7 +115,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                     if (!currentConv.isGroupChatWxId) {
                         showToast(
                             context,
-                            context.localizedChatInputString(R.string.mention_members_group_only),
+                            context.localizedString(R.string.mention_members_group_only),
                         )
                         return@ActionItem
                     }
@@ -121,7 +123,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                     if (stealthMentionAll && chatFooter.lastText.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatInputString(R.string.mention_members_input_empty),
+                            context.localizedString(R.string.mention_members_input_empty),
                         )
                         return@ActionItem
                     }
@@ -134,14 +136,14 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                     if (allMembers.isEmpty()) {
                         showToast(
                             context,
-                            context.localizedChatInputString(R.string.mention_members_empty_group),
+                            context.localizedString(R.string.mention_members_empty_group),
                         )
                         return@ActionItem
                     }
 
                     showComposeDialog(context) {
                         val dialogContext = LocalContext.current
-                        val localizedContext = LocalWeKitLocalizedContext.current
+                        val localizedContext = LocalLocalizedContext.current
                         ContactsSelector(
                             title = stringResource(R.string.feature_mention_members_name),
                             contacts = allMembers,
@@ -151,7 +153,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                                 if (selectedWxIds.isEmpty()) {
                                     showToast(
                                         dialogContext,
-                                        localizedContext.localizedChatInputString(
+                                        localizedContext.localizedString(
                                             R.string.mention_members_select_one,
                                         ),
                                     )
@@ -214,7 +216,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                                     onSuccess { _ ->
                                         showToast(
                                             context,
-                                            context.localizedChatInputString(
+                                            context.localizedString(
                                                 R.string.mention_members_sent_unseen,
                                             ),
                                         )
@@ -222,7 +224,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
                                         WeMessageApi.createSimpleMsgInfoAndInsert(
                                             10000,
                                             currentConv,
-                                            context.localizedChatInputQuantity(
+                                            context.localizedQuantity(
                                                 R.plurals.mention_members_message_count,
                                                 selectedContacts.size,
                                                 selectedContacts.size,

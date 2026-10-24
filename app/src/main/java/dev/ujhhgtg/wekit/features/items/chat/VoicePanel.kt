@@ -29,6 +29,8 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxVoiceRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.CloneVoiceRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoicePanelRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.panel.VoiceImportMode
 import dev.ujhhgtg.wekit.ui.panel.VoicePanelActions
 import dev.ujhhgtg.wekit.ui.panel.showVoicePanelSheet
@@ -229,7 +231,7 @@ object VoicePanel : SwitchFeature() {
                                 public.exceptionOrNull()
                                     ?: mine.exceptionOrNull()
                                     ?: IllegalStateException(
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_voice_shared_packs_load_failed,
                                         ),
                                     ),
@@ -263,7 +265,7 @@ object VoicePanel : SwitchFeature() {
                             if (bytes == null) {
                                 Result.failure(
                                     IllegalStateException(
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_voice_selected_read_failed,
                                         ),
                                     ),
@@ -271,7 +273,7 @@ object VoicePanel : SwitchFeature() {
                             } else if (bytes.size > MAX_SHARED_VOICE_BYTES) {
                                 Result.failure(
                                     IllegalArgumentException(
-                                        localizedChatString(R.string.chat_voice_single_max_size),
+                                        localizedString(R.string.chat_voice_single_max_size),
                                     ),
                                 )
                             } else {
@@ -279,7 +281,7 @@ object VoicePanel : SwitchFeature() {
                                 if (format == null) {
                                     Result.failure(
                                         IllegalArgumentException(
-                                            localizedChatString(
+                                            localizedString(
                                                 R.string.chat_voice_unsupported_format,
                                             ),
                                         ),
@@ -319,17 +321,17 @@ object VoicePanel : SwitchFeature() {
                         val provider =
                             VoiceProviderRegistry.forItem(item)
                                 ?: error(
-                                    localizedChatString(R.string.chat_voice_provider_unavailable),
+                                    localizedString(R.string.chat_voice_provider_unavailable),
                                 )
                         val resolved = provider.resolveAudio(item).getOrThrow()
                         require(!resolved.remoteUrl.isNullOrBlank()) {
-                            localizedChatString(R.string.chat_voice_url_unavailable)
+                            localizedString(R.string.chat_voice_url_unavailable)
                         }
                         FunBoxServiceClient.download(requireNotNull(resolved.remoteUrl))
                             .getOrThrow()
                     }
                 require(bytes.isNotEmpty()) {
-                    localizedChatString(R.string.chat_voice_server_empty)
+                    localizedString(R.string.chat_voice_server_empty)
                 }
                 val prefix =
                     bytes
@@ -342,11 +344,11 @@ object VoicePanel : SwitchFeature() {
                             .find(prefix)
                             ?.groupValues
                             ?.getOrNull(1)
-                    error(message ?: localizedChatString(R.string.chat_voice_server_not_audio))
+                    error(message ?: localizedString(R.string.chat_voice_server_not_audio))
                 }
                 val format =
                     MediaFileTypeDetector.detectAudio(bytes)
-                        ?: error(localizedChatString(R.string.chat_voice_server_unsupported_format))
+                        ?: error(localizedString(R.string.chat_voice_server_unsupported_format))
                 val path =
                     PanelPaths.panelCacheDir / "voice-${UUID.randomUUID()}.${format.extension}"
                 path.writeBytes(bytes)
@@ -360,7 +362,7 @@ object VoicePanel : SwitchFeature() {
                 val format =
                     MediaFileTypeDetector.detectAudio(bytes)
                         ?: error(
-                            localizedChatString(R.string.chat_voice_example_unsupported_format),
+                            localizedString(R.string.chat_voice_example_unsupported_format),
                         )
                 val path =
                     PanelPaths.panelCacheDir / "example-${UUID.randomUUID()}.${format.extension}"
@@ -393,7 +395,7 @@ object VoicePanel : SwitchFeature() {
                         }
                     val sourceFormat =
                         MediaFileTypeDetector.detectAudio(source)
-                            ?: error(localizedChatString(R.string.chat_voice_unsupported_format))
+                            ?: error(localizedString(R.string.chat_voice_unsupported_format))
                     val directSource =
                         sourceFormat == MediaFileTypeDetector.AudioFormat.SILK ||
                             sourceFormat == MediaFileTypeDetector.AudioFormat.AMR
@@ -408,7 +410,7 @@ object VoicePanel : SwitchFeature() {
                             require(
                                 AudioUtils.anyToSilk(resolvedPath, silkPath.absolutePathString()),
                             ) {
-                                localizedChatString(R.string.chat_voice_convert_silk_failed)
+                                localizedString(R.string.chat_voice_convert_silk_failed)
                             }
                         }
                         check(
@@ -418,7 +420,7 @@ object VoicePanel : SwitchFeature() {
                                 durationMs.coerceToInt(),
                             ),
                         ) {
-                            localizedChatString(R.string.chat_voice_send_failed)
+                            localizedString(R.string.chat_voice_send_failed)
                         }
                         if (recordUsage) VoicePanelRepository.recordSent(item)
                         Unit
@@ -442,7 +444,7 @@ object VoicePanel : SwitchFeature() {
         talker: String,
         text: String,
     ): Result<Unit> =
-        synthesizeAndSend(talker, localizedChatString(R.string.chat_voice_system_tts)) {
+        synthesizeAndSend(talker, localizedString(R.string.chat_voice_system_tts)) {
             synthesizeSystemPreview(context, text)
         }
 
@@ -485,7 +487,7 @@ object VoicePanel : SwitchFeature() {
             try {
                 generate(path)
                 require(path.isRegularFile() && path.fileSize() > 0L) {
-                    localizedChatString(R.string.chat_voice_conversion_empty)
+                    localizedString(R.string.chat_voice_conversion_empty)
                 }
                 Result.success(VoicePreview(path.absolutePathString(), temporary = true))
             } catch (error: CancellationException) {
@@ -509,7 +511,7 @@ object VoicePanel : SwitchFeature() {
                     FunBoxCloneVoiceRepository.synthesize(text, voiceBytes, fileName).getOrThrow()
                 path.writeBytes(audio)
                 require(path.fileSize() > 0L) {
-                    localizedChatString(R.string.chat_voice_conversion_empty)
+                    localizedString(R.string.chat_voice_conversion_empty)
                 }
                 Result.success(VoicePreview(path.absolutePathString(), temporary = true))
             } catch (error: CancellationException) {
@@ -565,7 +567,7 @@ object VoicePanel : SwitchFeature() {
                     finish(
                         Result.failure(
                             IllegalStateException(
-                                localizedChatString(R.string.chat_voice_system_tts_init_failed),
+                                localizedString(R.string.chat_voice_system_tts_init_failed),
                             ),
                         ),
                     )
@@ -589,7 +591,7 @@ object VoicePanel : SwitchFeature() {
                             finish(
                                 Result.failure(
                                     IllegalStateException(
-                                        localizedChatString(R.string.chat_voice_system_tts_failed),
+                                        localizedString(R.string.chat_voice_system_tts_failed),
                                     ),
                                 ),
                             )
@@ -598,7 +600,7 @@ object VoicePanel : SwitchFeature() {
                             finish(
                                 Result.failure(
                                     IllegalStateException(
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_voice_system_tts_failed_with_code,
                                             errorCode,
                                         ),
@@ -612,7 +614,7 @@ object VoicePanel : SwitchFeature() {
                     finish(
                         Result.failure(
                             IllegalStateException(
-                                localizedChatString(R.string.chat_voice_system_tts_start_failed),
+                                localizedString(R.string.chat_voice_system_tts_start_failed),
                             ),
                         ),
                     )
@@ -650,7 +652,7 @@ object VoicePanel : SwitchFeature() {
             if (files.isEmpty()) {
                 return@withContext Result.failure(
                     IllegalArgumentException(
-                        localizedChatString(R.string.chat_voice_no_supported_selected),
+                        localizedString(R.string.chat_voice_no_supported_selected),
                     ),
                 )
             }
@@ -661,7 +663,7 @@ object VoicePanel : SwitchFeature() {
                 runCatching {
                     val input =
                         resolver.openInputStream(file.uri)
-                            ?: error(localizedChatString(R.string.chat_voice_file_read_failed))
+                            ?: error(localizedString(R.string.chat_voice_file_read_failed))
                     input.use {
                         VoicePanelRepository.importVoice(packId, file.name, it).getOrThrow()
                     }
@@ -680,14 +682,13 @@ object VoicePanel : SwitchFeature() {
                 val first = failures.first()
                 Result.failure(
                     IllegalStateException(
-                        localizedChatQuantity(
+                        localizedQuantity(
                             R.plurals.chat_voice_import_partial_failed,
                             imported,
                             imported,
                             failures.size,
                             first.first,
-                            first.second.message
-                                ?: localizedChatString(R.string.chat_unknown_error),
+                            first.second.message ?: localizedString(R.string.chat_unknown_error),
                         ),
                         first.second,
                     ),
@@ -726,7 +727,7 @@ object VoicePanel : SwitchFeature() {
                     }
                         ?: Result.failure(
                             IllegalStateException(
-                                localizedChatString(R.string.chat_voice_selected_tone_read_failed),
+                                localizedString(R.string.chat_voice_selected_tone_read_failed),
                             ),
                         )
                 withContext(Dispatchers.Main) {

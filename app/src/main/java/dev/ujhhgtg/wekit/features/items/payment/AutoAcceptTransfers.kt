@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationReplyContext
 import dev.ujhhgtg.wekit.features.automation.AutomationReplyExecutor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -150,7 +151,7 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
                 postOnUiThread {
                     showToast(
-                        localizedPaymentString(
+                        localizedString(
                             R.string.payment_transfer_received,
                             displayName,
                             transferMsg.feedesc,

@@ -81,7 +81,8 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.beautify.Themes.THEMES_PATH
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -162,10 +163,10 @@ object Themes : ClickableFeature(), IResolveDex {
     private fun getDefaultTheme(context: Context) =
         ThemeInfo(
             id = DEFAULT_THEME_ID,
-            name = context.localizedBeautifyString(R.string.beautify_theme_none),
+            name = context.localizedString(R.string.beautify_theme_none),
             author = "—",
             version = "",
-            description = context.localizedBeautifyString(R.string.beautify_theme_none_summary),
+            description = context.localizedString(R.string.beautify_theme_none_summary),
         )
 
     private fun getThemePath(themeId: String): File = (THEMES_PATH / themeId).toFile()
@@ -185,7 +186,7 @@ object Themes : ClickableFeature(), IResolveDex {
             ThemeInfo(
                 id = dir.name,
                 name = json.optString("name", dir.name),
-                author = json.optString("author", localizedBeautifyString(R.string.unknown_author)),
+                author = json.optString("author", localizedString(R.string.unknown_author)),
                 version = json.optString("version", "1.0"),
                 description = json.optString("description", ""),
             )
@@ -3321,7 +3322,7 @@ object Themes : ClickableFeature(), IResolveDex {
     override fun onClick(context: ComponentActivity) {
         val themes = listOf(getDefaultTheme(context)) + scanThemes()
         showComposeDialog(context) {
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             var selectedId by remember {
                 mutableStateOf(
                     currentThemeId.takeIf { id ->

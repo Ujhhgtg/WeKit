@@ -19,9 +19,7 @@ import dev.ujhhgtg.wekit.agent.data.OverlayMode
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.shouldBeVisible
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -285,13 +283,7 @@ object WeAgentOverlayController {
     }
 
     private fun showOverlayPermissionToast() {
-        val localized =
-            LocalizedContextFactory.create(
-                HostInfo.application,
-                WeKitLocaleController.resolvedLocale,
-                LocaleResourceMode.InjectedHost,
-            )
-        showToast(localized.getString(R.string.agent_overlay_permission_required))
+        showToast(localizedString(R.string.agent_overlay_permission_required))
     }
 
     // -----------------------------------------------------------------------------------------

@@ -82,7 +82,7 @@ import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_CONTACTS
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_DISCOVER
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_ME
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.navTab
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.utils.rememberDeviceCornerRadius
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -117,7 +117,7 @@ fun HomeContent(
         }
     }
     val resources = LocalResources.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val wallpaperSource = HomeWallpaper.source
     val wallpaperRevision = HomeWallpaper.revision
     val background by

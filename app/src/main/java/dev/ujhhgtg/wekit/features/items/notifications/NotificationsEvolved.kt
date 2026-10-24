@@ -39,6 +39,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeNotificationAvatarApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -636,7 +637,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     ) {
         val notifTitle =
             notif.extras.getString(Notification.EXTRA_TITLE)
-                ?: localizedNotificationString(R.string.notifications_unknown_conversation)
+                ?: localizedString(R.string.notifications_unknown_conversation)
         val notifText =
             notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
                 ?: error("Host notification has no text")
@@ -780,7 +781,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }
         val context = HostInfo.application
         val builder = Notification.Builder.recoverBuilder(context, notif)
-        val selfName = localizedNotificationString(R.string.notifications_self)
+        val selfName = localizedString(R.string.notifications_self)
         val selfPerson = buildPerson(selfName, WeApi.selfWxId)
         val messagingStyle = Notification.MessagingStyle(selfPerson)
 
@@ -860,7 +861,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         // 3. Quick Reply Action
         val remoteInput =
             RemoteInput.Builder("key_reply_content")
-                .setLabel(localizedNotificationString(R.string.notifications_reply_hint))
+                .setLabel(localizedString(R.string.notifications_reply_hint))
                 .build()
 
         val replyIntent =
@@ -879,7 +880,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         val replyAction =
             Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_menu_send),
-                    localizedNotificationString(R.string.notifications_action_reply),
+                    localizedString(R.string.notifications_action_reply),
                     replyPendingIntent,
                 )
                 .addRemoteInput(remoteInput)
@@ -901,7 +902,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         val readAction =
             Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_menu_view),
-                    localizedNotificationString(R.string.notifications_action_mark_read),
+                    localizedString(R.string.notifications_action_mark_read),
                     readPendingIntent,
                 )
                 .build()

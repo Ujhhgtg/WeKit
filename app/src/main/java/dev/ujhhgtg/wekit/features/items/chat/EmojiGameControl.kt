@@ -42,6 +42,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -166,14 +168,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         // No sensor data yet — fall back to random
         if (ax == 0f && ay == 0f && az == 0f) {
             WeLogger.w(TAG, "no sensor data, using random")
-            showToast(localizedChatString(R.string.chat_emoji_game_no_sensor))
+            showToast(localizedString(R.string.chat_emoji_game_no_sensor))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
         // Accelerating significantly — motion fallback
         if (isInMotion(ax, ay, az)) {
             WeLogger.w(TAG, "accelerating signaficantly")
-            showToast(localizedChatString(R.string.chat_emoji_game_motion_fallback))
+            showToast(localizedString(R.string.chat_emoji_game_motion_fallback))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
@@ -276,11 +278,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                     if (isDice) {
                         DiceFace.entries[value].chineseName
                     } else {
-                        activity.localizedChatString(MorraType.entries[value].nameRes)
+                        activity.localizedString(MorraType.entries[value].nameRes)
                     }
                 showToast(
                     activity,
-                    activity.localizedChatString(
+                    activity.localizedString(
                         if (isDice) {
                             R.string.chat_emoji_game_dice_result
                         } else {
@@ -346,7 +348,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                             if (values.isEmpty()) {
                                 showToast(
                                     activity,
-                                    activity.localizedChatString(
+                                    activity.localizedString(
                                         R.string.chat_emoji_game_invalid_input,
                                     ),
                                 )
@@ -356,7 +358,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send", e)
-                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
+                        showToast(activity, activity.localizedString(R.string.chat_send_failed))
                     }
                 },
                 onRandom = { isSingle ->
@@ -378,7 +380,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send random", e)
-                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
+                        showToast(activity, activity.localizedString(R.string.chat_send_failed))
                     }
                 },
                 onDismiss = onDismiss,
@@ -565,7 +567,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                     activity.runOnUiThread {
                         showToast(
                             activity,
-                            activity.localizedChatString(
+                            activity.localizedString(
                                 R.string.chat_emoji_game_send_index_failed,
                                 index + 1,
                             ),
@@ -577,7 +579,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
             activity.runOnUiThread {
                 showToast(
                     activity,
-                    activity.localizedChatQuantity(
+                    activity.localizedQuantity(
                         R.plurals.chat_emoji_game_sent_count,
                         values.size,
                         values.size,

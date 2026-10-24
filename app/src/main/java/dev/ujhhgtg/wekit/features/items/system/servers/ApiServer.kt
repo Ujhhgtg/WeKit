@@ -15,7 +15,7 @@ import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.system.localizedSystemString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -3235,13 +3235,13 @@ object ApiServer : ClickableFeature() {
                     configureServer()
                 }
                 .start(wait = false)
-        showToast(localizedSystemString(R.string.system_api_server_mcp_started, serverPort))
-        showToast(localizedSystemString(R.string.system_api_server_rest_started, serverPort))
+        showToast(localizedString(R.string.system_api_server_mcp_started, serverPort))
+        showToast(localizedString(R.string.system_api_server_rest_started, serverPort))
     }
 
     override fun onDisable() {
         netServer.stop(1000, 2000)
-        showToast(localizedSystemString(R.string.system_api_server_stopped))
+        showToast(localizedString(R.string.system_api_server_stopped))
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -3274,7 +3274,7 @@ object ApiServer : ClickableFeature() {
                             val serverPort = serverPortInput.toIntOrNull()
                             if (serverPort == null || serverPort !in 1024..65535) {
                                 showToast(
-                                    localizedSystemString(R.string.system_api_server_invalid_port),
+                                    localizedString(R.string.system_api_server_invalid_port),
                                 )
                                 return@TextButton
                             }

@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.now
@@ -43,7 +44,7 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
         listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777016,
-                localizedChatString(R.string.chat_swipe_action_edit),
+                localizedString(R.string.chat_swipe_action_edit),
                 EditIcon,
                 MaterialSymbols.Outlined.Edit,
                 isSupported = { isSupported(it) },

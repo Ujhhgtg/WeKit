@@ -15,7 +15,7 @@ import dev.ujhhgtg.wekit.features.automation.AutomationSpec
 import dev.ujhhgtg.wekit.features.automation.AutomationTalkerCategory
 import dev.ujhhgtg.wekit.features.automation.AutomationTimeRangeRule
 import dev.ujhhgtg.wekit.features.automation.AutomationToggleRule
-import dev.ujhhgtg.wekit.features.automation.localizedAutomationString
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.automation.choiceEditor
 import dev.ujhhgtg.wekit.ui.automation.delayEditor
 import dev.ujhhgtg.wekit.ui.automation.keywordEditor
@@ -162,7 +162,7 @@ object RedPacketAutomation : AutomationSpec("RED_PACKET") {
         if (validates(keyIds, keyword)) {
             rules[keyword]
                 .validationError(
-                    localizedAutomationString(R.string.payment_red_packet_keyword_label),
+                    localizedString(R.string.payment_red_packet_keyword_label),
                 )
                 ?.let {
                     return it
@@ -171,7 +171,7 @@ object RedPacketAutomation : AutomationSpec("RED_PACKET") {
         if (validates(keyIds, skipKeyword)) {
             rules[skipKeyword]
                 .validationError(
-                    localizedAutomationString(R.string.payment_red_packet_skip_keyword_label),
+                    localizedString(R.string.payment_red_packet_skip_keyword_label),
                 )
                 ?.let {
                     return it

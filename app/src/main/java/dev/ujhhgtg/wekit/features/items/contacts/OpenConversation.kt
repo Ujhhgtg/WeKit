@@ -13,6 +13,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -49,7 +50,7 @@ fun showOpenConversationDialog(context: Context) {
                         if (wxId.isBlank()) {
                             showToast(
                                 context,
-                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                                context.localizedString(R.string.contacts_wechat_id_empty),
                             )
                             return@TextButton
                         }
@@ -64,7 +65,7 @@ fun showOpenConversationDialog(context: Context) {
                         if (wxId.isBlank()) {
                             showToast(
                                 context,
-                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                                context.localizedString(R.string.contacts_wechat_id_empty),
                             )
                             return@TextButton
                         }
@@ -79,7 +80,7 @@ fun showOpenConversationDialog(context: Context) {
                         if (wxId.isBlank()) {
                             showToast(
                                 context,
-                                context.localizedContactsString(R.string.contacts_wechat_id_empty),
+                                context.localizedString(R.string.contacts_wechat_id_empty),
                             )
                             return@TextButton
                         }

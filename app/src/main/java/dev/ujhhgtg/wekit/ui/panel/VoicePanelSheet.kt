@@ -95,7 +95,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.parallelForEachWithProgress
 import dev.ujhhgtg.wekit.features.items.chat.panel.toPanelUiText
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProviderRegistry
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
 import dev.ujhhgtg.wekit.utils.MediaFileTypeDetector
@@ -276,7 +276,7 @@ private data class ProviderRootSnapshot(val page: Int, val state: PanelUiState<V
 @Composable
 private fun VoicePanelContent(actions: VoicePanelActions, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     val currentLocalizedContext by rememberUpdatedState(localizedContext)
     val scope = rememberCoroutineScope()
     val rememberedNavigation = remember {

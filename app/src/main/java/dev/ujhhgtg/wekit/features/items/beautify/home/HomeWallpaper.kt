@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
@@ -175,7 +175,7 @@ object HomeWallpaper {
     fun showPicker(activity: Activity) {
         showComposeDialog(activity) {
             val scope = rememberCoroutineScope()
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             var importing by remember { mutableStateOf(false) }
             val pickImage = {
                 TransparentActivity.launch(activity) {

@@ -4,8 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
 import dev.ujhhgtg.wekit.utils.HostInfo
 
 /**
@@ -19,7 +18,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
  */
 @Composable
 fun InjectedUiTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
-    WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
+    LocaleProvider {
         val dark = darkTheme ?: isSystemInDarkTheme()
         val seed = SeedResolver.customSeed(HostInfo.application, dark)
 

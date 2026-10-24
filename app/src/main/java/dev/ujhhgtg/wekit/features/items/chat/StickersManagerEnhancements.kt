@@ -15,6 +15,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -102,11 +104,11 @@ object StickersManagerEnhancements : SwitchFeature() {
             }
 
         val btnSelectAll =
-            makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_select_all))
+            makeBtn(activity.localizedString(R.string.chat_sticker_manager_select_all))
         val btnSelectNone =
-            makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_select_none))
-        val btnInvert = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_invert))
-        val btnExport = makeBtn(activity.localizedChatString(R.string.chat_sticker_manager_export))
+            makeBtn(activity.localizedString(R.string.chat_sticker_manager_select_none))
+        val btnInvert = makeBtn(activity.localizedString(R.string.chat_sticker_manager_invert))
+        val btnExport = makeBtn(activity.localizedString(R.string.chat_sticker_manager_export))
 
         val parentContainer = moveTv.parent as ViewGroup
         val index = parentContainer.indexOfChild(moveTv)
@@ -343,12 +345,12 @@ object StickersManagerEnhancements : SwitchFeature() {
         val baseName = System.currentTimeMillis().toString()
 
         CoroutineScope(Dispatchers.IO).launch {
-            showToastSuspend(localizedChatString(R.string.chat_sticker_manager_exporting))
+            showToastSuspend(localizedString(R.string.chat_sticker_manager_exporting))
             selectedMd5s.forEachIndexed { index, md5 ->
                 WeMessageApi.saveStickerByMd5(md5, "sticker_${baseName}_$index.gif")
             }
             showToastSuspend(
-                localizedChatQuantity(
+                localizedQuantity(
                     R.plurals.chat_sticker_manager_exported,
                     selectedMd5s.size,
                     selectedMd5s.size,

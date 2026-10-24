@@ -42,6 +42,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -538,14 +539,14 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         val name = nameTextPref.ifBlank { self?.nickname ?: "" }
         val customWxId =
             if (aliasTextPref.isNotBlank()) {
-                root.context.localizedBeautifyString(
+                root.context.localizedString(
                     R.string.beautify_profile_card_wechat_id_value,
                     aliasTextPref,
                 )
             } else {
                 val alias = WeApi.selfCustomWxId
                 if (alias.isNotBlank()) {
-                    root.context.localizedBeautifyString(
+                    root.context.localizedString(
                         R.string.beautify_profile_card_wechat_id_value,
                         alias,
                     )
@@ -556,7 +557,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         val signature = signatureTextPref.ifBlank {
             WeDatabaseApi.getSelfProfileField(
                     SelfProfileField.SIGNATURE,
-                    root.context.localizedBeautifyString(
+                    root.context.localizedString(
                         R.string.beautify_profile_card_signature_unavailable,
                     ),
                 )

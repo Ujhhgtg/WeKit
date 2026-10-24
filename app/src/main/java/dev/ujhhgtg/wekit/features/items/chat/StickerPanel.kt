@@ -29,6 +29,8 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerPanelRepositor
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramInstalledStickerSet
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerDatabase
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerPackRepository
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.panel.StickerImportMode
 import dev.ujhhgtg.wekit.ui.panel.StickerPanelActions
 import dev.ujhhgtg.wekit.ui.panel.TelegramDatabaseSource
@@ -153,14 +155,14 @@ object StickerPanel : SwitchFeature() {
                                         it.readBytes()
                                     }
                                         ?: error(
-                                            localizedChatString(
+                                            localizedString(
                                                 R.string.chat_sticker_selected_image_read_failed,
                                             ),
                                         )
                                 }
                                     .mapCatching { bytes ->
                                         require(bytes.isNotEmpty()) {
-                                            localizedChatString(
+                                            localizedString(
                                                 R.string.chat_sticker_selected_image_empty,
                                             )
                                         }
@@ -202,7 +204,7 @@ object StickerPanel : SwitchFeature() {
                     val temporary = item.localPath == null
                     try {
                         check(WeMessageApi.sendSticker(WeCurrentConversationApi.value, path)) {
-                            localizedChatString(R.string.chat_sticker_send_failed)
+                            localizedString(R.string.chat_sticker_send_failed)
                         }
                         if (temporary) {
                             StickerPanelRepository.recordOnlineRecent(item)
@@ -237,7 +239,7 @@ object StickerPanel : SwitchFeature() {
                 val extension =
                     StickerPanelRepository.detectImageExtension(bytes)
                         ?: error(
-                            localizedChatString(R.string.chat_sticker_server_unsupported_format),
+                            localizedString(R.string.chat_sticker_server_unsupported_format),
                         )
                 val path = PanelPaths.panelCacheDir / "sticker-${UUID.randomUUID()}.$extension"
                 path.writeBytes(bytes)
@@ -254,14 +256,14 @@ object StickerPanel : SwitchFeature() {
                             val objectId =
                                 item.remoteObjectId
                                     ?: error(
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_sticker_object_unavailable,
                                         ),
                                     )
                             FunBoxServiceClient.downloadObject("image", objectId).getOrThrow()
                         }
                 require(bytes.isNotEmpty()) {
-                    localizedChatString(R.string.chat_sticker_image_empty)
+                    localizedString(R.string.chat_sticker_image_empty)
                 }
                 bytes
             }
@@ -310,7 +312,7 @@ object StickerPanel : SwitchFeature() {
                         StickerOnlineSourceRecoveryProgress(
                             total,
                             total,
-                            localizedChatString(R.string.chat_sticker_recovery_already_linked),
+                            localizedString(R.string.chat_sticker_recovery_already_linked),
                         ),
                     )
                     return@cancellableResult StickerOnlineSourceRecoveryResult(
@@ -325,7 +327,7 @@ object StickerPanel : SwitchFeature() {
                     StickerOnlineSourceRecoveryProgress(
                         0,
                         total,
-                        localizedChatString(R.string.chat_sticker_recovery_reading_catalog),
+                        localizedString(R.string.chat_sticker_recovery_reading_catalog),
                     ),
                 )
                 val catalog = FunBoxStickerRepository.loadCatalog().getOrThrow()
@@ -338,7 +340,7 @@ object StickerPanel : SwitchFeature() {
                             completed = index,
                             total = total,
                             message =
-                                localizedChatString(
+                                localizedString(
                                     R.string.chat_sticker_recovery_matching,
                                     localPack.title,
                                 ),
@@ -373,7 +375,7 @@ object StickerPanel : SwitchFeature() {
                             completed = index + 1,
                             total = total,
                             message =
-                                localizedChatString(
+                                localizedString(
                                     R.string.chat_sticker_recovery_processed,
                                     localPack.title,
                                 ),
@@ -446,7 +448,7 @@ object StickerPanel : SwitchFeature() {
                                         temporary.copyFrom(input)
                                     }
                                         ?: error(
-                                            localizedChatString(
+                                            localizedString(
                                                 R.string.chat_telegram_database_read_failed,
                                             ),
                                         )
@@ -477,7 +479,7 @@ object StickerPanel : SwitchFeature() {
             if (files.isEmpty()) {
                 return@withContext Result.failure(
                     IllegalArgumentException(
-                        localizedChatString(R.string.chat_sticker_no_supported_selected),
+                        localizedString(R.string.chat_sticker_no_supported_selected),
                     ),
                 )
             }
@@ -488,7 +490,7 @@ object StickerPanel : SwitchFeature() {
                 runCatching {
                     val input =
                         resolver.openInputStream(file.uri)
-                            ?: error(localizedChatString(R.string.chat_sticker_file_read_failed))
+                            ?: error(localizedString(R.string.chat_sticker_file_read_failed))
                     input.use {
                         StickerPanelRepository.importSticker(packId, file.name, it).getOrThrow()
                     }
@@ -507,14 +509,13 @@ object StickerPanel : SwitchFeature() {
                 val first = failures.first()
                 Result.failure(
                     IllegalStateException(
-                        localizedChatQuantity(
+                        localizedQuantity(
                             R.plurals.chat_sticker_import_partial_failed,
                             imported,
                             imported,
                             failures.size,
                             first.first,
-                            first.second.message
-                                ?: localizedChatString(R.string.chat_unknown_error),
+                            first.second.message ?: localizedString(R.string.chat_unknown_error),
                         ),
                         first.second,
                     ),
@@ -531,7 +532,7 @@ object StickerPanel : SwitchFeature() {
                 val importContext = currentCoroutineContext()
                 onProgress(WeChatStickerImportProgress(WeChatStickerImportPhase.SCANNING))
                 check(WeDatabaseApi.isReady) {
-                    localizedChatString(R.string.chat_wechat_sticker_database_not_ready)
+                    localizedString(R.string.chat_wechat_sticker_database_not_ready)
                 }
                 val md5s =
                     WeDatabaseApi.rawQuery(
@@ -574,7 +575,7 @@ object StickerPanel : SwitchFeature() {
                     } else {
                         cancellableResult {
                             check(cacheWeChatSticker(md5)) {
-                                localizedChatString(R.string.chat_wechat_sticker_download_failed)
+                                localizedString(R.string.chat_wechat_sticker_download_failed)
                             }
                             val exportedPath =
                                 WeMessageApi.saveStickerByMd5(
@@ -582,7 +583,7 @@ object StickerPanel : SwitchFeature() {
                                     ".wekit-wechat-$md5-${UUID.randomUUID()}.gif",
                                 )
                                     ?: error(
-                                        localizedChatString(
+                                        localizedString(
                                             R.string.chat_wechat_sticker_export_failed,
                                         ),
                                     )
@@ -620,19 +621,18 @@ object StickerPanel : SwitchFeature() {
                 if (md5s.isNotEmpty() && imported == 0 && unchanged == 0) {
                     val firstFailure = failures.firstOrNull()?.second
                     throw IllegalStateException(
-                        localizedChatString(
+                        localizedString(
                             R.string.chat_wechat_sticker_import_failed,
-                            firstFailure?.message
-                                ?: localizedChatString(R.string.chat_unknown_error),
+                            firstFailure?.message ?: localizedString(R.string.chat_unknown_error),
                         ),
                         firstFailure,
                     )
                 }
 
                 if (md5s.isEmpty()) {
-                    localizedChatString(R.string.chat_wechat_sticker_no_custom)
+                    localizedString(R.string.chat_wechat_sticker_no_custom)
                 } else {
-                    localizedChatQuantity(
+                    localizedQuantity(
                         R.plurals.chat_wechat_sticker_import_result,
                         imported,
                         packName,

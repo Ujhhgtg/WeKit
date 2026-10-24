@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
@@ -27,7 +28,7 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
         listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777018,
-                text = localizedContactsString(R.string.contacts_open_moments),
+                text = localizedString(R.string.contacts_open_moments),
                 drawable = CameraIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker

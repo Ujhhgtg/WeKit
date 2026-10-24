@@ -30,7 +30,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -248,7 +248,7 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
             var intervalInput by remember { mutableIntStateOf(initialInterval) }
             val sliderState = remember { SliderState(value = sliderPosition, trackRange = 0f..1f) }
             sliderState.value = sliderPosition
-            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.moments_auto_refresh_title)) },

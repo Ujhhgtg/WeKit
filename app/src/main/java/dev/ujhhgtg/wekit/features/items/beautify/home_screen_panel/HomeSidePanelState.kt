@@ -12,8 +12,8 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
-import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.nio.file.Path
@@ -996,7 +996,7 @@ class HomeSidePanelState(
         if (!opened)
             showToast(
                 activity,
-                localizedBeautifyString(R.string.home_side_panel_open_profile_failed),
+                localizedString(R.string.home_side_panel_open_profile_failed),
             )
     }
 
@@ -1026,7 +1026,7 @@ class HomeSidePanelState(
         if (!opened)
             showToast(
                 activity,
-                localizedBeautifyString(R.string.home_side_panel_open_status_failed),
+                localizedString(R.string.home_side_panel_open_status_failed),
             )
         return opened
     }

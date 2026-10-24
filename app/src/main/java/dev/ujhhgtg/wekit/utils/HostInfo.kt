@@ -3,13 +3,6 @@ package dev.ujhhgtg.wekit.utils
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import dev.ujhhgtg.wekit.constants.PackageNames
-
-enum class HostSpecies {
-    WeChat,
-    WeKit,
-    Unknown,
-}
 
 data class HostInfoImpl(
     val application: Application,
@@ -17,7 +10,6 @@ data class HostInfoImpl(
     val hostName: String,
     val versionCode: Long,
     val versionName: String,
-    val hostSpecies: HostSpecies,
 )
 
 object HostInfo {
@@ -40,12 +32,6 @@ object HostInfo {
 
     val versionName: String
         get() = _info.versionName
-
-    val isModule: Boolean
-        get() = _info.hostSpecies == HostSpecies.WeKit
-
-    val isHost: Boolean
-        get() = !isModule
 
     val isHostGooglePlay: Boolean by lazy {
         com.tencent.mm.boot.BuildConfig.BUILD_TAG.contains("GP", ignoreCase = true)
@@ -71,14 +57,6 @@ object HostInfo {
                 hostName = application.applicationInfo.loadLabel(pm).toString(),
                 versionCode = packageInfo.longVersionCode,
                 versionName = packageInfo.versionName.orEmpty(),
-                hostSpecies =
-                    run {
-                        if (PackageNames.isWeChat(packageName)) return@run HostSpecies.WeChat
-                        return@run when (packageName) {
-                            PackageNames.MODULE -> HostSpecies.WeKit
-                            else -> HostSpecies.Unknown
-                        }
-                    },
             )
     }
 }

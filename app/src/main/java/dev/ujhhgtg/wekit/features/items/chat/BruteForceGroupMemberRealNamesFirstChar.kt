@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.sendPlaceOrder
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -114,11 +115,11 @@ object BruteForceGroupMemberRealNamesFirstChar :
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                title = localizedChatString(R.string.chat_real_name_bruteforce_title),
+                title = localizedString(R.string.chat_real_name_bruteforce_title),
                 summary =
                     realNames[memberId]?.let {
-                        localizedChatString(R.string.chat_real_name_bruteforce_first_char, it)
-                    } ?: localizedChatString(R.string.chat_real_name_bruteforce_tap),
+                        localizedString(R.string.chat_real_name_bruteforce_first_char, it)
+                    } ?: localizedString(R.string.chat_real_name_bruteforce_tap),
                 position = 1,
                 onClick = onClick@{ activity ->
                         val clickedMemberId = activity.currentWxId ?: return@onClick
