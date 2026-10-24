@@ -37,8 +37,12 @@ class DexMetadata(private val provider: DexMetadataProvider) {
         cached(classes, DexMetadataKind.Class, descriptor) { DexClassInfo(it, this) }
 
     /** Class metadata for a dotted Java name ("com.foo.Bar") or a DEX descriptor. */
-    fun classInfoByName(javaName: String): DexClassInfo? =
-        classInfo(dottedClassNameToDescriptor(javaName))
+    fun classInfoByName(javaName: String): DexClassInfo? {
+        // Primitives and arrays have no class document; return null instead of sending a malformed
+        // descriptor to the engine.
+        val descriptor = objectClassDescriptorOrNull(javaName) ?: return null
+        return classInfo(descriptor)
+    }
 
     /** Method metadata for a full method descriptor, or null when not found. */
     fun methodInfo(descriptor: String): DexMethodInfo? =

@@ -55,11 +55,13 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
         ).single()
         methodRefreshAppPanel.setDescriptor(refreshMethod)
 
-        val usedFields = refreshMethod.usingFields.map { it.field }.distinct()
+        val usedFields = refreshMethod.usingFields.map { it.field }.distinctBy { it.descriptor }
+        // DexKit skipped non-final fields before resolving their type, so an external or
+        // primitive type (classInfoByName -> null) must count as "no boolean fields".
         val firstFlag = usedFields.first { field ->
-            val fieldType = DexResolutionContext.metadata.classInfoByName(field.typeName)!!
             field.modifiers and java.lang.reflect.Modifier.FINAL != 0 &&
-                fieldType.fields.count { it.typeName == "boolean" } == 1
+                DexResolutionContext.metadata.classInfoByName(field.typeName)
+                    ?.fields?.count { it.typeName == "boolean" } == 1
         }
         val configClass = firstFlag.declaredClass!!
         val appPanelConfig = usedFields.single { field ->

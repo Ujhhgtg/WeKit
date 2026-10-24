@@ -62,6 +62,24 @@ fun javaNameToDescriptor(javaName: String): String {
     return javaType(name)
 }
 
+
+/**
+ * Object-class descriptor for a class name/descriptor, or null when the name is not an object class
+ * (primitive, array or malformed). Metadata lookups are class-document lookups, so array/primitive
+ * names must resolve to null instead of a malformed descriptor.
+ */
+fun objectClassDescriptorOrNull(className: String): String? {
+    val name = className.trim()
+    if (name.isEmpty()) return null
+    if (name.startsWith("[") || name.endsWith("[]")) return null
+    if (name in PRIMITIVE_JAVA_TYPE_NAMES) return null
+    if (name.startsWith("L") && name.endsWith(";")) {
+        return if (name.contains('[') || name.contains(']')) null else name
+    }
+    if (name.any { it == ';' || it == '[' || it == ']' || it.isWhitespace() }) return null
+    return "L" + name.replace('.', '/').trim('/') + ";"
+}
+
 /** Converts a dotted class name (or an existing "L...;" descriptor) to a DEX class descriptor. */
 fun dottedClassNameToDescriptor(className: String): String = classDescriptor(className)
 
