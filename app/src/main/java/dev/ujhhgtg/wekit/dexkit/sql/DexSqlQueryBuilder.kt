@@ -655,6 +655,24 @@ internal fun emitMethod(query: SqlMethodQuery, constructor: Boolean): String {
     query.declaredClassConstraint?.let {
         appendDeclaredClassConstraint(it, "m", result.nextIndex, joins, where)
     }
+    if (query.anyParamTypes.isNotEmpty()) {
+        val alternatives =
+            query.anyParamTypes.map { types ->
+                "param_types_match(m.param_descriptors, " +
+                    sqlQuote(
+                        types.joinToString(",") { type ->
+                            if (type == null) "?" else javaType(type.toString())
+                        },
+                    ) +
+                    ") = 1"
+            }
+        where +=
+            if (alternatives.size == 1) {
+                alternatives.single()
+            } else {
+                "(" + alternatives.joinToString(" OR ") + ")"
+            }
+    }
     query.literals.validateRange()
     require(joins.isNotEmpty() || where.isNotEmpty()) {
         "sqlMethod requires at least one predicate"

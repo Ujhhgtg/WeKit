@@ -501,6 +501,22 @@ class SpecSqlScopeParityTest {
     }
 
     @Test
+    fun anyOfParamTypesEmitOrGroup() {
+        assertEquals(
+            "SELECT DISTINCT m.descriptor AS method FROM methods m WHERE m.name = 'run' " +
+                "AND (param_types_match(m.param_descriptors, 'Ljava/lang/String;') = 1 " +
+                "OR param_types_match(m.param_descriptors, 'Ljava/lang/String;,I') = 1) " +
+                "ORDER BY m.descriptor;",
+            methodSpec {
+                    name("run")
+                    anyOf { paramTypes("java.lang.String") }
+                    anyOf { paramTypes("java.lang.String", "int") }
+                }
+                .toSqlOrNull(),
+        )
+    }
+
+    @Test
     fun declaredClassAnnotationEmitsAnnotationJoins() {
         assertEquals(
 "SELECT DISTINCT m.descriptor AS method FROM methods m " +

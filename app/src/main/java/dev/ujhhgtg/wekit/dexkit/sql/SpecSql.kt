@@ -191,12 +191,12 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
     if (
         invokeMethods.isNotEmpty() ||
             callerMethods.isNotEmpty() ||
-            anyOf.isNotEmpty() ||
             allOf.isNotEmpty() ||
             annotations.isNotEmpty()
     ) {
         return null
     }
+    if (nested && anyOf.isNotEmpty()) return null
     if (opcodes?.names?.isNotEmpty() == true) return null
     if (opcodes?.count == null && opcodes?.names?.isEmpty() == false) return null
     name?.let {
@@ -271,6 +271,15 @@ internal fun MethodSpec.toSqlMethodQueryOrNull(
                 FieldUsingType.Write -> "put"
             }
         query.usingField(fieldName = fieldName, fieldType = fieldType, usingType = usingType)
+    }
+    if (anyOf.isNotEmpty()) {
+        anyOf.forEach { alternative ->
+            val types = alternative.paramTypes ?: return null
+            // Only bare paramTypes alternatives have a SQL OR-group form.
+            if (alternative.copy(paramTypes = null) != MethodSpec()) return null
+            if (types.any { it != null && it.match != NameMatch.Equals }) return null
+            query.anyParamTypes(*types.map { it?.value }.toTypedArray())
+        }
     }
     return query
 }
@@ -371,7 +380,8 @@ private fun SqlMethodQuery.hasMatcherPredicates(): Boolean =
         opcodeCountRange != null ||
         literals.strings.isNotEmpty() ||
         literals.numberCalls.isNotEmpty() ||
-        literals.searchPackages.isNotEmpty()
+        literals.searchPackages.isNotEmpty() ||
+        anyParamTypes.isNotEmpty()
 
 internal fun FieldSpec.toSqlFieldQueryOrNull(): SqlFieldQuery? {
     val query = SqlFieldQuery()

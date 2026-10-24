@@ -140,7 +140,15 @@ internal class SqlMethodQuery internal constructor() {
     internal var paramTypes: List<Any?>? = null
     internal val usingFields = mutableListOf<SqlUsingField>()
 
+    /** anyOf parameter-type alternatives; lowered to one OR-grouped param_types_match predicate. */
+    internal val anyParamTypes = mutableListOf<List<Any?>>()
+
     internal var declaredClassConstraint: SqlClassLiteralConstraint? = null
+
+    /** Add one anyOf parameter-type alternative (null entries are wildcards). */
+    fun anyParamTypes(vararg types: Any?) {
+        anyParamTypes += types.toList()
+    }
 
     /** Add one method-to-field access matcher on the access-method side. */
     fun usingField(fieldName: String? = null, fieldType: String? = null, usingType: String? = null) {
