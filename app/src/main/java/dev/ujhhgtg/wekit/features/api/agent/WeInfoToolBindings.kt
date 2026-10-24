@@ -21,7 +21,6 @@ import java.util.TimeZone
  * All tools are `sideEffect = false` → factory-default ENABLED (pure reads, never mutate anything).
  */
 object WeInfoToolBindings {
-
     private const val GROUP = AgentTool.BUILTIN_INFO
 
     @AgentTool(

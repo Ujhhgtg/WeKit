@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
 import dev.ujhhgtg.wekit.dexkit.matcher.BridgeMatcherRelations
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.DexDescriptorQuery
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSessionCache
 import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
@@ -52,10 +51,9 @@ internal class QueryMatcherSpec(
         val callerSource = DexSqlMetadataProvider(bridge)
         return QueryMatcherScope(
             metadata = metadata,
-            query =
-                DexDescriptorQuery { sql ->
-                    bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
-                },
+            query = { sql ->
+                bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
+            },
             relations =
                 BridgeMatcherRelations(
                     callersOf = callerSource::callers,
@@ -75,12 +73,13 @@ internal class QueryMatcherSpec(
 internal fun methodSpecMatcherDexSqlSpec(spec: MethodSpec, allowFailure: Boolean): DexSqlSpec =
     QueryMatcherSpec(allowFailure) { uniqueMethod(spec) }.asTwoStageSqlSpec()
 
-internal fun constructorSpecMatcherDexSqlSpec(
-    spec: MethodSpec,
-    allowFailure: Boolean,
-): DexSqlSpec =
+internal fun constructorSpecMatcherDexSqlSpec(spec: MethodSpec, allowFailure: Boolean): DexSqlSpec =
     QueryMatcherSpec(allowFailure) {
-            uniqueMethod(spec.copy(name = dev.ujhhgtg.wekit.dexkit.matcher.NameSpec("<init>")))
+            uniqueMethod(
+                spec.copy(
+                    name = dev.ujhhgtg.wekit.dexkit.matcher.NameSpec("<init>"),
+                ),
+            )
         }
         .asTwoStageSqlSpec()
 
@@ -132,7 +131,9 @@ internal fun dexConstructorQuery(
     PropertyDelegateProvider { item, property ->
         val key = property.name
         DexConstructorDelegate(key, sqlSpec = QueryMatcherSpec(allowFailure, block).asSqlSpec())
-            .also { item.registerDexDelegate(it) }
+            .also {
+                item.registerDexDelegate(it)
+            }
     }
 
 /**

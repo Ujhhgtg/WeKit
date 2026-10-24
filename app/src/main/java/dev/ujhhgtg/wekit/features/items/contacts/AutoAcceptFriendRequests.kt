@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -175,9 +174,11 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
                 key = labels,
                 titleRes = R.string.friend_automation_labels,
                 summary = {
-                    if (!it.enabled || it.labels.isEmpty())
+                    if (!it.enabled || it.labels.isEmpty()) {
                         stringResource(R.string.friend_automation_labels_off)
-                    else stringResource(R.string.friend_automation_labels_count, it.labels.size)
+                    } else {
+                        stringResource(R.string.friend_automation_labels_count, it.labels.size)
+                    }
                 },
                 isOn = { it.enabled },
                 setOn = { rule, on -> rule.copy(enabled = on) },
@@ -188,8 +189,11 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
                 key = remark,
                 titleRes = R.string.friend_automation_remark,
                 summary = {
-                    if (it.enabled) it.template
-                    else stringResource(R.string.friend_automation_remark_off)
+                    if (it.enabled) {
+                        it.template
+                    } else {
+                        stringResource(R.string.friend_automation_remark_off)
+                    }
                 },
                 isOn = { it.enabled },
                 setOn = { rule, on -> rule.copy(enabled = on) },
@@ -224,8 +228,6 @@ object FriendAutomation : AutomationSpec("FRIEND_AUTOMATION") {
         if (validates(keyIds, reply)) return rules[reply].validationError()
         return null
     }
-
-    private const val TAG = "FriendAutomation"
 
     fun rules(item: String): AutomationRules =
         store.snapshot().effectiveRules(AutomationScope.item(item))
@@ -293,11 +295,10 @@ private fun TimeFormatField(value: String, onChange: (String) -> Unit) {
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> Unit) {
     val existing by
-        produceState(emptyList<String>()) {
+        produceState(emptyList()) {
             this.value =
                 withContext(Dispatchers.IO) {
                     runCatching { WeContactLabelApi.getAllLabels().map { it.labelName } }
@@ -307,8 +308,9 @@ private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> U
         }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AutomationFieldLabel(stringResource(R.string.friend_automation_existing_labels))
-        if (existing.isEmpty())
+        if (existing.isEmpty()) {
             AutomationSheetNote(stringResource(R.string.friend_automation_no_labels))
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             existing.forEach { label ->
                 val on = label in value.labels
@@ -331,7 +333,9 @@ private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> U
                                     Modifier.size(FilterChipDefaults.IconSize),
                                 )
                             }
-                        } else null,
+                        } else {
+                            null
+                        },
                 )
             }
         }
@@ -358,8 +362,9 @@ private fun LabelsSheet(value: FriendLabelRule, onChange: (FriendLabelRule) -> U
         var pending by remember { mutableStateOf("") }
         val add = {
             val label = pending.trim()
-            if (label.isNotEmpty() && label !in value.labels)
+            if (label.isNotEmpty() && label !in value.labels) {
                 onChange(value.copy(labels = value.labels + label))
+            }
             pending = ""
         }
         TemplateField(
@@ -496,8 +501,9 @@ object AutoAcceptFriendRequests : ClickableFeature() {
                         remarkRule.timeFormat,
                     )
                     .trim()
-            if (!runBlocking { WeContactApi.setRemark(wxId, remark) })
+            if (!runBlocking { WeContactApi.setRemark(wxId, remark) }) {
                 WeLogger.w(TAG, "failed to set remark of $wxId")
+            }
         }
 
         val delay = rules[FriendAutomation.delay].let { if (it.enabled) it.value else 0L }

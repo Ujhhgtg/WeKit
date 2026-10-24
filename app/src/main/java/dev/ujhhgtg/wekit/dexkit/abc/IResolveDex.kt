@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
  * 工厂）声明委托属性；这些委托在构造时自动注册到 [dexDelegates]。
  */
 interface IResolveDex {
-
     /** 当前 Feature 持有的所有 Dex 委托。 由 BaseFeature 维护，由委托工厂函数自动填充。 */
     val dexDelegates: List<BaseDexDelegate>
 

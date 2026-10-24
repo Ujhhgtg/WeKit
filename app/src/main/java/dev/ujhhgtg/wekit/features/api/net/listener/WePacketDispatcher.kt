@@ -122,10 +122,13 @@ object WePacketDispatcher : ApiFeature(), IResolveDex {
                                 when (method.name) {
                                     "hashCode" ->
                                         return@newProxyInstance originalCallback.hashCode()
+
                                     "toString" ->
                                         return@newProxyInstance originalCallback.toString()
+
                                     "equals" ->
                                         return@newProxyInstance originalCallback == args?.get(0)
+
                                     "onGYNetEnd" -> {
                                         runCatching {
                                             val respV0 = args!![4] ?: v0Var

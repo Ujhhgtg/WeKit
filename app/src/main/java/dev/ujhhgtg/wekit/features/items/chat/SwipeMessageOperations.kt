@@ -58,7 +58,6 @@ import kotlinx.coroutines.launch
 
 object SwipeMessageOperations :
     ClickableFeature(), IResolveDex, WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "滑动消息快捷操作"
     override val nameRes = R.string.feature_swipe_message_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -206,10 +205,8 @@ object SwipeMessageOperations :
     }
 
     // Marks our wrapper so a re-bind can tell its own listener apart from WeChat's.
-    private class SwipeTouchListener(
-        val state: SwipeState,
-        val delegate: View.OnTouchListener?,
-    ) : View.OnTouchListener {
+    private class SwipeTouchListener(val state: SwipeState, val delegate: View.OnTouchListener?) :
+        View.OnTouchListener {
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             val consumed = handleSwipe(v, state, event)
             runCatching { delegate?.onTouch(v, event) }
@@ -254,8 +251,8 @@ object SwipeMessageOperations :
     //     the touch target.
     // requestDisallowInterceptTouchEvent(true) is deferred until a left-drag is confirmed, so a
     // vertical scroll starting on blank space still reaches the RecyclerView.
-    private fun handleSwipe(v: View, s: SwipeState, event: MotionEvent): Boolean {
-        return when (event.actionMasked) {
+    private fun handleSwipe(v: View, s: SwipeState, event: MotionEvent): Boolean =
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 s.startX = event.rawX
                 s.startY = event.rawY
@@ -357,9 +354,10 @@ object SwipeMessageOperations :
                 false
             }
 
-            else -> false
+            else -> {
+                false
+            }
         }
-    }
 
     private fun updateActionOverlay(
         row: View,
@@ -444,8 +442,11 @@ object SwipeMessageOperations :
             // Which icon is active depends on the logical action bound to this physical direction,
             // not the direction itself — so both icons move correctly when directions are swapped.
             val (activeIcon, idleIcon) =
-                if (isSecondaryDir(direction)) Pair(secondaryIcon, quoteIcon)
-                else Pair(quoteIcon, secondaryIcon)
+                if (isSecondaryDir(direction)) {
+                    Pair(secondaryIcon, quoteIcon)
+                } else {
+                    Pair(quoteIcon, secondaryIcon)
+                }
 
             if (direction == DragDirection.LEFT) {
                 activeIcon.x = lerp(rightHiddenX, rightVisibleX, progress)
@@ -499,9 +500,8 @@ object SwipeMessageOperations :
             root?.overlay?.remove(editIcon)
         }
 
-        private fun lerp(start: Float, end: Float, progress: Float): Float {
-            return start + (end - start) * progress
-        }
+        private fun lerp(start: Float, end: Float, progress: Float): Float =
+            start + (end - start) * progress
     }
 
     // Icon accent palette, split by light/dark mode. The circle is a soft-tinted backdrop; the icon
@@ -574,8 +574,9 @@ object SwipeMessageOperations :
         val dir = if (dx < 0) DragDirection.LEFT else DragDirection.RIGHT
         return if (isSecondaryDirection(dir)) {
             // Secondary direction: gated by the master toggle, then by per-action type support.
-            if (!enableSecondary) null
-            else if (useEditInsteadOfRepeat) {
+            if (!enableSecondary) {
+                null
+            } else if (useEditInsteadOfRepeat) {
                 if (s.msgInfo?.type?.isText == true) dir else null
             } else {
                 if (s.msgInfo?.let(RepeatMessages::isSupported) == true) dir else null
@@ -686,8 +687,9 @@ object SwipeMessageOperations :
         val context = view.context
         CoroutineScope(Dispatchers.IO).launch {
             val sent = RepeatMessages.repeatMessage(msgInfo)
-            if (!sent)
+            if (!sent) {
                 showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
+            }
         }
     }
 

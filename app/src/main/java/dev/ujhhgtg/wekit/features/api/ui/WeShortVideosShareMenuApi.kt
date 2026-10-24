@@ -13,7 +13,6 @@ import java.util.LinkedList
 import org.json.JSONObject
 
 object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "视频号分享菜单扩展"
     override val nameRes = R.string.feature_we_short_videos_share_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -119,9 +118,7 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun handleCreateMenu(
-        menu: ContextMenu,
-    ) {
+    private fun handleCreateMenu(menu: ContextMenu) {
         for (item in menuItems.values.flatten()) {
             menu
                 .reflekt()

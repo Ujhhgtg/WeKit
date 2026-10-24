@@ -11,11 +11,7 @@ data class FavInfoProto(
     @ProtoNumber(1) val chatInfo: ChatInfoProto,
     @ProtoNumber(2) val voiceInfo: VoiceInfoProto,
 ) {
-
-    @Serializable
-    data class ChatInfoProto(
-        @ProtoNumber(2) val senderId: String,
-    )
+    @Serializable data class ChatInfoProto(@ProtoNumber(2) val senderId: String)
 
     @Serializable
     data class VoiceInfoProto(

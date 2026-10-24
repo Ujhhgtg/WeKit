@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object AllowPrivateChatReceiveOutgoingRedPackets : SwitchFeature() {
-
     override val technicalId = "允许领取私聊红包"
     override val nameRes = R.string.feature_allow_private_chat_receive_outgoing_red_packets_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)

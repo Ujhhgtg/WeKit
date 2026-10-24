@@ -16,7 +16,6 @@ import java.util.WeakHashMap
  * `OnBackPressedDispatcher`, so an overlay opened on top of another gets the gesture first.
  */
 object WeLauncherBackApi : ApiFeature() {
-
     override val technicalId = "微信主界面返回手势服务"
     override val nameRes = R.string.feature_we_launcher_back_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

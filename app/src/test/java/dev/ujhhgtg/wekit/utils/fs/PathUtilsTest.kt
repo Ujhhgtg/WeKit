@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 class PathUtilsTest {
-
     @TempDir lateinit var directory: Path
 
     @Test

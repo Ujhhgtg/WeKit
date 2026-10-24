@@ -62,9 +62,7 @@ data class WireTool(
  * Approval gating is NOT applied here: it is a per-session permission level (§3.1), resolved at
  * call time by the engine's [dev.ujhhgtg.wekit.agent.engine.ApprovalGateway].
  */
-class ToolRegistry(
-    providers: List<ToolProvider> = BuiltinToolProvider.all,
-) {
+class ToolRegistry(providers: List<ToolProvider> = BuiltinToolProvider.all) {
     private val providers = providers.toMutableList()
 
     fun setMcpProviders(mcpProviders: List<ToolProvider>) {
@@ -115,8 +113,9 @@ class ToolRegistry(
         visibility: ToolVisibility,
     ): Boolean {
         if (provider.kind != ProviderKind.BUILTIN) return true
-        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES)
+        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES) {
             return false
+        }
         return true
     }
 
@@ -131,8 +130,11 @@ class ToolRegistry(
         visibility: ToolVisibility = ToolVisibility.fromGlobals(),
     ): List<WireTool> =
         when (mode) {
-            ToolLoadingMode.STATIC -> resolveVisibleTools(visibility)
-            ToolLoadingMode.DYNAMIC ->
+            ToolLoadingMode.STATIC -> {
+                resolveVisibleTools(visibility)
+            }
+
+            ToolLoadingMode.DYNAMIC -> {
                 buildList {
                     add(discoverToolsMeta())
                     resolveVisibleTools(visibility).filterTo(this) {
@@ -140,6 +142,7 @@ class ToolRegistry(
                             it.exposedName in DYNAMIC_BASELINE_NAMES
                     }
                 }
+            }
         }
 
     /** Look up a resolved tool by the name the model called. */

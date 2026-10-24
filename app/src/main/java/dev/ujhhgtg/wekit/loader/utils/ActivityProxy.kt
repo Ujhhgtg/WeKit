@@ -36,7 +36,6 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object ActivityProxy {
-
     private const val TAG = "ActivityProxy"
     private var initialized = false
 
@@ -180,13 +179,17 @@ object ActivityProxy {
             if (method.name.startsWith("startActivity")) {
                 mutableArgs.forEachIndexed { i, arg ->
                     when (arg) {
-                        is Intent -> if (shouldProxy(arg)) mutableArgs[i] = createTokenWrapper(arg)
+                        is Intent -> {
+                            if (shouldProxy(arg)) mutableArgs[i] = createTokenWrapper(arg)
+                        }
+
                         is Array<*> -> {
                             @Suppress("UNCHECKED_CAST")
                             val intents = arg as? Array<Intent?> ?: return@forEachIndexed
                             intents.forEachIndexed { j, intent ->
-                                if (intent != null && shouldProxy(intent))
+                                if (intent != null && shouldProxy(intent)) {
                                     intents[j] = createTokenWrapper(intent)
+                                }
                             }
                         }
                     }
@@ -206,8 +209,11 @@ object ActivityProxy {
             val token = IntentTokenCache.put(Intent(raw))
             val className = raw.component!!.className
             val proxyClass =
-                if (className.contains("SettingsActivity")) ActProxyMgr.SETTINGS_PROXY
-                else ActProxyMgr.TRANSPARENT_PROXY
+                if (className.contains("SettingsActivity")) {
+                    ActProxyMgr.SETTINGS_PROXY
+                } else {
+                    ActProxyMgr.TRANSPARENT_PROXY
+                }
             return Intent {
                 component = ComponentName(HostInfo.packageName, proxyClass)
                 flags = raw.flags
@@ -231,7 +237,9 @@ object ActivityProxy {
 
         override fun handleMessage(msg: Message): Boolean {
             when (msg.what) {
-                100 -> handleLaunchActivity(msg) // LAUNCH_ACTIVITY (< Android 9)
+                100 -> handleLaunchActivity(msg)
+
+                // LAUNCH_ACTIVITY (< Android 9)
                 159 -> handleExecuteTransaction(msg) // EXECUTE_TRANSACTION (>= Android 9)
             }
             return runCatching { next?.handleMessage(msg) == true }
@@ -320,7 +328,6 @@ object ActivityProxy {
 
     @SuppressLint("NewApi")
     private class ProxyInstrumentation(private val base: Instrumentation) : Instrumentation() {
-
         private fun tryRecoverIntent(intent: Intent?): Intent? {
             intent ?: return null
             if (!intent.hasExtra(ActProxyMgr.ACTIVITY_PROXY_INTENT_TOKEN)) return null

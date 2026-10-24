@@ -19,7 +19,6 @@ import java.lang.reflect.Modifier
 import java.math.BigInteger
 
 object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "朋友圈菜单增强扩展"
     override val nameRes = R.string.feature_we_moments_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -281,36 +280,36 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
             }
     }
 
-    private fun readStringFields(target: Any): List<String> {
-        return runCatching {
-            target
-                .reflekt()
-                .fields {
-                    type = BString
-                    modifiers { !it.contains(Modifiers.FINAL) && !it.contains(Modifiers.STATIC) }
-                }
-                .mapNotNull { it.get() as? String }
-                .filter { it.isNotBlank() }
-                .distinct()
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to read Moments context string fields", it)
-                emptyList()
+    private fun readStringFields(target: Any): List<String> = runCatching {
+        target
+            .reflekt()
+            .fields {
+                type = BString
+                modifiers { !it.contains(Modifiers.FINAL) && !it.contains(Modifiers.STATIC) }
             }
+            .mapNotNull { it.get() as? String }
+            .filter { it.isNotBlank() }
+            .distinct()
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to read Moments context string fields", it)
+            emptyList()
+        }
 
     private fun readLongFields(target: Any): List<Long> {
         return runCatching {
             target.javaClass.declaredFields
                 .mapNotNull { field ->
                     val modifiers = field.modifiers
-                    if (Modifier.isFinal(modifiers) || Modifier.isStatic(modifiers))
+                    if (Modifier.isFinal(modifiers) || Modifier.isStatic(modifiers)) {
                         return@mapNotNull null
+                    }
                     if (
                         field.type != Long::class.javaPrimitiveType &&
                             field.type != Long::class.javaObjectType
-                    )
+                    ) {
                         return@mapNotNull null
+                    }
                     field.isAccessible = true
                     (field.get(target) as? Number)?.toLong()?.takeIf { it != 0L }
                 }
@@ -351,12 +350,11 @@ object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
         return null
     }
 
-    private fun hasImproveInfoField(target: Any): Boolean {
-        return findObjectInFields(target) { obj ->
+    private fun hasImproveInfoField(target: Any): Boolean =
+        findObjectInFields(target) { obj ->
             hasNoArgMethodReturning(obj, "com.tencent.mm.plugin.sns.storage.SnsInfo") &&
                 hasNoArgMethodReturning(obj, "com.tencent.mm.protocal.protobuf.TimeLineObject")
         } != null
-    }
 
     private fun hasNoArgMethodReturning(target: Any, returnTypeName: String): Boolean =
         target.javaClass.methods.any { method ->

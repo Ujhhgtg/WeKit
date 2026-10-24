@@ -493,7 +493,9 @@ private fun StickerPanelContent(
                         val unique = it.distinctBy(::stickerSelectionKey)
                         if (unique.isEmpty()) {
                             PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_pack))
-                        } else PanelUiState.Content(unique)
+                        } else {
+                            PanelUiState.Content(unique)
+                        }
                     },
                     {
                         PanelUiState.Error(it.toPanelUiText(R.string.sticker_panel_error_item_load))
@@ -538,11 +540,13 @@ private fun StickerPanelContent(
                                     panelUiText(R.string.sticker_panel_select_online_pack),
                                 )
                         }
-                        if (packs.isEmpty())
+                        if (packs.isEmpty()) {
                             PanelUiState.Empty(
                                 panelUiText(R.string.sticker_panel_empty_no_online_pack),
                             )
-                        else PanelUiState.Content(packs)
+                        } else {
+                            PanelUiState.Content(packs)
+                        }
                     },
                     onFailure = {
                         PanelUiState.Error(
@@ -617,9 +621,11 @@ private fun StickerPanelContent(
                                 loadOnlinePack(requestedPack)
                             }
                         }
-                        if (packs.isEmpty())
+                        if (packs.isEmpty()) {
                             PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_uploads))
-                        else PanelUiState.Content(packs)
+                        } else {
+                            PanelUiState.Content(packs)
+                        }
                     },
                     onFailure = {
                         PanelUiState.Error(
@@ -660,15 +666,21 @@ private fun StickerPanelContent(
         operationMessage =
             if (failed == 0) {
                 panelUiQuantity(
-                    if (update) R.plurals.sticker_panel_updated_count
-                    else R.plurals.sticker_panel_saved_count,
+                    if (update) {
+                        R.plurals.sticker_panel_updated_count
+                    } else {
+                        R.plurals.sticker_panel_saved_count
+                    },
                     succeeded,
                     succeeded,
                 )
             } else {
                 panelUiText(
-                    if (update) R.string.sticker_panel_update_result
-                    else R.string.sticker_panel_save_result,
+                    if (update) {
+                        R.string.sticker_panel_update_result
+                    } else {
+                        R.string.sticker_panel_save_result
+                    },
                     succeeded,
                     failed,
                 )
@@ -817,9 +829,11 @@ private fun StickerPanelContent(
             searchState =
                 result.fold(
                     {
-                        if (it.isEmpty())
+                        if (it.isEmpty()) {
                             PanelUiState.Empty(panelUiText(R.string.sticker_panel_empty_no_similar))
-                        else PanelUiState.Content(it)
+                        } else {
+                            PanelUiState.Content(it)
+                        }
                     },
                     {
                         PanelUiState.Error(
@@ -851,9 +865,11 @@ private fun StickerPanelContent(
     LaunchedEffect(destination) {
         PanelSettings.stickerLastDestination = destination.name
         if (destination == StickerDestination.ONLINE) {
-            if (showingMyUploads && myUploadsState == PanelUiState.Loading) loadMyUploads()
-            else if (!showingMyUploads && onlinePacksState == PanelUiState.Loading)
+            if (showingMyUploads && myUploadsState == PanelUiState.Loading) {
+                loadMyUploads()
+            } else if (!showingMyUploads && onlinePacksState == PanelUiState.Loading) {
                 loadOnlinePacks()
+            }
         }
     }
 
@@ -862,8 +878,11 @@ private fun StickerPanelContent(
     val selectedPack =
         editablePacks.firstOrNull { it.id == selectedPackId } ?: editablePacks.firstOrNull()
     val localDetailPack =
-        if (localPackLayout == StickerPackLayout.TABS) null
-        else editablePacks.firstOrNull { it.id == localPackDetailId }
+        if (localPackLayout == StickerPackLayout.TABS) {
+            null
+        } else {
+            editablePacks.firstOrNull { it.id == localPackDetailId }
+        }
     val activeOnlineState = if (showingMyUploads) myUploadsState else onlinePacksState
     val unsortedOnlinePacks = (activeOnlineState as? PanelUiState.Content)?.value.orEmpty()
     val onlinePacks =
@@ -901,30 +920,36 @@ private fun StickerPanelContent(
         }
     val localSearchResults =
         remember(localPacks, query) {
-            if (query.isBlank()) emptyList()
-            else
+            if (query.isBlank()) {
+                emptyList()
+            } else {
                 editablePacks.flatMap { pack ->
                     pack.items.filter { it.matchesLocalSearch(pack, query) }
                 }
+            }
         }
     val localFilterActive = localPackFilterQuery.trim().isNotEmpty()
     val visibleLocalPacks =
         remember(localPacks, localPackFilterQuery, localCatalogVisible) {
-            if (!localCatalogVisible || localPackFilterQuery.isBlank()) editablePacks
-            else
+            if (!localCatalogVisible || localPackFilterQuery.isBlank()) {
+                editablePacks
+            } else {
                 editablePacks.filter {
                     it.title.contains(localPackFilterQuery.trim(), ignoreCase = true)
                 }
+            }
         }
     val visibleLocalActionPack =
         remember(localActionPack, localPackFilterQuery, localCatalogVisible) {
             localActionPack?.let { pack ->
-                if (localCatalogVisible || localPackFilterQuery.isBlank()) pack
-                else
+                if (localCatalogVisible || localPackFilterQuery.isBlank()) {
+                    pack
+                } else {
                     pack.copy(
                         items =
                             pack.items.filter { it.matchesLocalSearch(pack, localPackFilterQuery) },
                     )
+                }
             }
         }
 
@@ -1012,20 +1037,38 @@ private fun StickerPanelContent(
 
     val title =
         when (destination) {
-            StickerDestination.RECENT -> stringResource(R.string.panel_recent)
-            StickerDestination.SEARCH -> stringResource(R.string.panel_local_search)
-            StickerDestination.PACKS ->
+            StickerDestination.RECENT -> {
+                stringResource(R.string.panel_recent)
+            }
+
+            StickerDestination.SEARCH -> {
+                stringResource(R.string.panel_local_search)
+            }
+
+            StickerDestination.PACKS -> {
                 localDetailPack?.title ?: stringResource(R.string.sticker_panel_local_packs)
-            StickerDestination.ONLINE ->
+            }
+
+            StickerDestination.ONLINE -> {
                 selectedOnlinePack?.title
                     ?: stringResource(
-                        if (showingMyUploads) R.string.sticker_panel_my_uploads
-                        else R.string.sticker_panel_online_packs,
+                        if (showingMyUploads) {
+                            R.string.sticker_panel_my_uploads
+                        } else {
+                            R.string.sticker_panel_online_packs
+                        },
                     )
+            }
 
-            StickerDestination.ONLINE_SEARCH -> stringResource(R.string.panel_online_search)
-            StickerDestination.SETTINGS -> stringResource(R.string.panel_settings)
+            StickerDestination.ONLINE_SEARCH -> {
+                stringResource(R.string.panel_online_search)
+            }
+
+            StickerDestination.SETTINGS -> {
+                stringResource(R.string.panel_settings)
+            }
         }
+
     fun cancelReorder() {
         reorderTarget = null
         reorderPackId = null
@@ -1092,8 +1135,11 @@ private fun StickerPanelContent(
             val result =
                 withContext(Dispatchers.IO) {
                     when (target) {
-                        StickerReorderTarget.PACKS -> actions.savePackOrder(requested)
-                        StickerReorderTarget.ITEMS ->
+                        StickerReorderTarget.PACKS -> {
+                            actions.savePackOrder(requested)
+                        }
+
+                        StickerReorderTarget.ITEMS -> {
                             packId?.let {
                                 actions.saveItemOrder(it, requested)
                             }
@@ -1104,6 +1150,7 @@ private fun StickerPanelContent(
                                         ),
                                     ),
                                 )
+                        }
                     }
                 }
             if (result.isSuccess) {
@@ -1126,12 +1173,18 @@ private fun StickerPanelContent(
                 selectedKeys = selectedStickerKeys,
                 key = ::stickerSelectionKey,
                 terminalIcon =
-                    if (deletingLocalItems) MaterialSymbols.Outlined.Delete
-                    else MaterialSymbols.Outlined.Save,
+                    if (deletingLocalItems) {
+                        MaterialSymbols.Outlined.Delete
+                    } else {
+                        MaterialSymbols.Outlined.Save
+                    },
                 terminalLabel =
                     stringResource(
-                        if (deletingLocalItems) R.string.panel_action_delete
-                        else R.string.action_save,
+                        if (deletingLocalItems) {
+                            R.string.panel_action_delete
+                        } else {
+                            R.string.action_save
+                        },
                     ),
                 onClose = {
                     multiSelectMode = false
@@ -1139,13 +1192,16 @@ private fun StickerPanelContent(
                 },
                 onSelectionChange = { selectedStickerKeys = it },
                 onTerminalAction = { items ->
-                    if (deletingLocalItems) prompt = StickerPrompt.DeleteStickers(items)
-                    else showStickerPackPicker(items)
+                    if (deletingLocalItems) {
+                        prompt = StickerPrompt.DeleteStickers(items)
+                    } else {
+                        showStickerPackPicker(items)
+                    }
                 },
             )
-        } else
+        } else {
             when (destination) {
-                StickerDestination.PACKS ->
+                StickerDestination.PACKS -> {
                     if (localCatalogVisible) {
                         buildList {
                             add(
@@ -1184,7 +1240,7 @@ private fun StickerPanelContent(
                                 ),
                             )
                         }
-                    } else
+                    } else {
                         buildList {
                             if (localPackLayout != StickerPackLayout.TABS) {
                                 add(
@@ -1290,8 +1346,10 @@ private fun StickerPanelContent(
                                 ),
                             )
                         }
+                    }
+                }
 
-                StickerDestination.ONLINE ->
+                StickerDestination.ONLINE -> {
                     when (selectedOnlinePack) {
                         null if !showingMyUploads -> {
                             listOf(
@@ -1312,16 +1370,21 @@ private fun StickerPanelContent(
                                     icon = MaterialSymbols.Outlined.Sort,
                                     label =
                                         when (onlineSortMode) {
-                                            1 ->
+                                            1 -> {
                                                 stringResource(
                                                     R.string.sticker_panel_sort_upload_time,
                                                 )
-                                            2 ->
+                                            }
+
+                                            2 -> {
                                                 stringResource(
                                                     R.string.sticker_panel_sort_download_count,
                                                 )
-                                            else ->
+                                            }
+
+                                            else -> {
                                                 stringResource(R.string.sticker_panel_sort_default)
+                                            }
                                         },
                                     showLabel = true,
                                 ) {
@@ -1330,6 +1393,7 @@ private fun StickerPanelContent(
                                 },
                             )
                         }
+
                         null -> {
                             listOf(
                                 PanelAction(
@@ -1347,6 +1411,7 @@ private fun StickerPanelContent(
                                 ),
                             )
                         }
+
                         else -> {
                             listOf(
                                 PanelAction(
@@ -1384,26 +1449,36 @@ private fun StickerPanelContent(
                             )
                         }
                     }
+                }
 
-                else -> emptyList()
+                else -> {
+                    emptyList()
+                }
             }
+        }
     val actionSearch =
         when {
-            reorderTarget != null || multiSelectMode -> null
+            reorderTarget != null || multiSelectMode -> {
+                null
+            }
 
-            destination == StickerDestination.PACKS ->
+            destination == StickerDestination.PACKS -> {
                 PanelActionSearch(
                     expanded = localPackFilterExpanded,
                     value = localPackFilterQuery,
                     label =
                         stringResource(
-                            if (localCatalogVisible) R.string.sticker_panel_filter_local_packs
-                            else R.string.sticker_panel_filter_current_pack,
+                            if (localCatalogVisible) {
+                                R.string.sticker_panel_filter_local_packs
+                            } else {
+                                R.string.sticker_panel_filter_current_pack
+                            },
                         ),
                     actionIndex = (panelActions.size - 1).coerceAtLeast(0),
                     onValueChange = { localPackFilterQuery = it },
                     onExpandedChange = { localPackFilterExpanded = it },
                 )
+            }
 
             destination == StickerDestination.ONLINE &&
                 selectedOnlinePack == null &&
@@ -1418,7 +1493,9 @@ private fun StickerPanelContent(
                 )
             }
 
-            else -> null
+            else -> {
+                null
+            }
         }
 
     Box(Modifier.fillMaxSize()) {
@@ -1438,7 +1515,9 @@ private fun StickerPanelContent(
             onDismiss = onDismiss,
             onBack = {
                 when {
-                    reorderTarget != null -> cancelReorder()
+                    reorderTarget != null -> {
+                        cancelReorder()
+                    }
 
                     multiSelectMode -> {
                         multiSelectMode = false
@@ -1466,21 +1545,25 @@ private fun StickerPanelContent(
                         localPackDetailId = null
                     }
 
-                    else -> onDismiss()
+                    else -> {
+                        onDismiss()
+                    }
                 }
             },
             titleContent =
-                if (destination == StickerDestination.RECENT)
+                if (destination == StickerDestination.RECENT) {
                     ({
                         RecentModeTitle(recentMostUsed) { mostUsed ->
                             recentMostUsed = mostUsed
                             PanelSettings.stickerRecentSortMode = if (mostUsed) 1 else 0
                         }
                     })
-                else null,
+                } else {
+                    null
+                },
         ) {
             when (reorderTarget) {
-                StickerReorderTarget.PACKS ->
+                StickerReorderTarget.PACKS -> {
                     StickerPackReorderContent(
                         packs =
                             reorderKeys.mapNotNull { key ->
@@ -1488,8 +1571,9 @@ private fun StickerPanelContent(
                             },
                         onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
                     )
+                }
 
-                StickerReorderTarget.ITEMS ->
+                StickerReorderTarget.ITEMS -> {
                     StickerItemReorderContent(
                         stickers =
                             reorderKeys.mapNotNull { key ->
@@ -1497,10 +1581,11 @@ private fun StickerPanelContent(
                             },
                         onMove = { from, to -> reorderKeys = reorderKeys.moveItem(from, to) },
                     )
+                }
 
-                null ->
+                null -> {
                     when (destination) {
-                        StickerDestination.RECENT ->
+                        StickerDestination.RECENT -> {
                             PanelStateContent(localState, ::refreshLocal) {
                                 StickerGridOrEmpty(
                                     stickers = recentItems,
@@ -1511,8 +1596,9 @@ private fun StickerPanelContent(
                                     onPreviewGestureEnd = { previewSticker = null },
                                 )
                             }
+                        }
 
-                        StickerDestination.SEARCH ->
+                        StickerDestination.SEARCH -> {
                             PanelStateContent(localState, ::refreshLocal) {
                                 SearchStickerContent(
                                     query = query,
@@ -1521,17 +1607,20 @@ private fun StickerPanelContent(
                                     onSearch = null,
                                     emptyMessage =
                                         stringResource(
-                                            if (query.isBlank())
+                                            if (query.isBlank()) {
                                                 R.string.sticker_panel_local_search_hint
-                                            else R.string.sticker_panel_empty_no_local_sticker,
+                                            } else {
+                                                R.string.sticker_panel_empty_no_local_sticker
+                                            },
                                         ),
                                     onSend = ::send,
                                     onLongPress = { previewSticker = it },
                                     onPreviewGestureEnd = { previewSticker = null },
                                 )
                             }
+                        }
 
-                        StickerDestination.PACKS ->
+                        StickerDestination.PACKS -> {
                             PanelStateContent(localState, ::refreshLocal) {
                                 LocalPacksContent(
                                     packs = visibleLocalPacks,
@@ -1579,8 +1668,9 @@ private fun StickerPanelContent(
                                     },
                                 )
                             }
+                        }
 
-                        StickerDestination.ONLINE ->
+                        StickerDestination.ONLINE -> {
                             if (selectedOnlinePack == null) {
                                 PanelStateContent(
                                     activeOnlineState,
@@ -1588,10 +1678,17 @@ private fun StickerPanelContent(
                                 ) { packs ->
                                     val visiblePacks =
                                         when (onlineSortMode) {
-                                            1 -> packs.sortedByDescending(StickerPack::uploadTime)
-                                            2 ->
+                                            1 -> {
+                                                packs.sortedByDescending(StickerPack::uploadTime)
+                                            }
+
+                                            2 -> {
                                                 packs.sortedByDescending(StickerPack::downloadCount)
-                                            else -> packs
+                                            }
+
+                                            else -> {
+                                                packs
+                                            }
                                         }.filter { pack ->
                                             onlinePackQuery.isBlank() ||
                                                 pack.title.contains(
@@ -1661,8 +1758,9 @@ private fun StickerPanelContent(
                                     )
                                 }
                             }
+                        }
 
-                        StickerDestination.ONLINE_SEARCH ->
+                        StickerDestination.ONLINE_SEARCH -> {
                             SearchStickerContent(
                                 query = onlineQuery,
                                 inputEnabled = !similaritySearchActive,
@@ -1672,9 +1770,11 @@ private fun StickerPanelContent(
                                     searchState =
                                         PanelUiState.Empty(
                                             PanelUiText.Resource(
-                                                if (it.isBlank())
+                                                if (it.isBlank()) {
                                                     R.string.sticker_panel_search_prompt
-                                                else R.string.sticker_panel_search_action_hint,
+                                                } else {
+                                                    R.string.sticker_panel_search_action_hint
+                                                },
                                             ),
                                         )
                                 },
@@ -1689,19 +1789,22 @@ private fun StickerPanelContent(
                                         if (
                                             request != searchRequest ||
                                                 requestedQuery != onlineQuery
-                                        )
+                                        ) {
                                             return@launch
+                                        }
                                         searchState =
                                             result.fold(
                                                 {
-                                                    if (it.isEmpty())
+                                                    if (it.isEmpty()) {
                                                         PanelUiState.Empty(
                                                             panelUiText(
                                                                 R.string
                                                                     .sticker_panel_empty_no_online_sticker,
                                                             ),
                                                         )
-                                                    else PanelUiState.Content(it)
+                                                    } else {
+                                                        PanelUiState.Content(it)
+                                                    }
                                                 },
                                                 {
                                                     PanelUiState.Error(
@@ -1716,8 +1819,9 @@ private fun StickerPanelContent(
                                 },
                                 imageSearchActive = similaritySearchActive,
                                 onImageSearch =
-                                    if (similaritySearchActive) ::clearSimilaritySearch
-                                    else
+                                    if (similaritySearchActive) {
+                                        ::clearSimilaritySearch
+                                    } else {
                                         ({
                                             actions.pickSimilarityImage { result ->
                                                 result.fold(
@@ -1734,15 +1838,17 @@ private fun StickerPanelContent(
                                                     },
                                                 )
                                             }
-                                        }),
+                                        })
+                                    },
                                 state = searchState,
                                 emptyMessage = stringResource(R.string.sticker_panel_search_prompt),
                                 onSend = ::send,
                                 onLongPress = { previewSticker = it },
                                 onPreviewGestureEnd = { previewSticker = null },
                             )
+                        }
 
-                        StickerDestination.SETTINGS ->
+                        StickerDestination.SETTINGS -> {
                             StickerSettingsContent(
                                 localPackLayout = localPackLayout,
                                 onlinePackLayout = onlinePackLayout,
@@ -1775,7 +1881,9 @@ private fun StickerPanelContent(
                                     }
                                 },
                             )
+                        }
                     }
+                }
             }
         }
 
@@ -1834,20 +1942,26 @@ private fun StickerPanelContent(
                     prompt = StickerPrompt.ConfirmSimilaritySticker(item)
                 },
                 onOpenPack =
-                    if (destination == StickerDestination.ONLINE_SEARCH && item.packId.isNotBlank())
+                    if (
+                        destination == StickerDestination.ONLINE_SEARCH && item.packId.isNotBlank()
+                    ) {
                         ({
                             openOnlinePackForSticker(item)
                         })
-                    else null,
+                    } else {
+                        null
+                    },
                 onSetTitle =
-                    if (item.localPath != null)
+                    if (item.localPath != null) {
                         ({
                             previewSticker = null
                             prompt = StickerPrompt.SetStickerTitle(item)
                         })
-                    else null,
+                    } else {
+                        null
+                    },
                 onSetCover =
-                    if (item.localPath != null)
+                    if (item.localPath != null) {
                         ({
                             previewSticker = null
                             scope.launch {
@@ -1867,26 +1981,32 @@ private fun StickerPanelContent(
                                 if (result.isSuccess) refreshLocal()
                             }
                         })
-                    else null,
+                    } else {
+                        null
+                    },
                 onDelete =
-                    if (item.localPath != null)
+                    if (item.localPath != null) {
                         ({
                             previewSticker = null
                             prompt = StickerPrompt.DeleteSticker(item)
                         })
-                    else null,
+                    } else {
+                        null
+                    },
                 onSave =
-                    if (item.localPath == null)
+                    if (item.localPath == null) {
                         ({
                             previewSticker = null
                             showStickerPackPicker(listOf(item))
                         })
-                    else null,
+                    } else {
+                        null
+                    },
             )
         }
 
         when (val currentPrompt = prompt) {
-            is StickerPrompt.Import ->
+            is StickerPrompt.Import -> {
                 StickerImportPrompt(
                     includeLocalImport =
                         localPackLayout == StickerPackLayout.TABS || currentPrompt.pack != null,
@@ -2015,8 +2135,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            StickerPrompt.CreatePack ->
+            StickerPrompt.CreatePack -> {
                 PanelTextPrompt(
                     title = stringResource(R.string.sticker_panel_new_pack),
                     label = stringResource(R.string.sticker_pack_name),
@@ -2039,8 +2160,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.RenamePack ->
+            is StickerPrompt.RenamePack -> {
                 PanelTextPrompt(
                     title = stringResource(R.string.sticker_panel_rename_pack),
                     label = stringResource(R.string.sticker_pack_name),
@@ -2067,8 +2189,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.DeletePack ->
+            is StickerPrompt.DeletePack -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_delete_pack),
                     message =
@@ -2098,8 +2221,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.UploadPack ->
+            is StickerPrompt.UploadPack -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_upload_pack),
                     message =
@@ -2129,8 +2253,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.SetStickerTitle ->
+            is StickerPrompt.SetStickerTitle -> {
                 PanelTextPrompt(
                     title = stringResource(R.string.sticker_panel_set_name),
                     label = stringResource(R.string.sticker_item_name),
@@ -2148,9 +2273,11 @@ private fun StickerPanelContent(
                                 result.fold(
                                     onSuccess = {
                                         panelUiText(
-                                            if (title.isBlank())
+                                            if (title.isBlank()) {
                                                 R.string.sticker_panel_title_cleared
-                                            else R.string.sticker_panel_title_saved,
+                                            } else {
+                                                R.string.sticker_panel_title_saved
+                                            },
                                         )
                                     },
                                     onFailure = {
@@ -2161,8 +2288,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.DeleteSticker ->
+            is StickerPrompt.DeleteSticker -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_delete_item),
                     message = stringResource(R.string.sticker_panel_delete_item_message),
@@ -2186,8 +2314,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.DeleteStickers ->
+            is StickerPrompt.DeleteStickers -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_delete_item),
                     message =
@@ -2225,8 +2354,9 @@ private fun StickerPanelContent(
                         }
                     },
                 )
+            }
 
-            is StickerPrompt.ConfirmSimilaritySticker ->
+            is StickerPrompt.ConfirmSimilaritySticker -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_search_similar),
                     message = stringResource(R.string.sticker_similarity_privacy_message),
@@ -2238,8 +2368,9 @@ private fun StickerPanelContent(
                         searchSimilar { actions.loadSimilarityImage(item) }
                     },
                 )
+            }
 
-            is StickerPrompt.ConfirmSimilarityBytes ->
+            is StickerPrompt.ConfirmSimilarityBytes -> {
                 PanelConfirmation(
                     title = stringResource(R.string.sticker_panel_search_similar),
                     message = stringResource(R.string.sticker_similarity_privacy_message),
@@ -2251,11 +2382,14 @@ private fun StickerPanelContent(
                         searchSimilar { Result.success(bytes) }
                     },
                 )
+            }
 
-            null -> Unit
+            null -> {
+                Unit
+            }
         }
 
-        if (telegramNamePrompt)
+        if (telegramNamePrompt) {
             TelegramStickerSetPrompt(
                 onDismiss = { telegramNamePrompt = false },
                 onConfirm = { value ->
@@ -2293,8 +2427,9 @@ private fun StickerPanelContent(
                     }
                 },
             )
+        }
 
-        if (telegramSourcePrompt)
+        if (telegramSourcePrompt) {
             TelegramDatabaseSourcePrompt(
                 onDismiss = { telegramSourcePrompt = false },
                 onSelect = { source ->
@@ -2349,6 +2484,7 @@ private fun StickerPanelContent(
                     }
                 },
             )
+        }
 
         if (zygiskInstancePickerVisible) {
             var instances by remember { mutableStateOf<List<String>?>(null) }
@@ -2380,19 +2516,23 @@ private fun StickerPanelContent(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 when {
-                    discoveryError != null ->
+                    discoveryError != null -> {
                         Text(
                             requireNotNull(discoveryError).resolve(),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 8.dp),
                         )
-                    instances == null ->
+                    }
+
+                    instances == null -> {
                         CircularProgressIndicator(
                             modifier =
                                 Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
                         )
-                    else ->
+                    }
+
+                    else -> {
                         Column(modifier = Modifier.padding(top = 4.dp)) {
                             requireNotNull(instances).forEach { pkg ->
                                 ListItem(
@@ -2407,9 +2547,11 @@ private fun StickerPanelContent(
                                 )
                             }
                         }
+                    }
                 }
-                if (reading)
+                if (reading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2695,7 +2837,9 @@ private fun StickerGridOrEmpty(
                     }
                 }
             }
-        } else Modifier
+        } else {
+            Modifier
+        }
     val dragModifier =
         if (selectable && onSelectRange != null) {
             Modifier.pointerInput(stickers, gridState) {
@@ -2757,7 +2901,9 @@ private fun StickerGridOrEmpty(
                     },
                 )
             }
-        } else Modifier
+        } else {
+            Modifier
+        }
     val keyedStickers =
         remember(stickers) {
             panelItemsWithStableKeys(stickers, ::stickerSelectionKey)
@@ -2783,16 +2929,21 @@ private fun StickerGridOrEmpty(
                         .clip(MaterialTheme.shapes.small)
                         .combinedClickable(
                             onClick = {
-                                if (selectable) onToggleSelection?.invoke(sticker)
-                                else onSend(sticker)
+                                if (selectable) {
+                                    onToggleSelection?.invoke(sticker)
+                                } else {
+                                    onSend(sticker)
+                                }
                             },
                             onLongClick =
-                                if (selectable) null
-                                else
+                                if (selectable) {
+                                    null
+                                } else {
                                     ({
                                         previewGesture.activate(index)
                                         onLongPress(sticker)
-                                    }),
+                                    })
+                                },
                         )
                         .padding(2.dp),
             ) {
@@ -2891,20 +3042,28 @@ private fun SearchStickerContent(
             enabled = inputEnabled,
             onSearch = onSearch,
             extraTrailingIcon =
-                if (onImageSearch == null) null
-                else
+                if (onImageSearch == null) {
+                    null
+                } else {
                     ({
                         IconButton(onClick = onImageSearch) {
                             Icon(
-                                if (imageSearchActive) MaterialSymbols.Outlined.Close
-                                else MaterialSymbols.Outlined.Image_search,
+                                if (imageSearchActive) {
+                                    MaterialSymbols.Outlined.Close
+                                } else {
+                                    MaterialSymbols.Outlined.Image_search
+                                },
                                 stringResource(
-                                    if (imageSearchActive) R.string.sticker_similarity_clear
-                                    else R.string.sticker_similarity_choose_image,
+                                    if (imageSearchActive) {
+                                        R.string.sticker_similarity_clear
+                                    } else {
+                                        R.string.sticker_similarity_choose_image
+                                    },
                                 ),
                             )
                         }
-                    }),
+                    })
+                },
         )
         if (state != null && state !is PanelUiState.Content) {
             PanelStateContent(state, content = {})
@@ -2968,14 +3127,15 @@ private fun LocalPacksContent(
                         stringResource(R.string.sticker_panel_empty_local_packs_hint),
                     )
                 } else if (selectedPack.items.isEmpty()) {
-                    if (filterActive)
+                    if (filterActive) {
                         PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_item_match))
-                    else
+                    } else {
                         PanelEmptyAction(
                             stringResource(R.string.sticker_panel_empty_pack),
                             stringResource(R.string.sticker_panel_import_stickers),
                             onImport,
                         )
+                    }
                 } else {
                     StickerGridOrEmpty(
                         stickers = selectedPack.items,
@@ -2989,13 +3149,14 @@ private fun LocalPacksContent(
         }
     } else if (selectedPack == null) {
         if (packs.isEmpty()) {
-            if (filterActive)
+            if (filterActive) {
                 PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_local_pack_match))
-            else
+            } else {
                 PanelEmptyAction(
                     stringResource(R.string.sticker_panel_empty_local_packs),
                     stringResource(R.string.sticker_panel_empty_local_packs_hint),
                 )
+            }
         } else {
             StickerPackCatalog(
                 packs = packs,
@@ -3007,14 +3168,15 @@ private fun LocalPacksContent(
             )
         }
     } else if (selectedPack.items.isEmpty()) {
-        if (filterActive)
+        if (filterActive) {
             PanelEmptyAction(stringResource(R.string.sticker_panel_empty_no_item_match))
-        else
+        } else {
             PanelEmptyAction(
                 stringResource(R.string.sticker_panel_empty_pack),
                 stringResource(R.string.sticker_panel_import_stickers),
                 onImport,
             )
+        }
     } else {
         StickerGridOrEmpty(
             stickers = selectedPack.items,
@@ -3033,10 +3195,7 @@ private fun LocalPacksContent(
 }
 
 @Composable
-private fun StickerPackReorderContent(
-    packs: List<StickerPack>,
-    onMove: (Int, Int) -> Unit,
-) {
+private fun StickerPackReorderContent(packs: List<StickerPack>, onMove: (Int, Int) -> Unit) {
     ReorderableList(
         items = packs,
         itemKey = StickerPack::id,
@@ -3069,10 +3228,7 @@ private fun StickerPackReorderContent(
 }
 
 @Composable
-private fun StickerItemReorderContent(
-    stickers: List<StickerItem>,
-    onMove: (Int, Int) -> Unit,
-) {
+private fun StickerItemReorderContent(stickers: List<StickerItem>, onMove: (Int, Int) -> Unit) {
     val context = LocalContext.current
     ReorderableList(
         items = stickers,
@@ -3297,7 +3453,9 @@ private fun StickerAsyncImage(
                 }
             }
 
-            is AsyncImagePainter.State.Success -> Unit
+            is AsyncImagePainter.State.Success -> {
+                Unit
+            }
         }
     }
 }
@@ -3362,22 +3520,26 @@ private fun StickerPreviewOverlay(
                 TextButton(onClick = onSearchSimilar) {
                     Text(stringResource(R.string.sticker_panel_search_similar_short))
                 }
-                if (onOpenPack != null)
+                if (onOpenPack != null) {
                     TextButton(onClick = onOpenPack) {
                         Text(stringResource(R.string.sticker_panel_view_pack))
                     }
-                if (onSave != null)
+                }
+                if (onSave != null) {
                     TextButton(onClick = onSave) {
                         Text(stringResource(R.string.sticker_panel_save_to_local))
                     }
-                if (onSetTitle != null)
+                }
+                if (onSetTitle != null) {
                     TextButton(onClick = onSetTitle) {
                         Text(stringResource(R.string.sticker_panel_set_name))
                     }
-                if (onSetCover != null)
+                }
+                if (onSetCover != null) {
                     TextButton(onClick = onSetCover) {
                         Text(stringResource(R.string.sticker_panel_set_cover))
                     }
+                }
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) {
                         Text(
@@ -3395,8 +3557,8 @@ private fun stickerImageRequest(
     context: Context,
     data: String?,
     securedObject: Boolean,
-): ImageRequest {
-    return ImageRequest.Builder(context)
+): ImageRequest =
+    ImageRequest.Builder(context)
         .data(data)
         .apply {
             if (securedObject && data != null) {
@@ -3406,7 +3568,6 @@ private fun stickerImageRequest(
             }
         }
         .build()
-}
 
 @Composable
 private fun StickerImportPrompt(
@@ -3476,10 +3637,7 @@ private fun StickerImportPrompt(
 }
 
 @Composable
-private fun TelegramStickerSetPrompt(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+private fun TelegramStickerSetPrompt(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var input by remember { mutableStateOf("") }
     val extracted = TelegramStickerPackRepository.extractStickerSetName(input)
     PanelFullOverlay(onDismiss = onDismiss) {
@@ -3499,12 +3657,15 @@ private fun TelegramStickerSetPrompt(
             supportingText =
                 when {
                     input.isBlank() -> null
+
                     extracted == null -> ({
                             Text(stringResource(R.string.sticker_telegram_input_invalid))
                         })
+
                     input.trim() != extracted -> ({
                             Text(stringResource(R.string.sticker_telegram_will_import, extracted))
                         })
+
                     else -> null
                 },
             isError = input.isNotBlank() && extracted == null,
@@ -3629,8 +3790,11 @@ private fun <T> PanelListSelectionPrompt(
                             checked = selected,
                             onCheckedChange = {
                                 onSelectionChange(
-                                    if (selected) selectedKeys - itemKey
-                                    else selectedKeys + itemKey,
+                                    if (selected) {
+                                        selectedKeys - itemKey
+                                    } else {
+                                        selectedKeys + itemKey
+                                    },
                                 )
                             },
                         )
@@ -3714,10 +3878,13 @@ private fun TelegramBatchImportProgressOverlay(
                 buildString {
                     append(
                         when (itemProgress.phase) {
-                            TelegramStickerImportPhase.DOWNLOAD ->
+                            TelegramStickerImportPhase.DOWNLOAD -> {
                                 stringResource(R.string.sticker_telegram_phase_download)
-                            TelegramStickerImportPhase.CONVERSION ->
+                            }
+
+                            TelegramStickerImportPhase.CONVERSION -> {
                                 stringResource(R.string.sticker_telegram_phase_conversion)
+                            }
                         },
                     )
                     append(" ${itemProgress.completed}/${itemProgress.total}")
@@ -3744,10 +3911,13 @@ private fun TelegramImportProgressOverlay(
     PanelFullOverlay(onDismiss = onCancel, allowImplicitDismiss = false) {
         Text(
             when (progress.phase) {
-                TelegramStickerImportPhase.DOWNLOAD ->
+                TelegramStickerImportPhase.DOWNLOAD -> {
                     stringResource(R.string.sticker_telegram_progress_download)
-                TelegramStickerImportPhase.CONVERSION ->
+                }
+
+                TelegramStickerImportPhase.CONVERSION -> {
                     stringResource(R.string.sticker_telegram_progress_conversion)
+                }
             },
             style = MaterialTheme.typography.titleMedium,
         )
@@ -4060,7 +4230,7 @@ private fun StickerSettingsContent(
                 },
             )
         }
-        if (clientIdPrompt)
+        if (clientIdPrompt) {
             PanelFunBoxApiClientIdPrompt(
                 onDismiss = { clientIdPrompt = false },
                 onConfirm = {
@@ -4068,7 +4238,8 @@ private fun StickerSettingsContent(
                     clientIdPrompt = false
                 },
             )
-        if (telegramTokenPrompt)
+        }
+        if (telegramTokenPrompt) {
             PanelTelegramBotTokenPrompt(
                 initialValue = telegramToken,
                 onDismiss = { telegramTokenPrompt = false },
@@ -4078,7 +4249,8 @@ private fun StickerSettingsContent(
                     telegramTokenPrompt = false
                 },
             )
-        if (tgsFrameRatePrompt)
+        }
+        if (tgsFrameRatePrompt) {
             PanelNumberPrompt(
                 title = stringResource(R.string.sticker_setting_tgs_gif_fps),
                 label = stringResource(R.string.sticker_setting_fps_range),
@@ -4092,7 +4264,8 @@ private fun StickerSettingsContent(
                     tgsFrameRatePrompt = false
                 },
             )
-        if (numberPrompt)
+        }
+        if (numberPrompt) {
             PanelNumberPrompt(
                 title = stringResource(R.string.sticker_setting_columns),
                 label = stringResource(R.string.panel_number_range_1_15),
@@ -4106,7 +4279,8 @@ private fun StickerSettingsContent(
                     numberPrompt = false
                 },
             )
-        if (historyPrompt)
+        }
+        if (historyPrompt) {
             PanelNumberPrompt(
                 title = stringResource(R.string.panel_setting_max_history),
                 label = stringResource(R.string.panel_number_at_least_one),
@@ -4119,7 +4293,8 @@ private fun StickerSettingsContent(
                     historyPrompt = false
                 },
             )
-        if (downloadConcurrencyPrompt)
+        }
+        if (downloadConcurrencyPrompt) {
             PanelNumberPrompt(
                 title = stringResource(R.string.panel_setting_download_concurrency),
                 label = stringResource(R.string.panel_task_range_1_32),
@@ -4133,7 +4308,8 @@ private fun StickerSettingsContent(
                     downloadConcurrencyPrompt = false
                 },
             )
-        if (conversionConcurrencyPrompt)
+        }
+        if (conversionConcurrencyPrompt) {
             PanelNumberPrompt(
                 title = stringResource(R.string.panel_setting_conversion_concurrency),
                 label = stringResource(R.string.panel_task_range_1_8),
@@ -4147,5 +4323,6 @@ private fun StickerSettingsContent(
                     conversionConcurrencyPrompt = false
                 },
             )
+        }
     }
 }

@@ -38,8 +38,11 @@ fun PlaceholderChips(
                         .background(MaterialTheme.colorScheme.secondaryContainer)
                         .clickable {
                             val selection =
-                                if (isFieldFocused) value.selection
-                                else TextRange(value.text.length)
+                                if (isFieldFocused) {
+                                    value.selection
+                                } else {
+                                    TextRange(value.text.length)
+                                }
                             val rangeStart = minOf(selection.start, selection.end)
                             val rangeEnd = maxOf(selection.start, selection.end)
                             val text = value.text.replaceRange(rangeStart, rangeEnd, placeholder)

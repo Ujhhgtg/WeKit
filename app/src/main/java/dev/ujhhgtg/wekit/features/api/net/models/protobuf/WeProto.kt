@@ -17,7 +17,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
  * clean.
  */
 object WeProto {
-
     val protoBuf = ProtoBuf
     val protoBufWithDefaults = ProtoBuf {
         encodeDefaults = true

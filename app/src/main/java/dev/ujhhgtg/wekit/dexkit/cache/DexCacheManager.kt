@@ -210,8 +210,9 @@ object DexCacheManager {
 
     fun methodHash(item: IResolveDex): String {
         val hash = GeneratedMethodHashes.HASHES[(item as BaseFeature).technicalId]
-        if (hash.isNullOrBlank())
+        if (hash.isNullOrBlank()) {
             error("failed to retrieve method hash for item ${item.technicalId}")
+        }
         return hash
     }
 
@@ -254,8 +255,11 @@ object DexCacheManager {
                 arrayOf(hostVersion, technicalId),
             )
             .use { cursor ->
-                if (cursor.moveToFirst()) FailureRecord(cursor.getString(0), cursor.getString(1))
-                else null
+                if (cursor.moveToFirst()) {
+                    FailureRecord(cursor.getString(0), cursor.getString(1))
+                } else {
+                    null
+                }
             }
     }
         .onFailure { WeLogger.e(TAG, "failed to read Room Dex failure for $technicalId", it) }

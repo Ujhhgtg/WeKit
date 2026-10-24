@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.JavaCrashHandler
 
 object CrashInterceptor : SwitchFeature() {
-
     override val technicalId = "崩溃拦截"
     override val nameRes = R.string.feature_crash_interceptor_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -71,8 +70,14 @@ object CrashInterceptor : SwitchFeature() {
 
         for (line in lines) {
             when {
-                line.startsWith("Crash Time:") -> summary.append(line).append("\n")
-                line.startsWith("Crash Type:") -> summary.append(line).append("\n\n")
+                line.startsWith("Crash Time:") -> {
+                    summary.append(line).append("\n")
+                }
+
+                line.startsWith("Crash Type:") -> {
+                    summary.append(line).append("\n\n")
+                }
+
                 line.contains("Exception Stack Trace") -> {
                     foundException = true
                     summary
@@ -89,8 +94,9 @@ object CrashInterceptor : SwitchFeature() {
             }
             if (exceptionLineCount >= 10) break
         }
-        if (summary.isEmpty())
+        if (summary.isEmpty()) {
             return localizedDebugString(R.string.debug_crash_summary_parse_failed)
+        }
         summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }

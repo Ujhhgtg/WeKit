@@ -54,20 +54,28 @@ class AutomationSnapshot(
     fun ancestors(scope: AutomationScope): List<AutomationScope> =
         when (scope.type) {
             AutomationScopeType.GLOBAL,
-            AutomationScopeType.ITEM -> emptyList()
+            AutomationScopeType.ITEM -> {
+                emptyList()
+            }
+
             AutomationScopeType.CATEGORY,
-            AutomationScopeType.PRESET -> listOf(AutomationScope.Global)
-            AutomationScopeType.CONTACT ->
+            AutomationScopeType.PRESET -> {
+                listOf(AutomationScope.Global)
+            }
+
+            AutomationScopeType.CONTACT -> {
                 buildList {
                     add(AutomationScope.Global)
                     if (AutomationScopeType.CATEGORY in spec.scopeTypes) {
                         add(AutomationScope.category(AutomationTalkerCategory.of(scope.scopeId)))
                     }
                 }
+            }
 
-            AutomationScopeType.GROUP_MEMBER ->
+            AutomationScopeType.GROUP_MEMBER -> {
                 ancestors(AutomationScope.contact(scope.scopeId)) +
                     AutomationScope.contact(scope.scopeId)
+            }
         }
 
     /** Rules inherited by [scope], i.e. everything except its own presets and values. */
@@ -87,6 +95,7 @@ class AutomationSnapshot(
         presets: List<String>,
     ): Map<String, AutomationScope> {
         val sources = HashMap<String, AutomationScope>()
+
         fun record(
             presetIds: List<String>,
             values: AutomationRuleValues?,
@@ -140,8 +149,9 @@ class AutomationSnapshot(
             AutomationScopeType.GROUP_MEMBER in spec.scopeTypes &&
                 category == AutomationTalkerCategory.GROUP &&
                 !sender.isNullOrEmpty()
-        )
+        ) {
             add(AutomationScope.member(talker, sender))
+        }
     }
         .filter(::isSwitchedOn)
 
@@ -193,8 +203,9 @@ class AutomationStore(private val spec: AutomationSpec) {
             if (
                 TargetProcesses.isInMain ||
                     SystemClock.elapsedRealtime() - loadedAt < FOREIGN_PROCESS_TTL_MS
-            )
+            ) {
                 return it
+            }
         }
         return runBlocking(Dispatchers.IO) { load() }
     }
@@ -316,6 +327,7 @@ private const val TAG = "AutomationStore"
 fun decodeAutomationRows(spec: AutomationSpec, rows: AutomationFeatureRows): AutomationSnapshot {
     fun AutomationScopeEntity.toScope() =
         AutomationScope(AutomationScopeType.valueOf(scopeType), scopeId, memberId)
+
     fun keyOf(type: String, id: String, member: String) =
         AutomationScope(AutomationScopeType.valueOf(type), id, member)
 

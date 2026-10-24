@@ -80,7 +80,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 object NotificationsEvolved : ClickableFeature(), IResolveDex {
-
     override val technicalId = "通知进化"
     override val nameRes = R.string.feature_notifications_evolved_name
     override val categoryIds = listOf(FeatureCategoryIds.NOTIFICATIONS)
@@ -175,11 +174,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             true,
         )
 
-    private data class MediaAttachment(
-        val mimeType: String,
-        val uri: Uri,
-        val cachePath: Path,
-    )
+    private data class MediaAttachment(val mimeType: String, val uri: Uri, val cachePath: Path)
 
     private data class PendingMediaTask(
         val deadlineElapsedRealtime: Long,
@@ -229,6 +224,7 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private val notificationMediaDir by lazy {
         (KnownPaths.moduleCache / "notification-media").createDirsSafe()
     }
+
     // Per-conversation message history rebuilt into MessagingStyle on each notification update.
     // Cleared when WeChat clears the conversation's unread state (updateUnreadByTalker) or when
     // the user marks it read; quick replies are re-added so the exchange stays visible. Bounded
@@ -373,8 +369,11 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             ) {
                 runCatching {
                     val media = prepare(deadline) ?: return@runCatching null
-                    if (SystemClock.elapsedRealtime() >= deadline) null
-                    else toMediaAttachment(media)
+                    if (SystemClock.elapsedRealtime() >= deadline) {
+                        null
+                    } else {
+                        toMediaAttachment(media)
+                    }
                 }
                     .onFailure { WeLogger.w(TAG, "failed to prepare notification media", it) }
                     .getOrNull()
@@ -384,10 +383,13 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     private fun createMediaTask(message: MessageInfo): PendingMediaTask? {
         return when {
-            message.typeCode == MessageType.IMAGE.code ->
+            message.typeCode == MessageType.IMAGE.code -> {
                 when (imageNotificationMode) {
-                    ImageNotificationMode.DISABLED -> null
-                    ImageNotificationMode.WAIT_THUMBNAIL ->
+                    ImageNotificationMode.DISABLED -> {
+                        null
+                    }
+
+                    ImageNotificationMode.WAIT_THUMBNAIL -> {
                         launchMediaTask(
                             waitMillis = SHORT_MEDIA_WAIT_MILLIS,
                         ) { deadline ->
@@ -397,8 +399,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                                 deadline,
                             )
                         }
+                    }
 
-                    ImageNotificationMode.WAIT_LARGE ->
+                    ImageNotificationMode.WAIT_LARGE -> {
                         launchMediaTask(
                             waitMillis = LARGE_IMAGE_WAIT_MILLIS,
                             startImmediately = false,
@@ -409,7 +412,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                                 deadline,
                             )
                         }
+                    }
                 }
+            }
 
             message.type?.isSticker == true -> {
                 val md5 =
@@ -429,7 +434,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
             }
 
-            else -> null
+            else -> {
+                null
+            }
         }
     }
 
@@ -552,7 +559,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
                 history.addLast(entry)
             }
-            while (history.size > MAX_HISTORY) history.removeFirst().mediaTask?.deferred?.cancel()
+            while (history.size > MAX_HISTORY) {
+                history.removeFirst().mediaTask?.deferred?.cancel()
+            }
         }
     }
 
@@ -576,9 +585,8 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         synchronized(stateLock) { pendingContentIntents[talker] = intent }
     }
 
-    private fun removeContentIntent(talker: String): PendingIntent? {
-        return synchronized(stateLock) { pendingContentIntents.remove(talker) }
-    }
+    private fun removeContentIntent(talker: String): PendingIntent? =
+        synchronized(stateLock) { pendingContentIntents.remove(talker) }
 
     private fun clearState() {
         synchronized(stateLock) {
@@ -712,8 +720,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                         )
                     } finally {
                         synchronized(stateLock) {
-                            if (pendingNotifications[key] === pending)
+                            if (pendingNotifications[key] === pending) {
                                 pendingNotifications.remove(key)
+                            }
                         }
                     }
                 }
@@ -743,8 +752,8 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             .ifEmpty { senderWxId }
     }
 
-    private fun buildPerson(name: String, wxId: String?): Person {
-        return Person.Builder()
+    private fun buildPerson(name: String, wxId: String?): Person =
+        Person.Builder()
             .setName(name)
             .apply {
                 if (!wxId.isNullOrEmpty()) {
@@ -753,7 +762,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
             }
             .build()
-    }
 
     private suspend fun enhanceNotification(
         notif: Notification,
@@ -765,8 +773,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         // avatar/name work or waiting for another history entry consumes their deadline.
         history.forEach { entry ->
             entry.mediaTask?.let { task ->
-                if (SystemClock.elapsedRealtime() < task.deadlineElapsedRealtime)
+                if (SystemClock.elapsedRealtime() < task.deadlineElapsedRealtime) {
                     task.deferred.start()
+                }
             }
         }
         val context = HostInfo.application
@@ -994,8 +1003,11 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     override val declaredErrors
         get() =
-            if (CustomNotifications.isEnabled) listOf(R.string.custom_notify_conflict)
-            else emptyList()
+            if (CustomNotifications.isEnabled) {
+                listOf(R.string.custom_notify_conflict)
+            } else {
+                emptyList()
+            }
 
     override fun onEnable() {
         clearState()

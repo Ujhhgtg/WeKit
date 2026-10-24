@@ -40,7 +40,10 @@ class VivoMotionPhotoContainerTest {
         val movie = extension(videoOut.readBytes())
         assertEquals(info.associationId, photo.second)
         assertEquals(photo.second, movie.second)
-        assertEquals(2016, photo.third.getValue("version").jsonPrimitive.long)
+        assertEquals(
+            2016,
+            photo.third.getValue("version").jsonPrimitive.long,
+        )
         assertEquals(
             4,
             photo.third.getValue("com.vivo.gallery.livephoto.source").jsonPrimitive.long,
@@ -92,7 +95,10 @@ class VivoMotionPhotoContainerTest {
             imageFields.getValue("com.vivo.xdr.maxGain"),
             photo.third.getValue("com.vivo.xdr.maxGain"),
         )
-        assertEquals(2202, photo.third.getValue("version").jsonPrimitive.long)
+        assertEquals(
+            2202,
+            photo.third.getValue("version").jsonPrimitive.long,
+        )
         val movie = extension(videoOut.readBytes()).third
         assertEquals(2107, movie.getValue("version").jsonPrimitive.long)
         assertEquals(JsonPrimitive("keep"), movie.getValue("opaqueVideo"))
@@ -213,7 +219,10 @@ class VivoMotionPhotoContainerTest {
                 .coverTimestampMs,
         )
         val image = extension(photoOut.readBytes())
-        assertEquals(2016, image.third.getValue("version").jsonPrimitive.long)
+        assertEquals(
+            2016,
+            image.third.getValue("version").jsonPrimitive.long,
+        )
         assertFalse(
             photoOut.readBytes().toString(Charsets.ISO_8859_1).contains("unsupported extra"),
         )

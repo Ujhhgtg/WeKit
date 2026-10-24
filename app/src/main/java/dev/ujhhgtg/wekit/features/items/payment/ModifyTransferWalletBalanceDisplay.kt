@@ -24,7 +24,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterceptor {
-
     override val technicalId = "修改转账显示余额"
     override val nameRes = R.string.feature_modify_transfer_wallet_balance_display_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -88,16 +87,17 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                     handleField3(obj)
                 }
 
-                if (value == "CFT" && customCft != null)
+                if (value == "CFT" && customCft != null) {
                     updateBalanceText(
                         obj,
                         localizedPaymentString(R.string.payment_transfer_wallet_balance, customCft),
                     )
-                else if (value == "LQT" && customLqt != null)
+                } else if (value == "LQT" && customLqt != null) {
                     updateBalanceText(
                         obj,
                         localizedPaymentString(R.string.payment_transfer_wealth_balance, customLqt),
                     )
+                }
             }
 
             if (value is JSONObject) {
@@ -182,11 +182,17 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            if (!cftInput.isBlank()) KvStore.putString(KEY_CFT_BALANCE, cftInput)
-                            else KvStore.remove(KEY_CFT_BALANCE)
+                            if (!cftInput.isBlank()) {
+                                KvStore.putString(KEY_CFT_BALANCE, cftInput)
+                            } else {
+                                KvStore.remove(KEY_CFT_BALANCE)
+                            }
 
-                            if (!lqtInput.isBlank()) KvStore.putString(KEY_LQT_BALANCE, lqtInput)
-                            else KvStore.remove(KEY_LQT_BALANCE)
+                            if (!lqtInput.isBlank()) {
+                                KvStore.putString(KEY_LQT_BALANCE, lqtInput)
+                            } else {
+                                KvStore.remove(KEY_LQT_BALANCE)
+                            }
                             onDismiss()
                         },
                     ) {

@@ -14,7 +14,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,10 +118,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-private enum class ToolbarDisplayMode(
-    val preferenceValue: String,
-    @StringRes val labelRes: Int,
-) {
+private enum class ToolbarDisplayMode(val preferenceValue: String, @StringRes val labelRes: Int) {
     ICON_AND_TEXT("icon_and_text", R.string.chat_toolbar_mode_icon_and_text),
     ICON_ONLY("icon_only", R.string.chat_toolbar_mode_icon_only),
     TEXT_ONLY("text_only", R.string.chat_toolbar_mode_text_only);
@@ -135,7 +131,6 @@ private enum class ToolbarDisplayMode(
 
 @SuppressLint("StaticFieldLeak")
 object ChatToolbar : ClickableFeature(), IResolveDex {
-
     override val technicalId = "聊天工具栏"
     override val nameRes = R.string.feature_chat_toolbar_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -221,20 +216,34 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     private fun toolbarNameForAppGridType(type: Int): String? =
         when (type) {
             0 -> "相册"
+
             1 -> "拍摄"
+
             2 -> "视频通话"
+
             3,
             4 -> "语音通话"
+
             6 -> "位置"
+
             7 -> "红包"
+
             8 -> "礼物"
+
             9 -> "转账"
+
             11 -> "语音输入"
+
             12 -> "收藏"
+
             14 -> "接龙"
+
             16 -> "个人名片"
+
             20 -> "文件"
+
             22 -> "音乐"
+
             else -> null
         }
 
@@ -466,9 +475,11 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
                 // and an
                 // argument mismatch would take the process down.
                 val method = methodAppPanelInitAppGrid.method
-                if (java.lang.reflect.Modifier.isStatic(method.modifiers))
+                if (java.lang.reflect.Modifier.isStatic(method.modifiers)) {
                     method.invoke(null, appPanel)
-                else method.invoke(appPanel)
+                } else {
+                    method.invoke(appPanel)
+                }
             },
             GRID_INIT_WATCHDOG_DELAY_MS,
         )
@@ -553,8 +564,9 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
             // run inside the constructor, so it is reachable here. Bind this toolbar to that panel
             // only, and make sure something initializes its grid.
             val appPanel = chatFooter.findViewWhich { it is AppPanel } as AppPanel?
-            if (appPanel == null)
+            if (appPanel == null) {
                 WeLogger.w(TAG, "no AppPanel in this chat footer, toolbar will stay empty")
+            }
             val toolsFlow = appPanel?.let { toolsOf(it).flow } ?: MutableStateFlow(emptyList())
             appPanel?.let { scheduleGridInitWatchdog(it) }
 
@@ -677,7 +689,6 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         synchronized(appGridToolTypes) { appGridToolTypes.clear() }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val currentOrder = remember {
@@ -923,7 +934,6 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
     }
 
     // Shown from the settings button in the quick-reply row.
-    @OptIn(ExperimentalFoundationApi::class)
     private fun showQuickReplyConfig(context: Context) {
         showComposeDialog(context) {
             val replies = remember {
@@ -1080,20 +1090,23 @@ private fun FeatureChip(
         onClick = onClick,
         label = {
             when (displayMode) {
-                ToolbarDisplayMode.ICON_ONLY ->
+                ToolbarDisplayMode.ICON_ONLY -> {
                     Icon(
                         icon,
                         contentDescription = text,
                         modifier = Modifier.size(AssistChipDefaults.IconSize),
                         tint = MaterialTheme.colorScheme.primary,
                     )
+                }
 
                 ToolbarDisplayMode.ICON_AND_TEXT,
-                ToolbarDisplayMode.TEXT_ONLY -> Text(text)
+                ToolbarDisplayMode.TEXT_ONLY -> {
+                    Text(text)
+                }
             }
         },
         leadingIcon =
-            if (displayMode == ToolbarDisplayMode.ICON_AND_TEXT)
+            if (displayMode == ToolbarDisplayMode.ICON_AND_TEXT) {
                 ({
                     Icon(
                         icon,
@@ -1101,6 +1114,8 @@ private fun FeatureChip(
                         modifier = Modifier.size(AssistChipDefaults.IconSize),
                     )
                 })
-            else null,
+            } else {
+                null
+            },
     )
 }

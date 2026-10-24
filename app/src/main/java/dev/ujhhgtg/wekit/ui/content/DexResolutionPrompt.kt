@@ -16,7 +16,6 @@ import kotlinx.coroutines.withContext
 
 /** Shows the non-dismissable [DexResolver] dialog. */
 object DexResolutionPrompt {
-
     private const val TAG = "DexResolutionPrompt"
 
     fun show(context: Context, items: List<IResolveDex>, mode: DexResolutionMode) {

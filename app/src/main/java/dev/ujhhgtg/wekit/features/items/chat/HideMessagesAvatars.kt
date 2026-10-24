@@ -25,7 +25,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 
 object HideMessagesAvatars : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "隐藏消息头像"
     override val nameRes = R.string.feature_hide_messages_avatars_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -16,7 +16,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -124,7 +123,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 object AddMainScreenFab : ClickableFeature() {
-
     override val technicalId = "主屏幕添加 FAB"
     override val nameRes = R.string.feature_add_main_screen_fab_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -545,8 +543,11 @@ object AddMainScreenFab : ClickableFeature() {
                         val monet = MonetEngine.surfaceColors(isSystemInDarkTheme())
                         val backgroundColor =
                             monet?.surfaceHigh?.let(::Color)
-                                ?: if (isSystemInDarkTheme()) Color(0xFF191919)
-                                else Color(0xFFF7F7F7)
+                                ?: if (isSystemInDarkTheme()) {
+                                    Color(0xFF191919)
+                                } else {
+                                    Color(0xFFF7F7F7)
+                                }
                         val activeColor =
                             monet?.primary?.let(::Color) ?: MaterialTheme.colorScheme.primary
                         val errorColor = MaterialTheme.colorScheme.error
@@ -638,20 +639,27 @@ object AddMainScreenFab : ClickableFeature() {
                                         .padding(
                                             start = if (onRight) 0.dp else fabLeft,
                                             end =
-                                                if (onRight)
+                                                if (onRight) {
                                                     (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(
                                                         0.dp,
                                                     )
-                                                else 0.dp,
+                                                } else {
+                                                    0.dp
+                                                },
                                             top =
-                                                if (expandDown) fabTop + FAB_SIZE + MENU_GAP
-                                                else 0.dp,
+                                                if (expandDown) {
+                                                    fabTop + FAB_SIZE + MENU_GAP
+                                                } else {
+                                                    0.dp
+                                                },
                                             bottom =
-                                                if (expandDown) 0.dp
-                                                else
+                                                if (expandDown) {
+                                                    0.dp
+                                                } else {
                                                     (maxHeight - fabTop + MENU_GAP).coerceAtLeast(
                                                         0.dp,
-                                                    ),
+                                                    )
+                                                },
                                         ),
                                 entries = entries,
                                 visible = expanded || editMode,
@@ -1047,8 +1055,11 @@ object AddMainScreenFab : ClickableFeature() {
                                     name = newName.trim(),
                                     iconName = newIconName,
                                     targetActivity =
-                                        if (newType == FabType.START_ACTIVITY) newActivity.trim()
-                                        else null,
+                                        if (newType == FabType.START_ACTIVITY) {
+                                            newActivity.trim()
+                                        } else {
+                                            null
+                                        },
                                     builtInLabel = newBuiltInLabel,
                                 ),
                             )
@@ -1063,15 +1074,15 @@ object AddMainScreenFab : ClickableFeature() {
         }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val localizedContext = LocalWeKitLocalizedContext.current
             var currentItems by remember { mutableStateOf(loadConfig()) }
 
             fun moveItem(from: Int, to: Int) {
-                if (from == to || from !in currentItems.indices || to !in currentItems.indices)
+                if (from == to || from !in currentItems.indices || to !in currentItems.indices) {
                     return
+                }
                 val updated =
                     currentItems.toMutableList().apply {
                         add(to, removeAt(from))
@@ -1163,19 +1174,28 @@ object AddMainScreenFab : ClickableFeature() {
                             ) { item, dragHandleModifier ->
                                 val description =
                                     when (item.type) {
-                                        FabType.START_ACTIVITY ->
+                                        FabType.START_ACTIVITY -> {
                                             item.targetActivity
                                                 ?: stringResource(R.string.fab_type_start_activity)
-                                        FabType.MARK_ALL_READ ->
+                                        }
+
+                                        FabType.MARK_ALL_READ -> {
                                             stringResource(R.string.fab_description_mark_all_read)
-                                        FabType.MODULE_SETTINGS ->
+                                        }
+
+                                        FabType.MODULE_SETTINGS -> {
                                             stringResource(
                                                 R.string.fab_description_open_module_settings,
                                             )
-                                        FabType.RESTART_HOST ->
+                                        }
+
+                                        FabType.RESTART_HOST -> {
                                             stringResource(R.string.fab_description_restart_wechat)
-                                        FabType.FORCE_STOP ->
+                                        }
+
+                                        FabType.FORCE_STOP -> {
                                             stringResource(R.string.fab_description_stop_wechat)
+                                        }
                                     }
                                 val itemName = localizedName(localizedContext, item)
                                 Row(

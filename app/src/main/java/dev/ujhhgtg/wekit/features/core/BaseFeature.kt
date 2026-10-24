@@ -24,7 +24,6 @@ import java.lang.reflect.Executable
 import kotlin.reflect.KClass
 
 abstract class BaseFeature {
-
     abstract val technicalId: String
 
     @get:StringRes abstract val nameRes: Int
@@ -126,10 +125,7 @@ abstract class BaseFeature {
 
     // --- hookBefore ---
 
-    fun Executable.hookBefore(
-        priority: Int = 50,
-        action: HookAction,
-    ) =
+    fun Executable.hookBefore(priority: Int = 50, action: HookAction) =
         registerUnhook(
             hookBeforeDirectly(priority) {
                 executeHookAction(this, action)
@@ -137,41 +133,30 @@ abstract class BaseFeature {
         )
 
     @JvmName("hookBefore2")
-    fun BaseReflectedMethod.hookBefore(
-        priority: Int = 50,
-        action: HookAction,
-    ) = self.hookBefore(priority, action)
+    fun BaseReflectedMethod.hookBefore(priority: Int = 50, action: HookAction) =
+        self.hookBefore(priority, action)
 
     @JvmName("hookBefore3")
-    fun ReflectedConstructor<*>.hookBefore(
-        priority: Int = 50,
-        action: HookAction,
-    ) = this.self.hookBefore(priority, action)
+    fun ReflectedConstructor<*>.hookBefore(priority: Int = 50, action: HookAction) =
+        this.self.hookBefore(priority, action)
 
-    fun Class<*>.hookBeforeOnCreate(
-        action: HookAction,
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
+    fun Class<*>.hookBeforeOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    fun Class<*>.hookAfterOnCreate(
-        action: HookAction,
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
+    fun Class<*>.hookAfterOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
-    fun KClass<*>.hookBeforeOnCreate(
-        action: HookAction,
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
+    fun KClass<*>.hookBeforeOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    fun KClass<*>.hookAfterOnCreate(
-        action: HookAction,
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
+    fun KClass<*>.hookAfterOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
     // --- end hookBefore ---
 
     // --- hookAfter ---
 
-    fun Executable.hookAfter(
-        priority: Int = 50,
-        action: HookAction,
-    ) =
+    fun Executable.hookAfter(priority: Int = 50, action: HookAction) =
         registerUnhook(
             hookAfterDirectly(priority) {
                 executeHookAction(this, action)
@@ -179,40 +164,28 @@ abstract class BaseFeature {
         )
 
     @JvmName("hookAfter2")
-    fun BaseReflectedMethod.hookAfter(
-        priority: Int = 50,
-        action: HookAction,
-    ) = self.hookAfter(priority, action)
+    fun BaseReflectedMethod.hookAfter(priority: Int = 50, action: HookAction) =
+        self.hookAfter(priority, action)
 
     @JvmName("hookAfter3")
-    fun ReflectedConstructor<*>.hookAfter(
-        priority: Int = 50,
-        action: HookAction,
-    ) = this.self.hookAfter(priority, action)
+    fun ReflectedConstructor<*>.hookAfter(priority: Int = 50, action: HookAction) =
+        this.self.hookAfter(priority, action)
 
     // --- end hookAfter ---
 
     // --- dex delegate ---
 
-    fun DexMethodDelegate.hookBefore(
-        priority: Int = 50,
-        action: HookAction,
-    ) = method.hookBefore(priority, action)
+    fun DexMethodDelegate.hookBefore(priority: Int = 50, action: HookAction) =
+        method.hookBefore(priority, action)
 
-    fun DexMethodDelegate.hookAfter(
-        priority: Int = 50,
-        action: HookAction,
-    ) = method.hookAfter(priority, action)
+    fun DexMethodDelegate.hookAfter(priority: Int = 50, action: HookAction) =
+        method.hookAfter(priority, action)
 
-    fun DexConstructorDelegate.hookBefore(
-        priority: Int = 50,
-        action: HookAction,
-    ) = constructor.hookBefore(priority, action)
+    fun DexConstructorDelegate.hookBefore(priority: Int = 50, action: HookAction) =
+        constructor.hookBefore(priority, action)
 
-    fun DexConstructorDelegate.hookAfter(
-        priority: Int = 50,
-        action: HookAction,
-    ) = constructor.hookAfter(priority, action)
+    fun DexConstructorDelegate.hookAfter(priority: Int = 50, action: HookAction) =
+        constructor.hookAfter(priority, action)
 
     // --- end dex delegate ---
 

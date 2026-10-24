@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
  *   there.
  */
 object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
-
     override val technicalId = "朋友圈评论防撤回"
     override val nameRes = R.string.feature_anti_moment_comments_delete_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -38,6 +37,7 @@ object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
     private const val COMMENT_CONTENT = 5
     private const val COMMENT_CREATE_TIME = 6
     private const val COMMENT_ID = 7
+
     /**
      * Set by WeChat on your own comment that the moment's author deleted; WeChat shows its own tip.
      */

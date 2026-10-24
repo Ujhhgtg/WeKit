@@ -54,6 +54,7 @@ import kotlinx.coroutines.withContext
 enum class HomeWallpaperSource(val key: String, @StringRes val titleRes: Int) {
     // https://www.pixiv.net/artworks/137041477
     BUILTIN_FIRST("builtin_1", R.string.beautify_home_background_first),
+
     // source not found; fetched from YumeBox
     BUILTIN_SECOND("builtin_2", R.string.beautify_home_background_second),
     CUSTOM("custom", R.string.beautify_home_background_custom),
@@ -111,11 +112,18 @@ object HomeWallpaper {
     fun load(resources: Resources, selected: HomeWallpaperSource): ImageBitmap {
         val imageSource =
             when (selected) {
-                HomeWallpaperSource.BUILTIN_FIRST ->
+                HomeWallpaperSource.BUILTIN_FIRST -> {
                     ImageDecoder.createSource(resources, R.drawable.beautify_home_background_1)
-                HomeWallpaperSource.BUILTIN_SECOND ->
+                }
+
+                HomeWallpaperSource.BUILTIN_SECOND -> {
                     ImageDecoder.createSource(resources, R.drawable.beautify_home_background_2)
-                HomeWallpaperSource.CUSTOM -> ImageDecoder.createSource(customImage.toFile())
+                }
+
+                HomeWallpaperSource.CUSTOM -> {
+                    ImageDecoder.createSource(customImage.toFile())
+                }
+
                 HomeWallpaperSource.SYSTEM -> {
                     val file = KnownPaths.moduleCache / "beautify-home-system-wallpaper.image"
                     val descriptor =
@@ -222,19 +230,23 @@ object HomeWallpaper {
                                             title = stringResource(option.titleRes),
                                             description =
                                                 stringResource(
-                                                    if (importing)
+                                                    if (importing) {
                                                         R.string.beautify_home_background_importing
-                                                    else
+                                                    } else {
                                                         R.string
-                                                            .beautify_home_background_custom_summary,
+                                                            .beautify_home_background_custom_summary
+                                                    },
                                                 ),
                                             selected = source == option,
                                             enabled = !importing,
                                             trailingDivider = true,
                                             onClick = pickImage,
                                             onSelect = {
-                                                if (customImage.toFile().isFile) select(option)
-                                                else pickImage()
+                                                if (customImage.toFile().isFile) {
+                                                    select(option)
+                                                } else {
+                                                    pickImage()
+                                                }
                                             },
                                         )
                                     } else {

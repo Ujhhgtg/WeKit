@@ -26,7 +26,6 @@ import okhttp3.Request
 
 /** Generic extension-pack plumbing: remote index, download, verify, install, state, delete. */
 object ExtensionPacks {
-
     private const val TAG = "ExtensionPacks"
 
     /** The persistent "Extensions" prerelease carrying the pack assets and the index. */
@@ -127,7 +126,9 @@ object ExtensionPacks {
         val request = Request.Builder().url("$BASE_URL/$INDEX_ASSET").build()
         httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("manifest: HTTP ${response.code}")
-            return PackFs.decodeIndex(response.body.byteStream().readBytes().decodeToString())
+            return PackFs.decodeIndex(
+                response.body.byteStream().readBytes().decodeToString(),
+            )
         }
     }
 

@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object SaveVoicesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "语音保存到本地"
     override val nameRes = R.string.feature_save_voices_to_local_storage_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -33,8 +32,8 @@ object SaveVoicesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.I
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777003,
                 localizedChatString(R.string.chat_action_save_locally),
@@ -74,7 +73,6 @@ object SaveVoicesToLocalStorage : SwitchFeature(), WeChatMessageContextMenuApi.I
                 }
             },
         )
-    }
 
     private suspend fun saveVoice(msgInfo: MessageInfo): String? {
         val encPath =

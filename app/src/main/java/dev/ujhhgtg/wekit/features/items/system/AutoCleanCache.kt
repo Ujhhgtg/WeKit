@@ -23,7 +23,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 object AutoCleanCache : ClickableFeature() {
-
     override val technicalId = "清理缓存垃圾"
     override val nameRes = R.string.feature_auto_clean_cache_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -109,12 +108,14 @@ object AutoCleanCache : ClickableFeature() {
             val sizeText = formatBytesSize(deletedSize)
 
             val timeText =
-                if (isEnabled)
+                if (isEnabled) {
                     context.localizedSystemString(
                         R.string.system_auto_clean_next,
                         formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL),
                     )
-                else ""
+                } else {
+                    ""
+                }
 
             showToastSuspend(
                 context,

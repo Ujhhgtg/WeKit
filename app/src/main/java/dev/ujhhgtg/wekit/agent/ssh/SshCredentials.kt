@@ -81,6 +81,7 @@ object SshCredentialCodec {
                             output.writeByte(PASSWORD)
                             output.writeString(credentials.password)
                         }
+
                         is SshCredentials.PrivateKey -> {
                             output.writeByte(PRIVATE_KEY)
                             output.writeString(credentials.privateKey)
@@ -96,13 +97,20 @@ object SshCredentialCodec {
         DataInputStream(ByteArrayInputStream(bytes)).use { input ->
             val credentials =
                 when (input.readUnsignedByte()) {
-                    PASSWORD -> SshCredentials.Password(input.readString())
-                    PRIVATE_KEY ->
+                    PASSWORD -> {
+                        SshCredentials.Password(input.readString())
+                    }
+
+                    PRIVATE_KEY -> {
                         SshCredentials.PrivateKey(
                             input.readString(),
                             if (input.readBoolean()) input.readString() else null,
                         )
-                    else -> error("unsupported SSH credential format")
+                    }
+
+                    else -> {
+                        error("unsupported SSH credential format")
+                    }
                 }
             require(input.read() == -1) { "trailing SSH credential data" }
             credentials

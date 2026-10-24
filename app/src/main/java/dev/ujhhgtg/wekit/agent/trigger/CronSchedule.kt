@@ -13,7 +13,6 @@ import java.util.Calendar
  * scheduler can disable a malformed trigger rather than crash.
  */
 object CronSchedule {
-
     /**
      * [isStar] is true only when the field spec was literally "*", which drives cron's dom/dow
      * rule.
@@ -124,7 +123,10 @@ object CronSchedule {
         }
         val (lo, hi) =
             when {
-                rangePart == "*" -> min to max
+                rangePart == "*" -> {
+                    min to max
+                }
+
                 rangePart.contains('-') -> {
                     val (a, b) = rangePart.split('-', limit = 2)
                     val ai = a.toIntOrNull() ?: return false

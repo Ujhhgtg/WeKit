@@ -27,7 +27,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 
 @SuppressLint("DiscouragedApi")
 object WeDatabaseApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "数据库服务"
     override val nameRes = R.string.feature_we_database_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -133,7 +132,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             SELECT $CONTACT_FIELDS, r.type
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
-        """
+            """
                 .trimIndent()
 
         /** 好友列表（排除群聊和公众号和系统账号和自己和假好友） */
@@ -153,7 +152,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 AND (r.type & 8) = 0
                 AND (r.type & 32) = 0
                 AND r.username NOT LIKE '%chatroom'
-        """
+            """
                 .trimIndent()
 
         /** 查询单个好友（包含微信内部id或自定义微信号alias匹配） */
@@ -174,7 +173,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 AND (r.type & 8) = 0
                 AND (r.type & 32) = 0
                 AND r.username NOT LIKE '%chatroom'
-        """
+            """
                 .trimIndent()
 
         /** 按消息量降序获取好友及消息数 */
@@ -198,7 +197,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             GROUP BY r.username
             ORDER BY msg_count DESC
             LIMIT $limit
-        """
+            """
                 .trimIndent()
 
         // =========================================
@@ -212,7 +211,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username LIKE '%@chatroom'
-        """
+            """
                 .trimIndent()
 
         /** 单个群聊 */
@@ -222,7 +221,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username = '$wxId'
-        """
+            """
                 .trimIndent()
 
         /** 获取群成员列表 */
@@ -232,7 +231,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username IN ($idsStr)
-        """
+            """
                 .trimIndent()
 
         // =========================================
@@ -246,7 +245,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             FROM rcontact r
             $LEFT_JOIN_IMG_FLAG
             WHERE r.username LIKE 'gh_%'
-        """
+            """
                 .trimIndent()
 
         // =========================================
@@ -324,7 +323,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             SELECT i.reserved2 AS avatarUrl
             FROM img_flag i
             WHERE i.username = '$wxid'
-        """
+            """
                 .trimIndent()
 
         /** 获取群聊成员列表字符串 */
@@ -422,14 +421,10 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /** 获取【全部联系人】 返回所有账号 */
-    fun getContacts(): List<WeContact> {
-        return mapToContacts(executeQuery(SqlStatements.CONTACTS))
-    }
+    fun getContacts(): List<WeContact> = mapToContacts(executeQuery(SqlStatements.CONTACTS))
 
     /** 获取【好友】 */
-    fun getFriends(): List<WeContact> {
-        return mapToContacts(executeQuery(SqlStatements.FRIENDS))
-    }
+    fun getFriends(): List<WeContact> = mapToContacts(executeQuery(SqlStatements.FRIENDS))
 
     /**
      * 获取单条【好友】
@@ -536,8 +531,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /** 获取【群聊】 */
-    fun getGroups(): List<WeGroup> {
-        return executeQuery(SqlStatements.GROUPS).map { row ->
+    fun getGroups(): List<WeGroup> =
+        executeQuery(SqlStatements.GROUPS).map { row ->
             WeGroup(
                 wxId = row.str("username"),
                 nickname = row.str("nickname"),
@@ -546,7 +541,6 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 avatarUrl = row.str("avatarUrl"),
             )
         }
-    }
 
     fun getChatroomSyncState(roomId: String): ChatroomSyncStateReadResult {
         if (!isReady || roomId.isEmpty()) return ChatroomSyncStateReadResult.Unavailable
@@ -661,15 +655,14 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /** 获取【公众号】 */
-    fun getOfficialAccounts(): List<WeOfficialAccount> {
-        return executeQuery(SqlStatements.OFFICIAL_LIST).map { row ->
+    fun getOfficialAccounts(): List<WeOfficialAccount> =
+        executeQuery(SqlStatements.OFFICIAL_LIST).map { row ->
             WeOfficialAccount(
                 wxId = row.str("username"),
                 nickname = row.str("nickname"),
                 avatarUrl = row.str("avatarUrl"),
             )
         }
-    }
 
     /** 获取【消息】 */
     fun getMessages(convId: String, pageIndex: Int = 1, pageSize: Int = 20): List<WeMessage> {
@@ -694,10 +687,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
      * @param convId 会话 ID（单聊为对方 wxid，群聊为 xxx@chatroom）
      * @param senderId 发送者 ID（wxid）
      */
-    fun getMessagesFromSender(
-        convId: String,
-        senderId: String,
-    ): List<WeMessage> {
+    fun getMessagesFromSender(convId: String, senderId: String): List<WeMessage> {
         if (convId.isEmpty() || senderId.isEmpty()) return emptyList()
 
         try {
@@ -732,8 +722,8 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
      *
      * @return 会话 wxId 到最近消息时间（毫秒时间戳）的映射
      */
-    fun getLastMessageTimes(): Map<String, Long> {
-        return try {
+    fun getLastMessageTimes(): Map<String, Long> =
+        try {
             executeQuery(SqlStatements.LAST_MESSAGE_TIMES).associate { row ->
                 row.str("talker") to row.long("lastTime")
             }
@@ -741,7 +731,6 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to get last message times", e)
             emptyMap()
         }
-    }
 
     /** 获取头像 */
     fun getAvatarUrl(wxid: String): String {
@@ -754,37 +743,33 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun mapToContacts(data: List<Map<String, Any?>>): List<WeContact> {
-        return data.map { row ->
-            WeContact(
-                wxId = row.str("username"),
-                nickname = row.str("nickname"),
-                customWxId = row.str("alias"),
-                remarkName = row.str("conRemark"),
-                initialNickname = row.str("pyInitial"),
-                nicknamePinyin = row.str("quanPin"),
-                avatarUrl = row.str("avatarUrl"),
-                encryptedUsername = row.str("encryptUsername"),
-                type = row.int("type"),
-            )
-        }
+    private fun mapToContacts(data: List<Map<String, Any?>>): List<WeContact> = data.map { row ->
+        WeContact(
+            wxId = row.str("username"),
+            nickname = row.str("nickname"),
+            customWxId = row.str("alias"),
+            remarkName = row.str("conRemark"),
+            initialNickname = row.str("pyInitial"),
+            nicknamePinyin = row.str("quanPin"),
+            avatarUrl = row.str("avatarUrl"),
+            encryptedUsername = row.str("encryptUsername"),
+            type = row.int("type"),
+        )
     }
 
     private fun Map<String, Any?>.str(key: String): String = this[key]?.toString() ?: ""
 
-    private fun Map<String, Any?>.long(key: String): Long {
-        return when (val v = this[key]) {
+    private fun Map<String, Any?>.long(key: String): Long =
+        when (val v = this[key]) {
             is Long -> v
             is Int -> v.toLong()
             else -> 0L
         }
-    }
 
-    private fun Map<String, Any?>.int(key: String): Int {
-        return when (val v = this[key]) {
+    private fun Map<String, Any?>.int(key: String): Int =
+        when (val v = this[key]) {
             is Int -> v
             is Long -> v.toInt()
             else -> 0
         }
-    }
 }

@@ -394,12 +394,21 @@ class DescriptorSafetyTest {
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {
-                sql.contains("FROM classes") -> MatcherFixtures.classDescriptors()
-                sql.contains("class_descriptor = '") ->
-                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'"))
+                sql.contains("FROM classes") -> {
+                    MatcherFixtures.classDescriptors()
+                }
+
+                sql.contains("class_descriptor = '") -> {
+                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'")) {
                         MatcherFixtures.methodDescriptors()
-                    else emptyList()
-                else -> MatcherFixtures.methodDescriptors()
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                else -> {
+                    MatcherFixtures.methodDescriptors()
+                }
             }
         }
         val scope =
@@ -433,12 +442,21 @@ class DescriptorSafetyTest {
         val metadata = DexMetadata(throwingProvider)
         val query = RecordingDescriptorQuery { sql ->
             when {
-                sql.contains("class_descriptor = '") ->
-                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'"))
+                sql.contains("class_descriptor = '") -> {
+                    if (sql.contains("class_descriptor = 'Lcom/test/Alpha;'")) {
                         MatcherFixtures.methodDescriptors()
-                    else emptyList()
-                sql.contains("FROM classes") -> MatcherFixtures.classDescriptors()
-                else -> MatcherFixtures.methodDescriptors()
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                sql.contains("FROM classes") -> {
+                    MatcherFixtures.classDescriptors()
+                }
+
+                else -> {
+                    MatcherFixtures.methodDescriptors()
+                }
             }
         }
         val scope =

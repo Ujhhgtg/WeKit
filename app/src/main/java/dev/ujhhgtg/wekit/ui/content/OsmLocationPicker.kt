@@ -286,11 +286,7 @@ fun OsmLocationPicker(
 // ── Internal composables ──────────────────────────────────────────────────────
 
 @Composable
-private fun OsmPickerHeader(
-    pickedPoint: GeoPoint?,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
+private fun OsmPickerHeader(pickedPoint: GeoPoint?, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -323,10 +319,7 @@ private fun OsmPickerHeader(
 }
 
 @Composable
-private fun OsmCoordinateReadout(
-    point: GeoPoint?,
-    onClick: () -> Unit,
-) {
+private fun OsmCoordinateReadout(point: GeoPoint?, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -349,11 +342,7 @@ private fun OsmCoordinateReadout(
 }
 
 @Composable
-private fun OsmCoordinateChip(
-    label: String,
-    value: String,
-    onClick: () -> Unit,
-) {
+private fun OsmCoordinateChip(label: String, value: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = MaterialTheme.shapes.small,
@@ -547,14 +536,13 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
         super.onDetach(mapView)
     }
 
-    fun hitTest(event: MotionEvent): Boolean {
-        return mIcon != null &&
+    fun hitTest(event: MotionEvent): Boolean =
+        mIcon != null &&
             isDisplayed &&
             mOrientedMarkerRect.contains(
                 event.x.toInt(),
                 event.y.toInt(),
             )
-    }
 
     override fun onSingleTapConfirmed(event: MotionEvent, mapView: MapView): Boolean {
         val touched = hitTest(event)
@@ -564,7 +552,9 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
             } else {
                 mOnMarkerClickListener!!.onMarkerClick(this, mapView)
             }
-        } else false
+        } else {
+            false
+        }
     }
 
     fun moveToEventPosition(event: MotionEvent, mapView: MapView) {
@@ -606,9 +596,13 @@ private class CustomOsmMarker(mapView: MapView) : Overlay() {
                     return true
                 }
 
-                else -> return false
+                else -> {
+                    return false
+                }
             }
-        } else return false
+        } else {
+            return false
+        }
     }
 
     interface OnMarkerClickListener {

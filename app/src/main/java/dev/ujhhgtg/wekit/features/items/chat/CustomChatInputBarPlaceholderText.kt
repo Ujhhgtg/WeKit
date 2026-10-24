@@ -33,7 +33,6 @@ import java.time.LocalDate
 
 object CustomChatInputBarPlaceholderText :
     ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
-
     override val technicalId = "自定义输入框占位符文本"
     override val nameRes = R.string.feature_custom_chat_input_bar_placeholder_text_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

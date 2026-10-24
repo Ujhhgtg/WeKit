@@ -10,7 +10,6 @@ import kotlinx.serialization.json.Json
  * change. Host resource changes and resolver revisions invalidate the binding fingerprint.
  */
 object MonetResourceResolver {
-
     /** Bump when binding extraction changes so stale caches are re-resolved. */
     private const val VERSION = 6
 
@@ -98,8 +97,9 @@ object MonetResourceResolver {
                         mapOf("state_checked" to 0xffffffffL),
                         emptyMap(),
                     )
-            )
+            ) {
                 return@mapNotNull null
+            }
             val drawables =
                 tree.children.map { item ->
                     (item.attributes.singleOrNull { it.name == "drawable" }?.value
@@ -125,8 +125,11 @@ object MonetResourceResolver {
                 if (!byQualifier.keys.all { it == "" || it == "-night" }) return@mapNotNull null
                 val light = byQualifier[""]?.brandAlpha()
                 val night =
-                    if ("-night" in byQualifier) byQualifier.getValue("-night").brandAlpha()
-                    else light
+                    if ("-night" in byQualifier) {
+                        byQualifier.getValue("-night").brandAlpha()
+                    } else {
+                        light
+                    }
                 if (light == null) null else MonetTint(graph.binding(node), light, night)
             }
 

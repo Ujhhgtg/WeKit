@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object WeGroupApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "群聊管理服务"
     override val nameRes = R.string.feature_we_group_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

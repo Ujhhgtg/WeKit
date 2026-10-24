@@ -171,8 +171,11 @@ class StructuralCandidateTest {
     @Test
     fun classNestedMethodCandidateResolvesViaCanonicalMethodLookup() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM methods")) {
+                MatcherFixtures.methodDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         val scope = scopeFor(query)
         val results = scope.findClasses(classSpec { method { name("run") } })
@@ -186,8 +189,11 @@ class StructuralCandidateTest {
     @Test
     fun classNestedFieldCandidateResolvesViaCanonicalFieldLookup() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         val scope = scopeFor(query)
         val results = scope.findClasses(classSpec { field { name("count") } })
@@ -237,8 +243,11 @@ class StructuralCandidateTest {
     @Test
     fun classRawReqShapeDrivesFromOpMethodNotConstructor() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("c.field_count")) MatcherFixtures.classDescriptors()
-            else MatcherFixtures.methodDescriptors()
+            if (sql.contains("c.field_count")) {
+                MatcherFixtures.classDescriptors()
+            } else {
+                MatcherFixtures.methodDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -358,8 +367,11 @@ class StructuralCandidateTest {
         // + methodCount 1..1 + a selective nested method (name/paramCount/paramTypes/returnType).
         // It must derive candidates from the canonical method lookup, never from class enumeration.
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM methods")) {
+                MatcherFixtures.methodDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -395,8 +407,11 @@ class StructuralCandidateTest {
     @Test
     fun classEmptyUsingStringLiteralIsSkippedInCandidateSql() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM classes")) MatcherFixtures.classDescriptors()
-            else MatcherFixtures.methodDescriptors()
+            if (sql.contains("FROM classes")) {
+                MatcherFixtures.classDescriptors()
+            } else {
+                MatcherFixtures.methodDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -455,16 +470,22 @@ class StructuralCandidateTest {
         // the field descriptor sets in Kotlin.
         val query = RecordingDescriptorQuery { sql ->
             when {
-                sql.contains("fm0.name = 'onBackPressed'") ->
+                sql.contains("fm0.name = 'onBackPressed'") -> {
                     listOf(
                         MatcherFixtures.ALPHA_COUNT_FIELD,
                         MatcherFixtures.ALPHA_NAME_FIELD,
                     )
-                sql.contains("fm0.param_descriptors = 'Landroid/app/Activity;'") ->
+                }
+
+                sql.contains("fm0.param_descriptors = 'Landroid/app/Activity;'") -> {
                     listOf(
                         MatcherFixtures.ALPHA_COUNT_FIELD,
                     )
-                else -> emptyList()
+                }
+
+                else -> {
+                    emptyList()
+                }
             }
         }
         scopeFor(query)
@@ -573,8 +594,11 @@ class StructuralCandidateTest {
         // classImageFeatureService shape: the only cheap predicates are type-only fields whose
         // class names are narrow (typically resolved from another delegate's .data).
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -592,8 +616,11 @@ class StructuralCandidateTest {
     @Test
     fun descriptorFormNarrowTypeOnlyFieldDrivesClassCandidate() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -610,8 +637,11 @@ class StructuralCandidateTest {
         // classMvvmConversationAdapter shape: superClass only has usingStrings (no canonical
         // superclass name source), so the narrow type-only field lookup is the candidate source.
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -633,8 +663,11 @@ class StructuralCandidateTest {
         // Broad library/primitive type-only fields never drive class candidates; with no other
         // canonical source the spec fails loudly before any SQL instead of scanning.
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         assertThrows(UnsupportedOperationException::class.java) {
             scopeFor(query)
@@ -648,8 +681,11 @@ class StructuralCandidateTest {
     @Test
     fun weakFieldTypeDoesNotWinOverPackageScanForClassMenuItemDataShape() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         val results =
             scopeFor(query)
@@ -675,8 +711,11 @@ class StructuralCandidateTest {
     @Test
     fun weakFieldTypeDoesNotWinOverSuperClassCandidate() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM fields")) MatcherFixtures.fieldDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM fields")) {
+                MatcherFixtures.fieldDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         scopeFor(query)
             .findClasses(
@@ -693,8 +732,11 @@ class StructuralCandidateTest {
     @Test
     fun classMemberCandidateBeatsPackageOnlyScan() {
         val query = RecordingDescriptorQuery { sql ->
-            if (sql.contains("FROM methods")) MatcherFixtures.methodDescriptors()
-            else MatcherFixtures.classDescriptors()
+            if (sql.contains("FROM methods")) {
+                MatcherFixtures.methodDescriptors()
+            } else {
+                MatcherFixtures.classDescriptors()
+            }
         }
         val results =
             scopeFor(query)
@@ -1041,10 +1083,8 @@ class StructuralCandidateTest {
     }
 
     /** Fake executor that honours LIMIT/OFFSET so the scope's paging can be exercised. */
-    private class PagingDescriptorQuery(
-        private val rows: List<String>,
-        private val pageSize: Int,
-    ) : DexDescriptorQuery {
+    private class PagingDescriptorQuery(private val rows: List<String>, private val pageSize: Int) :
+        DexDescriptorQuery {
         val queries = mutableListOf<String>()
 
         override fun descriptors(sql: String): List<String> {
@@ -1065,15 +1105,20 @@ class StructuralCandidateTest {
                     literalQueries++
                     listOf(MatcherFixtures.ALPHA_RUN)
                 }
+
                 sql.contains("missing literal") -> {
                     missingQueries++
                     emptyList()
                 }
-                else -> MatcherFixtures.methodDescriptors()
+
+                else -> {
+                    MatcherFixtures.methodDescriptors()
+                }
             }
         }
         val session = Any()
         val sessionCache = MatcherSessionCache.forSession(session)
+
         fun scope() =
             QueryMatcherScope(
                 metadata = metadata,

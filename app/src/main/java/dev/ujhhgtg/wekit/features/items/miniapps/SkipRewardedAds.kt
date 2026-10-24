@@ -44,7 +44,6 @@ import kotlin.io.path.div
  *   core structure is missing, it's reported via WeLogger.w and no partial patch is applied.
  */
 object SkipRewardedAds : SwitchFeature(), IResolveDex {
-
     override val technicalId = "跳过激励广告"
     override val nameRes = R.string.feature_skip_rewarded_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

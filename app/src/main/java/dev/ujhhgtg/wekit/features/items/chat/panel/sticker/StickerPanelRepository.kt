@@ -406,8 +406,11 @@ object StickerPanelRepository {
         val path = requireLocalSticker(filePath)
         val titles = readTitles().toMutableMap()
         val normalized = title.trim()
-        if (normalized.isBlank()) titles.remove(path.absolutePathString())
-        else titles[path.absolutePathString()] = normalized
+        if (normalized.isBlank()) {
+            titles.remove(path.absolutePathString())
+        } else {
+            titles[path.absolutePathString()] = normalized
+        }
         atomicWrite(titlesFile, DefaultJson.encodeToString(titles))
     }
 
@@ -524,7 +527,9 @@ object StickerPanelRepository {
         if (onlineRecentsFile.notExists()) return emptyList()
         return runCatching {
                 DefaultJson.decodeFromString<List<StickerItem>>(onlineRecentsFile.readText())
-                    .filter { it.localPath == null && it.remoteObjectId != null }
+                    .filter {
+                        it.localPath == null && it.remoteObjectId != null
+                    }
             }
             .getOrDefault(emptyList())
     }
@@ -579,33 +584,45 @@ object StickerPanelRepository {
     ): Comparator<Path> {
         val byName = compareBy(String.CASE_INSENSITIVE_ORDER, Path::name)
         return when (PanelSettings.stickerItemSortMode) {
-            LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED -> compareByDescending<Path>(::lastModified).then(byName)
-            LocalSortMode.RECENT ->
+            LocalSortMode.NAME -> {
+                byName
+            }
+
+            LocalSortMode.MODIFIED -> {
+                compareByDescending(::lastModified).then(byName)
+            }
+
+            LocalSortMode.RECENT -> {
                 compareByDescending<Path> {
                         stats[it.absolutePathString()]?.lastSentAt ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.FREQUENT ->
+            LocalSortMode.FREQUENT -> {
                 compareByDescending<Path> {
                         stats[it.absolutePathString()]?.sendCount ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.CUSTOM ->
+            LocalSortMode.CUSTOM -> {
                 compareBy<Path> {
                         customOrderIndex(orders.items[packName], it.name)
                     }
                     .then(byName)
+            }
         }
     }
 
     private fun packComparator(orders: PanelCustomOrders): Comparator<StickerPack> {
         val byName = compareBy(String.CASE_INSENSITIVE_ORDER, StickerPack::title)
         return when (PanelSettings.stickerPackSortMode) {
-            LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED ->
+            LocalSortMode.NAME -> {
+                byName
+            }
+
+            LocalSortMode.MODIFIED -> {
                 compareByDescending<StickerPack> { pack ->
                         maxOf(
                             lastModified(packPath(pack.id)),
@@ -615,24 +632,28 @@ object StickerPanelRepository {
                         )
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.RECENT ->
+            LocalSortMode.RECENT -> {
                 compareByDescending<StickerPack> { pack ->
                         pack.items.maxOfOrNull(StickerItem::lastSentAt) ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.FREQUENT ->
+            LocalSortMode.FREQUENT -> {
                 compareByDescending<StickerPack> { pack ->
                         pack.items.sumOf(StickerItem::sendCount)
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.CUSTOM ->
+            LocalSortMode.CUSTOM -> {
                 compareBy<StickerPack> {
                         customOrderIndex(orders.packs, it.id)
                     }
                     .then(byName)
+            }
         }
     }
 
@@ -826,16 +847,15 @@ object StickerPanelRepository {
     }
         .getOrDefault(false)
 
-    private fun migratePath(
-        value: String,
-        sourcePrefix: Path,
-        destinationPrefix: Path,
-    ): String = runCatching {
-        val path = value.asPath.toAbsolutePath().normalize()
-        if (path.startsWith(sourcePrefix))
-            destinationPrefix.resolve(sourcePrefix.relativize(path)).toString()
-        else value
-    }
+    private fun migratePath(value: String, sourcePrefix: Path, destinationPrefix: Path): String =
+        runCatching {
+            val path = value.asPath.toAbsolutePath().normalize()
+            if (path.startsWith(sourcePrefix)) {
+                destinationPrefix.resolve(sourcePrefix.relativize(path)).toString()
+            } else {
+                value
+            }
+        }
         .getOrDefault(value)
 
     private fun md5(value: String) =

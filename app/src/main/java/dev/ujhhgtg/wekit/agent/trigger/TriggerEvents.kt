@@ -39,7 +39,6 @@ sealed interface TriggeredEvent {
  * appended by the dispatcher after this block.
  */
 object TriggerTimeline {
-
     private val timeFmt: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
@@ -68,8 +67,11 @@ object TriggerTimeline {
 
     private fun renderEvent(ev: TriggeredEvent): String =
         when (ev) {
-            is TriggeredEvent.Schedule -> "[${ts(ev.at)}] 定时触发"
-            is TriggeredEvent.Message ->
+            is TriggeredEvent.Schedule -> {
+                "[${ts(ev.at)}] 定时触发"
+            }
+
+            is TriggeredEvent.Message -> {
                 buildString {
                     append("[${ts(ev.at)}] 消息")
                     ev.type?.let { append(" type=$it") }
@@ -77,14 +79,16 @@ object TriggerTimeline {
                     ev.talker?.let { append(" 会话=$it") }
                     ev.content?.let { append(" 内容=").append(truncate(it)) }
                 }
+            }
 
-            is TriggeredEvent.Sql ->
+            is TriggeredEvent.Sql -> {
                 buildString {
                     append("[${ts(ev.at)}] SQL ").append(ev.op.name)
                     ev.table?.let { append(" 表=$it") }
                     ev.sql?.let { append(" 语句=").append(truncate(it)) }
                     ev.values?.let { append(" 值=").append(truncate(it)) }
                 }
+            }
         }
 
     private fun truncate(s: String, max: Int = 500): String =

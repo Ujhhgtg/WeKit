@@ -160,15 +160,16 @@ fun PromptsScreen(onBack: () -> Unit) {
             beyondViewportPageCount = PROMPT_TAB_LABELS.size - 1,
         ) { page ->
             when (page) {
-                0 ->
+                0 -> {
                     SystemPromptsPage(
                         contentPadding = innerPadding,
                         prompts = systemPrompts,
                         onEdit = { editSystem = it },
                         onAdd = { editSystem = SystemPromptEntity("", "", "") },
                     )
+                }
 
-                1 ->
+                1 -> {
                     PerTurnPromptsPage(
                         contentPadding = innerPadding,
                         prompts = perTurn,
@@ -180,8 +181,9 @@ fun PromptsScreen(onBack: () -> Unit) {
                         onEdit = { editPerTurn = it },
                         onAdd = { editPerTurn = PerTurnPromptEntity("", "", "", true) },
                     )
+                }
 
-                2 ->
+                2 -> {
                     ConditionalPromptsPage(
                         contentPadding = innerPadding,
                         prompts = conditionals,
@@ -193,14 +195,16 @@ fun PromptsScreen(onBack: () -> Unit) {
                         onEdit = { editConditional = it },
                         onAdd = { editConditional = ConditionalPromptEntity("", "", "", true) },
                     )
+                }
 
-                3 ->
+                3 -> {
                     PresetPromptsPage(
                         contentPadding = innerPadding,
                         prompts = presets,
                         onEdit = { editPreset = it },
                         onAdd = { editPreset = PresetPromptEntity("", "", "") },
                     )
+                }
             }
         }
     }
@@ -578,8 +582,11 @@ private fun SystemPromptEditor(
         show = show,
         title =
             stringResource(
-                if (existing.id.isEmpty()) R.string.agent_add_system_prompt
-                else R.string.agent_edit_system_prompt,
+                if (existing.id.isEmpty()) {
+                    R.string.agent_add_system_prompt
+                } else {
+                    R.string.agent_edit_system_prompt
+                },
             ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
@@ -640,8 +647,11 @@ private fun PerTurnPromptEditor(
         show = show,
         title =
             stringResource(
-                if (existing.id.isEmpty()) R.string.agent_add_per_turn_prompt
-                else R.string.agent_edit_per_turn_prompt,
+                if (existing.id.isEmpty()) {
+                    R.string.agent_add_per_turn_prompt
+                } else {
+                    R.string.agent_edit_per_turn_prompt
+                },
             ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
@@ -703,8 +713,11 @@ private fun ConditionalPromptEditor(
         show = show,
         title =
             stringResource(
-                if (existing.id.isEmpty()) R.string.agent_add_conditional_prompt
-                else R.string.agent_edit_conditional_prompt,
+                if (existing.id.isEmpty()) {
+                    R.string.agent_add_conditional_prompt
+                } else {
+                    R.string.agent_edit_conditional_prompt
+                },
             ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->
@@ -771,8 +784,11 @@ private fun PresetPromptEditor(
         show = show,
         title =
             stringResource(
-                if (existing.id.isEmpty()) R.string.agent_add_preset_prompt
-                else R.string.agent_edit_preset_prompt,
+                if (existing.id.isEmpty()) {
+                    R.string.agent_add_preset_prompt
+                } else {
+                    R.string.agent_edit_preset_prompt
+                },
             ),
         onDismiss = onDismiss,
         bottomBar = { dismiss, finish ->

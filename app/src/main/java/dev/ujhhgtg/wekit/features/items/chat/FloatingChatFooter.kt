@@ -62,7 +62,6 @@ import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
 object FloatingChatFooter : ClickableFeature(), IResolveDex {
-
     override val technicalId = "悬浮输入框"
     override val nameRes = R.string.feature_floating_chat_footer_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

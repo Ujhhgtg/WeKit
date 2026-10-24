@@ -56,7 +56,6 @@ import kotlin.math.max
 @SuppressLint("ThreadConstraint")
 object SpoofChatMessages :
     ClickableFeature(), IResolveDex, WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "伪造聊天消息"
     override val nameRes = R.string.feature_spoof_chat_messages_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -431,6 +430,7 @@ object SpoofChatMessages :
                 row.bindText(content, spoof.key) { entity, _ -> entity.text!! }
                 neatSetText.invoke(content, spoof.text)
             }
+
             SpoofKind.IMAGE -> {
                 // Media-group rows lay several messages out in their own views; there only the
                 // gallery shows the spoof.
@@ -439,6 +439,7 @@ object SpoofChatMessages :
                     mvvm.reflekt().firstMethod { name = "getMainContentIv" }.invoke() as ImageView
                 row.bindMedia(spoof.key, content, mvvm)
             }
+
             SpoofKind.VIDEO -> {
                 // As for images, media-group rows only spoof playback.
                 val mvvm = root.findDescendant(VIDEO_MVVM_VIEW) ?: return
@@ -452,11 +453,15 @@ object SpoofChatMessages :
                         .last()
                 row.bindText(duration, spoof.key) { entity, text ->
                     // The host clears the label while the video is being sent.
-                    if (text.isNullOrEmpty()) text
-                    else formatSpoofDuration(entity.videoDurationSeconds!!)
+                    if (text.isNullOrEmpty()) {
+                        text
+                    } else {
+                        formatSpoofDuration(entity.videoDurationSeconds!!)
+                    }
                 }
                 duration.text = duration.text
             }
+
             SpoofKind.TRANSFER -> {
                 val amount = root.findViewById<TextView>(idTransferAmount)
                 row.bindText(amount, spoof.key) { entity, text ->
@@ -553,10 +558,14 @@ object SpoofChatMessages :
                     ExifInterface.ORIENTATION_ROTATE_270,
                     ExifInterface.ORIENTATION_TRANSPOSE,
                     ExifInterface.ORIENTATION_TRANSVERSE -> true
+
                     else -> false
                 }
-            if (transposed) bounds.outHeight to bounds.outWidth
-            else bounds.outWidth to bounds.outHeight
+            if (transposed) {
+                bounds.outHeight to bounds.outWidth
+            } else {
+                bounds.outWidth to bounds.outHeight
+            }
         }
 
     private fun thumbnail(file: File, width: Int, height: Int): Bitmap {
@@ -575,7 +584,9 @@ object SpoofChatMessages :
                 var sample = 1
                 while (
                     sourceWidth / (sample * 2) >= width && sourceHeight / (sample * 2) >= height
-                ) sample *= 2
+                ) {
+                    sample *= 2
+                }
                 decoder.setTargetSampleSize(sample)
             }
         val cropped = createBitmap(width, height)
@@ -618,8 +629,11 @@ object SpoofChatMessages :
                     ownerWidth = owner.layoutParams.width,
                     ownerHeight = owner.layoutParams.height,
                     nativeConfig =
-                        if (stretchLayoutClass.isInstance(owner)) getLayoutConfig.invoke(owner)
-                        else null,
+                        if (stretchLayoutClass.isInstance(owner)) {
+                            getLayoutConfig.invoke(owner)
+                        } else {
+                            null
+                        },
                     width = width,
                     height = height,
                 )
@@ -708,10 +722,13 @@ object SpoofChatMessages :
 
     private fun View.findDescendant(className: String): View? {
         if (javaClass.name == className) return this
-        if (this is ViewGroup)
-            for (child in children) child.findDescendant(className)?.let {
-                return it
+        if (this is ViewGroup) {
+            for (child in children) {
+                child.findDescendant(className)?.let {
+                    return it
+                }
             }
+        }
         return null
     }
 

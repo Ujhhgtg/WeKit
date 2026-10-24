@@ -96,7 +96,9 @@ object NewFriendEvents : WeDatabaseListenerApi.IInsertListener {
                     parse(message.content, fallbackWxId = message.talker)
                 }
 
-                else -> return
+                else -> {
+                    return
+                }
             } ?: return
         dispatch(request)
     }
@@ -105,8 +107,9 @@ object NewFriendEvents : WeDatabaseListenerApi.IInsertListener {
         val now = System.currentTimeMillis()
         recent.entries.removeIf { now - it.value > DEDUP_WINDOW_MS }
         aliases.entries.removeIf { now - it.value.second > VERIFY_ALIAS_WINDOW_MS }
-        if (request.wxId != request.verifyUsername)
+        if (request.wxId != request.verifyUsername) {
             aliases["${request.wxId}|${request.ticket}"] = request to now
+        }
         val key = "${request.verifyUsername}|${request.ticket}|${request.scene}"
         if (recent.putIfAbsent(key, now) != null) return
         listeners.forEach { it(request) }
@@ -123,6 +126,7 @@ object NewFriendEvents : WeDatabaseListenerApi.IInsertListener {
         fallbackScene: String = "",
     ): NewFriendRequest? {
         if (raw.isBlank() && fallbackWxId.isBlank()) return null
+
         fun lookup(vararg names: String) =
             firstNotBlank(
                 *names

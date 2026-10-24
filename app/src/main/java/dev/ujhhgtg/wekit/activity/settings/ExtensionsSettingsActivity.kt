@@ -60,7 +60,6 @@ import java.util.Locale
  */
 @Keep
 class ExtensionsSettingsActivity : ComponentActivity() {
-
     companion object {
         const val EXTRA_PACK_ID = "pack_id"
         const val EXTRA_AUTO_DOWNLOAD = "auto_download"
@@ -128,7 +127,7 @@ private fun PackGroup(pack: ExtensionPack) {
             )
         }
         when (val s = state) {
-            is Downloading ->
+            is Downloading -> {
                 item(key = "downloading") {
                     BaseItemContainer {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -154,14 +153,18 @@ private fun PackGroup(pack: ExtensionPack) {
                         }
                     }
                 }
-            is Verifying ->
+            }
+
+            is Verifying -> {
                 item(key = "verifying") {
                     BaseWidget(
                         title = stringResource(R.string.extensions_pack_verifying),
                         description = stringResource(R.string.extensions_pack_downloading),
                     )
                 }
-            else ->
+            }
+
+            else -> {
                 item(key = "actions") {
                     BaseItemContainer {
                         Row(
@@ -198,6 +201,7 @@ private fun PackGroup(pack: ExtensionPack) {
                         }
                     }
                 }
+            }
         }
     }
 
@@ -230,18 +234,33 @@ private fun descriptionLine(pack: ExtensionPack, state: ExtensionPackState): Str
     val base = stringResource(pack.descriptionRes)
     val status =
         when (state) {
-            is NotInstalled -> stringResource(R.string.extensions_pack_state_not_installed)
-            is Downloading -> stringResource(R.string.extensions_pack_downloading)
-            is Verifying -> stringResource(R.string.extensions_pack_verifying)
-            is Installed ->
+            is NotInstalled -> {
+                stringResource(R.string.extensions_pack_state_not_installed)
+            }
+
+            is Downloading -> {
+                stringResource(R.string.extensions_pack_downloading)
+            }
+
+            is Verifying -> {
+                stringResource(R.string.extensions_pack_verifying)
+            }
+
+            is Installed -> {
                 stringResource(R.string.extensions_pack_installed_version, state.version)
-            is UpdateAvailable ->
+            }
+
+            is UpdateAvailable -> {
                 stringResource(
                     R.string.extensions_pack_state_update_available,
                     state.installedVersion,
                     state.latestVersion,
                 )
-            is Failed -> stringResource(R.string.extensions_pack_state_failed, state.reason)
+            }
+
+            is Failed -> {
+                stringResource(R.string.extensions_pack_state_failed, state.reason)
+            }
         }
     val mountedVersion =
         if (pack === PythonRuntimePack) PythonRuntimePack.mounted()?.manifest?.version else null
@@ -249,9 +268,11 @@ private fun descriptionLine(pack: ExtensionPack, state: ExtensionPackState): Str
         if (
             mountedVersion != null &&
                 mountedVersion != PythonRuntimePack.installedManifest()?.version
-        )
+        ) {
             "\n${stringResource(R.string.extensions_pack_python_restart_required)}"
-        else ""
+        } else {
+            ""
+        }
     return "$base\n$status$restart"
 }
 

@@ -43,7 +43,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoProvider {
-
     override val technicalId = "显示群成员实名尾字"
     override val nameRes = R.string.feature_display_group_member_real_names_last_char_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -228,12 +227,18 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
         actualFetchRealName(senderId, groupId) { result ->
             when (result) {
-                is FetchResult.Found -> onFound(result.realName)
+                is FetchResult.Found -> {
+                    onFound(result.realName)
+                }
+
                 // wxId stays in pendingOrQueried to suppress retries for the rest of this session.
                 FetchResult.NoRealName -> {}
+
                 // Evict so the next view-bind for this sender can retry.
                 is FetchResult.Failure,
-                FetchResult.SaveFailure -> pendingOrQueried.remove(senderId)
+                FetchResult.SaveFailure -> {
+                    pendingOrQueried.remove(senderId)
+                }
             }
         }
     }
@@ -283,7 +288,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                             actualFetchRealName(clickedMemberId, groupId) { result ->
                                 mainHandler.post {
                                     when (result) {
-                                        is FetchResult.Found ->
+                                        is FetchResult.Found -> {
                                             showToast(
                                                 activity,
                                                 activity.localizedChatString(
@@ -291,21 +296,27 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                                     result.realName,
                                                 ),
                                             )
-                                        FetchResult.NoRealName ->
+                                        }
+
+                                        FetchResult.NoRealName -> {
                                             showToast(
                                                 activity,
                                                 activity.localizedChatString(
                                                     R.string.chat_real_name_not_found,
                                                 ),
                                             )
-                                        FetchResult.SaveFailure ->
+                                        }
+
+                                        FetchResult.SaveFailure -> {
                                             showToast(
                                                 activity,
                                                 activity.localizedChatString(
                                                     R.string.structured_storage_save_failed,
                                                 ),
                                             )
-                                        is FetchResult.Failure ->
+                                        }
+
+                                        is FetchResult.Failure -> {
                                             showToast(
                                                 activity,
                                                 activity.localizedChatString(
@@ -313,6 +324,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                                                     result.errMsg ?: result.errCode,
                                                 ),
                                             )
+                                        }
                                     }
                                 }
                             }

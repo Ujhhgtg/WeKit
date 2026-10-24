@@ -15,7 +15,6 @@ class CommonContextWrapper(
     val base: Context,
     val windowContext: Context? = base.resolveWindowContext(),
 ) : ContextThemeWrapper(base, base.theme) {
-
     init {
         ResourcesInjector.injectModuleRes(resources)
     }
@@ -42,11 +41,15 @@ fun Context.resolveWindowContext(): Context? {
     var current: Context? = this
     while (current != null) {
         when (current) {
-            is Activity -> return current
-            is CommonContextWrapper ->
+            is Activity -> {
+                return current
+            }
+
+            is CommonContextWrapper -> {
                 current.windowContext?.let {
                     return it
                 }
+            }
         }
         current = (current as? ContextWrapper)?.baseContext
     }

@@ -29,13 +29,15 @@ object MotionPhotoVideoMetadata {
         if (timestampUs < -1) fail("Invalid motion metadata timestamp")
         for ((_, offset) in info.frames) {
             val position = checkedAdd(videoStart, offset)
-            if (position < 0 || position > output.size() - 8)
+            if (position < 0 || position > output.size() - 8) {
                 fail("Motion metadata timestamp is outside output")
+            }
             val buffer = ByteBuffer.allocate(8).putLong(timestampUs)
             buffer.flip()
             while (buffer.hasRemaining()) {
-                if (output.write(buffer, position + buffer.position()) <= 0)
+                if (output.write(buffer, position + buffer.position()) <= 0) {
                     fail("Could not write motion metadata timestamp")
+                }
             }
         }
     }

@@ -52,7 +52,7 @@ class LinuxEnvironmentManager(
     private val backends = ConcurrentHashMap<String, LinuxEnvironmentBackend>()
     private val staleBackends = HashSet<String>()
     private val mutableHealth =
-        MutableStateFlow<Map<String, EnvironmentHealth>>(
+        MutableStateFlow(
             mapOf(NATIVE_ENVIRONMENT_ID to EnvironmentHealth(EnvironmentHealthState.UNKNOWN)),
         )
     private val mutableNativeSnapshot = MutableStateFlow(nativeSnapshot)
@@ -134,12 +134,14 @@ class LinuxEnvironmentManager(
                     existing.sshUsername != environment.sshUsername ||
                     existing.sshAuthenticationType != environment.sshAuthenticationType)
         persistEnvironment(
-            if (identityChanged)
+            if (identityChanged) {
                 environment.copy(
                     sshHostKeyAlgorithm = null,
                     sshHostKeyFingerprint = null,
                 )
-            else environment,
+            } else {
+                environment
+            },
         )
         stateMutex.withLock {
             staleBackends.add(environment.id)
@@ -281,8 +283,11 @@ class LinuxEnvironmentManager(
     }
 
     suspend fun snapshot(environmentId: String): EnvironmentSnapshot =
-        if (environmentId == NATIVE_ENVIRONMENT_ID) nativeSnapshot
-        else requireNotNull(getEnvironment(environmentId)).toSnapshot()
+        if (environmentId == NATIVE_ENVIRONMENT_ID) {
+            nativeSnapshot
+        } else {
+            requireNotNull(getEnvironment(environmentId)).toSnapshot()
+        }
 
     private suspend fun <T> withLease(
         environmentId: String,
@@ -328,8 +333,11 @@ class LinuxEnvironmentManager(
         var staleBackend: LinuxEnvironmentBackend? = null
         stateMutex.withLock {
             val remaining = leaseCounts.getValue(environmentId) - 1
-            if (remaining == 0) leaseCounts.remove(environmentId)
-            else leaseCounts[environmentId] = remaining
+            if (remaining == 0) {
+                leaseCounts.remove(environmentId)
+            } else {
+                leaseCounts[environmentId] = remaining
+            }
             if (remaining == 0 && staleBackends.remove(environmentId)) {
                 staleBackend = backends.remove(environmentId)
             }
@@ -352,25 +360,35 @@ class LinuxEnvironmentManager(
             return it
         }
         val entity =
-            if (environmentId == NATIVE_ENVIRONMENT_ID) null
-            else getEnvironment(environmentId) ?: error("environment $environmentId does not exist")
+            if (environmentId == NATIVE_ENVIRONMENT_ID) {
+                null
+            } else {
+                getEnvironment(environmentId) ?: error("environment $environmentId does not exist")
+            }
         val snapshot = entity?.toSnapshot() ?: nativeSnapshot
         val created =
             backendFactory?.invoke(snapshot)
                 ?: when (snapshot.type) {
-                    LinuxEnvironmentType.NATIVE -> NativeBackend(snapshot)
+                    LinuxEnvironmentType.NATIVE -> {
+                        NativeBackend(snapshot)
+                    }
+
                     LinuxEnvironmentType.SSH -> {
                         val stored = requireNotNull(entity)
                         val credentials =
                             when {
-                                stored.sshPassword != null ->
+                                stored.sshPassword != null -> {
                                     SshCredentials.Password(stored.sshPassword)
-                                stored.sshPrivateKey != null ->
+                                }
+
+                                stored.sshPrivateKey != null -> {
                                     SshCredentials.PrivateKey(
                                         stored.sshPrivateKey,
                                         stored.sshPrivateKeyPassphrase,
                                     )
-                                else ->
+                                }
+
+                                else -> {
                                     SshCredentialStore.decrypt(
                                         EncryptedSshCredentials(
                                             requireNotNull(stored.sshCredentialCiphertext) {
@@ -381,6 +399,7 @@ class LinuxEnvironmentManager(
                                             },
                                         ),
                                     )
+                                }
                             }
                         val confirmed =
                             stored.sshHostKeyFingerprint?.let { fingerprint ->

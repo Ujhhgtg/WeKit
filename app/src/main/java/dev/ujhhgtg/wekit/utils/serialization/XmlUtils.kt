@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.utils.serialization
 import java.util.concurrent.ConcurrentHashMap
 
 object XmlUtils {
-
     // 这些方法在消息处理热路径上被频繁调用, 编译好的 Regex 按名字缓存, 避免每次调用重新编译。
     private val attrRegexCache = ConcurrentHashMap<String, Regex>()
     private val cdataTagRegexCache = ConcurrentHashMap<String, Regex>()

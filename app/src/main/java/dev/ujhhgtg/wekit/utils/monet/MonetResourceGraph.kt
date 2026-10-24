@@ -121,13 +121,19 @@ private fun MonetXmlElement.collectReferences(result: MutableSet<Int>) {
 
 private fun MonetResourceValue.collectReferences(result: MutableSet<Int>) {
     when (this) {
-        is MonetResourceValue.Reference -> result += resourceId
+        is MonetResourceValue.Reference -> {
+            result += resourceId
+        }
+
         is MonetResourceValue.Complex -> {
             if (parentId != 0) result += parentId
             items.forEach { it.value.collectReferences(result) }
         }
+
         is MonetResourceValue.File,
         is MonetResourceValue.Text,
-        is MonetResourceValue.Literal -> Unit
+        is MonetResourceValue.Literal -> {
+            Unit
+        }
     }
 }

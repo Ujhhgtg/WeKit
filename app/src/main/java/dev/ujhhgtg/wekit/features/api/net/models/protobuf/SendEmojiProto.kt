@@ -17,7 +17,6 @@ data class SendEmojiReqProto(
     @ProtoNumber(3) val emojiList: List<EmojiItemProto> = emptyList(),
     @ProtoNumber(4) val type: Int = 0,
 ) : ISendEmojiProto {
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

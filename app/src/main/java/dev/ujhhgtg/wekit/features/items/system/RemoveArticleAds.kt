@@ -11,7 +11,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
-
     override val technicalId = "去除文章广告"
     override val nameRes = R.string.feature_remove_article_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

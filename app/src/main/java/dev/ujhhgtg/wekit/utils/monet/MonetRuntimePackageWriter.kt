@@ -258,24 +258,34 @@ object MonetRuntimePackageWriter {
                         valueType = ValueType.REFERENCE
                         data = value.id
                     }
+
                     is XmlValue.Color -> {
                         valueType = ValueType.COLOR_ARGB8
                         data = value.argb
                     }
+
                     is XmlValue.Dimension -> {
                         valueType = ValueType.DIMENSION
                         data = ComplexUtil.encodeComplex(value.dp, UnitDimension.DP)
                     }
+
                     is XmlValue.Integer -> {
                         valueType = ValueType.DEC
                         data = value.value
                     }
-                    is XmlValue.Boolean -> valueAsBoolean = value.value
+
+                    is XmlValue.Boolean -> {
+                        valueAsBoolean = value.value
+                    }
+
                     is XmlValue.Float -> {
                         valueType = ValueType.FLOAT
                         data = java.lang.Float.floatToIntBits(value.value)
                     }
-                    is XmlValue.String -> valueAsString = value.value
+
+                    is XmlValue.String -> {
+                        valueAsString = value.value
+                    }
                 }
             }
         }

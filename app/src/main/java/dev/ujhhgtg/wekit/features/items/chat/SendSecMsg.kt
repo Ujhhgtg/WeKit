@@ -50,7 +50,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  *   (8.0.72 为 az0.ia.O, 8.0.65 为 zt0.t9.N), 签名均为 static (msgInfo, String, boolean) -> void。
  */
 object SendSecMsg : ClickableFeature(), IResolveDex {
-
     override val technicalId = "安全消息发送"
     override val nameRes = R.string.feature_send_sec_msg_name
     override val categoryIds =

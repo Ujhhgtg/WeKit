@@ -135,14 +135,18 @@ private fun <T : Any> AutomationRuleHeader(
                         )
                     }
                 }
-            } else null,
+            } else {
+                null
+            },
         errorLines = listOfNotNull(error),
         contentAlpha = if (inherited) 0.62f else 1f,
         selected = highlighted,
         leadingContent =
             if (mode == AutomationRuleMode.OWN) {
                 { AutomationRevertButton { actions.onRevert(editor.key) } }
-            } else null,
+            } else {
+                null
+            },
         onClick =
             when {
                 inherited -> ({ actions.onOverride(editor) })
@@ -153,14 +157,21 @@ private fun <T : Any> AutomationRuleHeader(
         trailingDivider = !inherited && on != null && editor.opensEditor,
         trailingContent = {
             when {
-                inherited -> AutomationOverrideMarker()
-                on != null -> AutomationSwitch(on, toggle)
-                editor.opensEditor ->
+                inherited -> {
+                    AutomationOverrideMarker()
+                }
+
+                on != null -> {
+                    AutomationSwitch(on, toggle)
+                }
+
+                editor.opensEditor -> {
                     Icon(
                         MaterialSymbols.Outlined.Chevron_right,
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
             }
         },
     )

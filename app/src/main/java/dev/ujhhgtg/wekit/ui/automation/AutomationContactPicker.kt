@@ -74,9 +74,15 @@ fun AutomationPickerHost(picker: AutomationPicker) {
     ) {
         key(pick) {
             when (pick) {
-                is AutomationPick.Contacts -> ContactsPick(pick, picker)
-                is AutomationPick.Contact -> ContactPick(pick, picker)
-                is AutomationPick.Favorites ->
+                is AutomationPick.Contacts -> {
+                    ContactsPick(pick, picker)
+                }
+
+                is AutomationPick.Contact -> {
+                    ContactPick(pick, picker)
+                }
+
+                is AutomationPick.Favorites -> {
                     AutomationFavoritePickerScreen(
                         title = pick.title,
                         initialSelected = pick.initialSelected,
@@ -86,6 +92,7 @@ fun AutomationPickerHost(picker: AutomationPicker) {
                             pick.onConfirm(ids)
                         },
                     )
+                }
             }
         }
     }

@@ -16,8 +16,11 @@ import kotlinx.serialization.json.longOrNull
 object McpJsonBridge {
     fun toPlain(e: JsonElement): Any? =
         when (e) {
-            is JsonNull -> null
-            is JsonPrimitive ->
+            is JsonNull -> {
+                null
+            }
+
+            is JsonPrimitive -> {
                 when {
                     e.isString -> e.content
                     e.booleanOrNull != null -> e.booleanOrNull
@@ -25,8 +28,14 @@ object McpJsonBridge {
                     e.doubleOrNull != null -> e.doubleOrNull
                     else -> e.content
                 }
+            }
 
-            is JsonArray -> e.map { toPlain(it) }
-            is JsonObject -> e.mapValues { toPlain(it.value) }
+            is JsonArray -> {
+                e.map { toPlain(it) }
+            }
+
+            is JsonObject -> {
+                e.mapValues { toPlain(it.value) }
+            }
         }
 }

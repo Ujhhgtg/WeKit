@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.utils.strings.stripWxId
 import java.nio.ByteBuffer
 
 class MessageInfo(val instance: Any) {
-
     val typeCode by lazy { getFieldByName<Int>(instance, "field_type") }
     val type by lazy { MessageType.fromCode(typeCode) }
 
@@ -27,6 +26,7 @@ class MessageInfo(val instance: Any) {
     val serverId by lazy { getFieldByName<Long>(instance, "field_msgSvrId") }
     val isSend by lazy { getFieldByName<Int>(instance, "field_isSend") }
     val createTime by lazy { getFieldByName<Long>(instance, "field_createTime") }
+
     // field_talker / field_content 均由 `cursor.getString()` 或 `contentValues.getAsString()` 填充,
     // 微信在缺失时会留 null, 故此处降级为空串而非抛 NPE
     val talker by lazy { getFieldByName<String?>(instance, "field_talker").orEmpty() }
@@ -71,6 +71,7 @@ class MessageInfo(val instance: Any) {
             ?: XmlUtils.extractXmlAttr(content, "md5").takeIf { it.isNotBlank() }
             ?: XmlUtils.extractXmlTag(content, "md5").takeIf { it.isNotBlank() }
     }
+
     /** 微信在没有该列 (或 ContentValues 中无 `lvbuffer` 键) 时会留 null, 因此必须可空 */
     val lvBuffer by lazy { getFieldByName<ByteArray?>(instance, "field_lvbuffer") }
     val talkerId by lazy { getFieldByName<Int>(instance, "field_talkerId") }
@@ -197,7 +198,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class FileMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
@@ -224,7 +224,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class ImageMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val md5 by lazy { xml.getByPath("msg.img.md5")!!.asString }
@@ -235,7 +234,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class PatMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val createTime by lazy { recordObj["createTime"]!!.asLong }
@@ -266,7 +264,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class TransferMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
@@ -301,9 +298,8 @@ class MessageInfo(val instance: Any) {
 
     companion object {
         @Suppress("UNCHECKED_CAST")
-        private inline fun <T> getFieldByName(instance: Any, name: String): T {
-            return instance.reflekt().getField(name, true) as T
-        }
+        private inline fun <T> getFieldByName(instance: Any, name: String): T =
+            instance.reflekt().getField(name, true) as T
 
         /**
          * Safely extracts tag content directly from raw XML strings. Bypasses JSON type coercion
@@ -323,8 +319,8 @@ class MessageInfo(val instance: Any) {
                 .trim()
         }
 
-        private fun String.cleanupXml(): String {
-            return "<msg>" +
+        private fun String.cleanupXml(): String =
+            "<msg>" +
                 substringAfter("<msg>")
                     .substringBeforeLast("</msg>")
                     .replace("\r", "")
@@ -332,10 +328,8 @@ class MessageInfo(val instance: Any) {
                     .replace("\t", "")
                     .replace("<?xml version=\"1.0\"?>", "") +
                 "</msg>"
-        }
 
-        fun fromContentValues(contentValues: ContentValues): MessageInfo {
-            return MessageInfo(WeMessageApi.convertMsgInfoInstanceFromContentValues(contentValues))
-        }
+        fun fromContentValues(contentValues: ContentValues): MessageInfo =
+            MessageInfo(WeMessageApi.convertMsgInfoInstanceFromContentValues(contentValues))
     }
 }

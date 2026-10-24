@@ -23,10 +23,7 @@ import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
  * The [block] is a DexKit matcher block: it runs during resolution, inside the active
  * DexResolutionContext, so it may read other delegates' `.data`.
  */
-fun DexClassDelegate.find(
-    allowFailure: Boolean = false,
-    block: ClassMatcher.() -> Unit,
-): Boolean {
+fun DexClassDelegate.find(allowFailure: Boolean = false, block: ClassMatcher.() -> Unit): Boolean {
     val matcher = ClassMatcher().apply(block)
     return find(matcher.build(), allowFailure)
 }
@@ -47,18 +44,12 @@ fun DexConstructorDelegate.find(
     return find(matcher.build(), allowFailure)
 }
 
-fun DexFieldDelegate.find(
-    allowFailure: Boolean = false,
-    block: FieldMatcher.() -> Unit,
-): Boolean {
+fun DexFieldDelegate.find(allowFailure: Boolean = false, block: FieldMatcher.() -> Unit): Boolean {
     val matcher = FieldMatcher().apply(block)
     return find(matcher.build(), allowFailure)
 }
 
-internal fun DexClassDelegate.find(
-    spec: ClassSpec,
-    allowFailure: Boolean = false,
-): Boolean =
+internal fun DexClassDelegate.find(spec: ClassSpec, allowFailure: Boolean = false): Boolean =
     resolveMatcher(
         key = key,
         kind = "class",
@@ -70,10 +61,7 @@ internal fun DexClassDelegate.find(
         recordFailure = ::recordUnexpectedFailure,
     )
 
-internal fun DexMethodDelegate.find(
-    spec: MethodSpec,
-    allowFailure: Boolean = false,
-): Boolean =
+internal fun DexMethodDelegate.find(spec: MethodSpec, allowFailure: Boolean = false): Boolean =
     resolveMatcher(
         key = key,
         kind = "method",
@@ -85,10 +73,7 @@ internal fun DexMethodDelegate.find(
         recordFailure = ::recordUnexpectedFailure,
     )
 
-internal fun DexConstructorDelegate.find(
-    spec: MethodSpec,
-    allowFailure: Boolean = false,
-): Boolean =
+internal fun DexConstructorDelegate.find(spec: MethodSpec, allowFailure: Boolean = false): Boolean =
     resolveMatcher(
         key = key,
         kind = "constructor",
@@ -104,10 +89,7 @@ internal fun DexConstructorDelegate.find(
         recordFailure = ::recordUnexpectedFailure,
     )
 
-internal fun DexFieldDelegate.find(
-    spec: FieldSpec,
-    allowFailure: Boolean = false,
-): Boolean =
+internal fun DexFieldDelegate.find(spec: FieldSpec, allowFailure: Boolean = false): Boolean =
     resolveMatcher(
         key = key,
         kind = "field",

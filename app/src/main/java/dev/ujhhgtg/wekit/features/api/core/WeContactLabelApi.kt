@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
 object WeContactLabelApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "联系人标签服务"
     override val nameRes = R.string.feature_we_contact_label_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -51,8 +50,8 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
      *
      * @return List of ContactLabel sorted alphabetically by name
      */
-    fun getAllLabels(): List<ContactLabel> {
-        return try {
+    fun getAllLabels(): List<ContactLabel> =
+        try {
             val cursor =
                 WeDatabaseApi.rawQuery(
                     "SELECT labelID, labelName FROM ContactLabel ORDER BY labelName",
@@ -73,11 +72,10 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "getAllLabels failed", e)
             emptyList()
         }
-    }
 
     /** Get contacts belonging to a specific label, by label ID. */
-    fun getContactsByLabelId(labelId: Int): List<String> {
-        return try {
+    fun getContactsByLabelId(labelId: Int): List<String> =
+        try {
             val raw =
                 WeDatabaseApi.rawQuery(
                     "SELECT username FROM rcontact WHERE ',' || contactLabelIds || ',' LIKE ?",
@@ -94,7 +92,6 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "getContactsByLabelId failed", e)
             emptyList()
         }
-    }
 
     /**
      * Get the label names currently associated with a contact. Reads the comma-separated

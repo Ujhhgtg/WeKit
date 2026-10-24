@@ -473,9 +473,11 @@ class WeKitDatabaseMigrationTest {
                         statement.count("bridge_tool_audits", "environmentId = 'local'"),
                     )
                     statement.executeQuery("PRAGMA table_info(linux_environments)").use { columns ->
-                        while (columns.next()) assertFalse(
-                            columns.getString("name").startsWith("rootfs"),
-                        )
+                        while (columns.next()) {
+                            assertFalse(
+                                columns.getString("name").startsWith("rootfs"),
+                            )
+                        }
                     }
                 }
             }

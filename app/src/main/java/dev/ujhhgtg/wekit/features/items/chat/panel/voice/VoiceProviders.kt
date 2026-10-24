@@ -81,7 +81,9 @@ private suspend fun getText(url: String): String =
         )
         try {
             providerHttpClient
-                .newCall(Request.Builder().url(url).get().build())
+                .newCall(
+                    Request.Builder().url(url).get().build(),
+                )
                 .awaitResponse()
                 .use { response ->
                     WeLogger.d(PROVIDER_TAG, "GET HTTP ${response.code} endpoint=$endpoint")
@@ -130,24 +132,33 @@ object UoiceVoiceProvider : VoiceProvider {
         val encoded = URLEncoder.encode(title, StandardCharsets.UTF_8.name())
         return when (title) {
             "最新发布",
-            "最近更新" -> "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=2"
-            "热榜总榜" -> "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=0"
-            "热榜周榜" ->
+            "最近更新" -> {
+                "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=2"
+            }
+
+            "热榜总榜" -> {
+                "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=0"
+            }
+
+            "热榜周榜" -> {
                 "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=0&startTime=" +
                     URLEncoder.encode(
                         formatter.format(Date(System.currentTimeMillis() - 604_800_000L)),
                         StandardCharsets.UTF_8.name(),
                     )
+            }
 
-            "热榜月榜" ->
+            "热榜月榜" -> {
                 "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=0&startTime=" +
                     URLEncoder.encode(
                         formatter.format(Date(System.currentTimeMillis() - 2_592_000_000L)),
                         StandardCharsets.UTF_8.name(),
                     )
+            }
 
-            else ->
+            else -> {
                 "https://uoice.com/v1/voice/list?page={{PAGE}}&take=50&count=0&sort=0&tag=$encoded"
+            }
         }
     }
 
@@ -278,11 +289,14 @@ object UoiceVoiceProvider : VoiceProvider {
     private fun mimeExtension(mimeType: String?): String =
         when (mimeType?.lowercase()) {
             "audio/aac" -> "aac"
+
             "audio/vnd.wave",
             "audio/wav",
             "audio/x-wav" -> "wav"
+
             "audio/mp4",
             "audio/m4a" -> "m4a"
+
             else -> "mp3"
         }
 }
@@ -291,10 +305,7 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
     override val id = "ring_duoduo"
     override val name = "铃声多多"
 
-    private data class Category(
-        val id: Int,
-        @StringRes val titleRes: Int,
-    )
+    private data class Category(val id: Int, @StringRes val titleRes: Int)
 
     private val categories =
         listOf(
@@ -399,8 +410,11 @@ object RingDuoDuoVoiceProvider : VoiceProvider {
                                     id = "ring:$itemId",
                                     title = title,
                                     remoteUrl =
-                                        if (rawUrl.startsWith("http")) rawUrl
-                                        else "$baseUrl/${rawUrl.trimStart('/')}",
+                                        if (rawUrl.startsWith("http")) {
+                                            rawUrl
+                                        } else {
+                                            "$baseUrl/${rawUrl.trimStart('/')}"
+                                        },
                                     source = PanelSource.ONLINE,
                                     // The endpoint currently reports the same placeholder duration
                                     // for

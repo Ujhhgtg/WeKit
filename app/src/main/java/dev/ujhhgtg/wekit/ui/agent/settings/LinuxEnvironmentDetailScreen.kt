@@ -117,8 +117,11 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
     SettingsScaffold(
         title =
             stringResource(
-                if (environmentId == null) R.string.agent_linux_environment_add
-                else R.string.agent_linux_environment_detail,
+                if (environmentId == null) {
+                    R.string.agent_linux_environment_add
+                } else {
+                    R.string.agent_linux_environment_detail
+                },
             ),
         onBack = onBack,
     ) {
@@ -215,9 +218,11 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                         BaseWidget(
                             title = stringResource(R.string.agent_linux_environment_auth_password),
                             description =
-                                if (authenticationType == "PASSWORD")
+                                if (authenticationType == "PASSWORD") {
                                     stringResource(R.string.agent_linux_environment_selected)
-                                else null,
+                                } else {
+                                    null
+                                },
                             enabled = !busy,
                             onClick = { authenticationType = "PASSWORD" },
                         )
@@ -227,9 +232,11 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                             title =
                                 stringResource(R.string.agent_linux_environment_auth_private_key),
                             description =
-                                if (authenticationType == "PRIVATE_KEY")
+                                if (authenticationType == "PRIVATE_KEY") {
                                     stringResource(R.string.agent_linux_environment_selected)
-                                else null,
+                                } else {
+                                    null
+                                },
                             enabled = !busy,
                             onClick = { authenticationType = "PRIVATE_KEY" },
                         )
@@ -326,7 +333,9 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                                     .onFailure {
                                         if (it is SshHostKeyException) {
                                             pendingHostKey = it
-                                        } else error = it.message
+                                        } else {
+                                            error = it.message
+                                        }
                                     }
                                 operation = null
                             }
@@ -359,8 +368,11 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                                     }
                                         .onSuccess { status = it.detail ?: healthyStatus }
                                         .onFailure {
-                                            if (it is SshHostKeyException) pendingHostKey = it
-                                            else error = it.message
+                                            if (it is SshHostKeyException) {
+                                                pendingHostKey = it
+                                            } else {
+                                                error = it.message
+                                            }
                                         }
                                     operation = null
                                 }
@@ -375,7 +387,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                             },
                         )
                     }
-                    if (!isNative)
+                    if (!isNative) {
                         item {
                             BaseWidget(
                                 icon = MaterialSymbols.Outlined.Delete,
@@ -384,6 +396,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
                                 onClick = { showDelete = true },
                             )
                         }
+                    }
                 }
                 (operationMessage ?: status)?.let { message ->
                     item { Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -401,7 +414,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
             },
         )
     }
-    if (showDelete)
+    if (showDelete) {
         SettingsConfirmDialog(
             true,
             stringResource(R.string.action_delete),
@@ -426,6 +439,7 @@ fun LinuxEnvironmentDetailScreen(environmentId: String?, onBack: () -> Unit) {
             },
             onDismiss = { if (!busy) showDelete = false },
         )
+    }
     pendingHostKey?.let { hostKeyError ->
         SettingsConfirmDialog(
             true,
@@ -514,12 +528,25 @@ private suspend fun saveOrCreate(
     if (existing != null) {
         val credentials =
             when {
-                type != LinuxEnvironmentType.SSH -> null
-                authenticationType == "PASSWORD" && password.isNotEmpty() -> Unit
-                authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> Unit
-                authenticationType != existing.sshAuthenticationType ->
+                type != LinuxEnvironmentType.SSH -> {
+                    null
+                }
+
+                authenticationType == "PASSWORD" && password.isNotEmpty() -> {
+                    Unit
+                }
+
+                authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> {
+                    Unit
+                }
+
+                authenticationType != existing.sshAuthenticationType -> {
                     error("credentials are required when changing SSH authentication type")
-                else -> null
+                }
+
+                else -> {
+                    null
+                }
             }
         WeAgentService.linuxEnvironmentManager.upsert(
             existing.copy(
@@ -531,42 +558,63 @@ private suspend fun saveOrCreate(
                 sshUsername =
                     if (type == LinuxEnvironmentType.SSH) username else existing.sshUsername,
                 sshAuthenticationType =
-                    if (type == LinuxEnvironmentType.SSH) authenticationType
-                    else existing.sshAuthenticationType,
+                    if (type == LinuxEnvironmentType.SSH) {
+                        authenticationType
+                    } else {
+                        existing.sshAuthenticationType
+                    },
                 sshPassword =
-                    if (authenticationType == "PASSWORD" && password.isNotEmpty()) password
-                    else existing.sshPassword,
+                    if (authenticationType == "PASSWORD" && password.isNotEmpty()) {
+                        password
+                    } else {
+                        existing.sshPassword
+                    },
                 sshPrivateKey =
-                    if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) privateKey
-                    else existing.sshPrivateKey,
+                    if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) {
+                        privateKey
+                    } else {
+                        existing.sshPrivateKey
+                    },
                 sshPrivateKeyPassphrase =
-                    if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty())
+                    if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) {
                         passphrase.takeIf(String::isNotEmpty)
-                    else existing.sshPrivateKeyPassphrase,
+                    } else {
+                        existing.sshPrivateKeyPassphrase
+                    },
                 sshCredentialCiphertext =
-                    if (password.isNotEmpty() || privateKey.isNotEmpty()) null
-                    else existing.sshCredentialCiphertext,
+                    if (password.isNotEmpty() || privateKey.isNotEmpty()) {
+                        null
+                    } else {
+                        existing.sshCredentialCiphertext
+                    },
                 sshCredentialIv =
-                    if (password.isNotEmpty() || privateKey.isNotEmpty()) null
-                    else existing.sshCredentialIv,
+                    if (password.isNotEmpty() || privateKey.isNotEmpty()) {
+                        null
+                    } else {
+                        existing.sshCredentialIv
+                    },
                 sshHostKeyAlgorithm =
                     if (
                         credentials != null &&
                             (host != existing.sshHost ||
                                 username != existing.sshUsername ||
                                 port.toInt() != existing.sshPort)
-                    )
+                    ) {
                         null
-                    else existing.sshHostKeyAlgorithm,
+                    } else {
+                        existing.sshHostKeyAlgorithm
+                    },
                 sshHostKeyFingerprint =
                     if (
                         credentials != null &&
                             (host != existing.sshHost ||
                                 username != existing.sshUsername ||
                                 port.toInt() != existing.sshPort)
-                    )
+                    ) {
                         null
-                    else existing.sshHostKeyFingerprint,
+                    } else {
+                        existing.sshHostKeyFingerprint
+                    },
             ),
         )
         return true

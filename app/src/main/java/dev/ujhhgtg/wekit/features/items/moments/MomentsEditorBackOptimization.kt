@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * "保留"/"不保留"按钮语义保持不变。
  */
 object MomentsEditorBackOptimization : SwitchFeature() {
-
     override val technicalId = "朋友圈编辑界面返回逻辑优化"
     override val nameRes = R.string.feature_moments_editor_back_optimization_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -35,7 +34,9 @@ object MomentsEditorBackOptimization : SwitchFeature() {
     override fun onEnable() {
         Dialog::class.java.getMethod("show").hookAfter {
             val dialog = thisObject as Dialog
-            if (dialog.context.unwrapActivity()?.javaClass?.name != SNS_UPLOAD_UI) return@hookAfter
+            if (dialog.context.unwrapActivity()?.javaClass?.name != SNS_UPLOAD_UI) {
+                return@hookAfter
+            }
             val titleView = dialog.findKeepContentTitle() ?: return@hookAfter
 
             dialog.setCancelable(true)

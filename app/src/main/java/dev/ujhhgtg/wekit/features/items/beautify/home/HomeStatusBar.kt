@@ -63,8 +63,9 @@ class HomeStatusBar(private val activity: Activity, private val shell: View) {
                 WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS.inv()
         if (window.attributes.flags != flags) window.setFlags(flags, FLAGS_MASK)
         if (window.statusBarColor != 0) window.statusBarColor = 0
-        if (Build.VERSION.SDK_INT >= 29 && window.isStatusBarContrastEnforced)
+        if (Build.VERSION.SDK_INT >= 29 && window.isStatusBarContrastEnforced) {
             window.isStatusBarContrastEnforced = false
+        }
         val systemUi = decor.systemUiVisibility or LAYOUT_FLAGS
         if (decor.systemUiVisibility != systemUi) decor.systemUiVisibility = systemUi
         if (
@@ -79,8 +80,9 @@ class HomeStatusBar(private val activity: Activity, private val shell: View) {
         }
         val controller = WindowCompat.getInsetsController(window, decor)
         val light = !activity.isDarkMode
-        if (controller.isAppearanceLightStatusBars != light)
+        if (controller.isAppearanceLightStatusBars != light) {
             controller.isAppearanceLightStatusBars = light
+        }
         val frameClass = BeautifyHome.methodStatusBarHeight.method.declaringClass
         var view = shell.parent as? View
         while (view != null && view !== decor) {

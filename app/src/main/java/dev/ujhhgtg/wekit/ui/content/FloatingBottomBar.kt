@@ -238,8 +238,13 @@ fun <T> FloatingBottomBar(
     val isBlurMode = mode == FloatingBottomBarMode.Blur
     val isGlassTransparent = isLiquidGlassMode && liquidGlassBlurRadius <= 0.dp
     val containerColor =
-        if (isGlassTransparent) Color.Transparent
-        else if (isLiquidGlassMode) colors.containerColor.copy(0.4f) else colors.containerColor
+        if (isGlassTransparent) {
+            Color.Transparent
+        } else if (isLiquidGlassMode) {
+            colors.containerColor.copy(0.4f)
+        } else {
+            colors.containerColor
+        }
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -319,7 +324,10 @@ fun <T> FloatingBottomBar(
                     if (tabWidthPx > 0f && dragAmount.x != 0f) {
                         updateValue(
                             (targetValue + dragAmount.x / tabWidthPx * if (isLtr) 1f else -1f)
-                                .fastCoerceIn(0f, (tabsCount - 1).toFloat()),
+                                .fastCoerceIn(
+                                    0f,
+                                    (tabsCount - 1).toFloat(),
+                                ),
                         )
                         animationScope.launch {
                             offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x)
@@ -417,10 +425,12 @@ fun <T> FloatingBottomBar(
                     animationScope = animationScope,
                     position = { size, _ ->
                         Offset(
-                            if (isLtr) (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
-                            else
+                            if (isLtr) {
+                                (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
+                            } else {
                                 size.width - (dampedDragAnimation.value + 0.5f) * tabWidthPx +
-                                    panelOffset,
+                                    panelOffset
+                            },
                             size.height / 2f,
                         )
                     },
@@ -602,8 +612,11 @@ fun <T> FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX =
-                                if (isLtr) progressOffset + panelOffset
-                                else -progressOffset + panelOffset
+                                if (isLtr) {
+                                    progressOffset + panelOffset
+                                } else {
+                                    -progressOffset + panelOffset
+                                }
                         }
                         .drawBackdrop(
                             backdrop = combinedBackdrop,
@@ -634,8 +647,11 @@ fun <T> FloatingBottomBar(
                                     val progress = dampedDragAnimation.pressProgress
                                     drawRect(
                                         color =
-                                            if (!isInDark) Color.Black.copy(alpha = 0.1f)
-                                            else Color.White.copy(alpha = 0.1f),
+                                            if (!isInDark) {
+                                                Color.Black.copy(alpha = 0.1f)
+                                            } else {
+                                                Color.White.copy(alpha = 0.1f)
+                                            },
                                         alpha = 1f - progress,
                                     )
                                     drawRect(Color.Black.copy(alpha = 0.03f * progress))
@@ -659,8 +675,11 @@ fun <T> FloatingBottomBar(
                             .graphicsLayer {
                                 val progressOffset = dampedDragAnimation.value * tabWidthPx
                                 translationX =
-                                    if (isLtr) progressOffset + panelOffset
-                                    else -progressOffset + panelOffset
+                                    if (isLtr) {
+                                        progressOffset + panelOffset
+                                    } else {
+                                        -progressOffset + panelOffset
+                                    }
                             }
                             .clip(pillShape)
                             .background(colors.indicatorColor.copy(alpha = 0.15f), pillShape)

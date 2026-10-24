@@ -38,10 +38,7 @@ object MonetThemeRenderer {
         val neutral2_700: Int,
     )
 
-    data class Options(
-        val bubbleStyle: MonetBubbleStyle,
-        val multiSceneCorners: Boolean,
-    )
+    data class Options(val bubbleStyle: MonetBubbleStyle, val multiSceneCorners: Boolean)
 
     data class Output(val colors: List<ColorTarget>, val drawables: List<DrawableTarget>)
 
@@ -101,13 +98,16 @@ object MonetThemeRenderer {
                 }
         // Later groups replace earlier ones for the same resource, like the old overlay priorities.
         val drawables = linkedMapOf<Int, DrawableTarget>()
+
         fun put(targets: List<DrawableTarget>) = targets.forEach { drawables[it.binding.id] = it }
         put(baseVisuals(resolved, palette))
         if (options.bubbleStyle != MonetBubbleStyle.NONE) put(modernBubbles(resolved, palette))
         when (options.bubbleStyle) {
             MonetBubbleStyle.NONE,
             MonetBubbleStyle.MODERN -> Unit
+
             MonetBubbleStyle.CLASSIC -> put(classicBubbles(resolved, palette))
+
             MonetBubbleStyle.PRO -> put(proBubbles(resolved, palette))
         }
         if (options.multiSceneCorners) put(corners(resolved, palette))
@@ -140,6 +140,7 @@ object MonetThemeRenderer {
     ): Pair<ColorValue?, ColorValue?> {
         val semantic = roleId.removePrefix("theme.color.").substringBefore(".slot-")
         val parts = semantic.split("--", limit = 2)
+
         fun resolve(token: String): ColorValue? {
             if (token == "unknown") return null
             if (token.length == 8 && token.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
@@ -410,6 +411,7 @@ object MonetThemeRenderer {
                 "item",
                 states.toList() + android("drawable", 0x01010199, XmlValue.Reference(id)),
             )
+
         fun checked(value: Boolean) = android("state_checked", 0x010100a0, XmlValue.Boolean(value))
         val disabled = android("state_enabled", ATTR_STATE_ENABLED, XmlValue.Boolean(false))
         // WeChat's 72×72 SVG has a transparent check-shaped cutout in its filled circle.

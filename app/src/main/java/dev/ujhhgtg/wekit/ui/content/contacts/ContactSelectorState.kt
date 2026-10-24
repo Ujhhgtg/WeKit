@@ -129,8 +129,11 @@ class ContactSelectorState(
     }
 
     fun onFilterDataLoaded(data: ContactFilterData?) {
-        if (data == null) showMessage(R.string.contact_filter_database_unavailable)
-        else filterData = data
+        if (data == null) {
+            showMessage(R.string.contact_filter_database_unavailable)
+        } else {
+            filterData = data
+        }
         filtersLoaded = true
     }
 

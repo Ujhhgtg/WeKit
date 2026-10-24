@@ -169,7 +169,9 @@ fun BaseContactSelector(
                         Text(confirmButtonText)
                     }
                 }
-            } else null,
+            } else {
+                null
+            },
     )
 }
 
@@ -224,8 +226,11 @@ fun ContactsSelector(
         },
         onItemClick = { contact ->
             selectedWxIds =
-                if (contact.wxId in selectedWxIds) selectedWxIds - contact.wxId
-                else selectedWxIds + contact.wxId
+                if (contact.wxId in selectedWxIds) {
+                    selectedWxIds - contact.wxId
+                } else {
+                    selectedWxIds + contact.wxId
+                }
         },
         selectionActions = multiSelectActions({ selectedWxIds }) { selectedWxIds = it },
     )

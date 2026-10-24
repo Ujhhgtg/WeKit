@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlin.io.path.copyTo
 
 object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
-
     override val technicalId = "上传原图"
     override val nameRes = R.string.feature_no_compress_uploaded_images_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -98,8 +97,9 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                     activity.javaClass.name !in GALLERY_RESULT_PAGES ||
                         activity.intent.getIntExtra("query_source_type", -1) != 4 ||
                         args[0] as Int != Activity.RESULT_OK
-                )
+                ) {
                     return@hookBefore
+                }
                 val data = args[1] as? Intent ?: return@hookBefore
                 if (
                     data.hasExtra("CropImage_OutputPath_List") ||

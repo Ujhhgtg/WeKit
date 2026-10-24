@@ -154,10 +154,11 @@ object RedPacketAutomation : AutomationSpec("RED_PACKET") {
         )
 
     override fun validate(rules: AutomationRules, keyIds: Set<String>?): String? {
-        if (validates(keyIds, delay))
+        if (validates(keyIds, delay)) {
             rules[delay].validationError()?.let {
                 return it
             }
+        }
         if (validates(keyIds, keyword)) {
             rules[keyword]
                 .validationError(
@@ -176,10 +177,11 @@ object RedPacketAutomation : AutomationSpec("RED_PACKET") {
                     return it
                 }
         }
-        if (validates(keyIds, reply))
+        if (validates(keyIds, reply)) {
             rules[reply].validationError()?.let {
                 return it
             }
+        }
         return null
     }
 }

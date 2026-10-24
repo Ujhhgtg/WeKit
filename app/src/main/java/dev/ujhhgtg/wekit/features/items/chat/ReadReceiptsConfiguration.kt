@@ -8,10 +8,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
-data class ReadReceiptsConfiguration(
-    val thirdPartyUrl: String = "",
-    val pollIntervalSecs: Int = 5,
-)
+data class ReadReceiptsConfiguration(val thirdPartyUrl: String = "", val pollIntervalSecs: Int = 5)
 
 object ReadReceiptsConfigurationCodec {
     private const val SCHEMA_VERSION = 2

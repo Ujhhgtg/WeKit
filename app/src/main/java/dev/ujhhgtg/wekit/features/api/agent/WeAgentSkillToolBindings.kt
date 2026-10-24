@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.features.core.AgentToolParam
  * those are gated independently at call time.
  */
 object WeAgentSkillToolBindings {
-
     @AgentTool(
         name = "load_skill",
         description =

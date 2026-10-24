@@ -41,7 +41,6 @@ import kotlin.io.path.outputStream
 import kotlin.math.roundToInt
 
 object ViewStickerAsImage : SwitchFeature(), IResolveDex {
-
     override val technicalId = "表情消息以图片打开"
     override val nameRes = R.string.feature_view_sticker_as_image_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -124,8 +123,8 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         return getTopMostActivity()?.takeUnless { it.isFinishing || it.isDestroyed }
     }
 
-    private fun resolveWechatDecodedPath(hostMessage: Any): Path? {
-        return try {
+    private fun resolveWechatDecodedPath(hostMessage: Any): Path? =
+        try {
             val resolver =
                 methodEmojiResolverGetter.method.invoke(WeServiceApi.emojiFeatureService)!!
             val emojiInfo = methodResolveEmojiInfo.method.invoke(resolver, hostMessage)!!
@@ -135,7 +134,6 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to resolve WeChat sticker decrypt path", error)
             null
         }
-    }
 
     private fun resolveCachedGif(messageInfo: MessageInfo): Path? {
         val md5 =
@@ -221,8 +219,8 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         }
     }
 
-    private fun startNativeImageViewer(activity: Activity, imagePath: Path): Boolean {
-        return try {
+    private fun startNativeImageViewer(activity: Activity, imagePath: Path): Boolean =
+        try {
             activity.startActivity(
                 Intent().apply {
                     component =
@@ -235,5 +233,4 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to start WeChat image viewer", error)
             false
         }
-    }
 }

@@ -16,7 +16,6 @@ import kotlin.io.path.readBytes
  * classManager。
  */
 object ScriptDepsPack : ExtensionPack {
-
     override val id = "script-deps"
     override val displayOrder = 0
     override val nameRes = R.string.extensions_pack_script_deps_name

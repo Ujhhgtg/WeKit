@@ -8,7 +8,6 @@ import kotlinx.serialization.json.Json
 
 /** Shared file plumbing for extension packs: hashing, verification, atomic publish. */
 object PackFs {
-
     private val json = Json { ignoreUnknownKeys = true }
     private const val MANIFEST_NAME = "manifest.json"
 

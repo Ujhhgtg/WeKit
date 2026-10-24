@@ -214,8 +214,9 @@ class ConversationGroupTabsHost(
                 val top = ConversationGrouping.CAPSULE_VERTICAL_INSET_DP.dpToPx(context).toFloat()
                 val right = width - left
                 val bottom = height - top
-                if (event.x < left || event.x > right || event.y < top || event.y > bottom)
+                if (event.x < left || event.x > right || event.y < top || event.y > bottom) {
                     return false
+                }
                 val radius = minOf(right - left, bottom - top) / 2f
                 val dx = event.x - event.x.coerceIn(left + radius, right - radius)
                 val dy = event.y - event.y.coerceIn(top + radius, bottom - radius)

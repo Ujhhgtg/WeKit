@@ -19,13 +19,13 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 object ForceTabletMode : SwitchFeature(), IResolveDex {
-
     override val technicalId = "强制平板模式"
     override val nameRes = R.string.feature_force_tablet_mode_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_force_tablet_mode_description
 
     private val methodIsTablet by dexMethod()
+
     //    private val methodIsTablet2 by dexMethod {
     //        matcher {
     //            usingEqStrings("MicroMsg.UIUtils", "isRoyoleFoldableDevice!!!")
@@ -50,19 +50,24 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
         }
 
         when (modernTabletMethods.size) {
-            1 -> methodIsTablet.setDescriptor(modernTabletMethods.single())
-            0 ->
+            1 -> {
+                methodIsTablet.setDescriptor(modernTabletMethods.single())
+            }
+
+            0 -> {
                 methodIsTablet.find {
                     returnType = "boolean"
                     usingEqString("Lenovo TB-9707F")
                     usingEqString("eebbk")
                 }
+            }
 
-            else ->
+            else -> {
                 error(
                     "multiple modern tablet environment methods found: " +
                         modernTabletMethods.joinToString { it.descriptor },
                 )
+            }
         }
     }
 

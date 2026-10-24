@@ -59,7 +59,6 @@ const val READ_RECEIPTS_NATIVE_TEXT_TAG = 0x7E000013
 data class ReadReceiptCountState(val count: Int?)
 
 object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "消息时间增强"
     override val nameRes = R.string.feature_message_time_enhancements_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -100,29 +99,41 @@ object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreat
                         .toEpochDay()
             val relTimeStr =
                 when {
-                    epochDay > 1 ->
+                    epochDay > 1 -> {
                         localizedChatQuantity(
                             R.plurals.chat_message_time_days_ago,
                             epochDay.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
                             epochDay,
                         )
-                    epochDay == 1L -> localizedChatString(R.string.chat_message_time_yesterday)
+                    }
+
+                    epochDay == 1L -> {
+                        localizedChatString(R.string.chat_message_time_yesterday)
+                    }
+
                     else -> {
                         val diff = System.currentTimeMillis() - createTime
                         when {
-                            diff <= 0 -> localizedChatString(R.string.chat_message_time_just_now)
+                            diff <= 0 -> {
+                                localizedChatString(R.string.chat_message_time_just_now)
+                            }
+
                             else -> {
                                 val mins = diff / 60000
                                 val hours = diff / 3600000
                                 when {
-                                    mins < 1 ->
+                                    mins < 1 -> {
                                         localizedChatString(R.string.chat_message_time_just_now)
-                                    hours < 1 ->
+                                    }
+
+                                    hours < 1 -> {
                                         localizedChatQuantity(
                                             R.plurals.chat_message_time_minutes_ago,
                                             mins.toInt(),
                                             mins,
                                         )
+                                    }
+
                                     else -> {
                                         val displayedHours = maxOf(hours, 1L)
                                         localizedChatQuantity(
@@ -158,17 +169,29 @@ object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreat
         if (result.contains($$"$mentionedUsers")) {
             val atStr =
                 when {
-                    msgInfo.mentionedUsers.isEmpty() -> ""
-                    msgInfo.isAnnounceAll ->
+                    msgInfo.mentionedUsers.isEmpty() -> {
+                        ""
+                    }
+
+                    msgInfo.isAnnounceAll -> {
                         localizedChatString(R.string.chat_message_time_group_announcement)
-                    msgInfo.isNotifyAll -> localizedChatString(R.string.chat_message_time_everyone)
-                    msgInfo.isAtMe -> localizedChatString(R.string.chat_message_time_me)
-                    else ->
+                    }
+
+                    msgInfo.isNotifyAll -> {
+                        localizedChatString(R.string.chat_message_time_everyone)
+                    }
+
+                    msgInfo.isAtMe -> {
+                        localizedChatString(R.string.chat_message_time_me)
+                    }
+
+                    else -> {
                         localizedChatQuantity(
                             R.plurals.chat_message_time_mentioned_people,
                             msgInfo.mentionedUsers.size,
                             msgInfo.mentionedUsers.size,
                         )
+                    }
                 }
             result = result.replace($$"$mentionedUsers", atStr)
         }
@@ -280,10 +303,7 @@ object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreat
     }
 
     @SuppressLint("SetTextI18n")
-    override fun onCreateView(
-        param: HookParam,
-        view: View,
-    ) {
+    override fun onCreateView(param: HookParam, view: View) {
         val tag = view.tag ?: return
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
 
@@ -344,7 +364,9 @@ object MessageTimeEnhancements : ClickableFeature(), WeChatMessageViewApi.ICreat
                                             modifier =
                                                 Modifier.fillMaxWidth()
                                                     .padding(horizontal = 16.dp)
-                                                    .onFocusChanged { isFocused = it.isFocused },
+                                                    .onFocusChanged {
+                                                        isFocused = it.isFocused
+                                                    },
                                         )
 
                                         Text(

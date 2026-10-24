@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 
 object RemoveVideoAds : SwitchFeature() {
-
     override val technicalId = "移除视频广告"
     override val nameRes = R.string.feature_remove_video_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

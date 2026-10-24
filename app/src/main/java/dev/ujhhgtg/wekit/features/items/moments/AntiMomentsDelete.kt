@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
  * "仅三天可见"), or hid from you; those are kept and marked as well.
  */
 object AntiMomentsDelete : SwitchFeature(), IResolveDex {
-
     override val technicalId = "朋友圈防撤回"
     override val nameRes = R.string.feature_anti_moments_delete_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -201,8 +200,9 @@ object AntiMomentsDelete : SwitchFeature(), IResolveDex {
                 }
             for (snsId in snsIds) {
                 val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
-                if (!snsInfo.isOwn && markIntercepted(snsInfo))
+                if (!snsInfo.isOwn && markIntercepted(snsInfo)) {
                     WeMomentsApi.updateSnsInfo(snsId, snsInfo)
+                }
             }
         }
         args[suffixIndex] = suffix + MARKED_CONTENT_EXCLUSION

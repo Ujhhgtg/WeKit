@@ -35,7 +35,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object MassSendMessage : ClickableFeature() {
-
     override val technicalId = "群发消息"
     override val nameRes = R.string.feature_mass_send_message_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -188,8 +187,11 @@ object MassSendMessage : ClickableFeature() {
 
             showToastSuspend(
                 localizedBatchQuantity(
-                    if (success == wxIds.size) R.plurals.batch_mass_send_done
-                    else R.plurals.batch_mass_send_partial,
+                    if (success == wxIds.size) {
+                        R.plurals.batch_mass_send_done
+                    } else {
+                        R.plurals.batch_mass_send_partial
+                    },
                     wxIds.size,
                     success,
                     wxIds.size,

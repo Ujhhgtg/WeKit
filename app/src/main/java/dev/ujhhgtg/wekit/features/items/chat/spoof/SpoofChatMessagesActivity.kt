@@ -92,7 +92,7 @@ class SpoofChatMessagesActivity : ComponentActivity() {
 private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
     val spoofs by SpoofedMessageStore.all.collectAsState()
     val chatNames by
-        produceState(emptyMap<String, String>(), spoofs) {
+        produceState(emptyMap(), spoofs) {
             value =
                 withContext(Dispatchers.IO) {
                     spoofs.map { it.talker }.distinct().associateWith(WeDatabaseApi::getDisplayName)
@@ -202,9 +202,11 @@ private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
                 editing = null
                 launch {
                     val target = SpoofTarget.of(spoof)
-                    if (spoof.spoofKind == SpoofKind.TEXT)
+                    if (spoof.spoofKind == SpoofKind.TEXT) {
                         SpoofedMessageStore.saveText(target, value)
-                    else SpoofedMessageStore.saveAmount(target, normalizeSpoofAmount(value)!!)
+                    } else {
+                        SpoofedMessageStore.saveAmount(target, normalizeSpoofAmount(value)!!)
+                    }
                 }
             },
         )
@@ -350,29 +352,39 @@ private fun SpoofRow(
     val kind = spoof.spoofKind
     val summary =
         when (kind) {
-            SpoofKind.TEXT ->
+            SpoofKind.TEXT -> {
                 spoof.text!!.replace('\n', ' ').let {
                     if (it.length > 60) it.take(60) + "…" else it
                 }
-            SpoofKind.TRANSFER ->
+            }
+
+            SpoofKind.TRANSFER -> {
                 stringResource(
                     R.string.spoof_messages_amount_summary,
                     spoof.original!!,
                     formatSpoofAmount(spoof.original, spoof.amount!!),
                 )
-            SpoofKind.IMAGE -> stringResource(R.string.spoof_kind_image)
-            SpoofKind.VIDEO ->
+            }
+
+            SpoofKind.IMAGE -> {
+                stringResource(R.string.spoof_kind_image)
+            }
+
+            SpoofKind.VIDEO -> {
                 stringResource(
                     R.string.spoof_messages_video_summary,
                     formatSpoofDuration(spoof.videoDurationSeconds!!),
                 )
+            }
         }
     BaseWidget(
         icon = kind.icon,
         leadingContent =
             if (kind.isMedia) {
                 { SpoofPreview(spoof) }
-            } else null,
+            } else {
+                null
+            },
         title = chatName,
         description = "$summary\n${formatEpoch(spoof.createTime, true)}",
         onClick = onClick,

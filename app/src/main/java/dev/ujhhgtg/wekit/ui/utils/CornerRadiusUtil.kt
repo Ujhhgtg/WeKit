@@ -43,10 +43,7 @@ fun rememberDeviceCornerRadius(defaultRadius: Dp = 0.dp): Dp {
     }
 }
 
-private fun getDeviceCornerRadiusPx(
-    context: Context,
-    view: View,
-): Int {
+private fun getDeviceCornerRadiusPx(context: Context, view: View): Int {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val publicRadius = getRoundedCornerRadiusPx(view)
         if (publicRadius > 0) return publicRadius

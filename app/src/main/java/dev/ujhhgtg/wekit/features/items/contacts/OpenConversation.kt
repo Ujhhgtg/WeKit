@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object OpenConversation : ClickableFeature() {
-
     override val technicalId = "跳转对话"
     override val nameRes = R.string.feature_open_conversation_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

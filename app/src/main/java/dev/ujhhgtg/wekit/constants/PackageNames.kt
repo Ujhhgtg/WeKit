@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.constants
 
 object PackageNames {
-
     const val WECHAT = "com.tencent.mm"
     const val MODULE = "dev.ujhhgtg.wekit"
 

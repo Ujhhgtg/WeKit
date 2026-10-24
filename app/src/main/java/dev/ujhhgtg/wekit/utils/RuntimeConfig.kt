@@ -8,7 +8,6 @@ import java.util.Locale
 import kotlin.io.path.div
 
 object RuntimeConfig {
-
     lateinit var mmPrefs: SharedPreferences
 
     val loggedInWxId: String

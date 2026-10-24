@@ -55,21 +55,30 @@ private fun ByteArray.imageMediaType(): MediaType? =
         size >= 3 &&
             this[0] == 'G'.code.toByte() &&
             this[1] == 'I'.code.toByte() &&
-            this[2] == 'F'.code.toByte() -> "image/gif".toMediaType()
+            this[2] == 'F'.code.toByte() -> {
+            "image/gif".toMediaType()
+        }
 
         size >= 8 &&
             copyOfRange(0, 8)
                 .contentEquals(
                     byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a),
-                ) -> "image/png".toMediaType()
+                ) -> {
+            "image/png".toMediaType()
+        }
 
-        size >= 12 && decodeToString(0, 4) == "RIFF" && decodeToString(8, 12) == "WEBP" ->
+        size >= 12 && decodeToString(0, 4) == "RIFF" && decodeToString(8, 12) == "WEBP" -> {
             "image/webp".toMediaType()
+        }
 
         size >= 3 &&
             this[0] == 0xff.toByte() &&
             this[1] == 0xd8.toByte() &&
-            this[2] == 0xff.toByte() -> "image/jpeg".toMediaType()
+            this[2] == 0xff.toByte() -> {
+            "image/jpeg".toMediaType()
+        }
 
-        else -> null
+        else -> {
+            null
+        }
     }

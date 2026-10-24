@@ -39,7 +39,6 @@ import kotlin.math.sqrt
  * 所有动画结束 (或出错/表面销毁) 后调用 [onFinished], 由调用方把本视图移出父布局。
  */
 class ThanosEffect(context: Context, private val onFinished: () -> Unit) : TextureView(context) {
-
     companion object {
         private const val TAG = "ThanosEffect"
 
@@ -275,7 +274,6 @@ class ThanosEffect(context: Context, private val onFinished: () -> Unit) : Textu
         private var width: Int,
         private var height: Int,
     ) : HandlerThread("WeKit.ThanosEffect") {
-
         @Volatile var running = true
 
         @Volatile private var alive = true

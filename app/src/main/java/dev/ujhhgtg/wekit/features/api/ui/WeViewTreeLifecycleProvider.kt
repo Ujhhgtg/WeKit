@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 
 object WeViewTreeLifecycleProvider : ApiFeature() {
-
     override val technicalId = "Compose 生命周期提供方"
     override val nameRes = R.string.feature_we_view_tree_lifecycle_provider_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

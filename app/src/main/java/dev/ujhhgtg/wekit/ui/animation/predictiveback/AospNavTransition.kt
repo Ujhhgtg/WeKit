@@ -83,7 +83,10 @@ private val ClassicActivityClose: NavTransition =
                     val settle = scope.settle
                     if (settle != null) {
                         (1f - (settle.elapsedMillis - CLOSE_FADE_OFFSET) / CLASSIC_FADE_DURATION)
-                            .coerceIn(0f, 1f)
+                            .coerceIn(
+                                0f,
+                                1f,
+                            )
                     } else {
                         ((progress - CLOSE_FADE_START) / CLOSE_FADE_SPAN).coerceIn(0f, 1f)
                     }
@@ -107,15 +110,19 @@ private val CrossActivityPredictive: NavTransition =
             val settle = scope.settle
             val gesture = scope.gesture
             when {
-                settle?.phase == NavSettlePhase.Commit ->
+                settle?.phase == NavSettlePhase.Commit -> {
                     (1f - settle.elapsedMillis / 450f).coerceIn(0f, 1f)
+                }
 
-                gesture != null ->
+                gesture != null -> {
                     (scope.relativeDepth.coerceIn(0f, 1f) /
                             (1f - gesture.progress).coerceAtLeast(0.01f))
                         .coerceIn(0f, 1f)
+                }
 
-                else -> scope.relativeDepth.coerceIn(0f, 1f)
+                else -> {
+                    scope.relativeDepth.coerceIn(0f, 1f)
+                }
             }
         },
     ) { scope ->
@@ -184,8 +191,13 @@ private val CrossActivityPredictive: NavTransition =
                                 .coerceAtLeast(0f)
                         }
 
-                        gesture != null -> 1f
-                        else -> (progress / 0.2f).coerceIn(0f, 1f)
+                        gesture != null -> {
+                            1f
+                        }
+
+                        else -> {
+                            (progress / 0.2f).coerceIn(0f, 1f)
+                        }
                     }
                 translationY =
                     snapTranslationToPixelEdge(
@@ -267,8 +279,11 @@ private fun bounceScale(settle: NavSettle?, gesture: NavGesture?): Float {
 }
 
 private fun shapedTopProgress(progress: Float, gesture: NavGesture?): Float =
-    if (gesture == null) progress
-    else 1f - BackGestureEasing.transform((1f - progress).coerceIn(0f, 1f))
+    if (gesture == null) {
+        progress
+    } else {
+        1f - BackGestureEasing.transform((1f - progress).coerceIn(0f, 1f))
+    }
 
 private fun crossActivityYShift(
     gesture: NavGesture?,

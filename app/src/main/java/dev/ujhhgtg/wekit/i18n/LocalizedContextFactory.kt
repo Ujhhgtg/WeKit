@@ -11,11 +11,7 @@ enum class LocaleResourceMode {
 }
 
 object LocalizedContextFactory {
-    fun create(
-        base: Context,
-        locale: SupportedLocale,
-        mode: LocaleResourceMode,
-    ): Context {
+    fun create(base: Context, locale: SupportedLocale, mode: LocaleResourceMode): Context {
         val configuration =
             Configuration(base.resources.configuration).apply {
                 setLocales(LocaleList.forLanguageTags(locale.androidTag))
@@ -23,11 +19,15 @@ object LocalizedContextFactory {
         val configured = base.createConfigurationContext(configuration)
         val localized =
             when (mode) {
-                LocaleResourceMode.InjectedHost ->
+                LocaleResourceMode.InjectedHost -> {
                     configured.also {
                         ResourcesInjector.injectModuleRes(it.resources)
                     }
-                LocaleResourceMode.ModuleApp -> configured
+                }
+
+                LocaleResourceMode.ModuleApp -> {
+                    configured
+                }
             }
         return if (locale == SupportedLocale.MEOW_CHINESE) {
             MeowResourcesContext(localized)

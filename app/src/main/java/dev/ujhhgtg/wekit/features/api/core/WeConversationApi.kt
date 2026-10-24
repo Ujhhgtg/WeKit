@@ -20,7 +20,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 object WeConversationApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "对话服务"
     override val nameRes = R.string.feature_we_conversation_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -225,15 +224,14 @@ object WeConversationApi : ApiFeature(), IResolveDex {
 
     // this is NOT group 'member'
     // this is the group itself
-    fun getGroup(groupId: String): Any {
-        return chatroomStorage
+    fun getGroup(groupId: String): Any =
+        chatroomStorage
             .reflekt()
             .firstMethod {
                 parameters(String::class)
                 returnType = classChatroomMember.clazz
             }
             .invoke(groupId)!!
-    }
 
     fun markAllAsRead() {
         val cursor =
@@ -308,15 +306,14 @@ object WeConversationApi : ApiFeature(), IResolveDex {
      *
      * @return true if the native delete was invoked without throwing.
      */
-    fun hideConversation(talker: String): Boolean {
-        return try {
+    fun hideConversation(talker: String): Boolean =
+        try {
             methodDelChatContact.method.invoke(conversationStorage, talker)
             true
         } catch (ex: Exception) {
             WeLogger.w(TAG, "exception while deleting conversation for $talker", ex)
             false
         }
-    }
 
     /**
      * The rconversation model ([com.tencent.mm.storage.m3]) for [talker], or null if none exists.
@@ -689,6 +686,7 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         return runCatching {
             val buf = ByteBuffer.wrap(lvbuff).order(ByteOrder.BIG_ENDIAN)
             buf.position(1) // skip 0x7B header
+
             fun skipStr() {
                 val len = buf.short.toInt() and 0xFFFF
                 buf.position(buf.position() + len)
@@ -710,8 +708,8 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     }
 
     /** Fetch the fully-populated contact ([com.tencent.mm.storage.z3]) for [convId], or null. */
-    private fun fetchContact(convId: String): Any {
-        return contactStorageLogic
+    private fun fetchContact(convId: String): Any =
+        contactStorageLogic
             .reflekt()
             .firstMethod {
                 modifiers = Modifier.STATIC
@@ -719,5 +717,4 @@ object WeConversationApi : ApiFeature(), IResolveDex {
                 returnType(methodSetDnd.method.parameterTypes[0])
             }
             .invoke(convId)!!
-    }
 }

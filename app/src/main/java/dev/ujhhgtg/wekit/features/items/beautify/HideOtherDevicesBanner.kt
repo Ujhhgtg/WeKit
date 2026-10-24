@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
-
     override val technicalId = "隐藏其他设备横幅"
     override val nameRes = R.string.feature_hide_other_devices_banner_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

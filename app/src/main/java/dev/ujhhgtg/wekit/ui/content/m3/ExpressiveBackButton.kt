@@ -34,8 +34,11 @@ fun ExpressiveBackButton(
     val animatedContainerColor by
         animateColorAsState(
             targetValue =
-                if (LocalTopBarContentOverlapped.current) containerColor.copy(alpha = 0f)
-                else containerColor,
+                if (LocalTopBarContentOverlapped.current) {
+                    containerColor.copy(alpha = 0f)
+                } else {
+                    containerColor
+                },
             label = "backButtonContainer",
         )
     IconButton(

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ExtensionPackStateTest {
-
     private val manifest = { version: String ->
         PackManifest("script-deps", version, "a".repeat(64), 0L)
     }

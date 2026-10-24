@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 object RemoveChatMessageContextMenuItems : ClickableFeature() {
-
     override val technicalId = "移除消息菜单项"
     override val nameRes = R.string.feature_remove_chat_message_context_menu_items_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

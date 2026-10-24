@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "首页菜单服务"
     override val nameRes = R.string.feature_we_home_screen_popup_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

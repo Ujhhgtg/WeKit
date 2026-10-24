@@ -21,7 +21,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object ExternalSharingEvolved : ClickableFeature() {
-
     override val technicalId = "分享进化"
     override val nameRes = R.string.feature_external_sharing_evolved_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

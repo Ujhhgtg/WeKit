@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "转发 & 一键转发"
     override val nameRes = R.string.feature_repost_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -32,8 +31,8 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         WeMomentsContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeMomentsContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeMomentsContextMenuApi.MenuItem> =
+        listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777013,
                 localizedMomentsString(R.string.moments_repost_menu),
@@ -59,7 +58,6 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 }
             },
         )
-    }
 
     private fun repostMoment(context: WeMomentsContextMenuApi.MomentsContext) {
         val activity = context.activity

@@ -59,7 +59,6 @@ class GeminiInteractionsClient(
     private val baseUrl: String,
     private val apiKey: String,
 ) : LlmClient {
-
     override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
         val endpoint = "${baseUrl.trimEnd('/')}/interactions?alt=sse"
         val body = LlmJson.shallowMerge(buildBody(request), request.customJsonOverride)
@@ -123,8 +122,9 @@ class GeminiInteractionsClient(
                                         "thought" -> {
                                             // Emit the empty sentinel so the UI shows "思考中…"
                                             // immediately.
-                                            if (reasoningBuf.isEmpty())
+                                            if (reasoningBuf.isEmpty()) {
                                                 emit(LlmStreamEvent.ReasoningDelta(""))
+                                            }
                                             // Thought summary text may be available immediately in
                                             // step.start.
                                             step["summary"]?.jsonArray?.forEach { el ->
@@ -204,7 +204,7 @@ class GeminiInteractionsClient(
                                     val stepIndex = ev["index"]?.jsonPrimitive?.intOrNull ?: 0
                                     val delta = ev["delta"]?.jsonObject ?: continue
                                     when (delta["type"]?.jsonPrimitive?.contentOrNullSafe()) {
-                                        "text" ->
+                                        "text" -> {
                                             delta["text"]
                                                 ?.jsonPrimitive
                                                 ?.contentOrNullSafe()
@@ -214,27 +214,31 @@ class GeminiInteractionsClient(
                                                         emit(LlmStreamEvent.TextDelta(t))
                                                     }
                                                 }
+                                        }
 
-                                        "thought_summary" ->
+                                        "thought_summary" -> {
                                             delta["text"]
                                                 ?.jsonPrimitive
                                                 ?.contentOrNullSafe()
                                                 ?.let { t ->
                                                     if (t.isNotEmpty()) {
-                                                        if (reasoningBuf.isEmpty())
+                                                        if (reasoningBuf.isEmpty()) {
                                                             emit(LlmStreamEvent.ReasoningDelta(""))
+                                                        }
                                                         reasoningBuf.append(t)
                                                         emit(LlmStreamEvent.ReasoningDelta(t))
                                                     }
                                                 }
+                                        }
 
-                                        "thought_signature" ->
+                                        "thought_signature" -> {
                                             delta["signature"]
                                                 ?.jsonPrimitive
                                                 ?.contentOrNullSafe()
                                                 ?.let { sig ->
                                                     if (sig.isNotEmpty()) lastThoughtSignature = sig
                                                 }
+                                        }
 
                                         "arguments" -> {
                                             val pc = pendingCalls[stepIndex]
@@ -311,8 +315,11 @@ class GeminiInteractionsClient(
                                 }
                             }
                         }
+
                         // Blank lines reset the event type (SSE spec).
-                        line.isEmpty() -> eventType = ""
+                        line.isEmpty() -> {
+                            eventType = ""
+                        }
                     }
                 }
 
@@ -419,7 +426,9 @@ class GeminiInteractionsClient(
         return kotlinx.serialization.json.buildJsonArray {
             for (msg in messages) {
                 when (msg.role) {
-                    LlmRole.SYSTEM -> Unit
+                    LlmRole.SYSTEM -> {
+                        Unit
+                    }
 
                     LlmRole.USER -> {
                         addJsonObject {

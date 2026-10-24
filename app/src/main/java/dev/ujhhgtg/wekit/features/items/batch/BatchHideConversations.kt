@@ -22,7 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object BatchHideConversations : ClickableFeature() {
-
     override val technicalId = "批量隐藏对话"
     override val nameRes = R.string.feature_batch_hide_conversations_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)

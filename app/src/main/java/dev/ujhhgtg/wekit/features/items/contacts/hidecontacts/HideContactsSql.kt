@@ -426,14 +426,18 @@ fun rewriteMomentsFeedSql(sql: String): String? {
 
     val rewritten =
         when {
-            sql.contains(FEED_MARKER_RAW) ->
+            sql.contains(FEED_MARKER_RAW) -> {
                 sql.replaceFirst(FEED_MARKER_RAW, FEED_MARKER_RAW + filter)
+            }
 
             // EnhanceQuery 先执行时, 信息流标记已变为 (1=1); 个人主页不会出现该精确形式
-            sql.contains(FEED_MARKER_ENHANCED) ->
+            sql.contains(FEED_MARKER_ENHANCED) -> {
                 sql.replaceFirst(FEED_MARKER_ENHANCED, FEED_MARKER_ENHANCED + filter)
+            }
 
-            else -> return null
+            else -> {
+                return null
+            }
         }
 
     WeLogger.i(TAG, "hid ${hidden.size} contacts from moments feed")

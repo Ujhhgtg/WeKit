@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 
 object RemoveGroupMemberNicknameControlCharacters :
     SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "移除群成员昵称控制字符"
     override val nameRes = R.string.feature_remove_group_member_nickname_control_characters_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

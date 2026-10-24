@@ -48,7 +48,6 @@ object FakeMomentsLikes :
     SwitchFeature(),
     WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
-
     override val technicalId = "伪集赞"
     override val nameRes = R.string.feature_fake_moments_likes_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

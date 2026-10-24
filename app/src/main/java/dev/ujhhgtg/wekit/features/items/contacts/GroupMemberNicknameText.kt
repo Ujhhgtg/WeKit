@@ -6,10 +6,7 @@ import android.text.style.ForegroundColorSpan
 /** Marker for the role badge span injected into group-member nicknames. */
 interface GroupMemberRoleSpan
 
-data class GroupMemberNicknameRange(
-    val start: Int,
-    val endExclusive: Int,
-)
+data class GroupMemberNicknameRange(val start: Int, val endExclusive: Int)
 
 /** Locates the nickname while excluding text injected by the role and real-name features. */
 fun CharSequence.groupMemberNicknameRange(): GroupMemberNicknameRange {

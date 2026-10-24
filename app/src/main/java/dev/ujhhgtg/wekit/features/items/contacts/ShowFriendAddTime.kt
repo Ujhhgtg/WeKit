@@ -17,7 +17,6 @@ import java.util.Locale
 
 object ShowFriendAddTime :
     SwitchFeature(), WeContactHeaderApi.Provider, WeContactPrefsScreenApi.IContactInfoProvider {
-
     override val technicalId = "显示好友添加时间"
     override val nameRes = R.string.feature_show_friend_add_time_name
     override val categoryIds =
@@ -82,7 +81,7 @@ object ShowFriendAddTime :
                                        AND username NOT LIKE '%@%' LIMIT 1
                     """
                         .trimIndent(),
-                    arrayOf<Any>(wxId),
+                    arrayOf(wxId),
                 )
                 .use { cursor ->
                     if (!cursor.moveToFirst()) return null
@@ -100,7 +99,7 @@ object ShowFriendAddTime :
         return try {
             WeDatabaseApi.rawQuery(
                     "SELECT createTime FROM rcontact WHERE username = ? LIMIT 1",
-                    arrayOf<Any>(wxId),
+                    arrayOf(wxId),
                 )
                 .use { cursor ->
                     if (!cursor.moveToFirst()) return null
@@ -132,9 +131,12 @@ object ShowFriendAddTime :
                         "OR content LIKE '%你邀请%加入了群聊%'" to arrayOf<Any>(wxId)
                 }
             WeDatabaseApi.rawQuery(
-                    """SELECT ${if (selfWasInvited) "MAX" else "MIN"}(createTime)
-                   FROM message WHERE talker = ? AND type IN (10000, 570425393)
-                   AND ($where)"""
+                    """
+                    SELECT ${if (selfWasInvited) "MAX" else "MIN"}(createTime)
+                    FROM message WHERE talker = ? AND type IN (10000, 570425393)
+                    AND ($where)
+
+                    """
                         .trimIndent(),
                     args,
                 )
@@ -144,8 +146,11 @@ object ShowFriendAddTime :
                         .getLong(0)
                         .takeIf { it > 0 }
                         ?.let { timestamp ->
-                            if (timestamp < 100_000_000_000L) Math.multiplyExact(timestamp, 1000L)
-                            else timestamp
+                            if (timestamp < 100_000_000_000L) {
+                                Math.multiplyExact(timestamp, 1000L)
+                            } else {
+                                timestamp
+                            }
                         }
                 }
         } catch (e: Exception) {

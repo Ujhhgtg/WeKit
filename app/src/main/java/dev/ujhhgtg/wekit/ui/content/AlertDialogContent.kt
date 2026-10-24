@@ -121,14 +121,14 @@ fun AlertDialogContent(
  * first, sits at the end when side by side and on top when stacked.
  */
 @Composable
-private fun DialogButtonsFlowRow(
-    crossAxisSpacing: Dp,
-    content: @Composable () -> Unit,
-) {
+private fun DialogButtonsFlowRow(crossAxisSpacing: Dp, content: @Composable () -> Unit) {
     val originalLayoutDirection = LocalLayoutDirection.current
     val flipped =
-        if (originalLayoutDirection == LayoutDirection.Ltr) LayoutDirection.Rtl
-        else LayoutDirection.Ltr
+        if (originalLayoutDirection == LayoutDirection.Ltr) {
+            LayoutDirection.Rtl
+        } else {
+            LayoutDirection.Ltr
+        }
     CompositionLocalProvider(LocalLayoutDirection provides flipped) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(ButtonsSpacing),

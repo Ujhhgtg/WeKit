@@ -6,10 +6,7 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 @Entity(tableName = "moment_custom_details")
-data class MomentCustomDetailEntity(
-    @PrimaryKey val snsId: String,
-    val text: String,
-)
+data class MomentCustomDetailEntity(@PrimaryKey val snsId: String, val text: String)
 
 @Serializable
 @Entity(tableName = "feature_flag_overrides")
@@ -31,17 +28,10 @@ data class FeatureFlagOverrideEntity(
 }
 
 @Entity(tableName = "contact_real_name_parts", primaryKeys = ["wxId", "kind"])
-data class ContactRealNamePartEntity(
-    val wxId: String,
-    val kind: String,
-    val value: String,
-)
+data class ContactRealNamePartEntity(val wxId: String, val kind: String, val value: String)
 
 @Entity(tableName = "real_name_scan_progress")
-data class RealNameScanProgressEntity(
-    @PrimaryKey val wxId: String,
-    val resumeIndex: Int,
-)
+data class RealNameScanProgressEntity(@PrimaryKey val wxId: String, val resumeIndex: Int)
 
 /**
  * A chat message whose local display is spoofed. [createTime] guards against a reused local message

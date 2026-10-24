@@ -109,7 +109,6 @@ fun HideContacts.uninstallSchedules() = HideContactsSchedule.uninstall()
  * job is to call [resync].
  */
 object HideContactsSchedule {
-
     private const val KEY_SCHEDULES = "hide_contacts_schedules"
 
     /**
@@ -500,11 +499,14 @@ object HideContactsSchedule {
     /** The next fire time strictly after [now], or null if the entry can never fire again. */
     private fun nextFireAfter(schedule: HideSchedule, now: Long): Long? =
         when (schedule.kind) {
-            HideScheduleKind.ONCE -> schedule.atEpochMillis.takeIf { it > now }
+            HideScheduleKind.ONCE -> {
+                schedule.atEpochMillis.takeIf { it > now }
+            }
 
             HideScheduleKind.REPEATING -> {
-                if (schedule.daysOfWeek.isEmpty()) null
-                else {
+                if (schedule.daysOfWeek.isEmpty()) {
+                    null
+                } else {
                     // 0..7 rather than 0..6: not DST — a sparse daysOfWeek. E.g. {SUNDAY} with
                     // minuteOfDay=600 evaluated at 11:00 on a Sunday has already missed today's
                     // occurrence,
@@ -526,11 +528,14 @@ object HideContactsSchedule {
     /** The most recent fire time at or before [now], or null if the entry never fired. */
     private fun lastFireBefore(schedule: HideSchedule, now: Long): Long? =
         when (schedule.kind) {
-            HideScheduleKind.ONCE -> schedule.atEpochMillis.takeIf { it in 1..now }
+            HideScheduleKind.ONCE -> {
+                schedule.atEpochMillis.takeIf { it in 1..now }
+            }
 
             HideScheduleKind.REPEATING -> {
-                if (schedule.daysOfWeek.isEmpty()) null
-                else {
+                if (schedule.daysOfWeek.isEmpty()) {
+                    null
+                } else {
                     // The brief's 7-day look-back window: any enabled repeating entry with a
                     // non-empty
                     // day set necessarily has an occurrence within it.

@@ -189,9 +189,11 @@ fun selectAndSendVoice(context: Context, currentConv: String) {
                                                 }
                                             showToast(
                                                 localizedChatString(
-                                                    if (success)
+                                                    if (success) {
                                                         R.string.chat_voice_file_send_success
-                                                    else R.string.chat_voice_file_send_failed,
+                                                    } else {
+                                                        R.string.chat_voice_file_send_failed
+                                                    },
                                                 ),
                                             )
                                             onDismiss()

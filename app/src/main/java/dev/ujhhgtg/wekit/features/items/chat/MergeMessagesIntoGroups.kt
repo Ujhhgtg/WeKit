@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import java.lang.reflect.Field
 
 object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "合并消息显示"
     override val nameRes = R.string.feature_merge_messages_into_groups_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

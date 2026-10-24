@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlin.io.path.div
 
 object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
-
     override val technicalId = "阻止微信清理模块数据"
     override val nameRes = R.string.feature_prevent_module_data_deletion_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

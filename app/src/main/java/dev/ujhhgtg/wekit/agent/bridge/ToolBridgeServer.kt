@@ -32,8 +32,9 @@ class ToolBridgeServer(
         scope.launch(Dispatchers.IO) {
             while (true) {
                 val socket = runCatching { server!!.accept() }.getOrNull() ?: break
-                if (!connectionPermits.tryAcquire()) socket.close()
-                else
+                if (!connectionPermits.tryAcquire()) {
+                    socket.close()
+                } else {
                     launch(Dispatchers.IO) {
                         try {
                             serve(socket)
@@ -41,6 +42,7 @@ class ToolBridgeServer(
                             connectionPermits.release()
                         }
                     }
+                }
             }
         }
         return port
@@ -142,11 +144,13 @@ class ToolBridgeServer(
             if (frame == null) return
             val session = tokens[frame.token]
             val response =
-                if (session == null) "{\"ok\":false,\"error\":\"unauthorized\"}"
-                else
+                if (session == null) {
+                    "{\"ok\":false,\"error\":\"unauthorized\"}"
+                } else {
                     kotlinx.coroutines.runBlocking {
                         withTimeout(REQUEST_TIMEOUT_MS) { session.handle(frame.payload) }
                     }
+                }
             val writeDeadline =
                 scope.launch(Dispatchers.IO) {
                     delay(SOCKET_TIMEOUT_MS.toLong())

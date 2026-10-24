@@ -66,14 +66,21 @@ data class AutomationKeywordRule(
     fun matchesEnabled(text: String): Boolean {
         val keywords = strings.asSequence().map(String::trim).filter(String::isNotEmpty).toList()
         return when (mode) {
-            AutomationKeywordMode.STRING_LIST -> keywords.any { text.contains(it, ignoreCase) }
-            AutomationKeywordMode.EXACT -> keywords.any { text.equals(it, ignoreCase) }
-            AutomationKeywordMode.REGEX ->
+            AutomationKeywordMode.STRING_LIST -> {
+                keywords.any { text.contains(it, ignoreCase) }
+            }
+
+            AutomationKeywordMode.EXACT -> {
+                keywords.any { text.equals(it, ignoreCase) }
+            }
+
+            AutomationKeywordMode.REGEX -> {
                 runCatching {
                         Regex(regex, if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet())
                             .containsMatchIn(text)
                     }
                     .getOrDefault(false)
+            }
         }
     }
 
@@ -84,22 +91,32 @@ data class AutomationKeywordRule(
         if (!enabled) return null
         return when (mode) {
             AutomationKeywordMode.STRING_LIST,
-            AutomationKeywordMode.EXACT ->
+            AutomationKeywordMode.EXACT -> {
                 if (strings.none(String::isNotBlank)) {
                     localizedAutomationString(R.string.automation_keyword_list_required, label)
-                } else null
+                } else {
+                    null
+                }
+            }
 
-            AutomationKeywordMode.REGEX ->
+            AutomationKeywordMode.REGEX -> {
                 when {
-                    regex.isBlank() ->
+                    regex.isBlank() -> {
                         localizedAutomationString(R.string.automation_regex_required, label)
-                    runCatching { Regex(regex) }.isFailure ->
+                    }
+
+                    runCatching { Regex(regex) }.isFailure -> {
                         localizedAutomationString(
                             R.string.automation_regex_invalid_for_label,
                             label,
                         )
-                    else -> null
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
+            }
         }
     }
 }
@@ -121,10 +138,12 @@ data class AutomationDelayRule(
 
     fun validationError(): String? {
         if (!enabled) return null
-        if (baseMs.toLongOrNull() == null)
+        if (baseMs.toLongOrNull() == null) {
             return localizedAutomationString(R.string.automation_invalid_base_delay)
-        if (randomRangeMs.toLongOrNull() == null)
+        }
+        if (randomRangeMs.toLongOrNull() == null) {
             return localizedAutomationString(R.string.automation_invalid_random_delay)
+        }
         return null
     }
 }
@@ -144,10 +163,17 @@ enum class AutomationTalkerCategory {
     companion object {
         fun of(talker: String): AutomationTalkerCategory =
             when {
-                talker.endsWith("@chatroom") || talker.endsWith("@im.chatroom") -> GROUP
-                talker.startsWith("gh_") || talker.endsWith("@app") || talker == "newsapp" ->
+                talker.endsWith("@chatroom") || talker.endsWith("@im.chatroom") -> {
+                    GROUP
+                }
+
+                talker.startsWith("gh_") || talker.endsWith("@app") || talker == "newsapp" -> {
                     OFFICIAL
-                else -> PRIVATE
+                }
+
+                else -> {
+                    PRIVATE
+                }
             }
 
         private val SYSTEM_TALKERS =
@@ -191,19 +217,27 @@ data class AutomationTargetRule(
     fun matches(talker: String, sender: String): Boolean {
         val group = AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
         val memberToken = "$talker/$sender"
-        if (talker in exclude || sender in exclude || (group && memberToken in exclude))
+        if (talker in exclude || sender in exclude || (group && memberToken in exclude)) {
             return false
+        }
         if (group && (sender in excludeMembers || memberToken in excludeMembers)) return false
         return when (mode) {
-            Mode.ALL -> true
-            Mode.CATEGORIES -> AutomationTalkerCategory.of(talker) in categories
-            Mode.SPECIFIC ->
+            Mode.ALL -> {
+                true
+            }
+
+            Mode.CATEGORIES -> {
+                AutomationTalkerCategory.of(talker) in categories
+            }
+
+            Mode.SPECIFIC -> {
                 talker in include ||
                     (!group && sender in include) ||
                     (group &&
                         (memberToken in include ||
                             memberToken in includeMembers ||
                             sender in includeMembers))
+            }
         }
     }
 }

@@ -77,22 +77,34 @@ private const val DEFAULT_ONCE_OFFSET_MILLIS = 60L * 60L * 1000L
 @Composable
 private fun actionLabel(action: HideScheduleAction): String =
     stringResource(
-        if (action == HideScheduleAction.HIDE) R.string.contacts_schedule_action_hide
-        else R.string.contacts_schedule_action_show,
+        if (action == HideScheduleAction.HIDE) {
+            R.string.contacts_schedule_action_hide
+        } else {
+            R.string.contacts_schedule_action_show
+        },
     )
 
 @Composable
 private fun kindLabel(kind: HideScheduleKind): String =
     stringResource(
-        if (kind == HideScheduleKind.REPEATING) R.string.contacts_schedule_kind_repeating
-        else R.string.contacts_schedule_kind_once,
+        if (kind == HideScheduleKind.REPEATING) {
+            R.string.contacts_schedule_kind_repeating
+        } else {
+            R.string.contacts_schedule_kind_once
+        },
     )
 
 @Composable
 private fun daysLabel(days: Set<Int>): String =
     when {
-        days.isEmpty() -> stringResource(R.string.contacts_schedule_never)
-        days.containsAll(ALL_DAYS_OF_WEEK) -> stringResource(R.string.contacts_schedule_every_day)
+        days.isEmpty() -> {
+            stringResource(R.string.contacts_schedule_never)
+        }
+
+        days.containsAll(ALL_DAYS_OF_WEEK) -> {
+            stringResource(R.string.contacts_schedule_every_day)
+        }
+
         else -> {
             val labels = mutableListOf<String>()
             for ((day, labelRes) in DAY_LABELS) {
@@ -108,20 +120,22 @@ private fun daysLabel(days: Set<Int>): String =
 @Composable
 private fun HideSchedule.summary(): String =
     when (kind) {
-        HideScheduleKind.REPEATING ->
+        HideScheduleKind.REPEATING -> {
             stringResource(
                 R.string.contacts_schedule_repeating_summary,
                 daysLabel(daysOfWeek),
                 formatMinuteOfDay(minuteOfDay),
                 actionLabel(action),
             )
+        }
 
-        HideScheduleKind.ONCE ->
+        HideScheduleKind.ONCE -> {
             stringResource(
                 R.string.contacts_schedule_once_summary,
                 formatDateTime(atEpochMillis),
                 actionLabel(action),
             )
+        }
     }
 
 /**
@@ -155,10 +169,11 @@ private fun dayOfWeekAt(millis: Long): Int =
  */
 private fun collidesWith(a: HideSchedule, b: HideSchedule): Boolean =
     when {
-        a.kind == HideScheduleKind.REPEATING && b.kind == HideScheduleKind.REPEATING ->
+        a.kind == HideScheduleKind.REPEATING && b.kind == HideScheduleKind.REPEATING -> {
             a.minuteOfDay == b.minuteOfDay && a.daysOfWeek.any { it in b.daysOfWeek }
+        }
 
-        a.kind == HideScheduleKind.ONCE && b.kind == HideScheduleKind.ONCE ->
+        a.kind == HideScheduleKind.ONCE && b.kind == HideScheduleKind.ONCE -> {
             // Conservative: same minute counts as a collision. A `ONCE` alarm is armed with
             // `atEpochMillis` verbatim, so two instants inside one minute do fire in a defined
             // order —
@@ -166,6 +181,7 @@ private fun collidesWith(a: HideSchedule, b: HideSchedule): Boolean =
             // and
             // indistinguishable to the user reading the list.
             a.atEpochMillis / 60_000L == b.atEpochMillis / 60_000L
+        }
 
         else -> {
             val repeating = if (a.kind == HideScheduleKind.REPEATING) a else b
@@ -287,7 +303,9 @@ fun HideContacts.showSchedulesDialog(context: Context) {
                                     supportingContent =
                                         if (schedule.kind == HideScheduleKind.REPEATING) {
                                             { Text(kindLabel(schedule.kind)) }
-                                        } else null,
+                                        } else {
+                                            null
+                                        },
                                     trailingContent = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Switch(

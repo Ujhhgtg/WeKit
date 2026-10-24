@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlin.time.measureTimedValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -12,7 +13,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.time.measureTimedValue
 
 sealed interface LocalDexProgress {
     val displayName: String
@@ -21,20 +21,12 @@ sealed interface LocalDexProgress {
 
     data class Complete(override val displayName: String) : LocalDexProgress
 
-    data class Failed(
-        override val displayName: String,
-        val error: Exception,
-    ) : LocalDexProgress
+    data class Failed(override val displayName: String, val error: Exception) : LocalDexProgress
 }
 
-data class LocalDexFailure(
-    val displayName: String,
-    val error: Exception,
-)
+data class LocalDexFailure(val displayName: String, val error: Exception)
 
-data class LocalDexResolutionResult(
-    val failures: List<LocalDexFailure>,
-)
+data class LocalDexResolutionResult(val failures: List<LocalDexFailure>)
 
 object LocalDexResolver {
     private const val TAG = "LocalDexResolver"
@@ -71,8 +63,9 @@ object LocalDexResolver {
                                     val item = event.item
                                     val displayName = (item as BaseFeature).technicalPath
                                     when (event) {
-                                        is DexResolutionEvent.Start ->
+                                        is DexResolutionEvent.Start -> {
                                             onProgress(LocalDexProgress.Start(displayName))
+                                        }
 
                                         is DexResolutionEvent.Finished -> {
                                             currentCoroutineContext().ensureActive()

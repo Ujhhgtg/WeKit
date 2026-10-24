@@ -17,7 +17,6 @@ import java.lang.reflect.Field
 import java.util.WeakHashMap
 
 object RainbowText : SwitchFeature() {
-
     override val technicalId = "彩虹文本"
     override val nameRes = R.string.feature_rainbow_text_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)

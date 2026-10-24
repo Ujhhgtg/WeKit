@@ -36,7 +36,6 @@ import kotlinx.coroutines.withContext
  * 未实现 (用不到): WordBoundary/SentenceBoundary 字幕时间戳元数据解析 (已在 speech.config 中禁用)。
  */
 object EdgeTtsClient : AutoCloseable {
-
     private const val TAG = "EdgeTTS"
     private const val TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 
@@ -122,8 +121,8 @@ object EdgeTtsClient : AutoCloseable {
         volume: String,
         pitch: String,
         output: java.io.OutputStream,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             streamChunk(chunkText, voice, rate, volume, pitch, output)
         } catch (e: WebSocketException) {
             // Ktor 在握手响应非 101 时抛 WebSocketException, message 形如
@@ -138,7 +137,6 @@ object EdgeTtsClient : AutoCloseable {
             correctClockSkewFromServer()
             streamChunk(chunkText, voice, rate, volume, pitch, output)
         }
-    }
 
     /** 建立一次 WebSocket 连接, 发送配置 + SSML, 把音频帧写入 output。返回是否收到音频。 */
     private suspend fun streamChunk(
@@ -207,7 +205,9 @@ object EdgeTtsClient : AutoCloseable {
                         }
                     }
 
-                    else -> Unit
+                    else -> {
+                        Unit
+                    }
                 }
             }
         }

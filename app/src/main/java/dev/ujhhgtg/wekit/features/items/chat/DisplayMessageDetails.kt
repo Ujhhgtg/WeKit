@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object DisplayMessageDetails : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "显示消息详情"
     override val nameRes = R.string.feature_display_message_details_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -34,8 +33,8 @@ object DisplayMessageDetails : SwitchFeature(), WeChatMessageContextMenuApi.IMen
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777005,
                 localizedChatString(R.string.chat_message_details_menu),
@@ -90,5 +89,4 @@ object DisplayMessageDetails : SwitchFeature(), WeChatMessageContextMenuApi.IMen
                 }
             },
         )
-    }
 }

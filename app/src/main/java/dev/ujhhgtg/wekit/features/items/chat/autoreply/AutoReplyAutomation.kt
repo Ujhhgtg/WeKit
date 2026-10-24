@@ -233,8 +233,9 @@ object AutoReplyMatcher {
     private fun keywordMatches(rules: AutomationRules, message: AutoReplyMessage): Boolean {
         if (message.isPat && rules[AutoReplyAutomation.patTrigger].enabled) return true
         val keyword = rules[AutoReplyAutomation.keyword]
-        if (message.isText && rules[AutoReplyAutomation.excludeKeyword].excludes(message.content))
+        if (message.isText && rules[AutoReplyAutomation.excludeKeyword].excludes(message.content)) {
             return false
+        }
         if (!keyword.enabled) return true
         return message.isText && keyword.matchesEnabled(message.content)
     }

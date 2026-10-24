@@ -268,24 +268,35 @@ object TelegramStickerPackRepository {
                                         }
                                         val importPath =
                                             when (sourceFormat) {
-                                                TelegramStickerSourceFormat.WEBP -> rawPath
+                                                TelegramStickerSourceFormat.WEBP -> {
+                                                    rawPath
+                                                }
+
                                                 TelegramStickerSourceFormat.TGS,
-                                                TelegramStickerSourceFormat.WEBM ->
+                                                TelegramStickerSourceFormat.WEBM -> {
                                                     convertSticker(
                                                         sourceFormat,
                                                         rawPath,
                                                         convertedDir /
                                                             when (sourceFormat) {
-                                                                TelegramStickerSourceFormat.TGS ->
+                                                                TelegramStickerSourceFormat.TGS -> {
                                                                     "$identity.uwasm-fps$tgsGifFrameRate.gif"
-                                                                TelegramStickerSourceFormat.WEBM ->
+                                                                }
+
+                                                                TelegramStickerSourceFormat
+                                                                    .WEBM -> {
                                                                     "$identity.${if (removeRoundedVideoMask) "maskless" else "original"}.gif"
-                                                                TelegramStickerSourceFormat.WEBP ->
+                                                                }
+
+                                                                TelegramStickerSourceFormat
+                                                                    .WEBP -> {
                                                                     error("静态 WebP 不需要转换")
+                                                                }
                                                             },
                                                         removeRoundedVideoMask,
                                                         tgsGifFrameRate,
                                                     )
+                                                }
                                             }
                                         importPath.inputStream().use { input ->
                                             StickerPanelRepository.importTelegramSticker(
@@ -400,25 +411,32 @@ object TelegramStickerPackRepository {
                 withContext(Dispatchers.IO) {
                     destination.fileSize()
                 } > 0L
-        )
+        ) {
             return destination
+        }
         val partial = destination.resolveSibling("${destination.fileName}.part")
         partial.deleteIfExists()
         val result =
             when (format) {
-                TelegramStickerSourceFormat.TGS ->
+                TelegramStickerSourceFormat.TGS -> {
                     TelegramStickerConverter.tgsToGif(
                         source,
                         partial,
                         tgsGifFrameRate,
                     )
-                TelegramStickerSourceFormat.WEBM ->
+                }
+
+                TelegramStickerSourceFormat.WEBM -> {
                     TelegramStickerConverter.webmToGif(
                         source,
                         partial,
                         removeRoundedVideoMask,
                     )
-                TelegramStickerSourceFormat.WEBP -> error("静态 WebP 不需要转换")
+                }
+
+                TelegramStickerSourceFormat.WEBP -> {
+                    error("静态 WebP 不需要转换")
+                }
             }
         result.getOrThrow()
         currentCoroutineContext().ensureActive()

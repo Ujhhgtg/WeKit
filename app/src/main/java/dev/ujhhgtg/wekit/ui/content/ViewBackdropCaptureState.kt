@@ -59,8 +59,14 @@ class ViewBackdropCaptureState {
 
     fun decide(key: ViewBackdropCaptureKey): ViewBackdropCaptureDecision =
         when {
-            hasValidCapture && capturedKey == key -> ViewBackdropCaptureDecision.REUSE
-            attemptedKey == key -> ViewBackdropCaptureDecision.SKIP
+            hasValidCapture && capturedKey == key -> {
+                ViewBackdropCaptureDecision.REUSE
+            }
+
+            attemptedKey == key -> {
+                ViewBackdropCaptureDecision.SKIP
+            }
+
             else -> {
                 attemptedKey = key
                 ViewBackdropCaptureDecision.CAPTURE

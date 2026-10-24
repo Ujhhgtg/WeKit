@@ -85,7 +85,6 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
 object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IResolveDex {
-
     override val technicalId = "自定义好友本地头像"
     override val nameRes = R.string.feature_custom_local_friend_avatars_name
     override val categoryIds =
@@ -114,6 +113,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     }
 
     private var avatarRevision by prefOption("custom_avatar_revision", 0L)
+
     @Volatile private var loadedAvatarRevision = Long.MIN_VALUE
 
     private val methodNotificationAvatar by dexMethod {
@@ -312,6 +312,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         methodDesktopShortcut.hookAfter {
             if (!AvatarScope.SHORTCUTS.enabled || !(args[2] as Boolean)) return@hookAfter
             val intent = result as? Intent ?: return@hookAfter
+
             @Suppress("DEPRECATION")
             val original =
                 intent.getParcelableExtra<Bitmap>(Intent.EXTRA_SHORTCUT_ICON) ?: return@hookAfter
@@ -409,8 +410,11 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             PreferenceItem(
                 title =
                     activity.localizedContactsString(
-                        if (hasCustomAvatar) R.string.contacts_custom_avatar_change
-                        else R.string.contacts_custom_avatar_add,
+                        if (hasCustomAvatar) {
+                            R.string.contacts_custom_avatar_change
+                        } else {
+                            R.string.contacts_custom_avatar_add
+                        },
                     ),
                 position = 1,
                 onClick = onClick@{ activity ->
@@ -458,7 +462,9 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                                                         R.string
                                                             .contacts_custom_avatar_shortcut_hint,
                                                     )
-                                                } else null,
+                                                } else {
+                                                    null
+                                                },
                                             checked = enabled,
                                             onCheckedChange = {
                                                 enabled = it
@@ -501,9 +507,8 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
 
     private var roundAvatarRadiusFactor by prefOption("custom_avatar_round_radius", 0.5f)
 
-    private fun effectiveRadiusFactor(loaderRadiusFactor: Float): Float {
-        return if (RoundAvatars.isEnabled) roundAvatarRadiusFactor else loaderRadiusFactor
-    }
+    private fun effectiveRadiusFactor(loaderRadiusFactor: Float): Float =
+        if (RoundAvatars.isEnabled) roundAvatarRadiusFactor else loaderRadiusFactor
 
     // Used by NotificationsEvolved's own avatar cache, so enabling/disabling this
     // override or editing an avatar cannot leave a five-minute stale notification icon.
@@ -520,11 +525,16 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                     "com.tencent.mm.plugin.setting.ui.setting.view.GetHdHeadImageGalleryView",
                 ) ||
                 name.startsWith("com.tencent.mm.chatroom.ui.RoomInfoUI") -> AvatarScope.PROFILE
+
             name.startsWith("com.tencent.mm.ui.chatting.") ||
                 name.startsWith("com.tencent.mm.pluginsdk.ui.chat.") -> AvatarScope.CHAT
+
             name.startsWith("com.tencent.mm.ui.conversation.") -> AvatarScope.CONVERSATION
+
             name.startsWith("com.tencent.mm.plugin.sns.") -> AvatarScope.MOMENTS
+
             name.startsWith("com.tencent.mm.ui.contact.") -> AvatarScope.CONTACTS
+
             else -> null
         }
 
@@ -723,12 +733,10 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         return roundBitmapFallback(source, radius)
     }
 
-    private fun roundBitmapWithWeChat(source: Bitmap, radius: Float): Bitmap? {
-        return runCatching {
-            methodRoundBitmap.method.invoke(null, source, false, radius) as? Bitmap?
-        }
-            .getOrNull()
+    private fun roundBitmapWithWeChat(source: Bitmap, radius: Float): Bitmap? = runCatching {
+        methodRoundBitmap.method.invoke(null, source, false, radius) as? Bitmap?
     }
+        .getOrNull()
 
     private fun roundBitmapFallback(source: Bitmap, radius: Float): Bitmap {
         val out = createBitmap(source.width, source.height)
@@ -937,17 +945,15 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
                 .makeAccessible()
     }
 
-    private fun loadContacts(): List<IWeContact> {
-        return runCatching {
-            (WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()).sortedBy {
-                it.displayName.ifBlank { it.wxId }
-            }
+    private fun loadContacts(): List<IWeContact> = runCatching {
+        (WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()).sortedBy {
+            it.displayName.ifBlank { it.wxId }
         }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to load contacts for custom avatar manager", it)
-                emptyList()
-            }
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to load contacts for custom avatar manager", it)
+            emptyList()
+        }
 
     @Composable
     private fun CustomAvatarManagerDialog(
@@ -1011,10 +1017,8 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
         )
     }
 
-    private data class SimpleContact(
-        override val wxId: String,
-        override val nickname: String,
-    ) : IWeContact {
+    private data class SimpleContact(override val wxId: String, override val nickname: String) :
+        IWeContact {
         override val displayName: String
             get() = nickname
 
@@ -1022,10 +1026,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             get() = ""
     }
 
-    private data class BoundAvatar(
-        val username: String,
-        val loaderRadiusFactor: Float,
-    )
+    private data class BoundAvatar(val username: String, val loaderRadiusFactor: Float)
 
     private class HostAvatarRequest(
         val method: Method,

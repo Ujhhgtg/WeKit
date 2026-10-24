@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
  * (~/coding/dexsql/tools/extract_wekit_queries.py), including its relation-alias numbering quirks.
  */
 class DexSqlQueryTest {
-
     private fun assertSql(expected: String, query: DexSqlQuery) {
         assertEquals(expected, query.toSql())
     }

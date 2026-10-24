@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
-
     override val technicalId = "解除单个表情数量上限"
     override val nameRes = R.string.feature_remove_custom_stickers_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

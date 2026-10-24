@@ -39,10 +39,8 @@ internal fun fieldSpec(base: FieldSpec, block: FieldMatcher.() -> Unit): FieldSp
     FieldMatcher().apply { applyBase(base) }.apply(block).build()
 
 /** One field access; null [usingType] means any direction. */
-fun usingField(
-    field: FieldSpec = FieldSpec(),
-    usingType: FieldUsingType? = null,
-): UsingFieldSpec = UsingFieldSpec(field, usingType)
+fun usingField(field: FieldSpec = FieldSpec(), usingType: FieldUsingType? = null): UsingFieldSpec =
+    UsingFieldSpec(field, usingType)
 
 fun readField(field: FieldSpec = FieldSpec()): UsingFieldSpec =
     UsingFieldSpec(field, FieldUsingType.Read)
@@ -58,37 +56,70 @@ fun writeField(field: FieldSpec = FieldSpec()): UsingFieldSpec =
  */
 private fun normalizeCountRange(owner: String, value: Any?): IntRange? =
     when (value) {
-        null -> null
-        is Int -> value..value
-        is IntRange -> value
-        else ->
+        null -> {
+            null
+        }
+
+        is Int -> {
+            value..value
+        }
+
+        is IntRange -> {
+            value
+        }
+
+        else -> {
             throw IllegalArgumentException(
                 "$owner must be assigned an Int or IntRange, was " + value::class.java.name,
             )
+        }
     }
 
 private fun normalizeName(owner: String, value: Any?): NameSpec? =
     when (value) {
-        null -> null
-        is NameSpec -> value
-        is String -> NameSpec(value)
-        else ->
+        null -> {
+            null
+        }
+
+        is NameSpec -> {
+            value
+        }
+
+        is String -> {
+            NameSpec(value)
+        }
+
+        else -> {
             throw IllegalArgumentException(
                 "$owner must be assigned a String or NameSpec, was " + value::class.java.name,
             )
+        }
     }
 
 private fun normalizeClassRef(owner: String, value: Any?): ClassSpec? =
     when (value) {
-        null -> null
-        is ClassSpec -> value
-        is String -> ClassSpec(className = NameSpec(value))
-        is Class<*> -> ClassSpec(className = NameSpec(value.name))
-        else ->
+        null -> {
+            null
+        }
+
+        is ClassSpec -> {
+            value
+        }
+
+        is String -> {
+            ClassSpec(className = NameSpec(value))
+        }
+
+        is Class<*> -> {
+            ClassSpec(className = NameSpec(value.name))
+        }
+
+        else -> {
             throw IllegalArgumentException(
                 "$owner must be assigned a String, Class or ClassSpec, was " +
                     value::class.java.name,
             )
+        }
     }
 
 private fun normalizeParamType(value: Any?): TypeSpec? =
@@ -101,14 +132,24 @@ private fun normalizeParamType(value: Any?): TypeSpec? =
 
 private fun normalizeParamTypes(owner: String, value: Any?): List<TypeSpec?>? =
     when (value) {
-        null -> null
-        is List<*> -> value.map(::normalizeParamType)
-        is Array<*> -> value.map(::normalizeParamType)
-        else ->
+        null -> {
+            null
+        }
+
+        is List<*> -> {
+            value.map(::normalizeParamType)
+        }
+
+        is Array<*> -> {
+            value.map(::normalizeParamType)
+        }
+
+        else -> {
             throw IllegalArgumentException(
                 "$owner must be assigned a List of String/Class/TypeSpec/null, was " +
                     value::class.java.name,
             )
+        }
     }
 
 /** DexKit-style annotation constraint builder used by class/method matcher blocks. */

@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
 object TriggerCrash : ClickableFeature() {
-
     override val technicalId = "测试崩溃"
     override val nameRes = R.string.feature_trigger_crash_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -117,8 +116,9 @@ object TriggerCrash : ClickableFeature() {
                                     )
                                 },
                             )
-                            if (index < itemResources.lastIndex)
+                            if (index < itemResources.lastIndex) {
                                 HorizontalDivider(thickness = 0.5.dp)
+                            }
                         }
                     }
                 },

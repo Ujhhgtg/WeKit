@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 
 object ShowWxIdInContactDetails :
     SwitchFeature(), WeContactHeaderApi.Provider, WeContactPrefsScreenApi.IContactInfoProvider {
-
     override val technicalId = "显示微信 ID"
     override val nameRes = R.string.feature_show_wx_id_in_contact_details_name
     override val categoryIds =
@@ -31,8 +30,9 @@ object ShowWxIdInContactDetails :
         // Ordinary contacts use the profile header. Groups and official accounts use
         // the preference list because their profile layouts do not share that header.
         val wxId = activity.currentWxId
-        if (wxId == null || activity.javaClass.name != ChatroomInfoUI::class.java.name)
+        if (wxId == null || activity.javaClass.name != ChatroomInfoUI::class.java.name) {
             return emptyList()
+        }
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
                 title =

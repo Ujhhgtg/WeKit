@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.time.measureTime
 
 object FeaturesLoader {
-
     private const val TAG = "FeaturesLoader"
 
     fun loadFeatures() {
@@ -100,7 +99,7 @@ object FeaturesLoader {
         val state = DexCacheManager.stateOf(item)
         feature.dexState = state
         when (state) {
-            DexItemState.Valid ->
+            DexItemState.Valid -> {
                 try {
                     val missingKeys = item.loadFromCache(DexCacheManager.loadItemCache(item)!!)
                     check(missingKeys.isEmpty()) { "cache lost keys while loading: $missingKeys" }
@@ -109,10 +108,15 @@ object FeaturesLoader {
                     runCatching { DexCacheManager.deleteCache(feature.technicalId) }
                     feature.dexState = DexItemState.NeedsResolution
                 }
+            }
 
-            DexItemState.NeedsResolution -> WeLogger.w(TAG, "$path needs Dex resolution")
-            is DexItemState.Failed ->
+            DexItemState.NeedsResolution -> {
+                WeLogger.w(TAG, "$path needs Dex resolution")
+            }
+
+            is DexItemState.Failed -> {
                 WeLogger.w(TAG, "$path has a recorded Dex failure: ${state.message}")
+            }
         }
     }
 }

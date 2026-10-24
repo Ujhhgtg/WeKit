@@ -208,16 +208,26 @@ private fun stringCondition(column: String, literal: SqlStringLiteral): String {
         return column + " = " + sqlQuote(value)
     }
     return when (literal.mode) {
-        SqlStringMode.EQUALS -> column + " = " + sqlQuote(value)
-        SqlStringMode.CONTAINS -> "instr(" + column + ", " + sqlQuote(value) + ") > 0"
-        SqlStringMode.PREFIX -> "instr(" + column + ", " + sqlQuote(value) + ") = 1"
-        SqlStringMode.SUFFIX ->
+        SqlStringMode.EQUALS -> {
+            column + " = " + sqlQuote(value)
+        }
+
+        SqlStringMode.CONTAINS -> {
+            "instr(" + column + ", " + sqlQuote(value) + ") > 0"
+        }
+
+        SqlStringMode.PREFIX -> {
+            "instr(" + column + ", " + sqlQuote(value) + ") = 1"
+        }
+
+        SqlStringMode.SUFFIX -> {
             "substr(" +
                 column +
                 ", -" +
                 value.codePointCount(0, value.length) +
                 ") = " +
                 sqlQuote(value)
+        }
     }
 }
 
@@ -276,12 +286,16 @@ private fun nameMatchCondition(
     kind: SqlNameLiteralKind,
 ): String =
     when (match.mode) {
-        SqlStringMatchMode.Equals ->
+        SqlStringMatchMode.Equals -> {
             "$column = " +
                 sqlQuote(
-                    if (kind == SqlNameLiteralKind.Class) classDescriptor(match.value)
-                    else javaType(match.value),
+                    if (kind == SqlNameLiteralKind.Class) {
+                        classDescriptor(match.value)
+                    } else {
+                        javaType(match.value)
+                    },
                 )
+        }
 
         SqlStringMatchMode.StartsWith -> {
             val converted = "L" + nameMatchSlashLiteral(match.value)
@@ -321,11 +335,7 @@ private class MethodProperties(
     val modifiers: Int? = null,
 )
 
-private class MethodJoinResult(
-    val joins: List<String>,
-    val where: List<String>,
-    val nextIndex: Int,
-)
+private class MethodJoinResult(val joins: List<String>, val where: List<String>, val nextIndex: Int)
 
 private fun MethodProperties.hasPredicates(): Boolean =
     name != null ||

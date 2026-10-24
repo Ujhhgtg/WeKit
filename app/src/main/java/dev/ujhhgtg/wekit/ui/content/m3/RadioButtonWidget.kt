@@ -71,7 +71,8 @@ fun RadioButtonWidget(
         enabled = enabled,
         onClick = onClick ?: selectAction,
         trailingDivider = trailingDivider,
-    ) { interactionSource -> // Receive the shared interactionSource
+    ) { interactionSource ->
+        // Receive the shared interactionSource
         RadioButton(
             selected = selected,
             // The row click is handled by BaseWidget's ListItem unless the trailing area

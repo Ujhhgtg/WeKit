@@ -103,7 +103,9 @@ class ConversationGroupSwipeState(private val touchSlopPx: Float) {
                     candidateDirection = direction
                 }
 
-                else -> return null
+                else -> {
+                    return null
+                }
             }
         }
 

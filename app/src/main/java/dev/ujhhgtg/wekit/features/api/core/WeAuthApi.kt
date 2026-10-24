@@ -15,7 +15,6 @@ import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicBoolean
 
 object WeAuthApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "授权与登录服务"
     override val nameRes = R.string.feature_we_auth_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -31,6 +30,7 @@ object WeAuthApi : ApiFeature(), IResolveDex {
         // 调用方 (WeChatService.jsLogin) 用无超时的 suspendCancellableCoroutine 包装该回调,
         // 因此必须保证 onResult 不多不少地被调用一次
         val delivered = AtomicBoolean(false)
+
         fun deliver(code: String?) {
             if (delivered.compareAndSet(false, true)) {
                 onResult(code)
@@ -144,7 +144,9 @@ object WeAuthApi : ApiFeature(), IResolveDex {
                                     )
                                     stringFields[0].isAccessible = true
                                     stringFields[0].get(proto) as? String
-                                } else null
+                                } else {
+                                    null
+                                }
 
                             WeLogger.i(TAG, "jsLogin success, code: $code")
                             deliver(code)

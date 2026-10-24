@@ -171,15 +171,21 @@ fun HomeContent(
             Box(
                 Modifier.matchParentSize()
                     .background(
-                        if (darkSurface) Color.Black.copy(alpha = 0.24f)
-                        else colors.surface.copy(alpha = 0.13f),
+                        if (darkSurface) {
+                            Color.Black.copy(alpha = 0.24f)
+                        } else {
+                            colors.surface.copy(alpha = 0.13f)
+                        },
                     )
                     .background(Color.Black.copy(alpha = 0.1f))
                     .background(
                         Brush.horizontalGradient(
                             listOf(
-                                if (darkSurface) Color.Black.copy(alpha = 0.36f)
-                                else colors.surface.copy(alpha = 0.23f),
+                                if (darkSurface) {
+                                    Color.Black.copy(alpha = 0.36f)
+                                } else {
+                                    colors.surface.copy(alpha = 0.23f)
+                                },
                                 colors.surface.copy(alpha = if (darkSurface) 0.18f else 0.16f),
                             ),
                         ),
@@ -289,13 +295,14 @@ private fun HomeBackground(
         }
     Box(
         imageModifier.pointerInput(active) {
-            if (active)
+            if (active) {
                 detectTapGestures(
                     onLongPress = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         currentOnLongPress()
                     },
                 )
+            }
         },
     ) {
         background?.let {
@@ -457,8 +464,11 @@ private fun HomeBattery(active: Boolean, modifier: Modifier = Modifier) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
             percentage =
-                if (level < 0 || scale <= 0) null
-                else (level * 100f / scale).toInt().coerceIn(0, 100)
+                if (level < 0 || scale <= 0) {
+                    null
+                } else {
+                    (level * 100f / scale).toInt().coerceIn(0, 100)
+                }
         }
         val receiver =
             object : BroadcastReceiver() {

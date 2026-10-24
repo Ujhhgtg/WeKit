@@ -37,7 +37,6 @@ internal class DexMatcherEvaluator(
      */
     private val classUsingString: ((DexClassInfo, StringSpec) -> Boolean)? = null,
 ) {
-
     fun matchesClass(info: DexClassInfo, spec: ClassSpec): Boolean {
         spec.className?.let { if (!nameSpecMatchesJavaName(it, info.name)) return false }
         if (isShallow(info)) {
@@ -66,8 +65,9 @@ internal class DexMatcherEvaluator(
             val superInfo = info.superClass ?: return false
             if (!matchesClass(superInfo, superSpec)) return false
         }
-        if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) })
+        if (!injectiveMatch(spec.interfaces, info.interfaces) { s, c -> matchesClass(c, s) }) {
             return false
+        }
         if (!injectiveMatch(spec.fields, info.fields) { s, c -> matchesField(c, s) }) return false
         // Array-class member refs (e.g. "[Lx;->clone()...") and any other malformed member
         // descriptors are not real class members; their metadata documents cannot be resolved.
@@ -154,11 +154,13 @@ internal class DexMatcherEvaluator(
                 }
             }
         }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages))
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) {
             return false
+        }
         spec.declaredClass?.let { classSpec ->
-            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
+            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) {
                 return false
+            }
         }
         spec.returnType?.let { typeSpec ->
             // Never resolve class metadata for primitive/array return types: the meta layer's
@@ -180,22 +182,26 @@ internal class DexMatcherEvaluator(
                 !injectiveMatch(spec.usingNumbers, candidateNumbers) { expected, actual ->
                     matchesNumber(expected, actual)
                 }
-            )
+            ) {
                 return false
+            }
         }
         if (
             !injectiveMatch(spec.usingFields, info.usingFields) { fieldSpec, access ->
                 (fieldSpec.usingType == null || fieldSpec.usingType == access.usingType) &&
                     matchesField(access.field, fieldSpec.field)
             }
-        )
+        ) {
             return false
-        if (!injectiveMatch(spec.invokeMethods, info.invokes) { s, c -> matchesMethod(c, s) })
+        }
+        if (!injectiveMatch(spec.invokeMethods, info.invokes) { s, c -> matchesMethod(c, s) }) {
             return false
+        }
         if (spec.callerMethods.isNotEmpty()) {
             val callers = (relations ?: missingRelations("callerMethods")).callers(info.descriptor)
-            if (!injectiveMatch(spec.callerMethods, callers) { s, c -> matchesMethod(c, s) })
+            if (!injectiveMatch(spec.callerMethods, callers) { s, c -> matchesMethod(c, s) }) {
                 return false
+            }
         }
         for (child in spec.allOf) if (!matchesMethod(info, child)) return false
         if (spec.anyOf.isNotEmpty() && spec.anyOf.none { matchesMethod(info, it) }) return false
@@ -208,15 +214,17 @@ internal class DexMatcherEvaluator(
 
     fun matchesField(info: DexFieldInfo, spec: FieldSpec): Boolean {
         spec.name?.let { if (!it.matches(info.name)) return false }
-        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages))
+        if (!matchesPackages(info.declaredClassName, spec.searchPackages, spec.excludePackages)) {
             return false
+        }
         spec.modifiers?.let { if (info.modifiers and it != it) return false }
         spec.type?.let { typeSpec ->
             if (!matchesFieldType(info.typeName, typeSpec)) return false
         }
         spec.declaredClass?.let { classSpec ->
-            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec))
+            if (!matchesClassReference(info.declaredClass, info.declaredClassName, classSpec)) {
                 return false
+            }
         }
         val resolvedRelations =
             if (spec.readMethods.isNotEmpty() || spec.writeMethods.isNotEmpty()) {
@@ -226,13 +234,15 @@ internal class DexMatcherEvaluator(
             }
         if (spec.readMethods.isNotEmpty()) {
             val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "get")
-            if (!injectiveMatch(spec.readMethods, methods) { s, c -> matchesMethod(c, s) })
+            if (!injectiveMatch(spec.readMethods, methods) { s, c -> matchesMethod(c, s) }) {
                 return false
+            }
         }
         if (spec.writeMethods.isNotEmpty()) {
             val methods = resolvedRelations!!.fieldAccessMethods(info.descriptor, "put")
-            if (!injectiveMatch(spec.writeMethods, methods) { s, c -> matchesMethod(c, s) })
+            if (!injectiveMatch(spec.writeMethods, methods) { s, c -> matchesMethod(c, s) }) {
                 return false
+            }
         }
         return true
     }
@@ -347,22 +357,29 @@ internal class DexMatcherEvaluator(
 
     private fun matchesAnnotationValue(actual: JsonElement?, expected: AnnotationValue): Boolean {
         return when (expected) {
-            is AnnotationValue.Text ->
+            is AnnotationValue.Text -> {
                 actual is JsonPrimitive && actual.contentOrNull == expected.value
-            is AnnotationValue.DescriptorValue ->
+            }
+
+            is AnnotationValue.DescriptorValue -> {
                 actual is JsonPrimitive &&
                     actual.contentOrNull?.let { value ->
                         value == expected.value ||
                             javaTypeNameOf(value) == javaTypeNameOf(expected.value)
                     } == true
-            is AnnotationValue.BooleanValue ->
+            }
+
+            is AnnotationValue.BooleanValue -> {
                 actual is JsonPrimitive &&
                     actual.contentOrNull?.toBooleanStrictOrNull() == expected.value
+            }
+
             is AnnotationValue.NumberValue -> {
                 val content = (actual as? JsonPrimitive)?.contentOrNull
                 content != null &&
                     content.toDoubleOrNull()?.let { it == expected.value.toDouble() } == true
             }
+
             is AnnotationValue.ListValue -> {
                 val array = actual as? JsonArray ?: return false
                 array.size == expected.values.size &&
@@ -370,8 +387,10 @@ internal class DexMatcherEvaluator(
                         matchesAnnotationValue(array[index], expected.values[index])
                     }
             }
-            is AnnotationValue.Nested ->
+
+            is AnnotationValue.Nested -> {
                 actual is JsonObject && matchesAnnotation(actual, expected.annotation)
+            }
         }
     }
 
@@ -484,8 +503,9 @@ internal fun <S, C> injectiveMatch(
 
     fun assign(specIndex: Int, visited: BooleanArray): Boolean {
         for (candidateIndex in candidates.indices) {
-            if (visited[candidateIndex] || !matches(specs[specIndex], candidates[candidateIndex]))
+            if (visited[candidateIndex] || !matches(specs[specIndex], candidates[candidateIndex])) {
                 continue
+            }
             visited[candidateIndex] = true
             val owner = candidateOwner[candidateIndex]
             if (owner == -1 || assign(owner, visited)) {

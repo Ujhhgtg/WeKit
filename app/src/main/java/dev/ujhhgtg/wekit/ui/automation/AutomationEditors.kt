@@ -81,8 +81,11 @@ class AutomationRuleEditor<T : Any>(
 
     @StringRes
     fun titleFor(scope: AutomationScope): Int =
-        if (scope.type == AutomationScopeType.GLOBAL && globalTitleRes != null) globalTitleRes
-        else titleRes
+        if (scope.type == AutomationScopeType.GLOBAL && globalTitleRes != null) {
+            globalTitleRes
+        } else {
+            titleRes
+        }
 }
 
 // ---- builders -------------------------------------------------------------------------------
@@ -157,14 +160,17 @@ fun timeRangeEditor(
         key = key,
         titleRes = titleRes,
         summary = {
-            if (!it.enabled) stringResource(offRes)
-            else if (it.endSecond < it.startSecond) {
+            if (!it.enabled) {
+                stringResource(offRes)
+            } else if (it.endSecond < it.startSecond) {
                 stringResource(
                     R.string.automation_time_overnight_summary,
                     formatSecondOfDay(it.startSecond),
                     formatSecondOfDay(it.endSecond),
                 )
-            } else "${formatSecondOfDay(it.startSecond)} – ${formatSecondOfDay(it.endSecond)}"
+            } else {
+                "${formatSecondOfDay(it.startSecond)} – ${formatSecondOfDay(it.endSecond)}"
+            }
         },
         isOn = { it.enabled },
         setOn = { rule, on -> rule.copy(enabled = on) },
@@ -188,8 +194,9 @@ fun keywordEditor(
         isOn = { it.enabled },
         setOn = { rule, on -> rule.copy(enabled = on) },
         summaryExtra = {
-            if (it.enabled && it.mode != AutomationKeywordMode.REGEX)
+            if (it.enabled && it.mode != AutomationKeywordMode.REGEX) {
                 AutomationMiniChips(it.strings)
+            }
         },
         sheet = { _, value, onChange -> KeywordSheetContent(value, modes, onChange) },
         sheetHintRes = hintRes,
@@ -205,8 +212,9 @@ fun delayEditor(
         key = key,
         titleRes = titleRes,
         summary = {
-            if (!it.enabled) stringResource(offRes)
-            else {
+            if (!it.enabled) {
+                stringResource(offRes)
+            } else {
                 val base = it.baseMs.toLongOrNull() ?: 0L
                 val range = it.randomRangeMs.toLongOrNull() ?: 0L
                 stringResource(
@@ -239,8 +247,11 @@ fun limitEditor(
         key = key,
         titleRes = titleRes,
         summary = {
-            if (it.enabled) stringResource(valueRes, it.value.toString())
-            else stringResource(offRes)
+            if (it.enabled) {
+                stringResource(valueRes, it.value.toString())
+            } else {
+                stringResource(offRes)
+            }
         },
         isOn = { it.enabled },
         setOn = { rule, on -> rule.copy(enabled = on) },
@@ -292,15 +303,21 @@ fun replyEditor(
         titleRes = titleRes,
         summary = { rule ->
             when {
-                switchable && !rule.enabled ->
+                switchable && !rule.enabled -> {
                     stringResource(R.string.automation_auto_reply_disabled)
-                rule.steps.isEmpty() -> stringResource(R.string.automation_reply_no_steps)
-                else ->
+                }
+
+                rule.steps.isEmpty() -> {
+                    stringResource(R.string.automation_reply_no_steps)
+                }
+
+                else -> {
                     pluralStringResource(
                         R.plurals.automation_reply_step_count,
                         rule.steps.size,
                         rule.steps.size,
                     )
+                }
             }
         },
         isOn = if (switchable) ({ it.enabled }) else null,
@@ -347,20 +364,23 @@ fun messageTypeEditor(
         key = key,
         titleRes = titleRes,
         summary = { rule ->
-            if (rule.all) stringResource(R.string.automation_kinds_all)
-            else
+            if (rule.all) {
+                stringResource(R.string.automation_kinds_all)
+            } else {
                 pluralStringResource(
                     R.plurals.automation_kinds_selected,
                     rule.kinds.size,
                     rule.kinds.size,
                 )
+            }
         },
         summaryExtra = { rule ->
-            if (!rule.all)
+            if (!rule.all) {
                 AutomationMiniChips(
                     MESSAGE_KIND_LABELS.filter { it.first in rule.kinds }
                         .map { stringResource(it.second) },
                 )
+            }
         },
         sheet = { _, value, onChange ->
             AutomationChoiceGroup(
@@ -412,7 +432,10 @@ val CATEGORY_LABELS =
 private fun targetSummary(rule: AutomationTargetRule): String {
     val base =
         when (rule.mode) {
-            AutomationTargetRule.Mode.ALL -> stringResource(R.string.automation_target_all)
+            AutomationTargetRule.Mode.ALL -> {
+                stringResource(R.string.automation_target_all)
+            }
+
             AutomationTargetRule.Mode.CATEGORIES -> {
                 val labels = CATEGORY_LABELS.associate { (category, res) ->
                     category to stringResource(res)
@@ -422,52 +445,62 @@ private fun targetSummary(rule: AutomationTargetRule): String {
                     .joinToString(" · ") { labels.getValue(it) }
                     .ifEmpty { stringResource(R.string.automation_target_nothing) }
             }
-            AutomationTargetRule.Mode.SPECIFIC ->
+
+            AutomationTargetRule.Mode.SPECIFIC -> {
                 pluralStringResource(
                     R.plurals.automation_target_specific_count,
                     rule.include.size + rule.includeMembers.size,
                     rule.include.size + rule.includeMembers.size,
                 )
+            }
         }
     val excluded = rule.exclude.size + rule.excludeMembers.size
-    return if (excluded == 0) base
-    else
+    return if (excluded == 0) {
+        base
+    } else {
         base +
             " · " +
             pluralStringResource(R.plurals.automation_target_excluded_count, excluded, excluded)
+    }
 }
 
 @Composable
 fun automationKeywordSummary(rule: AutomationKeywordRule, unrestrictedText: String): String {
     if (!rule.enabled) return unrestrictedText
     return when (rule.mode) {
-        AutomationKeywordMode.STRING_LIST ->
+        AutomationKeywordMode.STRING_LIST -> {
             pluralStringResource(
                 R.plurals.automation_keyword_contains_summary,
                 rule.strings.size,
                 rule.strings.size,
             )
-        AutomationKeywordMode.EXACT ->
+        }
+
+        AutomationKeywordMode.EXACT -> {
             pluralStringResource(
                 R.plurals.automation_keyword_exact_summary,
                 rule.strings.size,
                 rule.strings.size,
             )
-        AutomationKeywordMode.REGEX ->
+        }
+
+        AutomationKeywordMode.REGEX -> {
             if (rule.regex.isBlank()) {
                 stringResource(R.string.automation_regex_empty_summary)
             } else {
                 stringResource(R.string.automation_regex_summary_value, rule.regex)
             }
+        }
     }
 }
 
 fun loadAutomationContacts(kinds: Set<AutomationTalkerCategory>): List<IWeContact> = runCatching {
-    buildList<IWeContact> {
+    buildList {
             if (AutomationTalkerCategory.PRIVATE in kinds) addAll(WeDatabaseApi.getFriends())
             if (AutomationTalkerCategory.GROUP in kinds) addAll(WeDatabaseApi.getGroups())
-            if (AutomationTalkerCategory.OFFICIAL in kinds)
+            if (AutomationTalkerCategory.OFFICIAL in kinds) {
                 addAll(WeDatabaseApi.getOfficialAccounts())
+            }
         }
         .distinctBy(IWeContact::wxId)
 }
@@ -482,9 +515,19 @@ fun loadGroupMembers(groupId: String): List<IWeContact> = runCatching {
 
 fun AutomationScope.isGroupScope(): Boolean =
     when (type) {
-        AutomationScopeType.CATEGORY -> category == AutomationTalkerCategory.GROUP
-        AutomationScopeType.CONTACT ->
+        AutomationScopeType.CATEGORY -> {
+            category == AutomationTalkerCategory.GROUP
+        }
+
+        AutomationScopeType.CONTACT -> {
             AutomationTalkerCategory.of(scopeId) == AutomationTalkerCategory.GROUP
-        AutomationScopeType.GROUP_MEMBER -> true
-        else -> true
+        }
+
+        AutomationScopeType.GROUP_MEMBER -> {
+            true
+        }
+
+        else -> {
+            true
+        }
     }

@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.LinkedList
 
 object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
-
     override val technicalId = "自动添加附近的人"
     override val nameRes = R.string.feature_auto_add_nearby_friends_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

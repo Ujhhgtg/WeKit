@@ -98,7 +98,7 @@ fun TtsContent(
                     )
                 },
                 trailingIcon =
-                    if (text.isNotEmpty())
+                    if (text.isNotEmpty()) {
                         ({
                             IconButton(onClick = { onTextChange("") }) {
                                 Icon(
@@ -107,7 +107,9 @@ fun TtsContent(
                                 )
                             }
                         })
-                    else null,
+                    } else {
+                        null
+                    },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
             )

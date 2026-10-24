@@ -11,11 +11,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /** Owned, allocation-safe representation of one DexSQL query result. */
-@Keep
-data class DexSqlQueryResult(
-    val columns: List<String>,
-    val rows: List<List<String>>,
-)
+@Keep data class DexSqlQueryResult(val columns: List<String>, val rows: List<List<String>>)
 
 /** A native operation reported an error in its JSON envelope. */
 class DexSqlException(message: String) : IllegalStateException(message)
@@ -167,8 +163,5 @@ class DexSqlBridge private constructor(handle: Long) : AutoCloseable {
     )
 
     @Serializable
-    private data class NativeError(
-        val kind: String? = null,
-        val message: String? = null,
-    )
+    private data class NativeError(val kind: String? = null, val message: String? = null)
 }

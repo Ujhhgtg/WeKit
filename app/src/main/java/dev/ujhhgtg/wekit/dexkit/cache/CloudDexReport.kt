@@ -3,11 +3,7 @@ package dev.ujhhgtg.wekit.dexkit.cache
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-data class CloudDexHost(
-    val versionName: String,
-    val versionCode: Long,
-    val isGooglePlay: Boolean,
-)
+data class CloudDexHost(val versionName: String, val versionCode: Long, val isGooglePlay: Boolean)
 
 data class CurrentDexItem(
     val technicalId: String,
@@ -22,10 +18,7 @@ data class CloudDexCacheEntry(
     val descriptors: Map<String, String?>,
 )
 
-data class CloudDexSelection(
-    val entries: List<CloudDexCacheEntry>,
-    val rejectedCount: Int,
-)
+data class CloudDexSelection(val entries: List<CloudDexCacheEntry>, val rejectedCount: Int)
 
 object CloudDexReport {
     private val json = Json { ignoreUnknownKeys = true }
@@ -73,11 +66,18 @@ object CloudDexReport {
                 val delegate = delegatesByKey[key]?.singleOrNull() ?: return@mapNotNull null
                 descriptors[key] =
                     when (delegate.status) {
-                        "SUCCESS" ->
+                        "SUCCESS" -> {
                             delegate.descriptor?.takeIf(String::isNotEmpty)
                                 ?: return@mapNotNull null
-                        "EXPECTED_FAILURE" -> null
-                        else -> return@mapNotNull null
+                        }
+
+                        "EXPECTED_FAILURE" -> {
+                            null
+                        }
+
+                        else -> {
+                            return@mapNotNull null
+                        }
                     }
             }
 
@@ -115,8 +115,4 @@ private data class Feature(
 )
 
 @Serializable
-private data class Delegate(
-    val key: String,
-    val status: String,
-    val descriptor: String? = null,
-)
+private data class Delegate(val key: String, val status: String, val descriptor: String? = null)

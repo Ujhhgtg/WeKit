@@ -66,7 +66,9 @@ class MotionPhotoContainerTest {
     @Test
     fun `strict EXIF staging rejects expanding XMP instead of dropping unrelated metadata`() {
         val packet =
-            """<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="$RDF"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" dc:title='${"\"".repeat(12_000)}'/></rdf:RDF></x:xmpmeta>"""
+            """<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="$RDF"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" dc:title='${"\"".repeat(
+                12_000,
+            )}'/></rdf:RDF></x:xmpmeta>"""
         val cover = file("expanding-xmp.jpg", withXmp(jpeg, packet))
         val video = file("video.mp4", mp4)
         val output = file("protected-cover.jpg", "existing output".toByteArray())
@@ -208,7 +210,7 @@ class MotionPhotoContainerTest {
     fun `missing and unspecified timestamps remain distinguishable from frame zero`() {
         for (timestamp in listOf(null, "-1", "0")) {
             val photo =
-                file("timestamp-${timestamp}.jpg", withXmp(jpeg, modern(mp4.size, timestamp)) + mp4)
+                file("timestamp-$timestamp.jpg", withXmp(jpeg, modern(mp4.size, timestamp)) + mp4)
             assertEquals(if (timestamp == "0") 0 else -1, inspect(photo)!!.coverTimestampMs)
         }
         val output = File(directory, "unset.jpg")
@@ -315,7 +317,11 @@ class MotionPhotoContainerTest {
             ordinaryXmp().replace("Original title", "Original\u0000title").toByteArray() +
                 ByteArray(3)
         val utf16 = ordinaryXmp().toByteArray(Charsets.UTF_16)
-        val utf32 = ordinaryXmp().toByteArray(java.nio.charset.Charset.forName("UTF-32LE"))
+        val utf32 =
+            ordinaryXmp()
+                .toByteArray(
+                    java.nio.charset.Charset.forName("UTF-32LE"),
+                )
         val dtd =
             ("<!DOCTYPE x [<!ENTITY secret SYSTEM 'file:///etc/passwd'>]>" + ordinaryXmp())
                 .toByteArray() + byteArrayOf(0)
@@ -619,7 +625,7 @@ class MotionPhotoContainerTest {
                 <rdf:li rdf:parseType="Resource"><d:Item i:Mime="video/mp4" i:Semantic="MotionPhoto" i:Length="$length"/></rdf:li>
             </rdf:Seq></d:Directory>
         </rdf:Description></rdf:RDF></x:xmpmeta>
-    """
+        """
             .trimIndent()
 
     private fun legacy(length: Int, timestamp: String) =

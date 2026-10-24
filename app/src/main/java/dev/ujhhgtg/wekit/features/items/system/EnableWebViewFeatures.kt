@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 object EnableWebViewFeatures : SwitchFeature(), IResolveDex {
-
     override val technicalId = "强制启用 WebView 菜单"
     override val nameRes = R.string.feature_enable_web_view_features_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

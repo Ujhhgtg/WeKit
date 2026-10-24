@@ -26,7 +26,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
-
     override val technicalId = "加入群聊自动免打扰"
     override val nameRes = R.string.feature_auto_dnd_after_join_group_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -100,11 +99,12 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                             )
                         synchronized(stateLock) {
                             observeAccount(selfWxId)
-                            if (snapshots.size >= MAX_SNAPSHOTS)
+                            if (snapshots.size >= MAX_SNAPSHOTS) {
                                 snapshots.entries.iterator().run {
                                     next()
                                     remove()
                                 }
+                            }
                             snapshots[param] = snapshot
                         }
                     }
@@ -125,8 +125,14 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
 
                         val oldState =
                             when (snapshot.oldState) {
-                                ChatroomSyncStateReadResult.MissingRow -> null
-                                is ChatroomSyncStateReadResult.Available -> snapshot.oldState.state
+                                ChatroomSyncStateReadResult.MissingRow -> {
+                                    null
+                                }
+
+                                is ChatroomSyncStateReadResult.Available -> {
+                                    snapshot.oldState.state
+                                }
+
                                 ChatroomSyncStateReadResult.Unavailable -> {
                                     WeLogger.d(
                                         TAG,
@@ -139,7 +145,10 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                             when (
                                 val result = WeDatabaseApi.getChatroomSyncState(snapshot.roomId)
                             ) {
-                                is ChatroomSyncStateReadResult.Available -> result.state
+                                is ChatroomSyncStateReadResult.Available -> {
+                                    result.state
+                                }
+
                                 ChatroomSyncStateReadResult.MissingRow -> {
                                     WeLogger.d(
                                         TAG,
@@ -147,6 +156,7 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
                                     )
                                     return
                                 }
+
                                 ChatroomSyncStateReadResult.Unavailable -> {
                                     WeLogger.d(
                                         TAG,
@@ -223,11 +233,12 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     private fun markDedupKey(key: String): Boolean =
         synchronized(stateLock) {
             if (dedupKeys.containsKey(key)) return@synchronized false
-            if (dedupKeys.size >= MAX_DEDUP_KEYS)
+            if (dedupKeys.size >= MAX_DEDUP_KEYS) {
                 dedupKeys.entries.iterator().run {
                     next()
                     remove()
                 }
+            }
             dedupKeys[key] = Unit
             true
         }

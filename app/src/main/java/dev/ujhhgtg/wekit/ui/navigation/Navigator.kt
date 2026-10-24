@@ -6,9 +6,7 @@ import top.yukonga.miuix.kmp.nav.core.NavBackStack
 import top.yukonga.miuix.kmp.nav.core.NavKey
 
 // kang from KernelSU manager, with the anti-reenter pop fix from ReSukiSU manager
-class Navigator(
-    val backStack: NavBackStack,
-) {
+class Navigator(val backStack: NavBackStack) {
     fun push(key: NavKey) {
         if (backStack.lastOrNull() == key) {
             WeLogger.i("Navigator", "Trying push current page to backStack again, ignore!")

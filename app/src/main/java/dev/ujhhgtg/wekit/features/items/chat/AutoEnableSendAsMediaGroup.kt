@@ -18,7 +18,6 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
-
     override val technicalId = "自动启用合并发送媒体"
     override val nameRes = R.string.feature_auto_enable_send_as_media_group_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

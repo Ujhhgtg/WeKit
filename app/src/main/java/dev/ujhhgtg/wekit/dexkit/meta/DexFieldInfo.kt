@@ -9,10 +9,7 @@ import kotlinx.serialization.json.JsonObject
  * references whose class metadata is not available.
  */
 class DexFieldInfo
-internal constructor(
-    private val json: JsonObject,
-    private val metadata: DexMetadata,
-) {
+internal constructor(private val json: JsonObject, private val metadata: DexMetadata) {
     /** Full field descriptor ("Lcom/foo/Bar;->field:Ljava/lang/String;"). */
     val descriptor: String = json.requiredString("descriptor")
 

@@ -215,9 +215,7 @@ class QueryMatcherScope(
         return document
     }
 
-    fun findMethods(
-        spec: MethodSpec,
-    ): List<DexMethodInfo> {
+    fun findMethods(spec: MethodSpec): List<DexMethodInfo> {
         val sources =
             methodCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("method")
         return queryDescriptors(sources)
@@ -229,9 +227,7 @@ class QueryMatcherScope(
             .toList()
     }
 
-    fun findClasses(
-        spec: ClassSpec,
-    ): List<DexClassInfo> {
+    fun findClasses(spec: ClassSpec): List<DexClassInfo> {
         val sources =
             classCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("class")
         val candidates =
@@ -245,9 +241,7 @@ class QueryMatcherScope(
         return candidates.filter { matchesClassSafely(it, spec) }
     }
 
-    fun findFields(
-        spec: FieldSpec,
-    ): List<DexFieldInfo> {
+    fun findFields(spec: FieldSpec): List<DexFieldInfo> {
         val sources =
             fieldCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("field")
         val candidates =
@@ -268,25 +262,19 @@ class QueryMatcherScope(
      * Single-result helper: null when nothing matched; multiple matches are an ambiguity error.
      * Evaluation stops as soon as a second match is found; candidates are paged.
      */
-    fun uniqueMethod(
-        spec: MethodSpec,
-    ): String? =
+    fun uniqueMethod(spec: MethodSpec): String? =
         uniqueMatches(findMethodsUpToTwo(spec), "method") {
             it.descriptor
         }
 
     /** Single-result helper: null when nothing matched; multiple matches are an ambiguity error. */
-    fun uniqueClass(
-        spec: ClassSpec,
-    ): String? =
+    fun uniqueClass(spec: ClassSpec): String? =
         uniqueMatches(findClassesUpToTwo(spec), "class") {
             it.descriptor
         }
 
     /** Single-result helper: null when nothing matched; multiple matches are an ambiguity error. */
-    fun uniqueField(
-        spec: FieldSpec,
-    ): String? =
+    fun uniqueField(spec: FieldSpec): String? =
         uniqueMatches(findFieldsUpToTwo(spec), "field") {
             it.descriptor
         }
@@ -295,9 +283,7 @@ class QueryMatcherScope(
     // Bounded unique search (stop at the second match, paged candidates)
     // ---------------------------------------------------------------------
 
-    private fun findMethodsUpToTwo(
-        spec: MethodSpec,
-    ): List<DexMethodInfo> {
+    private fun findMethodsUpToTwo(spec: MethodSpec): List<DexMethodInfo> {
         val sources =
             methodCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("method")
         val matches = mutableListOf<DexMethodInfo>()
@@ -325,9 +311,7 @@ class QueryMatcherScope(
         return matches
     }
 
-    private fun findClassesUpToTwo(
-        spec: ClassSpec,
-    ): List<DexClassInfo> {
+    private fun findClassesUpToTwo(spec: ClassSpec): List<DexClassInfo> {
         val sources =
             classCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("class")
         val matches = mutableListOf<DexClassInfo>()
@@ -351,9 +335,7 @@ class QueryMatcherScope(
         return matches
     }
 
-    private fun findFieldsUpToTwo(
-        spec: FieldSpec,
-    ): List<DexFieldInfo> {
+    private fun findFieldsUpToTwo(spec: FieldSpec): List<DexFieldInfo> {
         val sources =
             fieldCandidateSources(spec, spec.searchPackages) ?: unsupportedCandidate("field")
         val candidates =
@@ -414,8 +396,11 @@ class QueryMatcherScope(
         sources
             .flatMap { source ->
                 when (source) {
-                    is CandidateSource.Descriptors -> source.descriptors
-                    is CandidateSource.Sql ->
+                    is CandidateSource.Descriptors -> {
+                        source.descriptors
+                    }
+
+                    is CandidateSource.Sql -> {
                         sessionCache?.candidateRows(source.sql) {
                             query.descriptors(source.sql)
                         }
@@ -429,6 +414,7 @@ class QueryMatcherScope(
                                 }
                                 rows
                             }
+                    }
                 }
             }
             .distinct()
@@ -439,15 +425,22 @@ class QueryMatcherScope(
         descriptor: (T) -> String,
     ): String? =
         when (matches.size) {
-            0 -> null
-            1 -> descriptor(matches.single())
-            else ->
+            0 -> {
+                null
+            }
+
+            1 -> {
+                descriptor(matches.single())
+            }
+
+            else -> {
                 error(
                     "Query matcher: multiple " +
                         kind +
                         "s matched, expected one: " +
                         matches.joinToString(",") { descriptor(it) },
                 )
+            }
         }
 
     // ---------------------------------------------------------------------
@@ -1124,10 +1117,12 @@ class QueryMatcherScope(
         if (spec.fields.none { it.readMethods.isNotEmpty() || it.writeMethods.isNotEmpty() }) return
         val fields = classes.flatMap { info -> info.fields.map { it.descriptor } }.distinct()
         if (fields.isEmpty()) return
-        if (spec.fields.any { it.readMethods.isNotEmpty() })
+        if (spec.fields.any { it.readMethods.isNotEmpty() }) {
             relations.fieldAccessMethods(fields, "get")
-        if (spec.fields.any { it.writeMethods.isNotEmpty() })
+        }
+        if (spec.fields.any { it.writeMethods.isNotEmpty() }) {
             relations.fieldAccessMethods(fields, "put")
+        }
     }
 
     /** Batch-fetch read/write relation data for every candidate field once (cache-backed). */
@@ -1276,8 +1271,11 @@ private fun JsonObject.nameMatchesPackages(
 
 /** Cheap necessary-condition prefilter on the raw method document (no model construction). */
 private fun methodPrefilter(json: JsonObject, spec: MethodSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages))
+    if (
+        !json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)
+    ) {
         return false
+    }
     spec.descriptor?.let { if (json.stringValue("descriptor") != it) return false }
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
@@ -1372,8 +1370,11 @@ private fun classPrefilter(json: JsonObject, spec: ClassSpec): Boolean {
 
 /** Cheap necessary-condition prefilter on the raw field document. */
 private fun fieldPrefilter(json: JsonObject, spec: FieldSpec): Boolean {
-    if (!json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages))
+    if (
+        !json.nameMatchesPackages("declared_class_name", spec.searchPackages, spec.excludePackages)
+    ) {
         return false
+    }
     spec.name
         ?.takeIf { it.match == NameMatch.Equals }
         ?.let {

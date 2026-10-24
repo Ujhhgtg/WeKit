@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class DecimalExpressionTest {
-
     @Test
     fun `evaluates arithmetic with precedence and variables`() {
         assertExpression("value * 2 + 50", "125", "300")

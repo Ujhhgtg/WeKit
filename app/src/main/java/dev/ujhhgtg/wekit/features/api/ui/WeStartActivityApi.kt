@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeStartActivityApi : ApiFeature() {
-
     override val technicalId = "活动启动监听服务"
     override val nameRes = R.string.feature_we_start_activity_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

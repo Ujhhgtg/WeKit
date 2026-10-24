@@ -23,7 +23,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object BatchDeleteFriends : ClickableFeature() {
-
     override val technicalId = "批量删除好友"
     override val nameRes = R.string.feature_batch_delete_friends_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -117,8 +116,11 @@ object BatchDeleteFriends : ClickableFeature() {
 
             showToastSuspend(
                 localizedBatchQuantity(
-                    if (success == wxIds.size) R.plurals.batch_delete_friends_done
-                    else R.plurals.batch_delete_friends_partial,
+                    if (success == wxIds.size) {
+                        R.plurals.batch_delete_friends_done
+                    } else {
+                        R.plurals.batch_delete_friends_partial
+                    },
                     wxIds.size,
                     success,
                     wxIds.size,

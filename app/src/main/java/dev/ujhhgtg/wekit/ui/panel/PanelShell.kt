@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -118,11 +117,7 @@ import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import kotlinx.coroutines.delay
 
-data class PanelRailItem<T>(
-    val destination: T,
-    val icon: ImageVector,
-    val label: String,
-)
+data class PanelRailItem<T>(val destination: T, val icon: ImageVector, val label: String)
 
 data class PanelAction(
     val icon: ImageVector,
@@ -361,8 +356,9 @@ fun <T> PanelShell(
     val refreshAction = actions.firstOrNull { it.icon == MaterialSymbols.Outlined.Refresh }
     val stripActions = actions.filterNot { it.isHeaderAction() }
     val stripActionSearch = actionSearch?.let { search ->
-        if (search.actionIndex == Int.MAX_VALUE) search
-        else {
+        if (search.actionIndex == Int.MAX_VALUE) {
+            search
+        } else {
             val originalIndex = search.actionIndex.coerceIn(0, actions.size)
             val removedBeforeSearch = actions.take(originalIndex).count { it.isHeaderAction() }
             search.copy(actionIndex = (originalIndex - removedBeforeSearch).coerceAtLeast(0))
@@ -451,8 +447,11 @@ fun <T> PanelShell(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
                                 tint =
-                                    if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 modifier = Modifier.size(28.dp),
                             )
                         }
@@ -545,7 +544,6 @@ fun <T> PanelShell(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelActionStrip(
     actions: List<PanelAction>,
@@ -626,7 +624,6 @@ private fun PanelActionStrip(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelActionItems(
     actions: List<PanelAction>,
@@ -829,14 +826,23 @@ fun <T> PanelStateContent(
     content: @Composable (T) -> Unit,
 ) {
     when (state) {
-        PanelUiState.Loading ->
+        PanelUiState.Loading -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+        }
 
-        is PanelUiState.Content -> content(state.value)
-        is PanelUiState.Empty -> PanelMessage(state.message)
-        is PanelUiState.Error -> PanelMessage(state.message, onRetry)
+        is PanelUiState.Content -> {
+            content(state.value)
+        }
+
+        is PanelUiState.Empty -> {
+            PanelMessage(state.message)
+        }
+
+        is PanelUiState.Error -> {
+            PanelMessage(state.message, onRetry)
+        }
     }
 }
 
@@ -849,17 +855,14 @@ private fun PanelMessage(message: PanelUiText, onRetry: (() -> Unit)? = null) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Text(message.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onRetry != null)
+        if (onRetry != null) {
             TextButton(onClick = onRetry) { Text(stringResource(R.string.panel_action_retry)) }
+        }
     }
 }
 
 @Composable
-fun PanelEmptyAction(
-    message: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
+fun PanelEmptyAction(message: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1007,7 +1010,9 @@ fun PanelFullOverlay(
     Box(
         modifier =
             Modifier.fillMaxSize()
-                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.38f))
+                .background(
+                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.38f),
+                )
                 .clickable(
                     indication = null,
                     interactionSource = null,
@@ -1061,10 +1066,8 @@ fun PanelPageOverlay(
 }
 
 @Composable
-private fun PanelOverlay(
-    onDismiss: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-) = PanelFullOverlay(onDismiss, content = content)
+private fun PanelOverlay(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) =
+    PanelFullOverlay(onDismiss, content = content)
 
 @Composable
 fun PanelUiText.resolve(): String =

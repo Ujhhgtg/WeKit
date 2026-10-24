@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisplayHiddenContactSettings : SwitchFeature() {
-
     override val technicalId = "显示隐藏朋友设置项"
     override val nameRes = R.string.feature_display_hidden_contact_settings_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

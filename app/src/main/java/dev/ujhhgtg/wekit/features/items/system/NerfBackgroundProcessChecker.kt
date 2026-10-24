@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object NerfBackgroundProcessChecker : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用微信进程状态检测器"
     override val nameRes = R.string.feature_nerf_background_process_checker_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

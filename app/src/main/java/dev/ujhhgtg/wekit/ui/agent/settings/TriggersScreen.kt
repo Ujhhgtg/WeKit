@@ -77,7 +77,7 @@ fun TriggersScreen(onBack: () -> Unit) {
     val sessions by remember {
         WeAgentRepository.observeSessions().map { list -> list.associateBy { it.id } }
     }
-        .collectAsState(initial = emptyMap<String, SessionEntity>())
+        .collectAsState(initial = emptyMap())
 
     var editing by remember { mutableStateOf<TriggerEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
@@ -227,9 +227,9 @@ private fun typeLabel(type: TriggerType): String =
 @Composable
 private fun configSummary(t: TriggerEntity): String =
     when (t.type) {
-        TriggerType.SCHEDULE ->
+        TriggerType.SCHEDULE -> {
             when (t.scheduleKind) {
-                ScheduleKind.INTERVAL ->
+                ScheduleKind.INTERVAL -> {
                     (t.intervalSeconds ?: 0).let {
                         pluralStringResource(
                             R.plurals.agent_trigger_interval_summary,
@@ -237,6 +237,8 @@ private fun configSummary(t: TriggerEntity): String =
                             it,
                         )
                     }
+                }
+
                 ScheduleKind.DAILY -> {
                     val m = t.dailyMinuteOfDay ?: 0
                     val time =
@@ -244,11 +246,19 @@ private fun configSummary(t: TriggerEntity): String =
                     stringResource(R.string.agent_trigger_daily_summary, time)
                 }
 
-                ScheduleKind.CRON ->
+                ScheduleKind.CRON -> {
                     stringResource(R.string.agent_trigger_cron_summary, t.cronExpr.orEmpty())
-                ScheduleKind.ONCE -> stringResource(R.string.agent_trigger_once_summary)
-                null -> stringResource(R.string.agent_trigger_not_configured)
+                }
+
+                ScheduleKind.ONCE -> {
+                    stringResource(R.string.agent_trigger_once_summary)
+                }
+
+                null -> {
+                    stringResource(R.string.agent_trigger_not_configured)
+                }
             }
+        }
 
         TriggerType.MESSAGE,
         TriggerType.SQL -> {
@@ -426,9 +436,11 @@ private fun TriggerEditorSheet(
                                     type = type,
                                     scope = selectedScope,
                                     sessionId =
-                                        if (selectedScope == TriggerScope.SESSION)
+                                        if (selectedScope == TriggerScope.SESSION) {
                                             sessionList.getOrNull(boundSessionIndex)?.id
-                                        else null,
+                                        } else {
+                                            null
+                                        },
                                     kind = kind,
                                     intervalSeconds = intervalSeconds.toLongOrNull(),
                                     dailyMinuteOfDay =
@@ -514,8 +526,11 @@ private fun TriggerEditorSheet(
                     DropdownOption(
                         it,
                         stringResource(
-                            if (it == TriggerScope.SESSION) R.string.agent_trigger_scope_session
-                            else R.string.agent_trigger_scope_global,
+                            if (it == TriggerScope.SESSION) {
+                                R.string.agent_trigger_scope_session
+                            } else {
+                                R.string.agent_trigger_scope_global
+                            },
                         ),
                     )
                 },
@@ -571,14 +586,16 @@ private fun TriggerEditorSheet(
                     onValueChange = { newKind -> kindIndex = scheduleKinds.indexOf(newKind) },
                 )
                 when (kind) {
-                    ScheduleKind.INTERVAL ->
+                    ScheduleKind.INTERVAL -> {
                         NumberField(
                             stringResource(R.string.agent_interval_seconds),
                             intervalSeconds,
                         ) {
                             intervalSeconds = it
                         }
-                    ScheduleKind.DAILY ->
+                    }
+
+                    ScheduleKind.DAILY -> {
                         Row(Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
                                 NumberField(stringResource(R.string.agent_hour_range), dailyHour) {
@@ -595,6 +612,7 @@ private fun TriggerEditorSheet(
                                 }
                             }
                         }
+                    }
 
                     ScheduleKind.CRON -> {
                         Spacer(Modifier.height(8.dp))
@@ -653,10 +671,17 @@ private fun TriggerEditorSheet(
                                 it,
                                 stringResource(
                                     when (it) {
-                                        MessageDirection.RECEIVED ->
+                                        MessageDirection.RECEIVED -> {
                                             R.string.agent_direction_received
-                                        MessageDirection.SENT -> R.string.agent_direction_sent
-                                        MessageDirection.BOTH -> R.string.agent_direction_both
+                                        }
+
+                                        MessageDirection.SENT -> {
+                                            R.string.agent_direction_sent
+                                        }
+
+                                        MessageDirection.BOTH -> {
+                                            R.string.agent_direction_both
+                                        }
                                     },
                                 ),
                             )
@@ -866,7 +891,7 @@ private fun buildTrigger(
                 createdAt = Instant.now(),
             )
     return when (type) {
-        TriggerType.SCHEDULE ->
+        TriggerType.SCHEDULE -> {
             base.copy(
                 scheduleKind = kind,
                 intervalSeconds = intervalSeconds.takeIf { kind == ScheduleKind.INTERVAL },
@@ -876,9 +901,10 @@ private fun buildTrigger(
                 atEpochMillis = existing?.atEpochMillis?.takeIf { kind == ScheduleKind.ONCE },
                 conditionsJson = null,
             )
+        }
 
         TriggerType.MESSAGE,
-        TriggerType.SQL ->
+        TriggerType.SQL -> {
             base.copy(
                 scheduleKind = null,
                 conditionsJson = TriggerConditionsJson.encode(conditions),
@@ -888,5 +914,6 @@ private fun buildTrigger(
                 cooldownMillis = (cooldownSec?.coerceAtLeast(0) ?: 0L) * 1000,
                 filterOwnEvents = filterOwn,
             )
+        }
     }
 }

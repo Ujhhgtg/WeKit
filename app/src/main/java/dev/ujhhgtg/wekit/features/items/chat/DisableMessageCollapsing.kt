@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableMessageCollapsing : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用消息折叠"
     override val nameRes = R.string.feature_disable_message_collapsing_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -59,7 +59,6 @@ class McpToolProvider(
     private val headers: Map<String, String>,
     private val httpClient: HttpClient,
 ) : ToolProvider {
-
     override val kind: ProviderKind = ProviderKind.MCP
 
     /**
@@ -100,19 +99,21 @@ class McpToolProvider(
         runCatching {
             val t =
                 when (transport) {
-                    McpTransport.STREAMABLE_HTTP ->
+                    McpTransport.STREAMABLE_HTTP -> {
                         StreamableHttpClientTransport(
                             httpClient,
                             endpointUrl,
                             requestBuilder = requestBuilder(),
                         )
+                    }
 
-                    McpTransport.SSE ->
+                    McpTransport.SSE -> {
                         SseClientTransport(
                             httpClient,
                             endpointUrl,
                             requestBuilder = requestBuilder(),
                         )
+                    }
                 }
             t.onClose { onTransportClosed() }
             t.onError { e -> onTransportError(e) }
@@ -191,8 +192,11 @@ class McpToolProvider(
         return runCatching {
             val result = c.callTool(name = toolName, arguments = arguments.toPlainMap())
             val text = result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text }
-            if (result.isError == true) "工具调用返回错误：$text"
-            else text.ifEmpty { "(no textual content)" }
+            if (result.isError == true) {
+                "工具调用返回错误：$text"
+            } else {
+                text.ifEmpty { "(no textual content)" }
+            }
         }
             .getOrElse { "MCP tool '$toolName' failed: ${it.message ?: it.javaClass.simpleName}" }
     }
@@ -206,9 +210,11 @@ class McpToolProvider(
         val changed =
             _status
                 .getAndUpdate {
-                    if (it.state == McpConnectionState.CONNECTED)
+                    if (it.state == McpConnectionState.CONNECTED) {
                         it.copy(state = McpConnectionState.DISCONNECTED)
-                    else it
+                    } else {
+                        it
+                    }
                 }
                 .state == McpConnectionState.CONNECTED
         if (changed) WeLogger.w(TAG, "MCP server '$name' transport closed")

@@ -159,10 +159,7 @@ object CloudDexResolver {
         return output.toString(Charsets.UTF_8.name())
     }
 
-    private fun failure(
-        items: List<IResolveDex>,
-        notice: CloudDexNotice,
-    ) =
+    private fun failure(items: List<IResolveDex>, notice: CloudDexNotice) =
         CloudDexResolutionResult(
             importedCount = 0,
             remainingItems = items,

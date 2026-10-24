@@ -96,10 +96,7 @@ fun <T> PanelPackChips(
     HorizontalDivider()
 }
 
-fun <T> panelItemsWithStableKeys(
-    items: List<T>,
-    key: (T) -> String,
-): List<Pair<String, T>> {
+fun <T> panelItemsWithStableKeys(items: List<T>, key: (T) -> String): List<Pair<String, T>> {
     val occurrences = mutableMapOf<String, Int>()
     return items.map { item ->
         val base = key(item)
@@ -110,10 +107,7 @@ fun <T> panelItemsWithStableKeys(
 }
 
 @Composable
-fun PanelAutoCloseSetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelAutoCloseSetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_auto_close)) },
@@ -127,10 +121,7 @@ fun PanelAutoCloseSetting(
 }
 
 @Composable
-fun PanelActionWrapSetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelActionWrapSetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_wrap_actions)) },
@@ -145,10 +136,7 @@ fun PanelActionWrapSetting(
 }
 
 @Composable
-fun PanelNavigationMemorySetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelNavigationMemorySetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_remember_navigation)) },
@@ -165,11 +153,7 @@ fun PanelNavigationMemorySetting(
 }
 
 @Composable
-fun PanelHistorySetting(
-    value: Long,
-    onValueChange: (Long) -> Unit,
-    onCustomValue: () -> Unit,
-) {
+fun PanelHistorySetting(value: Long, onValueChange: (Long) -> Unit, onCustomValue: () -> Unit) {
     val sliderState = remember {
         SliderState(value = panelHistoryToSlider(value), trackRange = 0f..1f)
     }
@@ -191,11 +175,7 @@ fun PanelHistorySetting(
 }
 
 @Composable
-fun PanelConcurrencySetting(
-    title: String,
-    value: Int,
-    onClick: () -> Unit,
-) {
+fun PanelConcurrencySetting(title: String, value: Int, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
@@ -218,10 +198,7 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
 }
 
 @Composable
-fun PanelTelegramBotTokenSetting(
-    configured: Boolean,
-    onClick: () -> Unit,
-) {
+fun PanelTelegramBotTokenSetting(configured: Boolean, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
@@ -260,8 +237,11 @@ fun PanelTelegramBotTokenPrompt(
             onValueChange = { input = it },
             label = { Text(stringResource(R.string.panel_telegram_bot_token_label)) },
             supportingText =
-                if (valid) null
-                else ({ Text(stringResource(R.string.panel_telegram_bot_token_invalid)) }),
+                if (valid) {
+                    null
+                } else {
+                    ({ Text(stringResource(R.string.panel_telegram_bot_token_invalid)) })
+                },
             isError = !valid,
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -302,11 +282,13 @@ fun <T> PanelDropdownSetting(
                 DropdownMenuItem(
                     text = { Text(label) },
                     trailingIcon =
-                        if (value == selected)
+                        if (value == selected) {
                             ({
                                 Icon(MaterialSymbols.Outlined.Check, null)
                             })
-                        else null,
+                        } else {
+                            null
+                        },
                     onClick = {
                         expanded = false
                         onSelected(value)
@@ -318,10 +300,7 @@ fun <T> PanelDropdownSetting(
 }
 
 @Composable
-fun PanelFunBoxApiClientIdPrompt(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+fun PanelFunBoxApiClientIdPrompt(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var input by remember { mutableStateOf(PanelSettings.effectiveFunBoxApiClientWxId) }
     val normalized = input.trim()
     val valid = PanelSettings.isValidFunBoxApiClientWxId(normalized)
@@ -490,20 +469,23 @@ fun PanelSearchField(
 }
 
 @Composable
-fun RecentModeTitle(
-    mostUsed: Boolean,
-    onModeChange: (Boolean) -> Unit,
-) {
+fun RecentModeTitle(mostUsed: Boolean, onModeChange: (Boolean) -> Unit) {
     val recentColor by
         animateColorAsState(
-            if (!mostUsed) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            if (!mostUsed) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             label = "recent-title-color",
         )
     val mostColor by
         animateColorAsState(
-            if (mostUsed) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            if (mostUsed) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             label = "most-used-title-color",
         )
     val recentSize by animateFloatAsState(if (!mostUsed) 16f else 14f, label = "recent-title-size")

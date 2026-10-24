@@ -38,15 +38,10 @@ inline val currentHookBridge: IHookBridge
 
 // most extension methods are inside BaseFeature for enabled state checking
 
-fun BaseReflectedMethod.hookBeforeDirectly(
-    priority: Int = 50,
-    action: HookAction,
-) = self.hookBeforeDirectly(priority, action)
+fun BaseReflectedMethod.hookBeforeDirectly(priority: Int = 50, action: HookAction) =
+    self.hookBeforeDirectly(priority, action)
 
-fun Executable.hookBeforeDirectly(
-    priority: Int = 50,
-    action: HookAction,
-): HookHandle =
+fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookHandle =
     currentHookBridge.hookMethod(
         this,
         object : HookCallback(priority) {
@@ -57,20 +52,13 @@ fun Executable.hookBeforeDirectly(
         priority,
     )
 
-fun BaseReflectedMethod.hookAfterDirectly(
-    priority: Int = 50,
-    action: HookAction,
-): HookHandle = self.hookAfterDirectly(priority, action)
+fun BaseReflectedMethod.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
+    self.hookAfterDirectly(priority, action)
 
-fun ReflectedConstructor<*>.hookAfterDirectly(
-    priority: Int = 50,
-    action: HookAction,
-): HookHandle = self.hookAfterDirectly(priority, action)
+fun ReflectedConstructor<*>.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
+    self.hookAfterDirectly(priority, action)
 
-fun Executable.hookAfterDirectly(
-    priority: Int = 50,
-    action: HookAction,
-): HookHandle =
+fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
     currentHookBridge.hookMethod(
         this,
         object : HookCallback(priority) {
@@ -81,13 +69,10 @@ fun Executable.hookAfterDirectly(
         priority,
     )
 
-fun BaseReflectedMethod.hookDirectly(
-    hook: HookCallback,
-): HookHandle = self.hookDirectly(hook)
+fun BaseReflectedMethod.hookDirectly(hook: HookCallback): HookHandle = self.hookDirectly(hook)
 
-fun Executable.hookDirectly(
-    hook: HookCallback,
-): HookHandle = currentHookBridge.hookMethod(this, hook, hook.priority)
+fun Executable.hookDirectly(hook: HookCallback): HookHandle =
+    currentHookBridge.hookMethod(this, hook, hook.priority)
 
 fun HookParam.captureOriginalMethod(): OriginalMethodInvoker {
     val method =

@@ -121,8 +121,9 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
                 key = amountRange,
                 titleRes = R.string.payment_transfer_amount_range,
                 summary = { rule ->
-                    if (!rule.enabled) stringResource(R.string.payment_transfer_amount_unrestricted)
-                    else {
+                    if (!rule.enabled) {
+                        stringResource(R.string.payment_transfer_amount_unrestricted)
+                    } else {
                         val unrestricted = stringResource(R.string.unrestricted)
                         stringResource(
                             R.string.payment_transfer_amount_summary,
@@ -147,9 +148,11 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
                                         onChange(
                                             if (
                                                 labelRes == R.string.payment_transfer_minimum_amount
-                                            )
+                                            ) {
                                                 value.copy(minimumYuan = amount)
-                                            else value.copy(maximumYuan = amount),
+                                            } else {
+                                                value.copy(maximumYuan = amount)
+                                            },
                                         )
                                     },
                                     label = { Text(stringResource(labelRes)) },
@@ -218,14 +221,16 @@ object TransferAutomation : AutomationSpec("TRANSFER") {
                     return it
                 }
         }
-        if (validates(keyIds, delay))
+        if (validates(keyIds, delay)) {
             rules[delay].validationError()?.let {
                 return it
             }
-        if (validates(keyIds, reply))
+        }
+        if (validates(keyIds, reply)) {
             rules[reply].validationError()?.let {
                 return it
             }
+        }
         return null
     }
 

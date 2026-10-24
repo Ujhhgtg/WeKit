@@ -96,12 +96,18 @@ fun ContactSearchField(state: ContactSelectorState, modifier: Modifier = Modifie
         IconButton(onClick = { state.filtersExpanded = !state.filtersExpanded }) {
             Icon(
                 imageVector =
-                    if (state.filtersExpanded) MaterialSymbols.Outlined.Expand_less
-                    else MaterialSymbols.Outlined.Expand_more,
+                    if (state.filtersExpanded) {
+                        MaterialSymbols.Outlined.Expand_less
+                    } else {
+                        MaterialSymbols.Outlined.Expand_more
+                    },
                 contentDescription =
                     stringResource(
-                        if (state.filtersExpanded) R.string.contact_filters_collapse
-                        else R.string.contact_filters_expand,
+                        if (state.filtersExpanded) {
+                            R.string.contact_filters_collapse
+                        } else {
+                            R.string.contact_filters_expand
+                        },
                     ),
             )
         }
@@ -126,7 +132,7 @@ fun ContactFilterPanel(
         exit = shrinkVertically() + fadeOut(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (state.showTypeFilters)
+            if (state.showTypeFilters) {
                 ChipRow(horizontalPadding) {
                     items(state.availableTypes) { type ->
                         val displayName = stringResource(type.displayNameRes)
@@ -143,8 +149,9 @@ fun ContactFilterPanel(
                         )
                     }
                 }
+            }
 
-            if (state.availableFilterModes.isNotEmpty())
+            if (state.availableFilterModes.isNotEmpty()) {
                 ChipRow(horizontalPadding) {
                     item {
                         val context = LocalContext.current
@@ -188,6 +195,7 @@ fun ContactFilterPanel(
                         )
                     }
                 }
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -290,6 +298,7 @@ private fun ContactFilterChip(
                         )
                     }
                 }
+
                 icon != null -> {
                     {
                         Icon(
@@ -299,7 +308,10 @@ private fun ContactFilterChip(
                         )
                     }
                 }
-                else -> null
+
+                else -> {
+                    null
+                }
             },
     )
 }
@@ -345,8 +357,11 @@ fun AlphabetIndexBar(
         alphabetIndexKeys(state.sortReversed).forEach { key ->
             Text(
                 text =
-                    if (key == ContactSectionKey.Selected) "✓"
-                    else (key as ContactSectionKey.Initial).letter,
+                    if (key == ContactSectionKey.Selected) {
+                        "✓"
+                    } else {
+                        (key as ContactSectionKey.Initial).letter
+                    },
                 style = MaterialTheme.typography.labelSmall,
                 color =
                     if (key in headerIndices) {

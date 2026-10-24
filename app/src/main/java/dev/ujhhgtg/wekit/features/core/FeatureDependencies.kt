@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentHashMap
  * Transitive closure over the build-time scanned [GeneratedFeatureDependencies.DIRECT] references.
  */
 object FeatureDependencies {
-
     private val transitiveCache = ConcurrentHashMap<BaseFeature, List<BaseFeature>>()
 
     /** Every feature [feature] reaches through direct references, breadth-first, without itself. */

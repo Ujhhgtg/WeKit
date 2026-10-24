@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object ForceEnableAllTools : SwitchFeature(), IResolveDex {
-
     override val technicalId = "强制启用所有功能"
     override val nameRes = R.string.feature_force_enable_all_tools_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

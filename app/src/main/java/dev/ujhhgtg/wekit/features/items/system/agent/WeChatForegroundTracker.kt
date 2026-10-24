@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
  * for our needs ([WeAgentOverlayController]); transitions are only reported when the boolean flips.
  */
 object WeChatForegroundTracker {
-
     @Volatile
     var isForeground = false
         private set

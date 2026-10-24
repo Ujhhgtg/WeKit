@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 
 object SpoofHostVersion : SwitchFeature(), IResolveDex {
-
     override val technicalId = "伪装宿主版本"
     override val nameRes = R.string.feature_spoof_host_version_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

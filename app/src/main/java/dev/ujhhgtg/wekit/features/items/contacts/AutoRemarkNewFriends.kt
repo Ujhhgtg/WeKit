@@ -28,7 +28,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.formatEpoch
 
 object AutoRemarkNewFriends : ClickableFeature() {
-
     override val technicalId = "添加自动备注"
     override val nameRes = R.string.feature_auto_remark_new_friends_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

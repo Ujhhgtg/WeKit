@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.api.net
 import dev.ujhhgtg.wekit.features.api.net.abc.WeRequestCallback
 
 class WeRequestDsl : WeRequestCallback {
-
     private var successHandler: ((ByteArray?) -> Unit)? = null
     private var failHandler: ((Int, Int, String) -> Unit)? = null
 

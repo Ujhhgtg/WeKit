@@ -120,27 +120,42 @@ object AutomationReplyExecutor {
                 sent
             }
 
-            AutomationReplyStepKind.IMAGE ->
+            AutomationReplyStepKind.IMAGE -> {
                 sendPaths(step.content) { WeMessageApi.sendImage(target, it) }
-            AutomationReplyStepKind.VOICE -> sendPaths(step.content) { sendVoice(target, it) }
-            AutomationReplyStepKind.RANDOM_VOICE ->
+            }
+
+            AutomationReplyStepKind.VOICE -> {
+                sendPaths(step.content) { sendVoice(target, it) }
+            }
+
+            AutomationReplyStepKind.RANDOM_VOICE -> {
                 randomAudioFile(step.content)?.let { sendVoice(target, it) }
                     ?: run {
                         WeLogger.w(TAG, "random voice step has no audio files: ${step.content}")
                         false
                     }
+            }
 
-            AutomationReplyStepKind.EMOJI ->
+            AutomationReplyStepKind.EMOJI -> {
                 sendPaths(step.content) { WeMessageApi.sendSticker(target, it) }
-            AutomationReplyStepKind.VIDEO ->
-                sendPaths(step.content) { WeMessageApi.sendVideo(target, it) }
-            AutomationReplyStepKind.FILE ->
-                sendPaths(step.content) { WeMessageApi.sendFile(target, it, File(it).name) }
-            AutomationReplyStepKind.FAVORITE ->
-                eachValue(step.content) { id -> WeFavoriteApi.send(target, id.toLong()) }
+            }
 
-            AutomationReplyStepKind.CARD ->
+            AutomationReplyStepKind.VIDEO -> {
+                sendPaths(step.content) { WeMessageApi.sendVideo(target, it) }
+            }
+
+            AutomationReplyStepKind.FILE -> {
+                sendPaths(step.content) { WeMessageApi.sendFile(target, it, File(it).name) }
+            }
+
+            AutomationReplyStepKind.FAVORITE -> {
+                eachValue(step.content) { id -> WeFavoriteApi.send(target, id.toLong()) }
+            }
+
+            AutomationReplyStepKind.CARD -> {
                 eachValue(step.content) { WeMessageApi.sendShareCard(target, it) }
+            }
+
             AutomationReplyStepKind.INVITE_GROUP -> {
                 val member = context.sender
                 eachValue(step.content) { groupId ->
@@ -149,8 +164,9 @@ object AutomationReplyExecutor {
                 }
             }
 
-            AutomationReplyStepKind.XML ->
+            AutomationReplyStepKind.XML -> {
                 WeMessageApi.sendXmlAppMsg(target, ensureXml(format(step.content, context)))
+            }
         }
     }
 
@@ -208,16 +224,19 @@ object AutomationReplyExecutor {
                 .filter(String::isNotEmpty)
                 .toList()
         if (atList.isEmpty()) {
-            return if (asQuote && context.msgId > 0L)
+            return if (asQuote && context.msgId > 0L) {
                 WeMessageApi.sendQuoteTextByMsgId(target, context.msgId, text)
-            else WeMessageApi.sendText(target, text)
+            } else {
+                WeMessageApi.sendText(target, text)
+            }
         }
         val expanded =
             AT_REGEX.replace(text) { match ->
                 val wxId = match.groupValues[1].trim()
                 val name =
-                    if (wxId == AT_ALL) "所有人"
-                    else {
+                    if (wxId == AT_ALL) {
+                        "所有人"
+                    } else {
                         WeDatabaseApi.getGroupMemberDisplayName(target, wxId)
                             .ifBlank { WeDatabaseApi.getDisplayName(wxId) }
                             .ifBlank { wxId }
@@ -229,8 +248,9 @@ object AutomationReplyExecutor {
 
     private fun sendPaths(content: String, sender: (String) -> Boolean): Boolean =
         eachValue(content) { path ->
-            if (File(path).isFile) sender(path)
-            else {
+            if (File(path).isFile) {
+                sender(path)
+            } else {
                 WeLogger.w(TAG, "reply file is missing: $path")
                 false
             }
@@ -270,6 +290,7 @@ object AutomationReplyExecutor {
     /** One random audio file from the listed files, or else from the first listed folder. */
     private fun randomAudioFile(content: String): String? {
         val entries = splitReplyValues(content).map(::File)
+
         fun File.isAudio() = isFile && extension.lowercase() in AUDIO_EXTENSIONS
         entries
             .filter { it.isAudio() }

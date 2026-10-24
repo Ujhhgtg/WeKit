@@ -231,8 +231,11 @@ class MotionPhotoVideoMetadataTest {
     }
 
     private fun box(type: String, body: ByteArray, extended: Boolean = false): ByteArray =
-        if (extended) int(1) + type.toByteArray() + long(body.size + 16L) + body
-        else int(body.size + 8) + type.toByteArray() + body
+        if (extended) {
+            int(1) + type.toByteArray() + long(body.size + 16L) + body
+        } else {
+            int(body.size + 8) + type.toByteArray() + body
+        }
 
     private fun int(value: Int) = ByteBuffer.allocate(4).putInt(value).array()
 
@@ -298,11 +301,14 @@ class MotionPhotoVideoMetadataTest {
                 "stts",
                 int(0) +
                     int(if (samples.isEmpty()) 0 else 1) +
-                    if (samples.isEmpty()) ByteArray(0)
-                    else int(samples.size) + int(44100 / samples.size),
+                    if (samples.isEmpty()) {
+                        ByteArray(0)
+                    } else {
+                        int(samples.size) + int(44100 / samples.size)
+                    },
             )
         val sizes =
-            if (compact == 0)
+            if (compact == 0) {
                 box(
                     "stsz",
                     int(0) +
@@ -310,7 +316,7 @@ class MotionPhotoVideoMetadataTest {
                         int(samples.size) +
                         if (fixedSize) ByteArray(0) else concat(samples.map { int(it.size) }),
                 )
-            else
+            } else {
                 box(
                     "stz2",
                     int(0) +
@@ -323,6 +329,7 @@ class MotionPhotoVideoMetadataTest {
                             },
                         ),
                 )
+            }
         val chunks =
             box(
                 if (wide) "co64" else "stco",
@@ -335,8 +342,11 @@ class MotionPhotoVideoMetadataTest {
                 "stsc",
                 int(0) +
                     int(if (samples.isEmpty()) 0 else 1) +
-                    if (samples.isEmpty()) ByteArray(0)
-                    else int(1) + int(if (separate) 1 else samples.size) + int(1),
+                    if (samples.isEmpty()) {
+                        ByteArray(0)
+                    } else {
+                        int(1) + int(if (separate) 1 else samples.size) + int(1)
+                    },
             )
         return stsd + stts + sizes + chunks + mapping
     }
@@ -376,6 +386,7 @@ class MotionPhotoVideoMetadataTest {
         perSampleSize: Boolean = false,
     ): ByteArray {
         val metadataTrack = track(table(emptyList(), emptyList(), false, 0, false))
+
         fun trex(id: Int, size: Int) =
             box("trex", int(0) + int(id) + int(1) + int(44100) + int(size) + int(0))
         val prefix =
@@ -388,6 +399,7 @@ class MotionPhotoVideoMetadataTest {
                 Fragment.CHAINED_RUNS -> payload + payload
                 else -> payload
             }
+
         fun build(size: Int): ByteArray {
             val dataOffset = size + 8
             val dataStart = prefix.size + dataOffset
@@ -395,8 +407,10 @@ class MotionPhotoVideoMetadataTest {
                 when (mode) {
                     Fragment.EXPLICIT,
                     Fragment.SIGNED -> 1 or 0x20000
+
                     Fragment.INHERITED,
                     Fragment.LAST_RUN_END -> 0
+
                     else -> 0x20000
                 }
             val explicitBase =
@@ -420,9 +434,11 @@ class MotionPhotoVideoMetadataTest {
                     "trun",
                     int((if (hasOffset) 1 else 0) or if (perSampleSize) 0x200 else 0) +
                         int(1) +
-                        (if (hasOffset)
+                        (if (hasOffset) {
                             int(if (mode == Fragment.SIGNED) -payload.size else dataOffset)
-                        else ByteArray(0)) +
+                        } else {
+                            ByteArray(0)
+                        }) +
                         if (perSampleSize) int(payload.size) else ByteArray(0),
                 )
             val preceding =
@@ -433,16 +449,23 @@ class MotionPhotoVideoMetadataTest {
                             int(1) +
                                 int(1) +
                                 int(
-                                    if (mode == Fragment.LAST_RUN_END) dataOffset + 2 + payload.size
-                                    else dataOffset,
+                                    if (mode == Fragment.LAST_RUN_END) {
+                                        dataOffset + 2 + payload.size
+                                    } else {
+                                        dataOffset
+                                    },
                                 ),
                         )
                     val last =
-                        if (mode == Fragment.LAST_RUN_END)
+                        if (mode == Fragment.LAST_RUN_END) {
                             box("trun", int(1) + int(1) + int(dataOffset))
-                        else ByteArray(0)
+                        } else {
+                            ByteArray(0)
+                        }
                     box("traf", box("tfhd", int(0) + int(1)) + first + last)
-                } else ByteArray(0)
+                } else {
+                    ByteArray(0)
+                }
             val chained =
                 if (mode == Fragment.CHAINED_RUNS) box("trun", int(0) + int(1)) else ByteArray(0)
             return box(
@@ -468,8 +491,12 @@ class MotionPhotoVideoMetadataTest {
                 }
             return byteArrayOf(tag.toByte()) + groups.map { it.toByte() }.toByteArray() + body
         }
+
         fun frame(time: Long) =
-            d(0xc3, ByteBuffer.allocate(12).putFloat(0.5f).putLong(time).array())
+            d(
+                0xc3,
+                ByteBuffer.allocate(12).putFloat(0.5f).putLong(time).array(),
+            )
         val track =
             d(
                 0xc2,
@@ -483,7 +510,9 @@ class MotionPhotoVideoMetadataTest {
 
     private fun xmpPhoto(bytes: ByteArray, timestamp: String?): ByteArray {
         val xml =
-            """<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:c="http://ns.google.com/photos/1.0/camera/" xmlns:d="http://ns.google.com/photos/1.0/container/" xmlns:i="http://ns.google.com/photos/1.0/container/item/" c:MotionPhoto="1" c:MotionPhotoVersion="1" ${timestamp?.let { "c:MotionPhotoPresentationTimestampUs=\"$it\"" }.orEmpty()}><d:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><d:Item i:Mime="image/jpeg" i:Semantic="Primary"/></rdf:li><rdf:li rdf:parseType="Resource"><d:Item i:Mime="video/mp4" i:Semantic="MotionPhoto" i:Length="${bytes.size}"/></rdf:li></rdf:Seq></d:Directory></rdf:Description></rdf:RDF></x:xmpmeta>"""
+            """<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:c="http://ns.google.com/photos/1.0/camera/" xmlns:d="http://ns.google.com/photos/1.0/container/" xmlns:i="http://ns.google.com/photos/1.0/container/item/" c:MotionPhoto="1" c:MotionPhotoVersion="1" ${timestamp?.let {
+                "c:MotionPhotoPresentationTimestampUs=\"$it\""
+            }.orEmpty()}><d:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><d:Item i:Mime="image/jpeg" i:Semantic="Primary"/></rdf:li><rdf:li rdf:parseType="Resource"><d:Item i:Mime="video/mp4" i:Semantic="MotionPhoto" i:Length="${bytes.size}"/></rdf:li></rdf:Seq></d:Directory></rdf:Description></rdf:RDF></x:xmpmeta>"""
         val metadata = "http://ns.adobe.com/xap/1.0/\u0000".toByteArray() + xml.toByteArray()
         return cover.copyOfRange(0, 2) +
             byteArrayOf(-1, -31) +

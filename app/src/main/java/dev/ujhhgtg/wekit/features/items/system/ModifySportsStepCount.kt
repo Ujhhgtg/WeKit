@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.utils.math.DecimalExpression
 import java.math.RoundingMode
 
 object ModifySportsStepCount : ClickableFeature(), IResolveDex {
-
     private const val KEY_PASSIVE_EXPRESSION = "step_passive_expression"
     private const val VALUE_VARIABLE = "value"
     private const val TAG = "ModifySportsStepCount"
@@ -169,8 +168,11 @@ object ModifySportsStepCount : ClickableFeature(), IResolveDex {
                                                     ) as Boolean
                                                 val result =
                                                     localizedSystemString(
-                                                        if (ok) R.string.system_success
-                                                        else R.string.system_failure,
+                                                        if (ok) {
+                                                            R.string.system_success
+                                                        } else {
+                                                            R.string.system_failure
+                                                        },
                                                     )
                                                 showToast(
                                                     context,

@@ -16,11 +16,10 @@ private val RICH_CONTENT_MAP =
         "[动画表情]" to "[贴纸表情]",
     )
 
-fun String.replaceRichContent(): String {
-    return MAP_REGEX.replace(this) { matchResult ->
+fun String.replaceRichContent(): String =
+    MAP_REGEX.replace(this) { matchResult ->
         RICH_CONTENT_MAP[matchResult.value] ?: matchResult.value
     }
-}
 
 private val EMOJI_MAP =
     mapOf(
@@ -134,11 +133,10 @@ private val EMOJI_MAP =
         "[转圈]" to "🌀",
     )
 
-fun String.replaceEmojis(): String {
-    return MAP_REGEX.replace(this) { matchResult ->
+fun String.replaceEmojis(): String =
+    MAP_REGEX.replace(this) { matchResult ->
         EMOJI_MAP[matchResult.value] ?: matchResult.value
     }
-}
 
 private val WXID_PREFIX_REGEX = Regex("""^wxid_[^:]+:\n(.*)$""", setOf(RegexOption.DOT_MATCHES_ALL))
 private val GENERIC_PREFIX_REGEX = Regex("""^[^:]+:\n(.*)$""", setOf(RegexOption.DOT_MATCHES_ALL))

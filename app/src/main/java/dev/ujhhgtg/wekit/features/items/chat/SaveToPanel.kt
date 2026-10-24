@@ -28,7 +28,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "保存到面板"
     override val nameRes = R.string.feature_save_to_panel_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -69,10 +68,7 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     private fun isSupportedMessage(message: MessageInfo): Boolean =
         message.type?.isSticker == true || message.type == MessageType.VOICE
 
-    private class PendingSave(
-        val context: Context,
-        val messages: List<MessageInfo>,
-    ) {
+    private class PendingSave(val context: Context, val messages: List<MessageInfo>) {
         val stickerMessages = messages.filter { it.type?.isSticker == true }
         val voiceMessages = messages.filter { it.type == MessageType.VOICE }
         var stickerPackId: String? = null
@@ -87,13 +83,17 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     /** Runs the two pack choices in order, then saves the original message list by type. */
     private fun chooseNextPack(pending: PendingSave) {
         when {
-            pending.stickerMessages.isNotEmpty() && pending.stickerPackId == null ->
+            pending.stickerMessages.isNotEmpty() && pending.stickerPackId == null -> {
                 chooseStickerPack(pending)
+            }
 
-            pending.voiceMessages.isNotEmpty() && pending.voicePackId == null ->
+            pending.voiceMessages.isNotEmpty() && pending.voicePackId == null -> {
                 chooseVoicePack(pending)
+            }
 
-            else -> saveMessages(pending)
+            else -> {
+                saveMessages(pending)
+            }
         }
     }
 
@@ -170,13 +170,17 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             pending.messages.forEach { message ->
                 val saved =
                     when {
-                        message.type?.isSticker == true ->
+                        message.type?.isSticker == true -> {
                             pending.stickerPackId?.let { saveSticker(message, it) } == true
+                        }
 
-                        message.type == MessageType.VOICE ->
+                        message.type == MessageType.VOICE -> {
                             pending.voicePackId?.let { saveVoice(message, it) } == true
+                        }
 
-                        else -> false
+                        else -> {
+                            false
+                        }
                     }
                 if (saved) succeeded++
             }
@@ -187,21 +191,27 @@ object SaveToPanel : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     private fun summary(pending: PendingSave, succeeded: Int): String {
         if (pending.messages.size == 1) {
             return when {
-                succeeded == 1 && pending.stickerPackId != null ->
+                succeeded == 1 && pending.stickerPackId != null -> {
                     pending.context.localizedChatString(
                         R.string.chat_save_to_panel_sticker_success,
                         pending.stickerPackId!!,
                     )
+                }
 
-                succeeded == 1 && pending.voicePackId != null ->
+                succeeded == 1 && pending.voicePackId != null -> {
                     pending.context.localizedChatString(
                         R.string.chat_save_to_panel_voice_success,
                         pending.voicePackId!!,
                     )
+                }
 
-                pending.stickerMessages.isNotEmpty() ->
+                pending.stickerMessages.isNotEmpty() -> {
                     pending.context.localizedChatString(R.string.chat_sticker_save_failed)
-                else -> pending.context.localizedChatString(R.string.chat_voice_save_failed)
+                }
+
+                else -> {
+                    pending.context.localizedChatString(R.string.chat_voice_save_failed)
+                }
             }
         }
         if (pending.stickerMessages.isNotEmpty() && pending.voiceMessages.isNotEmpty()) {

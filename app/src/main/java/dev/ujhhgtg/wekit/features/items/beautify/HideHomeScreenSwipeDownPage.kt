@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 
 object HideHomeScreenSwipeDownPage : SwitchFeature() {
-
     override val technicalId = "隐藏主页下滑「最近」页"
     override val nameRes = R.string.feature_hide_home_screen_swipe_down_page_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

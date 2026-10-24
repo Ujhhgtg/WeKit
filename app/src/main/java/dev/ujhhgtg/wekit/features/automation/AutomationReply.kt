@@ -42,8 +42,9 @@ data class AutomationReplyRule(
 ) {
     fun validationError(): String? {
         if (!enabled) return null
-        if (steps.isEmpty())
+        if (steps.isEmpty()) {
             return localizedAutomationString(dev.ujhhgtg.wekit.R.string.automation_reply_required)
+        }
         return null
     }
 }

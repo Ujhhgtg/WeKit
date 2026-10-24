@@ -86,13 +86,14 @@ object TelegramStickerApiClient {
                         existing = 0L
                         return@repeat
                     }
-                    if (!it.isSuccessful)
+                    if (!it.isSuccessful) {
                         throw TelegramApiException(
                             localizedChatString(
                                 R.string.chat_telegram_file_download_failed,
                                 it.code,
                             ),
                         )
+                    }
                     val append = existing > 0L && it.code == 206
                     val options =
                         if (append) {
@@ -209,8 +210,11 @@ object TelegramStickerApiClient {
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) continuation.resume(response)
-                        else response.close()
+                        if (continuation.isActive) {
+                            continuation.resume(response)
+                        } else {
+                            response.close()
+                        }
                     }
                 },
             )

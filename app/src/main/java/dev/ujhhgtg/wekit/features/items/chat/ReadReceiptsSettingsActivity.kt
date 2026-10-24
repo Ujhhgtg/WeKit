@@ -79,8 +79,11 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                         valueHint = stringResource(R.string.read_receipts_server_url),
                         onValueChange = { value ->
                             val normalized =
-                                if (value.isEmpty()) ""
-                                else normalizeThirdPartyReadReceiptEndpoint(value)
+                                if (value.isEmpty()) {
+                                    ""
+                                } else {
+                                    normalizeThirdPartyReadReceiptEndpoint(value)
+                                }
                             if (normalized == null) {
                                 feedbackRes = R.string.read_receipts_invalid_third_party_url
                             } else {
@@ -133,8 +136,11 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                             Text(
                                 text =
                                     stringResource(
-                                        if (testing) R.string.read_receipts_connection_test_pending
-                                        else feedbackRes,
+                                        if (testing) {
+                                            R.string.read_receipts_connection_test_pending
+                                        } else {
+                                            feedbackRes
+                                        },
                                     ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color =
@@ -143,9 +149,11 @@ private fun ReadReceiptsHomeScreen(onFinish: () -> Unit) {
                                             R.string.read_receipts_invalid_third_party_url ||
                                             feedbackRes ==
                                                 R.string.read_receipts_server_connection_failed
-                                    )
+                                    ) {
                                         MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                             )
                         }
                     }

@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Proxy
 
 object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "对话菜单增强扩展"
     override val nameRes = R.string.feature_we_conversation_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

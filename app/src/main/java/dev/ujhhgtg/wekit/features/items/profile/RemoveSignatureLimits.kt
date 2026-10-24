@@ -15,7 +15,6 @@ import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
 object RemoveSignatureLimits : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除个性签名限制"
     override val nameRes = R.string.feature_remove_signature_limits_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)

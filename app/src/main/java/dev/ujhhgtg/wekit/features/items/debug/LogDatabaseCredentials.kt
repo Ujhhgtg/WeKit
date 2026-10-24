@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 object LogDatabaseCredentials : SwitchFeature() {
-
     override val technicalId = "记录数据库凭据"
     override val nameRes = R.string.feature_log_database_credentials_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -39,10 +38,10 @@ object LogDatabaseCredentials : SwitchFeature() {
                 WeLogger.d(
                     TAG,
                     "openDatabase() called with: name=${args[0] as String?}, password=${String(args[1] as? ByteArray? ?: return@hookBefore)}, cipherSpec=${
-                    cipherSpec.run {
-                        "${this?.hmacAlgorithm},${this?.hmacEnabled},${this?.kdfAlgorithm},${this?.kdfIteration},${this?.pageSize}"
-                    }
-                }",
+                        cipherSpec.run {
+                            "${this?.hmacAlgorithm},${this?.hmacEnabled},${this?.kdfAlgorithm},${this?.kdfIteration},${this?.pageSize}"
+                        }
+                    }",
                 )
             }
     }

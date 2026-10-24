@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WePacketManager {
-
     private val listeners = CopyOnWriteArrayList<IWePacketInterceptor>()
 
     fun addInterceptor(interceptor: IWePacketInterceptor) = listeners.addIfAbsent(interceptor)

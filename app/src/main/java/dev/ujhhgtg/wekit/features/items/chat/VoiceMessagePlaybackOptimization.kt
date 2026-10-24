@@ -48,7 +48,6 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
  * 所有锚点均为跨版本稳定字符串, 按项目约定不加 allowFailure。
  */
 object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
-
     override val technicalId = "语音消息播放逻辑优化"
     override val nameRes = R.string.feature_voice_message_playback_optimization_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -120,7 +119,10 @@ object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
         // 切换任务: 禁用模式下兜底丢弃; 继承进度模式下替换为「仅切换 + 保留进度」。
         methodSwitchTask.hookBefore {
             when (playbackMode) {
-                MODE_DISABLE -> result = false
+                MODE_DISABLE -> {
+                    result = false
+                }
+
                 MODE_INHERIT_PROGRESS -> {
                     val task = thisObject!!
                     val autoPlay = task.reflekt().firstField { type = classAutoPlay.clazz }.get()

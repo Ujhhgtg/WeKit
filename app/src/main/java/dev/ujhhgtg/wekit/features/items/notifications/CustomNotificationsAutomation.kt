@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.notifications
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,8 +89,9 @@ data class SenderFilterRule(
     val block: List<String> = emptyList(),
 ) {
     fun allows(senderId: String, senderName: String, content: String): Boolean {
-        if (only.isNotEmpty() && only.none { matches(it, senderId, senderName, content) })
+        if (only.isNotEmpty() && only.none { matches(it, senderId, senderName, content) }) {
             return false
+        }
         return block.none { matches(it, senderId, senderName, content) }
     }
 
@@ -103,6 +103,7 @@ data class SenderFilterRule(
     ): Boolean {
         val key = token.trim().lowercase()
         if (key.isEmpty()) return false
+
         fun overlaps(value: String) =
             value.isNotEmpty() && (value.contains(key) || key.contains(value))
         val text = content.lowercase()
@@ -132,8 +133,9 @@ fun playedVoiceContent(content: String): String? {
     if (
         durationStart >= durationEnd ||
             body.substring(durationStart, durationEnd).toLongOrNull() == null
-    )
+    ) {
         return null
+    }
     return body.substring(0, markerStart) + "1" + body.substring(markerEnd) + lineEnding
 }
 
@@ -272,10 +274,17 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 titleRes = R.string.custom_notify_sound,
                 summary = { rule ->
                     when {
-                        !rule.enabled -> stringResource(R.string.custom_notify_sound_off)
-                        rule.ringtone.isEmpty() ->
+                        !rule.enabled -> {
+                            stringResource(R.string.custom_notify_sound_off)
+                        }
+
+                        rule.ringtone.isEmpty() -> {
                             stringResource(R.string.custom_notify_ringtone_default)
-                        else -> ringtoneName(rule.ringtone)
+                        }
+
+                        else -> {
+                            ringtoneName(rule.ringtone)
+                        }
                     }
                 },
                 isOn = { it.enabled },
@@ -343,11 +352,21 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 titleRes = R.string.custom_notify_mentions,
                 summary = { rule ->
                     when {
-                        rule.blockAtAll && rule.blockAtMe ->
+                        rule.blockAtAll && rule.blockAtMe -> {
                             stringResource(R.string.custom_notify_mentions_both)
-                        rule.blockAtAll -> stringResource(R.string.custom_notify_mentions_all)
-                        rule.blockAtMe -> stringResource(R.string.custom_notify_mentions_me)
-                        else -> stringResource(R.string.custom_notify_mentions_off)
+                        }
+
+                        rule.blockAtAll -> {
+                            stringResource(R.string.custom_notify_mentions_all)
+                        }
+
+                        rule.blockAtMe -> {
+                            stringResource(R.string.custom_notify_mentions_me)
+                        }
+
+                        else -> {
+                            stringResource(R.string.custom_notify_mentions_off)
+                        }
                     }
                 },
                 inline = { _, value, onChange -> MentionChips(value, onChange) },
@@ -357,14 +376,15 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                 key = senders,
                 titleRes = R.string.custom_notify_senders,
                 summary = { rule ->
-                    if (rule.only.isEmpty() && rule.block.isEmpty())
+                    if (rule.only.isEmpty() && rule.block.isEmpty()) {
                         stringResource(R.string.custom_notify_senders_off)
-                    else
+                    } else {
                         pluralStringResource(
                             R.plurals.custom_notify_senders_count,
                             rule.only.size + rule.block.size,
                             rule.only.size + rule.block.size,
                         )
+                    }
                 },
                 summaryExtra = { rule -> AutomationMiniChips(rule.only + rule.block) },
                 sheet = { ctx, value, onChange ->
@@ -396,7 +416,6 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
 
     private fun ringtoneName(path: String) = File(path).name.substringAfter('_')
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     private fun MentionChips(value: MentionBlockRule, onChange: (MentionBlockRule) -> Unit) {
         FlowRow(
@@ -425,7 +444,9 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                                         Modifier.size(FilterChipDefaults.IconSize),
                                     )
                                 }
-                            } else null,
+                            } else {
+                                null
+                            },
                     )
                 }
         }
@@ -443,18 +464,23 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
                     RadioButton(
                         selected = (value.ringtone.isEmpty()) == system,
                         onClick = {
-                            if (system) onChange(value.copy(ringtone = ""))
-                            else
+                            if (system) {
+                                onChange(value.copy(ringtone = ""))
+                            } else {
                                 ctx.pickFiles(arrayOf("audio/*")) { paths ->
                                     paths.firstOrNull()?.let { onChange(value.copy(ringtone = it)) }
                                 }
+                            }
                         },
                     )
                     Column {
                         Text(
                             stringResource(
-                                if (system) R.string.custom_notify_ringtone_default
-                                else R.string.custom_notify_ringtone_custom,
+                                if (system) {
+                                    R.string.custom_notify_ringtone_default
+                                } else {
+                                    R.string.custom_notify_ringtone_custom
+                                },
                             ),
                         )
                         if (!system && value.ringtone.isNotEmpty()) {
@@ -483,7 +509,6 @@ object CustomNotificationsAutomation : AutomationSpec("CUSTOM_NOTIFICATIONS") {
     }
 
     /** Token chips with a text field; for a group chat, members can also be picked. */
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     private fun SenderTokens(
         ctx: AutomationEditorContext,

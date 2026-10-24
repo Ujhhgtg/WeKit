@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object RemoveMessageBatchForwardLimit : SwitchFeature() {
-
     override val technicalId = "移除消息批量转发限制"
     override val nameRes = R.string.feature_remove_message_batch_forward_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

@@ -19,7 +19,6 @@ import java.util.concurrent.CopyOnWriteArrayList
  * 监听聊天界面输入栏的文本变化事件，其他功能可通过 [addListener] 注册实现 [IInputBarListener] 接口的监听器来接收文本变化通知。
  */
 object WeChatInputBarApi : ApiFeature() {
-
     override val technicalId = "聊天输入栏监听服务"
     override val nameRes = R.string.feature_we_chat_input_bar_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

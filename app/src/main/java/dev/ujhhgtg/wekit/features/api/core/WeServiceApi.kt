@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
 object WeServiceApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "微信服务管理服务"
     override val nameRes = R.string.feature_we_service_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -138,8 +137,8 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                 }
                 .invoke()!!
 
-    fun processEmojiPath(path: String): String {
-        return emojiMgrImpl
+    fun processEmojiPath(path: String): String =
+        emojiMgrImpl
             .reflekt()
             .firstMethod {
                 parameters(Context::class, BString)
@@ -147,27 +146,24 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             }
             .invoke(HostInfo.application, path)!!
             as String
-    }
 
-    fun saveEmojiThumb(path: String): Any {
-        return emojiInfoStorage
+    fun saveEmojiThumb(path: String): Any =
+        emojiInfoStorage
             .reflekt()
             .firstMethod {
                 parameters(BString)
                 returnType = methodSaveEmojiThumb.method.declaringClass
             }
             .invoke(path)!!
-    }
 
-    fun getEmojiMd5FromPath(context: Context, path: String): String {
-        return emojiMgrImpl
+    fun getEmojiMd5FromPath(context: Context, path: String): String =
+        emojiMgrImpl
             .reflekt()
             .firstMethod {
                 parameters(Context::class.java, String::class.java)
                 returnType = String::class.java
             }
             .invoke(context, path) as String
-    }
 
     val emojiInfoStorage
         get() =
@@ -178,15 +174,14 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                 }
                 .invoke()!!
 
-    fun getEmojiInfoByMd5(md5: String): Any {
-        return emojiInfoStorage
+    fun getEmojiInfoByMd5(md5: String): Any =
+        emojiInfoStorage
             .reflekt()
             .firstMethod {
                 parameters(BString)
                 returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
             }
             .invoke(md5)!!
-    }
 
     val storageFeatureService
         get() = getServiceByClass(classStorageFeatureService.clazz)
@@ -214,17 +209,14 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                 }
                 .get()!!
 
-    fun getServiceByClass(clazz: Class<*>): Any {
-        return methodServiceManagerGetService.method.invoke(null, clazz)!!
-    }
+    fun getServiceByClass(clazz: Class<*>): Any =
+        methodServiceManagerGetService.method.invoke(null, clazz)!!
 
-    fun getServiceImplByClass(clazz: Class<*>): Any {
-        return methodMmKernelGetServiceImpl.method.invoke(null, clazz)!!
-    }
+    fun getServiceImplByClass(clazz: Class<*>): Any =
+        methodMmKernelGetServiceImpl.method.invoke(null, clazz)!!
 
-    fun getApiByClass(apiManager: Any, clazz: Class<*>): Any {
-        return methodApiManagerGetApi.method.invoke(apiManager, clazz.interfaces[0])!!
-    }
+    fun getApiByClass(apiManager: Any, clazz: Class<*>): Any =
+        methodApiManagerGetApi.method.invoke(apiManager, clazz.interfaces[0])!!
 
     val imageInfoStorage
         get() =
@@ -236,8 +228,8 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                 }
                 .invoke()!!
 
-    fun getImageMd5FromMsgInfo(msgInfo: MessageInfo): String {
-        return imageInfoStorage
+    fun getImageMd5FromMsgInfo(msgInfo: MessageInfo): String =
+        imageInfoStorage
             .reflekt()
             .firstMethod {
                 returnType = String::class
@@ -245,7 +237,6 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             }
             .invoke(msgInfo.instance)!!
             as String
-    }
 
     val videoPathFeatureService
         get() =
@@ -253,12 +244,11 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                 methodVideoPathFeatureServiceRestoreMp4Path.method.declaringClass.interfaces[0],
             )
 
-    fun getVideoMp4PathFromMsgInfo(msgInfo: MessageInfo): String {
-        return methodVideoPathFeatureServiceRestoreMp4Path.method.invoke(
+    fun getVideoMp4PathFromMsgInfo(msgInfo: MessageInfo): String =
+        methodVideoPathFeatureServiceRestoreMp4Path.method.invoke(
             videoPathFeatureService,
             msgInfo.imagePath!!,
         ) as String
-    }
 
     override fun resolveDex() {
         methodMmKernelGetServiceImpl.find {

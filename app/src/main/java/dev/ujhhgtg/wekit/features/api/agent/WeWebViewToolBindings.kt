@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.features.core.AgentToolParam
  * JS in a logged-in WebView is powerful.
  */
 object WeWebViewToolBindings {
-
     private fun resolveWebView(ref: String): Any =
         JvmObjectRegistry.resolve(ref)
             ?: throw IllegalArgumentException(
@@ -60,9 +59,8 @@ object WeWebViewToolBindings {
         sideEffect = false,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewGetUrl(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String = WeWebViewApi.getUrl(resolveWebView(ref)) ?: "null"
+    fun webviewGetUrl(@AgentToolParam("WebView handle, e.g. #12") ref: String): String =
+        WeWebViewApi.getUrl(resolveWebView(ref)) ?: "null"
 
     @AgentTool(
         name = "webview-get-title",
@@ -70,9 +68,8 @@ object WeWebViewToolBindings {
         sideEffect = false,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewGetTitle(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String = WeWebViewApi.getTitle(resolveWebView(ref)) ?: "null"
+    fun webviewGetTitle(@AgentToolParam("WebView handle, e.g. #12") ref: String): String =
+        WeWebViewApi.getTitle(resolveWebView(ref)) ?: "null"
 
     // ------------------------------------------------------------------ actions (MANUAL_APPROVAL)
 
@@ -114,9 +111,7 @@ object WeWebViewToolBindings {
         sideEffect = true,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewReload(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String {
+    fun webviewReload(@AgentToolParam("WebView handle, e.g. #12") ref: String): String {
         WeWebViewApi.reload(resolveWebView(ref))
         return "Reloaded."
     }
@@ -127,9 +122,7 @@ object WeWebViewToolBindings {
         sideEffect = true,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewStopLoading(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String {
+    fun webviewStopLoading(@AgentToolParam("WebView handle, e.g. #12") ref: String): String {
         WeWebViewApi.stopLoading(resolveWebView(ref))
         return "Stopped."
     }
@@ -142,9 +135,8 @@ object WeWebViewToolBindings {
         sideEffect = true,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewGoBack(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String = if (WeWebViewApi.goBack(resolveWebView(ref))) "Went back." else "Cannot go back."
+    fun webviewGoBack(@AgentToolParam("WebView handle, e.g. #12") ref: String): String =
+        if (WeWebViewApi.goBack(resolveWebView(ref))) "Went back." else "Cannot go back."
 
     @AgentTool(
         name = "webview-go-forward",
@@ -154,8 +146,6 @@ object WeWebViewToolBindings {
         sideEffect = true,
         group = BUILTIN_WEBVIEW,
     )
-    fun webviewGoForward(
-        @AgentToolParam("WebView handle, e.g. #12") ref: String,
-    ): String =
+    fun webviewGoForward(@AgentToolParam("WebView handle, e.g. #12") ref: String): String =
         if (WeWebViewApi.goForward(resolveWebView(ref))) "Went forward." else "Cannot go forward."
 }

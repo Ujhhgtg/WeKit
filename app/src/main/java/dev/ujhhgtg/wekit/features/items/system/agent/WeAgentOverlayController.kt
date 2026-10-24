@@ -43,7 +43,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  */
 @SuppressLint("StaticFieldLeak")
 object WeAgentOverlayController {
-
     private const val TAG = "WeAgentOverlayController"
 
     private const val PREF_BALL_X = "weagent_ball_x"
@@ -118,10 +117,17 @@ object WeAgentOverlayController {
      */
     private fun shouldBeVisible(): Boolean =
         when (mode) {
-            OverlayMode.DISABLED -> false
-            OverlayMode.ALWAYS -> desiredVisible && canDrawOverlays()
-            OverlayMode.FOREGROUND_ONLY ->
+            OverlayMode.DISABLED -> {
+                false
+            }
+
+            OverlayMode.ALWAYS -> {
+                desiredVisible && canDrawOverlays()
+            }
+
+            OverlayMode.FOREGROUND_ONLY -> {
                 desiredVisible && canDrawOverlays() && WeChatForegroundTracker.isForeground
+            }
         }
 
     /**

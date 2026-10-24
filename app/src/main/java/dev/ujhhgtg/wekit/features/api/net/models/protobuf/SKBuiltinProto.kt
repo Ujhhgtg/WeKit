@@ -13,7 +13,6 @@ data class SKBuiltinBufferProto(
     @ProtoNumber(1) val length: Int,
     @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(2) val buf: ByteArray? = null,
 ) {
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

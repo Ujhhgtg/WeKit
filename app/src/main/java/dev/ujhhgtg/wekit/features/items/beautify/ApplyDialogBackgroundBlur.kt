@@ -33,7 +33,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
 
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
-
     override val technicalId = "对话框窗口级背景模糊"
     override val nameRes = R.string.feature_apply_dialog_background_blur_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

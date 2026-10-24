@@ -43,7 +43,6 @@ object AutoCacheFiles :
     ClickableFeature(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener {
-
     override val technicalId = "自动缓存文件"
     override val nameRes = R.string.feature_auto_cache_files_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -174,15 +173,19 @@ object AutoCacheFiles :
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_whitelist_selected
-                                        else R.string.filter_list_blacklist_selected,
+                                        } else {
+                                            R.string.filter_list_blacklist_selected
+                                        },
                                     ),
                                 description =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.chat_auto_cache_files_whitelist_description
-                                        else R.string.chat_auto_cache_files_blacklist_description,
+                                        } else {
+                                            R.string.chat_auto_cache_files_blacklist_description
+                                        },
                                     ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
@@ -196,9 +199,11 @@ object AutoCacheFiles :
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_configure_whitelist
-                                        else R.string.filter_list_configure_blacklist,
+                                        } else {
+                                            R.string.filter_list_configure_blacklist
+                                        },
                                     ),
                                 description =
                                     stringResource(R.string.filter_list_select_contacts_hint),
@@ -212,9 +217,11 @@ object AutoCacheFiles :
                                         ContactsSelector(
                                             title =
                                                 stringResource(
-                                                    if (useWhitelistState)
+                                                    if (useWhitelistState) {
                                                         R.string.filter_list_select_whitelist
-                                                    else R.string.filter_list_select_blacklist,
+                                                    } else {
+                                                        R.string.filter_list_select_blacklist
+                                                    },
                                                 ),
                                             contacts = contacts,
                                             initialSelectedWxIds = currentList,

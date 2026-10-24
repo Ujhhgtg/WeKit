@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "批量撤回"
     override val nameRes = R.string.feature_batch_revoke_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -26,8 +25,8 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777023,
                 localizedChatString(R.string.chat_batch_revoke_menu),
@@ -69,5 +68,4 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
             ) { _, _, _ ->
             },
         )
-    }
 }

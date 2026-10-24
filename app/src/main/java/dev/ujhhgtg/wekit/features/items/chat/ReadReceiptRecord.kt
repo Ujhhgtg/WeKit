@@ -118,11 +118,7 @@ object ReadReceiptRecordCodec {
         return record.copy(endpoint = endpoint)
     }
 
-    private data class RecordKey(
-        val id: String,
-        val wxId: String,
-        val endpoint: String,
-    )
+    private data class RecordKey(val id: String, val wxId: String, val endpoint: String)
 
     private fun JsonElement.stringOrNull(): String? =
         (this as? JsonPrimitive)?.takeIf { it.isString }?.content

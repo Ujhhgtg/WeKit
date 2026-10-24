@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object BeautifyViewPressEffect : SwitchFeature() {
-
     override val technicalId = "美化组件按下效果"
     override val nameRes = R.string.feature_beautify_view_press_effect_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

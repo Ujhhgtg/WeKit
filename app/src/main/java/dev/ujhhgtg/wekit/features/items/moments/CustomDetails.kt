@@ -40,7 +40,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "自定义底部详细信息"
     override val nameRes = R.string.feature_custom_details_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -171,9 +170,11 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                                     }
                                     showToast(
                                         localizedContext.getString(
-                                            if (textInput.text.isBlank())
+                                            if (textInput.text.isBlank()) {
                                                 R.string.moments_custom_details_cleared
-                                            else R.string.moments_custom_details_saved,
+                                            } else {
+                                                R.string.moments_custom_details_saved
+                                            },
                                         ),
                                     )
                                     onDismiss()
@@ -196,7 +197,6 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         }
     }
 
-    private fun resolveSnsId(snsInfo: Any?): Long? {
-        return (snsInfo?.reflekt()?.getField("field_snsId", true) as? Number)?.toLong()
-    }
+    private fun resolveSnsId(snsInfo: Any?): Long? =
+        (snsInfo?.reflekt()?.getField("field_snsId", true) as? Number)?.toLong()
 }

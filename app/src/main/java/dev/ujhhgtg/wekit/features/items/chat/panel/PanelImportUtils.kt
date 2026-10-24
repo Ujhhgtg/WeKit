@@ -9,10 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.FragmentActivity
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 
-data class PickedPanelFile(
-    val name: String,
-    val uri: Uri,
-)
+data class PickedPanelFile(val name: String, val uri: Uri)
 
 fun pickPanelFile(
     context: Context,
@@ -82,10 +79,7 @@ fun pickPanelDirectory(
     }
 }
 
-fun listPanelTreeFiles(
-    resolver: ContentResolver,
-    treeUri: Uri,
-): List<PickedPanelFile> {
+fun listPanelTreeFiles(resolver: ContentResolver, treeUri: Uri): List<PickedPanelFile> {
     val result = mutableListOf<PickedPanelFile>()
     val visited = mutableSetOf<String>()
 

@@ -77,7 +77,6 @@ private fun dexFeatureReport(
     error: Throwable?,
     elapsedMillis: Long,
 ): DexTestFeatureReport {
-
     val pending = feature.dexDelegates.filter { it.state == DexResolutionState.Pending }
     if (error == null) {
         pending.forEach(BaseDexDelegate::markIncomplete)
@@ -177,15 +176,25 @@ private fun featureOutcome(
     error: Throwable?,
 ): DexTestFeatureOutcome =
     when {
-        error != null -> DexTestFeatureOutcome.FAIL
+        error != null -> {
+            DexTestFeatureOutcome.FAIL
+        }
+
         delegates.any {
             it.status == DexResolutionStatus.UNEXPECTED_FAILURE ||
                 it.status == DexResolutionStatus.BLOCKED ||
                 it.status == DexResolutionStatus.INCOMPLETE
-        } -> DexTestFeatureOutcome.FAIL
-        delegates.any { it.status == DexResolutionStatus.EXPECTED_FAILURE } ->
+        } -> {
+            DexTestFeatureOutcome.FAIL
+        }
+
+        delegates.any { it.status == DexResolutionStatus.EXPECTED_FAILURE } -> {
             DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
-        else -> DexTestFeatureOutcome.PASS
+        }
+
+        else -> {
+            DexTestFeatureOutcome.PASS
+        }
     }
 
 private fun displayName(feature: BaseFeature) =

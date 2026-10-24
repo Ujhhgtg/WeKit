@@ -16,7 +16,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,7 +46,6 @@ private class BallDragTracker {
  * Visuals reflect the 4-state machine: Idle static, Running breathing, PendingApproval badge, Error
  * warning tint.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WeAgentBall(
     state: BallState,
@@ -124,15 +122,20 @@ fun WeAgentBall(
                                 true
                             }
 
-                            else -> false
+                            else -> {
+                                false
+                            }
                         }
                     },
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector =
-                        if (state == BallState.ERROR) MaterialSymbols.Outlined.Error
-                        else MaterialSymbols.Outlined.Chat,
+                        if (state == BallState.ERROR) {
+                            MaterialSymbols.Outlined.Error
+                        } else {
+                            MaterialSymbols.Outlined.Chat
+                        },
                     contentDescription = "WeAgent",
                     tint = content,
                     modifier = Modifier.size(26.dp),

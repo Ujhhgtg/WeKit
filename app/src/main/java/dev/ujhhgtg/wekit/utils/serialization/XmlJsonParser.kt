@@ -30,7 +30,6 @@ data class XmlParserConfiguration(
 
 // ported from org.json.XML
 object XmlJsonParser {
-
     @Suppress("NOTHING_TO_INLINE")
     inline fun toJsonObject(
         string: String,
@@ -131,7 +130,9 @@ object XmlJsonParser {
                 return true
             }
 
-            is Char -> throw x.syntaxError("Misshaped tag")
+            is Char -> {
+                throw x.syntaxError("Misshaped tag")
+            }
 
             else -> {
                 val tagName = token as String
@@ -190,9 +191,13 @@ object XmlJsonParser {
                         }
 
                         val emptyValue: JsonElement =
-                            if (nilAttributeFound) JsonNull
-                            else if (jsonObject.isEmpty()) JsonPrimitive("")
-                            else jsonObject.toJsonElement(config.forceList)
+                            if (nilAttributeFound) {
+                                JsonNull
+                            } else if (jsonObject.isEmpty()) {
+                                JsonPrimitive("")
+                            } else {
+                                jsonObject.toJsonElement(config.forceList)
+                            }
 
                         if (tagName in config.forceList) {
                             if (nilAttributeFound) {
@@ -256,9 +261,14 @@ object XmlJsonParser {
 
                                         if (tagName in config.forceList) {
                                             when {
-                                                jsonObject.isEmpty() ->
+                                                jsonObject.isEmpty() -> {
                                                     context.put(tagName, JsonArray(emptyList()))
-                                                value != null -> context.append(tagName, value)
+                                                }
+
+                                                value != null -> {
+                                                    context.append(tagName, value)
+                                                }
+
                                                 else -> {
                                                     if (!config.trimWhiteSpace) {
                                                         removeEmpty(jsonObject)
@@ -271,9 +281,14 @@ object XmlJsonParser {
                                             }
                                         } else {
                                             when {
-                                                jsonObject.isEmpty() ->
+                                                jsonObject.isEmpty() -> {
                                                     context.accumulate(tagName, JsonPrimitive(""))
-                                                value != null -> context.accumulate(tagName, value)
+                                                }
+
+                                                value != null -> {
+                                                    context.accumulate(tagName, value)
+                                                }
+
                                                 else -> {
                                                     if (!config.trimWhiteSpace) {
                                                         removeEmpty(jsonObject)
@@ -289,7 +304,9 @@ object XmlJsonParser {
                                     }
                                 }
 
-                                else -> throw x.syntaxError("Misshaped tag")
+                                else -> {
+                                    throw x.syntaxError("Misshaped tag")
+                                }
                             }
                         }
                     } else {
@@ -512,13 +529,34 @@ class XmlTokener(
         } while (c.isWhitespace())
 
         return when (c) {
-            0.toChar() -> throw syntaxError("Misshaped meta tag")
-            LT_CHAR -> LT_CHAR
-            GT_CHAR -> GT_CHAR
-            SLASH_CHAR -> SLASH_CHAR
-            EQ_CHAR -> EQ_CHAR
-            BANG_CHAR -> BANG_CHAR
-            QUEST_CHAR -> QUEST_CHAR
+            0.toChar() -> {
+                throw syntaxError("Misshaped meta tag")
+            }
+
+            LT_CHAR -> {
+                LT_CHAR
+            }
+
+            GT_CHAR -> {
+                GT_CHAR
+            }
+
+            SLASH_CHAR -> {
+                SLASH_CHAR
+            }
+
+            EQ_CHAR -> {
+                EQ_CHAR
+            }
+
+            BANG_CHAR -> {
+                BANG_CHAR
+            }
+
+            QUEST_CHAR -> {
+                QUEST_CHAR
+            }
+
             '"',
             '\'' -> {
                 val q = c
@@ -534,7 +572,10 @@ class XmlTokener(
                     c = next()
                     if (c.isWhitespace()) return true
                     when (c) {
-                        0.toChar() -> throw syntaxError("Unterminated string")
+                        0.toChar() -> {
+                            throw syntaxError("Unterminated string")
+                        }
+
                         LT_CHAR,
                         GT_CHAR,
                         SLASH_CHAR,
@@ -559,13 +600,34 @@ class XmlTokener(
         } while (c.isWhitespace())
 
         return when (c) {
-            0.toChar() -> throw syntaxError("Misshaped element")
-            LT_CHAR -> throw syntaxError("Misplaced '<'")
-            GT_CHAR -> GT_CHAR
-            SLASH_CHAR -> SLASH_CHAR
-            EQ_CHAR -> EQ_CHAR
-            BANG_CHAR -> BANG_CHAR
-            QUEST_CHAR -> QUEST_CHAR
+            0.toChar() -> {
+                throw syntaxError("Misshaped element")
+            }
+
+            LT_CHAR -> {
+                throw syntaxError("Misplaced '<'")
+            }
+
+            GT_CHAR -> {
+                GT_CHAR
+            }
+
+            SLASH_CHAR -> {
+                SLASH_CHAR
+            }
+
+            EQ_CHAR -> {
+                EQ_CHAR
+            }
+
+            BANG_CHAR -> {
+                BANG_CHAR
+            }
+
+            QUEST_CHAR -> {
+                QUEST_CHAR
+            }
+
             '"',
             '\'' -> {
                 val q = c
@@ -592,8 +654,14 @@ class XmlTokener(
                     sb.append(ch)
                     ch = next()
                     when {
-                        ch.isWhitespace() -> return sb.toString()
-                        ch == 0.toChar() -> return sb.toString()
+                        ch.isWhitespace() -> {
+                            return sb.toString()
+                        }
+
+                        ch == 0.toChar() -> {
+                            return sb.toString()
+                        }
+
                         ch == GT_CHAR ||
                             ch == SLASH_CHAR ||
                             ch == EQ_CHAR ||
@@ -728,16 +796,16 @@ class XmlTokener(
                     character = 0
                 }
 
-                else -> character++
+                else -> {
+                    character++
+                }
             }
         }
     }
 
     fun syntaxError(message: String): JsonException = JsonException(message + toString())
 
-    override fun toString(): String {
-        return " at $index [character $character line $line]"
-    }
+    override fun toString(): String = " at $index [character $character line $line]"
 }
 
 class JsonException : RuntimeException {

@@ -36,7 +36,6 @@ import java.util.WeakHashMap
  *       (`ChatListItemAnimator.animateMoveImpl`)。
  */
 object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
-
     override val technicalId = "消息删除动画"
     override val nameRes = R.string.feature_message_deletion_animation_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -174,7 +173,6 @@ object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
     )
 
     private class Session(val list: ViewGroup) : ViewTreeObserver.OnPreDrawListener {
-
         private val removals = ArrayList<Removal>()
         private val oldTops = HashMap<Any, Float>()
         private val timeout = Runnable { end() }

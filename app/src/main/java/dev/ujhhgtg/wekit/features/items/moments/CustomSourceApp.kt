@@ -35,7 +35,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
 object CustomSourceApp : ClickableFeature(), IResolveDex {
-
     override val technicalId = "自定义尾巴"
     override val nameRes = R.string.feature_custom_source_app_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

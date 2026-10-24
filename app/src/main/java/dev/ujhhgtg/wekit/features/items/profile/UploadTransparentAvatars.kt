@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import java.io.OutputStream
 
 object UploadTransparentAvatars : SwitchFeature(), IResolveDex {
-
     override val technicalId = "上传透明头像"
     override val nameRes = R.string.feature_upload_transparent_avatars_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)

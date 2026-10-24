@@ -155,13 +155,15 @@ fun AutomationFavoritePickerScreen(
         },
     ) {
         when {
-            failed ->
+            failed -> {
                 item {
                     SettingsEmptyState(
                         title = stringResource(R.string.automation_favorites_load_failed),
                     )
                 }
-            loaded == null ->
+            }
+
+            loaded == null -> {
                 item {
                     Box(
                         Modifier.fillParentMaxWidth().padding(48.dp),
@@ -170,11 +172,15 @@ fun AutomationFavoritePickerScreen(
                         androidx.compose.material3.CircularProgressIndicator()
                     }
                 }
-            filtered.isEmpty() ->
+            }
+
+            filtered.isEmpty() -> {
                 item {
                     SettingsEmptyState(title = stringResource(R.string.automation_favorites_empty))
                 }
-            else ->
+            }
+
+            else -> {
                 lazySegmentedItems(filtered, key = { it.localId }) { favorite ->
                     val checked = favorite.localId in selected
                     val typeLabel = favoriteTypeLabel(favorite.type)
@@ -186,8 +192,11 @@ fun AutomationFavoritePickerScreen(
                             selected = checked,
                             onClick = {
                                 selected =
-                                    if (checked) selected - favorite.localId
-                                    else selected + favorite.localId
+                                    if (checked) {
+                                        selected - favorite.localId
+                                    } else {
+                                        selected + favorite.localId
+                                    }
                             },
                             trailingContent = {
                                 Checkbox(checked = checked, onCheckedChange = null)
@@ -195,6 +204,7 @@ fun AutomationFavoritePickerScreen(
                         )
                     }
                 }
+            }
         }
         item { Spacer(Modifier.height(SETTINGS_CONTENT_BOTTOM_INSET + 72.dp)) }
     }

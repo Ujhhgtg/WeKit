@@ -13,7 +13,6 @@ import org.json.JSONObject
 
 @Suppress("unused")
 class WeProtoData private constructor() {
-
     private val fields = mutableListOf<Field>()
     var packetPrefix: ByteArray = ByteArray(0)
         private set
@@ -25,11 +24,7 @@ class WeProtoData private constructor() {
         HEX,
     }
 
-    private data class Field(
-        val fieldNumber: Int,
-        val wireType: Int,
-        var value: Any,
-    )
+    private data class Field(val fieldNumber: Int, val wireType: Int, var value: Any)
 
     private class LenValue(raw: ByteArray?) {
         var raw: ByteArray = raw ?: ByteArray(0)
@@ -64,16 +59,22 @@ class WeProtoData private constructor() {
                 for (key in json.keys()) {
                     val fieldNumber = key.toInt()
                     when (val value = json.get(key)) {
-                        is JSONObject -> data.fields.add(data.subMessageField(fieldNumber, value))
-                        is JSONArray ->
+                        is JSONObject -> {
+                            data.fields.add(data.subMessageField(fieldNumber, value))
+                        }
+
+                        is JSONArray -> {
                             repeat(value.length()) {
                                 data.addJsonValueAsField(
                                     fieldNumber,
                                     value.get(it),
                                 )
                             }
+                        }
 
-                        else -> data.addJsonValueAsField(fieldNumber, value)
+                        else -> {
+                            data.addJsonValueAsField(fieldNumber, value)
+                        }
                     }
                 }
             }
@@ -170,18 +171,27 @@ class WeProtoData private constructor() {
             if (tag == 0) break
             val fieldNumber = tag ushr 3
             val wireType = tag and 7
-            if (wireType == 4 || wireType == 3 || wireType > 5)
+            if (wireType == 4 || wireType == 3 || wireType > 5) {
                 throw IOException("Unexpected wireType: $wireType")
+            }
             when (wireType) {
-                0 -> fields.add(Field(fieldNumber, wireType, input.readInt64()))
-                1 -> fields.add(Field(fieldNumber, wireType, input.readFixed64()))
+                0 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readInt64()))
+                }
+
+                1 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readFixed64()))
+                }
+
                 2 -> {
                     val lv = LenValue(input.readByteArray())
                     analyzeLenValue(lv)
                     fields.add(Field(fieldNumber, wireType, lv))
                 }
 
-                5 -> fields.add(Field(fieldNumber, wireType, input.readFixed32()))
+                5 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readFixed32()))
+                }
             }
         }
     }
@@ -224,7 +234,9 @@ class WeProtoData private constructor() {
                     ?: ("hex->" + bytesToHex(lv.raw))
             }
 
-            LenView.HEX -> "hex->" + bytesToHex(lv.raw)
+            LenView.HEX -> {
+                "hex->" + bytesToHex(lv.raw)
+            }
         }
     }
 
@@ -243,15 +255,20 @@ class WeProtoData private constructor() {
                 when (f.wireType) {
                     0 -> {
                         val v = f.value as Long
-                        if (v >= 0)
+                        if (v >= 0) {
                             out.writeUInt64(
                                 f.fieldNumber,
                                 v,
                             )
-                        else out.writeInt64(f.fieldNumber, v)
+                        } else {
+                            out.writeInt64(f.fieldNumber, v)
+                        }
                     }
 
-                    1 -> out.writeFixed64(f.fieldNumber, f.value as Long)
+                    1 -> {
+                        out.writeFixed64(f.fieldNumber, f.value as Long)
+                    }
+
                     2 -> {
                         val lv = f.value as LenValue
                         if (lv.subMessage != null) {
@@ -264,7 +281,9 @@ class WeProtoData private constructor() {
                         out.writeByteArray(f.fieldNumber, lv.raw)
                     }
 
-                    5 -> out.writeFixed32(f.fieldNumber, f.value as Int)
+                    5 -> {
+                        out.writeFixed32(f.fieldNumber, f.value as Int)
+                    }
                 }
             }
             out.flush()
@@ -469,8 +488,14 @@ class WeProtoData private constructor() {
     private fun addJsonValueAsField(fieldNumber: Int, value: Any?) {
         runCatching {
             when (value) {
-                is JSONObject -> fields.add(subMessageField(fieldNumber, value))
-                is Number -> fields.add(Field(fieldNumber, 0, value.toLong()))
+                is JSONObject -> {
+                    fields.add(subMessageField(fieldNumber, value))
+                }
+
+                is Number -> {
+                    fields.add(Field(fieldNumber, 0, value.toLong()))
+                }
+
                 is String -> {
                     val lv =
                         if (value.startsWith("hex->")) {
@@ -486,8 +511,13 @@ class WeProtoData private constructor() {
                     fields.add(Field(fieldNumber, 2, lv))
                 }
 
-                null -> Unit
-                else -> WeLogger.w("WeProtoData", "fromJSON Unknown type: ${value.javaClass.name}")
+                null -> {
+                    Unit
+                }
+
+                else -> {
+                    WeLogger.w("WeProtoData", "fromJSON Unknown type: ${value.javaClass.name}")
+                }
             }
         }
     }
@@ -585,11 +615,15 @@ class WeProtoData private constructor() {
                                 1
                             }
 
-                            else -> 0
+                            else -> {
+                                0
+                            }
                         }
                     }
 
-                    else -> 0
+                    else -> {
+                        0
+                    }
                 }
             }
             .getOrDefault(0)

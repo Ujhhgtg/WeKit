@@ -129,9 +129,11 @@ fun IntNumberPickerWidget(
                 onValueChange = {
                     val intValue = it.roundToInt()
                     if (intValue != lastIntValue) {
-                        if (stepSize == 0)
+                        if (stepSize == 0) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        else haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        } else {
+                            haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        }
                         lastIntValue = intValue
                         onValueChange(intValue)
                     }
@@ -154,9 +156,11 @@ fun IntNumberPickerWidget(
             val valueModifier =
                 Modifier.defaultMinSize(minWidth = 36.dp)
                     .then(
-                        if (onValueClick != null)
+                        if (onValueClick != null) {
                             Modifier.clickable(enabled = enabled, onClick = onValueClick)
-                        else Modifier,
+                        } else {
+                            Modifier
+                        },
                     )
                     .padding(horizontal = 4.dp, vertical = 8.dp)
             if (subduedValue) {

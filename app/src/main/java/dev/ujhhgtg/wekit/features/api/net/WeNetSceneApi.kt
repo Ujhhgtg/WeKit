@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 
 object WeNetSceneApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "NetScene 服务"
     override val nameRes = R.string.feature_we_net_scene_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

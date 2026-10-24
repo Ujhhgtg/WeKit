@@ -327,9 +327,8 @@ internal class FakeMatcherRelations(
 }
 
 /** Fake query executor: records every generated SQL and returns preconfigured descriptor rows. */
-internal class RecordingDescriptorQuery(
-    private val rowsFor: (String) -> List<String>,
-) : DexDescriptorQuery {
+internal class RecordingDescriptorQuery(private val rowsFor: (String) -> List<String>) :
+    DexDescriptorQuery {
     val queries = mutableListOf<String>()
 
     override fun descriptors(sql: String): List<String> {

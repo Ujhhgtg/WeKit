@@ -47,10 +47,7 @@ import top.yukonga.miuix.kmp.blur.Backdrop
  * which draw blank behind the bar; that is an accepted limitation of View.draw().
  */
 @Composable
-fun rememberViewBackdrop(
-    sourceView: View,
-    lifecycleOwner: LifecycleOwner,
-): ViewBackdrop {
+fun rememberViewBackdrop(sourceView: View, lifecycleOwner: LifecycleOwner): ViewBackdrop {
     val graphicsLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
@@ -103,13 +100,22 @@ fun rememberViewBackdrop(
         val lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START,
-                Lifecycle.Event.ON_RESUME -> backdrop.startLifecycle()
-                Lifecycle.Event.ON_STOP -> backdrop.prepareLifecycle(false)
+                Lifecycle.Event.ON_RESUME -> {
+                    backdrop.startLifecycle()
+                }
+
+                Lifecycle.Event.ON_STOP -> {
+                    backdrop.prepareLifecycle(false)
+                }
+
                 Lifecycle.Event.ON_DESTROY -> {
                     backdrop.prepareLifecycle(false)
                     backdrop.invalidateSource()
                 }
-                else -> Unit
+
+                else -> {
+                    Unit
+                }
             }
         }
         backdrop.prepareLifecycle(
@@ -121,7 +127,9 @@ fun rememberViewBackdrop(
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
         onDispose {
             (if (observer.isAlive) observer else sourceView.viewTreeObserver)
-                .removeOnPreDrawListener(listener)
+                .removeOnPreDrawListener(
+                    listener,
+                )
             sourceView.removeOnLayoutChangeListener(layoutListener)
             sourceView.removeOnAttachStateChangeListener(attachListener)
             lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
@@ -133,10 +141,7 @@ fun rememberViewBackdrop(
 }
 
 @Stable
-class ViewBackdrop(
-    private val graphicsLayer: GraphicsLayer,
-) : Backdrop {
-
+class ViewBackdrop(private val graphicsLayer: GraphicsLayer) : Backdrop {
     var sourceView: View? = null
     var density: Density = Density(1f)
     var layoutDirection: LayoutDirection = LayoutDirection.Ltr
@@ -165,11 +170,7 @@ class ViewBackdrop(
     override var offsetResidualY: Float = 0f
         private set
 
-    fun updateEnvironment(
-        view: View,
-        density: Density,
-        layoutDirection: LayoutDirection,
-    ) {
+    fun updateEnvironment(view: View, density: Density, layoutDirection: LayoutDirection) {
         if (sourceView !== view) {
             captureState.invalidate()
             sourceIdentity = ViewBackdropCaptureIdentity(view)
@@ -288,8 +289,11 @@ class ViewBackdrop(
                     captureInProgress = false
                 }
             }
+
             ViewBackdropCaptureDecision.REUSE,
-            ViewBackdropCaptureDecision.SKIP -> Unit
+            ViewBackdropCaptureDecision.SKIP -> {
+                Unit
+            }
         }
         if (!captureState.canDrawFor(key)) return noCapture()
 

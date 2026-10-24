@@ -78,18 +78,20 @@ class OpenAiResponsesClient(
                             ?: continue
 
                     when (event["type"]?.jsonPrimitive?.contentOrNullSafe()) {
-                        "response.output_text.delta" ->
+                        "response.output_text.delta" -> {
                             event["delta"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                 textBuf.append(it)
                                 emit(LlmStreamEvent.TextDelta(it))
                             }
+                        }
 
                         "response.reasoning_summary_text.delta",
-                        "response.reasoning_text.delta" ->
+                        "response.reasoning_text.delta" -> {
                             event["delta"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                 reasoningBuf.append(it)
                                 emit(LlmStreamEvent.ReasoningDelta(it))
                             }
+                        }
 
                         "response.output_item.done" -> {
                             val item = event["item"]?.jsonObject
@@ -186,7 +188,7 @@ class OpenAiResponsesClient(
      */
     private fun encodeItems(msg: LlmMessage): List<JsonObject> =
         when (msg.role) {
-            LlmRole.TOOL ->
+            LlmRole.TOOL -> {
                 listOf(
                     buildJsonObject {
                         put("type", "function_call_output")
@@ -194,8 +196,9 @@ class OpenAiResponsesClient(
                         put("output", msg.content ?: "")
                     },
                 )
+            }
 
-            LlmRole.ASSISTANT ->
+            LlmRole.ASSISTANT -> {
                 buildList {
                     // Keep the model's narration even when the turn also carries tool calls.
                     if (!msg.content.isNullOrEmpty() || msg.toolCalls.isEmpty()) {
@@ -223,8 +226,9 @@ class OpenAiResponsesClient(
                         )
                     }
                 }
+            }
 
-            else ->
+            else -> {
                 listOf(
                     buildJsonObject {
                         put("type", "message")
@@ -249,6 +253,7 @@ class OpenAiResponsesClient(
                         }
                     },
                 )
+            }
         }
 
     private suspend fun readBodyText(resp: HttpResponse): String = runCatching {

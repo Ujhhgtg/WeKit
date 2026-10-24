@@ -22,7 +22,6 @@ import kotlinx.coroutines.withContext
  * environments, skills, global settings) lives in that Activity — not inline here.
  */
 object WeAgent : ClickableFeature() {
-
     override val technicalId = "WeAgent"
     override val nameRes = R.string.feature_we_agent_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

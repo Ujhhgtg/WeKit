@@ -27,7 +27,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
 
 object RoundAvatars : ClickableFeature(), IResolveDex {
-
     override val technicalId = "圆角头像"
     override val nameRes = R.string.feature_round_avatars_name
     override val categoryIds =

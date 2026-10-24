@@ -50,7 +50,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
-
     override val technicalId = "运动排行榜自动点赞"
     override val nameRes = R.string.feature_auto_like_sports_rank_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -201,15 +200,19 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerA
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_whitelist_selected
-                                        else R.string.filter_list_blacklist_selected,
+                                        } else {
+                                            R.string.filter_list_blacklist_selected
+                                        },
                                     ),
                                 description =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.sports_rank_whitelist_description
-                                        else R.string.sports_rank_blacklist_description,
+                                        } else {
+                                            R.string.sports_rank_blacklist_description
+                                        },
                                     ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
@@ -223,9 +226,11 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerA
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_configure_whitelist
-                                        else R.string.filter_list_configure_blacklist,
+                                        } else {
+                                            R.string.filter_list_configure_blacklist
+                                        },
                                     ),
                                 description =
                                     stringResource(R.string.filter_list_select_contacts_hint),
@@ -236,9 +241,11 @@ object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerA
                                         ContactsSelector(
                                             title =
                                                 stringResource(
-                                                    if (useWhitelistState)
+                                                    if (useWhitelistState) {
                                                         R.string.filter_list_select_whitelist
-                                                    else R.string.filter_list_select_blacklist,
+                                                    } else {
+                                                        R.string.filter_list_select_blacklist
+                                                    },
                                                 ),
                                             contacts = WeDatabaseApi.getFriends(),
                                             initialSelectedWxIds = currentList,

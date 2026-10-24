@@ -68,7 +68,6 @@ import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 
 object MarkdownRendering : ClickableFeature(), IResolveDex {
-
     override val technicalId = "Markdown 渲染"
     override val nameRes = R.string.feature_markdown_rendering_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -250,9 +249,11 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
     private val activeRenderMode: RenderMode
         get() {
             val selectedMode = selectedRenderMode
-            return if (selectedMode == RenderMode.NATIVE && !nativeRendererAvailable)
+            return if (selectedMode == RenderMode.NATIVE && !nativeRendererAvailable) {
                 RenderMode.HTML
-            else selectedMode
+            } else {
+                selectedMode
+            }
         }
 
     private fun setRenderMode(mode: RenderMode) {
@@ -295,9 +296,8 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
         return null
     }
 
-    private fun findMessageField(name: String): Field {
-        return instanceFields(WeMessageApi.classMsgInfo.clazz).first { it.name == name }
-    }
+    private fun findMessageField(name: String): Field =
+        instanceFields(WeMessageApi.classMsgInfo.clazz).first { it.name == name }
 
     private fun instanceFields(clazz: Class<*>): Sequence<Field> = sequence {
         var current: Class<*>? = clazz
@@ -440,8 +440,8 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
         spanned: Spanned,
         textPaint: TextPaint,
         maxWidth: Int,
-    ): StaticLayout {
-        return StaticLayout.Builder.obtain(spanned, 0, spanned.length, textPaint, maxWidth)
+    ): StaticLayout =
+        StaticLayout.Builder.obtain(spanned, 0, spanned.length, textPaint, maxWidth)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(0f, 1.1f)
             .setIncludePad(true)
@@ -452,10 +452,9 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
             }
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .build()
-    }
 
-    private fun buildMarkwon(context: Context): Markwon {
-        return Markwon.builder(context)
+    private fun buildMarkwon(context: Context): Markwon =
+        Markwon.builder(context)
             .usePlugin(
                 object : AbstractMarkwonPlugin() {
                     override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
@@ -483,7 +482,6 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
             .usePlugin(TablePlugin.create {})
             .usePlugin(TaskListPlugin.create(context))
             .build()
-    }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

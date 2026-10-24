@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.utils
 import java.io.File
 
 object AudioUtils {
-
     fun anyToSilk(sourcePath: String, silkPath: String): Boolean {
         if (nativeAnyToSilk(sourcePath, silkPath)) return true
 

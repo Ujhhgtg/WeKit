@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object RemoveExternalAppSharingSignatureVerify : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除分享签名校验"
     override val nameRes = R.string.feature_remove_external_app_sharing_signature_verify_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

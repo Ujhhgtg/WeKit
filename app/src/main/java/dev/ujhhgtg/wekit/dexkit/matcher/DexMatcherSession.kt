@@ -49,9 +49,7 @@ class DexMatcherSession(
 
     @Volatile private var closed = false
 
-    fun findClasses(
-        spec: ClassSpec,
-    ): List<DexClassInfo> =
+    fun findClasses(spec: ClassSpec): List<DexClassInfo> =
         synchronized(lock) {
             checkOpen()
             scope.findClasses(spec)
@@ -63,9 +61,7 @@ class DexMatcherSession(
         return findClasses(matcher.build())
     }
 
-    fun findMethods(
-        spec: MethodSpec,
-    ): List<DexMethodInfo> =
+    fun findMethods(spec: MethodSpec): List<DexMethodInfo> =
         synchronized(lock) {
             checkOpen()
             scope.findMethods(spec)
@@ -77,9 +73,7 @@ class DexMatcherSession(
         return findMethods(matcher.build())
     }
 
-    fun findFields(
-        spec: FieldSpec,
-    ): List<DexFieldInfo> =
+    fun findFields(spec: FieldSpec): List<DexFieldInfo> =
         synchronized(lock) {
             checkOpen()
             scope.findFields(spec)
@@ -104,9 +98,6 @@ class DexMatcherSession(
             checkOpen()
             relations.fieldAccessMethods(fieldDescriptor, usingType)
         }
-
-    val isOpen: Boolean
-        get() = !closed
 
     /**
      * Marks the session unusable. The [DexSqlBridge] is caller-owned and is NOT closed here; close

@@ -134,11 +134,7 @@ class SettingsActivity : ComponentActivity() {
 //  Feature categories
 // ---------------------------------------------------------------------------
 
-data class FeatureCategory(
-    val id: String,
-    @StringRes val titleRes: Int,
-    val icon: ImageVector,
-)
+data class FeatureCategory(val id: String, @StringRes val titleRes: Int, val icon: ImageVector)
 
 val FEATURE_CATEGORIES =
     listOf(
@@ -480,11 +476,7 @@ fun M3ListScaffold(
 // ---------------------------------------------------------------------------
 
 @Composable
-fun FeatureRow(
-    item: BaseFeature,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun FeatureRow(item: BaseFeature, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val context = LocalComponentActivity.current
     val localizedContext = LocalWeKitLocalizedContext.current
     val configKey = item.technicalId
@@ -563,7 +555,7 @@ fun FeatureRow(
             }
         }
 
-        is SwitchFeature ->
+        is SwitchFeature -> {
             SwitchWidget(
                 iconPlaceholder = false,
                 title = localizedName,
@@ -573,5 +565,6 @@ fun FeatureRow(
                 checked = checked,
                 onCheckedChange = { toggle(it) },
             )
+        }
     }
 }

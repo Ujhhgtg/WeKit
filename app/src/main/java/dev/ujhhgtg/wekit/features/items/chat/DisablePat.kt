@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisablePat : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用拍一拍"
     override val nameRes = R.string.feature_disable_pat_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

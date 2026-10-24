@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object BatchMarkAsRead : ClickableFeature() {
-
     override val technicalId = "批量标为已读"
     override val nameRes = R.string.feature_batch_mark_as_read_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)

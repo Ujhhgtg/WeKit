@@ -43,7 +43,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object Experiments : ClickableFeature() {
-
     override val technicalId = "测试"
     override val nameRes = R.string.feature_experiments_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -133,9 +132,14 @@ object Experiments : ClickableFeature() {
                                     )
                                 val resp =
                                     sendPlaceOrder(ctx, inputName = null, checknameSign = null)
-                                if (resp != null) ResultText.Raw(resp.toString(2))
-                                else ResultText.TimedOut
-                            } else null
+                                if (resp != null) {
+                                    ResultText.Raw(resp.toString(2))
+                                } else {
+                                    ResultText.TimedOut
+                                }
+                            } else {
+                                null
+                            }
 
                         Phase.Done(beforeStr, placeOrderStr)
                     }
@@ -245,14 +249,16 @@ object Experiments : ClickableFeature() {
                         }
                     }
 
-                    is Phase.Done ->
+                    is Phase.Done -> {
                         TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }
+                    }
+
                     else -> {}
                 }
             },
             dismissButton = {
                 when (phase) {
-                    is Phase.Running ->
+                    is Phase.Running -> {
                         TextButton(
                             onClick = {
                                 dialog.setCancelable(true)
@@ -261,6 +267,8 @@ object Experiments : ClickableFeature() {
                         ) {
                             Text(stringResource(R.string.debug_experiments_stop))
                         }
+                    }
+
                     else -> {}
                 }
             },

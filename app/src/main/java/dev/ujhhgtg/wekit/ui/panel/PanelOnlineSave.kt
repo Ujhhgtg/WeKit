@@ -22,10 +22,7 @@ data class PanelSaveProgress(
 )
 
 @Composable
-fun PanelSaveProgressOverlay(
-    progress: PanelSaveProgress,
-    onCancel: () -> Unit,
-) {
+fun PanelSaveProgressOverlay(progress: PanelSaveProgress, onCancel: () -> Unit) {
     PanelFullOverlay(onDismiss = onCancel, allowImplicitDismiss = false) {
         Text(progress.title.resolve(), style = MaterialTheme.typography.titleMedium)
         val processed = progress.completed + progress.failed

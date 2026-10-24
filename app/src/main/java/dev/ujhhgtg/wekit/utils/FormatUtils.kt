@@ -19,9 +19,8 @@ fun formatBytesSize(bytes: Long): String {
     return "%.2f %s".format(value, units[digitGroups])
 }
 
-inline fun formatEpoch(epochMs: Long, includeDate: Boolean = false): String {
-    return formatEpoch(epochMs, if (includeDate) "yyyy/MM/dd HH:mm:ss" else "HH:mm:ss")
-}
+inline fun formatEpoch(epochMs: Long, includeDate: Boolean = false): String =
+    formatEpoch(epochMs, if (includeDate) "yyyy/MM/dd HH:mm:ss" else "HH:mm:ss")
 
 fun formatEpoch(epochMs: Long, pattern: String): String {
     val formatter =

@@ -54,7 +54,9 @@ android {
     namespace = libs.versions.namespace.get()
     compileSdk {
         version =
-            release(libs.versions.compileSdk.get().toInt()) {
+            release(
+                libs.versions.compileSdk.get().toInt(),
+            ) {
                 minorApiLevel = libs.versions.compileSdkMinor.get().toInt()
             }
     }
@@ -162,8 +164,14 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
-        targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
+        sourceCompatibility =
+            JavaVersion.toVersion(
+                libs.versions.jdk.get().toInt(),
+            )
+        targetCompatibility =
+            JavaVersion.toVersion(
+                libs.versions.jdk.get().toInt(),
+            )
     }
 
     packaging {
@@ -333,7 +341,9 @@ val generateScriptDepsDex =
             "Compile the script-deps extension pack DEX (fastjson2 + okhttp + kotlin-stdlib)"
         jars.from(scriptDeps)
         r8Classpath.from(r8Tool)
-        minApi.set(libs.versions.minSdk.get().toInt())
+        minApi.set(
+            libs.versions.minSdk.get().toInt(),
+        )
         // Bump together with compileSdk when it changes.
         androidJar.set(
             androidComponents.sdkComponents.bootClasspath.map { jars ->

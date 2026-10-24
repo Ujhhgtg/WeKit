@@ -69,13 +69,13 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
 object WeMomentsApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "朋友圈服务"
     override val nameRes = R.string.feature_we_moments_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_moments_api_description
 
     private const val TAG = "WeMomentsApi"
+
     /** Source bits checked by the host's SnsInfo.isDeadSource(), including timeline and albums. */
     const val ACTIVE_SOURCE_MASK = 270
     const val AD_SOURCE_FLAG = 32
@@ -661,8 +661,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     private fun injectPendingAlbumRepostText(intent: Intent, requireSnsUploadTarget: Boolean) {
         val text = pendingAlbumRepostText.get() ?: return
-        if (requireSnsUploadTarget && intent.component?.className != classSnsUploadUi.clazz.name)
+        if (requireSnsUploadTarget && intent.component?.className != classSnsUploadUi.clazz.name) {
             return
+        }
 
         if (
             !intent.hasExtra("Kdescription") ||
@@ -697,42 +698,38 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    private fun copyRegularFile(src: String, dest: String): Boolean {
-        return runCatching {
-            src.asPath.inputStream().use { input ->
-                dest.asPath.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+    private fun copyRegularFile(src: String, dest: String): Boolean = runCatching {
+        src.asPath.inputStream().use { input ->
+            dest.asPath.outputStream().use { output ->
+                input.copyTo(output)
             }
-            true
         }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to copy file from $src to $dest", it)
-                false
-            }
+        true
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to copy file from $src to $dest", it)
+            false
+        }
 
-    fun copyExistingFile(src: String, dest: String): Boolean {
-        return if (vfsFileExists(src)) {
+    fun copyExistingFile(src: String, dest: String): Boolean =
+        if (vfsFileExists(src)) {
             copyVfsFile(src, dest)
         } else if (src.asPath.isRegularFile()) {
             copyRegularFile(src, dest)
         } else {
             false
         }
-    }
 
-    fun vfsFileExists(path: String): Boolean {
-        return try {
+    fun vfsFileExists(path: String): Boolean =
+        try {
             vfsExistsMethod.invoke(path) as Boolean
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to check VFS file exists: $path", e)
             false
         }
-    }
 
-    fun postText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean {
-        return try {
+    fun postText(content: String, sdkId: String? = null, sdkAppName: String? = null): Boolean =
+        try {
             val helper = ctorUploadPackHelper.constructor.newInstance(2, null)
             methodSetContentDes.method.invoke(helper, content)
             if (!sdkId.isNullOrEmpty()) {
@@ -747,15 +744,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "sendText failed", e)
             false
         }
-    }
 
     fun postTextAndImages(
         text: String,
         imagePaths: List<String>,
         sdkId: String? = null,
         sdkAppName: String? = null,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
             methodSetContentDes.method.invoke(helper, text)
             imagePaths.forEach { path ->
@@ -775,15 +771,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "sendTextAndImages failed", e)
             false
         }
-    }
 
     fun postTextAndImages2(
         text: String,
         images: List<String>,
         sdkId: String? = null,
         sdkAppName: String? = null,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             val helper = ctorUploadPackHelper.constructor.newInstance(1, null)
             methodSetContentDes.method.invoke(helper, text)
 
@@ -805,7 +800,6 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "sendTextAndImages2 failed", e)
             false
         }
-    }
 
     fun postTextAndVideo(
         context: Context,
@@ -1069,23 +1063,21 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     /** 从原生 TimeLineObject 中取出原生 MediaObj 列表（图片/视频路径解析需要）。 */
-    fun getNativeMediaList(nativeTimeline: Any): LinkedList<*>? {
-        return runCatching {
-            val nativeContentObj = nativeTimeline.reflekt().getField("ContentObj")!!
-            nativeContentObj
-                .reflekt()
-                .firstField {
-                    // single-char field name in 'a'..'r'
-                    name { it.length == 1 && it[0] >= 'a' && it[0] <= 'r' }
-                    type = LinkedList::class
-                }
-                .get() as? LinkedList<*>
-        }
-            .getOrElse { error ->
-                WeLogger.e(TAG, "failed to resolve native media list", error)
-                null
+    fun getNativeMediaList(nativeTimeline: Any): LinkedList<*>? = runCatching {
+        val nativeContentObj = nativeTimeline.reflekt().getField("ContentObj")!!
+        nativeContentObj
+            .reflekt()
+            .firstField {
+                // single-char field name in 'a'..'r'
+                name { it.length == 1 && it[0] >= 'a' && it[0] <= 'r' }
+                type = LinkedList::class
             }
+            .get() as? LinkedList<*>
     }
+        .getOrElse { error ->
+            WeLogger.e(TAG, "failed to resolve native media list", error)
+            null
+        }
 
     data class MomentContent(
         val contentText: String,
@@ -1145,10 +1137,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     /**
      * 解析后的单个媒体项。[videoPath] 非空表示这是一张实况图片, 且视频已成功定位; 若为实况图片但视频缺失（未下载）, [videoPath] 为 null（退化为静态图）。
      */
-    data class ResolvedMedia(
-        val imagePath: String,
-        val videoPath: String?,
-    )
+    data class ResolvedMedia(val imagePath: String, val videoPath: String?)
 
     data class ResolvedMoment(
         val items: List<ResolvedMedia>,
@@ -1156,10 +1145,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val degradedLivePhotos: Boolean,
     )
 
-    data class ResolvedVideo(
-        val videoPath: String,
-        val thumbPath: String,
-    )
+    data class ResolvedVideo(val videoPath: String, val thumbPath: String)
 
     /** 从原生媒体对象反射取出实况视频子对象。 子对象按「字段类型 == 父媒体对象自身类」定位, 避免依赖混淆字段名。 */
     fun getNativeLivePhotoVideo(nativeMedia: Any): Any? {
@@ -1183,17 +1169,18 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
     }
 
     /** 定位实况图片视频组件的本地缓存路径。 视频未必已下载（与普通朋友圈视频一致, 需先播放一次）, 缺失返回 null。 */
-    fun getLivePhotoVideoPath(nativeVideoObj: Any): String? {
-        return runCatching {
-            val path = methodGetSnsVideoPath.method.invoke(null, nativeVideoObj) as? String
-            if (path.isNullOrEmpty() || !(vfsFileExists(path) || path.asPath.isRegularFile())) null
-            else path
+    fun getLivePhotoVideoPath(nativeVideoObj: Any): String? = runCatching {
+        val path = methodGetSnsVideoPath.method.invoke(null, nativeVideoObj) as? String
+        if (path.isNullOrEmpty() || !(vfsFileExists(path) || path.asPath.isRegularFile())) {
+            null
+        } else {
+            path
         }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to get live photo video path", it)
-                null
-            }
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to get live photo video path", it)
+            null
+        }
 
     private fun getNativeMediaId(nativeMedia: Any): String? =
         nativeMedia
@@ -1205,16 +1192,14 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     ?.takeIf { it.isNotBlank() && !it.startsWith("http") }
             }
 
-    private fun getNativeCdnMediaId(nativeMedia: Any, createTime: Int): String? {
-        return runCatching {
-            methodGenCdnMediaId.method.invoke(null, createTime, nativeMedia) as? String
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to generate Moments video cdn media id", it)
-                null
-            }
-            ?.takeIf { it.isNotBlank() }
+    private fun getNativeCdnMediaId(nativeMedia: Any, createTime: Int): String? = runCatching {
+        methodGenCdnMediaId.method.invoke(null, createTime, nativeMedia) as? String
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to generate Moments video cdn media id", it)
+            null
+        }
+        ?.takeIf { it.isNotBlank() }
 
     private fun triggerVideoDownload(
         nativeMedia: Any,
@@ -1665,8 +1650,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 // listenId (xs4 pos 20): SnsUploadUI 用作草稿去重键, 同时关联听一听 feed 实体。
                 if (!listenId.isNullOrBlank()) putExtra("Ksnsupload_musicid", listenId)
                 // pc.a(源 xs4) 序列化的 <musicShareItem> XML: 保留 mvObjectId/mvNonceId + tingListenItem。
-                if (!musicShareXml.isNullOrBlank())
+                if (!musicShareXml.isNullOrBlank()) {
                     putExtra("Ksnsupload_music_share_object_xml", musicShareXml)
+                }
                 putExtra("Ksnsupload_timeline", timelineBundle)
                 putExtra("Kdescription", text ?: "")
             },
@@ -1696,15 +1682,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         )
     }
 
-    fun saveVideo(context: Context, path: String): String? {
-        return runCatching {
-            methodExportVideoToAlbum.method.invoke(null, context, path, null, null) as? String
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to save Moments video to album: $path", it)
-                null
-            }
+    fun saveVideo(context: Context, path: String): String? = runCatching {
+        methodExportVideoToAlbum.method.invoke(null, context, path, null, null) as? String
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to save Moments video to album: $path", it)
+            null
+        }
 
     private fun deleteTempFile(file: Path?, description: String) {
         if (file != null && file.exists() && !file.deleteIfExists()) {
@@ -1712,15 +1696,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun saveImageToAlbumPath(context: Context, path: String): String? {
-        return runCatching {
-            methodExportImageToAlbum.method.invoke(null, context, path, null) as? String
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to save Moments image to album: $path", it)
-                null
-            }
+    fun saveImageToAlbumPath(context: Context, path: String): String? = runCatching {
+        methodExportImageToAlbum.method.invoke(null, context, path, null) as? String
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to save Moments image to album: $path", it)
+            null
+        }
 
     suspend fun openMomentLivePhotoEditorFromAlbumResult(
         activity: Activity,
@@ -2011,33 +1993,31 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         activity: Activity,
         text: String,
         media: GalleryEditorMedia,
-    ): Boolean {
-        return runCatching {
-            val uploadIntent = Intent {
-                setClassName(PackageNames.WECHAT, classSnsUploadUi.clazz.name)
-                putExtra("KSnsFrom", 14)
-                putExtra("KSnsPostManu", true)
-                putExtra("KTouchCameraTime", (System.currentTimeMillis() / 1000).toInt())
-                putExtra("KFilterId", 0)
-                putExtra("Kdescription", text)
-                putExtra("Kis_take_photo", false)
-                putStringArrayListExtra("sns_kemdia_path_list", media.coverPaths)
-                putStringArrayListExtra("sns_media_latlong_list", arrayListOf<String>())
-                putParcelableArrayListExtra("KMulti_Pic_Item_List", media.mediaItems)
-            }
-            activity.startActivityForResult(uploadIntent, 6)
-            WeLogger.i(
-                TAG,
-                "opened Moments mixed media editor directly: items=${media.mediaItems.size}, " +
-                    "covers=${media.coverPaths.size}, activity=${activity.javaClass.name}",
-            )
-            true
+    ): Boolean = runCatching {
+        val uploadIntent = Intent {
+            setClassName(PackageNames.WECHAT, classSnsUploadUi.clazz.name)
+            putExtra("KSnsFrom", 14)
+            putExtra("KSnsPostManu", true)
+            putExtra("KTouchCameraTime", (System.currentTimeMillis() / 1000).toInt())
+            putExtra("KFilterId", 0)
+            putExtra("Kdescription", text)
+            putExtra("Kis_take_photo", false)
+            putStringArrayListExtra("sns_kemdia_path_list", media.coverPaths)
+            putStringArrayListExtra("sns_media_latlong_list", arrayListOf<String>())
+            putParcelableArrayListExtra("KMulti_Pic_Item_List", media.mediaItems)
         }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to open Moments mixed media editor directly", it)
-                false
-            }
+        activity.startActivityForResult(uploadIntent, 6)
+        WeLogger.i(
+            TAG,
+            "opened Moments mixed media editor directly: items=${media.mediaItems.size}, " +
+                "covers=${media.coverPaths.size}, activity=${activity.javaClass.name}",
+        )
+        true
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to open Moments mixed media editor directly", it)
+            false
+        }
 
     private fun dispatchMomentAlbumResult(
         activity: Activity,
@@ -2080,18 +2060,16 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             }
     }
 
-    private fun createSnsUiAction(activity: Activity): Any? {
-        return runCatching {
-            classSnsUiAction.clazz
-                .getDeclaredConstructor(Activity::class.java)
-                .apply { isAccessible = true }
-                .newInstance(activity)
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to create SnsUIAction for ${activity.javaClass.name}", it)
-                null
-            }
+    private fun createSnsUiAction(activity: Activity): Any? = runCatching {
+        classSnsUiAction.clazz
+            .getDeclaredConstructor(Activity::class.java)
+            .apply { isAccessible = true }
+            .newInstance(activity)
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to create SnsUIAction for ${activity.javaClass.name}", it)
+            null
+        }
 
     private fun findSnsUiAction(source: Any?): Any? =
         findSnsUiAction(source, java.util.Collections.newSetFromMap(java.util.IdentityHashMap()), 0)
@@ -2116,8 +2094,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             if (
                 value.javaClass.name.startsWith("java.") ||
                     value.javaClass.name.startsWith("android.")
-            )
+            ) {
                 return@forEach
+            }
             findSnsUiAction(value, visited, depth + 1)?.let {
                 return it
             }
@@ -2281,8 +2260,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         media: TimelineObjectProto.MediaObjProto,
         nativeMedia: Any,
         warnOnThumb: Boolean = false,
-    ): String? {
-        return try {
+    ): String? =
+        try {
             val bigPath = resolveBigImagePath(media, nativeMedia)
             if (bigPath != null && vfsFileExists(bigPath)) {
                 bigPath
@@ -2297,36 +2276,33 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to get cached image path", e)
             null
         }
-    }
 
     /** 触发微信从 CDN 下载该朋友圈图片的大图 (相当于点击查看大图), 复用微信自己的 DownloadManager。 与视频的 triggerVideoDownload 同构。 */
-    private fun triggerImageDownload(nativeMedia: Any): Boolean {
-        return runCatching {
-            val manager = methodGetSnsDownManager.method.invoke(null)
-            WeLogger.i(
-                TAG,
-                "trigger start: managerNull=${manager == null}, looper=${Looper.myLooper()}",
-            )
+    private fun triggerImageDownload(nativeMedia: Any): Boolean = runCatching {
+        val manager = methodGetSnsDownManager.method.invoke(null)
+        WeLogger.i(
+            TAG,
+            "trigger start: managerNull=${manager == null}, looper=${Looper.myLooper()}",
+        )
 
-            // 复刻查看大图时的调用: DownloadManager.addDownLoadSns(mediaObj, 2, null, timelineScene)。
-            // downType=2 才会选中原图 url (bd4.g, .../0) 并落地 snsb_; downType=1 选的是缩略图 url。
-            // decodeElement 传 null (查看大图路径 tryGetSnsBm 亦传 null), 仅需文件落地, 无需解码回调。
-            val result =
-                methodAddDownLoadSns.method.invoke(
-                    manager,
-                    nativeMedia,
-                    2,
-                    null,
-                    timelineSourceScene,
-                ) as? Boolean == true
-            WeLogger.i(TAG, "trigger Moments image download (downType=2): result=$result")
-            result
-        }
-            .getOrElse {
-                WeLogger.e(TAG, "failed to trigger Moments image download", it)
-                false
-            }
+        // 复刻查看大图时的调用: DownloadManager.addDownLoadSns(mediaObj, 2, null, timelineScene)。
+        // downType=2 才会选中原图 url (bd4.g, .../0) 并落地 snsb_; downType=1 选的是缩略图 url。
+        // decodeElement 传 null (查看大图路径 tryGetSnsBm 亦传 null), 仅需文件落地, 无需解码回调。
+        val result =
+            methodAddDownLoadSns.method.invoke(
+                manager,
+                nativeMedia,
+                2,
+                null,
+                timelineSourceScene,
+            ) as? Boolean == true
+        WeLogger.i(TAG, "trigger Moments image download (downType=2): result=$result")
+        result
     }
+        .getOrElse {
+            WeLogger.e(TAG, "failed to trigger Moments image download", it)
+            false
+        }
 
     suspend fun ensureImageCached(
         media: TimelineObjectProto.MediaObjProto,
@@ -2340,13 +2316,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
             TAG,
             "ensureImageCached: protoId=${media.id}, " +
                 "bigPath=$bigPath, bigExists=${bigPath?.let { vfsFileExists(it) }}, bigFsSize=${bigPath?.let { regularFileSize(it) }}, bigVfsSize=${
-                        bigPath?.let {
-                            vfsFileSize(
-                                it,
-                                thumbPathInit ?: it,
-                            )
-                        }
-                    }, bigUsable=${imageFileUsable(bigPath)}, " +
+                    bigPath?.let {
+                        vfsFileSize(
+                            it,
+                            thumbPathInit ?: it,
+                        )
+                    }
+                }, bigUsable=${imageFileUsable(bigPath)}, " +
                 "thumbPath=$thumbPathInit, thumbVfsSize=${thumbPathInit?.let { vfsFileSize(it) }}",
         )
 
@@ -2383,7 +2359,10 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         // 超时: 尽量退回可用的缩略图, 避免完全空白
         val thumbPath = resolveThumbImagePath(media, nativeMedia)
         return when {
-            imageFileUsable(bigPath) -> bigPath
+            imageFileUsable(bigPath) -> {
+                bigPath
+            }
+
             imageFileUsable(thumbPath) -> {
                 WeLogger.w(TAG, "falling back to thumb: $thumbPath")
                 thumbPath
@@ -2542,7 +2521,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 val theoreticalPath = fetchVideoPath(nativeMediaList)
                 WeLogger.i(
                     TAG,
-                    "Moments full video path missing: sns=$tableId, media=${getNativeMediaId(nativeMediaObj)}, full=$path, theoretical=$theoreticalPath, theoreticalExists=${
+                    "Moments full video path missing: sns=$tableId, media=${getNativeMediaId(
+                        nativeMediaObj,
+                    )}, full=$path, theoretical=$theoreticalPath, theoreticalExists=${
                         theoreticalPath?.let {
                             vfsFileExists(
                                 it,
@@ -2687,8 +2668,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         content: MomentContent,
         shouldSend: () -> Boolean = { true },
     ): ActionResult {
-        if (!shouldSend())
+        if (!shouldSend()) {
             return ActionResult(success = true, sent = false, message = "automation stopped")
+        }
         val text = content.contentText
         return try {
             when (content.type) {
@@ -2702,12 +2684,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 message = "视频下载失败或超时",
                                 messageRes = R.string.moments_repost_video_download_failed,
                             )
-                    if (!shouldSend())
+                    if (!shouldSend()) {
                         return ActionResult(
                             success = true,
                             sent = false,
                             message = "automation stopped",
                         )
+                    }
                     val ok =
                         postTextAndVideo(
                             HostInfo.application,
@@ -2743,12 +2726,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 message = "图片下载失败或超时",
                                 messageRes = R.string.moments_repost_image_download_failed,
                             )
-                        if (!shouldSend())
+                        if (!shouldSend()) {
                             return ActionResult(
                                 success = true,
                                 sent = false,
                                 message = "automation stopped",
                             )
+                        }
                         return quickRepost(content)
                     }
                     val paths =
@@ -2759,12 +2743,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                                 message = "图片下载失败或超时",
                                 messageRes = R.string.moments_repost_image_download_failed,
                             )
-                    if (!shouldSend())
+                    if (!shouldSend()) {
                         return ActionResult(
                             success = true,
                             sent = false,
                             message = "automation stopped",
                         )
+                    }
                     val ok = postTextAndImages(text, paths)
                     if (ok) {
                         repostResult(
@@ -2784,12 +2769,13 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 }
 
                 else -> {
-                    if (!shouldSend())
+                    if (!shouldSend()) {
                         return ActionResult(
                             success = true,
                             sent = false,
                             message = "automation stopped",
                         )
+                    }
                     quickRepost(content)
                 }
             }
@@ -3061,8 +3047,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 "_wxmusicvideoobject_musicOperationUrl",
                 xs4?.let { xs4GetString(it, 12) } ?: "",
             )
-            if (!albumCoverUrl.isNullOrBlank())
+            if (!albumCoverUrl.isNullOrBlank()) {
                 putString("_wxmusicvideoobject_hdAlbumThumbFilePath", albumCoverUrl)
+            }
             // musicVipInfo.musicId (xs4 下标 11 = mid, 已带 getlinkclisdkmid_ 前缀): QQ 音乐服务端解析歌曲的关键 ID。
             // 缺失则整张卡片无法回源 —— 副标题退化为「歌名 - 专辑」、时长归 1:00、点赞/评论/VIP 标记全部拉取失败。
             // fy.i() 从 WXMusicVideoObject.musicVipInfo.musicId 读取并写入 xs4.mid, 故必须回填这两个键。
@@ -3240,7 +3227,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                     true
                 }
 
-                else -> false
+                else -> {
+                    false
+                }
             }
         }
             .getOrElse {
@@ -3308,7 +3297,9 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                         postTextAndVideo(HostInfo.application, text, videoPath, thumbPath)
                     }
 
-                    else -> postText(text) // 文字
+                    else -> {
+                        postText(text)
+                    } // 文字
                 }
 
             if (ok) {
@@ -3424,8 +3415,8 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         return true
     }
 
-    private fun readLikeFlag(snsInfo: Any): Int {
-        return (snsInfo
+    private fun readLikeFlag(snsInfo: Any): Int =
+        (snsInfo
                 .reflekt()
                 .firstMethodOrNull {
                     name = "getLikeFlag"
@@ -3444,7 +3435,6 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
                 ?.let { it as? Number }
                 ?.toInt()
             ?: 0
-    }
 
     private fun buildSnsTableId(snsInfo: Any): String? {
         val snsId =

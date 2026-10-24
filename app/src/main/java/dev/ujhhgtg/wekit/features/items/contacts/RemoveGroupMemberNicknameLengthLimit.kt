@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 
 object RemoveGroupMemberNicknameLengthLimit :
     SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "解除群成员昵称长度限制"
     override val nameRes = R.string.feature_remove_group_member_nickname_length_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

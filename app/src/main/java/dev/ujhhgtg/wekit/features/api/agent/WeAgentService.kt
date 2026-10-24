@@ -34,22 +34,12 @@ import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.trigger.TriggerManager
 import dev.ujhhgtg.wekit.agent.ui.UiImageSink
 import dev.ujhhgtg.wekit.data.WeKitDatabase
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ballState
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.handleEvent
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.init
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.messageListState
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.messageListSyncedSessionId
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.newSession
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.pendingApproval
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.pendingApprovals
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.resolveTurnConfig
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.runTurn
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.runningTurns
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.sendMessage
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.switchSession
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.syncForeground
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiMessages
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -73,7 +63,6 @@ import kotlinx.coroutines.withContext
  * [sendMessage]/[newSession]/[switchSession]/… — all heavy logic lives here.
  */
 object WeAgentService : TriggerManager.TriggerHost {
-
     private const val TAG = "WeAgentService"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -170,6 +159,7 @@ object WeAgentService : TriggerManager.TriggerHost {
 
     /** Current session's explicit Linux environment binding; null follows the global default. */
     val currentLinuxEnvironmentId = mutableStateOf<String?>(null)
+
     /** Resolved environment shown alongside the explicit binding in the quick-action panel. */
     val effectiveLinuxEnvironmentId = mutableStateOf(NATIVE_ENVIRONMENT_ID)
 
@@ -449,14 +439,15 @@ object WeAgentService : TriggerManager.TriggerHost {
                         it.promptTokens == null &&
                             it.completionTokens == null &&
                             it.totalTokens == null
-                    )
+                    ) {
                         null
-                    else
+                    } else {
                         dev.ujhhgtg.wekit.agent.model.LlmUsage(
                             it.promptTokens,
                             it.completionTokens,
                             it.totalTokens,
                         )
+                    }
                 }
                 currentContextWindow.value = session?.contextWindow
                 syncForeground(id)
@@ -465,8 +456,11 @@ object WeAgentService : TriggerManager.TriggerHost {
         if (!foreground) return
         val previous =
             session?.lastEffectiveLinuxEnvironmentId?.let { previousId ->
-                if (previousId == NATIVE_ENVIRONMENT_ID) linuxEnvironmentManager.nativeSnapshot
-                else runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+                if (previousId == NATIVE_ENVIRONMENT_ID) {
+                    linuxEnvironmentManager.nativeSnapshot
+                } else {
+                    runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+                }
             }
         val environment =
             linuxEnvironmentManager.snapshot(linuxEnvironmentManager.effectiveEnvironmentId(id))
@@ -700,21 +694,24 @@ object WeAgentService : TriggerManager.TriggerHost {
 
     private suspend fun loadMessages(sessionId: String): List<ChatRow> {
         val rows = mutableListOf<ChatRow>()
-        for (m in WeAgentRepository.getMessages(sessionId)) {
-            when (m.role) {
-                MessageRole.USER ->
-                    rows += ChatRow(m.id, ChatRow.Role.USER, m.content, createdAt = m.createdAt)
-                MessageRole.ASSISTANT ->
+        for ((id, _, role, content, createdAt, reasoning) in WeAgentRepository.getMessages(sessionId)) {
+            when (role) {
+                MessageRole.USER -> {
+                    rows += ChatRow(id, ChatRow.Role.USER, content, createdAt = createdAt)
+                }
+
+                MessageRole.ASSISTANT -> {
                     // Restore the persisted reasoning ("思考过程") so it survives a reload, matching
                     // the live view built from ReasoningDelta events.
                     rows +=
                         ChatRow(
-                            m.id,
+                            id,
                             ChatRow.Role.ASSISTANT,
-                            m.content,
-                            reasoning = m.reasoning,
-                            createdAt = m.createdAt,
+                            content,
+                            reasoning = reasoning,
+                            createdAt = createdAt,
                         )
+                }
 
                 MessageRole.TOOL -> {
                     // The TOOL message id is "tool_<callId>" (assigned at write time — reliable,
@@ -723,14 +720,14 @@ object WeAgentService : TriggerManager.TriggerHost {
                     // the
                     // tool NAME + approval status, so the card shows "get-contacts · AUTO_ALLOWED"
                     // after a restart instead of degrading to a bare "tool".
-                    val callId = m.id.removePrefix("tool_")
+                    val callId = id.removePrefix("tool_")
                     val tc = WeAgentRepository.getToolCall(callId)
                     // Prefer the persisted result from tool_calls; fall back to the message content
                     // (format "<callId> <resultText>") for rows written before that was stored.
-                    val payload = tc?.resultJson ?: m.content.substringAfter(' ', m.content)
+                    val payload = tc?.resultJson ?: content.substringAfter(' ', content)
                     rows +=
                         ChatRow(
-                            id = m.id,
+                            id = id,
                             role = ChatRow.Role.TOOL,
                             text = payload,
                             toolName = tc?.toolName,
@@ -739,13 +736,14 @@ object WeAgentService : TriggerManager.TriggerHost {
                             // the
                             // tool card can show both input and output after a reload/restart.
                             toolInput = tc?.argumentsJson,
-                            createdAt = m.createdAt,
+                            createdAt = createdAt,
                         )
                 }
 
-                MessageRole.SYSTEM ->
+                MessageRole.SYSTEM -> {
                     rows +=
-                        ChatRow(m.id, ChatRow.Role.SYSTEM_NOTE, m.content, createdAt = m.createdAt)
+                        ChatRow(id, ChatRow.Role.SYSTEM_NOTE, content, createdAt = createdAt)
+                }
             }
         }
         return rows
@@ -819,8 +817,11 @@ object WeAgentService : TriggerManager.TriggerHost {
             // on currentSessionId being set by a separate switchSession launch).
             scope.launch {
                 val newId = createAndSwitchSession()
-                if (newId != null) runTurn(newId, userText)
-                else appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
+                if (newId != null) {
+                    runTurn(newId, userText)
+                } else {
+                    appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
+                }
             }
             return
         }
@@ -840,8 +841,8 @@ object WeAgentService : TriggerManager.TriggerHost {
         // Wire the steer-hook so that a queued message in QUEUE_AS_STEER mode is injected before
         // the next model request (atomic — consumed once).
         val onFetchSteer: (() -> String?)? =
-            if (sendWhileRunningMode.value == SendWhileRunningMode.QUEUE_AS_STEER)
-                ({
+            if (sendWhileRunningMode.value == SendWhileRunningMode.QUEUE_AS_STEER) {
+                {
                     val msg = queuedMessage.value
                     if (msg != null) {
                         appendUiRow(
@@ -854,8 +855,10 @@ object WeAgentService : TriggerManager.TriggerHost {
                         queuedMessage.value = null
                     }
                     msg
-                })
-            else null
+                }
+            } else {
+                null
+            }
 
         launchTurn(sessionId, userText, onFetchSteer, interactive = true)
     }
@@ -904,8 +907,11 @@ object WeAgentService : TriggerManager.TriggerHost {
             )
         val previousEnvironment =
             session.lastEffectiveLinuxEnvironmentId?.let { previousId ->
-                if (previousId == NATIVE_ENVIRONMENT_ID) linuxEnvironmentManager.nativeSnapshot
-                else runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+                if (previousId == NATIVE_ENVIRONMENT_ID) {
+                    linuxEnvironmentManager.nativeSnapshot
+                } else {
+                    runCatching { linuxEnvironmentManager.snapshot(previousId) }.getOrNull()
+                }
             }
         WeAgentRepository.announceEffectiveLinuxEnvironment(
             sessionId,
@@ -983,8 +989,11 @@ object WeAgentService : TriggerManager.TriggerHost {
         val fg = currentSessionId.value
         if (ballState.value == BallState.RUNNING || ballState.value == BallState.PENDING_APPROVAL) {
             ballState.value =
-                if (fg != null && runningTurns[fg]?.isActive == true) BallState.RUNNING
-                else BallState.IDLE
+                if (fg != null && runningTurns[fg]?.isActive == true) {
+                    BallState.RUNNING
+                } else {
+                    BallState.IDLE
+                }
         }
     }
 
@@ -1008,7 +1017,7 @@ object WeAgentService : TriggerManager.TriggerHost {
             when (ev) {
                 is AgentEvent.RequestStarted -> {
                     // Start a fresh assistant bubble for this round.
-                    if (foreground)
+                    if (foreground) {
                         appendUiRow(
                             ChatRow(
                                 id = "a_${System.nanoTime()}",
@@ -1016,12 +1025,18 @@ object WeAgentService : TriggerManager.TriggerHost {
                                 text = "",
                             ),
                         )
+                    }
                 }
 
-                is AgentEvent.TextDelta -> if (foreground) appendToLastAssistant(text = ev.text)
-                is AgentEvent.ReasoningDelta ->
+                is AgentEvent.TextDelta -> {
+                    if (foreground) appendToLastAssistant(text = ev.text)
+                }
+
+                is AgentEvent.ReasoningDelta -> {
                     if (foreground) appendToLastAssistant(reasoning = ev.text)
-                is AgentEvent.ToolCallStarted ->
+                }
+
+                is AgentEvent.ToolCallStarted -> {
                     if (foreground) {
                         // Tool call means the model is done reasoning — clear the streaming flag on
                         // the
@@ -1038,11 +1053,16 @@ object WeAgentService : TriggerManager.TriggerHost {
                             ),
                         )
                     }
+                }
 
-                is AgentEvent.ToolAwaitingApproval ->
+                is AgentEvent.ToolAwaitingApproval -> {
                     if (foreground) ballState.value = BallState.PENDING_APPROVAL
-                is AgentEvent.ToolCallFinished ->
+                }
+
+                is AgentEvent.ToolCallFinished -> {
                     if (foreground) updateToolRow(ev.callId, ev.status, ev.resultText)
+                }
+
                 is AgentEvent.UsageUpdated -> {
                     // Persist for every session (background turns too) so the strip survives
                     // switch/restart;
@@ -1051,7 +1071,10 @@ object WeAgentService : TriggerManager.TriggerHost {
                     if (foreground) currentUsage.value = ev.usage
                 }
 
-                is AgentEvent.TurnCompleted -> if (foreground) refreshBallStateForForeground()
+                is AgentEvent.TurnCompleted -> {
+                    if (foreground) refreshBallStateForForeground()
+                }
+
                 is AgentEvent.TurnFailed -> {
                     if (foreground) {
                         appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
@@ -1216,7 +1239,9 @@ object WeAgentService : TriggerManager.TriggerHost {
         val title =
             if (small != null) {
                 runCatching { TitleGenerator.generate(small, sessionId, firstUserText) }.getOrNull()
-            } else null
+            } else {
+                null
+            }
         WeAgentRepository.renameSession(sessionId, title ?: firstUserText.take(10))
     }
 

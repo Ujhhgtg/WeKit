@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.api.ui
 
 import android.content.Context
 import android.widget.Button as AndroidButton
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,7 +31,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "聊天输入栏增强 API"
     override val nameRes = R.string.feature_we_chat_input_bar_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -138,7 +136,6 @@ object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
         }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun ActionItemRow(
         item: ActionItem,

@@ -11,7 +11,6 @@ import kotlinx.serialization.json.jsonPrimitive
  * turn's [discovered] set so they become callable on subsequent requests.
  */
 object ToolDiscovery {
-
     fun handle(
         registry: ToolRegistry,
         args: JsonObject,
@@ -23,12 +22,13 @@ object ToolDiscovery {
         val keyword = args["keyword"]?.jsonPrimitive?.content
 
         return when (action) {
-            "list_providers" ->
+            "list_providers" -> {
                 registry
                     .allProviders()
                     .filter { it.isAvailable }
                     .joinToString("\n") { "provider=${it.id} (${it.name}), kind=${it.kind}" }
                     .ifEmpty { "No providers." }
+            }
 
             "list_tools" -> {
                 val tools =
@@ -59,8 +59,9 @@ object ToolDiscovery {
                 renderTools(tools)
             }
 
-            else ->
+            else -> {
                 "Error: unknown action '$action'. Use list_providers | list_tools | search_tools."
+            }
         }
     }
 

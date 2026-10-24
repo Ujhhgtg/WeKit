@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
-
     override val technicalId = "单击不关闭视频播放器"
     override val nameRes = R.string.feature_no_close_video_player_on_click_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

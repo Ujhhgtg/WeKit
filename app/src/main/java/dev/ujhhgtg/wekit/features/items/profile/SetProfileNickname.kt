@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object SetProfileNickname : ClickableFeature() {
-
     override val technicalId = "设置微信昵称"
     override val nameRes = R.string.feature_set_profile_nickname_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)

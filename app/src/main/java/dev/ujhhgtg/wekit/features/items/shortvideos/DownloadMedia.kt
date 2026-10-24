@@ -30,7 +30,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProvider {
-
     override val technicalId = "下载媒体"
     override val nameRes = R.string.feature_download_media_name
     override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)
@@ -193,17 +192,13 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
             }
         }
 
-    private suspend fun downloadAndDecryptVideo(
-        decodeKey: String,
-        url: String,
-        urlToken: String,
-    ) =
+    private suspend fun downloadAndDecryptVideo(decodeKey: String, url: String, urlToken: String) =
         withContext(Dispatchers.IO) {
             showToastSuspend(localizedShortVideoString(R.string.shortvideos_downloading_video))
 
             val baseDir = KnownPaths.downloads
             val fileName = "video_${System.currentTimeMillis()}.mp4"
-            val tempFilePath = baseDir / "${fileName}.tmp"
+            val tempFilePath = baseDir / "$fileName.tmp"
             val finalFilePath = baseDir / fileName
 
             val fullUrl = preferCompatibleVideoFormat(url + urlToken)
@@ -233,9 +228,7 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
                 }
         }
 
-    private suspend fun downloadPcdnVideo(
-        url: String,
-    ) =
+    private suspend fun downloadPcdnVideo(url: String) =
         withContext(Dispatchers.IO) {
             showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_started))
 
@@ -322,8 +315,11 @@ object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProv
             val newParameter = "basedata=${Uri.encode(replacement)}"
             val newQuery = encodedQuery.replaceFirst(oldParameter, newParameter)
 
-            if (newQuery == encodedQuery) url
-            else uri.buildUpon().encodedQuery(newQuery).build().toString()
+            if (newQuery == encodedQuery) {
+                url
+            } else {
+                uri.buildUpon().encodedQuery(newQuery).build().toString()
+            }
         }
             .getOrElse {
                 WeLogger.w(TAG, "failed to request a compatible Finder video format", it)

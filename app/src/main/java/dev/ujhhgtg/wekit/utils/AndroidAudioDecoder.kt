@@ -8,10 +8,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 object AndroidAudioDecoder {
-    data class DecodedPcm(
-        val sampleRate: Int,
-        val channelCount: Int,
-    )
+    data class DecodedPcm(val sampleRate: Int, val channelCount: Int)
 
     fun decodeToPcm16(sourcePath: String, destination: File): DecodedPcm {
         val extractor = MediaExtractor()
@@ -90,9 +87,11 @@ object AndroidAudioDecoder {
                             )
                     }
 
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        Unit
+                    }
 
-                    else ->
+                    else -> {
                         if (outputIndex >= 0) {
                             if (decodedPcm == null) {
                                 decodedPcm = readPcmFormat(codec.outputFormat, null)
@@ -110,6 +109,7 @@ object AndroidAudioDecoder {
                                 bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
                             codec.releaseOutputBuffer(outputIndex, false)
                         }
+                    }
                 }
             }
         }

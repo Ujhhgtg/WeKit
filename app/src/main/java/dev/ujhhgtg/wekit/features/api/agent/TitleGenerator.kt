@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.toList
  * back to truncating the user's first message on failure.
  */
 object TitleGenerator {
-
     suspend fun generate(small: SmallModelRef, sessionId: String, firstUserText: String): String? {
         val prompt = "为下面这段用户消息生成一个简短的 LLM 对话标题（不超过 12 个字，直接输出标题本身，不要引号或其他说明）：\n\n$firstUserText"
         val request =

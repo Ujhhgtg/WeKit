@@ -141,6 +141,8 @@ class TriggerScheduler(
                 at.takeIf { it > now }
             }
 
-            null -> null
+            null -> {
+                null
+            }
         }
 }

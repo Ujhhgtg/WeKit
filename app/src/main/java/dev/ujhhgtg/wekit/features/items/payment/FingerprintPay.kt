@@ -46,7 +46,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.nul
 
 object FingerprintPay : ClickableFeature() {
-
     override val technicalId = "指纹支付"
     override val nameRes = R.string.feature_fingerprint_pay_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -129,20 +128,29 @@ object FingerprintPay : ClickableFeature() {
                         },
                         label = { Text(stringResource(R.string.payment_fingerprint_password)) },
                         visualTransformation =
-                            if (visible) VisualTransformation.None
-                            else PasswordVisualTransformation(),
+                            if (visible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
                         keyboardOptions =
                             KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         trailingIcon = {
                             IconButton(onClick = { visible = !visible }) {
                                 Icon(
                                     imageVector =
-                                        if (visible) MaterialSymbols.OutlinedFilled.Visibility
-                                        else MaterialSymbols.OutlinedFilled.Visibility_off,
+                                        if (visible) {
+                                            MaterialSymbols.OutlinedFilled.Visibility
+                                        } else {
+                                            MaterialSymbols.OutlinedFilled.Visibility_off
+                                        },
                                     contentDescription =
                                         stringResource(
-                                            if (visible) R.string.hide_password
-                                            else R.string.show_password,
+                                            if (visible) {
+                                                R.string.hide_password
+                                            } else {
+                                                R.string.show_password
+                                            },
                                         ),
                                 )
                             }
@@ -227,8 +235,9 @@ object FingerprintPay : ClickableFeature() {
                     if (
                         code == BiometricPrompt.ERROR_CANCELED ||
                             code == BiometricPrompt.ERROR_USER_CANCELED
-                    )
+                    ) {
                         activity.finish()
+                    }
                 }
 
                 override fun onAuthenticationFailed() {}

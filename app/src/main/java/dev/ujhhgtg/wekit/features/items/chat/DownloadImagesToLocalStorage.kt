@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 
 object DownloadImagesToLocalStorage :
     SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "图片保存到本地"
     override val nameRes = R.string.feature_download_images_to_local_storage_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

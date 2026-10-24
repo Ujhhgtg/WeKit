@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class ReadReceiptRecordTest {
-
     @Test
     fun `round trips third party endpoint`() {
         val record =

@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object AutoEnableSendOriginalMedia : SwitchFeature() {
-
     override val technicalId = "自动启用发送原图"
     override val nameRes = R.string.feature_auto_enable_send_original_media_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

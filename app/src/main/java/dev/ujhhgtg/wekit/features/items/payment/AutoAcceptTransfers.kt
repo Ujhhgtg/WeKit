@@ -28,7 +28,6 @@ import java.math.RoundingMode
 import kotlin.concurrent.thread
 
 object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
-
     override val technicalId = "自动接收转账"
     override val nameRes = R.string.feature_auto_accept_transfers_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -57,12 +56,10 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
     private val PAY_SUBTYPE_REGEX = Regex("<paysubtype.*?(\\d+)</paysubtype>")
 
-    private fun parsePaySubtypeFromXml(xml: String): String? {
-        return runCatching {
-                PAY_SUBTYPE_REGEX.find(xml)?.groupValues?.get(1)?.trim()
-            }
-            .getOrDefault(null)
+    private fun parsePaySubtypeFromXml(xml: String): String? = runCatching {
+        PAY_SUBTYPE_REGEX.find(xml)?.groupValues?.get(1)?.trim()
     }
+        .getOrDefault(null)
 
     private fun handleTransfer(values: ContentValues) {
         val talker = values.getAsString("talker") ?: ""

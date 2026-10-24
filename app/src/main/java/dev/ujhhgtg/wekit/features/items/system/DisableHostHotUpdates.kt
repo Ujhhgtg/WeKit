@@ -14,7 +14,6 @@ import kotlin.io.path.Path
 import kotlin.io.path.deleteRecursively
 
 object DisableHostHotUpdates : SwitchFeature() {
-
     override val technicalId = "禁用微信热更新"
     override val nameRes = R.string.feature_disable_host_hot_updates_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

@@ -34,7 +34,6 @@ import java.io.File
  * so the whole library — content and state — lives in the filesystem with no database coupling.
  */
 object SkillStore {
-
     private const val TAG = "SkillStore"
     const val SKILL_FILE = "SKILL.md"
     private const val DISABLED_MARKER = ".disabled"
@@ -65,11 +64,21 @@ object SkillStore {
     fun validateName(name: String): NameValidation {
         val t = name.trim()
         return when {
-            t.isEmpty() -> NameValidation.Invalid("名称不能为空")
-            t == "." || t == ".." -> NameValidation.Invalid("名称不能为 '.' 或 '..'")
-            ILLEGAL_CHARS.containsMatchIn(t) ->
+            t.isEmpty() -> {
+                NameValidation.Invalid("名称不能为空")
+            }
+
+            t == "." || t == ".." -> {
+                NameValidation.Invalid("名称不能为 '.' 或 '..'")
+            }
+
+            ILLEGAL_CHARS.containsMatchIn(t) -> {
                 NameValidation.Invalid("名称不能包含 / \\ : * ? \" < > | 等字符")
-            else -> NameValidation.Ok
+            }
+
+            else -> {
+                NameValidation.Ok
+            }
         }
     }
 
@@ -175,10 +184,12 @@ object SkillStore {
                 .lineSequence()
                 .mapNotNull { line ->
                     val idx = line.indexOf(':')
-                    if (idx <= 0) null
-                    else
+                    if (idx <= 0) {
+                        null
+                    } else {
                         line.substring(0, idx).trim() to
                             line.substring(idx + 1).trim().trim('"', '\'')
+                    }
                 }
                 .toMap()
         return fields to body

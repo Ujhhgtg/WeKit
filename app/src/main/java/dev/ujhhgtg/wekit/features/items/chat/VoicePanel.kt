@@ -77,7 +77,6 @@ val EDGE_TTS_VOICES =
 
 // Entry implementation in ChatFooterHooks.
 object VoicePanel : SwitchFeature() {
-
     override val technicalId = "语音面板"
     override val nameRes = R.string.feature_voice_panel_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -100,7 +99,7 @@ object VoicePanel : SwitchFeature() {
             reloadLocal = VoicePanelRepository::loadPacks,
             importVoice = { packId, mode, onStarted, onComplete ->
                 when (mode) {
-                    VoiceImportMode.MULTIPLE_FILES ->
+                    VoiceImportMode.MULTIPLE_FILES -> {
                         pickPanelFiles(context, AUDIO_MIME_TYPES) { files, activity ->
                             onStarted()
                             CoroutineScope(Dispatchers.IO).launch {
@@ -112,8 +111,9 @@ object VoicePanel : SwitchFeature() {
                                 }
                             }
                         }
+                    }
 
-                    VoiceImportMode.DIRECTORY ->
+                    VoiceImportMode.DIRECTORY -> {
                         pickPanelDirectory(context) { treeUri, activity ->
                             onStarted()
                             CoroutineScope(Dispatchers.IO).launch {
@@ -130,6 +130,7 @@ object VoicePanel : SwitchFeature() {
                                 }
                             }
                         }
+                    }
                 }
             },
             createLocalPack = { name ->
@@ -159,8 +160,9 @@ object VoicePanel : SwitchFeature() {
                 withContext(Dispatchers.IO) { VoicePanelRepository.ensurePack(name) }
             },
             addToLocal = addToLocal@{ packId, item ->
-                    if (VoicePanelRepository.hasOnlineVoice(packId, item))
+                    if (VoicePanelRepository.hasOnlineVoice(packId, item)) {
                         return@addToLocal Result.success(Unit)
+                    }
                     resolveVoicePath(item).mapCatching { path ->
                         try {
                             path.path.asPath.inputStream().use { input ->
@@ -222,7 +224,7 @@ object VoicePanel : SwitchFeature() {
                     val public = FunBoxVoiceRepository.listSharedPacks()
                     val mine = FunBoxVoiceRepository.listMyPacks()
                     when {
-                        public.isFailure && mine.isFailure ->
+                        public.isFailure && mine.isFailure -> {
                             Result.failure(
                                 public.exceptionOrNull()
                                     ?: mine.exceptionOrNull()
@@ -232,12 +234,16 @@ object VoicePanel : SwitchFeature() {
                                         ),
                                     ),
                             )
+                        }
 
-                        else ->
+                        else -> {
                             Result.success(
                                 (public.getOrDefault(emptyList()) + mine.getOrDefault(emptyList()))
-                                    .distinctBy { it.id },
+                                    .distinctBy {
+                                        it.id
+                                    },
                             )
+                        }
                     }
                 }
             },
@@ -254,7 +260,7 @@ object VoicePanel : SwitchFeature() {
                         val bytes =
                             activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                         val result =
-                            if (bytes == null)
+                            if (bytes == null) {
                                 Result.failure(
                                     IllegalStateException(
                                         localizedChatString(
@@ -262,15 +268,15 @@ object VoicePanel : SwitchFeature() {
                                         ),
                                     ),
                                 )
-                            else if (bytes.size > MAX_SHARED_VOICE_BYTES)
+                            } else if (bytes.size > MAX_SHARED_VOICE_BYTES) {
                                 Result.failure(
                                     IllegalArgumentException(
                                         localizedChatString(R.string.chat_voice_single_max_size),
                                     ),
                                 )
-                            else {
+                            } else {
                                 val format = MediaFileTypeDetector.detectAudio(bytes)
-                                if (format == null)
+                                if (format == null) {
                                     Result.failure(
                                         IllegalArgumentException(
                                             localizedChatString(
@@ -278,7 +284,7 @@ object VoicePanel : SwitchFeature() {
                                             ),
                                         ),
                                     )
-                                else
+                                } else {
                                     FunBoxVoiceRepository.uploadVoice(
                                         packId,
                                         VoiceItem(
@@ -288,6 +294,7 @@ object VoicePanel : SwitchFeature() {
                                         ),
                                         bytes,
                                     )
+                                }
                             }
                         withContext(Dispatchers.Main) {
                             onComplete(result)
@@ -391,15 +398,19 @@ object VoicePanel : SwitchFeature() {
                         sourceFormat == MediaFileTypeDetector.AudioFormat.SILK ||
                             sourceFormat == MediaFileTypeDetector.AudioFormat.AMR
                     val silkPath =
-                        if (directSource) source
-                        else PanelPaths.panelCacheDir / "send-${UUID.randomUUID()}.silk"
+                        if (directSource) {
+                            source
+                        } else {
+                            PanelPaths.panelCacheDir / "send-${UUID.randomUUID()}.silk"
+                        }
                     try {
-                        if (!directSource)
+                        if (!directSource) {
                             require(
                                 AudioUtils.anyToSilk(resolvedPath, silkPath.absolutePathString()),
                             ) {
                                 localizedChatString(R.string.chat_voice_convert_silk_failed)
                             }
+                        }
                         check(
                             WeMessageApi.sendVoice(
                                 talker,
@@ -702,8 +713,11 @@ object VoicePanel : SwitchFeature() {
                             null,
                         )
                         ?.use { cursor ->
-                            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0)
-                            else null
+                            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                                cursor.getLong(0)
+                            } else {
+                                null
+                            }
                         }
                 val result =
                     activity.contentResolver.openInputStream(uri)?.let { input ->

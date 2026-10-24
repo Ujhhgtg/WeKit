@@ -21,8 +21,8 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Keep // keep the names of the marker classes to prevent class name clashing with WeChat's own
 // classes
+@Keep // keep the names of the marker classes to prevent class name clashing with WeChat's own
 class WeChatSettingsManager(
     private val classBaseSettingItem: Class<*>,
     private val classBaseSettingSwitchItem: Class<*>,
@@ -190,8 +190,14 @@ class WeChatSettingsManager(
 
         val handler = InvocationHandler { proxy, method, args ->
             when (method.name) {
-                mGetPageGroupItemClass -> spec.pageClass
-                mGetLevel -> spec.level
+                mGetPageGroupItemClass -> {
+                    spec.pageClass
+                }
+
+                mGetLevel -> {
+                    spec.level
+                }
+
                 mOnClick -> {
                     if (spec.isSwitch) {
                         ProxyBuilder.callSuper(proxy, method, *args)
@@ -202,16 +208,25 @@ class WeChatSettingsManager(
                     }
                 }
 
-                mGetKey -> spec.key
+                mGetKey -> {
+                    spec.key
+                }
+
                 mGetSettingLocation -> {
                     classSettingLocation.createInstance(spec.pageClass, spec.parentClass)
                 }
 
-                mGetNameResId -> titleResId
-                mGetGroupNameResId ->
+                mGetNameResId -> {
+                    titleResId
+                }
+
+                mGetGroupNameResId -> {
                     if (spec.groupTitle != null || spec.groupTitleProvider != null) {
                         groupResId
-                    } else null
+                    } else {
+                        null
+                    }
+                }
 
                 // 处理开关独有方法
                 mGetSwitchState if spec.isSwitch -> {
@@ -223,13 +238,18 @@ class WeChatSettingsManager(
                     createSwitchHandlerProxy(switchHandlerClass, spec)
                 }
 
-                else -> ProxyBuilder.callSuper(proxy, method, *args)
+                else -> {
+                    ProxyBuilder.callSuper(proxy, method, *args)
+                }
             }
         }
 
         val markerInterface =
-            if (itemIndexCounter < markers.size) markers[itemIndexCounter++]
-            else java.io.Serializable::class.java
+            if (itemIndexCounter < markers.size) {
+                markers[itemIndexCounter++]
+            } else {
+                java.io.Serializable::class.java
+            }
         val proxyClass =
             createProxyBuilder(
                     ParcelableFixer.hybridClassLoader,

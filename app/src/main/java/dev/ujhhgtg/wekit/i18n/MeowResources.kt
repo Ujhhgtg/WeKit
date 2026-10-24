@@ -12,13 +12,15 @@ object MeowResourceFilter {
 }
 
 @Suppress("DEPRECATION")
-class MeowResources(
-    private val delegate: Resources,
-) : Resources(delegate.assets, delegate.displayMetrics, delegate.configuration) {
+class MeowResources(private val delegate: Resources) :
+    Resources(delegate.assets, delegate.displayMetrics, delegate.configuration) {
     override fun getText(id: Int): CharSequence =
         delegate.getText(id).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getText(id: Int, def: CharSequence?): CharSequence? {
@@ -32,32 +34,47 @@ class MeowResources(
 
     override fun getString(id: Int): String =
         delegate.getString(id).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getString(id: Int, vararg formatArgs: Any): String =
         delegate.getString(id, *formatArgs).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getQuantityText(id: Int, quantity: Int): CharSequence =
         delegate.getQuantityText(id, quantity).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getQuantityString(id: Int, quantity: Int): String =
         delegate.getQuantityString(id, quantity).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getQuantityString(id: Int, quantity: Int, vararg formatArgs: Any): String =
         delegate.getQuantityString(id, quantity, *formatArgs).let { text ->
-            if (MeowResourceFilter.isWeKitResource(id)) MeowTextTransformer.transform(text)
-            else text
+            if (MeowResourceFilter.isWeKitResource(id)) {
+                MeowTextTransformer.transform(text)
+            } else {
+                text
+            }
         }
 
     override fun getTextArray(id: Int): Array<CharSequence> =
@@ -79,9 +96,7 @@ class MeowResources(
         }
 }
 
-class MeowResourcesContext(
-    base: Context,
-) : ContextWrapper(base) {
+class MeowResourcesContext(base: Context) : ContextWrapper(base) {
     private val meowResources = MeowResources(base.resources)
 
     override fun getResources(): Resources = meowResources

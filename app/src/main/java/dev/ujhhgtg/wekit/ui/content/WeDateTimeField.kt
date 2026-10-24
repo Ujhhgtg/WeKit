@@ -83,34 +83,39 @@ fun WeDateTimeField(
         supportingText =
             if (isError) {
                 { Text(stringResource(R.string.date_time_invalid_format, mode.pattern)) }
-            } else null,
+            } else {
+                null
+            },
         trailingIcon = {
             IconButton(
                 enabled = enabled,
                 onClick = {
                     when (mode) {
-                        WeDateTimeMode.TIME_ONLY ->
+                        WeDateTimeMode.TIME_ONLY -> {
                             showNativeTimePicker(
                                 context = context,
                                 initialMinute = parseMinuteOfDay(value) ?: currentMinuteOfDay(),
                                 onSelected = { onValueChange(formatMinuteOfDay(it)) },
                             )
+                        }
 
                         // The native picker has no seconds: a picked time starts at :00.
-                        WeDateTimeMode.TIME_WITH_SECONDS ->
+                        WeDateTimeMode.TIME_WITH_SECONDS -> {
                             showNativeTimePicker(
                                 context = context,
                                 initialMinute =
                                     (parseSecondOfDay(value) ?: (currentMinuteOfDay() * 60)) / 60,
                                 onSelected = { onValueChange(formatSecondOfDay(it * 60)) },
                             )
+                        }
 
-                        WeDateTimeMode.DATE_TIME ->
+                        WeDateTimeMode.DATE_TIME -> {
                             showNativeDateTimePicker(
                                 context = context,
                                 initialMillis = parseDateTime(value) ?: System.currentTimeMillis(),
                                 onSelected = { onValueChange(formatDateTime(it)) },
                             )
+                        }
                     }
                 },
             ) {

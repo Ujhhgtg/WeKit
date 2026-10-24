@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
 
 object BypassUnderageGamingLimit : SwitchFeature() {
-
     override val technicalId = "绕过防沉迷"
     override val nameRes = R.string.feature_bypass_underage_gaming_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

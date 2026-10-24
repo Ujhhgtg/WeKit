@@ -9,11 +9,7 @@ import android.graphics.drawable.Drawable
 import androidx.core.graphics.PathParser
 import androidx.core.graphics.withSave
 
-abstract class VectorPathDrawable(
-    pathData: String,
-    color: Int = Color.WHITE,
-) : Drawable() {
-
+abstract class VectorPathDrawable(pathData: String, color: Int = Color.WHITE) : Drawable() {
     protected val path = PathParser.createPathFromPathData(pathData)
 
     protected val paint =

@@ -56,7 +56,6 @@ object AntiMessageRecall :
     IResolveDex,
     WeXmlParserApi.IAfterParseListener,
     WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "防撤回"
     override val nameRes = R.string.feature_anti_message_recall_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -66,6 +65,7 @@ object AntiMessageRecall :
 
     private var recallOutgoing by prefOption("recall_outgoing", false)
     private var badgeType by prefOption("recall_badge_type", BADGE_TYPE_ICON)
+
     // WeChat only marks a message as revoked AFTER overwriting its row in place (destroying the
     // content). Our blocked recalls leave the row intact and unmarked, so the recalled list must be
     // tracked here, persisted as "<talker>\u001F<msgSvrId>" entries.
@@ -180,6 +180,7 @@ object AntiMessageRecall :
                     }
                 }
             val sceneWrapper = sceneEndField.get()!!
+
             @Suppress("UNCHECKED_CAST") val sceneWrapperType = sceneEndField.self.type as Class<Any>
             val sceneEnd =
                 sceneWrapperType.reflekt().firstMethod {
@@ -416,11 +417,8 @@ object AntiMessageRecall :
     // Same icon style as SwipeMessageOperations' swipe action icons: a tinted vector glyph on a
     // circular backdrop, in red to mark the message as deleted.
     @SuppressLint("AppCompatCustomView")
-    private class RecallBadgeIconView(
-        context: Context,
-        iconColor: Int,
-        circleColor: Int,
-    ) : ImageView(context) {
+    private class RecallBadgeIconView(context: Context, iconColor: Int, circleColor: Int) :
+        ImageView(context) {
         init {
             scaleType = ScaleType.CENTER_INSIDE
             // Tint a fresh copy so the shared icon singleton keeps its default color.

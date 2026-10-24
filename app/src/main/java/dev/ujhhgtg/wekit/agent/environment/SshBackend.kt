@@ -6,10 +6,8 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
-class SshBackend(
-    override val snapshot: EnvironmentSnapshot,
-    val connection: SshConnectionManager,
-) : LinuxEnvironmentBackend {
+class SshBackend(override val snapshot: EnvironmentSnapshot, val connection: SshConnectionManager) :
+    LinuxEnvironmentBackend {
     init {
         require(snapshot.type == LinuxEnvironmentType.SSH)
     }
@@ -24,8 +22,9 @@ class SshBackend(
         val forward = localBridgePort?.let { connection.openReverseForward(it) }
         return withSshReverseForward(forward) {
             val remoteEnvironment =
-                if (forward == null) environmentVariables
-                else {
+                if (forward == null) {
+                    environmentVariables
+                } else {
                     environmentVariables +
                         ToolBridgeServer.Endpoint(
                                 localBridgePort,
@@ -104,17 +103,22 @@ class SshBackend(
         val content = decode(original.bytes)
         val updated =
             when (val old = request.oldString) {
-                null ->
+                null -> {
                     request.newString.also {
                         require(content.isEmpty()) { "creation requires a missing or empty file" }
                     }
+                }
+
                 else -> {
                     require(old.isNotEmpty()) { "oldString must not be empty" }
                     val count = countOccurrences(content, old)
                     require(count > 0) { "oldString was not found" }
                     require(request.replaceAll || count == 1) { "oldString occurs $count times" }
-                    if (request.replaceAll) content.replace(old, request.newString)
-                    else content.replaceFirst(old, request.newString)
+                    if (request.replaceAll) {
+                        content.replace(old, request.newString)
+                    } else {
+                        content.replaceFirst(old, request.newString)
+                    }
                 }
             }
         connection.atomicWrite(path, original, updated.toByteArray(StandardCharsets.UTF_8))
@@ -129,7 +133,9 @@ class SshBackend(
             when (component) {
                 "",
                 "." -> Unit
+
                 ".." -> if (components.isNotEmpty()) components.removeLast()
+
                 else -> components.addLast(component)
             }
         }
@@ -149,21 +155,21 @@ class SshBackend(
         val install =
             connection.execute(
                 """
-            set -e
-            trap 'rm -f ${quote(upload)}' EXIT
-            if [ "$(id -u)" = 0 ]; then
-              install -m 755 ${quote(upload)} /usr/bin/invoke_tool
-              printf '/usr/bin/invoke_tool\n'
-            elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-              sudo -n install -m 755 ${quote(upload)} /usr/bin/invoke_tool
-              printf '/usr/bin/invoke_tool\n'
-            else
-              mkdir -p "${'$'}HOME/.local/bin"
-              mv ${quote(upload)} "${'$'}HOME/.local/bin/invoke_tool"
-              chmod 755 "${'$'}HOME/.local/bin/invoke_tool"
-              printf '%s/.local/bin/invoke_tool\n' "${'$'}HOME"
-            fi
-            """
+                set -e
+                trap 'rm -f ${quote(upload)}' EXIT
+                if [ "$(id -u)" = 0 ]; then
+                  install -m 755 ${quote(upload)} /usr/bin/invoke_tool
+                  printf '/usr/bin/invoke_tool\n'
+                elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+                  sudo -n install -m 755 ${quote(upload)} /usr/bin/invoke_tool
+                  printf '/usr/bin/invoke_tool\n'
+                else
+                  mkdir -p "${'$'}HOME/.local/bin"
+                  mv ${quote(upload)} "${'$'}HOME/.local/bin/invoke_tool"
+                  chmod 755 "${'$'}HOME/.local/bin/invoke_tool"
+                  printf '%s/.local/bin/invoke_tool\n' "${'$'}HOME"
+                fi
+                """
                     .trimIndent(),
                 30_000,
             )
@@ -184,14 +190,16 @@ class SshBackend(
                     "command -v bash dd wc >/dev/null && test -d ${quote(snapshot.workingDirectory)} && printf healthy",
                     15_000,
                 )
-            if (result.exitCode == 0) EnvironmentHealth(EnvironmentHealthState.HEALTHY)
-            else
+            if (result.exitCode == 0) {
+                EnvironmentHealth(EnvironmentHealthState.HEALTHY)
+            } else {
                 EnvironmentHealth(
                     EnvironmentHealthState.DEGRADED,
                     result.stderr.toString(StandardCharsets.UTF_8).ifBlank {
                         "remote Bash, dd, wc, or working directory is unavailable"
                     },
                 )
+            }
         } catch (error: SshHostKeyException) {
             throw error
         } catch (error: Throwable) {
@@ -421,10 +429,7 @@ class SshBackend(
     }
 }
 
-suspend fun <T> withSshReverseForward(
-    forward: SshReverseForward?,
-    block: suspend () -> T,
-): T =
+suspend fun <T> withSshReverseForward(forward: SshReverseForward?, block: suspend () -> T): T =
     try {
         block()
     } finally {

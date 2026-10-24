@@ -103,11 +103,13 @@ object VivoMotionPhotoContainer {
                     MotionPhotoContainer.normalizeCover(cover, normalized)
                 }
                 photoOutput.outputStream().channel.use { output ->
-                    if (retainPrefix) copy(image, 0, old.start, output)
-                    else
+                    if (retainPrefix) {
+                        copy(image, 0, old.start, output)
+                    } else {
                         primary!!.inputStream().channel.use {
                             copy(it, 0, it.size(), output)
                         }
+                    }
                     put(output, extensionBytes(photoJson, id))
                     output.force(true)
                 }
@@ -160,8 +162,9 @@ object VivoMotionPhotoContainer {
     fun inspectPair(photo: File, video: File): ExportInfo {
         val image =
             photo.inputStream().channel.use {
-                if (MotionPhotoContainer.inspect(it) != null)
+                if (MotionPhotoContainer.inspect(it) != null) {
                     fail("Vivo V1 image unexpectedly contains a Motion Photo")
+                }
                 readExtension(it, it.size()) ?: fail("Missing Vivo image envelope")
             }
         return video.inputStream().channel.use {
@@ -206,11 +209,13 @@ object VivoMotionPhotoContainer {
                     info.videoOffset + info.videoLength,
                 ),
             )
-        return if (owned.isEmpty()) ExportInfo(null, info.coverTimestampMs, info.videoLength, info)
-        else {
+        return if (owned.isEmpty()) {
+            ExportInfo(null, info.coverTimestampMs, info.videoLength, info)
+        } else {
             val movie = owned.singleOrNull()?.extension ?: fail("Invalid Vivo V2 envelope")
-            if (movie.id != V2_ID || time(movie.json) != info.coverTimestampMs)
+            if (movie.id != V2_ID || time(movie.json) != info.coverTimestampMs) {
                 fail("Vivo V2 metadata disagrees with XMP")
+            }
             ExportInfo(movie.id, info.coverTimestampMs, info.videoLength, info)
         }
     }
@@ -243,20 +248,27 @@ object VivoMotionPhotoContainer {
         val owned = ownedBoxes(source, boxes)
         val scoring = analysis.metadata
         var metadata =
-            if (id == null) null
-            else
+            if (id == null) {
+                null
+            } else {
                 canonical(
-                    if (preserveOpaque) owned.lastOrNull()?.extension?.json?.takeIf(::validSchema)
-                    else null,
+                    if (preserveOpaque) {
+                        owned.lastOrNull()?.extension?.json?.takeIf(::validSchema)
+                    } else {
+                        null
+                    },
                     id,
                     timestamp,
                     photo = false,
                 )
-        if (metadata != null && encodedSize(metadata) >= JSON_LIMIT)
+            }
+        if (metadata != null && encodedSize(metadata) >= JSON_LIMIT) {
             metadata = canonical(null, id!!, timestamp, photo = false)
+        }
         val append =
-            if (metadata == null) ByteArray(0)
-            else {
+            if (metadata == null) {
+                ByteArray(0)
+            } else {
                 val payload = USER_TYPE + extensionBytes(metadata, id!!)
                 ByteBuffer.allocate(8)
                     .putInt(payload.size + 8)
@@ -272,11 +284,14 @@ object VivoMotionPhotoContainer {
                     .takeIf { ByteBuffer.wrap(read(source, it.start, 4)).int == 0 }
                     ?.let {
                         val size = it.end - it.start
-                        if (size > 0xffffffffL)
+                        if (size > 0xffffffffL) {
                             fail("Final MP4 box cannot be represented without moving media")
+                        }
                         it.start to size.toInt()
                     }
-            } else null
+            } else {
+                null
+            }
         return VideoRewritePlan(length, owned, scoring, finalBoxSize, append)
     }
 
@@ -343,8 +358,9 @@ object VivoMotionPhotoContainer {
         //        newly generated profiles use the SDK's 2016 schema, not a fabricated device
         // version.
         val version = old?.get(VERSION) as? JsonPrimitive
-        if (version == null || version.isString || version.intOrNull?.let { it > 0 } != true)
+        if (version == null || version.isString || version.intOrNull?.let { it > 0 } != true) {
             values[VERSION] = JsonPrimitive(2016)
+        }
         values[LIVE] = JsonPrimitive(id)
         values.remove(FRAME)
         values.remove(TIME)
@@ -360,8 +376,9 @@ object VivoMotionPhotoContainer {
             ByteBuffer.wrap(footer).int != 47 ||
                 !footer.copyOfRange(32, 36).contentEquals(byteArrayOf(-1, -1, -1, -1)) ||
                 !footer.copyOfRange(36, 47).contentEquals(FOOTER_END)
-        )
+        ) {
             return null
+        }
         val idBytes = footer.copyOfRange(4, 32)
         if (idBytes.any { it.toInt() and 0xff !in 33..126 }) return null
         val id = idBytes.toString(Charsets.US_ASCII)
@@ -386,8 +403,9 @@ object VivoMotionPhotoContainer {
                 // usable.
             }
         val association = json[LIVE] as? JsonPrimitive
-        if (association == null || !association.isString || association.contentOrNull != id)
+        if (association == null || !association.isString || association.contentOrNull != id) {
             return null
+        }
         return Extension(start, id, json)
     }
 
@@ -433,8 +451,9 @@ object VivoMotionPhotoContainer {
     private fun checkOutputs(cover: File, video: File, vararg outputs: File) {
         val inputs = setOf(cover.canonicalFile, video.canonicalFile)
         val targets = outputs.map { it.canonicalFile }
-        if (targets.any { it in inputs } || targets.toSet().size != targets.size)
+        if (targets.any { it in inputs } || targets.toSet().size != targets.size) {
             fail("Staging files must be distinct from inputs and each other")
+        }
     }
 
     private fun temporary(output: File, suffix: String) =
@@ -466,8 +485,11 @@ object VivoMotionPhotoContainer {
 
     private fun read(channel: FileChannel, offset: Long, size: Int): ByteArray {
         val buffer = ByteBuffer.allocate(size)
-        while (buffer.hasRemaining()) if (channel.read(buffer, offset + buffer.position()) <= 0)
-            fail("Truncated Vivo metadata")
+        while (buffer.hasRemaining()) {
+            if (channel.read(buffer, offset + buffer.position()) <= 0) {
+                fail("Truncated Vivo metadata")
+            }
+        }
         return buffer.array()
     }
 
@@ -478,8 +500,11 @@ object VivoMotionPhotoContainer {
 
     private fun putAt(target: FileChannel, offset: Long, bytes: ByteArray) {
         val buffer = ByteBuffer.wrap(bytes)
-        while (buffer.hasRemaining()) if (target.write(buffer, offset + buffer.position()) <= 0)
-            fail("Could not write Vivo metadata")
+        while (buffer.hasRemaining()) {
+            if (target.write(buffer, offset + buffer.position()) <= 0) {
+                fail("Could not write Vivo metadata")
+            }
+        }
     }
 
     private fun fail(message: String): Nothing = throw IOException(message)

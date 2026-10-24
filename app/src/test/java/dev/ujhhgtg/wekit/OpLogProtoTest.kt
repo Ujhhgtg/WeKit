@@ -14,14 +14,19 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class OpLogProtoTest {
-
     @Test
     fun clearProfileRequestMatchesLegacyJsonPayload() {
         val request = OpLog.encodeSingle(OpLog.CMD_MOD_PROFILE, ModProfileProto())
         val decoded = WeProto.decode<OpLogReqProto>(request)
 
-        assertEquals(1, decoded.opLogList.operations.single().cmdId)
-        assertEquals(91, decoded.opLogList.operations.single().opBuf.length)
+        assertEquals(
+            1,
+            decoded.opLogList.operations.single().cmdId,
+        )
+        assertEquals(
+            91,
+            decoded.opLogList.operations.single().opBuf.length,
+        )
         assertArrayEquals(legacyClearProfileRequest, request)
     }
 

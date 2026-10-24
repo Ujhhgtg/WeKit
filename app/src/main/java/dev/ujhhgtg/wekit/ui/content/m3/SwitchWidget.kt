@@ -114,8 +114,11 @@ fun SwitchWidget(
             thumbContent = {
                 Icon(
                     imageVector =
-                        if (checked) MaterialSymbols.Outlined.Check
-                        else MaterialSymbols.Outlined.Close,
+                        if (checked) {
+                            MaterialSymbols.Outlined.Check
+                        } else {
+                            MaterialSymbols.Outlined.Close
+                        },
                     contentDescription = null,
                     modifier = Modifier.size(SwitchDefaults.IconSize),
                 )

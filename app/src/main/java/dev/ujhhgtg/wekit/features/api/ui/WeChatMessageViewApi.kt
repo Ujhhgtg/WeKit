@@ -17,17 +17,13 @@ import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeChatMessageViewApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "消息 View 创建监听服务"
     override val nameRes = R.string.feature_we_chat_message_view_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_we_chat_message_view_api_description
 
     fun interface ICreateViewListener {
-        fun onCreateView(
-            param: HookParam,
-            view: View,
-        )
+        fun onCreateView(param: HookParam, view: View)
     }
 
     interface IMessageViewLifecycleListener {
@@ -192,12 +188,11 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun getChattingContextFromParam(param: HookParam): Any {
-        return param.thisObject!!
+    fun getChattingContextFromParam(param: HookParam): Any =
+        param.thisObject!!
             .reflekt()
             .firstField { type = WeMessageApi.classChattingContext.clazz }
             .get()!!
-    }
 
     /** Returns every (view, message) pair currently bound whose message satisfies [matcher]. */
     fun findBoundViews(matcher: (MessageInfo) -> Boolean): List<Pair<View, MessageInfo>> {

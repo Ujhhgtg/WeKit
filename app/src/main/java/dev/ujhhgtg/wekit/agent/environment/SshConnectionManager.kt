@@ -168,8 +168,9 @@ class SshConnectionManager(
             try {
                 sftp.lstat(path)
             } catch (error: SftpException) {
-                if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
                     return@withSftp SshRemoteFile(ByteArray(0), null)
+                }
                 throw error
             }
         require(attributes.isReg) { "not a regular file: $path" }
@@ -224,9 +225,11 @@ class SshConnectionManager(
                         attributes.toMetadata(),
                     )
                 } catch (error: SftpException) {
-                    if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                    if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
                         SshRemoteFile(ByteArray(0), null)
-                    else throw error
+                    } else {
+                        throw error
+                    }
                 }
             if (
                 current.metadata != expected.metadata ||
@@ -249,9 +252,11 @@ class SshConnectionManager(
                             attributes.toMetadata(),
                         )
                     } catch (error: SftpException) {
-                        if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+                        if (error.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
                             SshRemoteFile(ByteArray(0), null)
-                        else throw error
+                        } else {
+                            throw error
+                        }
                     }
                 if (
                     beforeCommit.metadata != expected.metadata ||
@@ -459,8 +464,9 @@ class SshConnectionManager(
                         is SshCredentials.PrivateKey -> "publickey"
                     },
                 )
-                if (credentials is SshCredentials.Password)
+                if (credentials is SshCredentials.Password) {
                     setPassword(credentials.password.toByteArray())
+                }
                 setServerAliveInterval(SERVER_ALIVE_INTERVAL_MS)
                 setServerAliveCountMax(SERVER_ALIVE_COUNT)
                 setTimeout(SOCKET_TIMEOUT_MS)
@@ -535,17 +541,22 @@ class SshConnectionManager(
         channel: ChannelShell,
         input: InputStream,
         maximum: Int,
-    ): ByteArray? {
-        return runBlockingIo {
-            val available = input.available()
-            when {
-                available > 0 ->
-                    ByteArray(minOf(available, maximum)).let { buffer ->
-                        val count = input.read(buffer)
-                        if (count < 0) ByteArray(0) else buffer.copyOf(count)
-                    }
-                channel.isClosed -> ByteArray(0)
-                else -> null
+    ): ByteArray? = runBlockingIo {
+        val available = input.available()
+        when {
+            available > 0 -> {
+                ByteArray(minOf(available, maximum)).let { buffer ->
+                    val count = input.read(buffer)
+                    if (count < 0) ByteArray(0) else buffer.copyOf(count)
+                }
+            }
+
+            channel.isClosed -> {
+                ByteArray(0)
+            }
+
+            else -> {
+                null
             }
         }
     }
@@ -569,11 +580,15 @@ class SshConnectionManager(
         override fun check(host: String, key: ByteArray): Int {
             val observed = SshHostKey(HostKey(host, key).type, SshHostKeyVerifier.fingerprint(key))
             return when (verifier.verify(observed)) {
-                SshHostKeyDecision.MATCH -> HostKeyRepository.OK
+                SshHostKeyDecision.MATCH -> {
+                    HostKeyRepository.OK
+                }
+
                 SshHostKeyDecision.CONFIRMATION_REQUIRED -> {
                     rejected = SshHostKeyException.ConfirmationRequired(endpoint, observed)
                     HostKeyRepository.NOT_INCLUDED
                 }
+
                 SshHostKeyDecision.CHANGED -> {
                     rejected = SshHostKeyException.Changed(endpoint, observed)
                     HostKeyRepository.CHANGED

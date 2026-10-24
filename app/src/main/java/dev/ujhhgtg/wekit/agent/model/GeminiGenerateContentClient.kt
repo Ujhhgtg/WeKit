@@ -58,7 +58,6 @@ class GeminiGenerateContentClient(
     private val baseUrl: String,
     private val apiKey: String,
 ) : LlmClient {
-
     override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
         val modelPath =
             request.modelIdRemote.let {
@@ -197,7 +196,9 @@ class GeminiGenerateContentClient(
                             completionTokens = outputTokens,
                             totalTokens = totalTokens,
                         )
-                    } else null
+                    } else {
+                        null
+                    }
 
                 emit(
                     LlmStreamEvent.Completed(
@@ -274,13 +275,20 @@ class GeminiGenerateContentClient(
         fun appendParts(role: String, parts: List<JsonObject>) {
             if (parts.isEmpty()) return
             val last = turns.lastOrNull()
-            if (last != null && last.first == role) last.second.addAll(parts)
-            else turns.add(role to parts.toMutableList())
+            if (last != null && last.first == role) {
+                last.second.addAll(parts)
+            } else {
+                turns.add(role to parts.toMutableList())
+            }
         }
 
         for (msg in messages) {
             when (msg.role) {
-                LlmRole.SYSTEM -> Unit // hoisted to systemInstruction
+                LlmRole.SYSTEM -> {
+                    Unit
+                }
+
+                // hoisted to systemInstruction
 
                 LlmRole.USER -> {
                     val parts = ArrayList<JsonObject>()

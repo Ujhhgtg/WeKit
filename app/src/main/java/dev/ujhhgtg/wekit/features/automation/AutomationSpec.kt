@@ -4,11 +4,7 @@ import androidx.annotation.StringRes
 import kotlinx.serialization.Serializable
 
 /** A named rule of an automation feature with its storage codec and built-in default. */
-class AutomationRuleKey<T : Any>(
-    val id: String,
-    val codec: AutomationValueCodec<T>,
-    val default: T,
-)
+class AutomationRuleKey<T : Any>(val id: String, val codec: AutomationValueCodec<T>, val default: T)
 
 enum class AutomationScopeType {
     GLOBAL,
@@ -36,16 +32,25 @@ data class AutomationScope(
     init {
         require(
             when (type) {
-                AutomationScopeType.GLOBAL -> scopeId.isEmpty() && memberId.isEmpty()
-                AutomationScopeType.CATEGORY ->
+                AutomationScopeType.GLOBAL -> {
+                    scopeId.isEmpty() && memberId.isEmpty()
+                }
+
+                AutomationScopeType.CATEGORY -> {
                     AutomationTalkerCategory.entries.any { it.name == scopeId } &&
                         memberId.isEmpty()
-                AutomationScopeType.GROUP_MEMBER ->
+                }
+
+                AutomationScopeType.GROUP_MEMBER -> {
                     AutomationTalkerCategory.of(scopeId) == AutomationTalkerCategory.GROUP &&
                         memberId.isNotEmpty()
+                }
+
                 AutomationScopeType.CONTACT,
                 AutomationScopeType.PRESET,
-                AutomationScopeType.ITEM -> scopeId.isNotEmpty() && memberId.isEmpty()
+                AutomationScopeType.ITEM -> {
+                    scopeId.isNotEmpty() && memberId.isEmpty()
+                }
             },
         ) {
             "Invalid automation scope $type/$scopeId/$memberId"
@@ -54,8 +59,11 @@ data class AutomationScope(
 
     val category: AutomationTalkerCategory?
         get() =
-            if (type == AutomationScopeType.CATEGORY) AutomationTalkerCategory.valueOf(scopeId)
-            else null
+            if (type == AutomationScopeType.CATEGORY) {
+                AutomationTalkerCategory.valueOf(scopeId)
+            } else {
+                null
+            }
 
     companion object {
         val Global = AutomationScope(AutomationScopeType.GLOBAL)
@@ -106,8 +114,11 @@ class AutomationRules(private val values: Map<String, Any>) {
     operator fun <T : Any> get(key: AutomationRuleKey<T>): T = values[key.id] as T? ?: key.default
 
     fun overlay(overrides: AutomationRuleValues?): AutomationRules =
-        if (overrides == null || overrides.isEmpty()) this
-        else AutomationRules(values + overrides.values)
+        if (overrides == null || overrides.isEmpty()) {
+            this
+        } else {
+            AutomationRules(values + overrides.values)
+        }
 
     /**
      * Copies the effective value of [key] into [overrides] (activating an override in the editor).

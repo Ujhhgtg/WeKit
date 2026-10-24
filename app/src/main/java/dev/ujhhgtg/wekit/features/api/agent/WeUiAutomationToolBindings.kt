@@ -39,7 +39,6 @@ import kotlin.coroutines.coroutineContext
  * - `ui-press-key` — send a KeyEvent to the top activity.
  */
 object WeUiAutomationToolBindings {
-
     // ------------------------------------------------------------------ perception (read-only)
 
     @AgentTool(
@@ -115,13 +114,12 @@ object WeUiAutomationToolBindings {
         sideEffect = false,
         group = BUILTIN_UI,
     )
-    fun uiDescribeView(
-        @AgentToolParam("Handle #N of the view to describe") ref: String,
-    ): String = guard {
-        JvmValueBridge.onMain {
-            UiAutomator.describeView(UiAutomator.resolveView(ref))
+    fun uiDescribeView(@AgentToolParam("Handle #N of the view to describe") ref: String): String =
+        guard {
+            JvmValueBridge.onMain {
+                UiAutomator.describeView(UiAutomator.resolveView(ref))
+            }
         }
-    }
 
     @AgentTool(
         name = "ui-screenshot",
@@ -148,8 +146,11 @@ object WeUiAutomationToolBindings {
             val maxDim = (maxDimension ?: 1024).coerceAtLeast(128)
             val bitmap = JvmValueBridge.onMain {
                 val target =
-                    if (!viewRef.isNullOrBlank()) UiAutomator.resolveView(viewRef)
-                    else UiAutomator.resolveDecor(null)
+                    if (!viewRef.isNullOrBlank()) {
+                        UiAutomator.resolveView(viewRef)
+                    } else {
+                        UiAutomator.resolveDecor(null)
+                    }
                 UiAutomator.screenshot(target, maxDim)
             }
             val base64 = bitmapToBase64Png(bitmap)
@@ -168,9 +169,7 @@ object WeUiAutomationToolBindings {
         sideEffect = true,
         group = BUILTIN_UI,
     )
-    fun uiClickView(
-        @AgentToolParam("Handle #N of the view to click") ref: String,
-    ): String = guard {
+    fun uiClickView(@AgentToolParam("Handle #N of the view to click") ref: String): String = guard {
         JvmValueBridge.onMain { UiAutomator.clickView(UiAutomator.resolveView(ref)) }
         "Clicked $ref."
     }
@@ -212,20 +211,21 @@ object WeUiAutomationToolBindings {
         sideEffect = true,
         group = BUILTIN_UI,
     )
-    fun uiInputText(
-        @AgentToolParam("Text to type into the focused view") text: String,
-    ): String = guard {
-        JvmValueBridge.onMain {
-            val act =
-                dev.ujhhgtg.wekit.utils.android.getTopMostActivity()
-                    ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No top-most activity")
-            val focused =
-                act.currentFocus
-                    ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No focused view")
-            UiAutomator.setText(focused, text)
+    fun uiInputText(@AgentToolParam("Text to type into the focused view") text: String): String =
+        guard {
+            JvmValueBridge.onMain {
+                val act =
+                    dev.ujhhgtg.wekit.utils.android.getTopMostActivity()
+                        ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException(
+                            "No top-most activity",
+                        )
+                val focused =
+                    act.currentFocus
+                        ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No focused view")
+                UiAutomator.setText(focused, text)
+            }
+            "Text set on focused view."
         }
-        "Text set on focused view."
-    }
 
     // ------------------------------------------------------------------ coordinate actions
 

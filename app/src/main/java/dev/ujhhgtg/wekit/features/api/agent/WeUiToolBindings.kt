@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
  * (e.g. read the current activity's intent, walk its view tree, …).
  */
 object WeUiToolBindings {
-
     @AgentTool(
         name = "ui-get-topmost-activity",
         description =

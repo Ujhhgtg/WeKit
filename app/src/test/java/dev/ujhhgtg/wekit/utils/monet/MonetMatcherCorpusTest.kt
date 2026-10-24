@@ -45,6 +45,7 @@ class MonetMatcherCorpusTest {
                         "Play $role candidates=${playStructural.getValue(role).map { it.key.name }}",
                     )
                 }
+
             fun comparePalette(
                 sampleName: String,
                 target: MonetResourceGraph,
@@ -71,9 +72,10 @@ class MonetMatcherCorpusTest {
                             MonetStructureMatcher.candidates(reference, source, target).none {
                                 it.id == selected.id
                             }
-                    )
+                    ) {
                         mismatches +=
                             "$sampleName $role selected ${selected.key.name} but does not match Play XML/value feature"
+                    }
                 }
                 println("MONET_PALETTE_RESULT $sampleName mismatches=${mismatches.size - before}")
             }
@@ -274,9 +276,10 @@ class MonetMatcherCorpusTest {
                         }
                     EXPECTED_TARGETS.getValue(sample.name).forEach { (role, name) ->
                         audit.getValue(role).singleOrNull()?.let { resolved ->
-                            if (resolved.key.name != name)
+                            if (resolved.key.name != name) {
                                 failures +=
                                     "${sample.name}: $role expected $name, got ${resolved.key.name}"
+                            }
                         }
                     }
                     val expectedTransfer = EXPECTED_TRANSFER_TARGETS.getValue(sample.name)
@@ -290,10 +293,12 @@ class MonetMatcherCorpusTest {
                                 audit.getValue(it).singleOrNull()?.key?.name
                             }
                             .toSet()
-                    if (actualIncoming != expectedTransfer.first)
+                    if (actualIncoming != expectedTransfer.first) {
                         failures += "${sample.name}: incoming transfer $actualIncoming"
-                    if (actualOutgoing != expectedTransfer.second)
+                    }
+                    if (actualOutgoing != expectedTransfer.second) {
                         failures += "${sample.name}: outgoing transfer $actualOutgoing"
+                    }
                     println(
                         "MONET_APK_RESULT ${sample.name} resolved=${resolved.size} expectedAbsent=${expectedAbsent.sorted()}",
                     )
@@ -412,6 +417,7 @@ class MonetMatcherCorpusTest {
 
     private companion object {
         val PLAY_APKS = File("/home/ujhhgtg/coding/wechat_8072_3085_play.apks")
+
         // Surfaces the reference module leaves untouched although they sit beside recolored ones.
         val BEYOND_REFERENCE_ROLES =
             setOf(
@@ -501,6 +507,7 @@ class MonetMatcherCorpusTest {
                 "8077" to null,
                 "8078" to null,
             )
+
         // Independent, APK-verified expectations: removed layouts and shared old search colors.
         val EXPECTED_ABSENT =
             mapOf(

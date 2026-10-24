@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.loader.api.PayloadEnvironment
 import dev.ujhhgtg.wekit.loader.api.TelegramRootAccess
 
 object StartupInfo {
-
     lateinit var payloadEnvironment: PayloadEnvironment
     val injectionMode: InjectionMode
         get() = payloadEnvironment.injectionMode

@@ -39,7 +39,6 @@ import kotlinx.coroutines.launch
 
 object AddToAggregationFolder :
     ClickableFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "添加对话至归拢文件夹"
     override val nameRes = R.string.feature_add_to_aggregation_folder_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -79,8 +78,8 @@ object AddToAggregationFolder :
         }
     }
 
-    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> =
+        listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777019,
                 text = localizedChatString(R.string.chat_add_folder_menu),
@@ -93,7 +92,6 @@ object AddToAggregationFolder :
                 onMenuClick(context.activity, context.talker)
             },
         )
-    }
 
     private fun onMenuClick(context: Context, talker: String) {
         if (!ConversationAggregation.isActive) {
@@ -125,11 +123,12 @@ object AddToAggregationFolder :
                 text = {
                     Column {
                         if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (failed)
+                        if (failed) {
                             Text(
                                 stringResource(R.string.logs_save_failed),
                                 color = MaterialTheme.colorScheme.error,
                             )
+                        }
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 420.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -181,8 +180,9 @@ object AddToAggregationFolder :
                                                 onDismiss()
                                             }
                                         } catch (error: Exception) {
-                                            if (error is kotlinx.coroutines.CancellationException)
+                                            if (error is kotlinx.coroutines.CancellationException) {
                                                 throw error
+                                            }
                                             WeLogger.e(
                                                 "AddToAggregationFolder",
                                                 "Failed to add folder member",
@@ -219,8 +219,11 @@ object AddToAggregationFolder :
             Text(
                 text =
                     stringResource(
-                        if (folder.isAuto) R.string.chat_add_folder_automatic_summary
-                        else R.string.chat_add_folder_manual_summary,
+                        if (folder.isAuto) {
+                            R.string.chat_add_folder_automatic_summary
+                        } else {
+                            R.string.chat_add_folder_manual_summary
+                        },
                     ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -11,10 +11,7 @@ import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.toBitmap
 import dev.ujhhgtg.wekit.ui.utils.toDp
 
-fun Uri.openInSystem(
-    context: Context,
-    useCustomTabs: Boolean = false,
-) {
+fun Uri.openInSystem(context: Context, useCustomTabs: Boolean = false) {
     if (useCustomTabs) {
         val pendingIntent =
             PendingIntent.getActivity(

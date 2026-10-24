@@ -36,7 +36,6 @@ enum class TargetProcess {
 }
 
 object TargetProcesses {
-
     val isInMain
         get() = currentType == TargetProcess.MAIN
 
@@ -67,28 +66,91 @@ object TargetProcesses {
             TargetProcess.MAIN
         } else {
             when (val tail = parts.last()) {
-                "push" -> TargetProcess.PUSH
-                "sandbox" -> TargetProcess.SANDBOX
-                "exdevice" -> TargetProcess.EXDEVICE
-                "support" -> TargetProcess.SUPPORT
-                "cuploader" -> TargetProcess.CUPLOADER
-                "patch" -> TargetProcess.PATCH
-                "fallback" -> TargetProcess.FALLBACK
-                "dexopt" -> TargetProcess.DEXOPT
-                "recovery" -> TargetProcess.RECOVERY
-                "nospace" -> TargetProcess.NOSPACE
-                "jectl" -> TargetProcess.JECTL
-                "opengl_detector" -> TargetProcess.OPENGL_DETECTOR
-                "rubbishbin" -> TargetProcess.RUBBISHBIN
-                "res_can_worker" -> TargetProcess.RES_CAN_WORKER
-                "extmig" -> TargetProcess.EXTMIG
-                "TMAssistantDownloadSDKService" -> TargetProcess.TMASSISTANT
-                "switch" -> TargetProcess.SWITCH
-                "hld" -> TargetProcess.HLD
-                "playcore_missing_splits_activity" -> TargetProcess.PLAYCORE
-                "hldfl" -> TargetProcess.HLDFL
-                "magic_emoji" -> TargetProcess.MAGIC_EMOJI
-                else ->
+                "push" -> {
+                    TargetProcess.PUSH
+                }
+
+                "sandbox" -> {
+                    TargetProcess.SANDBOX
+                }
+
+                "exdevice" -> {
+                    TargetProcess.EXDEVICE
+                }
+
+                "support" -> {
+                    TargetProcess.SUPPORT
+                }
+
+                "cuploader" -> {
+                    TargetProcess.CUPLOADER
+                }
+
+                "patch" -> {
+                    TargetProcess.PATCH
+                }
+
+                "fallback" -> {
+                    TargetProcess.FALLBACK
+                }
+
+                "dexopt" -> {
+                    TargetProcess.DEXOPT
+                }
+
+                "recovery" -> {
+                    TargetProcess.RECOVERY
+                }
+
+                "nospace" -> {
+                    TargetProcess.NOSPACE
+                }
+
+                "jectl" -> {
+                    TargetProcess.JECTL
+                }
+
+                "opengl_detector" -> {
+                    TargetProcess.OPENGL_DETECTOR
+                }
+
+                "rubbishbin" -> {
+                    TargetProcess.RUBBISHBIN
+                }
+
+                "res_can_worker" -> {
+                    TargetProcess.RES_CAN_WORKER
+                }
+
+                "extmig" -> {
+                    TargetProcess.EXTMIG
+                }
+
+                "TMAssistantDownloadSDKService" -> {
+                    TargetProcess.TMASSISTANT
+                }
+
+                "switch" -> {
+                    TargetProcess.SWITCH
+                }
+
+                "hld" -> {
+                    TargetProcess.HLD
+                }
+
+                "playcore_missing_splits_activity" -> {
+                    TargetProcess.PLAYCORE
+                }
+
+                "hldfl" -> {
+                    TargetProcess.HLDFL
+                }
+
+                "magic_emoji" -> {
+                    TargetProcess.MAGIC_EMOJI
+                }
+
+                else -> {
                     when {
                         tail.startsWith("appbrand") -> TargetProcess.APPBRAND
                         tail.startsWith("tools") -> TargetProcess.TOOLS
@@ -97,6 +159,7 @@ object TargetProcesses {
                         tail.startsWith("backtrace") -> TargetProcess.BACKTRACE
                         else -> TargetProcess.OTHERS
                     }
+                }
             }
         }
     }

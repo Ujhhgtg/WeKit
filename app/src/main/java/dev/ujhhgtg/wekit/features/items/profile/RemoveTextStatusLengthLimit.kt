@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
-
     override val technicalId = "解除状态词长度限制"
     override val nameRes = R.string.feature_remove_text_status_length_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)

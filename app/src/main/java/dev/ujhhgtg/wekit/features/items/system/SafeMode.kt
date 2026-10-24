@@ -16,7 +16,6 @@ import kotlin.io.path.writeText
 
 /** 模块级「安全模式」开关 */
 object SafeMode {
-
     private const val TAG = "SafeMode"
     private val flagFile = KnownPaths.moduleRoot / "safe_mode.flag"
 

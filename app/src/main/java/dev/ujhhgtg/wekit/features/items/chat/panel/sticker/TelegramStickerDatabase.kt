@@ -9,11 +9,7 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.isRegularFile
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class TelegramInstalledStickerSet(
-    val name: String,
-    val title: String,
-)
+@Serializable data class TelegramInstalledStickerSet(val name: String, val title: String)
 
 object TelegramStickerDatabase {
     private const val MSG_STICKER_SET = 0x6e153f16

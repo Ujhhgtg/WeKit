@@ -49,10 +49,7 @@ enum class EnvironmentHealthState {
     UNAVAILABLE,
 }
 
-data class EnvironmentHealth(
-    val state: EnvironmentHealthState,
-    val detail: String? = null,
-)
+data class EnvironmentHealth(val state: EnvironmentHealthState, val detail: String? = null)
 
 const val NATIVE_ENVIRONMENT_ID = "native"
 

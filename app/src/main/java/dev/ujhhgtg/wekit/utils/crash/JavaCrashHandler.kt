@@ -9,7 +9,6 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.system.exitProcess
 
 object JavaCrashHandler : Thread.UncaughtExceptionHandler {
-
     private const val TAG = "JavaCrashHandler"
 
     // 第二个崩溃线程最多等第一个线程写完崩溃日志多久; 超时就直接走终止流程, 避免整个进程卡死。

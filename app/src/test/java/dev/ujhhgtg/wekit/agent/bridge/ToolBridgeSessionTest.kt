@@ -62,7 +62,9 @@ class ToolBridgeSessionTest {
         val names =
             kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
                 .jsonArray
-                .map { it.jsonObject.getValue("name").jsonPrimitive.content }
+                .map {
+                    it.jsonObject.getValue("name").jsonPrimitive.content
+                }
 
         assertEquals(listOf("load_skill", "read_only", "mcp__remote__lookup"), names)
     }
@@ -100,7 +102,9 @@ class ToolBridgeSessionTest {
         val names =
             kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
                 .jsonArray
-                .map { it.jsonObject.getValue("name").jsonPrimitive.content }
+                .map {
+                    it.jsonObject.getValue("name").jsonPrimitive.content
+                }
 
         assertTrue("mcp__reserved__lookup" in names)
         assertTrue(
@@ -120,7 +124,9 @@ class ToolBridgeSessionTest {
         val response =
             kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
                 .jsonObject
-        assertFalse(response.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(
+            response.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("token_revoked", response.getValue("error").jsonPrimitive.content)
     }
 
@@ -143,7 +149,9 @@ class ToolBridgeSessionTest {
                     session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}"),
                 )
                 .jsonObject
-        assertTrue(response.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertTrue(
+            response.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("read_only", response.getValue("result").jsonPrimitive.content)
         with(audits.single()) {
             assertEquals("owner", sessionId)
@@ -195,10 +203,14 @@ class ToolBridgeSessionTest {
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
         val json = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
 
-        assertFalse(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(
+            json.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("approval_denied", json.getValue("error").jsonPrimitive.content)
         assertEquals("USER_REJECTED", json.getValue("status").jsonPrimitive.content)
-        assertTrue(json.getValue("result").jsonPrimitive.content.contains("not approved"))
+        assertTrue(
+            json.getValue("result").jsonPrimitive.content.contains("not approved"),
+        )
         assertEquals(0, executions)
         assertEquals(1, auditAttempts)
     }
@@ -221,10 +233,14 @@ class ToolBridgeSessionTest {
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
         val json = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
 
-        assertFalse(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(
+            json.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("execution_failed", json.getValue("error").jsonPrimitive.content)
         assertEquals("AUTO_ALLOWED", json.getValue("status").jsonPrimitive.content)
-        assertTrue(json.getValue("result").jsonPrimitive.content.contains("target failed"))
+        assertTrue(
+            json.getValue("result").jsonPrimitive.content.contains("target failed"),
+        )
         assertEquals(1, executions)
         assertEquals(1, auditAttempts)
     }

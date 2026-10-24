@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 
 object DownloadFilesToLocalStorage :
     SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "文件下载到本地"
     override val nameRes = R.string.feature_download_files_to_local_storage_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

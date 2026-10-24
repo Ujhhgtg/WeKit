@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object FakeVoiceDuration : ClickableFeature(), IResolveDex {
-
     override val technicalId = "伪装语音时长"
     override val nameRes = R.string.feature_fake_voice_duration_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

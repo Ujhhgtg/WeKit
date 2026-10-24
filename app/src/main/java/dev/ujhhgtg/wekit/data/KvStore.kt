@@ -120,13 +120,20 @@ object KvStore {
     fun putObject(key: String, obj: Any) {
         when (obj) {
             is Boolean -> putBool(key, obj)
+
             is Int -> putInt(key, obj)
+
             is Long -> putLong(key, obj)
+
             is Float,
             is Double -> putFloat(key, (obj as Number).toFloat())
+
             is String -> putString(key, obj)
+
             is Set<*> -> putStringSet(key, obj.filterIsInstance<String>().toSet())
+
             is ByteArray -> putBytes(key, obj)
+
             else -> error("unsupported preference type ${obj::class}")
         }
     }

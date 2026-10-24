@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableHighBrightness : SwitchFeature() {
-
     override val technicalId = "禁止屏幕高亮度"
     override val nameRes = R.string.feature_disable_high_brightness_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

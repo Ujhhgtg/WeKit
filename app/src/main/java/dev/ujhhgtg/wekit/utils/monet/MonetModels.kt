@@ -58,10 +58,7 @@ fun interface MonetDexEvidenceProvider {
 
 data class MonetDexCandidate(val resourceId: Int, val type: String, val name: String)
 
-data class MonetResourceDexEvidence(
-    val resourceId: Int,
-    val methods: List<MonetMethodDexEvidence>,
-)
+data class MonetResourceDexEvidence(val resourceId: Int, val methods: List<MonetMethodDexEvidence>)
 
 data class MonetMethodDexEvidence(
     val descriptor: String,

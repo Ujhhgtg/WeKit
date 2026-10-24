@@ -17,6 +17,7 @@ object ReportWire {
 
     fun fields(bytes: ByteArray): List<Field> {
         var position = 0
+
         fun varint(): Long {
             var value = 0L
             for (i in 0..9) {
@@ -37,9 +38,15 @@ object ReportWire {
             var data = position
             var value = 0L
             when (wire) {
-                0 -> value = varint()
+                0 -> {
+                    value = varint()
+                }
+
                 1,
-                5 -> position += if (wire == 1) 8 else 4
+                5 -> {
+                    position += if (wire == 1) 8 else 4
+                }
+
                 2 -> {
                     val length = varint()
                     require(length >= 0 && length <= bytes.size - position) {
@@ -48,7 +55,10 @@ object ReportWire {
                     data = position
                     position += length.toInt()
                 }
-                else -> error("unsupported wire type $wire")
+
+                else -> {
+                    error("unsupported wire type $wire")
+                }
             }
             require(position <= bytes.size) { "truncated field" }
             fields += Field((tag ushr 3).toInt(), wire, start, data, position, value)
@@ -98,8 +108,11 @@ object ReportWire {
         val out = ByteArrayOutputStream(message.size)
         for (field in fields(message)) {
             val replacement = edit(field)
-            if (replacement == null) out.write(message, field.start, field.end - field.start)
-            else out.write(replacement)
+            if (replacement == null) {
+                out.write(message, field.start, field.end - field.start)
+            } else {
+                out.write(replacement)
+            }
         }
         return out.toByteArray()
     }

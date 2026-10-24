@@ -19,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
-
     override val technicalId = "查看群成员邀请者"
     override val nameRes = R.string.feature_display_group_member_inviter_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -73,14 +72,18 @@ object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 
                             val message =
                                 when {
-                                    inviterId.isEmpty() ->
+                                    inviterId.isEmpty() -> {
                                         activity.localizedChatString(
                                             R.string.chat_member_inviter_no_record,
                                         )
-                                    inviterId == clickedMemberId ->
+                                    }
+
+                                    inviterId == clickedMemberId -> {
                                         activity.localizedChatString(
                                             R.string.chat_member_inviter_self_joined,
                                         )
+                                    }
+
                                     else -> {
                                         val inviterName = runCatching {
                                             WeDatabaseApi.getDisplayName(inviterId)

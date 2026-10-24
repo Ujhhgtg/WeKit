@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit
  * logic so neither subclass has to duplicate it.
  */
 abstract class AutoMomentsBase : ClickableFeature() {
-
     @Suppress("PropertyName") protected abstract val TAG: String
 
     protected class AutomationRun(val enabledAtMillis: Long) {
@@ -74,8 +73,9 @@ abstract class AutoMomentsBase : ClickableFeature() {
             run.accountWindows.computeIfAbsent(account) {
                 val key = "${technicalId}_new_posts_after_$account"
                 val previous = KvStore.getLongOrDef(key, 0L)
-                if (previous >= run.enabledAtMillis) previous
-                else {
+                if (previous >= run.enabledAtMillis) {
+                    previous
+                } else {
                     // A new account or a fresh enable must never inherit another account's backlog.
                     System.currentTimeMillis().also { KvStore.putLong(key, it) }
                 }

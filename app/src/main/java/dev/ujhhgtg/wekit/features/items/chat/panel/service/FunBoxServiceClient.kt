@@ -247,14 +247,18 @@ object FunBoxServiceClient {
         WeLogger.d(TAG, "resolver request name=$RESOLVER_NAME")
         val resolverUrl = "https://223.5.5.5/resolve?name=$RESOLVER_NAME&type=TXT"
         val body =
-            client.newCall(Request.Builder().url(resolverUrl).get().build()).execute().use {
-                response ->
-                WeLogger.d(TAG, "resolver HTTP ${response.code}")
-                check(response.isSuccessful) {
-                    localizedChatString(R.string.chat_funbox_resolver_failed, response.code)
+            client
+                .newCall(
+                    Request.Builder().url(resolverUrl).get().build(),
+                )
+                .execute()
+                .use { response ->
+                    WeLogger.d(TAG, "resolver HTTP ${response.code}")
+                    check(response.isSuccessful) {
+                        localizedChatString(R.string.chat_funbox_resolver_failed, response.code)
+                    }
+                    response.body.string()
                 }
-                response.body.string()
-            }
         val answer =
             DefaultJson.parseToJsonElement(body)
                 .jsonObject["Answer"]
@@ -304,19 +308,24 @@ object FunBoxServiceClient {
         val result = runCatching {
             val testPath = "/vfile/vfun/vtest"
             val url = host.trimEnd('/') + testPath
-            client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
-                if (!response.isSuccessful) {
-                    WeLogger.d(TAG, "object probe host=$host HTTP ${response.code}")
-                    return@use false
-                }
-                val body = response.body.string()
-                val accepted = body == testPath || body == "success"
-                WeLogger.d(
-                    TAG,
-                    "object probe host=$host bodyClass=${if (accepted) "accepted" else "unexpected"}",
+            client
+                .newCall(
+                    Request.Builder().url(url).get().build(),
                 )
-                accepted
-            }
+                .execute()
+                .use { response ->
+                    if (!response.isSuccessful) {
+                        WeLogger.d(TAG, "object probe host=$host HTTP ${response.code}")
+                        return@use false
+                    }
+                    val body = response.body.string()
+                    val accepted = body == testPath || body == "success"
+                    WeLogger.d(
+                        TAG,
+                        "object probe host=$host bodyClass=${if (accepted) "accepted" else "unexpected"}",
+                    )
+                    accepted
+                }
         }
         result.exceptionOrNull()?.let { WeLogger.w(TAG, "object probe failed host=$host", it) }
         return result.getOrDefault(false)
@@ -403,8 +412,11 @@ object FunBoxServiceClient {
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) continuation.resume(response)
-                        else response.close()
+                        if (continuation.isActive) {
+                            continuation.resume(response)
+                        } else {
+                            response.close()
+                        }
                     }
                 },
             )

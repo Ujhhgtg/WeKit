@@ -23,7 +23,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
  * 8.0.65–8.0.77 均存在, 按项目约定不设 allowFailure。
  */
 object AntiSecMsg : SwitchFeature(), IResolveDex {
-
     override val technicalId = "反安全消息"
     override val nameRes = R.string.feature_anti_sec_msg_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

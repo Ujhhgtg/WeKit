@@ -27,7 +27,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object StickersManagerEnhancements : SwitchFeature() {
-
     override val technicalId = "「添加的单个表情」管理器增强"
     override val nameRes = R.string.feature_stickers_manager_enhancements_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -218,9 +217,8 @@ object StickersManagerEnhancements : SwitchFeature() {
      * EmojiCustomUI (not inherited). Reflekt defaults to declared-only (superclass = false).
      */
     @Suppress("UNCHECKED_CAST")
-    private fun activitySelectionList(activity: Activity): ArrayList<Any> {
-        return activity.reflekt().firstField { type = ArrayList::class }.get()!! as ArrayList<Any>
-    }
+    private fun activitySelectionList(activity: Activity): ArrayList<Any> =
+        activity.reflekt().firstField { type = ArrayList::class }.get()!! as ArrayList<Any>
 
     /**
      * Sync the adapter's internal selected-md5 LinkedList from the new selection, then redraw.

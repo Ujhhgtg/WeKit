@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 
 object SaveStickersToLocalStorage :
     SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "贴纸保存到本地"
     override val nameRes = R.string.feature_save_stickers_to_local_storage_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -33,8 +32,8 @@ object SaveStickersToLocalStorage :
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             @Suppress("UNCHECKED_CAST")
             WeChatMessageContextMenuApi.MenuItem(
                 777001,
@@ -75,7 +74,6 @@ object SaveStickersToLocalStorage :
                 }
             },
         )
-    }
 
     private suspend fun saveSticker(msgInfo: MessageInfo): String? {
         val md5 =

@@ -12,10 +12,7 @@ import kotlinx.serialization.json.jsonObject
  * resolves through the same cache on demand; it is null for external classes.
  */
 class DexMethodInfo
-internal constructor(
-    private val json: JsonObject,
-    private val metadata: DexMetadata,
-) {
+internal constructor(private val json: JsonObject, private val metadata: DexMetadata) {
     /** Raw JSON backing this instance (shallow class member ref or full top-level method doc). */
     internal val rawJson: JsonObject
         get() = json

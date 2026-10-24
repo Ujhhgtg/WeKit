@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
 object NativeCrashInterceptor : SwitchFeature() {
-
     override val technicalId = "崩溃拦截 (Native)"
     override val nameRes = R.string.feature_native_crash_interceptor_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

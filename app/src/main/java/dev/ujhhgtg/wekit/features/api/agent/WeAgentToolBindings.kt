@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.features.items.system.servers.WeChatService.Result
  * `sideEffect = true` (factory-default MANUAL_APPROVAL).
  */
 object WeAgentToolBindings {
-
     // --- Result rendering helpers ---
 
     private fun <T> Result<T>.render(onSuccess: (T) -> String): String =
@@ -57,11 +56,13 @@ object WeAgentToolBindings {
         @AgentToolParam("Contact type: all | friends | groups | official_accounts") type: String,
     ): String =
         WeChatService.listContacts(type).render { list ->
-            if (list.isEmpty()) "No contacts."
-            else
+            if (list.isEmpty()) {
+                "No contacts."
+            } else {
                 list.joinToString("\n") { c ->
                     "wxId=${c.wxId}, nickname=${c.nickname}, customWxId=${c.customWxId}, remarkName=${c.remarkName}"
                 }
+            }
         }
 
     @AgentTool(
@@ -76,8 +77,11 @@ object WeAgentToolBindings {
         @AgentToolParam("page size; defaults to 20") pageSize: Int?,
     ): String =
         WeChatService.listMessages(convId, pageIndex ?: 1, pageSize ?: 20).render { list ->
-            if (list.isEmpty()) "No messages."
-            else list.joinToString("\n") { "${it.sender}: ${it.content}" }
+            if (list.isEmpty()) {
+                "No messages."
+            } else {
+                list.joinToString("\n") { "${it.sender}: ${it.content}" }
+            }
         }
 
     @AgentTool(
@@ -85,15 +89,15 @@ object WeAgentToolBindings {
         description = "List all members of a group (id must end with @chatroom).",
         sideEffect = false,
     )
-    fun getGroupMembers(
-        @AgentToolParam("Group id ending with @chatroom") groupId: String,
-    ): String =
+    fun getGroupMembers(@AgentToolParam("Group id ending with @chatroom") groupId: String): String =
         WeChatService.listGroupMembers(groupId).render { list ->
-            if (list.isEmpty()) "No members."
-            else
+            if (list.isEmpty()) {
+                "No members."
+            } else {
                 list.joinToString("\n") { m ->
                     "wxId=${m.wxId}, nickname=${m.nickname}, customWxId=${m.customWxId}, remarkName=${m.remarkName}"
                 }
+            }
         }
 
     @AgentTool(
@@ -137,8 +141,11 @@ object WeAgentToolBindings {
     )
     fun listContactLabels(): String =
         WeChatService.listContactLabels().render { list ->
-            if (list.isEmpty()) "No labels."
-            else list.joinToString("\n") { "labelId=${it.labelId}, name=${it.labelName}" }
+            if (list.isEmpty()) {
+                "No labels."
+            } else {
+                list.joinToString("\n") { "labelId=${it.labelId}, name=${it.labelName}" }
+            }
         }
 
     @AgentTool(
@@ -228,17 +235,16 @@ object WeAgentToolBindings {
         sideEffect = false,
         group = AgentTool.BUILTIN_WECHAT_SQL,
     )
-    fun queryDatabase(
-        @AgentToolParam("A single SELECT statement") sql: String,
-    ): String {
+    fun queryDatabase(@AgentToolParam("A single SELECT statement") sql: String): String {
         if (!WeDatabaseApi.isReady) return "Error: database not ready"
         // Anti-loop: suppress SQL-event triggers briefly so the agent's own query doesn't fire
         // them.
         WeAgentService.triggerManager.suppressSqlBriefly()
         return runCatching {
             val rows = WeDatabaseApi.executeQuery(sql)
-            if (rows.isEmpty()) "0 rows."
-            else
+            if (rows.isEmpty()) {
+                "0 rows."
+            } else {
                 buildString {
                     append("${rows.size} row(s):\n")
                     rows.take(200).forEach { row ->
@@ -247,6 +253,7 @@ object WeAgentToolBindings {
                     }
                     if (rows.size > 200) append("… (${rows.size - 200} more rows truncated)")
                 }
+            }
         }
             .getOrElse { "Query failed: ${it.message}" }
     }
@@ -323,9 +330,8 @@ object WeAgentToolBindings {
         description = "Revoke (recall) a previously sent message by its local message id.",
         sideEffect = true,
     )
-    fun revokeMessage(
-        @AgentToolParam("Local message id to revoke") msgId: Long,
-    ): String = WeChatService.revokeMessage(msgId).renderOk("Revoked.")
+    fun revokeMessage(@AgentToolParam("Local message id to revoke") msgId: Long): String =
+        WeChatService.revokeMessage(msgId).renderOk("Revoked.")
 
     @AgentTool(
         name = "insert-system-message",
@@ -345,9 +351,8 @@ object WeAgentToolBindings {
         description = "Set the active conversation (open chat window target).",
         sideEffect = true,
     )
-    fun setCurrentTalker(
-        @AgentToolParam("Conversation id to activate") convId: String,
-    ): String = WeChatService.setCurrentTalker(convId).renderOk("Talker set.")
+    fun setCurrentTalker(@AgentToolParam("Conversation id to activate") convId: String): String =
+        WeChatService.setCurrentTalker(convId).renderOk("Talker set.")
 
     @AgentTool(
         name = "share-webpage",
@@ -418,9 +423,8 @@ object WeAgentToolBindings {
         description = "Post a text-only moment (朋友圈).",
         sideEffect = true,
     )
-    fun postMomentText(
-        @AgentToolParam("Moment text content") content: String,
-    ): String = WeChatService.postMomentText(content, null, null).renderOk("Posted.")
+    fun postMomentText(@AgentToolParam("Moment text content") content: String): String =
+        WeChatService.postMomentText(content, null, null).renderOk("Posted.")
 
     @AgentTool(
         name = "post-moment-pics",

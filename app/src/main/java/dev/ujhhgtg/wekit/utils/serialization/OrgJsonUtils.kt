@@ -15,9 +15,12 @@ fun JSONObject.toXml(rootTag: String = "root"): String = buildString {
 private fun Any?.toXmlElement(tag: String): String = buildString {
     when (this@toXmlElement) {
         is JSONObject -> append(toXml(tag))
+
         is JSONArray -> append(toXml(tag))
+
         null,
         JSONObject.NULL -> append("<$tag/>")
+
         else -> append("<$tag>${toString().escapeXml()}</$tag>")
     }
 }

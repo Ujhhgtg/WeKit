@@ -63,7 +63,6 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
-
     override val technicalId = "应用全局背景"
     override val nameRes = R.string.feature_apply_global_background_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -432,8 +431,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun createOverlay(context: Context, decor: ViewGroup): ImageView {
-        return ImageView(context).apply {
+    private fun createOverlay(context: Context, decor: ViewGroup): ImageView =
+        ImageView(context).apply {
             tag = OVERLAY_TAG
             background = null
             isClickable = false
@@ -448,7 +447,6 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             elevation = 100f
             decor.addView(this)
         }
-    }
 
     private fun findOverlay(decor: ViewGroup): ImageView? {
         for (index in 0 until decor.childCount) {

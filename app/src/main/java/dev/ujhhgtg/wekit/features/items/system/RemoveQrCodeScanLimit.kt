@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object RemoveQrCodeScanLimit : SwitchFeature() {
-
     override val technicalId = "移除二维码扫描限制"
     override val nameRes = R.string.feature_remove_qr_code_scan_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

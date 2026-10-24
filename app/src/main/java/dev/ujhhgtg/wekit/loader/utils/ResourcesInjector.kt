@@ -17,11 +17,7 @@ import java.io.File
 import java.lang.reflect.Array as ReflectArray
 import java.util.concurrent.ConcurrentHashMap
 
-class InjectionHandle(
-    val sha256: String,
-    val cookie: Int,
-    val keepAlive: Any,
-)
+class InjectionHandle(val sha256: String, val cookie: Int, val keepAlive: Any)
 
 object ResourcesInjector {
     private const val TAG = "ResourcesInjector"

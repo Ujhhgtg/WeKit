@@ -56,7 +56,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 object CenterProfileCard : ClickableFeature(), IResolveDex {
-
     override val technicalId = "资料卡居中"
     override val nameRes = R.string.feature_center_profile_card_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE)
@@ -384,8 +383,9 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             if (avatarSizeChanged) avatarSizePref = avatarSize.coerceAtLeast(1)
                             if (nameTopMarginChanged) nameTopMarginPref = nameTopMargin
                             if (aliasTopMarginChanged) aliasTopMarginPref = aliasTopMargin
-                            if (signatureTopMarginChanged)
+                            if (signatureTopMarginChanged) {
                                 signatureTopMarginPref = signatureTopMargin
+                            }
                             lightBgPref = lightBg.takeIfValidColor(DEFAULT_LIGHT_BG)
                             darkBgPref = darkBg.takeIfValidColor(DEFAULT_DARK_BG)
                             showNamePref = showName
@@ -544,12 +544,14 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 )
             } else {
                 val alias = WeApi.selfCustomWxId
-                if (alias.isNotBlank())
+                if (alias.isNotBlank()) {
                     root.context.localizedBeautifyString(
                         R.string.beautify_profile_card_wechat_id_value,
                         alias,
                     )
-                else ""
+                } else {
+                    ""
+                }
             }
         val signature = signatureTextPref.ifBlank {
             WeDatabaseApi.getSelfProfileField(
@@ -626,13 +628,13 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         return width * height
     }
 
-    private fun dp(context: Context, value: Int): Int {
-        return (value * context.resources.displayMetrics.density + 0.5f).toInt()
-    }
+    private fun dp(context: Context, value: Int): Int =
+        (value * context.resources.displayMetrics.density + 0.5f).toInt()
 
-    private fun parseColor(value: String, fallback: Int): Int {
-        return runCatching { value.toColorInt() }.getOrDefault(fallback)
+    private fun parseColor(value: String, fallback: Int): Int = runCatching {
+        value.toColorInt()
     }
+        .getOrDefault(fallback)
 
     private fun String.takeIfValidColor(defaultValue: String): String {
         val normalized = trim()

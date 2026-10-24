@@ -19,7 +19,6 @@ data class SendPatReqProto(
     @ProtoNumber(5) val msgPointer: String = "",
     @ProtoNumber(6) val scene: Int = 0,
 ) : ISendPatProto {
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

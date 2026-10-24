@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.enumValueOfClass
 import java.lang.reflect.Modifier
 
 object RemoveMenuLimits : SwitchFeature(), IResolveDex {
-
     override val technicalId = "去除菜单限制"
     override val nameRes = R.string.feature_remove_menu_limits_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

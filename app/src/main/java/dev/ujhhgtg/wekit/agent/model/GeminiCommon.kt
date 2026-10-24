@@ -12,7 +12,6 @@ import kotlinx.serialization.json.put
  * [GeminiInteractionsClient]).
  */
 object GeminiCommon {
-
     /**
      * Keys that Gemini rejects in JSON Schema parameter objects. The Gemini function-declaration
      * validator is stricter than standard JSON Schema: it rejects `additionalProperties`,
@@ -27,15 +26,21 @@ object GeminiCommon {
      */
     fun sanitizeSchema(schema: JsonElement): JsonElement =
         when (schema) {
-            is JsonObject ->
+            is JsonObject -> {
                 buildJsonObject {
                     schema.forEach { (k, v) ->
                         if (k !in STRIP_SCHEMA_KEYS) put(k, sanitizeSchema(v))
                     }
                 }
+            }
 
-            is JsonArray -> JsonArray(schema.map { sanitizeSchema(it) })
-            else -> schema
+            is JsonArray -> {
+                JsonArray(schema.map { sanitizeSchema(it) })
+            }
+
+            else -> {
+                schema
+            }
         }
 
     /**
@@ -53,12 +58,17 @@ object GeminiCommon {
             "",
             "off",
             "none" -> null
+
             "minimal" -> "minimal"
+
             "low" -> "low"
+
             "medium" -> "medium"
+
             "high",
             "xhigh",
             "max" -> "high"
+
             else -> if (effort.toIntOrNull() != null) "high" else null
         }
 

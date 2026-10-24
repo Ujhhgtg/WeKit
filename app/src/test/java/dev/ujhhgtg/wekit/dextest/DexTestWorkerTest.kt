@@ -78,7 +78,6 @@ internal data class DexTestWorkerConfig(
 }
 
 class DexTestWorkerTest {
-
     @Test
     fun runDexResolutionWorker() {
         val config = DexTestWorkerConfig.fromSystemProperties(System.getProperties())
@@ -196,9 +195,11 @@ private fun buildReport(
                 it.outcome == DexTestFeatureOutcome.PASS ||
                     it.outcome == DexTestFeatureOutcome.PASS_WITH_EXPECTED_FAILURES
             }
-        )
+        ) {
             DexTestApkOutcome.PASS
-        else DexTestApkOutcome.FAIL
+        } else {
+            DexTestApkOutcome.FAIL
+        }
     return DexTestApkReport(
         apkPath = config.apk.toString(),
         fileName = config.apk.fileName.toString(),

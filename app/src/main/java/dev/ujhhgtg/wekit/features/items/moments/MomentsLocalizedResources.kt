@@ -14,11 +14,7 @@ fun localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
 fun Context.localizedMomentsString(@StringRes id: Int, vararg formatArgs: Any): String =
     momentsLocalizedContext().getString(id, *formatArgs)
 
-fun localizedMomentsQuantity(
-    @PluralsRes id: Int,
-    quantity: Int,
-    vararg formatArgs: Any,
-): String =
+fun localizedMomentsQuantity(@PluralsRes id: Int, quantity: Int, vararg formatArgs: Any): String =
     HostInfo.application
         .momentsLocalizedContext()
         .resources

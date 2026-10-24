@@ -44,7 +44,6 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 
 object SwipeConversationOperations : ClickableFeature(), IResolveDex {
-
     override val technicalId = "左划对话菜单"
     override val nameRes = R.string.feature_swipe_conversation_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -200,8 +199,9 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     islandBounds.bottom == clipBottom &&
                     radii[0] == topRadius &&
                     radii[4] == bottomRadius
-            )
+            ) {
                 return
+            }
             clipsIsland = true
             islandBounds.set(clipLeft, clipTop, clipRight, clipBottom)
             radii.fill(topRadius, 0, 4)
@@ -530,7 +530,9 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val t =
             if (s.startedOpen && s.flyOutThreshold > s.revealWidth) {
                 ((reveal - s.revealWidth) / (s.flyOutThreshold - s.revealWidth)).coerceIn(0f, 1f)
-            } else 0f
+            } else {
+                0f
+            }
 
         // All buttons except 删除: evenly spaced, stay fixed as t grows.
         for (i in 0 until n - 1) {
@@ -571,10 +573,8 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
     }
 
     // Marks our wrapper so a re-bind can tell its own listener apart from WeChat's v3.
-    private class SwipeTouchListener(
-        val state: SwipeState,
-        val delegate: View.OnTouchListener?,
-    ) : View.OnTouchListener {
+    private class SwipeTouchListener(val state: SwipeState, val delegate: View.OnTouchListener?) :
+        View.OnTouchListener {
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             val consumed = handleSwipe(v, state, event)
             // Always let WeChat's listener observe the event too (it only sets a ripple hotspot and
@@ -625,13 +625,19 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                         s.isDnd = WeConversationApi.isDnd(talker)
                         (s.pinBtn as? TextView)?.text =
                             localizedChatString(
-                                if (s.isPinned) R.string.chat_conversation_unpin
-                                else R.string.chat_conversation_pin,
+                                if (s.isPinned) {
+                                    R.string.chat_conversation_unpin
+                                } else {
+                                    R.string.chat_conversation_pin
+                                },
                             )
                         (s.muteBtn as? TextView)?.text =
                             localizedChatString(
-                                if (s.isDnd) R.string.chat_conversation_unmute
-                                else R.string.chat_conversation_mute,
+                                if (s.isDnd) {
+                                    R.string.chat_conversation_unmute
+                                } else {
+                                    R.string.chat_conversation_mute
+                                },
                             )
                     }
                 }
@@ -676,14 +682,24 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                         if (tx <= -s.revealWidth * 0.25f) settleOpen(s) else settleClosed(s)
                     }
 
-                    tx <= -s.flyOutThreshold -> flyOutAndDelete(v, s)
-                    tx <= -s.revealWidth * 0.5f -> settleOpen(s)
-                    else -> settleClosed(s)
+                    tx <= -s.flyOutThreshold -> {
+                        flyOutAndDelete(v, s)
+                    }
+
+                    tx <= -s.revealWidth * 0.5f -> {
+                        settleOpen(s)
+                    }
+
+                    else -> {
+                        settleClosed(s)
+                    }
                 }
                 true
             }
 
-            else -> false
+            else -> {
+                false
+            }
         }
     }
 
@@ -791,15 +807,21 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     WeConversationApi.setPinned(talker, newTop)
                     showToast(
                         localizedChatString(
-                            if (newTop) R.string.chat_conversation_pinned
-                            else R.string.chat_conversation_unpinned,
+                            if (newTop) {
+                                R.string.chat_conversation_pinned
+                            } else {
+                                R.string.chat_conversation_unpinned
+                            },
                         ),
                     )
                     s.isPinned = newTop
                     (s.pinBtn as? TextView)?.text =
                         localizedChatString(
-                            if (newTop) R.string.chat_conversation_unpin
-                            else R.string.chat_conversation_pin,
+                            if (newTop) {
+                                R.string.chat_conversation_unpin
+                            } else {
+                                R.string.chat_conversation_pin
+                            },
                         )
                     settleClosed(s)
                     if (openState === s) openState = null
@@ -810,15 +832,21 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                     WeConversationApi.setDnd(talker, newMute)
                     showToast(
                         localizedChatString(
-                            if (newMute) R.string.chat_conversation_muted
-                            else R.string.chat_conversation_unmuted,
+                            if (newMute) {
+                                R.string.chat_conversation_muted
+                            } else {
+                                R.string.chat_conversation_unmuted
+                            },
                         ),
                     )
                     s.isDnd = newMute
                     (s.muteBtn as? TextView)?.text =
                         localizedChatString(
-                            if (newMute) R.string.chat_conversation_unmute
-                            else R.string.chat_conversation_mute,
+                            if (newMute) {
+                                R.string.chat_conversation_unmute
+                            } else {
+                                R.string.chat_conversation_mute
+                            },
                         )
                     settleClosed(s)
                     if (openState === s) openState = null

@@ -30,21 +30,17 @@ import java.io.File
 import java.nio.file.Path
 
 object CrashInterceptorUtils {
-
-    fun isMainProcess(appContext: Context): Boolean {
-        return runCatching {
-                getProcessName() == appContext.packageName
-            }
-            .getOrDefault(false)
+    fun isMainProcess(appContext: Context): Boolean = runCatching {
+        getProcessName() == appContext.packageName
     }
+        .getOrDefault(false)
 
-    fun getProcessName(): String {
-        return try {
+    fun getProcessName(): String =
+        try {
             File("/proc/${Process.myPid()}/cmdline").readText().trim('\u0000')
         } catch (_: Throwable) {
             ""
         }
-    }
 
     /**
      * Polls until a live launcher Activity is available, then invokes [onReady]. Gives up after
@@ -89,8 +85,8 @@ object CrashInterceptorUtils {
         crashInfo: String,
         overflowNotice: String,
         maxLength: Int = 15 * 1024,
-    ): String {
-        return if (crashInfo.length > maxLength) {
+    ): String =
+        if (crashInfo.length > maxLength) {
             crashInfo.take(maxLength) +
                 "\n\n=============================\n" +
                 overflowNotice +
@@ -99,7 +95,6 @@ object CrashInterceptorUtils {
         } else {
             crashInfo
         }
-    }
 
     fun showPendingCrashDialog(
         activity: Activity,

@@ -25,7 +25,6 @@ import java.util.Locale
 import org.json.JSONObject
 
 object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
-
     override val technicalId = "红包页面详情"
     override val nameRes = R.string.feature_display_red_packet_details_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -59,11 +58,17 @@ object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
                 val today = LocalDate.now()
                 val pattern =
                     when {
-                        localDate == today ->
+                        localDate == today -> {
                             localizedPaymentString(R.string.payment_red_packet_date_today)
-                        localDate.year == today.year ->
+                        }
+
+                        localDate.year == today.year -> {
                             localizedPaymentString(R.string.payment_red_packet_date_same_year)
-                        else -> localizedPaymentString(R.string.payment_red_packet_date_other_year)
+                        }
+
+                        else -> {
+                            localizedPaymentString(R.string.payment_red_packet_date_other_year)
+                        }
                     }
                 val formatter =
                     DateTimeFormatter.ofPattern(

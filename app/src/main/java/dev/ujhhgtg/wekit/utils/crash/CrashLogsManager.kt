@@ -23,7 +23,6 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object CrashLogsManager {
-
     private val crashLogsDir: Path by lazy { KnownPaths.moduleRoot / CRASH_LOGS_DIR }
 
     init {
@@ -40,8 +39,8 @@ object CrashLogsManager {
         }
     }
 
-    fun saveCrashLog(crashInfo: String, isJavaCrash: Boolean = false): String? {
-        return try {
+    fun saveCrashLog(crashInfo: String, isJavaCrash: Boolean = false): String? =
+        try {
             ensureCrashLogDirExists()
 
             val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss-SSS", Locale.getDefault())
@@ -51,8 +50,11 @@ object CrashLogsManager {
             logFile.writeText(crashInfo)
             WeLogger.i(TAG, "crash log saved: ${logFile.absolutePathString()}")
 
-            if (isJavaCrash) setPendingJavaCrashFlag(logFile.name)
-            else setPendingCrashFlag(logFile.name)
+            if (isJavaCrash) {
+                setPendingJavaCrashFlag(logFile.name)
+            } else {
+                setPendingCrashFlag(logFile.name)
+            }
 
             cleanOldLogs()
             logFile.absolutePathString()
@@ -60,7 +62,6 @@ object CrashLogsManager {
             WeLogger.e(TAG, "failed to save crash log", e)
             null
         }
-    }
 
     val allCrashLogs: List<Path>
         get() {
@@ -110,12 +111,13 @@ object CrashLogsManager {
         }
     }
 
-    fun deleteCrashLog(logFile: Path): Boolean {
-        return if (logFile.exists() && runCatching { logFile.deleteExisting() }.isSuccess) {
+    fun deleteCrashLog(logFile: Path): Boolean =
+        if (logFile.exists() && runCatching { logFile.deleteExisting() }.isSuccess) {
             WeLogger.i(TAG, "Crash log deleted: ${logFile.name}")
             true
-        } else false
-    }
+        } else {
+            false
+        }
 
     fun deleteAllCrashLogs(): Int {
         val count = allCrashLogs.count { deleteCrashLog(it) }

@@ -29,7 +29,6 @@ import kotlinx.coroutines.currentCoroutineContext
  * session when they fire (they have no bound session).
  */
 object WeAgentTriggerToolBindings {
-
     private const val GROUP = AgentTool.BUILTIN_TRIGGER
     private const val TAG = "WeTriggerTools"
 
@@ -51,12 +50,19 @@ object WeAgentTriggerToolBindings {
         val all = WeAgentRepository.getAllTriggersOnce()
         val filtered =
             when (scope?.lowercase()) {
-                "session" ->
+                "session" -> {
                     all.filter {
                         it.scope == TriggerScope.SESSION && it.sessionId == currentSession
                     }
-                "global" -> all.filter { it.scope == TriggerScope.GLOBAL }
-                else -> all
+                }
+
+                "global" -> {
+                    all.filter { it.scope == TriggerScope.GLOBAL }
+                }
+
+                else -> {
+                    all
+                }
             }
         if (filtered.isEmpty()) return "No triggers."
         return filtered.joinToString("\n") { t -> summarize(t) }
@@ -92,12 +98,25 @@ object WeAgentTriggerToolBindings {
     ): String {
         val kind =
             when (scheduleKind.lowercase()) {
-                "interval" -> ScheduleKind.INTERVAL
-                "daily" -> ScheduleKind.DAILY
-                "cron" -> ScheduleKind.CRON
-                "once" -> ScheduleKind.ONCE
-                else ->
+                "interval" -> {
+                    ScheduleKind.INTERVAL
+                }
+
+                "daily" -> {
+                    ScheduleKind.DAILY
+                }
+
+                "cron" -> {
+                    ScheduleKind.CRON
+                }
+
+                "once" -> {
+                    ScheduleKind.ONCE
+                }
+
+                else -> {
                     return "Error: unknown scheduleKind '$scheduleKind' (use interval|daily|cron|once)"
+                }
             }
         // Resolve absolute fire time: atRelative if provided, else fall back to atEpochMillis.
         val resolvedAtEpochMillis =
@@ -108,25 +127,38 @@ object WeAgentTriggerToolBindings {
                             parseRelativeToMillis(atRelative)
                                 ?: return "Error: invalid atRelative format '$atRelative' (use e.g. \"5m\", \"2h\", \"30s\")"
                         System.currentTimeMillis() + offset
-                    } else atEpochMillis
+                    } else {
+                        atEpochMillis
+                    }
                 }
 
-                else -> null
+                else -> {
+                    null
+                }
             }
         // Validate the kind-specific field is present & sane.
         when (kind) {
-            ScheduleKind.INTERVAL ->
+            ScheduleKind.INTERVAL -> {
                 if (intervalSeconds ?: 0 <= 0) return "Error: interval requires intervalSeconds > 0"
-            ScheduleKind.DAILY ->
-                if (dailyMinuteOfDay ?: -1 !in 0..1439)
+            }
+
+            ScheduleKind.DAILY -> {
+                if (dailyMinuteOfDay ?: -1 !in 0..1439) {
                     return "Error: daily requires dailyMinuteOfDay in 0..1439"
-            ScheduleKind.CRON ->
+                }
+            }
+
+            ScheduleKind.CRON -> {
                 if (cronExpr.isNullOrBlank()) return "Error: cron requires cronExpr"
+            }
+
             ScheduleKind.ONCE -> {
-                if (resolvedAtEpochMillis == null)
+                if (resolvedAtEpochMillis == null) {
                     return "Error: once requires atEpochMillis (absolute) or atRelative (relative, e.g. \"5m\")"
-                if (resolvedAtEpochMillis <= System.currentTimeMillis())
+                }
+                if (resolvedAtEpochMillis <= System.currentTimeMillis()) {
                     return "Error: once requires a future time"
+                }
             }
         }
         val resolvedScope = resolveScope(scope) ?: return SCOPE_ERROR
@@ -134,7 +166,9 @@ object WeAgentTriggerToolBindings {
             if (resolvedScope == TriggerScope.SESSION) {
                 currentCoroutineContext()[AgentSessionContext]?.sessionId
                     ?: return "Error: cannot resolve current session for a session-scoped trigger"
-            } else null
+            } else {
+                null
+            }
 
         val trigger =
             baseTrigger(name, promptTemplate, TriggerType.SCHEDULE, resolvedScope, boundSession)
@@ -151,8 +185,11 @@ object WeAgentTriggerToolBindings {
             "AI created schedule trigger id=${trigger.id} scope=${trigger.scope} boundSession=${trigger.sessionId}",
         )
         val scopeNote =
-            if (resolvedScope == TriggerScope.SESSION) " (bound to this session)"
-            else " (GLOBAL: fires in a new session each time)"
+            if (resolvedScope == TriggerScope.SESSION) {
+                " (bound to this session)"
+            } else {
+                " (GLOBAL: fires in a new session each time)"
+            }
         return "Created schedule trigger '${trigger.name}' (id=${trigger.id})$scopeNote."
     }
 
@@ -189,8 +226,11 @@ object WeAgentTriggerToolBindings {
                 null,
                 "",
                 "received" -> MessageDirection.RECEIVED
+
                 "sent" -> MessageDirection.SENT
+
                 "both" -> MessageDirection.BOTH
+
                 else -> return "Error: unknown direction '$direction' (use received|sent|both)"
             }
         val types =
@@ -298,9 +338,7 @@ object WeAgentTriggerToolBindings {
         sideEffect = true,
         group = GROUP,
     )
-    suspend fun triggerDelete(
-        @AgentToolParam("Trigger id") id: String,
-    ): String {
+    suspend fun triggerDelete(@AgentToolParam("Trigger id") id: String): String {
         WeAgentRepository.getTrigger(id) ?: return "Error: no trigger with id=$id"
         WeAgentRepository.deleteTrigger(id)
         return "Deleted trigger $id."
@@ -317,7 +355,9 @@ object WeAgentTriggerToolBindings {
             null,
             "",
             "session" -> TriggerScope.SESSION
+
             "global" -> TriggerScope.GLOBAL
+
             else -> null
         }
 
@@ -355,7 +395,9 @@ object WeAgentTriggerToolBindings {
             if (resolvedScope == TriggerScope.SESSION) {
                 currentCoroutineContext()[AgentSessionContext]?.sessionId
                     ?: return "Error: cannot resolve current session for a session-scoped trigger"
-            } else null
+            } else {
+                null
+            }
 
         val trigger =
             baseTrigger(name, promptTemplate, type, resolvedScope, boundSession)
@@ -374,8 +416,11 @@ object WeAgentTriggerToolBindings {
             "AI created ${type.name.lowercase()} trigger id=${trigger.id} scope=${trigger.scope} boundSession=${trigger.sessionId}",
         )
         val scopeNote =
-            if (resolvedScope == TriggerScope.SESSION) " (bound to this session)"
-            else " (GLOBAL: fires in a new session each time)"
+            if (resolvedScope == TriggerScope.SESSION) {
+                " (bound to this session)"
+            } else {
+                " (GLOBAL: fires in a new session each time)"
+            }
         return "Created ${type.name.lowercase()} trigger '${trigger.name}' (id=${trigger.id})$scopeNote."
     }
 
@@ -399,16 +444,20 @@ object WeAgentTriggerToolBindings {
             "sec",
             "second",
             "seconds" -> num * 1000L
+
             "m",
             "min",
             "minute",
             "minutes" -> num * 60_000L
+
             "h",
             "hour",
             "hours" -> num * 3_600_000L
+
             "d",
             "day",
             "days" -> num * 86_400_000L
+
             else -> null
         }
     }

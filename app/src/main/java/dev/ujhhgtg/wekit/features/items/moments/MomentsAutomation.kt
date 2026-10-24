@@ -49,10 +49,7 @@ data class MomentModeRule(
     val mode: MomentAutomationMode = MomentAutomationMode.WHEN_SEEN,
 )
 
-data class MomentIntervalRule(
-    val enabled: Boolean = false,
-    val milliseconds: String = "0",
-) {
+data class MomentIntervalRule(val enabled: Boolean = false, val milliseconds: String = "0") {
     fun value(): Long =
         if (enabled) (milliseconds.toLongOrNull() ?: 0L).coerceIn(0L, MAX_ACTION_DELAY_MS) else 0L
 }
@@ -62,10 +59,7 @@ data class MomentTypeRule(
     val typeIds: Set<Int> = MomentsContentType.allTypeIds,
 )
 
-data class MomentAgeRule(
-    val enabled: Boolean = false,
-    val maximumHours: String = "24",
-) {
+data class MomentAgeRule(val enabled: Boolean = false, val maximumHours: String = "24") {
     fun matches(createTimeSeconds: Int, nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (!enabled) return true
         val hours = maximumHours.toLongOrNull()?.takeIf { it >= 0L } ?: return false
@@ -113,11 +107,8 @@ class MomentAutomationRuleSet(
 
 /** Per-friend rules of [AutoLikeMoments] ([Like]) and [AutoRepostMoments] ([Repost]). */
 class MomentsAutomation
-private constructor(
-    id: String,
-    override val titleRes: Int,
-    val includeAction: Boolean,
-) : AutomationSpec(id) {
+private constructor(id: String, override val titleRes: Int, val includeAction: Boolean) :
+    AutomationSpec(id) {
     val process =
         AutomationRuleKey("process", AutomationCodecs.toggle, AutomationToggleRule(enabled = true))
     val action = AutomationRuleKey("action", actionCodec, MomentActionRule())
@@ -150,6 +141,7 @@ private constructor(
 
     fun hasAllLoadedTargets(): Boolean {
         val snapshot = store.snapshot()
+
         fun allLoaded(rules: MomentAutomationRuleSet) =
             rules.process.enabled && rules.effectiveMode == MomentAutomationMode.ALL_LOADED
         if (allLoaded(MomentAutomationRuleSet(this, snapshot.resolve(null)))) return true
@@ -162,26 +154,40 @@ private constructor(
         listOfNotNull(
             toggleEditor(
                 process,
-                if (includeAction) R.string.moments_automation_auto_like
-                else R.string.moments_automation_auto_repost,
+                if (includeAction) {
+                    R.string.moments_automation_auto_like
+                } else {
+                    R.string.moments_automation_auto_repost
+                },
                 R.string.moments_automation_process_contact,
                 R.string.moments_automation_skip_contact,
                 globalTitleRes =
-                    if (includeAction) R.string.moments_automation_default_auto_like
-                    else R.string.moments_automation_default_auto_repost,
+                    if (includeAction) {
+                        R.string.moments_automation_default_auto_like
+                    } else {
+                        R.string.moments_automation_default_auto_repost
+                    },
             ),
-            if (!includeAction) null
-            else
+            if (!includeAction) {
+                null
+            } else {
                 AutomationRuleEditor(
                     key = action,
                     titleRes = R.string.moments_automation_action_type,
                     summary = {
                         stringResource(
                             when {
-                                !it.enabled -> R.string.moments_automation_default_like_action
-                                it.action == MomentAutomationAction.LIKE ->
+                                !it.enabled -> {
+                                    R.string.moments_automation_default_like_action
+                                }
+
+                                it.action == MomentAutomationAction.LIKE -> {
                                     R.string.moments_automation_like
-                                else -> R.string.moments_automation_unlike
+                                }
+
+                                else -> {
+                                    R.string.moments_automation_unlike
+                                }
                             },
                         )
                     },
@@ -196,17 +202,25 @@ private constructor(
                             get = { it.action },
                             set = { v, a -> v.copy(action = a) },
                         ),
-                ),
+                )
+            },
             AutomationRuleEditor(
                 key = mode,
                 titleRes = R.string.moments_automation_processing_mode,
                 summary = {
                     stringResource(
                         when {
-                            !it.enabled -> R.string.moments_automation_when_seen_only
-                            it.mode == MomentAutomationMode.WHEN_SEEN ->
+                            !it.enabled -> {
+                                R.string.moments_automation_when_seen_only
+                            }
+
+                            it.mode == MomentAutomationMode.WHEN_SEEN -> {
                                 R.string.moments_automation_when_seen
-                            else -> R.string.moments_automation_all_cached
+                            }
+
+                            else -> {
+                                R.string.moments_automation_all_cached
+                            }
                         },
                     )
                 },
@@ -233,12 +247,14 @@ private constructor(
                 key = interval,
                 titleRes = R.string.moments_automation_interval,
                 summary = {
-                    if (it.enabled)
+                    if (it.enabled) {
                         stringResource(
                             R.string.moments_automation_interval_value,
                             it.milliseconds.ifBlank { "0" },
                         )
-                    else stringResource(R.string.moments_automation_no_extra_wait)
+                    } else {
+                        stringResource(R.string.moments_automation_no_extra_wait)
+                    }
                 },
                 isOn = { it.enabled },
                 setOn = { rule, on -> rule.copy(enabled = on) },
@@ -267,23 +283,26 @@ private constructor(
                 key = contentType,
                 titleRes = R.string.moments_automation_content_type,
                 summary = {
-                    if (it.enabled)
+                    if (it.enabled) {
                         pluralStringResource(
                             R.plurals.moments_automation_selected_type_count,
                             it.typeIds.size,
                             it.typeIds.size,
                         )
-                    else stringResource(R.string.moments_automation_type_unrestricted)
+                    } else {
+                        stringResource(R.string.moments_automation_type_unrestricted)
+                    }
                 },
                 isOn = { it.enabled },
                 setOn = { rule, on -> rule.copy(enabled = on) },
                 summaryExtra = { rule ->
-                    if (rule.enabled)
+                    if (rule.enabled) {
                         AutomationMiniChips(
                             MomentsContentType.entries
                                 .filter { it.typeId in rule.typeIds }
                                 .map { stringResource(it.nameRes) },
                         )
+                    }
                 },
                 sheet = { _, value, onChange ->
                     AutomationChipSet(
@@ -300,12 +319,14 @@ private constructor(
                 key = maximumAge,
                 titleRes = R.string.moments_automation_maximum_age,
                 summary = {
-                    if (it.enabled)
+                    if (it.enabled) {
                         stringResource(
                             R.string.moments_automation_maximum_age_value,
                             it.maximumHours.ifBlank { "0" },
                         )
-                    else stringResource(R.string.moments_automation_age_unrestricted)
+                    } else {
+                        stringResource(R.string.moments_automation_age_unrestricted)
+                    }
                 },
                 isOn = { it.enabled },
                 setOn = { rule, on -> rule.copy(enabled = on) },

@@ -47,7 +47,10 @@ class MatcherBuildersTest {
         assertEquals(NameSpec("com.test.Alpha"), spec.className)
         assertEquals(NameSpec("com.test.Base"), spec.superClass?.className)
         assertEquals(NameSpec("com.test.I1"), spec.interfaces.single().className)
-        assertEquals("run", spec.methods.single().name?.value)
+        assertEquals(
+            "run",
+            spec.methods.single().name?.value,
+        )
         assertEquals(8, spec.fields.single().modifiers)
         assertEquals(2..2, spec.fieldCount)
         assertEquals(3..3, spec.methodCount)
@@ -98,8 +101,14 @@ class MatcherBuildersTest {
         assertEquals(NameSpec("count", NameMatch.StartsWith), spec.name)
         assertEquals(8, spec.modifiers)
         assertEquals(NameSpec("int"), spec.type?.className)
-        assertEquals("run", spec.readMethods.single().name?.value)
-        assertEquals("set", spec.writeMethods.single().name?.value)
+        assertEquals(
+            "run",
+            spec.readMethods.single().name?.value,
+        )
+        assertEquals(
+            "set",
+            spec.writeMethods.single().name?.value,
+        )
 
         val read = readField(FieldSpec(name = NameSpec("count")))
         assertEquals(FieldUsingType.Read, read.usingType)

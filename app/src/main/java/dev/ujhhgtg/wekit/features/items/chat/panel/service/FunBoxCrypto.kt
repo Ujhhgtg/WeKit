@@ -126,8 +126,11 @@ object FunBoxCrypto {
     private fun tea(keyText: String, input: ByteArray, encrypt: Boolean): ByteArray {
         val key = keyText.toByteArray().copyOf(16)
         val data =
-            if (input.size % 8 == 0) input.copyOf()
-            else input.copyOf(input.size + 8 - input.size % 8)
+            if (input.size % 8 == 0) {
+                input.copyOf()
+            } else {
+                input.copyOf(input.size + 8 - input.size % 8)
+            }
         val k = IntArray(4) { key.readIntBe(it * 4) }
         for (offset in data.indices step 8) {
             var v0 = data.readIntBe(offset)
@@ -162,9 +165,9 @@ object FunBoxCrypto {
 
     private fun randomScalar(): BigInteger {
         var value: BigInteger
-        do value = BigInteger(curveN.bitLength(), secureRandom) while (
-            value == BigInteger.ZERO || value >= curveN
-        )
+        do {
+            value = BigInteger(curveN.bitLength(), secureRandom)
+        } while (value == BigInteger.ZERO || value >= curveN)
         return value
     }
 
@@ -181,8 +184,9 @@ object FunBoxCrypto {
     }
 
     private fun add(first: Point, second: Point): Point {
-        if (first.x == second.x)
+        if (first.x == second.x) {
             return if (first.y == second.y) double(first) else error("SM2 point at infinity")
+        }
         val lambda = mod(second.y - first.y) * mod(second.x - first.x).modInverse(curveP) % curveP
         val x = mod(lambda * lambda - first.x - second.x)
         return Point(x, mod(lambda * (first.x - x) - first.y))

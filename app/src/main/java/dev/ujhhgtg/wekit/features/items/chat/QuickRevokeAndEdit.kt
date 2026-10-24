@@ -21,7 +21,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "一键撤回并重新编辑"
     override val nameRes = R.string.feature_quick_revoke_and_edit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -35,14 +34,13 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    fun isSupported(msgInfo: MessageInfo): Boolean {
-        return msgInfo.type?.isText == true &&
+    fun isSupported(msgInfo: MessageInfo): Boolean =
+        msgInfo.type?.isText == true &&
             msgInfo.isSelfSender &&
             now() - Instant.fromEpochMilliseconds(msgInfo.createTime) <= 2.minutes
-    }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777016,
                 localizedChatString(R.string.chat_swipe_action_edit),
@@ -55,7 +53,6 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
                 quickRevokeAndEdit(view.context, msgInfo)
             },
         )
-    }
 
     fun quickRevokeAndEdit(context: Context, msgInfo: MessageInfo) {
         val chatFooter = WeCurrentConversationApi.chatFooter ?: return

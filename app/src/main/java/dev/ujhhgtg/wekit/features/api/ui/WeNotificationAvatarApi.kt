@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.collections.LruCache
 
 /** Conversation avatars for notifications, through WeChat's own notification avatar loader. */
 object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "通知头像服务"
     override val nameRes = R.string.feature_we_notification_avatar_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -64,8 +63,9 @@ object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
         val customAvatarKey = CustomLocalFriendAvatars.notificationAvatarCacheKey(wxId)
         synchronized(lock) {
             cache[wxId]?.let { cached ->
-                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey)
+                if (cached.expiresAt > now && cached.customAvatarKey == customAvatarKey) {
                     return cached.bitmap
+                }
                 cache.remove(wxId)
             }
         }

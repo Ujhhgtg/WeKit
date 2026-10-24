@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.android.Intent
 
 object WeApi {
-
     val selfWxId
         get() = RuntimeConfig.loggedInWxId
 

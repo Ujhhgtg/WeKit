@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableTypingStatusUploading : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁止上传正在输入状态"
     override val nameRes = R.string.feature_disable_typing_status_uploading_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

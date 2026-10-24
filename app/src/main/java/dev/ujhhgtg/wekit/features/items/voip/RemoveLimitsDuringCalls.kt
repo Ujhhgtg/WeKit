@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
 
 object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除通话时聊天限制"
     override val nameRes = R.string.feature_remove_limits_during_calls_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)

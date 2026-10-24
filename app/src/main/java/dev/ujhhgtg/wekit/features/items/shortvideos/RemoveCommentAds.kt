@@ -14,7 +14,6 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 object RemoveCommentAds : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除评论区广告"
     override val nameRes = R.string.feature_remove_comment_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)

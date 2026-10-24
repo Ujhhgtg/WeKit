@@ -12,7 +12,6 @@ import kotlin.io.path.div
 import kotlin.math.min
 
 object WeLogger {
-
     private const val TAG = BuildConfig.TAG
 
     private const val CHUNK_SIZE = 4000

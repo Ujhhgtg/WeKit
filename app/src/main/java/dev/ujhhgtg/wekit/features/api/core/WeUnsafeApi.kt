@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import java.lang.reflect.Method
 
 object WeUnsafeApi : ApiFeature() {
-
     override val technicalId = "Unsafe 服务"
     override val nameRes = R.string.feature_we_unsafe_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

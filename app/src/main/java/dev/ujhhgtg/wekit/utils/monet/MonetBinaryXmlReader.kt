@@ -4,9 +4,7 @@ import com.reandroid.arsc.chunk.xml.ResXmlDocument
 import com.reandroid.arsc.chunk.xml.ResXmlElement
 import com.reandroid.arsc.chunk.xml.ResXmlTextNode
 
-data class MonetBinaryXml(
-    val root: MonetXmlElement,
-)
+data class MonetBinaryXml(val root: MonetXmlElement)
 
 object MonetBinaryXmlReader {
     fun read(document: ResXmlDocument): MonetBinaryXml {

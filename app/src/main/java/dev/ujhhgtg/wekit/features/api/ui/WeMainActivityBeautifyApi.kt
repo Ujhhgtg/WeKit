@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.IdentityHashMap
 
 object WeMainActivityBeautifyApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "微信主屏幕美化服务"
     override val nameRes = R.string.feature_we_main_activity_beautify_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

@@ -53,6 +53,7 @@ fun JsonPrimitive.contentOrNullSafe(): String? =
  */
 fun parseUsage(usage: JsonObject?): LlmUsage? {
     if (usage == null) return null
+
     fun i(vararg keys: String): Int? = keys.firstNotNullOfOrNull {
         usage[it]?.jsonPrimitive?.intOrNull
     }

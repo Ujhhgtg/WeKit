@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.ui.automation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,7 +61,6 @@ private val KEYWORD_MODE_LABELS =
 
 // ---- keywords -------------------------------------------------------------------------------
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ColumnScope.KeywordSheetContent(
     value: AutomationKeywordRule,
@@ -87,8 +85,11 @@ fun ColumnScope.KeywordSheetContent(
             supportingText = {
                 Text(
                     stringResource(
-                        if (invalid) R.string.automation_regex_invalid
-                        else R.string.automation_regex_hint,
+                        if (invalid) {
+                            R.string.automation_regex_invalid
+                        } else {
+                            R.string.automation_regex_hint
+                        },
                     ),
                 )
             },
@@ -100,8 +101,9 @@ fun ColumnScope.KeywordSheetContent(
         var pending by remember { mutableStateOf("") }
         val add = {
             val keyword = pending.trim()
-            if (keyword.isNotEmpty() && keyword !in value.strings)
+            if (keyword.isNotEmpty() && keyword !in value.strings) {
                 onChange(value.copy(strings = value.strings + keyword))
+            }
             pending = ""
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -133,9 +135,11 @@ fun ColumnScope.KeywordSheetContent(
                 supportingText = {
                     Text(
                         stringResource(
-                            if (value.mode == AutomationKeywordMode.EXACT)
+                            if (value.mode == AutomationKeywordMode.EXACT) {
                                 R.string.automation_keyword_exact_hint
-                            else R.string.automation_keyword_contains_hint,
+                            } else {
+                                R.string.automation_keyword_contains_hint
+                            },
                         ),
                     )
                 },
@@ -198,8 +202,9 @@ private fun keywordTestResult(
     sample: String,
 ): Triple<androidx.compose.ui.graphics.vector.ImageVector?, Color, String> {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    if (sample.isEmpty())
+    if (sample.isEmpty()) {
         return Triple(null, muted, stringResource(R.string.automation_keyword_test_hint))
+    }
     if (rule.mode == AutomationKeywordMode.REGEX) {
         val regex =
             runCatching {
@@ -215,36 +220,41 @@ private fun keywordTestResult(
                     stringResource(R.string.automation_regex_invalid),
                 )
         val match = regex.find(sample)
-        return if (match != null)
+        return if (match != null) {
             Triple(
                 MaterialSymbols.Outlined.Check_circle,
                 MaterialTheme.colorScheme.primary,
                 stringResource(R.string.automation_keyword_test_regex_hit, match.value),
             )
-        else
+        } else {
             Triple(
                 MaterialSymbols.Outlined.Cancel,
                 muted,
                 stringResource(R.string.automation_keyword_test_miss),
             )
+        }
     }
     val hit =
         rule.strings.map(String::trim).filter(String::isNotEmpty).firstOrNull {
-            if (rule.mode == AutomationKeywordMode.EXACT) sample.equals(it, rule.ignoreCase)
-            else sample.contains(it, rule.ignoreCase)
+            if (rule.mode == AutomationKeywordMode.EXACT) {
+                sample.equals(it, rule.ignoreCase)
+            } else {
+                sample.contains(it, rule.ignoreCase)
+            }
         }
-    return if (hit != null)
+    return if (hit != null) {
         Triple(
             MaterialSymbols.Outlined.Check_circle,
             MaterialTheme.colorScheme.primary,
             stringResource(R.string.automation_keyword_test_hit, hit),
         )
-    else
+    } else {
         Triple(
             MaterialSymbols.Outlined.Cancel,
             muted,
             stringResource(R.string.automation_keyword_test_miss),
         )
+    }
 }
 
 // ---- time window ----------------------------------------------------------------------------
@@ -256,7 +266,6 @@ private val TIME_PRESETS =
         Triple(R.string.automation_time_preset_work, 9, 18),
     )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ColumnScope.TimeRangeSheetContent(
     value: AutomationTimeRangeRule,
@@ -298,9 +307,11 @@ fun ColumnScope.TimeRangeSheetContent(
         val minutes = duration % 3600 / 60
         AutomationSheetNote(
             when {
-                value.startSecond == value.endSecond ->
+                value.startSecond == value.endSecond -> {
                     stringResource(R.string.automation_time_all_day)
-                value.endSecond < value.startSecond ->
+                }
+
+                value.endSecond < value.startSecond -> {
                     stringResource(
                         R.string.automation_time_overnight_detail,
                         formatSecondOfDay(value.startSecond),
@@ -308,7 +319,9 @@ fun ColumnScope.TimeRangeSheetContent(
                         hours,
                         minutes,
                     )
-                else ->
+                }
+
+                else -> {
                     stringResource(
                         R.string.automation_time_detail,
                         formatSecondOfDay(value.startSecond),
@@ -316,6 +329,7 @@ fun ColumnScope.TimeRangeSheetContent(
                         hours,
                         minutes,
                     )
+                }
             },
         )
     }
@@ -338,7 +352,6 @@ fun ColumnScope.TimeRangeSheetContent(
 
 private val DELAY_PRESETS = listOf(0L to 0L, 500L to 300L, 1500L to 500L, 3000L to 1000L)
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ColumnScope.DelaySheetContent(
     value: AutomationDelayRule,
@@ -401,9 +414,11 @@ fun ColumnScope.DelaySheetContent(
                     },
                     label = {
                         Text(
-                            if (presetBase == 0L)
+                            if (presetBase == 0L) {
                                 stringResource(R.string.automation_delay_preset_now)
-                            else "$presetBase ± $presetRange $ms",
+                            } else {
+                                "$presetBase ± $presetRange $ms"
+                            },
                         )
                     },
                 )
@@ -414,7 +429,6 @@ fun ColumnScope.DelaySheetContent(
 
 // ---- target ---------------------------------------------------------------------------------
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ColumnScope.TargetSheetContent(
     context: AutomationEditorContext,
@@ -430,11 +444,12 @@ fun ColumnScope.TargetSheetContent(
                     AutomationTargetRule.Mode.CATEGORIES to
                         stringResource(R.string.automation_target_categories),
                 )
-                if (offerSpecific)
+                if (offerSpecific) {
                     add(
                         AutomationTargetRule.Mode.SPECIFIC to
                             stringResource(R.string.automation_target_specific),
                     )
+                }
             },
         selected = value.mode,
         onSelect = { onChange(value.copy(mode = it)) },
@@ -451,8 +466,11 @@ fun ColumnScope.TargetSheetContent(
                             onChange(
                                 value.copy(
                                     categories =
-                                        if (on) value.categories - category
-                                        else value.categories + category,
+                                        if (on) {
+                                            value.categories - category
+                                        } else {
+                                            value.categories + category
+                                        },
                                 ),
                             )
                         },
@@ -466,7 +484,9 @@ fun ColumnScope.TargetSheetContent(
                                         Modifier.size(FilterChipDefaults.IconSize),
                                     )
                                 }
-                            } else null,
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -510,7 +530,6 @@ fun ColumnScope.TargetSheetContent(
 }
 
 /** Contacts / groups as avatar chips, plus a chip that opens the multi-select contact picker. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ContactChipsField(
     context: AutomationEditorContext,
@@ -552,8 +571,11 @@ fun ContactChipsField(
                 label = {
                     Text(
                         stringResource(
-                            if (excluding) R.string.automation_exclude
-                            else R.string.automation_add_item,
+                            if (excluding) {
+                                R.string.automation_exclude
+                            } else {
+                                R.string.automation_add_item
+                            },
                         ),
                     )
                 },
@@ -570,7 +592,6 @@ fun ContactChipsField(
 }
 
 /** `groupId/memberId` tokens as chips; adding picks a group, then members of it. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MemberChipsField(
     context: AutomationEditorContext,
@@ -587,9 +608,11 @@ fun MemberChipsField(
                 val groupId = token.substringBefore('/', "")
                 val memberId = token.substringAfter('/')
                 val label =
-                    if (groupId.isEmpty()) memberId
-                    else
+                    if (groupId.isEmpty()) {
+                        memberId
+                    } else {
                         "${rememberContactName(groupId)} · ${rememberMemberName(groupId, memberId)}"
+                    }
                 InputChip(
                     selected = false,
                     onClick = { onChange(tokens - token) },
@@ -638,8 +661,11 @@ fun MemberChipsField(
                 label = {
                     Text(
                         stringResource(
-                            if (excluding) R.string.automation_exclude
-                            else R.string.automation_add_item,
+                            if (excluding) {
+                                R.string.automation_exclude
+                            } else {
+                                R.string.automation_add_item
+                            },
                         ),
                     )
                 },

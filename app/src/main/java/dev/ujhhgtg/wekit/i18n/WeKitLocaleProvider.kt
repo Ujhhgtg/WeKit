@@ -22,10 +22,7 @@ val LocalWeKitLocalizedContext =
     }
 
 @Composable
-fun WeKitLocaleProvider(
-    mode: LocaleResourceMode,
-    content: @Composable () -> Unit,
-) {
+fun WeKitLocaleProvider(mode: LocaleResourceMode, content: @Composable () -> Unit) {
     val baseContext = LocalContext.current
     val parentConfiguration = LocalConfiguration.current
     val locale = WeKitLocaleController.resolvedLocale

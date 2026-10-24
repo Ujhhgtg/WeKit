@@ -396,34 +396,45 @@ object VoicePanelRepository {
         val byName =
             compareBy(String.CASE_INSENSITIVE_ORDER) { path: java.nio.file.Path -> path.name }
         return when (PanelSettings.voiceItemSortMode) {
-            LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED ->
-                compareByDescending<java.nio.file.Path>(::lastModified).then(byName)
-            LocalSortMode.RECENT ->
+            LocalSortMode.NAME -> {
+                byName
+            }
+
+            LocalSortMode.MODIFIED -> {
+                compareByDescending(::lastModified).then(byName)
+            }
+
+            LocalSortMode.RECENT -> {
                 compareByDescending<java.nio.file.Path> {
                         stats[it.absolutePathString()]?.lastSentAt ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.FREQUENT ->
+            LocalSortMode.FREQUENT -> {
                 compareByDescending<java.nio.file.Path> {
                         stats[it.absolutePathString()]?.sendCount ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.CUSTOM ->
+            LocalSortMode.CUSTOM -> {
                 compareBy<java.nio.file.Path> {
                         customOrderIndex(orders.items[packName], it.name)
                     }
                     .then(byName)
+            }
         }
     }
 
     private fun packComparator(orders: PanelCustomOrders): Comparator<VoicePack> {
         val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { pack: VoicePack -> pack.title }
         return when (PanelSettings.voicePackSortMode) {
-            LocalSortMode.NAME -> byName
-            LocalSortMode.MODIFIED ->
+            LocalSortMode.NAME -> {
+                byName
+            }
+
+            LocalSortMode.MODIFIED -> {
                 compareByDescending<VoicePack> { pack ->
                         maxOf(
                             lastModified(packPath(pack.id)),
@@ -433,24 +444,28 @@ object VoicePanelRepository {
                         )
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.RECENT ->
+            LocalSortMode.RECENT -> {
                 compareByDescending<VoicePack> { pack ->
                         pack.items.maxOfOrNull(VoiceItem::lastSentAt) ?: 0L
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.FREQUENT ->
+            LocalSortMode.FREQUENT -> {
                 compareByDescending<VoicePack> { pack ->
                         pack.items.sumOf(VoiceItem::sendCount)
                     }
                     .then(byName)
+            }
 
-            LocalSortMode.CUSTOM ->
+            LocalSortMode.CUSTOM -> {
                 compareBy<VoicePack> {
                         customOrderIndex(orders.packs, it.id)
                     }
                     .then(byName)
+            }
         }
     }
 
@@ -489,9 +504,11 @@ object VoicePanelRepository {
             readStats().mapKeys { (value, _) ->
                 runCatching {
                         val path = value.asPath.toAbsolutePath().normalize()
-                        if (path.startsWith(sourcePrefix))
+                        if (path.startsWith(sourcePrefix)) {
                             destinationPrefix.resolve(sourcePrefix.relativize(path)).toString()
-                        else value
+                        } else {
+                            value
+                        }
                     }
                     .getOrDefault(value)
             }
@@ -548,8 +565,9 @@ object VoicePanelRepository {
         directory: java.nio.file.Path,
         identity: String,
     ): java.nio.file.Path? =
-        if (!directory.isDirectory()) null
-        else {
+        if (!directory.isDirectory()) {
+            null
+        } else {
             val stableIdentity = identity.take(96)
             directory.listDirectoryEntries().firstOrNull { path ->
                 path.isRegularFile() &&

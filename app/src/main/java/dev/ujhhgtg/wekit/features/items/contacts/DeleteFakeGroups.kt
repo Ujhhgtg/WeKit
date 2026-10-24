@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import kotlin.concurrent.thread
 
 object DeleteFakeGroups : ClickableFeature() {
-
     override val technicalId = "删除假群组"
     override val nameRes = R.string.feature_delete_fake_groups_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
@@ -210,8 +209,8 @@ object DeleteFakeGroups : ClickableFeature() {
      * Returns all fake groups currently in rcontact. The query prefilters wxids containing
      * `@chatroom`, then [isFakeGroup] excludes legitimate `<digits>@chatroom` identifiers.
      */
-    private fun getFakeGroups(): List<WeGroup> {
-        return try {
+    private fun getFakeGroups(): List<WeGroup> =
+        try {
             val cursor =
                 WeDatabaseApi.rawQuery(
                     """
@@ -242,7 +241,6 @@ object DeleteFakeGroups : ClickableFeature() {
             WeLogger.e(TAG, "failed to query fake groups", e)
             emptyList()
         }
-    }
 
     /** Returns true when the wxid contains `@chatroom` but is not a legitimate chatroom wxid. */
     private fun String.isFakeGroup(): Boolean =

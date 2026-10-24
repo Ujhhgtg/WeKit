@@ -43,20 +43,34 @@ class EnvironmentReportPolicy(
         }
         return ReportWire.rewrite(working) { field ->
             when (field.number) {
-                in BOOLEAN_FIELDS if field.wire == 0 && field.value == 1L ->
+                in BOOLEAN_FIELDS if field.wire == 0 && field.value == 1L -> {
                     ReportWire.encode(field.number, 0L)
+                }
 
-                86 if field.wire == 0 -> clearVerifiedBits(field, DEBUG_PROBE_MASK)
-                128 if field.wire == 0 -> clearVerifiedBits(field, INJECTION_PROBE_MASK)
-                52 if field.wire == 2 -> ByteArray(0)
+                86 if field.wire == 0 -> {
+                    clearVerifiedBits(field, DEBUG_PROBE_MASK)
+                }
+
+                128 if field.wire == 0 -> {
+                    clearVerifiedBits(field, INJECTION_PROBE_MASK)
+                }
+
+                52 if field.wire == 2 -> {
+                    ByteArray(0)
+                }
+
                 36 if
                     field.wire == 2 &&
                         isModuleMapping(
                             String(working, field.data, field.end - field.data, Charsets.UTF_8),
                         )
-                 -> ByteArray(0)
+                 -> {
+                    ByteArray(0)
+                }
 
-                else -> null
+                else -> {
+                    null
+                }
             }
         }
     }
@@ -76,11 +90,21 @@ class EnvironmentReportPolicy(
         val pointerSeparators = POINTER_SEPARATOR.findAll(value).map { it.value }.toSet()
         val separator =
             when {
-                pointerSeparators.size == 1 -> pointerSeparators.single()
-                pointerSeparators.isNotEmpty() -> return value
-                requestedSeparator.isNotEmpty() && value.contains(requestedSeparator) ->
+                pointerSeparators.size == 1 -> {
+                    pointerSeparators.single()
+                }
+
+                pointerSeparators.isNotEmpty() -> {
+                    return value
+                }
+
+                requestedSeparator.isNotEmpty() && value.contains(requestedSeparator) -> {
                     requestedSeparator
-                else -> return if (isModuleMapping(value)) "" else value
+                }
+
+                else -> {
+                    return if (isModuleMapping(value)) "" else value
+                }
             }
         val paths = value.split(separator)
         if (paths.any { !it.startsWith('/') && !it.startsWith('[') }) return value

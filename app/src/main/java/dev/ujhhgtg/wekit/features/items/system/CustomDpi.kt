@@ -31,7 +31,6 @@ import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 object CustomDpi : ClickableFeature(), IResolveDex {
-
     override val technicalId = "DPI 修改"
     override val nameRes = R.string.feature_custom_dpi_name
     override val categoryIds =

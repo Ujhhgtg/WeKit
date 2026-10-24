@@ -16,10 +16,7 @@ data class FileEditRequest(
     val replaceAll: Boolean = false,
 )
 
-data class BridgeInstallArtifact(
-    val executablePath: String,
-    val binDirectory: String,
-)
+data class BridgeInstallArtifact(val executablePath: String, val binDirectory: String)
 
 interface LinuxEnvironmentBackend {
     val snapshot: EnvironmentSnapshot

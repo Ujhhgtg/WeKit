@@ -5,9 +5,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 
-class FunBoxBinaryWriter(
-    private val random: SecureRandom = SecureRandom(),
-) {
+class FunBoxBinaryWriter(private val random: SecureRandom = SecureRandom()) {
     private val output = ByteArrayOutputStream()
     private val key = ByteArray(32).also(random::nextBytes)
     private var keyIndex = 0

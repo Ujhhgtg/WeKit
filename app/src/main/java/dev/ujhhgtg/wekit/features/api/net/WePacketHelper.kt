@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 object WePacketHelper : ApiFeature(), IResolveDex {
-
     override val technicalId = "网络数据包服务"
     override val nameRes = R.string.feature_we_packet_helper_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -228,7 +227,10 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         }
 
         when (directOplogReq.size) {
-            1 -> classOplogReq.setDescriptor(directOplogReq.single())
+            1 -> {
+                classOplogReq.setDescriptor(directOplogReq.single())
+            }
+
             0 -> {
                 val wrapperClassData =
                     DexResolutionContext.findClasses {
@@ -265,10 +267,11 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 classOplogReq.setDescriptor(realProtoClass)
             }
 
-            else ->
+            else -> {
                 error(
                     "multiple direct oplog request classes found: ${directOplogReq.joinToString { it.name }}",
                 )
+            }
         }
     }
 
@@ -366,14 +369,21 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                             arrayOf(classIOnSceneEnd.clazz),
                         ) { proxy, method, args ->
                             when (method.name) {
-                                "hashCode" -> return@newProxyInstance System.identityHashCode(proxy)
-                                "equals" -> return@newProxyInstance proxy === args?.get(0)
-                                "toString" ->
+                                "hashCode" -> {
+                                    return@newProxyInstance System.identityHashCode(proxy)
+                                }
+
+                                "equals" -> {
+                                    return@newProxyInstance proxy === args?.get(0)
+                                }
+
+                                "toString" -> {
                                     return@newProxyInstance "WeKitNativeCallback@${
-                                Integer.toHexString(
-                                    System.identityHashCode(proxy),
-                                )
-                            }"
+                                        Integer.toHexString(
+                                            System.identityHashCode(proxy),
+                                        )
+                                    }"
+                                }
                             }
 
                             if (method.name == "onSceneEnd" && args != null) {

@@ -94,7 +94,7 @@ class AnthropicMessagesClient(
                             ?: continue
 
                     when (event["type"]?.jsonPrimitive?.contentOrNullSafe()) {
-                        "message_start" ->
+                        "message_start" -> {
                             event["message"]?.jsonObject?.get("usage")?.jsonObject?.let { u ->
                                 u["input_tokens"]?.jsonPrimitive?.intOrNull?.let {
                                     inputTokens = it
@@ -103,12 +103,13 @@ class AnthropicMessagesClient(
                                     outputTokens = it
                                 }
                             }
+                        }
 
                         "content_block_start" -> {
                             val index = event["index"]?.jsonPrimitive?.int ?: continue
                             val block = event["content_block"]?.jsonObject ?: continue
                             when (block["type"]?.jsonPrimitive?.contentOrNullSafe()) {
-                                "tool_use" ->
+                                "tool_use" -> {
                                     blocks[index] =
                                         ToolUseBlock(
                                             id =
@@ -118,10 +119,14 @@ class AnthropicMessagesClient(
                                                 block["name"]?.jsonPrimitive?.contentOrNullSafe()
                                                     ?: "",
                                         )
+                                }
+
                                 // Signal the UI that a thinking block has started so the "思考中..."
                                 // card
                                 // appears immediately — before any thinking_delta text arrives.
-                                "thinking" -> emit(LlmStreamEvent.ReasoningDelta(""))
+                                "thinking" -> {
+                                    emit(LlmStreamEvent.ReasoningDelta(""))
+                                }
                             }
                         }
 
@@ -129,30 +134,35 @@ class AnthropicMessagesClient(
                             val index = event["index"]?.jsonPrimitive?.int ?: continue
                             val delta = event["delta"]?.jsonObject ?: continue
                             when (delta["type"]?.jsonPrimitive?.contentOrNullSafe()) {
-                                "text_delta" ->
+                                "text_delta" -> {
                                     delta["text"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                         textBuf.append(it)
                                         emit(LlmStreamEvent.TextDelta(it))
                                     }
+                                }
 
-                                "thinking_delta" ->
+                                "thinking_delta" -> {
                                     delta["thinking"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                         reasoningBuf.append(it)
                                         emit(LlmStreamEvent.ReasoningDelta(it))
                                     }
+                                }
+
                                 // signature_delta carries the encrypted thinking-block signature
                                 // that Anthropic
                                 // requires to be replayed verbatim when this turn appears in later
                                 // history.
-                                "signature_delta" ->
+                                "signature_delta" -> {
                                     delta["signature"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                         signatureBuf.append(it)
                                     }
+                                }
 
-                                "input_json_delta" ->
+                                "input_json_delta" -> {
                                     delta["partial_json"]?.jsonPrimitive?.contentOrNullSafe()?.let {
                                         blocks[index]?.args?.append(it)
                                     }
+                                }
                             }
                         }
 
@@ -170,10 +180,14 @@ class AnthropicMessagesClient(
                                 ?.get("output_tokens")
                                 ?.jsonPrimitive
                                 ?.intOrNull
-                                ?.let { outputTokens = it }
+                                ?.let {
+                                    outputTokens = it
+                                }
                         }
 
-                        "message_stop" -> break
+                        "message_stop" -> {
+                            break
+                        }
 
                         "error" -> {
                             emit(
@@ -201,7 +215,9 @@ class AnthropicMessagesClient(
                                     .let { i -> (outputTokens ?: 0).let { o -> i + o } }
                                     .takeIf { inputTokens != null && outputTokens != null },
                         )
-                    } else null
+                    } else {
+                        null
+                    }
 
                 emit(
                     LlmStreamEvent.Completed(
@@ -297,29 +313,34 @@ class AnthropicMessagesClient(
             }
         }
 
-        for (msg in messages) {
-            when (msg.role) {
-                LlmRole.SYSTEM -> Unit
+        for ((role, content, toolCalls, toolCallId, reasoning, images, reasoningSignature) in
+            messages) {
+            when (role) {
+                LlmRole.SYSTEM -> {
+                    Unit
+                }
+
                 LlmRole.USER -> {
                     // Text first, then any inline images as base64 `image` blocks (vision).
                     val blocks = ArrayList<JsonObject>()
-                    msg.content?.takeIf { it.isNotEmpty() }?.let { blocks.add(textBlock(it)) }
-                    msg.images.forEach { img -> blocks.add(imageBlock(img)) }
+                    content?.takeIf { it.isNotEmpty() }?.let { blocks.add(textBlock(it)) }
+                    images.forEach { img -> blocks.add(imageBlock(img)) }
                     if (blocks.isEmpty()) blocks.add(textBlock(""))
                     appendBlocks("user", blocks)
                 }
 
-                LlmRole.TOOL ->
+                LlmRole.TOOL -> {
                     appendBlocks(
                         "user",
                         listOf(
                             buildJsonObject {
                                 put("type", "tool_result")
-                                put("tool_use_id", msg.toolCallId ?: "")
-                                put("content", msg.content ?: "")
+                                put("tool_use_id", toolCallId ?: "")
+                                put("content", content ?: "")
                             },
                         ),
                     )
+                }
 
                 LlmRole.ASSISTANT -> {
                     val blocks = ArrayList<JsonObject>()
@@ -328,17 +349,17 @@ class AnthropicMessagesClient(
                     // turn;
                     // omitting the block (no signature stored) degrades silently rather than
                     // failing.
-                    if (msg.reasoning != null && msg.reasoningSignature != null) {
+                    if (reasoning != null && reasoningSignature != null) {
                         blocks.add(
                             buildJsonObject {
                                 put("type", "thinking")
-                                put("thinking", msg.reasoning)
-                                put("signature", msg.reasoningSignature)
+                                put("thinking", reasoning)
+                                put("signature", reasoningSignature)
                             },
                         )
                     }
-                    msg.content?.takeIf { it.isNotBlank() }?.let { blocks.add(textBlock(it)) }
-                    msg.toolCalls.forEach { tc ->
+                    content?.takeIf { it.isNotBlank() }?.let { blocks.add(textBlock(it)) }
+                    toolCalls.forEach { tc ->
                         blocks.add(
                             buildJsonObject {
                                 put("type", "tool_use")
@@ -414,11 +435,16 @@ class AnthropicMessagesClient(
     private fun budgetTokensFor(effort: String): Int? =
         when (effort.lowercase()) {
             "minimal" -> 1024
+
             "low" -> 2048
+
             "medium" -> 8192
+
             "high" -> 16384
+
             "xhigh",
             "max" -> 32000
+
             else -> effort.toIntOrNull()?.takeIf { it > 0 }
         }
 

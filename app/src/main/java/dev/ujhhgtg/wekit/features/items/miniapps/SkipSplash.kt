@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
 
 object SkipSplash : SwitchFeature(), IResolveDex {
-
     override val technicalId = "跳过启动页面"
     override val nameRes = R.string.feature_skip_splash_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

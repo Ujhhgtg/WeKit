@@ -35,11 +35,7 @@ data class PreferenceEntryEntity(
     primaryKeys = ["namespace", "key", "member"],
     indices = [Index("namespace", "key")],
 )
-data class PreferenceSetMemberEntity(
-    val namespace: String,
-    val key: String,
-    val member: String,
-)
+data class PreferenceSetMemberEntity(val namespace: String, val key: String, val member: String)
 
 /** Versioned JSON/document storage for settings that do not have a stable relational schema yet. */
 @Entity(
@@ -77,11 +73,7 @@ data class AssetEntity(
     primaryKeys = ["assetId", "ordinal"],
     indices = [Index("assetId")],
 )
-data class AssetChunkEntity(
-    val assetId: String,
-    val ordinal: Int,
-    val bytes: ByteArray,
-)
+data class AssetChunkEntity(val assetId: String, val ordinal: Int, val bytes: ByteArray)
 
 /** A stable feature/slot reference to an asset (for example, a custom avatar). */
 @Entity(
@@ -89,11 +81,7 @@ data class AssetChunkEntity(
     primaryKeys = ["owner", "slot"],
     indices = [Index("assetId")],
 )
-data class AssetBindingEntity(
-    val owner: String,
-    val slot: String,
-    val assetId: String,
-)
+data class AssetBindingEntity(val owner: String, val slot: String, val assetId: String)
 
 /**
  * Index for a script directory. Script source and companion files remain files and are never copied

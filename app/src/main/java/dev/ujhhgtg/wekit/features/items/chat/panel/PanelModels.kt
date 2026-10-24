@@ -71,37 +71,20 @@ data class VoicePack(
     val items: List<VoiceItem> = emptyList(),
 )
 
-@Serializable
-data class CloneVoice(
-    val id: String,
-    val name: String,
-    val fileName: String,
-)
+@Serializable data class CloneVoice(val id: String, val name: String, val fileName: String)
 
-data class CloneExample(
-    val group: String,
-    val fileName: String,
-) {
+data class CloneExample(val group: String, val fileName: String) {
     val title: String
         get() = fileName.substringBeforeLast('.').ifBlank { fileName }
 }
 
-data class VoiceProviderPage(
-    val items: List<VoiceItem>,
-    val page: Int,
-    val hasMore: Boolean,
-)
+data class VoiceProviderPage(val items: List<VoiceItem>, val page: Int, val hasMore: Boolean)
 
-data class VoicePreview(
-    val path: String,
-    val temporary: Boolean,
-)
+data class VoicePreview(val path: String, val temporary: Boolean)
 
 sealed interface PanelUiText {
-    data class Resource(
-        @param:StringRes val id: Int,
-        val args: List<Any> = emptyList(),
-    ) : PanelUiText
+    data class Resource(@param:StringRes val id: Int, val args: List<Any> = emptyList()) :
+        PanelUiText
 
     data class Quantity(
         @param:PluralsRes val id: Int,

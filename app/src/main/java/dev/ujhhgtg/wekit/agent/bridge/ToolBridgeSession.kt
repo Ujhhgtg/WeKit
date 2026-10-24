@@ -73,8 +73,11 @@ class ToolBridgeSession(
                 "call" -> call(request)
                 else -> error("invalid_operation", "op must be list, search, schema, or call")
             }
-        return if (response.toByteArray().size <= ToolBridgeProtocol.MAX_PAYLOAD_BYTES) response
-        else error("response_too_large", "tool response exceeds the bridge limit")
+        return if (response.toByteArray().size <= ToolBridgeProtocol.MAX_PAYLOAD_BYTES) {
+            response
+        } else {
+            error("response_too_large", "tool response exceeds the bridge limit")
+        }
     }
 
     private fun tools() =
@@ -222,8 +225,11 @@ class ToolBridgeSession(
         val denied = result.status.name.endsWith("REJECTED")
         return buildJsonObject {
             put("ok", result.executionSucceeded)
-            if (denied) put("error", "approval_denied")
-            else if (!result.executionSucceeded) put("error", "execution_failed")
+            if (denied) {
+                put("error", "approval_denied")
+            } else if (!result.executionSucceeded) {
+                put("error", "execution_failed")
+            }
             put("status", result.status.name)
             put("result", result.text)
         }

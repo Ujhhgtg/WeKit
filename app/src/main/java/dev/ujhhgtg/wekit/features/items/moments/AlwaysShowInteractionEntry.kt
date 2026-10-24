@@ -18,7 +18,6 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
  * 一条互动都没有时直接隐藏。这里把最后一种情况也改成显示。
  */
 object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
-
     override val technicalId = "常驻互动消息入口"
     override val nameRes = R.string.feature_always_show_interaction_entry_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

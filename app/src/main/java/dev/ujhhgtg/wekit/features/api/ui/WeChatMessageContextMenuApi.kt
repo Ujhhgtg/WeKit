@@ -47,7 +47,6 @@ import java.lang.ref.WeakReference
 import java.lang.reflect.Modifier as JavaModifier
 
 object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "聊天界面消息菜单扩展"
     override val nameRes = R.string.feature_we_chat_message_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -211,8 +210,8 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
             }
     }
 
-    private fun getLongClickListenerFromOnSelectHandler(thisObject: Any): View.OnLongClickListener {
-        return thisObject
+    private fun getLongClickListenerFromOnSelectHandler(thisObject: Any): View.OnLongClickListener =
+        thisObject
             .reflekt()
             .firstField {
                 type {
@@ -220,7 +219,6 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 }
             }
             .get() as View.OnLongClickListener
-    }
 
     private fun getChattingContextFromLongClickListener(
         viewOnLongClickListener: View.OnLongClickListener,
@@ -335,9 +333,11 @@ object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
                 currentMenuItems().any {
                     it.multiSelect !is MultiSelectSupport.Unsupported
                 }
-            )
+            ) {
                 View.VISIBLE
-            else View.GONE
+            } else {
+                View.GONE
+            }
     }
 
     override fun onEnable() {

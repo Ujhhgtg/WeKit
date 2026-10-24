@@ -14,11 +14,8 @@ fun localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
 fun Context.localizedBatchString(@StringRes id: Int, vararg formatArgs: Any): String =
     batchLocalizedContext().getString(id, *formatArgs)
 
-fun localizedBatchQuantity(
-    @PluralsRes id: Int,
-    quantity: Int,
-    vararg formatArgs: Any,
-): String = HostInfo.application.localizedBatchQuantity(id, quantity, *formatArgs)
+fun localizedBatchQuantity(@PluralsRes id: Int, quantity: Int, vararg formatArgs: Any): String =
+    HostInfo.application.localizedBatchQuantity(id, quantity, *formatArgs)
 
 fun Context.localizedBatchQuantity(
     @PluralsRes id: Int,

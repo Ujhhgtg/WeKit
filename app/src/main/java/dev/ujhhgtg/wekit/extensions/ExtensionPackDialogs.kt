@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 /** Dependency-prompt dialogs shared by extension-pack consumers. */
 object ExtensionPackDialogs {
-
     /** 弱依赖:建议安装,取消也允许功能继续。 */
     fun suggestInstall(activity: Activity, pack: ExtensionPack) {
         showComposeDialog(activity) {

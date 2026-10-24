@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap
  * 按首字符缓存后主线程基本只是查表。
  */
 class ContactInitials {
-
     private val transliterator: Transliterator? =
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

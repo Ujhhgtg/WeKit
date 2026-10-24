@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object BlockAbnormalSizeStickers : SwitchFeature(), IResolveDex {
-
     override val technicalId = "拦截异常大小贴纸表情"
     override val nameRes = R.string.feature_block_abnormal_size_stickers_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

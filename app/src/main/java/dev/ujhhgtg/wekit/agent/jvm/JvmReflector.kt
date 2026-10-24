@@ -14,7 +14,6 @@ import java.lang.reflect.Modifier
  * [JvmValueBridge] (token grammar) and the tool bindings (model-facing wrappers).
  */
 object JvmReflector {
-
     /** A resolved call target: either a static context (instance == null) or an instance. */
     data class Target(val clazz: Class<*>, val instance: Any?)
 
@@ -43,8 +42,9 @@ object JvmReflector {
         val sb = StringBuilder()
         sb.append("Class: ${clazz.name}\n")
         clazz.superclass?.let { sb.append("Superclass: ${it.name}\n") }
-        if (clazz.interfaces.isNotEmpty())
+        if (clazz.interfaces.isNotEmpty()) {
             sb.append("Interfaces: ${clazz.interfaces.joinToString { it.name }}\n")
+        }
 
         if (want == "all" || want == "fields") {
             val fields = if (declaredOnly) clazz.declaredFields.toList() else allFields(clazz)
@@ -136,8 +136,9 @@ object JvmReflector {
         paramTypes: List<String>?,
     ): Any? {
         val candidates = allMethods(target.clazz).filter { it.name == name }
-        if (candidates.isEmpty())
+        if (candidates.isEmpty()) {
             throw JvmBridgeException("No method '$name' on ${target.clazz.name}")
+        }
         val method =
             selectOverload(candidates, args, paramTypes) { it.parameterTypes }
                 ?: throw JvmBridgeException(
@@ -213,7 +214,9 @@ object JvmReflector {
                         java.lang.Byte::class.java -> a.toByte()
                         else -> a
                     }
-                } else a
+                } else {
+                    a
+                }
         }
         return out
     }

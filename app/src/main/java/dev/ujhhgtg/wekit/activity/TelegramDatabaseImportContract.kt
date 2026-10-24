@@ -18,7 +18,6 @@ object TelegramDatabaseImportContract {
 
 class PickRootTelegramStickerSetsContract :
     ActivityResultContract<Unit, RootTelegramStickerSetsResult>() {
-
     override fun createIntent(context: Context, input: Unit): Intent = Intent {
         setClassName(PackageNames.MODULE, "${PackageNames.MODULE}.activity.MainActivity")
         action = TelegramDatabaseImportContract.ACTION_PICK_ROOT_STICKER_SETS
@@ -27,7 +26,7 @@ class PickRootTelegramStickerSetsContract :
     override fun parseResult(resultCode: Int, intent: Intent?): RootTelegramStickerSetsResult =
         when {
             resultCode == Activity.RESULT_OK &&
-                intent?.hasExtra(TelegramDatabaseImportContract.EXTRA_STICKER_SETS) == true ->
+                intent?.hasExtra(TelegramDatabaseImportContract.EXTRA_STICKER_SETS) == true -> {
                 runCatching {
                         DefaultJson.decodeFromString<List<TelegramInstalledStickerSet>>(
                             intent
@@ -39,11 +38,17 @@ class PickRootTelegramStickerSetsContract :
                         onSuccess = RootTelegramStickerSetsResult::Success,
                         onFailure = { RootTelegramStickerSetsResult.Failure("无法读取模块应用返回的表情包列表") },
                     )
-            intent?.hasExtra(TelegramDatabaseImportContract.EXTRA_ERROR) == true ->
+            }
+
+            intent?.hasExtra(TelegramDatabaseImportContract.EXTRA_ERROR) == true -> {
                 RootTelegramStickerSetsResult.Failure(
                     intent.getStringExtra(TelegramDatabaseImportContract.EXTRA_ERROR).orEmpty(),
                 )
-            else -> RootTelegramStickerSetsResult.Cancelled
+            }
+
+            else -> {
+                RootTelegramStickerSetsResult.Cancelled
+            }
         }
 }
 

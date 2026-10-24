@@ -16,7 +16,6 @@ import com.materialkolor.dynamicColorScheme
  * WeKit UI injected into WeChat agree on the same colors.
  */
 object SeedResolver {
-
     private val wallpaperSupported: Boolean
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
@@ -30,9 +29,11 @@ object SeedResolver {
 
     /** The platform wallpaper accent when enabled, otherwise the user's chosen seed color. */
     fun customSeed(context: Context, dark: Boolean): Int =
-        if (ThemeSettings.dynamicWallpaper)
+        if (ThemeSettings.dynamicWallpaper) {
             wallpaperAccent(context, dark) ?: ThemeSettings.seedColor
-        else ThemeSettings.seedColor
+        } else {
+            ThemeSettings.seedColor
+        }
 
     /** Material 3 [ColorScheme] generated from [seed] with the current palette style + spec. */
     fun materialScheme(seed: Int, dark: Boolean): ColorScheme =

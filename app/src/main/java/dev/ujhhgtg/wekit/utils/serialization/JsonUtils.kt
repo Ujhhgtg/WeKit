@@ -16,11 +16,10 @@ val DefaultJson = Json {
     encodeDefaults = true
 }
 
-fun JsonElement.getByPath(path: String): JsonElement? {
-    return path.split(".").fold(this as JsonElement?) { current, key ->
+fun JsonElement.getByPath(path: String): JsonElement? =
+    path.split(".").fold(this as JsonElement?) { current, key ->
         current?.jsonObject?.get(key)
     }
-}
 
 @Suppress("NOTHING_TO_INLINE")
 inline operator fun JsonElement.get(key: String): JsonElement? = jsonObject[key]

@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object QuickRemoveQuote : SwitchFeature(), IResolveDex {
-
     override val technicalId = "快捷清除引用"
     override val nameRes = R.string.feature_quick_remove_quote_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -31,8 +30,9 @@ object QuickRemoveQuote : SwitchFeature(), IResolveDex {
     override fun onEnable() {
         methodSupportAutoCompleteOnKey.hookBefore {
             val event = args[2] as KeyEvent
-            if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DEL)
+            if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DEL) {
                 return@hookBefore
+            }
 
             val chatFooterHelper =
                 thisObject!!

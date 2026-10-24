@@ -61,7 +61,6 @@ data class AgentToolDescriptor(
  * surfaced back to the model as the tool result so it can self-correct.
  */
 class AgentToolArgs(private val obj: JsonObject) {
-
     class AgentToolArgException(message: String) : RuntimeException(message)
 
     private fun raw(name: String) = obj[name]

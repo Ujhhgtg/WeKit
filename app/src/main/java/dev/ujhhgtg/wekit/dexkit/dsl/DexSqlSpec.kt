@@ -57,12 +57,14 @@ private constructor(
                 null
             }
 
-            1 ->
+            1 -> {
                 result.rows.single().firstOrNull()
                     ?: error("DexSQL: query returned no columns: $sql")
+            }
 
-            else ->
+            else -> {
                 error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
+            }
         }
     }
 
@@ -71,10 +73,8 @@ private constructor(
          * Query-matcher plan: [provider] runs during resolution inside the active Dex resolution
          * context and returns the descriptor or null (null is interpreted with [allowFailure]).
          */
-        fun queryMatcher(
-            allowFailure: Boolean,
-            provider: (DexSqlBridge) -> String?,
-        ): DexSqlSpec = DexSqlSpec(allowFailure, null, provider)
+        fun queryMatcher(allowFailure: Boolean, provider: (DexSqlBridge) -> String?): DexSqlSpec =
+            DexSqlSpec(allowFailure, null, provider)
     }
 }
 

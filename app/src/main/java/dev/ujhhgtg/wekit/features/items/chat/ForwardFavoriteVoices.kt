@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.void
 
 object ForwardFavoriteVoices : SwitchFeature() {
-
     override val technicalId = "转发收藏语音"
     override val nameRes = R.string.feature_forward_favorite_voices_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -157,21 +156,26 @@ object ForwardFavoriteVoices : SwitchFeature() {
                     showToast(
                         context,
                         when (successCount) {
-                            recipients.size if recipients.size == 1 ->
+                            recipients.size if recipients.size == 1 -> {
                                 context.localizedChatString(R.string.chat_sent)
-                            recipients.size ->
+                            }
+
+                            recipients.size -> {
                                 context.localizedChatQuantity(
                                     R.plurals.chat_forwarded_to_recipients,
                                     recipients.size,
                                     recipients.size,
                                 )
-                            else ->
+                            }
+
+                            else -> {
                                 context.localizedChatQuantity(
                                     R.plurals.chat_forwarded_partial_recipients,
                                     recipients.size,
                                     successCount,
                                     recipients.size,
                                 )
+                            }
                         },
                     )
                 }

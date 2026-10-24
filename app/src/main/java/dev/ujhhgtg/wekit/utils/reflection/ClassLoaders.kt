@@ -5,7 +5,6 @@ import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 
 object ClassLoaders {
-
     inline val HOST: ClassLoader
         get() = ReflectionClassLoader.value!!
 

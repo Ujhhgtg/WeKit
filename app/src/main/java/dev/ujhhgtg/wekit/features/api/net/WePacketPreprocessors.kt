@@ -50,12 +50,16 @@ object NewSendMsgSigner : IPacketPreprocessor {
                     clientMsgId = reqClientMsgId,
                 ) as T
             }
+
             is NewSendMsgItemProto -> {
                 val itemCreateTime = if (value.createTime == 0) nowSec else value.createTime
                 val itemClientMsgId = if (value.clientMsgId == 0) clientMsgId else value.clientMsgId
                 value.copy(createTime = itemCreateTime, clientMsgId = itemClientMsgId) as T
             }
-            else -> value
+
+            else -> {
+                value
+            }
         }
     }
 
@@ -70,7 +74,9 @@ object NewSendMsgSigner : IPacketPreprocessor {
         val list = json.optJSONArray("2")
         if (list != null) {
             for (i in 0 until list.length()) list.optJSONObject(i)?.let { applySign(it) }
-        } else json.optJSONObject("2")?.let { applySign(it) }
+        } else {
+            json.optJSONObject("2")?.let { applySign(it) }
+        }
 
         return PreprocessResult(json = json)
     }
@@ -106,6 +112,7 @@ object AppMsgSigner : IPacketPreprocessor {
                     signature = signature,
                 ) as T
             }
+
             is AppMsgItemProto -> {
                 val toUser = value.toUserName
                 val signature = value.clientMsgId.ifEmpty { "$toUser${nextId}T$nowMs" }
@@ -115,7 +122,10 @@ object AppMsgSigner : IPacketPreprocessor {
                     clientMsgId = signature,
                 ) as T
             }
-            else -> value
+
+            else -> {
+                value
+            }
         }
     }
 
@@ -160,11 +170,15 @@ object EmojiSigner : IPacketPreprocessor {
                     emojiList = updatedList,
                 ) as T
             }
+
             is EmojiItemProto -> {
                 val clientMsgId = value.clientMsgId.ifEmpty { nowStr }
                 value.copy(clientMsgId = clientMsgId) as T
             }
-            else -> value
+
+            else -> {
+                value
+            }
         }
     }
 
@@ -185,8 +199,8 @@ class SendPatSigner(private val lazyClass: () -> Class<*>?) : IPacketPreprocesso
     override fun matchesProto(value: Any): Boolean = value is ISendPatProto
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> preprocessProto(value: T): T {
-        return when (value) {
+    override fun <T : Any> preprocessProto(value: T): T =
+        when (value) {
             is SendPatReqProto -> {
                 val fromUser =
                     value.fromUser.ifEmpty {
@@ -203,9 +217,11 @@ class SendPatSigner(private val lazyClass: () -> Class<*>?) : IPacketPreprocesso
                     msgPointer = msgPointer,
                 ) as T
             }
-            else -> value
+
+            else -> {
+                value
+            }
         }
-    }
 
     override fun preprocessJson(cl: ClassLoader, json: JSONObject): PreprocessResult {
         val cls = lazyClass() ?: return PreprocessResult(json = json)

@@ -86,12 +86,14 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
         }
     val filteredItems =
         remember(query, resolvedLocale, revision) {
-            if (!searching) emptyList()
-            else
+            if (!searching) {
+                emptyList()
+            } else {
                 searchableItems.filter {
                     it.localizedName(context).contains(query, ignoreCase = true) ||
                         it.localizedDescription(context).contains(query, ignoreCase = true)
                 }
+            }
         }
 
     // A back press while searching clears the query first (after the IME's own
@@ -248,9 +250,15 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
     val items =
         remember(categoryId, resolvedLocale, revision) {
             when (categoryId) {
-                NEW_FEATURES_CATEGORY -> FeatureCategoryState.newItems
-                ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
-                else ->
+                NEW_FEATURES_CATEGORY -> {
+                    FeatureCategoryState.newItems
+                }
+
+                ENABLED_FEATURES_CATEGORY -> {
+                    FeatureCategoryState.enabledItems()
+                }
+
+                else -> {
                     FeaturesProvider.ALL_FEATURES.filter { categoryId in it.categoryIds }
                         .sortedWith(
                             featureCategoryComparator { first, second ->
@@ -260,6 +268,7 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
                                 )
                             },
                         )
+                }
             }
         }
 

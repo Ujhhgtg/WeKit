@@ -15,11 +15,7 @@ enum class FieldUsingType {
 }
 
 /** One field access of a method: the accessed field plus read/write direction. */
-class DexFieldAccess
-internal constructor(
-    val field: DexFieldInfo,
-    val usingType: FieldUsingType,
-) {
+class DexFieldAccess internal constructor(val field: DexFieldInfo, val usingType: FieldUsingType) {
     override fun toString(): String = usingType.name + " " + field.descriptor
 
     internal companion object {

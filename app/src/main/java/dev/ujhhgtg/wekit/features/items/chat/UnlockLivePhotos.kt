@@ -50,8 +50,10 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
     private var forceWeKitBackend by prefOption("live_photo_force_wekit_backend", false)
     private var oplusCompatibility by prefOption("live_photo_oplus_compatibility", false)
     private var vivoCompatibility by prefOption("live_photo_vivo_compatibility", 0)
+
     // Changing the test preference never switches an in-flight operation or cached host object.
     private var processForceWeKit: Boolean? = null
+
     @SuppressLint("StaticFieldLeak") private var backend: WeKitLivePhotoBackend? = null
     private var currentBackendRes = R.string.live_photo_backend_inactive
 
@@ -166,8 +168,11 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             currentBackendRes = R.string.live_photo_backend_wekit
         } else {
             currentBackendRes =
-                if (system == true) R.string.live_photo_backend_system
-                else R.string.live_photo_backend_unknown
+                if (system == true) {
+                    R.string.live_photo_backend_system
+                } else {
+                    R.string.live_photo_backend_unknown
+                }
         }
         installConfigHooks()
         // Loading the wrapper now lets its original initializer run under the selected adapter.
@@ -285,8 +290,9 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
                     }
                     .invoke() as String,
             )
-        if (metadata.optInt("coreVersion") == 0 || metadata.optString("wechatKey") != WECHAT_KEY)
+        if (metadata.optInt("coreVersion") == 0 || metadata.optString("wechatKey") != WECHAT_KEY) {
             return
+        }
         fieldCoreVersion.field.setInt(null, metadata.getInt("coreVersion"))
         fieldSysVersion.field.set(null, metadata.optString("sysVersion"))
         fieldSupport.field.setBoolean(null, true)

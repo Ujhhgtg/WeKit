@@ -22,6 +22,7 @@ object WeAgentExecToolBindings {
         val session = coroutineContext[AgentSessionContext] ?: error("no active agent session")
         val environment = session.environment ?: error("no active Linux environment context")
         val artifact = WeAgentService.linuxEnvironmentManager.ensureBridge(environment.id)
+
         suspend fun execute(extraEnvironment: Map<String, String> = emptyMap()) =
             WeAgentService.linuxEnvironmentManager.exec(
                 environment.id,
@@ -30,8 +31,9 @@ object WeAgentExecToolBindings {
                 environment.environmentVariables + extraEnvironment,
             )
         val result =
-            if (artifact == null) execute()
-            else
+            if (artifact == null) {
+                execute()
+            } else {
                 WeAgentService.toolBridgeServer.withOneShot(
                     owner = session.sessionId,
                     environmentId = environment.id,
@@ -48,6 +50,7 @@ object WeAgentExecToolBindings {
                             ),
                     )
                 }
+            }
         return buildString {
             append("exit_code=").append(result.exitCode).append('\n')
             append("timed_out=").append(result.timedOut).append('\n')

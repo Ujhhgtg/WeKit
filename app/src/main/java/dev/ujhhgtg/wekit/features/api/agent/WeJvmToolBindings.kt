@@ -36,7 +36,6 @@ import dev.ujhhgtg.wekit.features.core.AgentToolParam
  * current IO thread); when true the call is marshaled to the main looper with a 10s timeout.
  */
 object WeJvmToolBindings {
-
     // ---------------------------------------------------------------------
     // Read-only introspection (sideEffect = false)
     // ---------------------------------------------------------------------
@@ -100,8 +99,9 @@ object WeJvmToolBindings {
                 append("Class: ${c.name}\n")
                 append("Modifiers: ${java.lang.reflect.Modifier.toString(c.modifiers)}\n")
                 c.superclass?.let { append("Superclass: ${it.name}\n") }
-                if (c.interfaces.isNotEmpty())
+                if (c.interfaces.isNotEmpty()) {
                     append("Interfaces: ${c.interfaces.joinToString { it.name }}\n")
+                }
                 append(
                     "isEnum=${c.isEnum} isInterface=${c.isInterface} isAbstract=${java.lang.reflect.Modifier.isAbstract(c.modifiers)}",
                 )

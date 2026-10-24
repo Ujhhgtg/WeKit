@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class ProtoWireTest {
-
     // field 1: string "a"; field 5: string "hi"; field 7: varint 300; field 11: fixed64; field 12:
     // fixed32
     private val message =

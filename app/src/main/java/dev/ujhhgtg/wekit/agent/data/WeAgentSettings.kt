@@ -17,7 +17,6 @@ import java.util.concurrent.ConcurrentHashMap
  * deliberately small — per-feature UI reads/writes go through the named helpers here.
  */
 object WeAgentSettings {
-
     private val db
         get() = WeKitDatabase.instance
 

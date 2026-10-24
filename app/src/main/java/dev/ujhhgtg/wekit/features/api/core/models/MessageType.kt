@@ -112,7 +112,6 @@ enum class MessageType(val code: Int, @StringRes val displayNameRes: Int) {
         get() = code == VOIP.code || code == VOIP_NOTIFY.code || code == VOIP_INVITE.code
 
     companion object {
-
         fun fromCode(code: Int): MessageType? = entries.find { it.code == code }
     }
 }

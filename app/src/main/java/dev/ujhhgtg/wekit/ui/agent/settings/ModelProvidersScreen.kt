@@ -25,10 +25,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
  * mode (§5.1/§5.2).
  */
 @Composable
-fun ModelProvidersScreen(
-    onBack: () -> Unit,
-    onOpenProvider: (String) -> Unit,
-) {
+fun ModelProvidersScreen(onBack: () -> Unit, onOpenProvider: (String) -> Unit) {
     val providers by WeAgentRepository.observeModelProviders().collectAsState(initial = emptyList())
 
     SettingsScaffold(
@@ -85,13 +82,24 @@ fun ModelProvidersScreen(
 fun ModelProviderType.label(): String =
     stringResource(
         when (this) {
-            ModelProviderType.OPENAI_CHAT_COMPLETION ->
+            ModelProviderType.OPENAI_CHAT_COMPLETION -> {
                 R.string.agent_provider_type_openai_chat_completion
-            ModelProviderType.OPENAI_RESPONSES -> R.string.agent_provider_type_openai_responses
-            ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
-            ModelProviderType.GEMINI_GENERATE_CONTENT ->
+            }
+
+            ModelProviderType.OPENAI_RESPONSES -> {
+                R.string.agent_provider_type_openai_responses
+            }
+
+            ModelProviderType.ANTHROPIC_MESSAGES -> {
+                R.string.agent_provider_type_anthropic_messages
+            }
+
+            ModelProviderType.GEMINI_GENERATE_CONTENT -> {
                 R.string.agent_provider_type_gemini_generate_content
-            ModelProviderType.GEMINI_INTERACTIONS ->
+            }
+
+            ModelProviderType.GEMINI_INTERACTIONS -> {
                 R.string.agent_provider_type_gemini_interactions
+            }
         },
     )

@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
 
 object WeAppMsgApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "AppMsg 发送服务"
     override val nameRes = R.string.feature_we_app_msg_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

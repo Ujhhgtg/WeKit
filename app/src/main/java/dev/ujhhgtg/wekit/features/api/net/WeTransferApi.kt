@@ -18,7 +18,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 object WeTransferApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "转账服务"
     override val nameRes = R.string.feature_we_transfer_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -178,8 +177,9 @@ object WeTransferApi : ApiFeature(), IResolveDex {
         return withTimeoutOrNull(1.5.seconds) { deferred.await() }
             .also {
                 pendingPlaceOrders.remove(scene)
-                if (it == null)
+                if (it == null) {
                     WeLogger.w(TAG, "transferplaceorder timed out (inputName=$inputName)")
+                }
             }
     }
 }

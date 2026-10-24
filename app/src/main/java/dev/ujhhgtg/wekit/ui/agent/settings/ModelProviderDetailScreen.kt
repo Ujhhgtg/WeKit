@@ -90,8 +90,11 @@ fun ModelProviderDetailScreen(
     LaunchedEffect(providerId, savedId) {
         provider =
             when {
-                creating && savedId.isNotBlank() -> WeAgentRepository.getModelProvider(savedId)
-                creating ->
+                creating && savedId.isNotBlank() -> {
+                    WeAgentRepository.getModelProvider(savedId)
+                }
+
+                creating -> {
                     ModelProviderEntity(
                         "",
                         ModelProviderType.OPENAI_CHAT_COMPLETION,
@@ -99,7 +102,11 @@ fun ModelProviderDetailScreen(
                         "https://api.openai.com/v1",
                         "",
                     )
-                else -> WeAgentRepository.getModelProvider(providerId)
+                }
+
+                else -> {
+                    WeAgentRepository.getModelProvider(providerId)
+                }
             }
     }
 
@@ -145,8 +152,11 @@ fun ModelProviderDetailScreen(
 
     SettingsScaffold(
         title =
-            if (!editing) stringResource(R.string.agent_add_model_provider)
-            else p?.name ?: stringResource(R.string.agent_provider_fallback_title),
+            if (!editing) {
+                stringResource(R.string.agent_add_model_provider)
+            } else {
+                p?.name ?: stringResource(R.string.agent_provider_fallback_title)
+            },
         onBack = guardedBack,
     ) {
         if (p == null) {
@@ -273,9 +283,11 @@ fun ModelProviderDetailScreen(
                                     (m.reasoningEffort?.let { " · effort=$it" } ?: "") +
                                     (m.contextWindow?.let { " · ctx=$it" } ?: "") +
                                     (m.maxTokens?.let { " · max=$it" } ?: "") +
-                                    if (m.supportsVision)
+                                    if (m.supportsVision) {
                                         " · ${stringResource(R.string.agent_model_supports_vision_badge)}"
-                                    else "",
+                                    } else {
+                                        ""
+                                    },
                             onClick = { onOpenModel(activeId, m.id) },
                             trailingContent = {
                                 Icon(
@@ -697,8 +709,11 @@ private fun ImportModelsDialog(
                         BaseWidget(
                             iconPlaceholder = false,
                             title =
-                                if (already) stringResource(R.string.agent_model_already_added, id)
-                                else id,
+                                if (already) {
+                                    stringResource(R.string.agent_model_already_added, id)
+                                } else {
+                                    id
+                                },
                             onClick = {
                                 if (id in selected) selected.remove(id) else selected.add(id)
                             },

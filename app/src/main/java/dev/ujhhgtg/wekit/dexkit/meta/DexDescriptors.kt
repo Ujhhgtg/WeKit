@@ -45,8 +45,13 @@ fun descriptorToJavaName(descriptor: String): String {
                 component.substring(1, component.length - 1).replace('/', '.')
             }
 
-            in PRIMITIVE_JAVA_NAMES -> PRIMITIVE_JAVA_NAMES.getValue(kind)
-            else -> throw IllegalArgumentException("Invalid type descriptor: $descriptor")
+            in PRIMITIVE_JAVA_NAMES -> {
+                PRIMITIVE_JAVA_NAMES.getValue(kind)
+            }
+
+            else -> {
+                throw IllegalArgumentException("Invalid type descriptor: $descriptor")
+            }
         }
     return base + "[]".repeat(dimensions)
 }

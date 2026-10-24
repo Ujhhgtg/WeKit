@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object PowerSaver : SwitchFeature() {
-
     override val technicalId = "省电模式"
     override val nameRes = R.string.feature_power_saver_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

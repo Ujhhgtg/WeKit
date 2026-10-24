@@ -14,7 +14,6 @@ import kotlin.math.roundToInt
  * hairline border because Android elevation is barely visible on near-black chat backgrounds.
  */
 object FloatingChatCardVisuals {
-
     private const val DARK_SURFACE_COLOR = 0xFF242424.toInt()
     private const val DARK_STROKE_COLOR = 0x24FFFFFF
     private const val DARK_STROKE_WIDTH_DP = 1

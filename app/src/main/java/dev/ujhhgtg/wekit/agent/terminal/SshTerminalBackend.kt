@@ -7,9 +7,8 @@ import dev.ujhhgtg.wekit.agent.environment.SshReverseForward
 import dev.ujhhgtg.wekit.agent.environment.SshTerminalConnection
 import java.util.concurrent.atomic.AtomicBoolean
 
-class SshTerminalBackend(
-    private val connection: suspend (String) -> SshConnectionManager,
-) : TerminalBackend {
+class SshTerminalBackend(private val connection: suspend (String) -> SshConnectionManager) :
+    TerminalBackend {
     override suspend fun start(
         environment: EnvironmentSnapshot,
         argv: List<String>,
@@ -23,8 +22,9 @@ class SshTerminalBackend(
         val forward = localBridgePort?.let { manager.openReverseForward(it) }
         return try {
             val remoteEnvironment =
-                if (forward == null) environmentVariables
-                else {
+                if (forward == null) {
+                    environmentVariables
+                } else {
                     environmentVariables +
                         ToolBridgeServer.Endpoint(
                                 localBridgePort,

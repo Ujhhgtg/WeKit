@@ -38,10 +38,7 @@ data class LlmToolCall(
  * [LlmClient] adapter can wrap it in its own wire shape (OpenAI `image_url` data-URI, Anthropic
  * `source.base64`). Produced by the `ui-screenshot` tool and injected as a transient USER message.
  */
-data class LlmImage(
-    val base64: String,
-    val mimeType: String = "image/png",
-) {
+data class LlmImage(val base64: String, val mimeType: String = "image/png") {
     /** `data:<mime>;base64,<payload>` form used by the OpenAI `image_url` shape. */
     val dataUri: String
         get() = "data:$mimeType;base64,$base64"
@@ -77,11 +74,7 @@ data class LlmMessage(
 )
 
 /** A tool advertised to the model, in provider-neutral form. */
-data class LlmToolSpec(
-    val name: String,
-    val description: String,
-    val parametersSchema: JsonObject,
-)
+data class LlmToolSpec(val name: String, val description: String, val parametersSchema: JsonObject)
 
 /**
  * Token usage reported by the provider for one model response. All fields are nullable since not

@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
-
     override val technicalId = "恢复旧版「我」界面卡包"
     override val nameRes = R.string.feature_use_legacy_wallet_view_in_me_page_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

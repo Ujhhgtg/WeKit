@@ -53,9 +53,14 @@ object MonetApkResourceGraphLoader {
                                     val ours = names.getOrNull(index)
                                     val theirs = typeNames.getOrNull(index)
                                     when {
-                                        ours == null || ours.isTypePlaceholder(index) ->
+                                        ours == null || ours.isTypePlaceholder(index) -> {
                                             theirs ?: ours!!
-                                        theirs == null || theirs.isTypePlaceholder(index) -> ours
+                                        }
+
+                                        theirs == null || theirs.isTypePlaceholder(index) -> {
+                                            ours
+                                        }
+
                                         else -> {
                                             require(ours == theirs) {
                                                 "type pool of $apk conflicts with earlier APKs: $names vs $typeNames"
@@ -214,6 +219,7 @@ object MonetApkResourceGraphLoader {
         ) {
             return MonetFileStructure(format)
         }
+
         fun intAt(offset: Int): Int =
             header[offset].toInt() and
                 0xff shl
@@ -244,7 +250,9 @@ object MonetApkResourceGraphLoader {
                     header[25].toInt() and 0xff,
                     compressed.toByteArray(),
                 )
-            } else null
+            } else {
+                null
+            }
         return MonetFileStructure(
             format,
             intAt(16),
@@ -290,12 +298,18 @@ object MonetApkResourceGraphLoader {
             for (column in 0 until stride) {
                 val raw = inflated[source++].toInt() and 0xff
                 val left =
-                    if (column >= bytesPerPixel) current[column - bytesPerPixel].toInt() and 0xff
-                    else 0
+                    if (column >= bytesPerPixel) {
+                        current[column - bytesPerPixel].toInt() and 0xff
+                    } else {
+                        0
+                    }
                 val up = previous[column].toInt() and 0xff
                 val upperLeft =
-                    if (column >= bytesPerPixel) previous[column - bytesPerPixel].toInt() and 0xff
-                    else 0
+                    if (column >= bytesPerPixel) {
+                        previous[column - bytesPerPixel].toInt() and 0xff
+                    } else {
+                        0
+                    }
                 current[column] =
                     (raw +
                             when (filter) {
@@ -311,8 +325,11 @@ object MonetApkResourceGraphLoader {
             for (pixel in 0 until width) {
                 val sample = current[pixel * bytesPerPixel].toInt() and 0xff
                 val alpha =
-                    if (bytesPerPixel == 2) current[pixel * bytesPerPixel + 1].toInt() and 0xff
-                    else 255
+                    if (bytesPerPixel == 2) {
+                        current[pixel * bytesPerPixel + 1].toInt() and 0xff
+                    } else {
+                        255
+                    }
                 sampleSum += sample
                 alphaSum += alpha
                 samples += sample shl 8 or alpha
@@ -333,8 +350,13 @@ object MonetApkResourceGraphLoader {
         val leftDistance = kotlin.math.abs(prediction - left)
         val upDistance = kotlin.math.abs(prediction - up)
         val upperLeftDistance = kotlin.math.abs(prediction - upperLeft)
-        return if (leftDistance <= upDistance && leftDistance <= upperLeftDistance) left
-        else if (upDistance <= upperLeftDistance) up else upperLeft
+        return if (leftDistance <= upDistance && leftDistance <= upperLeftDistance) {
+            left
+        } else if (upDistance <= upperLeftDistance) {
+            up
+        } else {
+            upperLeft
+        }
     }
 
     private data class PixelStatistics(
@@ -361,16 +383,9 @@ object MonetApkResourceGraphLoader {
             )
     }
 
-    private data class XmlIdentity(
-        val ownerId: Int,
-        val qualifiers: String,
-        val path: String,
-    )
+    private data class XmlIdentity(val ownerId: Int, val qualifiers: String, val path: String)
 
-    private data class OwnedXml(
-        val identity: XmlIdentity,
-        val xml: MonetBinaryXml,
-    )
+    private data class OwnedXml(val identity: XmlIdentity, val xml: MonetBinaryXml)
 
     private fun String.isTypePlaceholder(index: Int) = this == "?${index + 1}"
 

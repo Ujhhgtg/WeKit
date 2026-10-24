@@ -31,7 +31,6 @@ class PromptComposer(
      */
     private val promptAnchorTime: Instant = Instant.now(),
 ) {
-
     /**
      * Builds the full system message. [systemPromptContent] is the session's bound system prompt,
      * or null.
@@ -62,19 +61,17 @@ class PromptComposer(
      * only the raw message is persisted/displayed — so the prefix never compounds across reloads.
      * The previous assistant reply is NOT re-added here; it is already in the message history.
      */
-    fun composeTurnUserMessage(
-        perTurnPrompts: List<String>,
-        userMessage: String,
-    ): String = buildString {
-        perTurnPrompts.forEach { p ->
-            p.takeIf { it.isNotBlank() }
-                ?.let {
-                    append(it.trim())
-                    append("\n\n")
-                }
+    fun composeTurnUserMessage(perTurnPrompts: List<String>, userMessage: String): String =
+        buildString {
+            perTurnPrompts.forEach { p ->
+                p.takeIf { it.isNotBlank() }
+                    ?.let {
+                        append(it.trim())
+                        append("\n\n")
+                    }
+            }
+            append(userMessage)
         }
-        append(userMessage)
-    }
 
     /**
      * Evaluates conditional prompts (§6) against a model response. For each matching regex, returns

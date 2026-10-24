@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.utils.serialization
 import java.io.Reader
 
 object NativeXmlParser {
-
     @Suppress("NOTHING_TO_INLINE")
     inline fun toXmlObject(
         string: String,
@@ -84,7 +83,9 @@ object NativeXmlParser {
                 return true
             }
 
-            is Char -> throw x.syntaxError("Misshaped tag")
+            is Char -> {
+                throw x.syntaxError("Misshaped tag")
+            }
 
             else -> {
                 val tagName = token as String
@@ -121,15 +122,22 @@ object NativeXmlParser {
                     } else if (token == '/') {
                         if (x.nextToken() != '>') throw x.syntaxError("Misshaped tag")
                         val emptyValue: XmlValue =
-                            if (nilAttributeFound) XmlNull
-                            else if (elementObj.isEmpty()) XmlPrimitive("")
-                            else elementObj.toXmlValue(config.forceList)
+                            if (nilAttributeFound) {
+                                XmlNull
+                            } else if (elementObj.isEmpty()) {
+                                XmlPrimitive("")
+                            } else {
+                                elementObj.toXmlValue(config.forceList)
+                            }
 
                         if (tagName in config.forceList) {
-                            if (nilAttributeFound) context.append(tagName, XmlNull)
-                            else if (elementObj.isEmpty())
+                            if (nilAttributeFound) {
+                                context.append(tagName, XmlNull)
+                            } else if (elementObj.isEmpty()) {
                                 context.put(tagName, XmlArray(emptyList()))
-                            else context.append(tagName, emptyValue)
+                            } else {
+                                context.append(tagName, emptyValue)
+                            }
                         } else {
                             context.accumulate(tagName, emptyValue)
                         }
@@ -138,7 +146,10 @@ object NativeXmlParser {
                         while (true) {
                             token = x.nextContent()
                             when (token) {
-                                null -> throw x.syntaxError("Unclosed tag $tagName")
+                                null -> {
+                                    throw x.syntaxError("Unclosed tag $tagName")
+                                }
+
                                 is String -> {
                                     val text = token
                                     if (text.isNotEmpty()) {
@@ -163,18 +174,27 @@ object NativeXmlParser {
                                         )
                                     ) {
                                         val value: XmlValue? =
-                                            if (elementObj.isEmpty()) null
-                                            else if (elementObj.size == 1)
+                                            if (elementObj.isEmpty()) {
+                                                null
+                                            } else if (elementObj.size == 1) {
                                                 elementObj.singleValue(config.cDataTagName)
-                                            else null
+                                            } else {
+                                                null
+                                            }
                                         if (tagName in config.forceList) {
                                             when {
-                                                elementObj.isEmpty() ->
+                                                elementObj.isEmpty() -> {
                                                     context.put(tagName, XmlArray(emptyList()))
-                                                value != null -> context.append(tagName, value)
+                                                }
+
+                                                value != null -> {
+                                                    context.append(tagName, value)
+                                                }
+
                                                 else -> {
-                                                    if (!config.trimWhiteSpace)
+                                                    if (!config.trimWhiteSpace) {
                                                         elementObj.pruneEmptyStrings()
+                                                    }
                                                     context.append(
                                                         tagName,
                                                         elementObj.toXmlValue(config.forceList),
@@ -183,12 +203,18 @@ object NativeXmlParser {
                                             }
                                         } else {
                                             when {
-                                                elementObj.isEmpty() ->
+                                                elementObj.isEmpty() -> {
                                                     context.accumulate(tagName, XmlPrimitive(""))
-                                                value != null -> context.accumulate(tagName, value)
+                                                }
+
+                                                value != null -> {
+                                                    context.accumulate(tagName, value)
+                                                }
+
                                                 else -> {
-                                                    if (!config.trimWhiteSpace)
+                                                    if (!config.trimWhiteSpace) {
                                                         elementObj.pruneEmptyStrings()
+                                                    }
                                                     context.accumulate(
                                                         tagName,
                                                         elementObj.toXmlValue(config.forceList),
@@ -200,7 +226,9 @@ object NativeXmlParser {
                                     }
                                 }
 
-                                else -> throw x.syntaxError("Misshaped tag")
+                                else -> {
+                                    throw x.syntaxError("Misshaped tag")
+                                }
                             }
                         }
                     } else {

@@ -188,7 +188,11 @@ private fun rememberFabVisible(listState: LazyListState): Boolean {
                 val up =
                     current.first < previous.first ||
                         (current.first == previous.first && current.second < previous.second - 8)
-                if (down) visible = false else if (up) visible = true
+                if (down) {
+                    visible = false
+                } else if (up) {
+                    visible = true
+                }
                 previous = current
             }
     }
@@ -214,8 +218,11 @@ private fun AutomationFab(
             icon = { Icon(icon, null) },
             text = { Text(text) },
             containerColor =
-                if (attention) FloatingActionButtonDefaults.containerColor
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
+                if (attention) {
+                    FloatingActionButtonDefaults.containerColor
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
         )
     }
 }
@@ -225,15 +232,31 @@ private fun AutomationFab(
 @Composable
 fun automationScopeTitle(spec: AutomationSpec, scope: AutomationScope, name: String?): String =
     when (scope.type) {
-        AutomationScopeType.GLOBAL -> stringResource(R.string.automation_global_settings)
-        AutomationScopeType.CATEGORY -> stringResource(categoryDefaultLabel(scope.category!!))
-        AutomationScopeType.CONTACT -> rememberContactName(scope.scopeId)
-        AutomationScopeType.GROUP_MEMBER -> rememberMemberName(scope.scopeId, scope.memberId)
-        AutomationScopeType.PRESET -> name ?: scope.scopeId
-        AutomationScopeType.ITEM ->
+        AutomationScopeType.GLOBAL -> {
+            stringResource(R.string.automation_global_settings)
+        }
+
+        AutomationScopeType.CATEGORY -> {
+            stringResource(categoryDefaultLabel(scope.category!!))
+        }
+
+        AutomationScopeType.CONTACT -> {
+            rememberContactName(scope.scopeId)
+        }
+
+        AutomationScopeType.GROUP_MEMBER -> {
+            rememberMemberName(scope.scopeId, scope.memberId)
+        }
+
+        AutomationScopeType.PRESET -> {
+            name ?: scope.scopeId
+        }
+
+        AutomationScopeType.ITEM -> {
             spec.fixedItems
                 .firstOrNull { it.first == scope.scopeId }
                 ?.let { stringResource(it.second) } ?: name ?: scope.scopeId
+        }
     }
 
 fun categoryDefaultLabel(category: AutomationTalkerCategory): Int =
@@ -264,13 +287,15 @@ private fun overriddenRuleNames(spec: AutomationSpec, stored: AutomationStoredSc
             stringResource(spec.editors.first { it.key.id == id }.titleRes)
         }
     if (names.isEmpty()) return null
-    return if (names.size <= 3) names.joinToString(" · ")
-    else
+    return if (names.size <= 3) {
+        names.joinToString(" · ")
+    } else {
         stringResource(
             R.string.automation_overridden_more,
             names.take(3).joinToString(" · "),
             names.size,
         )
+    }
 }
 
 @Composable
@@ -292,8 +317,11 @@ private fun AutomationSpec.switchedValues(
     on: Boolean,
 ): AutomationRuleValues {
     val key = scopeSwitch!!
-    return if (on) stored.values.without(key)
-    else stored.values.with(key, AutomationToggleRule(false))
+    return if (on) {
+        stored.values.without(key)
+    } else {
+        stored.values.with(key, AutomationToggleRule(false))
+    }
 }
 
 // ---- home ------------------------------------------------------------------------------------
@@ -361,13 +389,15 @@ private fun AutomationScopesHome(
 
     SettingsScaffold(
         title =
-            if (selected != null)
+            if (selected != null) {
                 pluralStringResource(
                     R.plurals.automation_selected_count,
                     selected.size,
                     selected.size,
                 )
-            else stringResource(spec.titleRes),
+            } else {
+                stringResource(spec.titleRes)
+            },
         onBack = { if (selected != null) selection = null else onBack() },
         listState = listState,
         actions = {
@@ -412,7 +442,9 @@ private fun AutomationScopesHome(
                                 .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                     )
                 }
-            } else null,
+            } else {
+                null
+            },
         floatingActionButton = {
             if (selected != null) {
                 AutomationFab(
@@ -444,11 +476,13 @@ private fun AutomationScopesHome(
             item(key = "tip") {
                 val chain = buildList {
                     add(stringResource(R.string.automation_chain_global))
-                    if (AutomationScopeType.CATEGORY in spec.scopeTypes)
+                    if (AutomationScopeType.CATEGORY in spec.scopeTypes) {
                         add(stringResource(R.string.automation_chain_category))
+                    }
                     add(stringResource(R.string.automation_chain_chat))
-                    if (AutomationScopeType.GROUP_MEMBER in spec.scopeTypes)
+                    if (AutomationScopeType.GROUP_MEMBER in spec.scopeTypes) {
                         add(stringResource(R.string.automation_chain_member))
+                    }
                 }
                 TitleTipCard(
                     title = stringResource(R.string.automation_inheritance_title),
@@ -468,7 +502,7 @@ private fun AutomationScopesHome(
                             title = stringResource(R.string.automation_global_settings),
                             description = stringResource(spec.globalSummaryRes),
                             headlineTrailingContent = {
-                                if (count > 0)
+                                if (count > 0) {
                                     AutomationTag(
                                         pluralStringResource(
                                             R.plurals.automation_rules_set,
@@ -478,6 +512,7 @@ private fun AutomationScopesHome(
                                         Modifier.padding(start = 8.dp),
                                         AutomationTagTone.Muted,
                                     )
+                                }
                             },
                             onClick = { onOpenScope(AutomationScope.Global, null, 0) },
                             trailingContent = {
@@ -500,7 +535,7 @@ private fun AutomationScopesHome(
                                                 R.string.automation_follow_global_all,
                                             ),
                                     headlineTrailingContent = {
-                                        if (count > 0)
+                                        if (count > 0) {
                                             AutomationTag(
                                                 pluralStringResource(
                                                     R.plurals.automation_overrides,
@@ -509,6 +544,7 @@ private fun AutomationScopesHome(
                                                 ),
                                                 Modifier.padding(start = 8.dp),
                                             )
+                                        }
                                         PresetTags(spec, snapshot, stored.presets)
                                     },
                                     onClick = { onOpenScope(scope, null, 0) },
@@ -526,8 +562,11 @@ private fun AutomationScopesHome(
             SegmentedColumn(
                 title =
                     stringResource(
-                        if (selected != null) R.string.automation_select_chats
-                        else R.string.automation_section_chats,
+                        if (selected != null) {
+                            R.string.automation_select_chats
+                        } else {
+                            R.string.automation_section_chats
+                        },
                     ),
                 titleAction =
                     if (selected == null && search == null) {
@@ -538,20 +577,27 @@ private fun AutomationScopesHome(
                                 addChat,
                             )
                         }
-                    } else null,
+                    } else {
+                        null
+                    },
             ) {
                 if (shownChats.isEmpty()) {
                     item(key = "empty") {
                         BaseWidget(
                             title =
                                 stringResource(
-                                    if (query.isEmpty()) R.string.automation_no_chats
-                                    else R.string.contact_no_matches,
+                                    if (query.isEmpty()) {
+                                        R.string.automation_no_chats
+                                    } else {
+                                        R.string.contact_no_matches
+                                    },
                                 ),
                             description =
-                                if (query.isEmpty())
+                                if (query.isEmpty()) {
                                     stringResource(R.string.automation_no_chats_summary)
-                                else null,
+                                } else {
+                                    null
+                                },
                         )
                     }
                 }
@@ -567,8 +613,11 @@ private fun AutomationScopesHome(
                             description =
                                 stored?.let { overriddenRuleNames(spec, it) }
                                     ?: stringResource(
-                                        if (stored == null) R.string.automation_only_members
-                                        else R.string.automation_follow_parent_settings,
+                                        if (stored == null) {
+                                            R.string.automation_only_members
+                                        } else {
+                                            R.string.automation_follow_parent_settings
+                                        },
                                     ),
                             descriptionContent =
                                 if (members > 0) {
@@ -582,16 +631,20 @@ private fun AutomationScopesHome(
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                     }
-                                } else null,
+                                } else {
+                                    null
+                                },
                             headlineTrailingContent = {
                                 when {
-                                    switchedOff ->
+                                    switchedOff -> {
                                         AutomationTag(
                                             stringResource(R.string.automation_switched_off),
                                             Modifier.padding(start = 8.dp),
                                             AutomationTagTone.Warning,
                                         )
-                                    count > 0 ->
+                                    }
+
+                                    count > 0 -> {
                                         AutomationTag(
                                             pluralStringResource(
                                                 R.plurals.automation_rules_set,
@@ -600,20 +653,25 @@ private fun AutomationScopesHome(
                                             ),
                                             Modifier.padding(start = 8.dp),
                                         )
+                                    }
                                 }
                                 if (stored != null) PresetTags(spec, snapshot, stored.presets)
                             },
                             leadingContent = {
-                                if (selected != null)
+                                if (selected != null) {
                                     Checkbox(checked = isSelected, onCheckedChange = null)
-                                else AutomationAvatar(scope.scopeId)
+                                } else {
+                                    AutomationAvatar(scope.scopeId)
+                                }
                             },
                             selected = isSelected,
                             onClick = {
-                                if (selected != null)
+                                if (selected != null) {
                                     selection =
                                         if (isSelected) selected - scope else selected + scope
-                                else onOpenScope(scope, null, 0)
+                                } else {
+                                    onOpenScope(scope, null, 0)
+                                }
                             },
                             onLongClick =
                                 if (selected == null) ({ selection = setOf(scope) }) else null,
@@ -699,21 +757,23 @@ private fun AutomationScopesHome(
                                         count,
                                     ) +
                                         " · " +
-                                        if (used == 0)
+                                        if (used == 0) {
                                             stringResource(R.string.automation_preset_unused)
-                                        else
+                                        } else {
                                             pluralStringResource(
                                                 R.plurals.automation_preset_used_by,
                                                 used,
                                                 used,
-                                            ),
+                                            )
+                                        },
                                 headlineTrailingContent = {
-                                    if (switchedOff)
+                                    if (switchedOff) {
                                         AutomationTag(
                                             stringResource(R.string.automation_switched_off),
                                             Modifier.padding(start = 8.dp),
                                             AutomationTagTone.Warning,
                                         )
+                                    }
                                 },
                                 onClick = { onOpenScope(stored.scope, null, 0) },
                                 trailingDivider = spec.scopeSwitch != null,
@@ -788,8 +848,11 @@ private fun itemChips(spec: AutomationSpec, rules: AutomationRules): List<String
         @Suppress("UNCHECKED_CAST")
         val editor = spec.editors.first { it.key == key } as AutomationRuleEditor<Any>
         val value = rules.getAny(editor)
-        if (value == editor.key.default || editor.isOn?.invoke(value) == false) null
-        else editor.summary(value)
+        if (value == editor.key.default || editor.isOn?.invoke(value) == false) {
+            null
+        } else {
+            editor.summary(value)
+        }
     }
 
 @Composable
@@ -891,17 +954,23 @@ private fun AutomationItemsHome(
                             BaseWidget(
                                 title = stringResource(titleRes),
                                 description =
-                                    if (chips.isEmpty())
+                                    if (chips.isEmpty()) {
                                         stringResource(R.string.automation_item_no_extras)
-                                    else null,
+                                    } else {
+                                        null
+                                    },
                                 descriptionContent =
-                                    if (chips.isNotEmpty()) ({ AutomationMiniChips(chips) })
-                                    else null,
+                                    if (chips.isNotEmpty()) {
+                                        ({ AutomationMiniChips(chips) })
+                                    } else {
+                                        null
+                                    },
                                 onClick = { onOpenScope(scope, null, 0) },
                                 trailingDivider = itemSwitch != null,
                                 trailingContent = {
-                                    if (itemSwitch != null)
+                                    if (itemSwitch != null) {
                                         AutomationSwitch(on, { setItemSwitch(stored, it) })
+                                    }
                                 },
                             )
                         }
@@ -947,7 +1016,7 @@ private fun AutomationItemsHome(
                                     BaseWidget(
                                         title = stored.name ?: stored.scope.scopeId,
                                         headlineTrailingContent = {
-                                            if (!on)
+                                            if (!on) {
                                                 AutomationTag(
                                                     stringResource(
                                                         R.string.automation_item_disabled,
@@ -955,14 +1024,20 @@ private fun AutomationItemsHome(
                                                     Modifier.padding(start = 8.dp),
                                                     AutomationTagTone.Muted,
                                                 )
+                                            }
                                         },
                                         description =
-                                            if (chips.isEmpty())
+                                            if (chips.isEmpty()) {
                                                 stringResource(R.string.automation_item_no_extras)
-                                            else null,
+                                            } else {
+                                                null
+                                            },
                                         descriptionContent =
-                                            if (chips.isNotEmpty()) ({ AutomationMiniChips(chips) })
-                                            else null,
+                                            if (chips.isNotEmpty()) {
+                                                ({ AutomationMiniChips(chips) })
+                                            } else {
+                                                null
+                                            },
                                         leadingContent = {
                                             Icon(
                                                 MaterialSymbols.Outlined.Drag_indicator,
@@ -977,8 +1052,9 @@ private fun AutomationItemsHome(
                                         onClick = { onOpenScope(stored.scope, null, 0) },
                                         trailingDivider = itemSwitch != null,
                                         trailingContent = {
-                                            if (itemSwitch != null)
+                                            if (itemSwitch != null) {
                                                 AutomationSwitch(on, { setItemSwitch(stored, it) })
+                                            }
                                         },
                                     )
                                 }
@@ -1196,9 +1272,13 @@ fun AutomationScopeScreen(
 
     val title =
         when {
-            batch != null ->
+            batch != null -> {
                 pluralStringResource(R.plurals.automation_batch_title, batch.size, batch.size)
-            else -> automationScopeTitle(spec, scope, draft.name)
+            }
+
+            else -> {
+                automationScopeTitle(spec, scope, draft.name)
+            }
         }
     SettingsScaffold(
         title = title,
@@ -1210,13 +1290,15 @@ fun AutomationScopeScreen(
                 AutomationFab(
                     visible = fabVisible,
                     text =
-                        if (batch != null)
+                        if (batch != null) {
                             pluralStringResource(
                                 R.plurals.automation_apply_to_chats,
                                 batch.size,
                                 batch.size,
                             )
-                        else stringResource(R.string.action_save),
+                        } else {
+                            stringResource(R.string.action_save)
+                        },
                     icon = MaterialSymbols.Outlined.Save,
                     attention = errors.isEmpty(),
                     onClick = ::save,
@@ -1295,17 +1377,25 @@ fun AutomationScopeScreen(
                                 title = stringResource(R.string.automation_apply_presets),
                                 description =
                                     when {
-                                        presets == null ->
+                                        presets == null -> {
                                             stringResource(
                                                 R.string.automation_batch_presets_unchanged,
                                             )
-                                        presets.isEmpty() ->
+                                        }
+
+                                        presets.isEmpty() -> {
                                             stringResource(
-                                                if (available.isEmpty())
+                                                if (available.isEmpty()) {
                                                     R.string.automation_no_presets
-                                                else R.string.automation_none_selected,
+                                                } else {
+                                                    R.string.automation_none_selected
+                                                },
                                             )
-                                        else -> null
+                                        }
+
+                                        else -> {
+                                            null
+                                        }
                                     },
                                 descriptionContent =
                                     if (!presets.isNullOrEmpty()) {
@@ -1314,14 +1404,19 @@ fun AutomationScopeScreen(
                                                 presets.forEachIndexed { index, id ->
                                                     AutomationTag(
                                                         "${index + 1} · ${snapshot[AutomationScope.preset(id)].name ?: id}",
-                                                        if (index == 0) Modifier
-                                                        else Modifier.padding(start = 6.dp),
+                                                        if (index == 0) {
+                                                            Modifier
+                                                        } else {
+                                                            Modifier.padding(start = 6.dp)
+                                                        },
                                                         AutomationTagTone.Tertiary,
                                                     )
                                                 }
                                             }
                                         }
-                                    } else null,
+                                    } else {
+                                        null
+                                    },
                                 enabled = available.isNotEmpty(),
                                 onClick = { pickingPresets = true },
                                 trailingContent = {
@@ -1337,14 +1432,15 @@ fun AutomationScopeScreen(
                                 icon = MaterialSymbols.Outlined.Groups,
                                 title = stringResource(R.string.automation_group_member_settings),
                                 description =
-                                    if (count == 0)
+                                    if (count == 0) {
                                         stringResource(R.string.automation_all_members_follow_group)
-                                    else
+                                    } else {
                                         pluralStringResource(
                                             R.plurals.automation_configured_members,
                                             count,
                                             count,
-                                        ),
+                                        )
+                                    },
                                 onClick = { onOpenMembers(scope.scopeId) },
                                 trailingContent = {
                                     Icon(MaterialSymbols.Outlined.Chevron_right, null)
@@ -1400,10 +1496,17 @@ fun AutomationScopeScreen(
                                 description =
                                     stringResource(
                                         when {
-                                            batch != null -> R.string.automation_no_overrides_batch
-                                            scope.type == AutomationScopeType.PRESET ->
+                                            batch != null -> {
+                                                R.string.automation_no_overrides_batch
+                                            }
+
+                                            scope.type == AutomationScopeType.PRESET -> {
                                                 R.string.automation_no_overrides_preset
-                                            else -> R.string.automation_no_overrides_summary
+                                            }
+
+                                            else -> {
+                                                R.string.automation_no_overrides_summary
+                                            }
                                         },
                                     ),
                             )
@@ -1439,20 +1542,28 @@ fun AutomationScopeScreen(
                 SegmentedColumn(
                     title =
                         when {
-                            batch != null -> stringResource(R.string.automation_section_unchanged)
-                            scope.type == AutomationScopeType.PRESET ->
+                            batch != null -> {
+                                stringResource(R.string.automation_section_unchanged)
+                            }
+
+                            scope.type == AutomationScopeType.PRESET -> {
                                 stringResource(R.string.automation_section_not_in_preset)
-                            else ->
+                            }
+
+                            else -> {
                                 stringResource(R.string.automation_section_inherited, parentTitle!!)
+                            }
                         },
                 ) {
                     rest.forEach { editor ->
                         @Suppress("UNCHECKED_CAST") val typed = editor as AutomationRuleEditor<Any>
                         val sourceScope = sources[editor.key.id]
                         val sourceTitle: (@Composable () -> String)? =
-                            if (batch == null && sourceScope != null && sourceScope != parent)
+                            if (batch == null && sourceScope != null && sourceScope != parent) {
                                 ({ sourceTitle(spec, snapshot, sourceScope) })
-                            else null
+                            } else {
+                                null
+                            }
                         if (batch != null) {
                             item(key = editor.key.id) {
                                 BaseWidget(
@@ -1568,10 +1679,11 @@ fun AutomationScopeScreen(
                 if (scope.type == AutomationScopeType.PRESET) {
                     val users =
                         spec.store.snapshot().scopes.values.filter { scope.scopeId in it.presets }
-                    if (users.isNotEmpty())
+                    if (users.isNotEmpty()) {
                         spec.store.saveAll(
                             users.map { it.copy(presets = it.presets - scope.scopeId) },
                         )
+                    }
                 }
                 onBack()
             }
@@ -1595,9 +1707,11 @@ private fun sourceTitle(
     snapshot: AutomationSnapshot,
     source: AutomationScope,
 ): String =
-    if (source.type == AutomationScopeType.PRESET)
+    if (source.type == AutomationScopeType.PRESET) {
         stringResource(R.string.automation_preset_named, snapshot[source].name ?: source.scopeId)
-    else automationScopeTitle(spec, source, snapshot[source].name)
+    } else {
+        automationScopeTitle(spec, source, snapshot[source].name)
+    }
 
 /**
  * The chat / member card with its inheritance chain, the batch selection, or a one-line summary.
@@ -1611,16 +1725,30 @@ private fun ScopeHeader(
 ) {
     val summary: String? =
         when {
-            batch != null -> null
-            scope.type == AutomationScopeType.GLOBAL -> stringResource(spec.globalSummaryRes)
-            scope.type == AutomationScopeType.CATEGORY ->
+            batch != null -> {
+                null
+            }
+
+            scope.type == AutomationScopeType.GLOBAL -> {
+                stringResource(spec.globalSummaryRes)
+            }
+
+            scope.type == AutomationScopeType.CATEGORY -> {
                 stringResource(R.string.automation_category_summary)
+            }
+
             scope.type == AutomationScopeType.PRESET -> {
                 val used = snapshot.scopes.values.count { scope.scopeId in it.presets }
-                if (used == 0) stringResource(R.string.automation_preset_unused)
-                else pluralStringResource(R.plurals.automation_preset_used_by, used, used)
+                if (used == 0) {
+                    stringResource(R.string.automation_preset_unused)
+                } else {
+                    pluralStringResource(R.plurals.automation_preset_used_by, used, used)
+                }
             }
-            else -> null
+
+            else -> {
+                null
+            }
         }
     if (summary != null) {
         Text(
@@ -1635,8 +1763,9 @@ private fun ScopeHeader(
         batch == null &&
             scope.type != AutomationScopeType.CONTACT &&
             scope.type != AutomationScopeType.GROUP_MEMBER
-    )
+    ) {
         return
+    }
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceBright,
@@ -1670,9 +1799,11 @@ private fun ScopeHeader(
                             automationScopeTitle(spec, it, snapshot[it].name)
                         } +
                             stringResource(
-                                if (scope.type == AutomationScopeType.GROUP_MEMBER)
+                                if (scope.type == AutomationScopeType.GROUP_MEMBER) {
                                     R.string.automation_chain_this_member
-                                else R.string.automation_chain_this_chat,
+                                } else {
+                                    R.string.automation_chain_this_chat
+                                },
                             )
                     Text(
                         text = chain.joinToString("  ›  "),
@@ -1681,8 +1812,11 @@ private fun ScopeHeader(
                     )
                     Text(
                         text =
-                            if (scope.type == AutomationScopeType.GROUP_MEMBER) scope.memberId
-                            else scope.scopeId,
+                            if (scope.type == AutomationScopeType.GROUP_MEMBER) {
+                                scope.memberId
+                            } else {
+                                scope.scopeId
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                     )
@@ -1708,10 +1842,11 @@ private fun PresetSheet(
         onDismiss = onDismiss,
         onConfirm = { onConfirm(selected) },
         footerStart = { finish ->
-            if (batch)
+            if (batch) {
                 TextButton(onClick = { finish { onConfirm(null) } }) {
                     Text(stringResource(R.string.automation_keep_unchanged))
                 }
+            }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1824,7 +1959,7 @@ fun AutomationMembersScreen(
                                 overriddenRuleNames(spec, stored)
                                     ?: stringResource(R.string.automation_follow_parent_settings),
                             headlineTrailingContent = {
-                                if (count > 0)
+                                if (count > 0) {
                                     AutomationTag(
                                         pluralStringResource(
                                             R.plurals.automation_rules_set,
@@ -1833,6 +1968,7 @@ fun AutomationMembersScreen(
                                         ),
                                         Modifier.padding(start = 8.dp),
                                     )
+                                }
                                 PresetTags(spec, snapshot, stored.presets)
                             },
                             leadingContent = { AutomationAvatar(stored.scope.memberId) },

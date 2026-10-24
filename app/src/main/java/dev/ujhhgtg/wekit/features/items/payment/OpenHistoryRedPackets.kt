@@ -46,7 +46,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
-
     override val technicalId = "捡漏历史红包"
     override val nameRes = R.string.feature_open_history_red_packets_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -137,10 +136,17 @@ object OpenHistoryRedPackets : SwitchFeature(), WeContactPrefsScreenApi.IContact
                     )
                 }
 
-                3 -> updateLog(R.string.payment_history_expired, info.nickName)
-                4 -> updateLog(R.string.payment_history_empty, info.nickName)
-                else ->
+                3 -> {
+                    updateLog(R.string.payment_history_expired, info.nickName)
+                }
+
+                4 -> {
+                    updateLog(R.string.payment_history_empty, info.nickName)
+                }
+
+                else -> {
                     updateLog(R.string.payment_history_unknown_status, info.nickName, receiveStatus)
+                }
             }
         }
     }

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class ReadReceiptsConfigurationTest {
-
     @Test
     fun `round trips a third party configuration`() {
         val configuration =

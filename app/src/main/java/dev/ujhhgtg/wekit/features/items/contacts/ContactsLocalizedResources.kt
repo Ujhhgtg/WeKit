@@ -14,11 +14,8 @@ fun localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String 
 fun Context.localizedContactsString(@StringRes id: Int, vararg formatArgs: Any): String =
     contactsLocalizedContext().getString(id, *formatArgs)
 
-fun localizedContactsQuantity(
-    @PluralsRes id: Int,
-    quantity: Int,
-    vararg formatArgs: Any,
-): String = HostInfo.application.localizedContactsQuantity(id, quantity, *formatArgs)
+fun localizedContactsQuantity(@PluralsRes id: Int, quantity: Int, vararg formatArgs: Any): String =
+    HostInfo.application.localizedContactsQuantity(id, quantity, *formatArgs)
 
 fun Context.localizedContactsQuantity(
     @PluralsRes id: Int,

@@ -43,8 +43,14 @@ class JsonToXmlConverter(
         for (i in 0 until array.length()) {
             val child = XmlNode(key, childPath)
             when (val item = array.opt(i) ?: continue) {
-                is JSONObject -> processObject(child, item)
-                is JSONArray -> processArray(child, key, item)
+                is JSONObject -> {
+                    processObject(child, item)
+                }
+
+                is JSONArray -> {
+                    processArray(child, key, item)
+                }
+
                 else -> {
                     child.tagName = key
                     child.textContent = item.toString()
@@ -64,27 +70,43 @@ class JsonToXmlConverter(
                     processObject(child, value)
                 }
 
-                is JSONArray -> processArray(node, key, value)
+                is JSONArray -> {
+                    processArray(node, key, value)
+                }
+
                 else -> {
                     val strValue =
                         when (value) {
-                            is Double if value % 1.0 == 0.0 -> value.toLong().toString()
+                            is Double if value % 1.0 == 0.0 -> {
+                                value.toLong().toString()
+                            }
+
                             is Double -> {
-                                if (decimalFormat.maximumFractionDigits == 0)
+                                if (decimalFormat.maximumFractionDigits == 0) {
                                     decimalFormat.maximumFractionDigits = 20
+                                }
                                 decimalFormat.format(value)
                             }
 
-                            else -> value.toString()
+                            else -> {
+                                value.toString()
+                            }
                         }
                     val valuePath = "${node.path}/$key"
                     when (valuePath) {
-                        in attributePaths -> node.attributes.add(XmlAttribute(key, strValue))
-                        in textPaths -> node.textContent = strValue
-                        else ->
+                        in attributePaths -> {
+                            node.attributes.add(XmlAttribute(key, strValue))
+                        }
+
+                        in textPaths -> {
+                            node.textContent = strValue
+                        }
+
+                        else -> {
                             node.children.add(
                                 XmlNode(key, node.path).also { it.textContent = strValue },
                             )
+                        }
                     }
                 }
             }

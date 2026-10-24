@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object RedirectHostLogs : ClickableFeature() {
-
     override val technicalId = "重定向微信日志"
     override val nameRes = R.string.feature_redirect_host_logs_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -37,7 +36,7 @@ object RedirectHostLogs : ClickableFeature() {
 
     override fun onEnable() {
         Log::class.reflekt().apply {
-            if (getBoolOrFalse("${KEY_PREFIX}v"))
+            if (getBoolOrFalse("${KEY_PREFIX}v")) {
                 firstMethod {
                     name = "v"
                     parameterCount = 3
@@ -51,8 +50,9 @@ object RedirectHostLogs : ClickableFeature() {
                             WeLogger.v(TAG, "[V] [$tag] $formatString")
                         }
                     }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}d"))
+            if (getBoolOrFalse("${KEY_PREFIX}d")) {
                 firstMethod {
                     name = "d"
                     parameterCount = 3
@@ -66,8 +66,9 @@ object RedirectHostLogs : ClickableFeature() {
                             WeLogger.d(TAG, "[D] [$tag] $formatString")
                         }
                     }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}i"))
+            if (getBoolOrFalse("${KEY_PREFIX}i")) {
                 firstMethod {
                     name = "i"
                     parameterCount = 3
@@ -81,8 +82,9 @@ object RedirectHostLogs : ClickableFeature() {
                             WeLogger.i(TAG, "[I] [$tag] $formatString")
                         }
                     }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}w"))
+            if (getBoolOrFalse("${KEY_PREFIX}w")) {
                 firstMethod {
                     name = "w"
                     parameterCount = 3
@@ -96,8 +98,9 @@ object RedirectHostLogs : ClickableFeature() {
                             WeLogger.w(TAG, "[W] [$tag] $formatString")
                         }
                     }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}e"))
+            if (getBoolOrFalse("${KEY_PREFIX}e")) {
                 firstMethod {
                     name = "e"
                     parameterCount = 3
@@ -111,6 +114,7 @@ object RedirectHostLogs : ClickableFeature() {
                             WeLogger.e(TAG, "[E] [$tag] $formatString")
                         }
                     }
+            }
         }
     }
 

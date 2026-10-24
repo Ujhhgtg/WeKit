@@ -40,8 +40,8 @@ class PayMsgBean(g2: Any) {
             }
     }
 
-    override fun toString(): String {
-        return org.json
+    override fun toString(): String =
+        org.json
             .JSONObject()
             .apply {
                 put("timestamp", timestamp)
@@ -52,5 +52,4 @@ class PayMsgBean(g2: Any) {
                 put("statusDesc", statusDesc)
             }
             .toString()
-    }
 }

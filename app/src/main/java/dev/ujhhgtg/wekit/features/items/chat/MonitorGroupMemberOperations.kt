@@ -23,7 +23,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 
 object MonitorGroupMemberOperations :
     SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
-
     override val technicalId = "群成员行为监控"
     override val nameRes = R.string.feature_monitor_group_member_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -42,8 +41,9 @@ object MonitorGroupMemberOperations :
                     }
                     .get()!!
                     as String
-            if (!url.startsWith("weixin://weixinhongbao/wekit/chatroom_userinfo/"))
+            if (!url.startsWith("weixin://weixinhongbao/wekit/chatroom_userinfo/")) {
                 return@hookBefore
+            }
 
             val wxId = url.substringAfterLast('/')
             val context = (args[0] as View).context
@@ -170,7 +170,11 @@ object MonitorGroupMemberOperations :
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
             val content =
-                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_nickname_changed, oldShow, newShow)}"""
+                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(
+                    R.string.chat_group_member_nickname_changed,
+                    oldShow,
+                    newShow,
+                )}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,

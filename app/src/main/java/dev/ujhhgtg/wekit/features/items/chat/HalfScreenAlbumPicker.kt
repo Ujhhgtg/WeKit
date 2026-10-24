@@ -43,7 +43,6 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 
 object HalfScreenAlbumPicker : ClickableFeature() {
-
     override val technicalId = "半屏相册选择器"
     override val nameRes = R.string.feature_half_screen_album_picker_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

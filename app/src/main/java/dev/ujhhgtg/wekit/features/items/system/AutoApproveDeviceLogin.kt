@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 object AutoApproveDeviceLogin : ClickableFeature() {
-
     override val technicalId = "自动批准设备登录"
     override val nameRes = R.string.feature_auto_approve_device_login_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

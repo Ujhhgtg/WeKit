@@ -23,12 +23,14 @@ constructor(
         return try {
             val started =
                 startUnleased(environment, argv, workingDirectory, environmentVariables, cols, rows)
-            if (lease == null) started
-            else
+            if (lease == null) {
+                started
+            } else {
                 TerminalBackendStart(
                     LeasedTerminalSession(started.session, lease),
                     started.environment,
                 )
+            }
         } catch (error: Throwable) {
             lease?.release()
             throw error
@@ -44,11 +46,14 @@ constructor(
         rows: Int,
     ): TerminalBackendStart =
         when (environment.type) {
-            LinuxEnvironmentType.NATIVE ->
+            LinuxEnvironmentType.NATIVE -> {
                 native.start(environment, argv, workingDirectory, environmentVariables, cols, rows)
-            LinuxEnvironmentType.SSH ->
+            }
+
+            LinuxEnvironmentType.SSH -> {
                 requireNotNull(ssh) { "SSH terminal backend is not configured" }
                     .start(environment, argv, workingDirectory, environmentVariables, cols, rows)
+            }
         }
 
     private class LeasedTerminalSession(

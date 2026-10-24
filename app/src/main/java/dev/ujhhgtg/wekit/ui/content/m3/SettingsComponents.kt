@@ -289,10 +289,7 @@ fun SettingsListActionButton(
 
 /** Horizontal wrapper for paired list actions, applying content padding and the bottom inset. */
 @Composable
-fun SettingsActionRow(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
+fun SettingsActionRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier =
             modifier

@@ -464,7 +464,9 @@ class NavBarSession(
             }
         val params =
             RelativeLayout.LayoutParams(tab.icon.layoutParams.width, tab.icon.layoutParams.height)
-                .apply { addRule(RelativeLayout.CENTER_IN_PARENT) }
+                .apply {
+                    addRule(RelativeLayout.CENTER_IN_PARENT)
+                }
         // Directly above the icon, below the unread counter and the dot.
         tab.iconBox.addView(host, tab.iconBox.indexOfChild(tab.icon) + 1, params)
         return host

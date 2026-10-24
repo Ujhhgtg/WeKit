@@ -34,8 +34,11 @@ data class NameSpec(val value: String, val match: NameMatch = NameMatch.Equals) 
  */
 data class StringSpec(val value: String, val match: NameMatch = NameMatch.Contains) {
     fun matches(candidate: String): Boolean =
-        if (value.isEmpty() && match != NameMatch.Equals) candidate.isEmpty()
-        else match.matches(candidate, value)
+        if (value.isEmpty() && match != NameMatch.Equals) {
+            candidate.isEmpty()
+        } else {
+            match.matches(candidate, value)
+        }
 }
 
 /** One positional parameter type matcher; a null entry in [MethodSpec.paramTypes] is a wildcard. */
@@ -76,10 +79,7 @@ enum class AnnotationVisibility {
 }
 
 /** One annotation element matcher (name + encoded value). */
-data class AnnotationElementSpec(
-    val name: NameSpec,
-    val value: AnnotationValue,
-)
+data class AnnotationElementSpec(val name: NameSpec, val value: AnnotationValue)
 
 /** DexKit annotation encoded value matcher. */
 sealed interface AnnotationValue {
@@ -159,10 +159,7 @@ data class MethodSpec(
 )
 
 /** One field access matcher (DexKit UsingFieldMatcher); null [usingType] means any direction. */
-data class UsingFieldSpec(
-    val field: FieldSpec = FieldSpec(),
-    val usingType: FieldUsingType? = null,
-)
+data class UsingFieldSpec(val field: FieldSpec = FieldSpec(), val usingType: FieldUsingType? = null)
 
 /**
  * Class matcher (DexKit ClassMatcher replacement).

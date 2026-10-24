@@ -3,13 +3,13 @@ package dev.ujhhgtg.wekit.constants
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 
 object Preferences {
-
     const val SHOW_STARTUP_TOAST = "toast_startup"
     const val MATCH_GENERIC_WXID_EXP = "match_generic_wxid"
     const val UI_LANGUAGE = "ui_language"
 
     // Settings UI theming
     const val THEME_MODE = "settings_theme_mode"
+
     /**
      * Legacy switch for the module pages' predictive back; only read to seed
      * PredictiveBackGestures.

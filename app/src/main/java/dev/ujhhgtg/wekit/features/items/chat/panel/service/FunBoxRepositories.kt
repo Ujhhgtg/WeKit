@@ -264,8 +264,9 @@ object FunBoxStickerRepository {
                         )
                     }
                     .getOrThrow()
-            if (session.status == 2)
+            if (session.status == 2) {
                 return@runCatching localizedChatString(R.string.chat_funbox_upload_pending_review)
+            }
             check(session.status == 0) {
                 session.message.ifBlank {
                     localizedChatString(R.string.chat_funbox_upload_session_create_failed)

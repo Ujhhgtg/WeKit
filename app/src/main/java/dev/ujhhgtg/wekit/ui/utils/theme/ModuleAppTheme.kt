@@ -8,10 +8,7 @@ import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
 
 @Composable
-fun ModuleAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
+fun ModuleAppTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     WeKitLocaleProvider(mode = LocaleResourceMode.ModuleApp) {
         val colorScheme = if (darkTheme) darkScheme else lightScheme
         MaterialExpressiveTheme(

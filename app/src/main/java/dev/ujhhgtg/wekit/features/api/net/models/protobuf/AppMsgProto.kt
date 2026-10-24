@@ -26,7 +26,6 @@ data class SendAppMsgReqProto(
     @ProtoNumber(12) val directShare: Int = 0,
     @ProtoNumber(13) val sendMsgTicket: String = "",
 ) : IAppMsgProto {
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

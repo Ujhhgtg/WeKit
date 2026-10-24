@@ -9,7 +9,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ProfileMemory : ClickableFeature() {
-
     override val technicalId = "内存分析"
     override val nameRes = R.string.feature_profile_memory_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

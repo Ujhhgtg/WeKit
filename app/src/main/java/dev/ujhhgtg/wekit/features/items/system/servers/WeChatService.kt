@@ -25,7 +25,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 
 object WeChatService {
-
     private val GROUP_SENDER_REGEX =
         Regex("""^([^\n:]+):\n(.+)""", setOf(RegexOption.DOT_MATCHES_ALL))
 
@@ -54,25 +53,12 @@ object WeChatService {
         val remarkName: String = "",
     )
 
-    @Serializable
-    data class MessageInfo(
-        val sender: String,
-        val content: String,
-        val type: String,
-    )
+    @Serializable data class MessageInfo(val sender: String, val content: String, val type: String)
 
     @Serializable
-    data class SendMessageRequest(
-        val type: String,
-        val convId: String,
-        val content: String,
-    )
+    data class SendMessageRequest(val type: String, val convId: String, val content: String)
 
-    @Serializable
-    data class SelfInfo(
-        val wxId: String,
-        val customWxId: String,
-    )
+    @Serializable data class SelfInfo(val wxId: String, val customWxId: String)
 
     @Serializable
     data class ContactDetail(
@@ -86,11 +72,7 @@ object WeChatService {
         val isGroup: Boolean,
     )
 
-    @Serializable
-    data class ContactLabelInfo(
-        val labelId: Int,
-        val labelName: String,
-    )
+    @Serializable data class ContactLabelInfo(val labelId: Int, val labelName: String)
 
     // -------------------------------------------------------------------------
     // Operations
@@ -153,28 +135,46 @@ object WeChatService {
 
     fun sendMessage(type: String, convId: String, content: String): Result<Unit> =
         when (type) {
-            "text" ->
-                if (WeMessageApi.sendText(convId, content)) Result.Success(Unit)
-                else Result.Error("Failed to send message")
+            "text" -> {
+                if (WeMessageApi.sendText(convId, content)) {
+                    Result.Success(Unit)
+                } else {
+                    Result.Error("Failed to send message")
+                }
+            }
 
-            else -> Result.Error("Unsupported type: $type")
+            else -> {
+                Result.Error("Unsupported type: $type")
+            }
         }
 
     fun sendImageMessage(toUser: String, path: String): Result<Unit> =
-        if (WeMessageApi.sendImage(toUser, path)) Result.Success(Unit)
-        else Result.Error("Failed to send image")
+        if (WeMessageApi.sendImage(toUser, path)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send image")
+        }
 
     fun sendVoiceMessage(toUser: String, path: String, durationMs: Int): Result<Unit> =
-        if (WeMessageApi.sendVoice(toUser, path, durationMs)) Result.Success(Unit)
-        else Result.Error("Failed to send voice")
+        if (WeMessageApi.sendVoice(toUser, path, durationMs)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send voice")
+        }
 
     fun sendVideoMessage(toUser: String, path: String): Result<Unit> =
-        if (WeMessageApi.sendVideo(toUser, path)) Result.Success(Unit)
-        else Result.Error("Failed to send video")
+        if (WeMessageApi.sendVideo(toUser, path)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send video")
+        }
 
     fun sendFileMessage(toUser: String, path: String, title: String): Result<Unit> =
-        if (WeMessageApi.sendFile(toUser, path, title)) Result.Success(Unit)
-        else Result.Error("Failed to send file")
+        if (WeMessageApi.sendFile(toUser, path, title)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send file")
+        }
 
     fun sendEmojiMessage(toUser: String, emojiPathOrMd5: String): Result<Unit> {
         val isMd5 = emojiPathOrMd5.length == 32 && emojiPathOrMd5.all { it.isLetterOrDigit() }
@@ -188,8 +188,11 @@ object WeChatService {
     }
 
     fun sendPatMessage(toUser: String, patTarget: String): Result<Unit> =
-        if (WeMessageApi.sendPat(toUser, patTarget)) Result.Success(Unit)
-        else Result.Error("Failed to send pat")
+        if (WeMessageApi.sendPat(toUser, patTarget)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send pat")
+        }
 
     fun sendLocationMessage(
         toUser: String,
@@ -199,34 +202,52 @@ object WeChatService {
         y: String,
         scale: String,
     ): Result<Unit> =
-        if (WeMessageApi.sendLocation(toUser, poiName, label, x, y, scale)) Result.Success(Unit)
-        else Result.Error("Failed to send location")
+        if (WeMessageApi.sendLocation(toUser, poiName, label, x, y, scale)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send location")
+        }
 
     fun sendShareCardMessage(toUser: String, cardWxId: String): Result<Unit> =
-        if (WeMessageApi.sendShareCard(toUser, cardWxId)) Result.Success(Unit)
-        else Result.Error("Failed to send share card")
+        if (WeMessageApi.sendShareCard(toUser, cardWxId)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send share card")
+        }
 
     fun sendXmlMessage(toUser: String, xmlContent: String): Result<Unit> =
-        if (WeMessageApi.sendXmlAppMsg(toUser, xmlContent)) Result.Success(Unit)
-        else Result.Error("Failed to send XML message")
+        if (WeMessageApi.sendXmlAppMsg(toUser, xmlContent)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send XML message")
+        }
 
     fun sendQuoteMessage(toUser: String, msgSvrId: Long, content: String): Result<Unit> =
-        if (WeMessageApi.sendQuoteText(toUser, msgSvrId, content)) Result.Success(Unit)
-        else Result.Error("Failed to send quote message")
+        if (WeMessageApi.sendQuoteText(toUser, msgSvrId, content)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send quote message")
+        }
 
     fun sendCipherMessage(toUser: String, title: String, content: String): Result<Unit> {
         val encodedContent = android.text.Html.escapeHtml(content)
         val xml =
             """<msg><appmsg type="1"><title>$title</title><des>$title</des><content>|WA|$encodedContent</content></appmsg></msg>"""
-        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) Result.Success(Unit)
-        else Result.Error("Failed to send cipher message")
+        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send cipher message")
+        }
     }
 
     fun sendNoteMessage(toUser: String, noteXml: String): Result<Unit> {
         val xml =
             """<msg><appmsg type="53"><title>$noteXml</title><extinfo><solitaire_info></solitaire_info></extinfo></appmsg></msg>"""
-        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) Result.Success(Unit)
-        else Result.Error("Failed to send note message")
+        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send note message")
+        }
     }
 
     fun sendAppBrandMessage(
@@ -237,8 +258,11 @@ object WeChatService {
     ): Result<Unit> {
         val xml =
             """<msg><appmsg type="33"><title>$title</title><weappinfo><item><pagepath><![CDATA[$pagePath]]></pagepath><username>$username</username></item></weappinfo></appmsg></msg>"""
-        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) Result.Success(Unit)
-        else Result.Error("Failed to send app brand message")
+        return if (WeMessageApi.sendXmlAppMsg(toUser, xml)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to send app brand message")
+        }
     }
 
     fun cacheImage(msgSvrId: Long): Result<String> =
@@ -274,8 +298,11 @@ object WeChatService {
             ?: Result.Error("Failed to save voice")
 
     fun revokeMessage(msgId: Long): Result<Unit> = runCatching {
-        if (WeMessageApi.revokeMsgByMsgId(msgId)) Result.Success(Unit)
-        else Result.Error("Failed to revoke message")
+        if (WeMessageApi.revokeMsgByMsgId(msgId)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to revoke message")
+        }
     }
         .getOrElse { Result.Error(it.message ?: "Failed to revoke message") }
 
@@ -285,8 +312,11 @@ object WeChatService {
     }
 
     fun shareFile(toUser: String, title: String, path: String, appId: String): Result<Unit> =
-        if (WeMessageApi.sendFile(toUser, path, title, appId)) Result.Success(Unit)
-        else Result.Error("Failed to share file")
+        if (WeMessageApi.sendFile(toUser, path, title, appId)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to share file")
+        }
 
     fun shareWebpage(
         toUser: String,
@@ -299,9 +329,11 @@ object WeChatService {
         val thumbData = thumbDataBase64?.let { Base64.decode(it, Base64.DEFAULT) }
         return if (
             WeMessageApi.shareWebpage(toUser, title, description, webpageUrl, thumbData, appId)
-        )
+        ) {
             Result.Success(Unit)
-        else Result.Error("Failed to share webpage")
+        } else {
+            Result.Error("Failed to share webpage")
+        }
     }
 
     fun shareVideo(
@@ -313,14 +345,21 @@ object WeChatService {
         appId: String,
     ): Result<Unit> {
         val thumbData = thumbDataBase64?.let { Base64.decode(it, Base64.DEFAULT) }
-        return if (WeMessageApi.shareVideo(toUser, title, description, videoUrl, thumbData, appId))
+        return if (
+            WeMessageApi.shareVideo(toUser, title, description, videoUrl, thumbData, appId)
+        ) {
             Result.Success(Unit)
-        else Result.Error("Failed to share video")
+        } else {
+            Result.Error("Failed to share video")
+        }
     }
 
     fun shareText(toUser: String, text: String, appId: String): Result<Unit> =
-        if (WeMessageApi.shareText(toUser, text, appId)) Result.Success(Unit)
-        else Result.Error("Failed to share text")
+        if (WeMessageApi.shareText(toUser, text, appId)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to share text")
+        }
 
     fun shareMusic(
         toUser: String,
@@ -342,9 +381,11 @@ object WeChatService {
                 thumbData,
                 appId,
             )
-        )
+        ) {
             Result.Success(Unit)
-        else Result.Error("Failed to share music")
+        } else {
+            Result.Error("Failed to share music")
+        }
     }
 
     fun shareMusicVideo(
@@ -373,9 +414,11 @@ object WeChatService {
                 thumbData,
                 appId,
             )
-        )
+        ) {
             Result.Success(Unit)
-        else Result.Error("Failed to share music video")
+        } else {
+            Result.Error("Failed to share music video")
+        }
     }
 
     fun shareMiniProgram(
@@ -398,9 +441,11 @@ object WeChatService {
                 thumbData,
                 appId,
             )
-        )
+        ) {
             Result.Success(Unit)
-        else Result.Error("Failed to share mini program")
+        } else {
+            Result.Error("Failed to share mini program")
+        }
     }
 
     fun addChatroomMember(groupId: String, memberWxid: String): Result<Unit> {
@@ -457,8 +502,11 @@ object WeChatService {
     }
 
     fun postMomentText(content: String, sdkId: String?, sdkAppName: String?): Result<Unit> =
-        if (WeMomentsApi.postText(content, sdkId, sdkAppName)) Result.Success(Unit)
-        else Result.Error("Failed to post moment text")
+        if (WeMomentsApi.postText(content, sdkId, sdkAppName)) {
+            Result.Success(Unit)
+        } else {
+            Result.Error("Failed to post moment text")
+        }
 
     fun postMomentPics(
         content: String,
@@ -466,9 +514,11 @@ object WeChatService {
         sdkId: String?,
         sdkAppName: String?,
     ): Result<Unit> =
-        if (WeMomentsApi.postTextAndImages2(content, picPaths, sdkId, sdkAppName))
+        if (WeMomentsApi.postTextAndImages2(content, picPaths, sdkId, sdkAppName)) {
             Result.Success(Unit)
-        else Result.Error("Failed to post moment pictures")
+        } else {
+            Result.Error("Failed to post moment pictures")
+        }
 
     /**
      * Accepts an incoming transfer. All three ids come from the transfer message's `wcpayinfo` (see
@@ -485,9 +535,11 @@ object WeChatService {
         payerUsername: String,
         invalidTime: Int,
     ): Result<Unit> =
-        if (WePaymentApi.confirmTransfer(transactionId, transferId, payerUsername, invalidTime))
+        if (WePaymentApi.confirmTransfer(transactionId, transferId, payerUsername, invalidTime)) {
             Result.Success(Unit)
-        else Result.Error("Failed to confirm transfer")
+        } else {
+            Result.Error("Failed to confirm transfer")
+        }
 
     /**
      * Rejects an incoming transfer. Ids are the same `wcpayinfo` values as [confirmTransfer].
@@ -501,9 +553,11 @@ object WeChatService {
         transferId: String,
         payerUsername: String,
     ): Result<Unit> =
-        if (WePaymentApi.refuseTransfer(transactionId, transferId, payerUsername, 0))
+        if (WePaymentApi.refuseTransfer(transactionId, transferId, payerUsername, 0)) {
             Result.Success(Unit)
-        else Result.Error("Failed to refuse transfer")
+        } else {
+            Result.Error("Failed to refuse transfer")
+        }
 
     fun verifyFriend(userId: String, ticket: String, scene: Int, privacy: Int?): Result<Unit> {
         WeContactApi.verifyUser(userId, ticket, scene, privacy ?: 0)
@@ -565,14 +619,15 @@ object WeChatService {
 
     fun listContacts(type: String): Result<List<ContactInfo>> =
         when (type) {
-            "all" ->
+            "all" -> {
                 Result.Success(
                     WeDatabaseApi.getContacts().map {
                         ContactInfo(it.wxId, it.nickname)
                     },
                 )
+            }
 
-            "friends" ->
+            "friends" -> {
                 Result.Success(
                     WeDatabaseApi.getFriends()
                         .filter { c ->
@@ -585,22 +640,27 @@ object WeChatService {
                             ContactInfo(it.wxId, it.nickname, it.customWxId, it.remarkName)
                         },
                 )
+            }
 
-            "groups" ->
+            "groups" -> {
                 Result.Success(
                     WeDatabaseApi.getGroups().map {
                         ContactInfo(it.wxId, it.nickname)
                     },
                 )
+            }
 
-            "official_accounts" ->
+            "official_accounts" -> {
                 Result.Success(
                     WeDatabaseApi.getOfficialAccounts().map {
                         ContactInfo(it.wxId, it.nickname)
                     },
                 )
+            }
 
-            else -> Result.Error("Unsupported type: $type")
+            else -> {
+                Result.Error("Unsupported type: $type")
+            }
         }
 
     fun listMessages(
@@ -618,7 +678,9 @@ object WeChatService {
                                 ?: m.nickname)
                     }
                 }
-            } else emptyMap()
+            } else {
+                emptyMap()
+            }
 
         val messages =
             WeDatabaseApi.getMessages(convId, pageIndex, pageSize).map { msg ->
@@ -634,8 +696,11 @@ object WeChatService {
                                 match?.groupValues?.get(1)?.let { membersMap[it] ?: it }
                                     ?: "<unknown>"
                             val content =
-                                if (isText) match?.groupValues?.get(2) ?: msg.content
-                                else "<type:$typeStr>"
+                                if (isText) {
+                                    match?.groupValues?.get(2) ?: msg.content
+                                } else {
+                                    "<type:$typeStr>"
+                                }
                             sender to content
                         }
                     } else {

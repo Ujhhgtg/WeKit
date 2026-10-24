@@ -13,7 +13,6 @@ import java.lang.reflect.Field
 import org.json.JSONObject
 
 object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除嵌入广告"
     override val nameRes = R.string.feature_remove_embedded_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

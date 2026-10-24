@@ -26,7 +26,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 
 /** Reads favorite (收藏) items and sends them to chats through WeChat's own FavSendLogic. */
 object WeFavoriteApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "收藏服务"
     override val nameRes = R.string.feature_we_favorite_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -155,13 +154,31 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
     private fun titleOf(type: Int, xml: String): String {
         val tags =
             when (type) {
-                1 -> listOf("desc", "content", "title")
-                5 -> listOf("pagetitle", "datatitle", "title", "pagedesc", "datadesc")
-                6 -> listOf("label", "poiname", "locationname", "title", "desc")
-                7 -> listOf("datatitle", "songname", "title", "datadesc", "desc")
-                8 -> listOf("datatitle", "filename", "fileName", "title", "datadesc", "desc")
-                19 -> listOf("datatitle", "title", "sourcedisplayname", "appname", "desc")
-                else ->
+                1 -> {
+                    listOf("desc", "content", "title")
+                }
+
+                5 -> {
+                    listOf("pagetitle", "datatitle", "title", "pagedesc", "datadesc")
+                }
+
+                6 -> {
+                    listOf("label", "poiname", "locationname", "title", "desc")
+                }
+
+                7 -> {
+                    listOf("datatitle", "songname", "title", "datadesc", "desc")
+                }
+
+                8 -> {
+                    listOf("datatitle", "filename", "fileName", "title", "datadesc", "desc")
+                }
+
+                19 -> {
+                    listOf("datatitle", "title", "sourcedisplayname", "appname", "desc")
+                }
+
+                else -> {
                     listOf(
                         "title",
                         "desc",
@@ -171,6 +188,7 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
                         "filename",
                         "fileName",
                     )
+                }
             }
         return tags
             .firstNotNullOfOrNull { tag ->
@@ -256,8 +274,9 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
                     return false
                 }
         voiceOf(item)?.let { voice ->
-            if (voice.isDownloaded)
+            if (voice.isDownloaded) {
                 return WeMessageApi.sendVoice(talker, voice.filePath, voice.durationMs)
+            }
             sendAfterDownload(talker, localId, item, voice)
             return true
         }

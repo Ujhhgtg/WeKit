@@ -29,7 +29,6 @@ import kotlinx.serialization.json.jsonPrimitive
  * slow streaming completions.
  */
 object ModelProviderManager {
-
     private val httpClient =
         HttpClient(CIO) {
             install(UserAgent) {
@@ -66,28 +65,33 @@ object ModelProviderManager {
 
     private fun build(provider: ModelProviderEntity): LlmClient =
         when (provider.type) {
-            ModelProviderType.OPENAI_CHAT_COMPLETION ->
+            ModelProviderType.OPENAI_CHAT_COMPLETION -> {
                 OpenAiChatCompletionsClient(
                     httpClient,
                     provider.baseUrl.trimEnd('/'),
                     provider.apiKey,
                 )
+            }
 
-            ModelProviderType.OPENAI_RESPONSES ->
+            ModelProviderType.OPENAI_RESPONSES -> {
                 OpenAiResponsesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            }
 
-            ModelProviderType.ANTHROPIC_MESSAGES ->
+            ModelProviderType.ANTHROPIC_MESSAGES -> {
                 AnthropicMessagesClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            }
 
-            ModelProviderType.GEMINI_GENERATE_CONTENT ->
+            ModelProviderType.GEMINI_GENERATE_CONTENT -> {
                 GeminiGenerateContentClient(
                     httpClient,
                     provider.baseUrl.trimEnd('/'),
                     provider.apiKey,
                 )
+            }
 
-            ModelProviderType.GEMINI_INTERACTIONS ->
+            ModelProviderType.GEMINI_INTERACTIONS -> {
                 GeminiInteractionsClient(httpClient, provider.baseUrl.trimEnd('/'), provider.apiKey)
+            }
         }
 
     /**

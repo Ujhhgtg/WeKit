@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import java.util.IdentityHashMap
 
 object BeautifyHome : SwitchFeature(), IResolveDex {
-
     override val technicalId = "美化首页"
     override val nameRes = R.string.feature_beautify_home_name
     override val descriptionRes = R.string.feature_beautify_home_description

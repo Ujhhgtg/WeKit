@@ -50,7 +50,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.openInSystem
 
 object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityListener {
-
     override val technicalId = "链接跳转系统打开方式"
     override val nameRes = R.string.feature_link_external_app_jump_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -78,10 +77,7 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
         WeStartActivityApi.removeListener(this)
     }
 
-    override fun onStartActivity(
-        param: HookParam,
-        intent: Intent,
-    ) {
+    override fun onStartActivity(param: HookParam, intent: Intent) {
         // prevent loop
         if (intent.getBooleanExtra("skip_link_hook", false)) return
 
@@ -138,8 +134,9 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
                             }
                         }
 
-                        if (!resolveInfos.isEmpty())
+                        if (!resolveInfos.isEmpty()) {
                             item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                        }
 
                         item {
                             InternalWebViewRow {

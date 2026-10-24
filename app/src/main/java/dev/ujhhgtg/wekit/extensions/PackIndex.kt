@@ -7,10 +7,7 @@ import kotlinx.serialization.Serializable
  * its Release asset file name, and the asset's SHA-256. Built and uploaded alongside the assets by
  * `cargo xtask extensions pack`.
  */
-@Serializable
-data class PackIndex(
-    val packs: List<PackIndexEntry>,
-)
+@Serializable data class PackIndex(val packs: List<PackIndexEntry>)
 
 @Serializable
 data class PackIndexEntry(

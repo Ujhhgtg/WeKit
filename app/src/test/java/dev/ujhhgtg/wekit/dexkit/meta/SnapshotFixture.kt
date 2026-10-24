@@ -39,9 +39,8 @@ internal object SnapshotFixture {
 }
 
 /** Fake [DexMetadataProvider] over the fixture that counts one query per kind|descriptor. */
-internal class CountingMetadataProvider(
-    private val root: JsonObject = SnapshotFixture.root,
-) : DexMetadataProvider {
+internal class CountingMetadataProvider(private val root: JsonObject = SnapshotFixture.root) :
+    DexMetadataProvider {
     private val counts = ConcurrentHashMap<String, AtomicInteger>()
 
     val totalQueries: Int

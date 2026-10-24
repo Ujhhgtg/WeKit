@@ -31,16 +31,12 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.WeakHashMap
 
 object ImageRotation : ClickableFeature() {
-
     override val technicalId = "图片旋转"
     override val nameRes = R.string.feature_image_rotation_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
     override val descriptionRes = R.string.feature_image_rotation_description
 
-    private data class RotationState(
-        val originalRotation: Float,
-        val animator: ObjectAnimator,
-    )
+    private data class RotationState(val originalRotation: Float, val animator: ObjectAnimator)
 
     private val viewStateMap = WeakHashMap<View, RotationState>()
 

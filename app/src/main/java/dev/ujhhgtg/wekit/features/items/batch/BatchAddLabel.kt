@@ -41,7 +41,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object BatchAddLabel : ClickableFeature() {
-
     override val technicalId = "批量打标签"
     override val nameRes = R.string.feature_batch_add_label_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -91,10 +90,7 @@ object BatchAddLabel : ClickableFeature() {
     }
 
     @Composable
-    private fun LabelPickerDialog(
-        onDismiss: () -> Unit,
-        onPick: (String) -> Unit,
-    ) {
+    private fun LabelPickerDialog(onDismiss: () -> Unit, onPick: (String) -> Unit) {
         var newLabelName by remember { mutableStateOf("") }
         var labels by remember { mutableStateOf<List<WeContactLabelApi.ContactLabel>?>(null) }
 
@@ -190,8 +186,11 @@ object BatchAddLabel : ClickableFeature() {
                 title = {
                     Text(
                         stringResource(
-                            if (done) R.string.batch_add_label_done_title
-                            else R.string.batch_add_label_progress_title,
+                            if (done) {
+                                R.string.batch_add_label_done_title
+                            } else {
+                                R.string.batch_add_label_progress_title
+                            },
                         ),
                     )
                 },
@@ -224,7 +223,9 @@ object BatchAddLabel : ClickableFeature() {
                 confirmButton =
                     if (done) {
                         { Button(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
-                    } else null,
+                    } else {
+                        null
+                    },
             )
         }
     }

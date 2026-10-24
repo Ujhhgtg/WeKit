@@ -96,8 +96,11 @@ fun DexResolver(
 
     fun startResolution() {
         phase =
-            if (items.size < CLOUD_MIN_ITEMS) DialogPhase.ResolvingLocal(items.size)
-            else DialogPhase.DownloadingCloud
+            if (items.size < CLOUD_MIN_ITEMS) {
+                DialogPhase.ResolvingLocal(items.size)
+            } else {
+                DialogPhase.DownloadingCloud
+            }
         scope.launch {
             if (mode == DexResolutionMode.Rerun) {
                 withContext(Dispatchers.IO) { DexCacheManager.clearAllCache() }
@@ -205,15 +208,21 @@ fun DexResolver(
             ) {
                 val tipText =
                     when (phase) {
-                        is DialogPhase.Ready ->
+                        is DialogPhase.Ready -> {
                             pluralStringResource(
                                 R.plurals.dex_cache_rerun_message,
                                 pendingItems.size,
                                 pendingItems.size,
                             )
-                        is DialogPhase.DownloadingCloud ->
+                        }
+
+                        is DialogPhase.DownloadingCloud -> {
                             stringResource(R.string.dex_cache_cloud_downloading)
-                        is DialogPhase.ResolvingLocal -> null
+                        }
+
+                        is DialogPhase.ResolvingLocal -> {
+                            null
+                        }
                     }
                 if (tipText != null) {
                     Text(text = tipText, style = MaterialTheme.typography.bodyMedium)
@@ -228,17 +237,23 @@ fun DexResolver(
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         val currentTaskText =
                             when (val task = currentTask) {
-                                is LocalDexProgress.Complete ->
+                                is LocalDexProgress.Complete -> {
                                     stringResource(
                                         R.string.dex_cache_status_completed,
                                         task.displayName,
                                     )
-                                is LocalDexProgress.Failed ->
+                                }
+
+                                is LocalDexProgress.Failed -> {
                                     stringResource(
                                         R.string.dex_cache_status_failed,
                                         task.displayName,
                                     )
-                                else -> stringResource(R.string.dex_cache_status_resolving)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.dex_cache_status_resolving)
+                                }
                             }
                         Text(text = currentTaskText, style = MaterialTheme.typography.bodyMedium)
                         LinearWavyProgressIndicator(
@@ -283,10 +298,7 @@ fun DexResolver(
     )
 }
 
-private fun buildErrorReport(
-    context: Context,
-    failedResults: List<LocalDexFailure>,
-) = buildString {
+private fun buildErrorReport(context: Context, failedResults: List<LocalDexFailure>) = buildString {
     append(context.getString(R.string.dex_error_report_title)).append("\n\n")
     failedResults.forEachIndexed { index, result ->
         val stackTrace = StringWriter()

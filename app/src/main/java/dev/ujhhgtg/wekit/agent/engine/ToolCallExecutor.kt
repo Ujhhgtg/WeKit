@@ -100,14 +100,19 @@ class ToolCallExecutor(
                     execution.isSuccess,
                 )
             }
-            is ApprovalDecision.Denied ->
+
+            is ApprovalDecision.Denied -> {
                 Result(
                     approvalGateway.deniedResultText(decision),
-                    if (decision.bySmartReview) ApprovalStatus.AI_REJECTED
-                    else ApprovalStatus.USER_REJECTED,
+                    if (decision.bySmartReview) {
+                        ApprovalStatus.AI_REJECTED
+                    } else {
+                        ApprovalStatus.USER_REJECTED
+                    },
                     tool.provider.id,
                     false,
                 )
+            }
         }
     }
 }

@@ -78,9 +78,7 @@ fun String.descriptorToConstructor(classLoader: ClassLoader): Constructor<*> {
     return owner.getDeclaredConstructor(*type.parameterArray())
 }
 
-fun String.descriptorToExecutable(
-    classLoader: ClassLoader,
-): Executable {
+fun String.descriptorToExecutable(classLoader: ClassLoader): Executable {
     val arrow = indexOf("->")
     require(arrow > 0) { "Invalid descriptor: $this" }
 
@@ -116,17 +114,19 @@ fun String.descriptorToExecutable(
             owner.getDeclaredConstructor(*type.parameterArray())
         }
 
-        "<clinit>" ->
+        "<clinit>" -> {
             throw IllegalArgumentException(
                 "Class initializer has no reflective Executable: $this",
             )
+        }
 
-        else ->
+        else -> {
             owner.declaredMethods.firstOrNull { method ->
                 method.name == name &&
                     method.returnType == type.returnType() &&
                     method.parameterTypes.contentEquals(type.parameterArray())
             } ?: throw NoSuchMethodException(this)
+        }
     }
 }
 

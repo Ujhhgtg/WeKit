@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.ui.utils
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +25,6 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 
 /** 长按拖拽手柄调整列表顺序（ChatToolbar 设置同款实现）。 */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun <T> ReorderableList(
     items: List<T>,
@@ -105,12 +103,14 @@ fun <T> ReorderableList(
                             val center = currentInfo.offset + dragOffset + currentInfo.size / 2
                             when {
                                 center < viewport.viewportStartOffset + 56 &&
-                                    listState.canScrollBackward ->
+                                    listState.canScrollBackward -> {
                                     coroutineScope.launch { listState.scrollBy(-12f) }
+                                }
 
                                 center > viewport.viewportEndOffset - 56 &&
-                                    listState.canScrollForward ->
+                                    listState.canScrollForward -> {
                                     coroutineScope.launch { listState.scrollBy(12f) }
+                                }
                             }
                         },
                     )

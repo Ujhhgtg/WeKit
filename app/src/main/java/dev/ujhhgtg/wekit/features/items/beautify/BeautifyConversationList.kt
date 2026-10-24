@@ -45,7 +45,6 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 object BeautifyConversationList : ClickableFeature() {
-
     override val technicalId = "美化对话列表"
     override val nameRes = R.string.feature_beautify_conversation_list_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.BEAUTIFY)
@@ -182,8 +181,9 @@ object BeautifyConversationList : ClickableFeature() {
                                     layout = it
                                     layoutEnabled = it
                                     refreshAppearance()
-                                    if (it && isEnabled)
+                                    if (it && isEnabled) {
                                         ConversationGrouping.showFloatingTabsRecommendation(context)
+                                    }
                                 },
                             )
                         }
@@ -307,6 +307,7 @@ object BeautifyConversationList : ClickableFeature() {
 
         val footers = WeConversationListViewApi.emptyFooterViews(container)
         if (footers.isEmpty()) return
+
         fun paint(view: View) {
             val applied = backgrounds[view]?.applied as LayerDrawable?
             if (applied == null) {
@@ -478,6 +479,7 @@ object BeautifyConversationList : ClickableFeature() {
                         logUnreadFailureOnce(modelClass, "field_unReadCount is absent", null)
                         return UnreadAccessor.Missing
                     }
+
             @Suppress("UNCHECKED_CAST") val accessor = field as ReflectedField<Any>
             UnreadAccessor.Field { conversation -> accessor.get(conversation) }
         } catch (error: Exception) {
@@ -487,7 +489,10 @@ object BeautifyConversationList : ClickableFeature() {
 
     private fun logUnreadFailureOnce(modelClass: Class<*>, message: String, error: Exception?) {
         if (!unreadFailuresLogged.add(modelClass)) return
-        if (error == null) WeLogger.w(TAG, "$message on ${modelClass.name}")
-        else WeLogger.w(TAG, "$message on ${modelClass.name}", error)
+        if (error == null) {
+            WeLogger.w(TAG, "$message on ${modelClass.name}")
+        } else {
+            WeLogger.w(TAG, "$message on ${modelClass.name}", error)
+        }
     }
 }

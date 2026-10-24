@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
-
     /**
      * Optional order override within each concrete settings category. Lower values appear first.
      */

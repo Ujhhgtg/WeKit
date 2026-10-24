@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit
  * [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
  */
 object WeWebViewApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "WebView 追踪服务"
     override val nameRes = R.string.feature_we_web_view_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -114,8 +113,9 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
                 latch.countDown()
             }
         }
-        if (!latch.await(timeoutMs, TimeUnit.MILLISECONDS))
+        if (!latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             throw RuntimeException("WebView main-thread call timed out after ${timeoutMs}ms")
+        }
         error?.let { throw it }
         @Suppress("UNCHECKED_CAST")
         return result as T
@@ -157,10 +157,11 @@ object WeWebViewApi : ApiFeature(), IResolveDex {
             call(webView, "evaluateJavascript", 2, script, cb)
         }
         // The eval callback fires asynchronously after we post; wait for it (bounded).
-        if (!resultLatch.await(timeoutMs, TimeUnit.MILLISECONDS))
+        if (!resultLatch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             throw RuntimeException(
                 "evaluateJavascript timed out after ${timeoutMs}ms (no result callback)",
             )
+        }
         return jsResult
     }
 

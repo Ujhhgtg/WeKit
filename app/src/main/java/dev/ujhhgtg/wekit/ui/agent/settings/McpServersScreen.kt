@@ -191,8 +191,11 @@ fun McpServerDetailScreen(serverId: String, onBack: () -> Unit) {
 
     SettingsScaffold(
         title =
-            if (!editing) stringResource(R.string.agent_add_mcp_server)
-            else server?.name ?: stringResource(R.string.agent_mcp_servers_title),
+            if (!editing) {
+                stringResource(R.string.agent_add_mcp_server)
+            } else {
+                server?.name ?: stringResource(R.string.agent_mcp_servers_title)
+            },
         onBack = guardedBack,
     ) {
         srv?.let { s ->

@@ -92,7 +92,6 @@ import kotlinx.coroutines.withContext
  * changes. Replaces the former RRO/Magisk module generator; no root is involved.
  */
 object MonetEngine : ClickableFeature() {
-
     override val technicalId = "莫奈引擎"
     override val nameRes = R.string.feature_monet_engine_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -103,7 +102,9 @@ object MonetEngine : ClickableFeature() {
         get() =
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
                 listOf(R.string.feature_error_requires_android_11)
-            } else emptyList()
+            } else {
+                emptyList()
+            }
 
     private const val TAG = "MonetEngine"
 
@@ -166,10 +167,7 @@ object MonetEngine : ClickableFeature() {
 
     private class HostResources(val apks: List<String>, val fingerprint: String)
 
-    private data class Options(
-        val bubbleStyle: MonetBubbleStyle,
-        val multiSceneCorners: Boolean,
-    )
+    private data class Options(val bubbleStyle: MonetBubbleStyle, val multiSceneCorners: Boolean)
 
     /** Everything a runtime table depends on; [key] names its cached APK. */
     private data class ThemeState(
@@ -431,6 +429,7 @@ object MonetEngine : ClickableFeature() {
         val color = colorSource(state)
         val palette = MonetThemeRenderer.palette(color)
         val mode = if (dark) "dark" else "light"
+
         fun on(role: String, background: Int): Int =
             color("system_${role}_$mode")?.let(::argb)
                 ?: if (luminance(background) > 0.5f) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
@@ -442,13 +441,19 @@ object MonetEngine : ClickableFeature() {
             surface = argb(if (dark) palette.surfaceContainerDark else palette.surfaceLight),
             surfaceHigh =
                 argb(
-                    if (dark) palette.surfaceContainerHighDark
-                    else palette.surfaceContainerHighLight,
+                    if (dark) {
+                        palette.surfaceContainerHighDark
+                    } else {
+                        palette.surfaceContainerHighLight
+                    },
                 ),
             divider =
                 argb(
-                    if (dark) palette.surfaceContainerHighDark
-                    else palette.surfaceContainerHighLight,
+                    if (dark) {
+                        palette.surfaceContainerHighDark
+                    } else {
+                        palette.surfaceContainerHighLight
+                    },
                 ),
             primary = primary,
             primaryContainer = primaryContainer,
@@ -604,11 +609,15 @@ object MonetEngine : ClickableFeature() {
                                     title = stringResource(R.string.monet_reresolve),
                                     description =
                                         when {
-                                            isResolving ->
+                                            isResolving -> {
                                                 stringResource(R.string.monet_status_running)
-                                            bindings == null ->
+                                            }
+
+                                            bindings == null -> {
                                                 stringResource(R.string.monet_status_missing)
-                                            else ->
+                                            }
+
+                                            else -> {
                                                 bindings!!.let {
                                                     stringResource(
                                                         R.string.monet_status_summary,
@@ -616,6 +625,7 @@ object MonetEngine : ClickableFeature() {
                                                         it.roles.size + it.unresolved.size,
                                                     )
                                                 }
+                                            }
                                         },
                                     enabled = !isResolving && isActive,
                                     onClick = { showResolveDialog(context) },

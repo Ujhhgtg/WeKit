@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
  * has not yet been recycled to a different sender.
  */
 object DisplayGroupMemberRealName : ApiFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "显示群成员实名全字"
     override val nameRes = R.string.feature_display_group_member_real_name_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -163,14 +162,23 @@ object DisplayGroupMemberRealName : ApiFeature(), WeChatMessageViewApi.ICreateVi
                     val masked = if (middle.isEmpty()) "$firstChar$last" else "$firstChar*$last"
                     " ($masked)"
                 }
+
                 // Show first-only placeholder only when there is no annotation yet;
                 // if one exists it already contains the last char, which is more informative.
                 // "?" signals unknown length — no asterisks, since we can't infer how many middle
                 // chars exist yet.
-                firstChar != null && !hasExistingAnnotation -> " ($firstChar?)"
+                firstChar != null && !hasExistingAnnotation -> {
+                    " ($firstChar?)"
+                }
+
                 // lastChar already encodes the masked middle (e.g. "**C"), so show it verbatim.
-                firstChar == null && lastChar != null -> " ($lastChar)"
-                else -> return
+                firstChar == null && lastChar != null -> {
+                    " ($lastChar)"
+                }
+
+                else -> {
+                    return
+                }
             }
 
         // Guard: already showing exactly this annotation — nothing to do

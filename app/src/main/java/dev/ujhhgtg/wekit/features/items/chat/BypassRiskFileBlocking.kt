@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
  * 命中后分别显示 "无法接收" (R.string.m7h) 与 "无法打开" (R.string.m7g)。 这里直接把该获取器返回 0, 所有消费点都会认为文件未被标记为风险文件。
  */
 object BypassRiskFileBlocking : SwitchFeature(), IResolveDex {
-
     override val technicalId = "解除风险文件拦截"
     override val nameRes = R.string.feature_bypass_risk_file_blocking_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -34,8 +34,8 @@ private fun toDigit(ch: Char, index: Int): Int {
     return digit
 }
 
-private fun isBlankChar(c: Int): Boolean {
-    return Character.isWhitespace(c) ||
+private fun isBlankChar(c: Int): Boolean =
+    Character.isWhitespace(c) ||
         Character.isSpaceChar(c) ||
         c == 0xFEFF ||
         c == 0x202A ||
@@ -44,4 +44,3 @@ private fun isBlankChar(c: Int): Boolean {
         c == 0x2800 ||
         c == 0x200C ||
         c == 0x180E
-}

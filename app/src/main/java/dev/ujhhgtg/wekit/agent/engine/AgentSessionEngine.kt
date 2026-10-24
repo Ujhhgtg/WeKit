@@ -181,8 +181,13 @@ class AgentSessionEngine(
                             send(AgentEvent.ReasoningDelta(ev.text))
                         }
 
-                        is LlmStreamEvent.Completed -> completed = ev
-                        is LlmStreamEvent.Failed -> failure = ev.error
+                        is LlmStreamEvent.Completed -> {
+                            completed = ev
+                        }
+
+                        is LlmStreamEvent.Failed -> {
+                            failure = ev.error
+                        }
                     }
                 }
 
@@ -305,9 +310,13 @@ class AgentSessionEngine(
      *   per-session, and concurrent sessions would lose their live handles.
      */
     private fun teardownTurn() {
-        runCatching { dev.ujhhgtg.wekit.agent.ui.UiAutomator.cancelActiveGesture() }
+        runCatching {
+            dev.ujhhgtg.wekit.agent.ui.UiAutomator.cancelActiveGesture()
+        }
             .onFailure { WeLogger.w(TAG, "gesture teardown failed: ${it.message}") }
-        runCatching { dev.ujhhgtg.wekit.agent.jvm.JvmObjectRegistry.purgeDead() }
+        runCatching {
+            dev.ujhhgtg.wekit.agent.jvm.JvmObjectRegistry.purgeDead()
+        }
             .onFailure { WeLogger.w(TAG, "handle purge failed: ${it.message}") }
     }
 
@@ -328,12 +337,14 @@ class AgentSessionEngine(
         if (messages.count { it.images.isNotEmpty() } <= 1) return messages.toList()
         val newest = messages.indexOfLast { it.images.isNotEmpty() }
         return messages.mapIndexed { i, m ->
-            if (i == newest || m.images.isEmpty()) m
-            else
+            if (i == newest || m.images.isEmpty()) {
+                m
+            } else {
                 m.copy(
                     content = "（已省略 ${m.images.size} 张较早的界面截图，只保留最近一次截图以节省上下文）",
                     images = emptyList(),
                 )
+            }
         }
     }
 

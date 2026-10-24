@@ -21,7 +21,6 @@ import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 
 object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
-
     override val technicalId = "二维码扫描记录"
     override val nameRes = R.string.feature_qr_code_record_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

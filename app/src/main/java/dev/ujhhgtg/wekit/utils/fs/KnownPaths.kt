@@ -7,7 +7,6 @@ import java.nio.file.Path
 import kotlin.io.path.div
 
 object KnownPaths {
-
     /**
      * Root for all WeKit-owned files that need a real filesystem path.
      *

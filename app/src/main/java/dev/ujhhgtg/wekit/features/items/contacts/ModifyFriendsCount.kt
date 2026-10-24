@@ -34,7 +34,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ModifyFriendsCount : ClickableFeature() {
-
     override val technicalId = "修改好友数量"
     override val nameRes = R.string.feature_modify_friends_count_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -57,8 +56,9 @@ object ModifyFriendsCount : ClickableFeature() {
                 if (!FRIEND_COUNT_REGEX.containsMatchIn(text)) return@hookBefore
                 val view = thisObject as TextView
                 val activity = view.context.findActivity() ?: return@hookBefore
-                if (!activity.javaClass.name.startsWith("com.tencent.mm.ui.contact"))
+                if (!activity.javaClass.name.startsWith("com.tencent.mm.ui.contact")) {
                     return@hookBefore
+                }
 
                 if (count == HIDE) {
                     view.visibility = View.GONE

@@ -46,7 +46,6 @@ import kotlinx.coroutines.launch
 
 /** Creates, edits and removes a message's spoof from the chat's message menu. */
 object SpoofMessageEditor {
-
     private const val TAG = "SpoofMessageEditor"
 
     private val importScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -60,7 +59,9 @@ object SpoofMessageEditor {
                 mutableStateOf(
                     when (target.kind) {
                         SpoofKind.TEXT -> existing?.text ?: target.original!!
+
                         SpoofKind.TRANSFER -> existing?.amount ?: amountNumber(target.original!!)
+
                         SpoofKind.IMAGE,
                         SpoofKind.VIDEO -> ""
                     },
@@ -97,11 +98,15 @@ object SpoofMessageEditor {
                 text = {
                     DefaultColumn {
                         when (target.kind) {
-                            SpoofKind.IMAGE ->
+                            SpoofKind.IMAGE -> {
                                 Text(stringResource(R.string.spoof_message_image_hint))
-                            SpoofKind.VIDEO ->
+                            }
+
+                            SpoofKind.VIDEO -> {
                                 Text(stringResource(R.string.spoof_message_video_hint))
-                            else ->
+                            }
+
+                            else -> {
                                 SpoofValueField(
                                     target.kind,
                                     target.original,
@@ -109,6 +114,7 @@ object SpoofMessageEditor {
                                     { draft = it },
                                     enabled = !busy,
                                 )
+                            }
                         }
                         Text(
                             stringResource(R.string.spoof_message_local_only),
@@ -128,17 +134,21 @@ object SpoofMessageEditor {
                         enabled = !busy && isSpoofValueValid(target.kind, draft),
                         onClick = {
                             when (target.kind) {
-                                SpoofKind.TEXT ->
+                                SpoofKind.TEXT -> {
                                     perform(R.string.spoof_message_saved) {
                                         SpoofedMessageStore.saveText(target, draft)
                                     }
-                                SpoofKind.TRANSFER ->
+                                }
+
+                                SpoofKind.TRANSFER -> {
                                     perform(R.string.spoof_message_saved) {
                                         SpoofedMessageStore.saveAmount(
                                             target,
                                             normalizeSpoofAmount(draft)!!,
                                         )
                                     }
+                                }
+
                                 SpoofKind.IMAGE,
                                 SpoofKind.VIDEO -> {
                                     onDismiss()
@@ -197,8 +207,11 @@ object SpoofMessageEditor {
 
     fun pickMediaRequest(kind: SpoofKind) =
         PickVisualMediaRequest(
-            if (kind == SpoofKind.VIDEO) ActivityResultContracts.PickVisualMedia.VideoOnly
-            else ActivityResultContracts.PickVisualMedia.ImageOnly,
+            if (kind == SpoofKind.VIDEO) {
+                ActivityResultContracts.PickVisualMedia.VideoOnly
+            } else {
+                ActivityResultContracts.PickVisualMedia.ImageOnly
+            },
         )
 
     /** Imports picked media in the background; large videos take a while to copy into Room. */
@@ -228,7 +241,7 @@ fun SpoofValueField(
     enabled: Boolean,
 ) {
     when (kind) {
-        SpoofKind.TEXT ->
+        SpoofKind.TEXT -> {
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -238,7 +251,9 @@ fun SpoofValueField(
                 maxLines = 8,
                 modifier = Modifier.fillMaxWidth(),
             )
-        SpoofKind.TRANSFER ->
+        }
+
+        SpoofKind.TRANSFER -> {
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -253,15 +268,21 @@ fun SpoofValueField(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+
         SpoofKind.IMAGE,
-        SpoofKind.VIDEO -> error("$kind spoofs are picked, not typed")
+        SpoofKind.VIDEO -> {
+            error("$kind spoofs are picked, not typed")
+        }
     }
 }
 
 fun isSpoofValueValid(kind: SpoofKind, value: String) =
     when (kind) {
         SpoofKind.TEXT -> value.isNotEmpty()
+
         SpoofKind.TRANSFER -> normalizeSpoofAmount(value) != null
+
         SpoofKind.IMAGE,
         SpoofKind.VIDEO -> true
     }

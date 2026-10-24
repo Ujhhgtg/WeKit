@@ -6,21 +6,29 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 
 @Suppress("unused")
 @Keep
-class MsgInfoBean(
-    @JvmField val origin: Any,
-) {
+class MsgInfoBean(@JvmField val origin: Any) {
     val msg = MessageInfo(origin)
 
     @JvmField val msgId: Long = msg.id
+
     @JvmField val msgSvrId: Long = msg.serverId
+
     @JvmField val type: Int = msg.typeCode
+
     @JvmField val isSendInt: Int = msg.isSend
+
     @JvmField val createTime: Long = msg.createTime
+
     @JvmField val talker: String = msg.talker
+
     @JvmField val originContent: String = msg.content
+
     @JvmField val imgPath: String? = msg.imagePath
+
     @JvmField val lvBuffer: ByteArray = msg.lvBuffer ?: ByteArray(0)
+
     @JvmField val talkerId: Int = msg.talkerId
+
     @JvmField val msgSeq: Long = msg.seq
 
     // --- Field getters ---
@@ -143,9 +151,12 @@ class MsgInfoBean(
         return msg.sender
     }
 
-    fun getContent(): String {
-        return when {
-            isText() -> msg.actualContent
+    fun getContent(): String =
+        when {
+            isText() -> {
+                msg.actualContent
+            }
+
             isImage() -> {
                 originContent.ifEmpty { imgPath ?: "" }
             }
@@ -158,10 +169,14 @@ class MsgInfoBean(
                 }
             }
 
-            isPat() -> getPatMsg()?.getTemplate() ?: originContent
-            else -> originContent
+            isPat() -> {
+                getPatMsg()?.getTemplate() ?: originContent
+            }
+
+            else -> {
+                originContent
+            }
         }
-    }
 
     // --- lvBuffer / msg source ---
 
@@ -180,8 +195,11 @@ class MsgInfoBean(
     fun getFileMsg(): FileMsg? = if (isFile()) FileMsg(msg.toFileMessage() ?: return null) else null
 
     fun getImageMsg(): ImageMsg? =
-        if (isImage() && originContent.isNotEmpty()) ImageMsg(msg.toImageMessage() ?: return null)
-        else null
+        if (isImage() && originContent.isNotEmpty()) {
+            ImageMsg(msg.toImageMessage() ?: return null)
+        } else {
+            null
+        }
 
     fun getQuoteMsg(): QuoteMsg? =
         if (isQuote()) QuoteMsg(msg.toQuoteMessage() ?: return null) else null
@@ -195,7 +213,6 @@ class MsgInfoBean(
 
     @Keep
     class FileMsg(val msg: MessageInfo.FileMessage) {
-
         fun getTitle(): String = msg.title
 
         fun getSize(): Long = msg.size
@@ -245,16 +262,19 @@ class MsgInfoBean(
         fun getType() = msg.type
 
         @Suppress("DEPRECATION")
-        fun getContent(): String {
-            return when (msg.type) {
+        fun getContent(): String =
+            when (msg.type) {
                 MessageType.TEXT.code -> msg.content
+
                 MessageType.IMAGE.code -> "图片"
+
                 MessageType.VIDEO.code -> "视频"
+
                 MessageType.STICKER.code,
                 MessageType.SO_GOU_EMOJI.code -> "表情"
+
                 else -> msg.content
             }
-        }
     }
 
     @Keep

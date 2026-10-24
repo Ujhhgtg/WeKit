@@ -482,6 +482,7 @@ class TerminalManagerTest {
         val sessions = CopyOnWriteArrayList<FakeSession>()
         val argv = CopyOnWriteArrayList<List<String>>()
         val environments = CopyOnWriteArrayList<Map<String, String>>()
+
         @Volatile var startCount = 0
 
         override suspend fun start(
@@ -520,7 +521,9 @@ class TerminalManagerTest {
         val waitStarted = CompletableDeferred<Unit>()
         val readerStopped = CompletableDeferred<Unit>()
         val closeEntered = CompletableDeferred<Unit>()
+
         @Volatile var killCount = 0
+
         @Volatile var closeCount = 0
 
         suspend fun emit(value: String) = emit(value.toByteArray())

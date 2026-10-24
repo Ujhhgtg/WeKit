@@ -10,7 +10,6 @@ import java.util.IdentityHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
-
     private val bootClassLoader = ClassLoaders.BOOT
     lateinit var moduleParentClassLoader: ClassLoader
     lateinit var moduleClassLoader: ClassLoader
@@ -40,9 +39,11 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
             name.startsWith(PREFIX_BOOT) -> {
                 return bootClassLoader.loadClass(name.removePrefix(PREFIX_BOOT))
             }
+
             name.startsWith(PREFIX_MODULE) -> {
                 return loadModuleClass(name.removePrefix(PREFIX_MODULE))
             }
+
             name.startsWith(PREFIX_HOST) -> {
                 if (::hostClassLoader.isInitialized) {
                     return hostClassLoader.loadClass(name.removePrefix(PREFIX_HOST))

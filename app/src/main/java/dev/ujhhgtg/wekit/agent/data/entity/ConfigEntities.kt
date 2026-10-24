@@ -64,11 +64,7 @@ data class ModelEntity(
 
 /** A named system prompt. A session may bind one (SessionEntity.systemPromptId). */
 @Entity(tableName = "system_prompts")
-data class SystemPromptEntity(
-    @PrimaryKey val id: String,
-    val name: String,
-    val content: String,
-)
+data class SystemPromptEntity(@PrimaryKey val id: String, val name: String, val content: String)
 
 /** A per-turn prompt prefixed to every user message while [enabled] (global). */
 @Entity(tableName = "per_turn_prompts")
@@ -93,11 +89,7 @@ data class ConditionalPromptEntity(
 
 /** A reusable preset snippet the user can insert into the input; no switch. */
 @Entity(tableName = "preset_prompts")
-data class PresetPromptEntity(
-    @PrimaryKey val id: String,
-    val title: String,
-    val content: String,
-)
+data class PresetPromptEntity(@PrimaryKey val id: String, val title: String, val content: String)
 
 // ---------------------------------------------------------------------------
 // Linux environments & global settings
@@ -154,17 +146,11 @@ private fun ByteArray?.contentEqualsNullable(other: ByteArray?): Boolean =
     if (this == null || other == null) this === other else contentEquals(other)
 
 @Entity(tableName = "settings")
-data class SettingEntity(
-    @PrimaryKey val key: String,
-    val value: String,
-)
+data class SettingEntity(@PrimaryKey val key: String, val value: String)
 
 /**
  * Per-service API key storage for external network integrations (Exa, Brave, etc.). Keys are stored
  * as-is; see [dev.ujhhgtg.wekit.agent.net.ExternalServiceId] for known ids.
  */
 @Entity(tableName = "external_services")
-data class ExternalServiceEntity(
-    @PrimaryKey val serviceId: String,
-    val apiKey: String?,
-)
+data class ExternalServiceEntity(@PrimaryKey val serviceId: String, val apiKey: String?)

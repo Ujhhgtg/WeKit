@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object SplitGroupChats : ClickableFeature() {
-
     override val technicalId = "分裂群组"
     override val nameRes = R.string.feature_split_group_chats_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
@@ -38,7 +37,7 @@ object SplitGroupChats : ClickableFeature() {
     private fun jumpToSplitChatroom(context: Context, wxId: String) {
         runCatching {
             val rawId = wxId.substringBefore("@")
-            val targetSplitId = "${rawId}@@chatroom"
+            val targetSplitId = "$rawId@@chatroom"
             WeLogger.i(TAG, "launching ChattingUI for chatroom: $wxId")
 
             val intent =

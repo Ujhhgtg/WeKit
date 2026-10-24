@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 
 @Suppress("DEPRECATION")
 object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "消息转圈"
     override val nameRes = R.string.feature_forward_messages_to_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -100,8 +99,8 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
         }
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777009,
                 localizedMomentsString(R.string.moments_forward_messages_menu),
@@ -147,5 +146,4 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
                 },
             ),
         )
-    }
 }

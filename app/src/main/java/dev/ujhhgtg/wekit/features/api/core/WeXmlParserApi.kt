@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeXmlParserApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "XML 解析钩子服务"
     override val nameRes = R.string.feature_we_xml_parser_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

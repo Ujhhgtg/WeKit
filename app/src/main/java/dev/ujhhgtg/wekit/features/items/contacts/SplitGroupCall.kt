@@ -61,7 +61,6 @@ import kotlin.concurrent.thread
 import kotlin.random.Random
 
 object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
-
     override val technicalId = "分裂群组通话"
     override val nameRes = R.string.feature_split_group_call_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
@@ -161,7 +160,10 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
         }
 
         when (subCoreMultiTalkClasses.size) {
-            1 -> classSubCoreMultiTalk.setDescriptor(subCoreMultiTalkClasses.single())
+            1 -> {
+                classSubCoreMultiTalk.setDescriptor(subCoreMultiTalkClasses.single())
+            }
+
             0 -> {
                 classSubCoreMultiTalk.markExpectedFailure()
                 methodExitMultiTalk.markExpectedFailure()
@@ -180,11 +182,12 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                 return
             }
 
-            else ->
+            else -> {
                 error(
                     "multiple SubCoreMultiTalk classes found: " +
                         subCoreMultiTalkClasses.joinToString { it.name },
                 )
+            }
         }
 
         methodExitMultiTalk.find {
@@ -325,7 +328,7 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                     (0x4E00..0x9FA5).random().toChar()
                 }
                 .joinToString("")
-        return "${rawId}${cjkChars}@chatroom"
+        return "${rawId}$cjkChars@chatroom"
     }
 
     private fun showSplitCallDialog(context: Activity, wxId: String) {
@@ -369,18 +372,25 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                                     onCheckedChange = { mode = option },
                                     shapes =
                                         when {
-                                            availableModes.size == 1 ->
+                                            availableModes.size == 1 -> {
                                                 ButtonGroupDefaults.connectedLeadingButtonShapes(
                                                     shape = ToggleButtonDefaults.shape,
                                                     pressedShape =
                                                         ToggleButtonDefaults.pressedShape,
                                                 )
-                                            index == 0 ->
+                                            }
+
+                                            index == 0 -> {
                                                 ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                            index == availableModes.lastIndex ->
+                                            }
+
+                                            index == availableModes.lastIndex -> {
                                                 ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                            else ->
+                                            }
+
+                                            else -> {
                                                 ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                            }
                                         },
                                     modifier =
                                         UiModifier.weight(1f).semantics { role = Role.RadioButton },
@@ -455,10 +465,13 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                     )
                     runCatching {
                         when (mode) {
-                            OperationMode.VOIP ->
+                            OperationMode.VOIP -> {
                                 startAndStopVoip(context, originalGroupId, fakeGroupId)
+                            }
 
-                            OperationMode.WALKIE_TALKIE -> startAndStopWalkieTalkie(fakeGroupId)
+                            OperationMode.WALKIE_TALKIE -> {
+                                startAndStopWalkieTalkie(fakeGroupId)
+                            }
                         }
                     }
                         .onSuccess {
@@ -489,8 +502,11 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                 postOnUiThread {
                     showToast(
                         context.localizedContactsQuantity(
-                            if (cleanupFailed) R.plurals.contacts_split_call_done_cleanup_failed
-                            else R.plurals.contacts_split_call_done_cleaned,
+                            if (cleanupFailed) {
+                                R.plurals.contacts_split_call_done_cleanup_failed
+                            } else {
+                                R.plurals.contacts_split_call_done_cleaned
+                            },
                             generatedIds.size,
                             completed,
                             failed,
@@ -545,14 +561,16 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
                             WeLogger.i(TAG, "fake talk room terminated: $fakeGroupId")
                         }
 
-                        activeRoom.isNullOrEmpty() ->
+                        activeRoom.isNullOrEmpty() -> {
                             WeLogger.i(TAG, "fake talk room already terminated: $fakeGroupId")
+                        }
 
-                        else ->
+                        else -> {
                             error(
                                 "talk room changed before exit: " +
                                     "expected=$fakeGroupId, active=$activeRoom",
                             )
+                        }
                     }
                 }
             }

@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ClearProfileDetails : ClickableFeature() {
-
     override val technicalId = "清空资料信息"
     override val nameRes = R.string.feature_clear_profile_details_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)

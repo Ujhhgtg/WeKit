@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
  * take the terminal [LlmStreamEvent.Completed].
  */
 interface LlmClient {
-
     /**
      * Issues [request], emitting [LlmStreamEvent]s as the response streams in. The flow completes
      * after emitting exactly one terminal event ([LlmStreamEvent.Completed] or

@@ -39,7 +39,6 @@ import java.util.concurrent.ConcurrentHashMap
 import org.osmdroid.util.GeoPoint
 
 object FakeLocation : ClickableFeature(), IResolveDex {
-
     override val technicalId = "虚拟定位"
     override val nameRes = R.string.feature_fake_location_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -99,8 +98,11 @@ object FakeLocation : ClickableFeature(), IResolveDex {
             val itemView = result as View
             val isLocationItem = isLocationItem(itemView)
             synchronized(locationItemViews) {
-                if (isLocationItem) locationItemViews.add(itemView)
-                else locationItemViews.remove(itemView)
+                if (isLocationItem) {
+                    locationItemViews.add(itemView)
+                } else {
+                    locationItemViews.remove(itemView)
+                }
             }
             if (isLocationItem) {
                 val appGrid = args[2] as AdapterView<*>

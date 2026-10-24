@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 
 object ParcelableFixer {
-
     private const val TAG = "ParcelableFixer"
 
     lateinit var hybridClassLoader: ClassLoader

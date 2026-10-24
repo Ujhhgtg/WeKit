@@ -18,7 +18,6 @@ import java.time.Instant
  * as long as constant names are preserved); [Instant] is stored as epoch millis.
  */
 class WeAgentConverters {
-
     @TypeConverter fun instantToLong(value: Instant?): Long? = value?.toEpochMilli()
 
     @TypeConverter fun longToInstant(value: Long?): Instant? = value?.let(Instant::ofEpochMilli)

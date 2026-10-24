@@ -77,9 +77,7 @@ object DexResolutionContext {
     val matcher: DexMatcherSession
         get() = current.get()?.matcher ?: error("Dex resolution context is not active")
 
-    fun findClasses(
-        spec: ClassSpec,
-    ): List<DexClassInfo> = matcher.findClasses(spec)
+    fun findClasses(spec: ClassSpec): List<DexClassInfo> = matcher.findClasses(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findClasses(block: ClassMatcher.() -> Unit): List<DexClassInfo> {
@@ -87,9 +85,7 @@ object DexResolutionContext {
         return findClasses(matcher.build())
     }
 
-    fun findMethods(
-        spec: MethodSpec,
-    ): List<DexMethodInfo> = matcher.findMethods(spec)
+    fun findMethods(spec: MethodSpec): List<DexMethodInfo> = matcher.findMethods(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findMethods(block: MethodMatcher.() -> Unit): List<DexMethodInfo> {
@@ -97,9 +93,7 @@ object DexResolutionContext {
         return findMethods(matcher.build())
     }
 
-    fun findFields(
-        spec: FieldSpec,
-    ): List<DexFieldInfo> = matcher.findFields(spec)
+    fun findFields(spec: FieldSpec): List<DexFieldInfo> = matcher.findFields(spec)
 
     /** DexKit-style matcher block; package scope is set with searchPackages/excludePackages. */
     fun findFields(block: FieldMatcher.() -> Unit): List<DexFieldInfo> {
@@ -227,10 +221,8 @@ object DexResolutionContext {
         }
     }
 
-    fun newCoordinator(
-        items: Collection<IResolveDex>,
-        checkActive: () -> Unit = {},
-    ) = ResolutionCoordinator(items.map { it as BaseFeature }, { it.technicalPath }, checkActive)
+    fun newCoordinator(items: Collection<IResolveDex>, checkActive: () -> Unit = {}) =
+        ResolutionCoordinator(items.map { it as BaseFeature }, { it.technicalPath }, checkActive)
 }
 
 fun IResolveDex.resolveAllDex(

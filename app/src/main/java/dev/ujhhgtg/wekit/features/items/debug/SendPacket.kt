@@ -22,7 +22,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object SendPacket : ClickableFeature() {
-
     override val technicalId = "发包调试"
     override val nameRes = R.string.feature_send_packet_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

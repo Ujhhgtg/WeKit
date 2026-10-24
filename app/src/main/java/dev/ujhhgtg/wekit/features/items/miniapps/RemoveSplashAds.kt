@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 
 object RemoveSplashAds : SwitchFeature(), IResolveDex {
-
     override val technicalId = "移除开屏广告"
     override val nameRes = R.string.feature_remove_splash_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
@@ -30,6 +29,7 @@ object RemoveSplashAds : SwitchFeature(), IResolveDex {
             "checkCanShowAd, show ad (splash ad debug mode open)",
         )
     }
+
     // JsApiAdOperateWXData 的 CGI 回调，作为兜底：阻止广告数据回调写入 worker，
     // 冷启动没有预加载数据时 worker 就拿不到广告素材。
     private val methodAdDataCallback by dexMethod {
@@ -39,6 +39,7 @@ object RemoveSplashAds : SwitchFeature(), IResolveDex {
             "cgi callback, callbackId:%s, service not running or preloaded",
         )
     }
+
     // AppBrandSplashAdLogic.sendShouldShowAdWhenLaunchIfNeed: 冷启动走 displayMode=1,
     // 热启动/切回前台走 displayMode=2。这里只拦 2，避免把启动以外的逻辑一起截断。
     private val methodSendShouldShowAd by dexMethod {
@@ -48,6 +49,7 @@ object RemoveSplashAds : SwitchFeature(), IResolveDex {
             "sendShouldShowAdIfNeed, displayMode:%s  appId:%s, may show ad, preloadedService:%s",
         )
     }
+
     // JsApiShowSplashAd 是广告 worker 最终把开屏广告显示出来的回调。把 show 改成 false
     // 再放行原方法，微信会走 "not show splash ad" 分支并调用 closeSplashAdImmediately()
     // 正常收起加载页；直接提前 return 反而会让加载页卡住不消失。

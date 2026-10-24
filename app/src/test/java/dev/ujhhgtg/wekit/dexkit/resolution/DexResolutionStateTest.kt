@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class DexResolutionStateTest {
-
     @Test
     fun expectedFailureIsSettledButNotFound() {
         val delegate = DexMethodDelegate("method")

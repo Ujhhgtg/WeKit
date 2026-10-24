@@ -165,7 +165,7 @@ private fun ContactSelectorScaffold(
         },
     ) {
         when {
-            contacts == null ->
+            contacts == null -> {
                 item(key = "loading") {
                     Box(
                         modifier = Modifier.fillParentMaxSize(),
@@ -174,11 +174,13 @@ private fun ContactSelectorScaffold(
                         CircularProgressIndicator()
                     }
                 }
+            }
 
-            sections.isEmpty() ->
+            sections.isEmpty() -> {
                 item(key = "empty") {
                     SettingsEmptyState(title = stringResource(R.string.contact_no_matches))
                 }
+            }
 
             else -> {
                 sections.forEach { section ->

@@ -136,8 +136,11 @@ object MatcherSpecJson {
 
     private fun parseStringSpec(element: JsonElement): StringSpec =
         when (element) {
-            is JsonPrimitive -> StringSpec(element.content)
-            is JsonObject ->
+            is JsonPrimitive -> {
+                StringSpec(element.content)
+            }
+
+            is JsonObject -> {
                 StringSpec(
                     value =
                         element.stringOrNull("value")
@@ -147,7 +150,11 @@ object MatcherSpecJson {
                     match =
                         parseNameMatch(element.stringOrNull("match"), default = NameMatch.Contains),
                 )
-            else -> throw IllegalArgumentException("invalid using_strings entry")
+            }
+
+            else -> {
+                throw IllegalArgumentException("invalid using_strings entry")
+            }
         }
 
     private fun parseUsingField(element: JsonElement): UsingFieldSpec {
@@ -170,12 +177,19 @@ object MatcherSpecJson {
             matchType =
                 when (json.stringOrNull("match_type")?.lowercase()) {
                     null,
-                    "contains" -> OpcodeMatchType.Contains
-                    "equals" -> OpcodeMatchType.Equals
-                    else ->
+                    "contains" -> {
+                        OpcodeMatchType.Contains
+                    }
+
+                    "equals" -> {
+                        OpcodeMatchType.Equals
+                    }
+
+                    else -> {
                         throw IllegalArgumentException(
                             "opcode match_type must be contains or equals",
                         )
+                    }
                 },
             count = json.rangeOrNull("count"),
         )
@@ -212,32 +226,59 @@ object MatcherSpecJson {
     private fun parseAnnotationValue(element: JsonElement?): AnnotationValue {
         if (element == null) throw IllegalArgumentException("annotation element requires a value")
         return when (element) {
-            is JsonPrimitive ->
+            is JsonPrimitive -> {
                 when {
-                    element.booleanOrNull != null ->
+                    element.booleanOrNull != null -> {
                         AnnotationValue.BooleanValue(element.booleanOrNull!!)
-                    element.isString -> AnnotationValue.Text(element.content)
-                    else -> AnnotationValue.NumberValue(element.content.toDouble())
+                    }
+
+                    element.isString -> {
+                        AnnotationValue.Text(element.content)
+                    }
+
+                    else -> {
+                        AnnotationValue.NumberValue(element.content.toDouble())
+                    }
                 }
-            is JsonArray -> AnnotationValue.ListValue(element.map(::parseAnnotationValue))
-            is JsonObject ->
+            }
+
+            is JsonArray -> {
+                AnnotationValue.ListValue(element.map(::parseAnnotationValue))
+            }
+
+            is JsonObject -> {
                 when {
-                    element.containsKey("text") ->
+                    element.containsKey("text") -> {
                         AnnotationValue.Text(element.stringOrNull("text")!!)
-                    element.containsKey("descriptor") ->
+                    }
+
+                    element.containsKey("descriptor") -> {
                         AnnotationValue.DescriptorValue(element.stringOrNull("descriptor")!!)
-                    element.containsKey("number") ->
+                    }
+
+                    element.containsKey("number") -> {
                         AnnotationValue.NumberValue(parseNumber(element["number"]!!))
-                    element.containsKey("boolean") ->
+                    }
+
+                    element.containsKey("boolean") -> {
                         AnnotationValue.BooleanValue(element.booleanOrNull("boolean") ?: false)
-                    element.containsKey("list") ->
+                    }
+
+                    element.containsKey("list") -> {
                         AnnotationValue.ListValue(
                             (element["list"] as JsonArray).map(::parseAnnotationValue),
                         )
-                    element.containsKey("nested") ->
+                    }
+
+                    element.containsKey("nested") -> {
                         AnnotationValue.Nested(parseAnnotation(element["nested"] as JsonObject))
-                    else -> throw IllegalArgumentException("invalid annotation value object")
+                    }
+
+                    else -> {
+                        throw IllegalArgumentException("invalid annotation value object")
+                    }
                 }
+            }
         }
     }
 
@@ -258,15 +299,20 @@ object MatcherSpecJson {
         when (value?.trim()?.lowercase()?.replace('-', '_')) {
             null,
             "" -> default
+
             "equals",
             "eq" -> NameMatch.Equals
+
             "starts_with",
             "startswith",
             "prefix" -> NameMatch.StartsWith
+
             "contains" -> NameMatch.Contains
+
             "ends_with",
             "endswith",
             "suffix" -> NameMatch.EndsWith
+
             else -> throw IllegalArgumentException("unknown name/type match mode: $value")
         }
 
@@ -295,6 +341,7 @@ object MatcherSpecJson {
                         ?: throw IllegalArgumentException("$key must be an int or range")
                 value..value
             }
+
             is JsonArray -> {
                 val min =
                     (element.getOrNull(0) as? JsonPrimitive)?.intOrNull
@@ -302,6 +349,7 @@ object MatcherSpecJson {
                 val max = (element.getOrNull(1) as? JsonPrimitive)?.intOrNull ?: min
                 min..max
             }
+
             is JsonObject -> {
                 val min = (element["min"] as? JsonPrimitive)?.intOrNull ?: 0
                 val max = (element["max"] as? JsonPrimitive)?.intOrNull ?: Int.MAX_VALUE

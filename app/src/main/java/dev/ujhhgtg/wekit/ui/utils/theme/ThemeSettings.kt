@@ -48,10 +48,7 @@ enum class PageTransitionAnimation {
  * Palette generation style. Only the four styles represented by [supportsSpec2025] honor Spec2025;
  * the rest fall back to Spec2021.
  */
-enum class AppPaletteStyle(
-    val displayName: String,
-    val materialKolor: PaletteStyle,
-) {
+enum class AppPaletteStyle(val displayName: String, val materialKolor: PaletteStyle) {
     TONAL_SPOT("Tonal Spot", PaletteStyle.TonalSpot),
     NEUTRAL("Neutral", PaletteStyle.Neutral),
     VIBRANT("Vibrant", PaletteStyle.Vibrant),
@@ -71,10 +68,7 @@ enum class AppPaletteStyle(
 }
 
 /** Material color specification version. */
-enum class AppColorSpec(
-    val displayName: String,
-    val materialKolor: ColorSpec.SpecVersion,
-) {
+enum class AppColorSpec(val displayName: String, val materialKolor: ColorSpec.SpecVersion) {
     SPEC_2021("Material 3 (2021)", ColorSpec.SpecVersion.SPEC_2021),
     SPEC_2025("Expressive (2025)", ColorSpec.SpecVersion.SPEC_2025);
 
@@ -95,7 +89,6 @@ enum class AppColorSpec(
  *   persisted values once per WeChat launch.
  */
 object ThemeSettings {
-
     var themeMode by
         mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
         private set

@@ -27,24 +27,20 @@ val View.allViews: Sequence<View>
         }
     }
 
-fun View.findViewsByClassName(className: String): Sequence<View> {
-    return allViews.filter {
-        it.javaClass.name == className || it.javaClass.simpleName == className
-    }
+fun View.findViewsByClassName(className: String): Sequence<View> = allViews.filter {
+    it.javaClass.name == className || it.javaClass.simpleName == className
 }
 
-fun View.findViewByClassName(className: String): View? {
-    return findViewsByClassName(className).firstOrNull()
-}
+fun View.findViewByClassName(className: String): View? =
+    findViewsByClassName(className).firstOrNull()
 
 fun View?.findViewsWhich(predicate: (View) -> Boolean): Sequence<View> {
     if (this == null) return emptySequence()
     return this.allViews.filter(predicate)
 }
 
-fun View?.findViewWhich(predicate: (View) -> Boolean): View? {
-    return findViewsWhich(predicate).firstOrNull()
-}
+fun View?.findViewWhich(predicate: (View) -> Boolean): View? =
+    findViewsWhich(predicate).firstOrNull()
 
 fun View.findViewByChildIndexes(vararg indexes: Int): View? {
     var current: View = this
@@ -56,7 +52,6 @@ fun View.findViewByChildIndexes(vararg indexes: Int): View? {
 
 fun ListAdapter.iterator(parent: ViewGroup): Iterator<View> =
     object : Iterator<View> {
-
         private var index = 0
 
         override fun hasNext() = index < count
@@ -76,7 +71,9 @@ val View.idString
     get() =
         if (this.id != View.NO_ID) {
             runCatching { this.resources.getResourceEntryName(this.id) }.getOrDefault(null)
-        } else null
+        } else {
+            null
+        }
 
 fun View.removeSelf() {
     (parent as? ViewGroup)?.removeView(this)

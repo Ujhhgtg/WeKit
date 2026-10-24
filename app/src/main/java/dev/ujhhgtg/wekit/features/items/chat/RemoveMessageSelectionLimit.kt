@@ -17,7 +17,6 @@ import java.lang.reflect.Field
 import java.util.concurrent.CopyOnWriteArraySet
 
 object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
-
     override val technicalId = "解除消息多选数量限制"
     override val nameRes = R.string.feature_remove_message_selection_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -106,11 +105,13 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
                 override fun beforeHookedMethod(param: HookParam) {
                     val adapter = param.thisObject ?: return
                     val message = param.args[0] ?: return
+
                     @Suppress("UNCHECKED_CAST")
                     val selectedMessages =
                         selectedMessagesField.get(adapter) as CopyOnWriteArraySet<Any>
-                    if (message in selectedMessages || selectedMessages.size < SELECTION_LIMIT)
+                    if (message in selectedMessages || selectedMessages.size < SELECTION_LIMIT) {
                         return
+                    }
 
                     // Let WeChat run its original add and UI refresh path with 99 existing
                     // selections.

@@ -43,6 +43,7 @@ object WeKitLivePhotoBackend {
     private const val INVALID_MEDIA = 6
     private const val MAX_SAMPLE_BYTES = 16 * 1024 * 1024
     private const val OPLUS_GALLERY_USER_COMMENT = "{\"oplustag\":8388608}"
+
     // Native ColorUtils::ColorTransfer values without public MediaFormat constants:
     // frameworks/av/media/module/foundation/include/media/stagefright/foundation/ColorUtils.h.
     private const val COLOR_TRANSFER_SRGB = 2
@@ -50,9 +51,11 @@ object WeKitLivePhotoBackend {
     private const val COLOR_TRANSFER_GAMMA28 = 5
 
     private lateinit var context: Context
+
     // The host scans the whole gallery in successive batches. Retain several thousand
     // media identities so later batches do not immediately evict the first screen's results.
     private val identificationCache = LruCache<MediaIdentity, Boolean>(4096)
+
     // File opens and Android media checks wait on independent system services. Keep
     // at most four inspections active; return the complete batch before the host uses it.
     private val identificationWorkers =
@@ -410,16 +413,22 @@ object WeKitLivePhotoBackend {
                             it.canonicalFile == cover.canonicalFile ||
                                 it.canonicalFile == video.canonicalFile ||
                                 it.canonicalFile == output.canonicalFile
-                        )
+                        ) {
                             fail(
                                 INVALID_OUTPUT,
                                 "Companion output must not replace a source or the photo output",
                             )
+                        }
                     }
-                } else null
+                } else {
+                    null
+                }
             val generatedInfo =
                 when (vivoCompatibility) {
-                    0 -> MotionPhotoContainer.write(exportCover, video, generated, timestamp)
+                    0 -> {
+                        MotionPhotoContainer.write(exportCover, video, generated, timestamp)
+                    }
+
                     1 -> {
                         val generatedVideo = temporaryFor(companion!!, ".mp4")
                         videoTemporary = generatedVideo
@@ -447,10 +456,13 @@ object WeKitLivePhotoBackend {
                         }
                         null
                     }
-                    2 ->
+
+                    2 -> {
                         VivoMotionPhotoContainer.writeV2(exportCover, video, generated, timestamp)
                             .photoInfo!!
-                    3 ->
+                    }
+
+                    3 -> {
                         VivoMotionPhotoContainer.writeStandard(
                                 exportCover,
                                 video,
@@ -458,22 +470,29 @@ object WeKitLivePhotoBackend {
                                 timestamp,
                             )
                             .photoInfo!!
-                    else -> error("Validated Vivo format is out of range")
+                    }
+
+                    else -> {
+                        error("Validated Vivo format is out of range")
+                    }
                 }
             FileInputStream(generated).use { input ->
-                if (readCover(input.fd) != coverInfo)
+                if (readCover(input.fd) != coverInfo) {
                     fail(INVALID_MEDIA, "Generated photo changed cover geometry")
+                }
                 if (vivoCompatibility != 1) {
                     // The writer validated this staged file before publication; reuse its result.
                     val info = generatedInfo!!
-                    if (info.coverTimestampMs != timestamp)
+                    if (info.coverTimestampMs != timestamp) {
                         fail(INVALID_MEDIA, "Generated cover time does not match its input")
+                    }
                     if (vivoCompatibility == 0 && info.videoLength != video.length()) {
                         fail(INVALID_MEDIA, "Generated video length does not match its input")
                     }
                     val writtenVideo = readVideo(input.fd, info.videoOffset, info.videoLength)
-                    if (writtenVideo != videoInfo)
+                    if (writtenVideo != videoInfo) {
                         fail(INVALID_MEDIA, "Generated Motion Photo changed video metadata")
+                    }
                 }
             }
             if (
@@ -550,8 +569,9 @@ object WeKitLivePhotoBackend {
                     format.getString(MediaFormat.KEY_MIME)
                         ?: fail(INVALID_MEDIA, "Track has no MIME type")
                 if (mime.startsWith("video/")) {
-                    if (videoTrack != -1)
+                    if (videoTrack != -1) {
                         fail(UNSUPPORTED_MEDIA, "Multiple video tracks are unsupported")
+                    }
                     videoTrack = i
                 }
             }
@@ -559,9 +579,11 @@ object WeKitLivePhotoBackend {
             val format = extractor.getTrackFormat(videoTrack)
             val mime = format.getString(MediaFormat.KEY_MIME)!!
             val profile =
-                if (format.containsKey(MediaFormat.KEY_PROFILE))
+                if (format.containsKey(MediaFormat.KEY_PROFILE)) {
                     format.getInteger(MediaFormat.KEY_PROFILE)
-                else null
+                } else {
+                    null
+                }
             val transfer =
                 if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
                     format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
@@ -585,6 +607,7 @@ object WeKitLivePhotoBackend {
                     transfer == MediaFormat.COLOR_TRANSFER_SDR_VIDEO ||
                     transfer == COLOR_TRANSFER_GAMMA22 ||
                     transfer == COLOR_TRANSFER_GAMMA28
+
             @SuppressLint("InlinedApi")
             val hdrHevcProfile =
                 mime == MediaFormat.MIMETYPE_VIDEO_HEVC &&
@@ -598,24 +621,30 @@ object WeKitLivePhotoBackend {
             ) {
                 fail(UNSUPPORTED_MEDIA, "Unsupported transfer, HDR or BT.2020 video ($details)")
             }
-            if (!extractor.psshInfo.isNullOrEmpty())
+            if (!extractor.psshInfo.isNullOrEmpty()) {
                 fail(UNSUPPORTED_MEDIA, "Protected video is unsupported ($details)")
+            }
             val width = format.getInteger(MediaFormat.KEY_WIDTH)
             val height = format.getInteger(MediaFormat.KEY_HEIGHT)
             val durationMs = format.getLong(MediaFormat.KEY_DURATION) / 1000
             val rotation =
                 if (format.containsKey(MediaFormat.KEY_ROTATION)) {
                     Math.floorMod(format.getInteger(MediaFormat.KEY_ROTATION), 360)
-                } else 0
-            if (width <= 0 || height <= 0 || durationMs <= 0)
+                } else {
+                    0
+                }
+            if (width <= 0 || height <= 0 || durationMs <= 0) {
                 fail(INVALID_MEDIA, "Invalid video dimensions or duration")
-            if (rotation !in arrayOf(0, 90, 180, 270))
+            }
+            if (rotation !in arrayOf(0, 90, 180, 270)) {
                 fail(UNSUPPORTED_MEDIA, "Unsupported video rotation")
+            }
             extractor.selectTrack(videoTrack)
             val sampleSize = extractor.sampleSize
             if (sampleSize <= 0) fail(INVALID_MEDIA, "Video track has no sample data")
-            if (sampleSize > MAX_SAMPLE_BYTES)
+            if (sampleSize > MAX_SAMPLE_BYTES) {
                 fail(UNSUPPORTED_MEDIA, "Video sample exceeds the read limit")
+            }
             if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED != 0) {
                 fail(UNSUPPORTED_MEDIA, "Encrypted video sample is unsupported ($details)")
             }
@@ -690,8 +719,11 @@ object WeKitLivePhotoBackend {
                 orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
                 orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
                 orientation == ExifInterface.ORIENTATION_TRANSVERSE
-        return if (swap) CoverInfo(options.outHeight, options.outWidth)
-        else CoverInfo(options.outWidth, options.outHeight)
+        return if (swap) {
+            CoverInfo(options.outHeight, options.outWidth)
+        } else {
+            CoverInfo(options.outWidth, options.outHeight)
+        }
     }
 
     private fun validateCover(cover: CoverInfo, video: VideoInfo) {
@@ -721,8 +753,9 @@ object WeKitLivePhotoBackend {
 
     private fun temporaryFor(output: File, suffix: String): File {
         val parent = output.parentFile!!
-        if (!parent.isDirectory && !parent.mkdirs())
+        if (!parent.isDirectory && !parent.mkdirs()) {
             fail(INVALID_OUTPUT, "Cannot create the output directory")
+        }
         return File.createTempFile("wekit-livephoto-", suffix, parent)
     }
 

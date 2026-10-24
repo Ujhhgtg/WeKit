@@ -66,7 +66,10 @@ class MonetRuntimePackageWriterTest {
 
             // Light-only targets keep exactly WeChat's configs; no night twin is invented.
             assertEquals(setOf("-v31"), pkg.configs(lightOnly.id))
-            assertEquals(0x400, pkg.getResource(lightOnly.id).get().specFlag.integer and 0x400)
+            assertEquals(
+                0x400,
+                pkg.getResource(lightOnly.id).get().specFlag.integer and 0x400,
+            )
 
             // Night-only (`unknown` light side): no default entry, so WeChat keeps its light value.
             assertEquals(setOf("-night"), pkg.configs(nightOnly.id))
@@ -266,8 +269,9 @@ class MonetRuntimePackageWriterTest {
                 tree.copy(
                     children =
                         tree.children.mapIndexed { index, item ->
-                            if (index != 2) item
-                            else
+                            if (index != 2) {
+                                item
+                            } else {
                                 item.copy(
                                     attributes =
                                         item.attributes +
@@ -280,6 +284,7 @@ class MonetRuntimePackageWriterTest {
                                             ),
                                     children = emptyList(),
                                 )
+                            }
                         },
                 )
             }
@@ -309,6 +314,7 @@ class MonetRuntimePackageWriterTest {
             assertEquals("selector", tree.name)
             val items = tree.children
             assertEquals(4, items.size)
+
             fun value(item: MonetXmlElement, name: String) =
                 item.attributes.single { it.name == name }.value
             assertEquals(MonetResourceValue.Literal("BOOLEAN", 0), value(items[0], "state_enabled"))

@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
  * `handles.ref(12)` fetches object `#12`) alongside `hostContext`.
  */
 object JvmEvalEngine {
-
     private val interpreter: Interpreter by lazy {
         Interpreter(null, "").apply {
             classManager.setClassLoader(ClassLoaders.HYBRID)

@@ -38,7 +38,6 @@ import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
  * [JvmObjectRegistry].
  */
 object UiAutomator {
-
     // -----------------------------------------------------------------------------------------
     // Handle / window resolution
     // -----------------------------------------------------------------------------------------
@@ -55,13 +54,22 @@ object UiAutomator {
                 JvmObjectRegistry.resolve(windowRef)
                     ?: throw JvmBridgeException(JvmObjectRegistry.missingHandleMessage(windowRef))
         ) {
-            is View -> obj.rootView
-            is Activity ->
+            is View -> {
+                obj.rootView
+            }
+
+            is Activity -> {
                 obj.window?.decorView
                     ?: throw JvmBridgeException("Activity handle has no decorView")
+            }
 
-            is android.view.Window -> obj.decorView
-            else -> throw JvmBridgeException("'$windowRef' is not a View/Activity/Window")
+            is android.view.Window -> {
+                obj.decorView
+            }
+
+            else -> {
+                throw JvmBridgeException("'$windowRef' is not a View/Activity/Window")
+            }
         }
     }
 
@@ -91,9 +99,11 @@ object UiAutomator {
     }
 
     private fun View.idName(): String =
-        if (id != View.NO_ID)
+        if (id != View.NO_ID) {
             runCatching { resources.getResourceEntryName(id) }.getOrDefault(id.toString())
-        else "NO_ID"
+        } else {
+            "NO_ID"
+        }
 
     private fun View.visStr(): String =
         when (visibility) {
@@ -135,8 +145,9 @@ object UiAutomator {
             { v, depth ->
                 if (maxDepth in 1..<depth) return@walk
                 if (!includeInvisible && v.visibility != View.VISIBLE) return@walk
-                if (onlyInteractive && !(v.isClickable || v.isLongClickable || v is EditText))
+                if (onlyInteractive && !(v.isClickable || v.isLongClickable || v is EditText)) {
                     return@walk
+                }
                 val handle = JvmObjectRegistry.store(v)
                 val b = screenBounds(v)
                 val text = v.textStr()
@@ -171,8 +182,9 @@ object UiAutomator {
         walk(
             decor,
             { v, _ ->
-                if (onlyInteractive && !(v.isClickable || v.isLongClickable || v is EditText))
+                if (onlyInteractive && !(v.isClickable || v.isLongClickable || v is EditText)) {
                     return@walk
+                }
                 val vText = v.textStr().orEmpty()
                 val vDesc = v.contentDescription?.toString().orEmpty()
                 val vId = v.idName()
@@ -187,7 +199,7 @@ object UiAutomator {
                     val handle = JvmObjectRegistry.store(v)
                     val b = screenBounds(v)
                     val info = buildString {
-                        append("$handle  ${v.javaClass.simpleName}  id=${vId}")
+                        append("$handle  ${v.javaClass.simpleName}  id=$vId")
                         append("  [${b.left},${b.top} ${b.width()}×${b.height()}]")
                         if (vText.isNotEmpty()) append("  text=\"$vText\"")
                         if (vDesc.isNotEmpty()) append("  desc=\"$vDesc\"")
@@ -198,8 +210,11 @@ object UiAutomator {
                 }
             },
         )
-        return if (results.isEmpty()) "No views matched."
-        else "${results.size} match(es):\n" + results.joinToString("\n")
+        return if (results.isEmpty()) {
+            "No views matched."
+        } else {
+            "${results.size} match(es):\n" + results.joinToString("\n")
+        }
     }
 
     /** Describe all attributes of a single view, storing it as a handle if not already one. */
@@ -239,11 +254,15 @@ object UiAutomator {
     fun screenshot(targetView: View, maxDim: Int): Bitmap {
         val w = targetView.width
         val h = targetView.height
-        if (w <= 0 || h <= 0)
+        if (w <= 0 || h <= 0) {
             throw JvmBridgeException("View has zero size ($w×$h) — not yet laid out?")
+        }
         val scale =
-            if (maxDim > 0 && (w > maxDim || h > maxDim)) maxDim.toFloat() / maxOf(w, h).toFloat()
-            else 1f
+            if (maxDim > 0 && (w > maxDim || h > maxDim)) {
+                maxDim.toFloat() / maxOf(w, h).toFloat()
+            } else {
+                1f
+            }
         val bw = (w * scale).toInt().coerceAtLeast(1)
         val bh = (h * scale).toInt().coerceAtLeast(1)
         val bitmap = createBitmap(bw, bh)
@@ -446,8 +465,13 @@ object UiAutomator {
                 v.setSelection(text.length)
             }
 
-            is TextView -> v.text = text
-            else -> throw JvmBridgeException("View is not a TextView/EditText: ${v.javaClass.name}")
+            is TextView -> {
+                v.text = text
+            }
+
+            else -> {
+                throw JvmBridgeException("View is not a TextView/EditText: ${v.javaClass.name}")
+            }
         }
     }
 

@@ -8,7 +8,6 @@ import java.lang.reflect.Method
 
 /** 悬浮布局下，向新消息方向分页仍需按原来的消息可视区恢复位置。 */
 object FloatingChatPagination {
-
     fun install(feature: BaseFeature, extraOffset: (View) -> Int) =
         with(feature) {
             val listClass = MMChattingListView::class.reflekt()

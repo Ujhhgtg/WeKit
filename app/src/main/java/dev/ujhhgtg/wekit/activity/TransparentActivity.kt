@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 class TransparentActivity : FragmentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

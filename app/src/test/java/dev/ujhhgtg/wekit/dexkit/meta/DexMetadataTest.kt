@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DexMetadataTest {
-
     @Test
     fun classInfoParsesTopLevelMetadataAndInlineChildren() {
         val provider = CountingMetadataProvider()
@@ -368,7 +367,10 @@ class DexMetadataTest {
         assertEquals("java.lang.Boolean", member.invokes[0].declaredClassName)
         assertEquals(2, member.usingStrings.size)
         assertEquals(FieldUsingType.Write, member.usingFields.single().usingType)
-        assertEquals("w", member.usingFields.single().field.name)
+        assertEquals(
+            "w",
+            member.usingFields.single().field.name,
+        )
         assertEquals(1, provider.count(DexMetadataKind.Method, SnapshotFixture.SAMPLE_METHOD))
         assertEquals(1, provider.totalQueries)
 

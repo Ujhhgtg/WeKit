@@ -33,7 +33,6 @@ class DexSqlRuntime internal constructor(val bridge: DexSqlBridge) : AutoCloseab
 }
 
 private object DexSqlHolder {
-
     private const val TAG = "DexSqlHolder"
     private val IDLE_TIMEOUT = 30.seconds
 

@@ -134,8 +134,11 @@ private fun QrCodeRecordSettingsScreen(
                             },
                             leadingIcon = {
                                 Icon(
-                                    if (homeMenuEnabled) MaterialSymbols.Outlined.Check
-                                    else MaterialSymbols.Outlined.Home,
+                                    if (homeMenuEnabled) {
+                                        MaterialSymbols.Outlined.Check
+                                    } else {
+                                        MaterialSymbols.Outlined.Home
+                                    },
                                     contentDescription = null,
                                 )
                             },
@@ -244,12 +247,18 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
     val uri = remember(record.url) { record.url.toUri() }
     val (icon, typeRes) =
         when {
-            uri.host.equals("u.wechat.com", ignoreCase = true) ->
+            uri.host.equals("u.wechat.com", ignoreCase = true) -> {
                 MaterialSymbols.Outlined.Person to R.string.qr_code_record_type_contact
+            }
+
             uri.host.equals("wx.tenpay.com", ignoreCase = true) ||
-                record.url.startsWith("weixin://wxpay") ->
+                record.url.startsWith("weixin://wxpay") -> {
                 MaterialSymbols.Outlined.Shopping_cart to R.string.qr_code_record_type_payment
-            else -> MaterialSymbols.Outlined.Info to R.string.qr_code_record_type_other
+            }
+
+            else -> {
+                MaterialSymbols.Outlined.Info to R.string.qr_code_record_type_other
+            }
         }
 
     SegmentedColumn {
@@ -293,8 +302,11 @@ private fun QrRecordCard(record: QrCodeRecord.QrRecord) {
                         TextButton(onClick = { expanded = !expanded }) {
                             Text(
                                 stringResource(
-                                    if (expanded) R.string.qr_code_record_collapse
-                                    else R.string.qr_code_record_expand,
+                                    if (expanded) {
+                                        R.string.qr_code_record_collapse
+                                    } else {
+                                        R.string.qr_code_record_expand
+                                    },
                                 ),
                             )
                         }

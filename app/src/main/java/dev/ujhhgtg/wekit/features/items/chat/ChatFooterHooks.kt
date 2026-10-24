@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 
 object ChatFooterHooks : ApiFeature(), IResolveDex {
-
     override val technicalId = "聊天输入栏钩子"
     override val nameRes = R.string.feature_chat_footer_hooks_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

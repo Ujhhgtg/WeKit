@@ -26,10 +26,7 @@ fun panelLocalSortAction(
     )
 
 @Composable
-fun panelReorderActions(
-    onCancel: () -> Unit,
-    onSave: () -> Unit,
-) =
+fun panelReorderActions(onCancel: () -> Unit, onSave: () -> Unit) =
     listOf(
         PanelAction(
             MaterialSymbols.Outlined.Close,

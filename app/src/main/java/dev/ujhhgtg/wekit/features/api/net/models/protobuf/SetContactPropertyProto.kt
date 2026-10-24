@@ -16,7 +16,4 @@ data class SetContactPropertyReqProto(
     @Suppress("DEPRECATION") fun encode(): ByteArray = WeProto.encode(this)
 }
 
-@Serializable
-data class ContactPropertyProto(
-    @ProtoNumber(1) val remark: String,
-)
+@Serializable data class ContactPropertyProto(@ProtoNumber(1) val remark: String)

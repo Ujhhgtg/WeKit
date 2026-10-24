@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableCommentSizeLimit : SwitchFeature() {
-
     override val technicalId = "禁用评论长度限制"
     override val nameRes = R.string.feature_disable_comment_size_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)

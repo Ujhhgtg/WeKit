@@ -97,21 +97,40 @@ class MonetRuntimeResolutionCorpusTest {
 
     private fun MonetResourceGraph.value(value: MonetResourceValue, depth: Int): String =
         when (value) {
-            is MonetResourceValue.Literal -> "%08x".format(value.data)
+            is MonetResourceValue.Literal -> {
+                "%08x".format(value.data)
+            }
+
             is MonetResourceValue.Reference -> {
                 val target = node(value.resourceId)
                 when {
-                    target == null -> "@%08x".format(value.resourceId)
-                    depth > 4 -> "@${target.key.type}"
-                    else ->
+                    target == null -> {
+                        "@%08x".format(value.resourceId)
+                    }
+
+                    depth > 4 -> {
+                        "@${target.key.type}"
+                    }
+
+                    else -> {
                         target.values
                             .firstOrNull { it.qualifiers.isEmpty() }
                             ?.let { value(it.value, depth + 1) } ?: "@${target.key.type}"
+                    }
                 }
             }
-            is MonetResourceValue.File -> value.structure?.format ?: "file"
-            is MonetResourceValue.Text -> "\"${value.value.take(20)}\""
-            is MonetResourceValue.Complex -> "complex(${value.items.size})"
+
+            is MonetResourceValue.File -> {
+                value.structure?.format ?: "file"
+            }
+
+            is MonetResourceValue.Text -> {
+                "\"${value.value.take(20)}\""
+            }
+
+            is MonetResourceValue.Complex -> {
+                "complex(${value.items.size})"
+            }
         }
 
     private companion object {

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class FeatureRegistryValidationTest {
-
     @Test
     fun validRegistryIsReturnedUnchanged() {
         val features = listOf(FakeFeature("first"), FakeFeature("second"))

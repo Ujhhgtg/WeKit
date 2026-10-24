@@ -21,7 +21,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -186,13 +185,13 @@ import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 
 object ConversationGrouping : ClickableFeature(), IResolveDex {
-
     override val technicalId = "对话分组"
     override val nameRes = R.string.feature_conversation_grouping_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_conversation_grouping_description
 
     const val GROUP_PREFIX = "wekit_group_"
+
     // Shared with the native overlay's hit region so transparent margins pass through to the list.
     const val CAPSULE_HORIZONTAL_INSET_DP = 12
     const val CAPSULE_VERTICAL_INSET_DP = 6
@@ -319,10 +318,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             ?.let { finishPagingRequest(it, false) }
     }
 
-    private data class AdapterCache(
-        val visiblePositions: List<Int>,
-        val rawToVisible: IntArray,
-    )
+    private data class AdapterCache(val visiblePositions: List<Int>, val rawToVisible: IntArray)
 
     private data class AdapterMethods(
         val getCount: Method,
@@ -331,10 +327,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val storage: AdapterStorage,
     )
 
-    private data class AdapterItemFields(
-        val username: Field?,
-        val unreadCounts: List<Field>,
-    )
+    private data class AdapterItemFields(val username: Field?, val unreadCounts: List<Field>)
 
     private val adapterCaches = WeakHashMap<Any, AdapterCache>()
     private var adapterMethods: List<AdapterMethods> = emptyList()
@@ -350,6 +343,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private val hookedRecyclerAppliedMethods = mutableSetOf<Method>()
     private val pagingHandler by lazy { Handler(Looper.getMainLooper()) }
     private val pagingQueryRequest = ThreadLocal<PagingRequest?>()
+
     @SuppressLint("StaticFieldLeak") @Volatile private var pagingRequest: PagingRequest? = null
 
     private class PagingRequest(
@@ -362,9 +356,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val completed: (Boolean) -> Unit,
     ) {
         val deadline = SystemClock.uptimeMillis() + 8_000L
+
         @Volatile var issued = false
+
         @Volatile var loadId = 0
+
         @Volatile var expectedNames: Set<String>? = null
+
         @Volatile var queryCompletedAt = 0L
         var lastIssuedAt = 0L
         var applied = false
@@ -628,8 +626,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         cancel.recycle()
                     }
                 }
-            )
+            ) {
                 result = true
+            }
         }
         pagerClass
             .firstMethod {
@@ -654,8 +653,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 parameters(Boolean::class)
             }
             .hookBefore {
-                if (args[0] as Boolean)
+                if (args[0] as Boolean) {
                     swipeSessions[thisObject as ViewGroup]?.get()?.onChildClaimed()
+                }
             }
         swipeHooksInstalled = true
     }
@@ -796,6 +796,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 return@hookAfter
             }
             val page = result!!
+
             @Suppress("UNCHECKED_CAST")
             val rows = fieldRecyclerPageItems.field.get(page) as MutableList<Any>
             filterRecyclerRows(rows, filterFor(thisObject!!))
@@ -861,9 +862,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         !request.issued ||
                         filterFor(request.adapter) !== request.filter ||
                         request.loadCounter!!.get() != request.loadId
-                )
+                ) {
                     return@hookAfter
+                }
                 val expected = request.expectedNames ?: return@hookAfter
+
                 @Suppress("UNCHECKED_CAST")
                 val rows = fieldRecyclerPendingItems.field.get(args[0]) as List<Any>
                 val conversations =
@@ -911,11 +914,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             val methods = adapterMethods(adapter)
             val items: List<Any?>? = runCatching {
                 when (methods.storage) {
-                    AdapterStorage.MVVM_LIST ->
+                    AdapterStorage.MVVM_LIST -> {
                         adapterSnapshotReader.read(adapter, rawCount) { index ->
                             methods.getItem.invoke(adapter, index)
                         }
-                    AdapterStorage.LEGACY_CURSOR ->
+                    }
+
+                    AdapterStorage.LEGACY_CURSOR -> {
                         object : AbstractList<Any?>() {
                             override val size: Int
                                 get() = rawCount
@@ -923,6 +928,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                             override fun get(index: Int): Any? =
                                 methods.getItem.invoke(adapter, index)
                         }
+                    }
                 }
             }
                 .getOrElse { error ->
@@ -1000,13 +1006,26 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         if (isAllTab(group.id)) return true
         val username = adapterItemUsername(item) ?: return false
         return when (group.type) {
-            GroupType.PRESET_UNREAD -> adapterItemUnread(item) > 0
-            GroupType.PRESET_GROUPS -> username.endsWith("@chatroom")
-            GroupType.PRESET_FRIENDS ->
+            GroupType.PRESET_UNREAD -> {
+                adapterItemUnread(item) > 0
+            }
+
+            GroupType.PRESET_GROUPS -> {
+                username.endsWith("@chatroom")
+            }
+
+            GroupType.PRESET_FRIENDS -> {
                 !username.endsWith("@chatroom") && !isOfficialConversation(username)
+            }
+
             GroupType.MANUAL,
-            GroupType.SQL -> filter.members.contains(username)
-            GroupType.PRESET_OFFICIALS -> isOfficialConversation(username)
+            GroupType.SQL -> {
+                filter.members.contains(username)
+            }
+
+            GroupType.PRESET_OFFICIALS -> {
+                isOfficialConversation(username)
+            }
         }
     }
 
@@ -1121,11 +1140,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                         onCheckedChange = { checked ->
                                             takeOverScroll = checked
                                             takeOverHorizontalScroll = checked
-                                            if (checked) ensureSwipeHooks()
-                                            else
+                                            if (checked) {
+                                                ensureSwipeHooks()
+                                            } else {
                                                 swipeSessions.values
                                                     .mapNotNull { it.get() }
                                                     .forEach { it.cancelImmediately() }
+                                            }
                                         },
                                     )
                                 }
@@ -1145,11 +1166,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                         onCheckedChange = { checked ->
                                             rememberScrollState = checked
                                             rememberScrollStateEnabled = checked
-                                            if (checked) ensureSwipeHooks()
-                                            else
+                                            if (checked) {
+                                                ensureSwipeHooks()
+                                            } else {
                                                 swipeSessions.values
                                                     .mapNotNull { it.get() }
                                                     .forEach { it.forgetScrollPositions() }
+                                            }
                                         },
                                     )
                                 }
@@ -1219,6 +1242,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             when (group.type) {
                 GroupType.MANUAL,
                 GroupType.SQL -> getGroupMembers(group).toSet()
+
                 else -> emptySet()
             }
         return GroupFilter(group, members)
@@ -1363,8 +1387,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 if (pagingRequest !== request) return@add
                 // The laid-out adapter count is final here; the session's scroll restore waits for
                 // the next layout, which applies the new filler height together with the position.
-                if (request.list != null)
+                if (request.list != null) {
                     WeConversationListViewApi.updateRecyclerEmptyFooter(request.source)
+                }
                 finishPagingRequest(request, true)
             }
         request.source.requestLayout()
@@ -1464,7 +1489,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         DexResolutionContext.metadata
                             .classInfoByName(candidate.returnTypeName)
                             ?.fields
-                            ?.any { it.typeName == conversationClassName } == true
+                            ?.any {
+                                it.typeName == conversationClassName
+                            } == true
                 }
         require(rowBuilders.size == 1) {
             "expected one conversation RecyclerView row builder, found: " +
@@ -1574,7 +1601,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     // Tab bar UI
     // ----------------------------------------------------------------------------------------------
 
-    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun ConversationTabs(
         sourceView: View,
@@ -1612,12 +1638,17 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val backdrop =
             if (capsuleStyle && isRuntimeShaderSupported()) {
                 rememberViewBackdrop(sourceView, lifecycleOwner)
-            } else null
+            } else {
+                null
+            }
         // The floating islands follow the Monet card surface when the engine is applied.
         val monetSurface = MonetEngine.surfaceColors(darkTheme)?.surface?.let(::Color)
         val glassTint =
-            if (darkTheme) (monetSurface ?: Color(0xFF1C1C1E)).copy(alpha = 0.55f)
-            else (monetSurface ?: Color.White).copy(alpha = 0.58f)
+            if (darkTheme) {
+                (monetSurface ?: Color(0xFF1C1C1E)).copy(alpha = 0.55f)
+            } else {
+                (monetSurface ?: Color.White).copy(alpha = 0.58f)
+            }
         val glassSurface =
             if (backdrop != null) {
                 Modifier.drawBackdrop(
@@ -1719,8 +1750,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     selectedGroupId = selectedGroupId,
                     capsuleStyle = capsuleStyle,
                     onMove = { from, to ->
-                        if (!savingOrder)
+                        if (!savingOrder) {
                             order = order.toMutableList().apply { add(to, removeAt(from)) }
+                        }
                     },
                 )
             } else {
@@ -1907,8 +1939,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         selectedTabIndex = selectedTabIndex,
                         containerColor = tabContainerColor,
                         edgePadding =
-                            if (capsuleStyle) 0.dp
-                            else {
+                            if (capsuleStyle) {
+                                0.dp
+                            } else {
                                 ((maxWidth -
                                         tabWidths.fold(0.dp) { total, width -> total + width }) / 2)
                                     .coerceAtLeast(12.dp)
@@ -1949,8 +1982,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                         ),
                                     )
                                 } catch (error: Exception) {
-                                    if (error is kotlinx.coroutines.CancellationException)
+                                    if (error is kotlinx.coroutines.CancellationException) {
                                         throw error
+                                    }
                                     WeLogger.e(TAG, "Failed to reorder groups", error)
                                     showToast(localizedContext.getString(R.string.logs_save_failed))
                                 } finally {
@@ -1962,11 +1996,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                             androidx.compose.material3.IconButtonDefaults
                                 .filledTonalIconButtonColors(),
                     ) {
-                        if (savingOrder)
+                        if (savingOrder) {
                             androidx.compose.material3.CircularProgressIndicator(
                                 Modifier.size(22.dp),
                             )
-                        else
+                        } else {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Check,
                                 contentDescription =
@@ -1975,6 +2009,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                     ),
                                 modifier = Modifier.size(22.dp),
                             )
+                        }
                     }
                 }
             }
@@ -2032,9 +2067,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
     private fun builtInLabelFor(type: GroupType): BuiltInGroupLabel? =
         when (type) {
             GroupType.PRESET_UNREAD -> BuiltInGroupLabel.UNREAD
+
             GroupType.PRESET_GROUPS -> BuiltInGroupLabel.GROUPS
+
             GroupType.PRESET_FRIENDS -> BuiltInGroupLabel.FRIENDS
+
             GroupType.PRESET_OFFICIALS -> BuiltInGroupLabel.OFFICIALS
+
             GroupType.MANUAL,
             GroupType.SQL -> null
         }
@@ -2094,8 +2133,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             // without rounding each tab into an extra sliver of horizontal scroll.
             contentEnd += width
             val end =
-                if (expand) (contentEnd * availablePixels / totalWidth).toInt()
-                else contentEnd.toInt()
+                if (expand) {
+                    (contentEnd * availablePixels / totalWidth).toInt()
+                } else {
+                    contentEnd.toInt()
+                }
             val assignedWidth = end - previousEnd
             previousEnd = end
             with(density) { assignedWidth.toDp() }
@@ -2106,7 +2148,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
      * Long-press a tab to drag it into a new position. The working order is persisted only when the
      * check button is tapped.
      */
-    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun SortableTabsRow(
         enabled: Boolean,
@@ -2181,7 +2222,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                 draggingIndex = -1
                                 // Spring the residual offset back to the slot so the tab glides
                                 // home.
-                                if (landed >= 0)
+                                if (landed >= 0) {
                                     scope.launch {
                                         settleIndex = landed
                                         settleAnim.snapTo(from)
@@ -2194,6 +2235,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                         )
                                         settleIndex = -1
                                     }
+                                }
                             },
                             onDragCancel = { draggingIndex = -1 },
                             onDrag = { change, amount ->
@@ -2288,11 +2330,13 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     val center = cur.offset + offsetForIndex(draggingIndex) + cur.size / 2f
                     val edge = 64
                     when {
-                        center < info.viewportStartOffset + edge && listState.canScrollBackward ->
+                        center < info.viewportStartOffset + edge && listState.canScrollBackward -> {
                             scope.launch { listState.scrollBy(-12f) }
+                        }
 
-                        center > info.viewportEndOffset - edge && listState.canScrollForward ->
+                        center > info.viewportEndOffset - edge && listState.canScrollForward -> {
                             scope.launch { listState.scrollBy(12f) }
+                        }
                     }
                 }
         }
@@ -2392,7 +2436,6 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         )
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun GroupTab(
         label: String,
@@ -2457,8 +2500,11 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                         }
                     if (pillMask == null) {
                         labelText(
-                            if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             Modifier,
                         )
                     } else {
@@ -2532,20 +2578,40 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         return groups.associate { group ->
             val members =
                 when {
-                    isAllTab(group.id) -> unreadByUsername.keys
-                    group.type == GroupType.MANUAL -> group.members.toSet()
-                    group.type == GroupType.SQL -> resolveGroupMembers(group).toSet()
-                    else ->
+                    isAllTab(group.id) -> {
+                        unreadByUsername.keys
+                    }
+
+                    group.type == GroupType.MANUAL -> {
+                        group.members.toSet()
+                    }
+
+                    group.type == GroupType.SQL -> {
+                        resolveGroupMembers(group).toSet()
+                    }
+
+                    else -> {
                         unreadByUsername.keys.filter { username ->
                             when (group.type) {
-                                GroupType.PRESET_UNREAD -> true
-                                GroupType.PRESET_GROUPS -> username.endsWith("@chatroom")
-                                GroupType.PRESET_FRIENDS ->
+                                GroupType.PRESET_UNREAD -> {
+                                    true
+                                }
+
+                                GroupType.PRESET_GROUPS -> {
+                                    username.endsWith("@chatroom")
+                                }
+
+                                GroupType.PRESET_FRIENDS -> {
                                     !username.endsWith("@chatroom") &&
                                         !isOfficialConversation(username)
-                                GroupType.PRESET_OFFICIALS -> isOfficialConversation(username)
+                                }
+
+                                GroupType.PRESET_OFFICIALS -> {
+                                    isOfficialConversation(username)
+                                }
                             }
                         }
+                    }
                 }
             var normalCount = 0L
             var hasMutedUnread = false
@@ -2623,11 +2689,12 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     Column {
                         Text(stringResource(R.string.conversation_group_delete_message, groupName))
                         if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (failed)
+                        if (failed) {
                             Text(
                                 stringResource(R.string.logs_save_failed),
                                 color = MaterialTheme.colorScheme.error,
                             )
+                        }
                     }
                 },
                 dismissButton = {
@@ -2645,8 +2712,9 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                                     onConfirm()
                                     onDismiss()
                                 } catch (error: Exception) {
-                                    if (error is kotlinx.coroutines.CancellationException)
+                                    if (error is kotlinx.coroutines.CancellationException) {
                                         throw error
+                                    }
                                     WeLogger.e(TAG, "Failed to delete group", error)
                                     failed = true
                                 } finally {
@@ -2675,6 +2743,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         val scope = rememberCoroutineScope()
         var saving by remember { mutableStateOf(false) }
         var failed by remember { mutableStateOf(false) }
+
         fun submit(value: ChatGroup) {
             saving = true
             onSavingChanged(true)
@@ -2702,11 +2771,12 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                     Column {
                         Text(stringResource(titleRes))
                         if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (failed)
+                        if (failed) {
                             Text(
                                 stringResource(R.string.logs_save_failed),
                                 color = MaterialTheme.colorScheme.error,
                             )
+                        }
                     }
                 },
                 text = {
@@ -2769,11 +2839,12 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 Column {
                     Text(stringResource(titleRes))
                     if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (failed)
+                    if (failed) {
                         Text(
                             stringResource(R.string.logs_save_failed),
                             color = MaterialTheme.colorScheme.error,
                         )
+                    }
                 }
             },
             text = {
@@ -2806,20 +2877,31 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                             Text(
                                 text =
                                     when (type) {
-                                        GroupType.MANUAL ->
+                                        GroupType.MANUAL -> {
                                             stringResource(R.string.conversation_group_mode_manual)
-                                        GroupType.PRESET_UNREAD ->
+                                        }
+
+                                        GroupType.PRESET_UNREAD -> {
                                             stringResource(R.string.conversation_group_mode_unread)
-                                        GroupType.PRESET_GROUPS ->
+                                        }
+
+                                        GroupType.PRESET_GROUPS -> {
                                             stringResource(R.string.conversation_group_mode_groups)
-                                        GroupType.PRESET_FRIENDS ->
+                                        }
+
+                                        GroupType.PRESET_FRIENDS -> {
                                             stringResource(R.string.conversation_group_mode_friends)
-                                        GroupType.PRESET_OFFICIALS ->
+                                        }
+
+                                        GroupType.PRESET_OFFICIALS -> {
                                             stringResource(
                                                 R.string.conversation_group_mode_officials,
                                             )
-                                        GroupType.SQL ->
+                                        }
+
+                                        GroupType.SQL -> {
                                             stringResource(R.string.conversation_group_mode_sql)
+                                        }
                                     },
                                 style = MaterialTheme.typography.bodyLarge,
                             )
@@ -3046,7 +3128,10 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private fun resolveGroupMembers(group: ChatGroup): List<String> {
         return when (group.type) {
-            GroupType.MANUAL -> group.members
+            GroupType.MANUAL -> {
+                group.members
+            }
+
             GroupType.PRESET_UNREAD -> {
                 runCatching {
                     val result =
@@ -3191,9 +3276,8 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun groupById(groupId: String): ChatGroup? {
-        return loadGroups().firstOrNull { it.id == groupId }
-    }
+    private fun groupById(groupId: String): ChatGroup? =
+        loadGroups().firstOrNull { it.id == groupId }
 
     private fun newGroupId(): String = "$GROUP_PREFIX${System.currentTimeMillis()}"
 

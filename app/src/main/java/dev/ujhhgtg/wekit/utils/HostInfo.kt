@@ -21,7 +21,6 @@ data class HostInfoImpl(
 )
 
 object HostInfo {
-
     private lateinit var _info: HostInfoImpl
 
     val info: HostInfoImpl

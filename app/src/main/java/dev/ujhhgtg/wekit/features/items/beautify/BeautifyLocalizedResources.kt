@@ -19,10 +19,8 @@ fun Context.localizedBeautifyString(@StringRes id: Int, vararg formatArgs: Any):
         .getString(id, *formatArgs)
 
 sealed interface BeautifyText {
-    data class Resource(
-        @param:StringRes val id: Int,
-        val args: List<Any> = emptyList(),
-    ) : BeautifyText
+    data class Resource(@param:StringRes val id: Int, val args: List<Any> = emptyList()) :
+        BeautifyText
 
     data class Raw(val value: String) : BeautifyText
 }

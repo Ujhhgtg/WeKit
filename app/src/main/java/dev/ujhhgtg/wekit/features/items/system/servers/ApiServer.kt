@@ -84,7 +84,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 object ApiServer : ClickableFeature() {
-
     override val technicalId = "API + MCP 服务器"
     override val nameRes = R.string.feature_api_server_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -297,9 +296,13 @@ object ApiServer : ClickableFeature() {
         transform: (T) -> CallToolResult,
     ): CallToolResult =
         when (this) {
-            is WeChatService.Result.Success -> transform(data)
-            is WeChatService.Result.Error ->
+            is WeChatService.Result.Success -> {
+                transform(data)
+            }
+
+            is WeChatService.Result.Error -> {
                 CallToolResult(listOf(TextContent(message)), isError = true)
+            }
         }
 
     /**
@@ -312,9 +315,13 @@ object ApiServer : ClickableFeature() {
         onSuccess: suspend ApplicationCall.(T) -> Unit,
     ) =
         when (result) {
-            is WeChatService.Result.Success -> onSuccess(result.data)
-            is WeChatService.Result.Error ->
+            is WeChatService.Result.Success -> {
+                onSuccess(result.data)
+            }
+
+            is WeChatService.Result.Error -> {
                 respond(HttpStatusCode.BadRequest, ErrorResponse(result.message))
+            }
         }
 
     // Convenience helpers kept for MCP tool brevity
@@ -409,9 +416,11 @@ object ApiServer : ClickableFeature() {
             WeChatService.listContacts(type).toCallToolResult { contacts ->
                 textsRes(
                     contacts.map { c ->
-                        if (type == "friends")
+                        if (type == "friends") {
                             "WxId='${c.wxId}',Nickname='${c.nickname}',CustomWxId='${c.customWxId}',RemarkName='${c.remarkName}'"
-                        else "WxId='${c.wxId}',Nickname='${c.nickname}'"
+                        } else {
+                            "WxId='${c.wxId}',Nickname='${c.nickname}'"
+                        }
                     },
                 )
             }
@@ -923,7 +932,9 @@ object ApiServer : ClickableFeature() {
             val y = args["y"]?.jsonPrimitive?.content ?: "0"
             val scale = args["scale"]?.jsonPrimitive?.content ?: "0"
             WeChatService.sendLocationMessage(convId, poiName, label, x, y, scale)
-                .toCallToolResult { textRes("Sent successfully") }
+                .toCallToolResult {
+                    textRes("Sent successfully")
+                }
         }
 
         addTool(
@@ -1726,7 +1737,9 @@ object ApiServer : ClickableFeature() {
                 args["payer-username"]?.jsonPrimitive?.content
                     ?: return@addTool textRes("Invalid payer-username", true)
             WeChatService.refuseTransfer(transactionId, transferId, payerUsername)
-                .toCallToolResult { textRes("Transfer refused successfully") }
+                .toCallToolResult {
+                    textRes("Transfer refused successfully")
+                }
         }
 
         addTool(
@@ -2000,7 +2013,6 @@ object ApiServer : ClickableFeature() {
 
     private fun Route.restRoutes() {
         route("/api") {
-
             // GET /api/self/info
             get("self/info") {
                 call.respondResult(WeChatService.getSelfInfo()) { respond(HttpStatusCode.OK, it) }
@@ -2137,9 +2149,11 @@ object ApiServer : ClickableFeature() {
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FormItem -> {
-                                if (part.name == "convId") convId = part.value
-                                else if (part.name == "durationMs")
+                                if (part.name == "convId") {
+                                    convId = part.value
+                                } else if (part.name == "durationMs") {
                                     durationMs = part.value.toIntOrNull() ?: 0
+                                }
                             }
 
                             is PartData.FileItem -> {
@@ -2235,8 +2249,11 @@ object ApiServer : ClickableFeature() {
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FormItem -> {
-                                if (part.name == "convId") convId = part.value
-                                else if (part.name == "title") title = part.value
+                                if (part.name == "convId") {
+                                    convId = part.value
+                                } else if (part.name == "title") {
+                                    title = part.value
+                                }
                             }
 
                             is PartData.FileItem -> {

@@ -72,7 +72,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 object FabricateChatHistoryMessage : ClickableFeature() {
-
     override val technicalId = "伪造聊天记录消息"
     override val nameRes = R.string.feature_fabricate_chat_history_message_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -93,10 +92,7 @@ object FabricateChatHistoryMessage : ClickableFeature() {
 }
 
 @Composable
-private fun ChatRecordXmlGeneratorDialog(
-    contacts: List<WeContact>,
-    onDismiss: () -> Unit,
-) {
+private fun ChatRecordXmlGeneratorDialog(contacts: List<WeContact>, onDismiss: () -> Unit) {
     val defaultTitle = stringResource(R.string.chat_fabricate_record_default_title)
     val defaultDescription = stringResource(R.string.chat_fabricate_record_default_description)
     var outerTitle by remember { mutableStateOf(defaultTitle) }
@@ -628,8 +624,8 @@ private fun generateFakeMsgId(index: Int): Long {
     return abs(a + b + index)
 }
 
-private fun xmlEscape(text: String): String {
-    return buildString(text.length) {
+private fun xmlEscape(text: String): String =
+    buildString(text.length) {
         text.forEach { ch ->
             when (ch) {
                 '&' -> append("&amp;")
@@ -641,8 +637,6 @@ private fun xmlEscape(text: String): String {
             }
         }
     }
-}
 
-private fun xmlEscapeNewLines(text: String): String {
-    return xmlEscape(text).replace("\n", "&#x0A;").replace(" ", "&#x20;")
-}
+private fun xmlEscapeNewLines(text: String): String =
+    xmlEscape(text).replace("\n", "&#x0A;").replace(" ", "&#x20;")

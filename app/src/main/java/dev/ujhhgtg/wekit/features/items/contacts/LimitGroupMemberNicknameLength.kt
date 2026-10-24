@@ -30,7 +30,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 
 object LimitGroupMemberNicknameLength :
     ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "限制群成员昵称长度"
     override val nameRes = R.string.feature_limit_group_member_nickname_length_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

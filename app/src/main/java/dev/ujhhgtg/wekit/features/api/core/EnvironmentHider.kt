@@ -109,9 +109,11 @@ object EnvironmentHider : ApiFeature() {
                     WeLogger.i(TAG, "ClientCheckConsistency installed APK: $installedApk")
                     val cache = File(moduleRoot, "cache/client-check-consistency")
                     (EmbeddedOriginApk.findAndExtract(installedApk, cache)
-                            ?: if (installedApk != hostApk)
+                            ?: if (installedApk != hostApk) {
                                 EmbeddedOriginApk.findAndExtract(hostApk, cache)
-                            else null)
+                            } else {
+                                null
+                            })
                         ?.file
                         ?.path
                 }
@@ -151,6 +153,7 @@ object EnvironmentHider : ApiFeature() {
         val path =
             field.get() as? String?
                 ?: return false // No original path when signature bypass is disabled
+
         fun enabled(state: String): Boolean {
             val flag =
                 reflected.firstFieldOrNull {
@@ -165,8 +168,9 @@ object EnvironmentHider : ApiFeature() {
         if (
             !enabled("javaIoHooked") ||
                 !(enabled("nativeOpenatEnabled") || enabled("seccompRedirectEnabled"))
-        )
+        ) {
             return false
+        }
         WeLogger.i(TAG, "NPatch APK redirect is active: $path")
         return true
     }
@@ -185,8 +189,9 @@ object EnvironmentHider : ApiFeature() {
                         parameters(Int::class)
                         returnType = ByteArray::class.java
                     } == null
-                )
+                ) {
                     return@mapNotNull null
+                }
                 reflected.firstMethodOrNull {
                     name = method
                     modifiers = Modifier.STATIC
@@ -225,8 +230,9 @@ object EnvironmentHider : ApiFeature() {
                 if (
                     args[0] != "MicroMsg.SysCmdMsgExtension" ||
                         args[1] != "recieve a syscmd_newxml %s subType %s"
-                )
+                ) {
                     return@hookBefore
+                }
                 val values = args[2] as Array<*>
                 if (values[1] != "ClientCheckConsistency") return@hookBefore
                 val xml = values[0] as String
@@ -234,8 +240,9 @@ object EnvironmentHider : ApiFeature() {
                 try {
                     val directory =
                         KnownPaths.moduleRoot.resolve("logs/client-check-consistency").toFile()
-                    if (!directory.isDirectory && !directory.mkdirs())
+                    if (!directory.isDirectory && !directory.mkdirs()) {
                         throw IOException("cannot create $directory")
+                    }
                     val dump =
                         File.createTempFile("${System.currentTimeMillis()}-", ".xml", directory)
                     dump.writeText(xml)
@@ -263,8 +270,11 @@ object EnvironmentHider : ApiFeature() {
                     sites
                         ?: findConsistencyReadSites(loader, stack)?.also { sites = it }
                         ?: return@hookBefore
-                if (stack.none { it.className == reader.owner && it.methodName in reader.methods })
+                if (
+                    stack.none { it.className == reader.owner && it.methodName in reader.methods }
+                ) {
                     return@hookBefore
+                }
                 // Keep the host's hash/length helpers, target string and final signature
                 // construction intact.
                 args[0] = originApk
@@ -303,8 +313,9 @@ object EnvironmentHider : ApiFeature() {
                         returnType = String::class.java
                     }
                     .size != 1
-            )
+            ) {
                 continue
+            }
             val methods = setOf(hash.name, length.name)
             if (frame.methodName in methods) return ConsistencyReadSites(type.name, methods)
         }
@@ -415,8 +426,11 @@ object EnvironmentHider : ApiFeature() {
             } ?: return
         runCatching { hide.invoke() as Boolean }
             .onSuccess { hidden ->
-                if (hidden) WeLogger.i(TAG, "hid loaded module libraries")
-                else WeLogger.w(TAG, "module native-library hiding was incomplete")
+                if (hidden) {
+                    WeLogger.i(TAG, "hid loaded module libraries")
+                } else {
+                    WeLogger.w(TAG, "module native-library hiding was incomplete")
+                }
             }
             .onFailure { WeLogger.e(TAG, "failed to hide module libraries", it) }
     }
@@ -431,8 +445,9 @@ object EnvironmentHider : ApiFeature() {
                 }
                 .forEach { method ->
                     method.hookBefore {
-                        if (args[1] == "adb_enabled" || args[1] == "development_settings_enabled")
+                        if (args[1] == "adb_enabled" || args[1] == "development_settings_enabled") {
                             result = 0
+                        }
                     }
                 }
         }
@@ -455,8 +470,9 @@ object EnvironmentHider : ApiFeature() {
                             is VersionedPackage -> value.packageName
                             else -> value as String?
                         }
-                    if (pkg == PackageNames.MODULE)
+                    if (pkg == PackageNames.MODULE) {
                         throwable = PackageManager.NameNotFoundException(pkg)
+                    }
                 }
             }
         manager

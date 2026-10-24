@@ -45,7 +45,6 @@ data class TextStatusEmoji(
 )
 
 object WeTextStatusApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "微信状态服务"
     override val nameRes = R.string.feature_we_text_status_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -298,11 +297,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         return TextStatusResult.Ready(status.copy(attachedEmoji = enrichedEmoji))
     }
 
-    private data class CurrentStatus(
-        val hostObject: Any,
-        val record: Any,
-        val statusId: String,
-    )
+    private data class CurrentStatus(val hostObject: Any, val record: Any, val statusId: String)
 }
 
 private fun DexMethodInfo.usesFieldThroughDirectInvoke(fieldName: String): Boolean =

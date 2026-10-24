@@ -89,7 +89,6 @@ import kotlinx.coroutines.yield
  * fullKey = b() + '_' + h() (via [ly4.e.l])
  */
 object FeatureFlagManager : ClickableFeature(), IResolveDex {
-
     override val technicalId = "灰度测试管理器"
     override val nameRes = R.string.feature_feature_flag_manager_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -138,39 +137,37 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         val configKey: String = "",
     )
 
-    private fun resolveFlagDetails(className: String): FlagDetails {
-        return runCatching {
-            var internalName = ""
-            var description = ""
-            var typeName = ""
-            var configKey = ""
+    private fun resolveFlagDetails(className: String): FlagDetails = runCatching {
+        var internalName = ""
+        var description = ""
+        var typeName = ""
+        var configKey = ""
 
-            val flagInstance = className.toClass().createInstance()
-            val methods = flagInstance.reflekt().methods { returnType = String::class }
+        val flagInstance = className.toClass().createInstance()
+        val methods = flagInstance.reflekt().methods { returnType = String::class }
 
-            if (methods.isNotEmpty()) internalName = methods[0].invoke() as? String ?: ""
-            if (methods.size > 1) description = methods[1].invoke() as? String ?: ""
-            if (methods.size > 2) typeName = methods[2].invoke() as? String ?: ""
+        if (methods.isNotEmpty()) internalName = methods[0].invoke() as? String ?: ""
+        if (methods.size > 1) description = methods[1].invoke() as? String ?: ""
+        if (methods.size > 2) typeName = methods[2].invoke() as? String ?: ""
 
-            for (method in methods) {
-                val str = method.invoke() as? String ?: continue
-                if (str.startsWith("clicfg")) {
-                    configKey = str
-                }
+        for (method in methods) {
+            val str = method.invoke() as? String ?: continue
+            if (str.startsWith("clicfg")) {
+                configKey = str
             }
-
-            FlagDetails(
-                internalName = internalName,
-                description = description,
-                typeName = typeName,
-                configKey = configKey,
-            )
         }
-            .getOrElse { e ->
-                WeLogger.e(TAG, "failed to instantiate or inspect $className", e)
-                FlagDetails()
-            }
+
+        FlagDetails(
+            internalName = internalName,
+            description = description,
+            typeName = typeName,
+            configKey = configKey,
+        )
     }
+        .getOrElse { e ->
+            WeLogger.e(TAG, "failed to instantiate or inspect $className", e)
+            FlagDetails()
+        }
 
     // ---------------------------------------------------------------------------
     // Hook
@@ -433,11 +430,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     }
 
     @Composable
-    private fun SearchBar(
-        query: String,
-        onQueryChange: (String) -> Unit,
-        onClear: () -> Unit,
-    ) {
+    private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClear: () -> Unit) {
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -539,8 +532,10 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
 
         val runtimeKey =
             if (effectiveName.isNotEmpty()) {
-                "${effectiveName}_${effectiveTypeName}"
-            } else null
+                "${effectiveName}_$effectiveTypeName"
+            } else {
+                null
+            }
 
         AlertDialogContent(
             title = {
@@ -733,7 +728,10 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         val validated =
                             when (type) {
                                 "s",
-                                "string" -> FeatureFlagOverrideEntity(runtimeKey, "s", rawValueStr)
+                                "string" -> {
+                                    FeatureFlagOverrideEntity(runtimeKey, "s", rawValueStr)
+                                }
+
                                 "i",
                                 "int" -> {
                                     val v = rawValueStr.toIntOrNull()

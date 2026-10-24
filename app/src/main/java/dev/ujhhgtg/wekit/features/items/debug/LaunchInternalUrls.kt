@@ -20,7 +20,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.unsafe.TheUnsafe
 
 object LaunchInternalUrls : ClickableFeature(), IResolveDex {
-
     override val technicalId = "启动微信内部 URL"
     override val nameRes = R.string.feature_launch_internal_urls_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

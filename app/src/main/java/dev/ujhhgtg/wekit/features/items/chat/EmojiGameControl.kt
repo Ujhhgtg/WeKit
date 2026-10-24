@@ -62,7 +62,6 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 object EmojiGameControl : ClickableFeature(), IResolveDex {
-
     override val technicalId = "表情游戏控制"
     override val nameRes = R.string.feature_emoji_game_control_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -190,15 +189,23 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 4 // backward → 5
             } else {
                 when {
-                    roll < -25f -> 2 // left → 1
-                    roll <= 25f -> 1 // center → 2
+                    roll < -25f -> 2
+
+                    // left → 1
+                    roll <= 25f -> 1
+
+                    // center → 2
                     else -> 0 // right → 3
                 }
             }
         } else {
             when {
-                roll < -25f -> 2 // left → STONE
-                roll <= 25f -> 0 // center → SCISSORS
+                roll < -25f -> 2
+
+                // left → STONE
+                roll <= 25f -> 0
+
+                // center → SCISSORS
                 else -> 1 // right → PAPER
             }
         }
@@ -266,13 +273,19 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 if (isDice) valDice = value else valMorra = value
 
                 val name =
-                    if (isDice) DiceFace.entries[value].chineseName
-                    else activity.localizedChatString(MorraType.entries[value].nameRes)
+                    if (isDice) {
+                        DiceFace.entries[value].chineseName
+                    } else {
+                        activity.localizedChatString(MorraType.entries[value].nameRes)
+                    }
                 showToast(
                     activity,
                     activity.localizedChatString(
-                        if (isDice) R.string.chat_emoji_game_dice_result
-                        else R.string.chat_emoji_game_morra_result,
+                        if (isDice) {
+                            R.string.chat_emoji_game_dice_result
+                        } else {
+                            R.string.chat_emoji_game_morra_result
+                        },
                         name,
                     ),
                 )
@@ -349,8 +362,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 onRandom = { isSingle ->
                     try {
                         if (isSingle) {
-                            if (isDice) valDice = Random.nextInt(0, 6)
-                            else valMorra = Random.nextInt(0, 3)
+                            if (isDice) {
+                                valDice = Random.nextInt(0, 6)
+                            } else {
+                                valMorra = Random.nextInt(0, 3)
+                            }
                             originalMethod()
                         } else {
                             val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
@@ -384,8 +400,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         var selectedIndex by remember { mutableIntStateOf(0) }
 
         val options =
-            if (isDice) DiceFace.entries.map { it.chineseName }
-            else MorraType.entries.map { stringResource(it.nameRes) }
+            if (isDice) {
+                DiceFace.entries.map { it.chineseName }
+            } else {
+                MorraType.entries.map { stringResource(it.nameRes) }
+            }
 
         // keep valMorra / valDice in sync
         LaunchedEffect(selectedIndex, isSingleMode) {
@@ -398,8 +417,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
             title = {
                 Text(
                     stringResource(
-                        if (isDice) R.string.chat_emoji_game_select_dice
-                        else R.string.chat_emoji_game_select_morra,
+                        if (isDice) {
+                            R.string.chat_emoji_game_select_dice
+                        } else {
+                            R.string.chat_emoji_game_select_morra
+                        },
                     ),
                 )
             },
@@ -463,8 +485,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                             placeholder = {
                                 Text(
                                     stringResource(
-                                        if (isDice) R.string.chat_emoji_game_dice_input
-                                        else R.string.chat_emoji_game_morra_input,
+                                        if (isDice) {
+                                            R.string.chat_emoji_game_dice_input
+                                        } else {
+                                            R.string.chat_emoji_game_morra_input
+                                        },
                                     ),
                                 )
                             },

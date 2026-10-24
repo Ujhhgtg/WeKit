@@ -13,7 +13,6 @@ import dev.ujhhgtg.wekit.utils.serialization.JsonToXmlConverter
 import org.json.JSONObject
 
 object TrollBan : ClickableFeature() {
-
     override val technicalId = "防止封号"
     override val nameRes = R.string.feature_troll_ban_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)

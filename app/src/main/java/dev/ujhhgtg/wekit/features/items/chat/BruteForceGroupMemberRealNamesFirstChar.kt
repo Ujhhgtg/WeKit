@@ -51,7 +51,6 @@ import kotlinx.coroutines.withContext
 
 object BruteForceGroupMemberRealNamesFirstChar :
     SwitchFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
-
     override val technicalId = "爆破群成员实名首字"
     override val nameRes = R.string.feature_brute_force_group_member_real_names_first_char_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.CONTACT_DETAILS)
@@ -307,10 +306,7 @@ object BruteForceGroupMemberRealNamesFirstChar :
     }
 
     @Composable
-    private fun ShowComposeDialogScope.ExploitDialog(
-        memberId: String,
-        groupId: String?,
-    ) {
+    private fun ShowComposeDialogScope.ExploitDialog(memberId: String, groupId: String?) {
         var phase by remember { mutableStateOf<Phase>(Phase.Idle) }
         var amountInput by remember { mutableStateOf("100000") }
         var restarting by remember { mutableStateOf(false) }
@@ -321,8 +317,11 @@ object BruteForceGroupMemberRealNamesFirstChar :
         val resumeIndex = remember { savedProgress[memberId] }
         val remaining =
             remember(resumeIndex) {
-                if (resumeIndex != null) COMMON_SURNAMES.size - resumeIndex
-                else COMMON_SURNAMES.size
+                if (resumeIndex != null) {
+                    COMMON_SURNAMES.size - resumeIndex
+                } else {
+                    COMMON_SURNAMES.size
+                }
             }
 
         LaunchedEffect(phase) {
@@ -415,9 +414,9 @@ object BruteForceGroupMemberRealNamesFirstChar :
                             )
                         }
 
-                        is Phase.Done ->
+                        is Phase.Done -> {
                             when (val r = current.result) {
-                                is RunResult.Found ->
+                                is RunResult.Found -> {
                                     Text(
                                         stringResource(
                                             R.string.chat_real_name_bruteforce_found,
@@ -425,13 +424,15 @@ object BruteForceGroupMemberRealNamesFirstChar :
                                             r.displayName,
                                         ),
                                     )
+                                }
 
-                                RunResult.NoCheckNeeded ->
+                                RunResult.NoCheckNeeded -> {
                                     Text(
                                         stringResource(R.string.chat_real_name_bruteforce_no_check),
                                     )
+                                }
 
-                                is RunResult.Failed ->
+                                is RunResult.Failed -> {
                                     Text(
                                         stringResource(
                                             R.string.chat_real_name_bruteforce_failed,
@@ -441,8 +442,9 @@ object BruteForceGroupMemberRealNamesFirstChar :
                                             ),
                                         ),
                                     )
+                                }
 
-                                is RunResult.Aborted ->
+                                is RunResult.Aborted -> {
                                     Text(
                                         pluralStringResource(
                                             R.plurals.chat_real_name_bruteforce_aborted,
@@ -450,8 +452,9 @@ object BruteForceGroupMemberRealNamesFirstChar :
                                             r.tried,
                                         ),
                                     )
+                                }
 
-                                is RunResult.Paused ->
+                                is RunResult.Paused -> {
                                     Text(
                                         pluralStringResource(
                                             R.plurals.chat_real_name_bruteforce_paused,
@@ -460,7 +463,9 @@ object BruteForceGroupMemberRealNamesFirstChar :
                                             COMMON_SURNAMES[r.resumeIndex],
                                         ),
                                     )
+                                }
                             }
+                        }
                     }
                 }
             },
@@ -506,8 +511,10 @@ object BruteForceGroupMemberRealNamesFirstChar :
                         }
                     }
 
-                    is Phase.Done ->
+                    is Phase.Done -> {
                         TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                    }
+
                     else -> {}
                 }
             },
@@ -555,10 +562,12 @@ object BruteForceGroupMemberRealNamesFirstChar :
                         }
                     }
 
-                    is Phase.Running ->
+                    is Phase.Running -> {
                         TextButton(onClick = { current.state.cancelled = true }) {
                             Text(stringResource(R.string.chat_real_name_bruteforce_abort))
                         }
+                    }
+
                     is Phase.Done -> {}
                 }
             },

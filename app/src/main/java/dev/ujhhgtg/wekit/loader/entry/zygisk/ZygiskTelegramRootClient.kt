@@ -14,7 +14,6 @@ import kotlin.io.path.isRegularFile
  * process.
  */
 object ZygiskTelegramRootClient {
-
     fun isAvailable(): Boolean = StartupInfo.telegramRootAccess?.hasTelegramRootCompanion() == true
 
     fun discoverInstances(): Result<List<String>> = runCatching {

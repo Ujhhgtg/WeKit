@@ -62,7 +62,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 // Entry implementation in ChatFooterHooks.
 object StickerPanel : SwitchFeature() {
-
     override val technicalId = "表情面板"
     override val nameRes = R.string.feature_sticker_panel_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -76,9 +75,11 @@ object StickerPanel : SwitchFeature() {
                     reloadLocal = ::loadLocalPacks,
                     importSticker = { packId, mode, onStarted, onComplete ->
                         when (mode) {
-                            StickerImportMode.WECHAT_CUSTOM -> Unit
+                            StickerImportMode.WECHAT_CUSTOM -> {
+                                Unit
+                            }
 
-                            StickerImportMode.MULTIPLE_FILES ->
+                            StickerImportMode.MULTIPLE_FILES -> {
                                 pickPanelFiles(
                                     anchor.context,
                                     STICKER_MIME_TYPES,
@@ -97,8 +98,9 @@ object StickerPanel : SwitchFeature() {
                                         }
                                     }
                                 }
+                            }
 
-                            StickerImportMode.DIRECTORY ->
+                            StickerImportMode.DIRECTORY -> {
                                 pickPanelDirectory(anchor.context) { treeUri, activity ->
                                     onStarted()
                                     CoroutineScope(Dispatchers.IO).launch {
@@ -119,9 +121,12 @@ object StickerPanel : SwitchFeature() {
                                         }
                                     }
                                 }
+                            }
 
                             StickerImportMode.TELEGRAM_SINGLE,
-                            StickerImportMode.TELEGRAM_BATCH -> Unit
+                            StickerImportMode.TELEGRAM_BATCH -> {
+                                Unit
+                            }
                         }
                     },
                     importWeChatCustomStickers = ::importWeChatCustomStickers,
@@ -199,8 +204,11 @@ object StickerPanel : SwitchFeature() {
                         check(WeMessageApi.sendSticker(WeCurrentConversationApi.value, path)) {
                             localizedChatString(R.string.chat_sticker_send_failed)
                         }
-                        if (temporary) StickerPanelRepository.recordOnlineRecent(item)
-                        else StickerPanelRepository.recordRecent(path)
+                        if (temporary) {
+                            StickerPanelRepository.recordOnlineRecent(item)
+                        } else {
+                            StickerPanelRepository.recordRecent(path)
+                        }
                     } finally {
                         if (temporary) path.asPath.deleteIfExists()
                     }
@@ -266,8 +274,9 @@ object StickerPanel : SwitchFeature() {
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
             cancellableResult {
-                if (!overwrite && StickerPanelRepository.hasOnlineSticker(packId, item))
+                if (!overwrite && StickerPanelRepository.hasOnlineSticker(packId, item)) {
                     return@cancellableResult
+                }
                 val path = resolveStickerPath(item).getOrThrow()
                 val temporary = item.localPath == null
                 try {
@@ -336,7 +345,10 @@ object StickerPanel : SwitchFeature() {
                         ),
                     )
                     when {
-                        localPack.onlineSourcePackId != null -> alreadyLinked++
+                        localPack.onlineSourcePackId != null -> {
+                            alreadyLinked++
+                        }
+
                         else -> {
                             val onlinePackId =
                                 onlinePacks
@@ -399,12 +411,17 @@ object StickerPanel : SwitchFeature() {
                         registerForActivityResult(PickRootTelegramStickerSetsContract()) { result ->
                             onComplete(
                                 when (result) {
-                                    is RootTelegramStickerSetsResult.Success ->
+                                    is RootTelegramStickerSetsResult.Success -> {
                                         Result.success(result.stickerSets)
-                                    is RootTelegramStickerSetsResult.Failure ->
-                                        Result.failure(IllegalStateException(result.message))
+                                    }
 
-                                    RootTelegramStickerSetsResult.Cancelled -> null
+                                    is RootTelegramStickerSetsResult.Failure -> {
+                                        Result.failure(IllegalStateException(result.message))
+                                    }
+
+                                    RootTelegramStickerSetsResult.Cancelled -> {
+                                        null
+                                    }
                                 },
                             )
                             finish()
@@ -638,9 +655,18 @@ object StickerPanel : SwitchFeature() {
                         arrayOf(callbackType),
                     ) { proxy, callbackMethod, args ->
                         when (callbackMethod.name) {
-                            "hashCode" -> System.identityHashCode(proxy)
-                            "equals" -> proxy === args?.getOrNull(0)
-                            "toString" -> "WeKitEmojiLoadCallback"
+                            "hashCode" -> {
+                                System.identityHashCode(proxy)
+                            }
+
+                            "equals" -> {
+                                proxy === args?.getOrNull(0)
+                            }
+
+                            "toString" -> {
+                                "WeKitEmojiLoadCallback"
+                            }
+
                             else -> {
                                 if (
                                     callbackMethod.parameterCount == 1 &&

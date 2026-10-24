@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object BatchDeleteChatHistory : ClickableFeature() {
-
     override val technicalId = "批量删除聊天记录"
     override val nameRes = R.string.feature_batch_delete_chat_history_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)

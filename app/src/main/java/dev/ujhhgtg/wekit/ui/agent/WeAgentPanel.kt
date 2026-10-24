@@ -15,7 +15,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -106,10 +105,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  * Activity (Phase 8), not here.
  */
 @Composable
-fun WeAgentPanel(
-    onDismiss: () -> Unit,
-    onBackHandlerChanged: ((() -> Unit)?) -> Unit,
-) {
+fun WeAgentPanel(onDismiss: () -> Unit, onBackHandlerChanged: ((() -> Unit)?) -> Unit) {
     // The session sidebar is collapsed by default; the header icon toggles it.
     var sidebarOpen by remember { mutableStateOf(false) }
 
@@ -241,8 +237,11 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                     val selected = s.id == current
                     Surface(
                         color =
-                            if (selected) MaterialTheme.colorScheme.secondaryContainer
-                            else Color.Transparent,
+                            if (selected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                Color.Transparent
+                            },
                         shape = RoundedCornerShape(10.dp),
                         modifier =
                             Modifier.fillMaxWidth().clickable {
@@ -270,16 +269,25 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                                 modifier = Modifier.width(28.dp),
                             ) {
                                 Icon(
-                                    if (s.favorite) MaterialSymbols.OutlinedFilled.Star
-                                    else MaterialSymbols.Outlined.Star,
+                                    if (s.favorite) {
+                                        MaterialSymbols.OutlinedFilled.Star
+                                    } else {
+                                        MaterialSymbols.Outlined.Star
+                                    },
                                     contentDescription =
                                         stringResource(
-                                            if (s.favorite) R.string.agent_panel_unfavorite
-                                            else R.string.agent_panel_favorite,
+                                            if (s.favorite) {
+                                                R.string.agent_panel_unfavorite
+                                            } else {
+                                                R.string.agent_panel_favorite
+                                            },
                                         ),
                                     tint =
-                                        if (s.favorite) MaterialTheme.colorScheme.primary
-                                        else LocalContentColor.current,
+                                        if (s.favorite) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            LocalContentColor.current
+                                        },
                                     modifier = Modifier.width(16.dp),
                                 )
                             }
@@ -382,8 +390,11 @@ private fun UsageStrip() {
     // Prompt tokens are the context occupancy; fall back to total when prompt isn't reported.
     val used = u.promptTokens ?: u.totalTokens
     val pct =
-        if (ctx != null && ctx > 0 && used != null) (used.toFloat() / ctx).coerceIn(0f, 1f)
-        else null
+        if (ctx != null && ctx > 0 && used != null) {
+            (used.toFloat() / ctx).coerceIn(0f, 1f)
+        } else {
+            null
+        }
 
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
@@ -416,8 +427,11 @@ private fun UsageStrip() {
                 progress = { pct },
                 modifier = Modifier.fillMaxWidth().height(3.dp),
                 color =
-                    if (pct >= 0.9f) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.primary,
+                    if (pct >= 0.9f) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
@@ -593,10 +607,17 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
             ?.let { "${it.name} (${it.type})" } ?: defaultLabel
     val systemPromptLabel =
         when (currentSystemPromptId) {
-            null -> defaultLabel
-            "" -> noneLabel
-            else ->
+            null -> {
+                defaultLabel
+            }
+
+            "" -> {
+                noneLabel
+            }
+
+            else -> {
                 systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel
+            }
         }
 
     fun close() {
@@ -660,9 +681,11 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                     DropdownMenuItem(
                         text = {
                             Text(
-                                if (currentEnvironmentId == null)
+                                if (currentEnvironmentId == null) {
                                     stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                else defaultLabel,
+                                } else {
+                                    defaultLabel
+                                },
                             )
                         },
                         enabled = !environmentLocked,
@@ -697,7 +720,9 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                             Text(
                                 if (currentSystemPromptId == null) {
                                     stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                } else defaultLabel,
+                                } else {
+                                    defaultLabel
+                                },
                             )
                         },
                         onClick = {
@@ -712,7 +737,9 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                             Text(
                                 if (currentSystemPromptId == "") {
                                     stringResource(R.string.agent_panel_checked_value, noneLabel)
-                                } else noneLabel,
+                                } else {
+                                    noneLabel
+                                },
                             )
                         },
                         onClick = {
@@ -783,7 +810,9 @@ private fun ModelMenuButton() {
                     Text(
                         if (currentModelId == null) {
                             stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                        } else defaultLabel,
+                        } else {
+                            defaultLabel
+                        },
                     )
                 },
                 onClick = {
@@ -834,7 +863,9 @@ private fun PermissionMenuButton() {
                     Text(
                         if (currentLevel == null) {
                             stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                        } else defaultLabel,
+                        } else {
+                            defaultLabel
+                        },
                     )
                 },
                 onClick = {
@@ -916,8 +947,11 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
             buildMap {
                 var last: java.time.Instant? = null
                 for (m in messages) {
-                    if (m.role == ChatRow.Role.USER) put(m.id, last)
-                    else if (m.role == ChatRow.Role.ASSISTANT) last = m.createdAt
+                    if (m.role == ChatRow.Role.USER) {
+                        put(m.id, last)
+                    } else if (m.role == ChatRow.Role.ASSISTANT) {
+                        last = m.createdAt
+                    }
                 }
             }
         }
@@ -940,10 +974,16 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
                         WeAgentService.messageListSyncedSessionId = sessionId
                         listState.scrollToItem(messages.lastIndex)
                     }
+
                     // First emission of this composition (a plain reopen): keep the saved position.
-                    lastSize == -1 -> Unit
+                    lastSize == -1 -> {
+                        Unit
+                    }
+
                     // A genuine new row arrived while visible: follow it to the bottom.
-                    size > lastSize -> listState.animateScrollToItem(messages.lastIndex)
+                    size > lastSize -> {
+                        listState.animateScrollToItem(messages.lastIndex)
+                    }
                 }
                 lastSize = size
             }
@@ -963,7 +1003,6 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     row: ChatRow,
@@ -973,14 +1012,24 @@ private fun MessageBubble(
     val context = LocalContext.current
     val localizedContext = LocalWeKitLocalizedContext.current
     when (row.role) {
-        ChatRow.Role.TOOL -> ToolCard(row)
+        ChatRow.Role.TOOL -> {
+            ToolCard(row)
+        }
+
         else -> {
             val (bg, align) =
                 when (row.role) {
-                    ChatRow.Role.USER -> MaterialTheme.colorScheme.primaryContainer to Alignment.End
-                    ChatRow.Role.SYSTEM_NOTE ->
+                    ChatRow.Role.USER -> {
+                        MaterialTheme.colorScheme.primaryContainer to Alignment.End
+                    }
+
+                    ChatRow.Role.SYSTEM_NOTE -> {
                         MaterialTheme.colorScheme.errorContainer to Alignment.CenterHorizontally
-                    else -> MaterialTheme.colorScheme.surfaceVariant to Alignment.Start
+                    }
+
+                    else -> {
+                        MaterialTheme.colorScheme.surfaceVariant to Alignment.Start
+                    }
                 }
             // The text card renders when there's text, or when there's no reasoning at all (so an
             // empty assistant turn still shows a placeholder). When reasoning exists but the turn
@@ -1036,7 +1085,9 @@ private fun MessageBubble(
                                         onClick = {},
                                         onLongClick = { menuOpen = true },
                                     )
-                                } else Modifier,
+                                } else {
+                                    Modifier
+                                },
                         ) {
                             // Assistant replies are rendered as Markdown; user/system text stays
                             // verbatim.
@@ -1090,11 +1141,16 @@ private fun MessageBubble(
                                             stringResource(
                                                 if (confirmGoBack) {
                                                     R.string.agent_panel_confirm_return_here
-                                                } else R.string.agent_panel_return_here,
+                                                } else {
+                                                    R.string.agent_panel_return_here
+                                                },
                                             ),
                                             color =
-                                                if (confirmGoBack) MaterialTheme.colorScheme.error
-                                                else LocalContentColor.current,
+                                                if (confirmGoBack) {
+                                                    MaterialTheme.colorScheme.error
+                                                } else {
+                                                    LocalContentColor.current
+                                                },
                                         )
                                     },
                                     leadingIcon = {
@@ -1102,8 +1158,11 @@ private fun MessageBubble(
                                             MaterialSymbols.Outlined.History,
                                             contentDescription = null,
                                             tint =
-                                                if (confirmGoBack) MaterialTheme.colorScheme.error
-                                                else LocalContentColor.current,
+                                                if (confirmGoBack) {
+                                                    MaterialTheme.colorScheme.error
+                                                } else {
+                                                    LocalContentColor.current
+                                                },
                                         )
                                     },
                                     enabled = !sessionRunning,
@@ -1114,8 +1173,9 @@ private fun MessageBubble(
                                                     sessionId,
                                                     anchorAt,
                                                 )
-                                                if (row.role == ChatRow.Role.USER)
+                                                if (row.role == ChatRow.Role.USER) {
                                                     onRestoreInput(row.text)
+                                                }
                                             }
                                             menuOpen = false
                                             confirmGoBack = false
@@ -1141,8 +1201,9 @@ private fun MessageBubble(
                                     onClick = {
                                         if (sessionId != null) {
                                             WeAgentService.branchSession(sessionId, anchorAt)
-                                            if (row.role == ChatRow.Role.USER)
+                                            if (row.role == ChatRow.Role.USER) {
                                                 onRestoreInput(row.text)
+                                            }
                                         }
                                         menuOpen = false
                                     },
@@ -1161,7 +1222,6 @@ private fun MessageBubble(
  * JSON) and an output section (result), separated by a thin divider. Collapsed by default.
  * Long-pressing the header copies both sections to the clipboard.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ToolCard(row: ChatRow) {
     var expanded by remember { mutableStateOf(false) }
@@ -1197,8 +1257,11 @@ private fun ToolCard(row: ChatRow) {
                     )
                     Text(
                         stringResource(
-                            if (expanded) R.string.agent_panel_collapse
-                            else R.string.agent_panel_expand,
+                            if (expanded) {
+                                R.string.agent_panel_collapse
+                            } else {
+                                R.string.agent_panel_expand
+                            },
                         ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -1299,7 +1362,6 @@ private fun ToolCard(row: ChatRow) {
  * After streaming ends the title reverts to "💭 思考过程" and the card behaves like a normal
  * collapsible. Long-pressing the header copies the reasoning to the clipboard.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReasoningCard(
     reasoning: String?,
@@ -1349,7 +1411,9 @@ private fun ReasoningCard(
                 R.string.agent_panel_thinking,
                 "·".repeat(dotPhase.toInt() % 3 + 1),
             )
-        } else stringResource(R.string.agent_panel_reasoning)
+        } else {
+            stringResource(R.string.agent_panel_reasoning)
+        }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -1361,7 +1425,7 @@ private fun ReasoningCard(
                 Modifier.fillMaxWidth()
                     // Aurora shimmer drawn behind the header row only when streaming.
                     .then(
-                        if (isStreaming)
+                        if (isStreaming) {
                             Modifier.drawBehind {
                                 drawRect(
                                     Brush.linearGradient(
@@ -1382,7 +1446,9 @@ private fun ReasoningCard(
                                     ),
                                 )
                             }
-                        else Modifier,
+                        } else {
+                            Modifier
+                        },
                     ),
             ) {
                 Row(
@@ -1404,8 +1470,11 @@ private fun ReasoningCard(
                     // Caret always shown so the user can collapse during or after streaming.
                     Text(
                         stringResource(
-                            if (effectiveExpanded) R.string.agent_panel_collapse
-                            else R.string.agent_panel_expand,
+                            if (effectiveExpanded) {
+                                R.string.agent_panel_collapse
+                            } else {
+                                R.string.agent_panel_expand
+                            },
                         ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,

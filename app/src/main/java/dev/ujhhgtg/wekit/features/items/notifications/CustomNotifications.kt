@@ -179,8 +179,11 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
 
     override val declaredErrors
         get() =
-            if (NotificationsEvolved.isEnabled) listOf(R.string.custom_notify_conflict)
-            else emptyList()
+            if (NotificationsEvolved.isEnabled) {
+                listOf(R.string.custom_notify_conflict)
+            } else {
+                emptyList()
+            }
 
     override fun onClick(context: ComponentActivity) {
         AutomationSettingsActivity.start(context, spec)
@@ -290,8 +293,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         if (
             facts == null ||
                 AutomationTalkerCategory.of(facts.talker) != AutomationTalkerCategory.GROUP
-        )
+        ) {
             return false
+        }
         if (facts.atAll && BlockAtAllNotifications.shouldSuppress(facts.talker)) return true
         if (rules[spec.mentions].blocks(facts.atAll, facts.atMe)) return true
         if (facts.sender.isEmpty()) return false
@@ -317,8 +321,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 createTime = message.createTime,
             )
         val now = SystemClock.elapsedRealtime()
-        if (factsBySvrId.size > 128)
+        if (factsBySvrId.size > 128) {
             factsBySvrId.values.removeIf { now - it.recordedAt > FACTS_TTL_MS }
+        }
     }
 
     private fun factsByContent(talker: String, rawContent: String): MessageFacts? =
@@ -379,9 +384,11 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                         ?.toString()
                         ?.takeIf(String::isNotBlank) ?: WeDatabaseApi.getDisplayName(talker),
                 text =
-                    if (rules[spec.showDetail].enabled)
+                    if (rules[spec.showDetail].enabled) {
                         sanitize(nativeText.replace(UNREAD_PREFIX, "")).ifEmpty { newMessageText() }
-                    else newMessageText(),
+                    } else {
+                        newMessageText()
+                    },
                 unreadCount = unread.takeIf { it > 0 } ?: activeCount(talker) + 1,
                 whenMillis = notification.`when`,
                 msgId = facts?.msgId ?: 0L,
@@ -422,8 +429,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 code == MessageType.SYSTEM_NOTICE.code ||
                 code == MessageType.PAT.code ||
                 code == MessageType.RECALL.code
-        )
+        ) {
             return@handler
+        }
         val rules = rulesFor(talker) ?: return@handler
         if (!rules[spec.takeOver].enabled) return@handler
         val observedAt = SystemClock.elapsedRealtime()
@@ -435,22 +443,28 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         val createTime = message.createTime
         mainHandler.postDelayed(
             {
-                if (isHandledByNative(talker, svrId, observedAt) || isChatVisible(talker))
+                if (isHandledByNative(talker, svrId, observedAt) || isChatVisible(talker)) {
                     return@postDelayed
+                }
                 executor.execute {
                     if (isHandledByNative(talker, svrId, observedAt)) return@execute
                     if (suppressed(rules, factsBySvrId[svrId])) return@execute
-                    if (!rules[spec.ignoreWechatDnd].enabled && WeConversationApi.isDnd(talker))
+                    if (!rules[spec.ignoreWechatDnd].enabled && WeConversationApi.isDnd(talker)) {
                         return@execute
+                    }
                     val group =
                         AutomationTalkerCategory.of(talker) == AutomationTalkerCategory.GROUP
                     val detail =
-                        if (!rules[spec.showDetail].enabled) newMessageText()
-                        else {
+                        if (!rules[spec.showDetail].enabled) {
+                            newMessageText()
+                        } else {
                             val text = detailText(kind, content)
                             val senderName =
-                                if (group) WeDatabaseApi.getGroupMemberDisplayName(talker, sender)
-                                else ""
+                                if (group) {
+                                    WeDatabaseApi.getGroupMemberDisplayName(talker, sender)
+                                } else {
+                                    ""
+                                }
                             if (senderName.isNotBlank()) "$senderName: $text" else text
                         }
                     publishOnce(
@@ -476,8 +490,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         if (
             WeCurrentConversationApi.value != talker ||
                 WeCurrentConversationApi.chatFooter?.isShown != true
-        )
+        ) {
             return false
+        }
         val manager = HostInfo.application.getSystemService<ActivityManager>()!!
         val pid = android.os.Process.myPid()
         val importance =
@@ -491,18 +506,26 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 localizedAutomationString(MESSAGE_KIND_LABELS.first { it.first == kind }.second) +
                 "]"
         return when (kind) {
-            AutomationMessageKind.TEXT -> sanitize(content)
-            AutomationMessageKind.QUOTE ->
+            AutomationMessageKind.TEXT -> {
+                sanitize(content)
+            }
+
+            AutomationMessageKind.QUOTE -> {
                 label() + " " + sanitize(AutomationMessageKind.textOf(kind, content))
+            }
+
             AutomationMessageKind.LINK,
             AutomationMessageKind.MUSIC,
             AutomationMessageKind.MINI_PROGRAM,
             AutomationMessageKind.CHANNELS_VIDEO,
-            AutomationMessageKind.TRANSFER ->
+            AutomationMessageKind.TRANSFER -> {
                 TITLE_REGEX.find(content)?.groupValues?.get(1)?.let { label() + " " + sanitize(it) }
                     ?: label()
+            }
 
-            else -> label()
+            else -> {
+                label()
+            }
         }.ifBlank { newMessageText() }
     }
 
@@ -571,12 +594,15 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         )
 
         val notificationId =
-            if (merge) 0x4B000000 or (payload.talker.hashCode() and 0x00FFFFFF)
-            else nextNotificationId(payload.talker)
+            if (merge) {
+                0x4B000000 or (payload.talker.hashCode() and 0x00FFFFFF)
+            } else {
+                nextNotificationId(payload.talker)
+            }
         val token = System.nanoTime()
         val ours = ourNotifications(manager, payload.talker)
         val unread =
-            if (merge)
+            if (merge) {
                 maxOf(
                     payload.unreadCount,
                     maxOf(
@@ -584,7 +610,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                         ours.maxOfOrNull { it.notification.extras.getInt(EXTRA_UNREAD, 1) } ?: 0,
                     ) + 1,
                 )
-            else payload.unreadCount
+            } else {
+                payload.unreadCount
+            }
         val lines =
             if (merge) {
                 (ours.sortedBy { it.postTime }.flatMap { historyLines(it.notification) } +
@@ -592,12 +620,16 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                     .map(String::trim)
                     .filter(String::isNotEmpty)
                     .takeLast(MAX_MERGED_LINES)
-            } else emptyList()
+            } else {
+                emptyList()
+            }
         val displayText =
-            if (unread > 1)
+            if (unread > 1) {
                 localizedAutomationString(R.string.custom_notify_unread_prefix, unread) +
                     payload.text
-            else payload.text
+            } else {
+                payload.text
+            }
         val whenMillis =
             when {
                 payload.whenMillis <= 0L -> System.currentTimeMillis()
@@ -642,8 +674,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             )
         }
         WeNotificationAvatarApi.loadBitmap(payload.talker)?.let { builder.setLargeIcon(it) }
-        if (rules[spec.markRead].enabled)
+        if (rules[spec.markRead].enabled) {
             builder.addAction(markReadAction(context, payload.talker, notificationId))
+        }
         if (quickReply.enabled) {
             builder.addAction(
                 replyAction(context, payload, notificationId, quickReply.asQuote, token),
@@ -693,8 +726,9 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
     private fun trimOldChannels(manager: NotificationManager) {
         val ours =
             manager.notificationChannels.map { it.id }.filter { it.startsWith(CHANNEL_PREFIX) }
-        if (ours.size > MAX_CHANNELS)
+        if (ours.size > MAX_CHANNELS) {
             ours.take(ours.size - MAX_CHANNELS).forEach(manager::deleteNotificationChannel)
+        }
     }
 
     private fun playSound(context: Context, ringtone: String) {
@@ -702,8 +736,11 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
         if (now - lastManualSoundAt < 1200L) return
         lastManualSoundAt = now
         val uri =
-            if (ringtone.isNotEmpty() && File(ringtone).isFile) Uri.fromFile(File(ringtone))
-            else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            if (ringtone.isNotEmpty() && File(ringtone).isFile) {
+                Uri.fromFile(File(ringtone))
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
         mainHandler.post {
             val player: Ringtone = RingtoneManager.getRingtone(context, uri) ?: return@post
             player.audioAttributes =
@@ -817,11 +854,12 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
                 val talker = intent.getStringExtra(EXTRA_TALKER) ?: return
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFY_ID, 0)
                 when (intent.action) {
-                    ACTION_MARK_READ ->
+                    ACTION_MARK_READ -> {
                         executor.execute {
                             markRead(talker)
                             cancelAll(talker, notificationId)
                         }
+                    }
 
                     ACTION_REPLY -> {
                         val reply =
@@ -921,8 +959,11 @@ object CustomNotifications : ClickableFeature(), IResolveDex {
             Notification.Builder.recoverBuilder(context, current)
                 .setOnlyAlertOnce(true)
                 .setContentText(
-                    if (sent) localizedAutomationString(R.string.custom_notify_replied, reply)
-                    else localizedAutomationString(R.string.custom_notify_reply_failed),
+                    if (sent) {
+                        localizedAutomationString(R.string.custom_notify_replied, reply)
+                    } else {
+                        localizedAutomationString(R.string.custom_notify_reply_failed)
+                    },
                 )
                 .setExtras(Bundle(current.extras).apply { putLong(EXTRA_DONE_TOKEN, doneToken) })
         if (sent) builder.setRemoteInputHistory(arrayOf<CharSequence>(reply))

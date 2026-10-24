@@ -72,6 +72,7 @@ object AutoReply : ClickableFeature() {
 
     private fun facts(message: MessageInfo, isPat: Boolean): AutoReplyMessage {
         val quote = message.typeCode == MessageType.QUOTE.code
+
         @Suppress("DEPRECATION") val text = message.typeCode == MessageType.TEXT.code
         return AutoReplyMessage(
             talker = message.talker,
@@ -98,8 +99,9 @@ object AutoReply : ClickableFeature() {
             !snapshot
                 .resolve(null)[AutoReplyAutomation.chats]
                 .matches(message.talker, message.sender)
-        )
+        ) {
             return
+        }
         snapshot.ofType(AutomationScopeType.ITEM).forEach { item ->
             val ruleId = item.scope.scopeId
             val rules = snapshot.effectiveRules(item.scope)
@@ -109,8 +111,9 @@ object AutoReply : ClickableFeature() {
                 rules[AutoReplyAutomation.cooldown].let { if (it.enabled) it.value * 1000L else 0L }
             val cooldownKey = "$ruleId|${message.talker}"
             val now = SystemClock.elapsedRealtime()
-            if (cooldownMs > 0 && lastReplyAt[cooldownKey]?.let { now - it < cooldownMs } == true)
+            if (cooldownMs > 0 && lastReplyAt[cooldownKey]?.let { now - it < cooldownMs } == true) {
                 return@forEach
+            }
 
             val maxCount = rules[AutoReplyAutomation.maxCount]
             if (maxCount.enabled) {

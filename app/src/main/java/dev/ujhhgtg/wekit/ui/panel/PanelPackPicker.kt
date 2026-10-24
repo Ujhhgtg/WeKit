@@ -38,11 +38,7 @@ import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.launch
 
-data class PanelPackChoice(
-    val id: String,
-    val title: String,
-    val itemCount: Int,
-)
+data class PanelPackChoice(val id: String, val title: String, val itemCount: Int)
 
 /**
  * Opens the panel shell in a deliberately narrow mode used by message-menu save actions. The caller

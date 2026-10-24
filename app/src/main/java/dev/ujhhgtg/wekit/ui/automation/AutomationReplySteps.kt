@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -157,9 +156,12 @@ private fun mimeTypesFor(kind: AutomationReplyStepKind): Array<String> =
     when (kind) {
         AutomationReplyStepKind.IMAGE,
         AutomationReplyStepKind.EMOJI -> arrayOf("image/*")
+
         AutomationReplyStepKind.VOICE,
         AutomationReplyStepKind.RANDOM_VOICE -> arrayOf("audio/*", "application/octet-stream")
+
         AutomationReplyStepKind.VIDEO -> arrayOf("video/*")
+
         else -> arrayOf("*/*")
     }
 
@@ -169,9 +171,11 @@ private val AT_REGEX = Regex("""\[AtWx=([^]]+)]""")
 @Composable
 fun replyStepChip(step: AutomationReplyStep): String {
     val label = stringResource(REPLY_STEP_KIND_LABELS.getValue(step.kind))
-    return if (step.kind == AutomationReplyStepKind.TEXT && step.content.isNotBlank())
+    return if (step.kind == AutomationReplyStepKind.TEXT && step.content.isNotBlank()) {
         "$label: ${step.content.take(12)}"
-    else label
+    } else {
+        label
+    }
 }
 
 // ---- page ------------------------------------------------------------------------------------
@@ -197,13 +201,14 @@ fun AutomationReplyScreen(
     var editing by remember { mutableStateOf<Pair<Int, AutomationReplyStep>?>(null) }
     var editingDelay by remember { mutableStateOf<Int?>(null) }
     val favorites by
-        produceState<Map<Long, WeFavoriteApi.FavoriteSummary>>(emptyMap()) {
+        produceState(emptyMap()) {
             value =
                 withContext(Dispatchers.IO) {
                     runCatching { WeFavoriteApi.listFavorites(1000).associateBy { it.localId } }
                         .getOrDefault(emptyMap())
                 }
         }
+
     fun update(steps: List<AutomationReplyStep>) = draft.set(key, rule.copy(steps = steps))
 
     fun delete(index: Int) {
@@ -250,8 +255,11 @@ fun AutomationReplyScreen(
                             title = stringResource(editor.titleFor(draft.scope)),
                             description =
                                 stringResource(
-                                    if (rule.enabled) R.string.automation_item_enabled
-                                    else R.string.automation_reply_off_hint,
+                                    if (rule.enabled) {
+                                        R.string.automation_item_enabled
+                                    } else {
+                                        R.string.automation_reply_off_hint
+                                    },
                                 ),
                             checked = rule.enabled,
                             onCheckedChange = { draft.set(key, rule.copy(enabled = it)) },
@@ -367,17 +375,22 @@ fun AutomationReplyScreen(
             favorites = favorites,
             onDismiss = { editing = null },
             onDelete =
-                if (index >= 0)
+                if (index >= 0) {
                     ({
                         editing = null
                         delete(index)
                     })
-                else null,
+                } else {
+                    null
+                },
             onDone = { edited ->
                 editing = null
                 update(
-                    if (index >= 0) rule.steps.toMutableList().apply { set(index, edited) }
-                    else rule.steps + edited,
+                    if (index >= 0) {
+                        rule.steps.toMutableList().apply { set(index, edited) }
+                    } else {
+                        rule.steps + edited
+                    },
                 )
             },
         )
@@ -421,8 +434,11 @@ private fun DelayPill(step: AutomationReplyStep, onClick: () -> Unit) {
         onClick = onClick,
         shape = CircleShape,
         color =
-            if (immediate) MaterialTheme.colorScheme.surfaceContainer
-            else MaterialTheme.colorScheme.surfaceContainerHigh,
+            if (immediate) {
+                MaterialTheme.colorScheme.surfaceContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
     ) {
         Row(
             Modifier.padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
@@ -438,10 +454,17 @@ private fun DelayPill(step: AutomationReplyStep, onClick: () -> Unit) {
             Text(
                 text =
                     when {
-                        immediate -> stringResource(R.string.automation_step_send_now)
-                        step.randomDelay ->
+                        immediate -> {
+                            stringResource(R.string.automation_step_send_now)
+                        }
+
+                        step.randomDelay -> {
                             stringResource(R.string.automation_step_wait_random, step.delayMs)
-                        else -> stringResource(R.string.automation_step_wait, step.delayMs)
+                        }
+
+                        else -> {
+                            stringResource(R.string.automation_step_wait, step.delayMs)
+                        }
                     },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -580,7 +603,6 @@ private fun withMentionNames(text: String): String =
         }
     }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepPreview(
     step: AutomationReplyStep,
@@ -615,7 +637,8 @@ private fun StepPreview(
                 }
             }
         }
-        AutomationReplyStepKind.XML ->
+
+        AutomationReplyStepKind.XML -> {
             Text(
                 text = step.content.take(120),
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
@@ -624,15 +647,19 @@ private fun StepPreview(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp),
             )
-        AutomationReplyStepKind.FAVORITE ->
+        }
+
+        AutomationReplyStepKind.FAVORITE -> {
             AutomationMiniChips(
                 values.map { id ->
                     favorites[id.toLongOrNull()]?.title?.ifBlank { null } ?: "#$id"
                 },
                 max = 6,
             )
+        }
+
         AutomationReplyStepKind.CARD,
-        AutomationReplyStepKind.INVITE_GROUP ->
+        AutomationReplyStepKind.INVITE_GROUP -> {
             FlowRow(
                 Modifier.padding(top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -646,6 +673,8 @@ private fun StepPreview(
                     }
                 }
             }
+        }
+
         else -> {
             if (
                 step.kind == AutomationReplyStepKind.IMAGE ||
@@ -768,7 +797,6 @@ private fun StepDelayDialog(
 }
 
 /** Editor of one step: a content editor specific to its kind, then the wait before it. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepSheet(
     initial: AutomationReplyStep,
@@ -789,6 +817,7 @@ private fun StepSheet(
     val usesText = kind == AutomationReplyStepKind.TEXT || kind == AutomationReplyStepKind.XML
     val content = if (usesText) text.text else step.content
     val values = splitReplyValues(step.content)
+
     fun setValues(list: List<String>) {
         step = step.copy(content = list.joinToString("\n"))
     }
@@ -796,8 +825,11 @@ private fun StepSheet(
     AutomationSheet(
         title = stringResource(REPLY_STEP_KIND_LABELS.getValue(kind)),
         subtitle =
-            if (index >= 0) stringResource(R.string.automation_step_number, index + 1)
-            else stringResource(R.string.automation_step_new),
+            if (index >= 0) {
+                stringResource(R.string.automation_step_number, index + 1)
+            } else {
+                stringResource(R.string.automation_step_new)
+            },
         icon = kindIcon(kind),
         onDismiss = onDismiss,
         onConfirm = { onDone(step.copy(content = content.trim())) },
@@ -880,7 +912,8 @@ private fun StepSheet(
                     }
                 }
             }
-            kind == AutomationReplyStepKind.XML ->
+
+            kind == AutomationReplyStepKind.XML -> {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
@@ -891,13 +924,17 @@ private fun StepSheet(
                     minLines = 4,
                     modifier = Modifier.fillMaxWidth(),
                 )
-            kind.usesFiles ->
+            }
+
+            kind.usesFiles -> {
                 ValueList(
                     label =
                         stringResource(
-                            if (kind == AutomationReplyStepKind.RANDOM_VOICE)
+                            if (kind == AutomationReplyStepKind.RANDOM_VOICE) {
                                 R.string.automation_step_random_voice_hint
-                            else R.string.automation_step_files_hint,
+                            } else {
+                                R.string.automation_step_files_hint
+                            },
                         ),
                     values = values,
                     icon = kindIcon(kind),
@@ -910,7 +947,9 @@ private fun StepSheet(
                         context.pickFiles(mimeTypesFor(kind)) { paths -> setValues(values + paths) }
                     },
                 )
-            kind == AutomationReplyStepKind.FAVORITE ->
+            }
+
+            kind == AutomationReplyStepKind.FAVORITE -> {
                 ValueList(
                     label = stringResource(R.string.automation_step_favorite_hint),
                     values = values,
@@ -935,13 +974,18 @@ private fun StepSheet(
                         )
                     },
                 )
+            }
+
             else -> {
                 val groups = kind == AutomationReplyStepKind.INVITE_GROUP
                 ValueList(
                     label =
                         stringResource(
-                            if (groups) R.string.automation_step_invite_group_hint
-                            else R.string.automation_step_card_hint,
+                            if (groups) {
+                                R.string.automation_step_invite_group_hint
+                            } else {
+                                R.string.automation_step_card_hint
+                            },
                         ),
                     values = values,
                     avatar = true,
@@ -950,8 +994,11 @@ private fun StepSheet(
                     onRemove = { setValues(values - it) },
                     buttonLabel =
                         stringResource(
-                            if (groups) R.string.automation_pick_groups
-                            else R.string.automation_pick_contacts,
+                            if (groups) {
+                                R.string.automation_pick_groups
+                            } else {
+                                R.string.automation_pick_contacts
+                            },
                         ),
                     buttonIcon = kindIcon(kind),
                     onAdd = {
@@ -963,12 +1010,14 @@ private fun StepSheet(
                                     ),
                                 loadContacts = {
                                     loadAutomationContacts(
-                                        if (groups) setOf(AutomationTalkerCategory.GROUP)
-                                        else
+                                        if (groups) {
+                                            setOf(AutomationTalkerCategory.GROUP)
+                                        } else {
                                             setOf(
                                                 AutomationTalkerCategory.PRIVATE,
                                                 AutomationTalkerCategory.OFFICIAL,
-                                            ),
+                                            )
+                                        },
                                     )
                                 },
                                 initialSelected = values.toSet(),
@@ -1056,7 +1105,7 @@ private fun ValueList(
                             overflow = TextOverflow.Ellipsis,
                         )
                         val sub = detail(value)
-                        if (sub.isNotEmpty())
+                        if (sub.isNotEmpty()) {
                             Text(
                                 sub,
                                 style = MaterialTheme.typography.bodySmall,
@@ -1064,6 +1113,7 @@ private fun ValueList(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                        }
                     }
                     IconButton(onClick = { onRemove(value) }) {
                         Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.action_delete))

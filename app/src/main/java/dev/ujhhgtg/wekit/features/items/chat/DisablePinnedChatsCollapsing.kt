@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisablePinnedChatsCollapsing : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用置顶聊天折叠"
     override val nameRes = R.string.feature_disable_pinned_chats_collapsing_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -36,7 +36,6 @@ object SuperConversationPinning :
     WeConversationContextMenuApi.IMenuItemsProvider,
     //    WeDatabaseListenerApi.IQueryListener,
     IResolveDex {
-
     override val technicalId = "超级对话置顶"
     override val nameRes = R.string.feature_super_conversation_pinning_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -227,32 +226,29 @@ object SuperConversationPinning :
             val currentModel = thisObject ?: return@hookBefore
             val otherModel = args.firstOrNull() ?: return@hookBefore
 
-            fun Any.getConversation(): Any {
-                return reflekt()
+            fun Any.getConversation(): Any =
+                reflekt()
                     .firstField {
                         type = classConversation.clazz
                     }
                     .get()!!
-            }
 
-            fun Any.getUsername(): String? {
-                return reflekt()
+            fun Any.getUsername(): String? =
+                reflekt()
                     .firstField {
                         name = "field_username"
                         superclass()
                     }
                     .get() as? String?
-            }
 
-            fun Any.getFlag(): Long {
-                return (reflekt()
+            fun Any.getFlag(): Long =
+                (reflekt()
                         .firstField {
                             name = "field_flag"
                             superclass()
                         }
                         .get() as Number)
                     .toLong()
-            }
 
             val currentConversation = currentModel.getConversation()
             val otherConversation = otherModel.getConversation()

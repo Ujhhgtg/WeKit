@@ -30,7 +30,6 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 object HideMeTabPageItems : ClickableFeature(), IResolveDex {
-
     override val technicalId = "「我」页面精简"
     override val nameRes = R.string.feature_hide_me_tab_page_items_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -71,7 +70,9 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
         val targets = selectedTargets
         if (targets.isEmpty()) return
         root
-            .findViewsWhich { it is TextView && it.text?.toString()?.trim().orEmpty() in targets }
+            .findViewsWhich {
+                it is TextView && it.text?.toString()?.trim().orEmpty() in targets
+            }
             .forEach {
                 hideContainerFor(it)
             }
@@ -194,8 +195,9 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
             if (
                 parent is ListView ||
                     parent.javaClass.name == "androidx.recyclerview.widget.RecyclerView"
-            )
+            ) {
                 return current
+            }
             current = parent
         }
     }

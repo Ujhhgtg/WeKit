@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
 object WeAlertDialogApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "对话框 API"
     override val nameRes = R.string.feature_we_alert_dialog_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeContactHeaderApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "联系人详情头部扩展"
     override val nameRes = R.string.feature_we_contact_header_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

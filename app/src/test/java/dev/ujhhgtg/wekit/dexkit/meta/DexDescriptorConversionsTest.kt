@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class DexDescriptorConversionsTest {
-
     @Test
     fun primitiveDescriptorsMapToJavaNames() {
         val expected =

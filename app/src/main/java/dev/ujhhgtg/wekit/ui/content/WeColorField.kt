@@ -231,7 +231,9 @@ fun WeColorPickerDialog(
                     supportingText =
                         if (hexError) {
                             { Text(stringResource(R.string.color_picker_invalid_argb)) }
-                        } else null,
+                        } else {
+                            null
+                        },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

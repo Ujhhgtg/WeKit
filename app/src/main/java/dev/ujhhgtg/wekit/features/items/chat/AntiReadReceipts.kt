@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * path from reaching the tracking server.
  */
 object AntiReadReceipts : SwitchFeature(), IResolveDex {
-
     override val technicalId = "反已读追踪"
     override val nameRes = R.string.feature_anti_read_receipts_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -16,7 +16,6 @@ import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.void
 
 object AutoSpeechToText : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "自动语音转文字"
     override val nameRes = R.string.feature_auto_speech_to_text_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -32,10 +31,7 @@ object AutoSpeechToText : SwitchFeature(), WeChatMessageViewApi.ICreateViewListe
         WeChatMessageViewApi.removeListener(this)
     }
 
-    override fun onCreateView(
-        param: HookParam,
-        view: View,
-    ) {
+    override fun onCreateView(param: HookParam, view: View) {
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         if (msgInfo.typeCode != MessageType.VOICE.code) return
 

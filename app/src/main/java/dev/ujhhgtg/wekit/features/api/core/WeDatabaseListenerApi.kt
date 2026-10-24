@@ -13,7 +13,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @SuppressLint("DiscouragedApi")
 object WeDatabaseListenerApi : ApiFeature() {
-
     override val technicalId = "数据库监听服务"
     override val nameRes = R.string.feature_we_database_listener_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

@@ -47,8 +47,9 @@ sealed interface ConversationGroupScrollPosition {
 
     companion object {
         fun stopScrolling(view: View) {
-            if (view is ListView) view.smoothScrollBy(0, 0)
-            else
+            if (view is ListView) {
+                view.smoothScrollBy(0, 0)
+            } else {
                 view
                     .reflekt()
                     .firstMethod {
@@ -57,6 +58,7 @@ sealed interface ConversationGroupScrollPosition {
                         superclass()
                     }
                     .invoke(0)
+            }
         }
 
         fun capture(view: View): ConversationGroupScrollPosition? {
@@ -79,8 +81,9 @@ sealed interface ConversationGroupScrollPosition {
         fun reset(view: View) {
             // These host entry points hide the recent-mini-program header and use its normal
             // action-bar offset. Scrolling raw adapter position zero would expose that header.
-            if (view is ListView) view.setSelection(0)
-            else
+            if (view is ListView) {
+                view.setSelection(0)
+            } else {
                 view
                     .reflekt()
                     .firstMethod {
@@ -88,6 +91,7 @@ sealed interface ConversationGroupScrollPosition {
                         parameters(Int::class)
                     }
                     .invoke(0)
+            }
         }
 
         private fun layoutManager(view: View): Any =

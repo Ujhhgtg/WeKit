@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableWebViewSafetyWarnings : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用 WebView 安全警告"
     override val nameRes = R.string.feature_disable_web_view_safety_warnings_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

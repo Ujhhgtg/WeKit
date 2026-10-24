@@ -14,10 +14,7 @@ import kotlinx.serialization.json.put
  * session [DexMetadata] cache on demand.
  */
 class DexClassInfo
-internal constructor(
-    private val json: JsonObject,
-    private val metadata: DexMetadata,
-) {
+internal constructor(private val json: JsonObject, private val metadata: DexMetadata) {
     /** Raw JSON backing this instance (class document including additive annotations). */
     internal val rawJson: JsonObject
         get() = json

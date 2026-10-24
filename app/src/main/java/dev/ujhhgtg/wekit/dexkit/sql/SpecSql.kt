@@ -99,11 +99,15 @@ private fun AnnotationSpec.toSqlAnnotationConstraintOrNull(): SqlAnnotationConst
     if (element.name.match != NameMatch.Equals) return null
     val values =
         when (val value = element.value) {
-            is AnnotationValue.ListValue ->
+            is AnnotationValue.ListValue -> {
                 value.values.map { item ->
                     (item as? AnnotationValue.Text)?.value ?: return null
                 }
-            else -> return null
+            }
+
+            else -> {
+                return null
+            }
         }
     if (values.isEmpty()) return null
     return SqlAnnotationConstraint(

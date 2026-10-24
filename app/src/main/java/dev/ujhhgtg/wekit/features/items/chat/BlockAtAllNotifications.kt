@@ -36,7 +36,6 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 object BlockAtAllNotifications : ClickableFeature() {
-
     override val technicalId = "屏蔽群聊@所有人"
     override val nameRes = R.string.feature_block_at_all_notifications_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -59,15 +58,19 @@ object BlockAtAllNotifications : ClickableFeature() {
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_whitelist_selected
-                                        else R.string.filter_list_blacklist_selected,
+                                        } else {
+                                            R.string.filter_list_blacklist_selected
+                                        },
                                     ),
                                 description =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.chat_block_at_all_whitelist_description
-                                        else R.string.chat_block_at_all_blacklist_description,
+                                        } else {
+                                            R.string.chat_block_at_all_blacklist_description
+                                        },
                                     ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
@@ -81,9 +84,11 @@ object BlockAtAllNotifications : ClickableFeature() {
                                 iconPlaceholder = false,
                                 title =
                                     stringResource(
-                                        if (useWhitelistState)
+                                        if (useWhitelistState) {
                                             R.string.filter_list_configure_whitelist
-                                        else R.string.filter_list_configure_blacklist,
+                                        } else {
+                                            R.string.filter_list_configure_blacklist
+                                        },
                                     ),
                                 description =
                                     stringResource(R.string.chat_block_at_all_select_groups_hint),
@@ -95,9 +100,11 @@ object BlockAtAllNotifications : ClickableFeature() {
                                         ContactsSelector(
                                             title =
                                                 stringResource(
-                                                    if (useWhitelistState)
+                                                    if (useWhitelistState) {
                                                         R.string.filter_list_select_whitelist
-                                                    else R.string.filter_list_select_blacklist,
+                                                    } else {
+                                                        R.string.filter_list_select_blacklist
+                                                    },
                                                 ),
                                             contacts = groups,
                                             initialSelectedWxIds = currentList,
@@ -153,7 +160,6 @@ object BlockAtAllNotifications : ClickableFeature() {
 
 /** Installs the notification hooks in both the main and push processes. */
 object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
-
     override val technicalId = "群聊@所有人通知拦截服务"
     override val nameRes = R.string.feature_block_at_all_notifications_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -163,10 +169,7 @@ object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
     private const val PENDING_TTL_MILLIS = 30_000L
     private const val MAX_PENDING_PER_GROUP = 16
 
-    private data class PendingAtAll(
-        val rawContent: String,
-        val capturedAt: Long,
-    )
+    private data class PendingAtAll(val rawContent: String, val capturedAt: Long)
 
     private val pendingLock = Any()
     private val pendingByGroup = HashMap<String, ArrayDeque<PendingAtAll>>()
@@ -194,8 +197,9 @@ object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
     override fun onEnable() {
         WeMessageApi.methodMsgInfoStorageInsertMessage.hookAfter {
             val message = MessageInfo(args[0]!!)
-            if (message.isSelfSender || !message.isInGroupChat || !message.isNotifyAll)
+            if (message.isSelfSender || !message.isInGroupChat || !message.isNotifyAll) {
                 return@hookAfter
+            }
             recordPending(message.talker, message.content)
         }
 

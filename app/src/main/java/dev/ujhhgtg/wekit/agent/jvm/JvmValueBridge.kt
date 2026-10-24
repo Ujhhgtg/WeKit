@@ -43,7 +43,6 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 @Keep
 object JvmObjectRegistry {
-
     /** Upper bound on retained entries; oldest (lowest-id) entries are evicted past it. */
     private const val MAX_ENTRIES = 4096
 
@@ -90,12 +89,13 @@ object JvmObjectRegistry {
         val id =
             handle.removePrefix("#").trim().toIntOrNull()
                 ?: return "Malformed handle '$handle' (expected #N)."
-        return if (objects.containsKey(id))
+        return if (objects.containsKey(id)) {
             "Handle '#$id' has expired — the object it pointed at was garbage-collected (handles are " +
                 "weak so they never keep whole screens alive). Re-run the tool that produced it " +
                 "(e.g. ui-dump-tree / ui-find-views) to obtain fresh handles."
-        else
+        } else {
             "No live handle '#$id' (it was never created, or the handle registry has been cleared)."
+        }
     }
 
     /** Number of handles whose object is still alive. */
@@ -125,7 +125,9 @@ object JvmObjectRegistry {
     private fun evict() {
         purgeDead()
         val excess = objects.size - MAX_ENTRIES
-        if (excess > 0) objects.keys.sorted().take(excess).forEach { objects.remove(it) }
+        if (excess > 0) {
+            objects.keys.sorted().take(excess).forEach { objects.remove(it) }
+        }
     }
 
     /** A short, model-readable summary of every live handle. */
@@ -145,7 +147,6 @@ object JvmObjectRegistry {
 class JvmBridgeException(message: String) : RuntimeException(message)
 
 object JvmValueBridge {
-
     private const val PREVIEW_MAX = 300
 
     // -------------------------------------------------------------------------------------------
@@ -204,47 +205,78 @@ object JvmValueBridge {
         val idx = t.indexOf(':')
         // Bare handle shorthand.
         if (t.startsWith("#")) return resolveRef(t)
-        if (idx < 0)
+        if (idx < 0) {
             throw JvmBridgeException(
                 "Malformed value token '$token' (expected kind:payload, e.g. str:hello or ref:#3)",
             )
+        }
         val kind = t.substring(0, idx)
         val payload = t.substring(idx + 1)
         return when (kind) {
-            "str" -> payload
-            "int" ->
+            "str" -> {
+                payload
+            }
+
+            "int" -> {
                 payload.trim().toIntOrNull()
                     ?: throw JvmBridgeException("int: expects an integer, got '$payload'")
-            "long" ->
+            }
+
+            "long" -> {
                 payload.trim().toLongOrNull()
                     ?: throw JvmBridgeException("long: expects an integer, got '$payload'")
-            "short" ->
+            }
+
+            "short" -> {
                 payload.trim().toShortOrNull()
                     ?: throw JvmBridgeException("short: expects a short, got '$payload'")
-            "byte" ->
+            }
+
+            "byte" -> {
                 payload.trim().toByteOrNull()
                     ?: throw JvmBridgeException("byte: expects a byte, got '$payload'")
+            }
+
             "dbl",
-            "double" ->
+            "double" -> {
                 payload.trim().toDoubleOrNull()
                     ?: throw JvmBridgeException("dbl: expects a number, got '$payload'")
+            }
+
             "flt",
-            "float" ->
+            "float" -> {
                 payload.trim().toFloatOrNull()
                     ?: throw JvmBridgeException("flt: expects a number, got '$payload'")
+            }
+
             "bool",
-            "boolean" ->
+            "boolean" -> {
                 when (payload.trim().lowercase()) {
                     "true" -> true
                     "false" -> false
                     else -> throw JvmBridgeException("bool: expects true|false, got '$payload'")
                 }
+            }
 
-            "char" -> payload.firstOrNull() ?: throw JvmBridgeException("char: expects a character")
-            "class" -> resolveClass(payload)
-            "ref" -> resolveRef(payload)
-            "enum" -> parseEnum(payload)
-            else -> throw JvmBridgeException("Unknown value kind '$kind' in token '$token'")
+            "char" -> {
+                payload.firstOrNull() ?: throw JvmBridgeException("char: expects a character")
+            }
+
+            "class" -> {
+                resolveClass(payload)
+            }
+
+            "ref" -> {
+                resolveRef(payload)
+            }
+
+            "enum" -> {
+                parseEnum(payload)
+            }
+
+            else -> {
+                throw JvmBridgeException("Unknown value kind '$kind' in token '$token'")
+            }
         }
     }
 

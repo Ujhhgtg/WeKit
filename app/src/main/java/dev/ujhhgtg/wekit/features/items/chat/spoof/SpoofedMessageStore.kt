@@ -95,7 +95,6 @@ data class SpoofTarget(
  * module cache, named by asset id so a replaced or restored asset never reuses a stale file.
  */
 object SpoofedMessageStore {
-
     private const val ASSET_OWNER = "spoofed-chat-message"
     private const val POSTER_SUFFIX = "#poster"
     private const val POSTER_MAX_EDGE = 1280
@@ -255,9 +254,11 @@ object SpoofedMessageStore {
 
     /** The still image shown for [entity]: the image itself, or the video's first frame. */
     fun previewFile(entity: SpoofedChatMessageEntity): File =
-        if (entity.spoofKind == SpoofKind.VIDEO)
+        if (entity.spoofKind == SpoofKind.VIDEO) {
             materialize(entity.key, slot(entity.key) + POSTER_SUFFIX, "jpg")
-        else mediaFile(entity)
+        } else {
+            mediaFile(entity)
+        }
 
     private suspend fun save(
         target: SpoofTarget,

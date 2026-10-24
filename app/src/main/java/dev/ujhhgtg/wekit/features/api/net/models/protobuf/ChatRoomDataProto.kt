@@ -7,9 +7,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
 @Serializable
-data class ChatRoomDataProto(
-    @ProtoNumber(1) val members: List<ChatRoomMemberProto> = emptyList(),
-)
+data class ChatRoomDataProto(@ProtoNumber(1) val members: List<ChatRoomMemberProto> = emptyList())
 
 @Serializable
 data class ChatRoomMemberProto(

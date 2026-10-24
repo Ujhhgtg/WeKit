@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
 
 object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
-
     override val technicalId = "自动查看原图"
     override val nameRes = R.string.feature_auto_view_original_media_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -90,16 +89,18 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                 return
             }
 
-            1 ->
+            1 -> {
                 classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
                     chatLiveBottomBarLayers.single(),
                 )
+            }
 
-            else ->
+            else -> {
                 error(
                     "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
                         chatLiveBottomBarLayers.joinToString { it.name },
                 )
+            }
         }
 
         methodBindMediaGalleryChatLiveBottomBar.find {
@@ -122,18 +123,22 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
         }
 
         when (updateVideoOriginButtonMethods.size) {
-            0 -> methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
+            0 -> {
+                methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
+            }
 
-            1 ->
+            1 -> {
                 methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
                     updateVideoOriginButtonMethods.single(),
                 )
+            }
 
-            else ->
+            else -> {
                 error(
                     "multiple layered original-video update methods found: " +
                         updateVideoOriginButtonMethods.joinToString { it.descriptor },
                 )
+            }
         }
     }
 

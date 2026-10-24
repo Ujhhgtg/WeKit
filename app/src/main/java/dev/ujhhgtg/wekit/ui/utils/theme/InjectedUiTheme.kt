@@ -18,10 +18,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
  * NEVER CALL THIS INSIDE MODULE APP.
  */
 @Composable
-fun InjectedUiTheme(
-    darkTheme: Boolean? = null,
-    content: @Composable () -> Unit,
-) {
+fun InjectedUiTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
         val dark = darkTheme ?: isSystemInDarkTheme()
         val seed = SeedResolver.customSeed(HostInfo.application, dark)

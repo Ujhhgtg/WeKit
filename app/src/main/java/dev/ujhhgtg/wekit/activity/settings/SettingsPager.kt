@@ -352,7 +352,9 @@ private fun ProfileCard() {
                             )
                             ?.toString()
                             .orEmpty()
-                    } else ""
+                    } else {
+                        ""
+                    }
                 val avatarUrl = if (db.isReady && wxId.isNotEmpty()) db.getAvatarUrl(wxId) else ""
                 value = WechatIdentity(nickname, avatarUrl)
             }
@@ -599,11 +601,16 @@ private fun ThemeSection() {
                 description =
                     if (!spec2025Supported) {
                         stringResource(R.string.settings_color_spec_unsupported)
-                    } else null,
+                    } else {
+                        null
+                    },
                 value = ThemeSettings.effectiveColorSpec,
                 options =
-                    (if (spec2025Supported) AppColorSpec.entries
-                        else listOf(AppColorSpec.SPEC_2021))
+                    (if (spec2025Supported) {
+                            AppColorSpec.entries
+                        } else {
+                            listOf(AppColorSpec.SPEC_2021)
+                        })
                         .map {
                             DropdownOption(it, colorSpecLabels.getValue(it))
                         },

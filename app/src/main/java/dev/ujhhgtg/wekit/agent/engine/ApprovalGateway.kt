@@ -34,12 +34,25 @@ fun behaviorFor(
     bareName: String,
 ): ApprovalBehavior =
     when {
-        level == PermissionLevel.FULL_ACCESS || !sideEffect -> ApprovalBehavior.AUTO
-        level == PermissionLevel.AUTO_EDIT ->
-            if (providerKind == ProviderKind.BUILTIN && bareName == "edit") ApprovalBehavior.AUTO
-            else ApprovalBehavior.MANUAL
-        level == PermissionLevel.AUTO_APPROVAL -> ApprovalBehavior.SMART
-        else -> ApprovalBehavior.MANUAL
+        level == PermissionLevel.FULL_ACCESS || !sideEffect -> {
+            ApprovalBehavior.AUTO
+        }
+
+        level == PermissionLevel.AUTO_EDIT -> {
+            if (providerKind == ProviderKind.BUILTIN && bareName == "edit") {
+                ApprovalBehavior.AUTO
+            } else {
+                ApprovalBehavior.MANUAL
+            }
+        }
+
+        level == PermissionLevel.AUTO_APPROVAL -> {
+            ApprovalBehavior.SMART
+        }
+
+        else -> {
+            ApprovalBehavior.MANUAL
+        }
     }
 
 /** Outcome of an approval decision for a single tool call. */
@@ -93,18 +106,27 @@ class ApprovalGateway(
         modelExplanation: String?,
     ): ApprovalDecision =
         when (behavior) {
-            ApprovalBehavior.AUTO -> ApprovalDecision.Allowed
+            ApprovalBehavior.AUTO -> {
+                ApprovalDecision.Allowed
+            }
+
             ApprovalBehavior.MANUAL -> {
                 val pending =
                     PendingApproval(toolName, providerName, argumentsJson, modelExplanation)
                 when (val res = manualHandler.requestApproval(pending)) {
-                    is ManualApprovalResult.Approved -> ApprovalDecision.Allowed
-                    is ManualApprovalResult.Rejected ->
+                    is ManualApprovalResult.Approved -> {
+                        ApprovalDecision.Allowed
+                    }
+
+                    is ManualApprovalResult.Rejected -> {
                         ApprovalDecision.Denied(res.reason, bySmartReview = false)
+                    }
                 }
             }
 
-            ApprovalBehavior.SMART -> smartReview(toolName, argumentsJson, modelExplanation)
+            ApprovalBehavior.SMART -> {
+                smartReview(toolName, argumentsJson, modelExplanation)
+            }
         }
 
     /**
@@ -114,9 +136,7 @@ class ApprovalGateway(
     fun deniedResultText(decision: ApprovalDecision.Denied): String =
         when {
             decision.bySmartReview -> "工具调用被拒绝：${decision.reason ?: "未给出理由"}"
-
             decision.reason != null -> "工具调用被用户拒绝。用户给出的理由：${decision.reason}"
-
             else -> "工具调用被用户拒绝，用户未说明理由。"
         }
 
@@ -188,7 +208,9 @@ class ApprovalGateway(
                     ?.content
                     ?: (events.firstOrNull { it is LlmStreamEvent.Failed }
                             as? LlmStreamEvent.Failed)
-                        ?.let { throw it.error }
+                        ?.let {
+                            throw it.error
+                        }
             }
                 .getOrElse {
                     WeLogger.e(TAG, "smart review request failed", it)
@@ -236,8 +258,11 @@ class ApprovalGateway(
             }
                 .getOrNull() ?: false
         val reason = runCatching { obj["reason"]?.jsonPrimitive?.content }.getOrNull()
-        return if (allow) ApprovalDecision.Allowed
-        else ApprovalDecision.Denied(reason ?: "审批未通过", bySmartReview = true)
+        return if (allow) {
+            ApprovalDecision.Allowed
+        } else {
+            ApprovalDecision.Denied(reason ?: "审批未通过", bySmartReview = true)
+        }
     }
 
     /** Strips a single leading ```/```json … ``` wrapper, if the whole reply is one code fence. */

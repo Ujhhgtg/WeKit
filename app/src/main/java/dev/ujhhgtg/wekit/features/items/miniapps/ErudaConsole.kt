@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
 object ErudaConsole : SwitchFeature() {
-
     override val technicalId = "Eruda 调试面板"
     override val nameRes = R.string.feature_eruda_console_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

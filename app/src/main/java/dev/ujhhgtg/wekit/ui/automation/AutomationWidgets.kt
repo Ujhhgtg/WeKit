@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -198,8 +197,11 @@ fun AutomationSheetNote(text: String, isError: Boolean = false) {
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color =
-            if (isError) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
     )
 }
 
@@ -373,7 +375,6 @@ fun AutomationNumberSlider(
 }
 
 /** Filter chips toggling members of [selected], with select-all / clear actions. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <V> AutomationChipSet(
     options: List<Pair<V, String>>,
@@ -405,7 +406,9 @@ fun <V> AutomationChipSet(
                                     Modifier.size(FilterChipDefaults.IconSize),
                                 )
                             }
-                        } else null,
+                        } else {
+                            null
+                        },
                 )
             }
         }
@@ -415,7 +418,6 @@ fun <V> AutomationChipSet(
 // ---- small displays -------------------------------------------------------------------------
 
 /** Compact chips under a row's summary; shows the first [max] items and a "+n" chip. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AutomationMiniChips(items: List<String>, max: Int = 4) {
     if (items.isEmpty()) return
@@ -450,18 +452,25 @@ fun AutomationTag(
 ) {
     val (container, content) =
         when (tone) {
-            AutomationTagTone.Primary ->
+            AutomationTagTone.Primary -> {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) to
                     MaterialTheme.colorScheme.primary
-            AutomationTagTone.Muted ->
+            }
+
+            AutomationTagTone.Muted -> {
                 MaterialTheme.colorScheme.surfaceContainerHighest to
                     MaterialTheme.colorScheme.onSurfaceVariant
-            AutomationTagTone.Tertiary ->
+            }
+
+            AutomationTagTone.Tertiary -> {
                 MaterialTheme.colorScheme.tertiaryContainer to
                     MaterialTheme.colorScheme.onTertiaryContainer
-            AutomationTagTone.Warning ->
+            }
+
+            AutomationTagTone.Warning -> {
                 MaterialTheme.colorScheme.errorContainer to
                     MaterialTheme.colorScheme.onErrorContainer
+            }
         }
     Text(
         text = text,

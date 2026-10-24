@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableSpeechToTextButton : SwitchFeature() {
-
     override val technicalId = "禁用输入框快捷语音转文字"
     override val nameRes = R.string.feature_disable_speech_to_text_button_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

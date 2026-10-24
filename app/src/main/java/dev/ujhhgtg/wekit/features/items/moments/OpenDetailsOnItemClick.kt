@@ -17,7 +17,6 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
 import java.lang.reflect.Method
 
 object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
-
     override val technicalId = "点击空白处查看详情"
     override val nameRes = R.string.feature_open_details_on_item_click_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

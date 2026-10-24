@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableShareScreenshotToast : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用「转发截图」提示"
     override val nameRes = R.string.feature_disable_share_screenshot_toast_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "快捷打开朋友圈"
     override val nameRes = R.string.feature_quick_open_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -24,8 +23,8 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
         WeConversationContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> =
+        listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777018,
                 text = localizedContactsString(R.string.contacts_open_moments),
@@ -42,5 +41,4 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
                 WeApi.openMoments(context.activity, context.talker)
             },
         )
-    }
 }

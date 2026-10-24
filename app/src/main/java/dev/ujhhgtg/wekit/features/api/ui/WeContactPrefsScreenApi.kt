@@ -27,7 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object WeContactPrefsScreenApi : ApiFeature() {
-
     override val technicalId = "联系人页面扩展"
     override val nameRes = R.string.feature_we_contact_prefs_screen_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

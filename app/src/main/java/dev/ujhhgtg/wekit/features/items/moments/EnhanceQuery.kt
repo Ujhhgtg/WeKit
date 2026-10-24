@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object EnhanceQuery : SwitchFeature(), WeDatabaseListenerApi.IQueryListener {
-
     override val technicalId = "朋友圈查询增强"
     override val nameRes = R.string.feature_enhance_query_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

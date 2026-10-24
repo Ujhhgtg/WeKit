@@ -117,8 +117,11 @@ fun BaseWidget(
     val interactionSource = remember { MutableInteractionSource() }
     val trailingInteractionSource = remember { MutableInteractionSource() }
     val trailingContentInteractionSource =
-        if (onTrailingClick != null || trailingDivider) trailingInteractionSource
-        else interactionSource
+        if (onTrailingClick != null || trailingDivider) {
+            trailingInteractionSource
+        } else {
+            interactionSource
+        }
 
     val handleTrailingClick = onTrailingClick?.let { callback ->
         {

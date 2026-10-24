@@ -10,7 +10,6 @@ import java.io.ByteArrayOutputStream
  * would drop. Like protobuf parsers, reads return the last occurrence of a field.
  */
 object ProtoWire {
-
     private const val WIRE_VARINT = 0
     private const val WIRE_FIXED64 = 1
     private const val WIRE_LEN = 2
@@ -53,14 +52,26 @@ object ProtoWire {
             val wireType = (tag and 7).toInt()
             val valueStart = pos[0]
             when (wireType) {
-                WIRE_VARINT -> readVarint(bytes, pos)
-                WIRE_FIXED64 -> pos[0] += 8
+                WIRE_VARINT -> {
+                    readVarint(bytes, pos)
+                }
+
+                WIRE_FIXED64 -> {
+                    pos[0] += 8
+                }
+
                 WIRE_LEN -> {
                     val length = readVarint(bytes, pos).toInt()
                     pos[0] += length
                 }
-                WIRE_FIXED32 -> pos[0] += 4
-                else -> error("unsupported protobuf wire type $wireType at offset $start")
+
+                WIRE_FIXED32 -> {
+                    pos[0] += 4
+                }
+
+                else -> {
+                    error("unsupported protobuf wire type $wireType at offset $start")
+                }
             }
             require(pos[0] <= bytes.size) { "truncated protobuf field at offset $start" }
             fields += Field((tag ushr 3).toInt(), wireType, start, valueStart, pos[0])

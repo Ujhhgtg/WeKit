@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.IContactInfoProvider {
-
     override val technicalId = "查看群成员消息历史"
     override val nameRes = R.string.feature_display_group_member_messages_name
     override val categoryIds =

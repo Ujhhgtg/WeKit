@@ -14,11 +14,8 @@ fun localizedChatString(@StringRes id: Int, vararg formatArgs: Any): String =
 fun Context.localizedChatString(@StringRes id: Int, vararg formatArgs: Any): String =
     chatLocalizedContext().getString(id, *formatArgs)
 
-fun localizedChatQuantity(
-    @PluralsRes id: Int,
-    quantity: Int,
-    vararg formatArgs: Any,
-): String = HostInfo.application.localizedChatQuantity(id, quantity, *formatArgs)
+fun localizedChatQuantity(@PluralsRes id: Int, quantity: Int, vararg formatArgs: Any): String =
+    HostInfo.application.localizedChatQuantity(id, quantity, *formatArgs)
 
 fun Context.localizedChatQuantity(
     @PluralsRes id: Int,

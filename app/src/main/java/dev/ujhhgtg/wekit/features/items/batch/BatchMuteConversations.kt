@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object BatchMuteConversations : ClickableFeature() {
-
     override val technicalId = "批量免打扰"
     override val nameRes = R.string.feature_batch_mute_conversations_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -81,8 +80,11 @@ object BatchMuteConversations : ClickableFeature() {
             ContactsSelector(
                 title =
                     context.localizedBatchString(
-                        if (mute) R.string.batch_mute_select_enable
-                        else R.string.batch_mute_select_disable,
+                        if (mute) {
+                            R.string.batch_mute_select_enable
+                        } else {
+                            R.string.batch_mute_select_disable
+                        },
                     ),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),

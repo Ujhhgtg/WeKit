@@ -30,7 +30,6 @@ class EventTriggerBus(
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeDatabaseListenerApi.IQueryListener {
-
     private companion object {
         const val TAG = "EventTriggerBus"
     }

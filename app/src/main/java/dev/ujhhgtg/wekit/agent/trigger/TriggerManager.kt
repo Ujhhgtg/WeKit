@@ -22,10 +22,7 @@ import kotlinx.coroutines.launch
  * effect live. SESSION-scoped triggers whose session was deleted are already gone (cascade in
  * WeAgentRepository.deleteSession), so no extra cleanup is needed here.
  */
-class TriggerManager(
-    private val scope: CoroutineScope,
-    private val host: TriggerHost,
-) {
+class TriggerManager(private val scope: CoroutineScope, private val host: TriggerHost) {
     /** The host's coupling to the turn engine / session store. Implemented by WeAgentService. */
     interface TriggerHost {
         /**
@@ -140,7 +137,9 @@ class TriggerManager(
                     WeLogger.w(TAG, "SESSION trigger ${trigger.id} has no live session; disabling")
                     WeAgentRepository.setTriggerEnabled(trigger.id, false)
                     null
-                } else sid
+                } else {
+                    sid
+                }
             }
 
             TriggerScope.GLOBAL -> {
@@ -149,11 +148,12 @@ class TriggerManager(
                     null
                 } else {
                     host.createBackgroundSession().also {
-                        if (it == null)
+                        if (it == null) {
                             WeLogger.w(
                                 TAG,
                                 "GLOBAL trigger ${trigger.id}: no model configured; skipping",
                             )
+                        }
                     }
                 }
             }

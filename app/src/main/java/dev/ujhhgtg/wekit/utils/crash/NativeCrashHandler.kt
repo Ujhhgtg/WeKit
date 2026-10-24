@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.utils.crash
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object NativeCrashHandler {
-
     private const val TAG = "NativeCrashHandler"
 
     var isInstalled: Boolean = false

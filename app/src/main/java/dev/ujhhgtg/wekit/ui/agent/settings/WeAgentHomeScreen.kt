@@ -433,10 +433,13 @@ private fun OverlayMode.labelRes(): String =
 private fun WeAgentService.SendWhileRunningMode.labelRes(): String =
     stringResource(
         when (this) {
-            WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN ->
+            WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN -> {
                 R.string.agent_send_queue_after_turn
-            WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER ->
+            }
+
+            WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER -> {
                 R.string.agent_send_steer_next_request
+            }
         },
     )
 

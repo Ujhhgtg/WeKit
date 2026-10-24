@@ -32,7 +32,6 @@ import org.jsoup.Jsoup
  * Large responses (over [SPILL_THRESHOLD_CHARS]) are truncated to keep tool results bounded.
  */
 object WeNetToolBindings {
-
     /** Inline-response character cap (~50 KiB of UTF-8). */
     private const val SPILL_THRESHOLD_CHARS = 50_000
 
@@ -83,10 +82,15 @@ object WeNetToolBindings {
                     .build()
 
             val html =
-                client.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
-                    if (!resp.isSuccessful) return "HTTP ${resp.code}: ${resp.message}"
-                    resp.body.string()
-                }
+                client
+                    .newCall(
+                        Request.Builder().url(url).get().build(),
+                    )
+                    .execute()
+                    .use { resp ->
+                        if (!resp.isSuccessful) return "HTTP ${resp.code}: ${resp.message}"
+                        resp.body.string()
+                    }
 
             val doc = Jsoup.parse(html, url)
             val title = doc.title().takeIf { it.isNotBlank() }?.let { "# $it\n\n" } ?: ""
@@ -167,6 +171,7 @@ object WeNetToolBindings {
                 when (method.uppercase()) {
                     "GET",
                     "HEAD" -> null
+
                     else -> (body ?: "").toRequestBody(contentType)
                 }
             reqBuilder.method(method.uppercase(), reqBody)
@@ -222,20 +227,22 @@ object WeNetToolBindings {
                 put("query", query)
                 put("numResults", n)
                 put("type", searchType)
-                if (!includeDomains.isNullOrBlank())
+                if (!includeDomains.isNullOrBlank()) {
                     put(
                         "includeDomains",
                         buildJsonArray {
                             includeDomains.split(',').forEach { add(it.trim()) }
                         },
                     )
-                if (!excludeDomains.isNullOrBlank())
+                }
+                if (!excludeDomains.isNullOrBlank()) {
                     put(
                         "excludeDomains",
                         buildJsonArray {
                             excludeDomains.split(',').forEach { add(it.trim()) }
                         },
                     )
+                }
                 if (includeText != false) put("contents", buildJsonObject { put("text", true) })
             }
                 .toString()
@@ -250,8 +257,9 @@ object WeNetToolBindings {
 
             val raw =
                 baseClient.newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful)
+                    if (!resp.isSuccessful) {
                         return "Exa API error ${resp.code}: ${resp.body.string()}"
+                    }
                     resp.body.string()
                 }
 
@@ -332,8 +340,9 @@ object WeNetToolBindings {
 
             val raw =
                 baseClient.newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful)
+                    if (!resp.isSuccessful) {
                         return "Brave API error ${resp.code}: ${resp.body.string()}"
+                    }
                     resp.body.string()
                 }
 

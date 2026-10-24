@@ -778,7 +778,9 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     fun getMsgSvrIdByMsgId(msgId: Long): Long? {
         return try {
             WeDatabaseApi.rawQuery("SELECT msgSvrId FROM message WHERE msgId=?", arrayOf(msgId))
-                .use { if (it.moveToFirst()) it.getLong(0).takeIf { v -> v != 0L } else null }
+                .use {
+                    if (it.moveToFirst()) it.getLong(0).takeIf { v -> v != 0L } else null
+                }
         } catch (e: Exception) {
             WeLogger.e(TAG, "getMsgSvrIdByMsgId failed", e)
             null
@@ -789,7 +791,9 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     fun getTalkerByMsgSvrId(msgSvrId: Long): String? {
         return try {
             WeDatabaseApi.rawQuery("SELECT talker FROM message WHERE msgSvrId=?", arrayOf(msgSvrId))
-                .use { if (it.moveToFirst()) it.getString(0) else null }
+                .use {
+                    if (it.moveToFirst()) it.getString(0) else null
+                }
         } catch (e: Exception) {
             WeLogger.e(TAG, "getTalkerByMsgSvrId failed", e)
             null

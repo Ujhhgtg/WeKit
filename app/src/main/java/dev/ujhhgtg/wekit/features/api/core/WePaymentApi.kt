@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object WePaymentApi : ApiFeature(), IResolveDex {
-
     override val technicalId = "支付服务"
     override val nameRes = R.string.feature_we_payment_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -56,30 +55,28 @@ object WePaymentApi : ApiFeature(), IResolveDex {
         transferId: String,
         payerUsername: String,
         invalidTime: Int,
-    ): Boolean {
-        return executeTransferOperation(
+    ): Boolean =
+        executeTransferOperation(
             "confirm",
             transactionId,
             transferId,
             payerUsername,
             invalidTime,
         )
-    }
 
     fun refuseTransfer(
         transactionId: String,
         transferId: String,
         payerUsername: String,
         invalidTime: Int,
-    ): Boolean {
-        return executeTransferOperation(
+    ): Boolean =
+        executeTransferOperation(
             "refuse",
             transactionId,
             transferId,
             payerUsername,
             invalidTime,
         )
-    }
 
     private fun executeTransferOperation(
         operation: String,
@@ -87,12 +84,12 @@ object WePaymentApi : ApiFeature(), IResolveDex {
         transferId: String,
         payerUsername: String,
         invalidTime: Int,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             val ctor = ctorNetSceneTransferOperation.constructor
             val netScene =
                 when (ctor.parameterCount) {
-                    10 ->
+                    10 -> {
                         ctor.newInstance(
                             transactionId,
                             transferId,
@@ -105,22 +102,9 @@ object WePaymentApi : ApiFeature(), IResolveDex {
                             1,
                             null,
                         )
-                    12 ->
-                        ctor.newInstance(
-                            transactionId,
-                            transferId,
-                            0,
-                            operation,
-                            payerUsername,
-                            invalidTime,
-                            "",
-                            null,
-                            1,
-                            null,
-                            0L,
-                            "",
-                        )
-                    13 ->
+                    }
+
+                    12 -> {
                         ctor.newInstance(
                             transactionId,
                             transferId,
@@ -134,9 +118,28 @@ object WePaymentApi : ApiFeature(), IResolveDex {
                             null,
                             0L,
                             "",
+                        )
+                    }
+
+                    13 -> {
+                        ctor.newInstance(
+                            transactionId,
+                            transferId,
+                            0,
+                            operation,
+                            payerUsername,
+                            invalidTime,
+                            "",
+                            null,
+                            1,
+                            null,
+                            0L,
+                            "",
                             "",
                         )
-                    14 ->
+                    }
+
+                    14 -> {
                         ctor.newInstance(
                             transactionId,
                             transferId,
@@ -153,7 +156,11 @@ object WePaymentApi : ApiFeature(), IResolveDex {
                             "",
                             "",
                         )
-                    else -> error("unknown NetSceneTransferOperation constructor variant")
+                    }
+
+                    else -> {
+                        error("unknown NetSceneTransferOperation constructor variant")
+                    }
                 }
             WeNetSceneApi.sendNetScene(netScene)
             true
@@ -161,5 +168,4 @@ object WePaymentApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "${operation}Transfer failed", e)
             false
         }
-    }
 }

@@ -221,7 +221,7 @@ class CloudDexReportTest {
             ${featureBlock("SecondFeature", "second-hash", secondDelegates())}
           ]
         }
-    """
+        """
             .trimIndent()
 
     private fun featureBlock(name: String, hash: String, delegates: String): String =
@@ -235,14 +235,14 @@ class CloudDexReportTest {
           "elapsedMillis": 1,
           "delegates": [$delegates]
         }
-    """
+        """
             .trimIndent()
 
     private fun firstDelegates() =
         """
         {"key": "FirstFeature:class", "status": "SUCCESS", "descriptor": "first.Class"},
         ${firstMethodDelegate()}
-    """
+        """
             .trimIndent()
 
     private fun firstMethodDelegate() =

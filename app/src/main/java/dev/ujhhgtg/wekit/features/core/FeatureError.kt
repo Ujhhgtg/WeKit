@@ -22,19 +22,31 @@ sealed interface FeatureError {
 
     fun localizedMessage(context: Context): String =
         when (this) {
-            DexIncomplete -> context.getString(R.string.feature_error_dex_incomplete)
-            is DexFailed -> context.getString(R.string.feature_error_dex_failed)
-            is DependencyDexIncomplete ->
+            DexIncomplete -> {
+                context.getString(R.string.feature_error_dex_incomplete)
+            }
+
+            is DexFailed -> {
+                context.getString(R.string.feature_error_dex_failed)
+            }
+
+            is DependencyDexIncomplete -> {
                 context.getString(
                     R.string.feature_error_dependency_dex_incomplete,
                     dependency.localizedName(context),
                 )
-            is DependencyDexFailed ->
+            }
+
+            is DependencyDexFailed -> {
                 context.getString(
                     R.string.feature_error_dependency_dex_failed,
                     dependency.localizedName(context),
                 )
-            is Declared -> context.getString(messageRes)
+            }
+
+            is Declared -> {
+                context.getString(messageRes)
+            }
         }
 
     companion object {
@@ -45,14 +57,26 @@ sealed interface FeatureError {
         fun of(feature: BaseFeature): List<FeatureError> = buildList {
             when (val state = feature.dexState) {
                 DexItemState.Valid -> {}
-                DexItemState.NeedsResolution -> add(DexIncomplete)
-                is DexItemState.Failed -> add(DexFailed(state.message))
+
+                DexItemState.NeedsResolution -> {
+                    add(DexIncomplete)
+                }
+
+                is DexItemState.Failed -> {
+                    add(DexFailed(state.message))
+                }
             }
             FeatureDependencies.transitive(feature).forEach { dependency ->
                 when (val state = dependency.dexState) {
                     DexItemState.Valid -> {}
-                    DexItemState.NeedsResolution -> add(DependencyDexIncomplete(dependency))
-                    is DexItemState.Failed -> add(DependencyDexFailed(dependency, state.message))
+
+                    DexItemState.NeedsResolution -> {
+                        add(DependencyDexIncomplete(dependency))
+                    }
+
+                    is DexItemState.Failed -> {
+                        add(DependencyDexFailed(dependency, state.message))
+                    }
                 }
             }
             feature.declaredErrors.forEach { add(Declared(it)) }

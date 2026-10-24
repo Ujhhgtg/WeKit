@@ -11,7 +11,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用存储空间不足检测"
     override val nameRes = R.string.feature_disable_low_available_storage_detection_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

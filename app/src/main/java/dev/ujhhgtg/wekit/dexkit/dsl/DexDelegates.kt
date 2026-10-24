@@ -4,6 +4,7 @@ package dev.ujhhgtg.wekit.dexkit.dsl
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassMatcher
 import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
 import dev.ujhhgtg.wekit.dexkit.matcher.FieldMatcher
@@ -62,10 +63,17 @@ sealed class BaseDexDelegate(val key: String) {
 
     fun requireDescriptor(): String =
         when (val state = state) {
-            is DexResolutionState.Success -> state.descriptor
-            DexResolutionState.ExpectedFailure ->
+            is DexResolutionState.Success -> {
+                state.descriptor
+            }
+
+            DexResolutionState.ExpectedFailure -> {
                 error("Dex delegate $key was not found on this host")
-            else -> error("Dex delegate $key is not resolved: $state")
+            }
+
+            else -> {
+                error("Dex delegate $key is not resolved: $state")
+            }
         }
 
     fun resetForResolution() = updateState(DexResolutionState.Pending)
@@ -77,8 +85,9 @@ sealed class BaseDexDelegate(val key: String) {
         )
 
     protected fun setResolvedDescriptor(descriptor: String) {
-        if (state !is DexResolutionState.UnexpectedFailure)
+        if (state !is DexResolutionState.UnexpectedFailure) {
             updateState(DexResolutionState.Success(descriptor))
+        }
     }
 
     fun markExpectedFailure() {
@@ -115,10 +124,8 @@ sealed class BaseDexDelegate(val key: String) {
     open val dexSqlSpec: DexSqlSpec? = null
 }
 
-class DexClassDelegate(
-    key: String,
-    private val sqlSpec: DexSqlSpec? = null,
-) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexClassDelegate> {
+class DexClassDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
+    BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexClassDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
@@ -128,7 +135,9 @@ class DexClassDelegate(
         get() =
             cachedClass
                 ?: (requireDescriptor().toClassOrNull() ?: error("Class not found for key: $key"))
-                    .also { cachedClass = it }
+                    .also {
+                        cachedClass = it
+                    }
 
     @Suppress("NOTHING_TO_INLINE") inline fun reflekt() = clazz.reflekt()
 
@@ -143,10 +152,8 @@ class DexClassDelegate(
     override fun getValue(thisRef: BaseFeature, property: KProperty<*>): DexClassDelegate = this
 }
 
-class DexFieldDelegate(
-    key: String,
-    private val sqlSpec: DexSqlSpec? = null,
-) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
+class DexFieldDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
+    BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
@@ -183,10 +190,8 @@ class DexFieldDelegate(
     }
 }
 
-class DexMethodDelegate(
-    key: String,
-    private val sqlSpec: DexSqlSpec? = null,
-) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexMethodDelegate> {
+class DexMethodDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
+    BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexMethodDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
@@ -199,7 +204,11 @@ class DexMethodDelegate(
                     cachedMethod = it
                 }
 
-    @Deprecated("You shouldn't call .reflekt() on a Method", level = DeprecationLevel.ERROR)
+    @Deprecated(
+        "You shouldn't call .reflekt() on a Method",
+        level = DeprecationLevel.ERROR,
+        replaceWith = ReplaceWith("error(\"\")"),
+    )
     fun reflekt(): Nothing = error("You shouldn't call .reflekt() on a Method")
 
     /** Raw full method descriptor, e.g. for imperative resolveDex() bodies. */
@@ -215,10 +224,8 @@ class DexMethodDelegate(
     override fun getValue(thisRef: BaseFeature, property: KProperty<*>): DexMethodDelegate = this
 }
 
-class DexConstructorDelegate(
-    key: String,
-    private val sqlSpec: DexSqlSpec? = null,
-) : BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {
+class DexConstructorDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
+    BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
@@ -231,7 +238,11 @@ class DexConstructorDelegate(
                     cachedConstructor = it
                 }
 
-    @Deprecated("You shouldn't call .reflekt() on a Constructor", level = DeprecationLevel.ERROR)
+    @Deprecated(
+        "You shouldn't call .reflekt() on a Constructor",
+        level = DeprecationLevel.ERROR,
+        replaceWith = ReplaceWith("error(\"\")"),
+    )
     fun reflekt(): Nothing = error("You shouldn't call .reflekt() on a Constructor")
 
     fun newInstance(vararg initArgs: Any?): Any = constructor.newInstance(*initArgs)
@@ -376,76 +387,94 @@ private fun lazyMethodDexSqlSpec(
             sqlDescriptor(bridge, sql, allowFailure)
         } else {
             resolveMatcher(bridge, allowFailure) {
-                if (constructor) uniqueMethod(spec.copy(name = NameSpec("<init>")))
-                else uniqueMethod(spec)
+                if (constructor) {
+                    uniqueMethod(spec.copy(name = NameSpec("<init>")))
+                } else {
+                    uniqueMethod(spec)
+                }
             }
         }
     }
 
-private fun lazyClassDexSqlSpec(
-    allowFailure: Boolean,
-    block: ClassMatcher.() -> Unit,
-): DexSqlSpec =
+private fun lazyClassDexSqlSpec(allowFailure: Boolean, block: ClassMatcher.() -> Unit): DexSqlSpec =
     DexSqlSpec.queryMatcher(allowFailure) { bridge ->
         val spec = classSpec(block)
         val sql = spec.toSqlOrNull()
-        if (sql != null) sqlDescriptor(bridge, sql, allowFailure)
-        else resolveMatcher(bridge, allowFailure) { uniqueClass(spec) }
+        if (sql != null) {
+            sqlDescriptor(bridge, sql, allowFailure)
+        } else {
+            resolveMatcher(bridge, allowFailure) { uniqueClass(spec) }
+        }
     }
 
-private fun lazyFieldDexSqlSpec(
-    allowFailure: Boolean,
-    block: FieldMatcher.() -> Unit,
-): DexSqlSpec =
+private fun lazyFieldDexSqlSpec(allowFailure: Boolean, block: FieldMatcher.() -> Unit): DexSqlSpec =
     DexSqlSpec.queryMatcher(allowFailure) { bridge ->
         val spec = fieldSpec(block)
         val sql = spec.toSqlOrNull()
-        if (sql != null) sqlDescriptor(bridge, sql, allowFailure)
-        else resolveMatcher(bridge, allowFailure) { uniqueField(spec) }
+        if (sql != null) {
+            sqlDescriptor(bridge, sql, allowFailure)
+        } else {
+            resolveMatcher(bridge, allowFailure) { uniqueField(spec) }
+        }
     }
 
-private fun sqlDescriptor(
-    bridge: dev.ujhhgtg.wekit.dexkit.DexSqlBridge,
-    sql: String,
-    allowFailure: Boolean,
-): String? {
+private fun sqlDescriptor(bridge: DexSqlBridge, sql: String, allowFailure: Boolean): String? {
     val result = bridge.query(sql)
     return when (result.rows.size) {
-        0 -> if (allowFailure) null else error("DexSQL: no row found for query: " + sql)
-        1 ->
-            result.rows.single().firstOrNull() ?: error("DexSQL: query returned no columns: " + sql)
-        else -> error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
+        0 -> {
+            if (allowFailure) null else error("DexSQL: no row found for query: $sql")
+        }
+
+        1 -> {
+            result.rows.single().firstOrNull() ?: error("DexSQL: query returned no columns: $sql")
+        }
+
+        else -> {
+            error("DexSQL: query returned " + result.rows.size + " rows; expected one: " + sql)
+        }
     }
 }
 
 private fun resolveMatcher(
-    bridge: dev.ujhhgtg.wekit.dexkit.DexSqlBridge,
+    bridge: DexSqlBridge,
     allowFailure: Boolean,
     block: QueryMatcherScope.() -> String?,
 ): String? = QueryMatcherSpec(allowFailure, block).asTwoStageSqlSpec().resolve(bridge)
 
 private fun methodDexSqlSpec(spec: MethodSpec, allowFailure: Boolean): DexSqlSpec {
     val sql = spec.toSqlOrNull()
-    return if (sql != null) DexSqlSpec({ sql }, allowFailure)
-    else methodSpecMatcherDexSqlSpec(spec, allowFailure)
+    return if (sql != null) {
+        DexSqlSpec({ sql }, allowFailure)
+    } else {
+        methodSpecMatcherDexSqlSpec(spec, allowFailure)
+    }
 }
 
 private fun classDexSqlSpec(spec: ClassSpec, allowFailure: Boolean): DexSqlSpec {
     val sql = spec.toSqlOrNull()
-    return if (sql != null) DexSqlSpec({ sql }, allowFailure)
-    else classSpecMatcherDexSqlSpec(spec, allowFailure)
+    return if (sql != null) {
+        DexSqlSpec({ sql }, allowFailure)
+    } else {
+        classSpecMatcherDexSqlSpec(spec, allowFailure)
+    }
 }
 
 private fun fieldDexSqlSpec(spec: FieldSpec, allowFailure: Boolean): DexSqlSpec {
     val sql = spec.toSqlOrNull()
-    return if (sql != null) DexSqlSpec({ sql }, allowFailure)
-    else fieldSpecMatcherDexSqlSpec(spec, allowFailure)
+    return if (sql != null) {
+        DexSqlSpec({ sql }, allowFailure)
+    } else {
+        fieldSpecMatcherDexSqlSpec(spec, allowFailure)
+    }
 }
 
 private fun constructorDexSqlSpec(spec: MethodSpec, allowFailure: Boolean): DexSqlSpec {
     val sql = spec.toSqlOrNull(constructor = true)
-    return if (sql != null) DexSqlSpec({ sql }, allowFailure)
-    else constructorSpecMatcherDexSqlSpec(spec, allowFailure)
+    return if (sql != null) {
+        DexSqlSpec({ sql }, allowFailure)
+    } else {
+        constructorSpecMatcherDexSqlSpec(spec, allowFailure)
+    }
 }
 
 internal fun dexMethod(
@@ -454,7 +483,9 @@ internal fun dexMethod(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
     PropertyDelegateProvider { item, property ->
         DexMethodDelegate(property.name, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
-            .also { item.registerDexDelegate(it) }
+            .also {
+                item.registerDexDelegate(it)
+            }
     }
 
 internal fun dexClass(
@@ -463,7 +494,9 @@ internal fun dexClass(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
     PropertyDelegateProvider { item, property ->
         DexClassDelegate(property.name, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
-            .also { item.registerDexDelegate(it) }
+            .also {
+                item.registerDexDelegate(it)
+            }
     }
 
 internal fun dexField(
@@ -472,7 +505,9 @@ internal fun dexField(
 ): PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
     PropertyDelegateProvider { item, property ->
         DexFieldDelegate(property.name, sqlSpec = DexSqlSpec({ query.toSql() }, allowFailure))
-            .also { item.registerDexDelegate(it) }
+            .also {
+                item.registerDexDelegate(it)
+            }
     }
 
 internal fun dexConstructor(

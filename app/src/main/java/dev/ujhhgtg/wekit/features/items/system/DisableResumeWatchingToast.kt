@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisableResumeWatchingToast : SwitchFeature(), IResolveDex {
-
     override val technicalId = "禁用「刚刚在看」提醒"
     override val nameRes = R.string.feature_disable_resume_watching_toast_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

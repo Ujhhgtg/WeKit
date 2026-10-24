@@ -109,8 +109,9 @@ object CloneVoiceRepository {
                             val count = source.read(buffer)
                             if (count < 0) break
                             total += count
-                            if (total > MAX_IMPORT_BYTES)
+                            if (total > MAX_IMPORT_BYTES) {
                                 error(localizedChatString(R.string.chat_voice_tone_max_size))
+                            }
                             output.write(buffer, 0, count)
                         }
                         require(total > 0) { localizedChatString(R.string.chat_voice_tone_empty) }

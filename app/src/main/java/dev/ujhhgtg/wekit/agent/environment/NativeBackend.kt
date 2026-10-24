@@ -124,7 +124,9 @@ constructor(
                             stderrFile.copyTo(stream)
                         }
                         spill.toString()
-                    } else null
+                    } else {
+                        null
+                    }
                 ExecResult(
                     stdout = stdout,
                     stderr = stderr,
@@ -187,13 +189,16 @@ constructor(
                         "file exceeds $MAX_EDIT_BYTES bytes"
                     }
                     decodeUtf8(target.readBytes())
-                } else ""
+                } else {
+                    ""
+                }
             val updated =
                 when (val old = request.oldString) {
                     null -> {
                         require(original.isEmpty()) { "creation requires a missing or empty file" }
                         request.newString
                     }
+
                     else -> {
                         require(old.isNotEmpty()) { "oldString must not be empty" }
                         val matches = countOccurrences(original, old)
@@ -201,8 +206,11 @@ constructor(
                         require(request.replaceAll || matches == 1) {
                             "oldString occurs $matches times"
                         }
-                        if (request.replaceAll) original.replace(old, request.newString)
-                        else original.replaceFirst(old, request.newString)
+                        if (request.replaceAll) {
+                            original.replace(old, request.newString)
+                        } else {
+                            original.replaceFirst(old, request.newString)
+                        }
                     }
                 }
             val parent = target.parent ?: error("target has no parent")
@@ -217,7 +225,9 @@ constructor(
                             error,
                         )
                     }
-                } else null
+                } else {
+                    null
+                }
             val temporary = createTempFile(parent, ".weagent-edit-", ".tmp")
             try {
                 temporary.writeText(
@@ -270,8 +280,9 @@ constructor(
             require(lexical.startsWith(root)) { "relative path escapes the working directory" }
         }
         val checked =
-            if (lexical.exists()) lexical.toRealPath()
-            else {
+            if (lexical.exists()) {
+                lexical.toRealPath()
+            } else {
                 val parent = lexical.parent ?: error("relative path has no parent")
                 parent.toRealPath().resolve(lexical.fileName).normalize()
             }
