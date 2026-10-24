@@ -179,8 +179,6 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
         "dev.ujhhgtg.wekit.loader.api.",
         "dev.ujhhgtg.wekit.bootstrap.",
         "dev.ujhhgtg.reflekt.",
-        "org.luckypray.dexkit.",
-        "com.google.flatbuffers.",
         "kotlin.",
     )
 }

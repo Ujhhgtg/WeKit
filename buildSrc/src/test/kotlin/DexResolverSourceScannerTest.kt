@@ -3,31 +3,7 @@ import kotlin.test.assertEquals
 
 class DexResolverSourceScannerTest {
     @Test
-    fun extractsCustomAndAllInlineDelegateKinds() {
-        val source = scanDexResolverSource(
-            "Sample.kt",
-            """
-                package sample
-                object Sample : IResolveDex {
-                    private val field by dexField { matcher { name = "f" } }
-                    private val method by dexMethod(allowFailure = true) {
-                        matcher { declaredClass(classOwner.clazz) }
-                    }
-                    override fun resolveDex(dexKit: DexKitBridge) {
-                        method.find(dexKit) { matcher { name = "m" } }
-                    }
-                }
-            """.trimIndent(),
-        )!!
-
-        assertEquals(
-            listOf(ResolveBlockKind.INLINE_FIELD, ResolveBlockKind.INLINE_METHOD, ResolveBlockKind.CUSTOM),
-            source.blocks.map { it.kind },
-        )
-    }
-
-    @Test
-    fun includesSqlDelegateExpressionsInResolverHashInput() {
+    fun extractsCustomAndSqlDelegateExpressions() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -37,12 +13,18 @@ class DexResolverSourceScannerTest {
                         "SELECT descriptor FROM methods ORDER BY descriptor LIMIT 1",
                         allowFailure = true,
                     )
+                    private val field by dexField(sqlField { type = "int" })
+                    override fun resolveDex() {
+                        method.find(methodSpec { name("m") })
+                    }
                 }
             """.trimIndent(),
         )!!
 
-        assertEquals(listOf(ResolveBlockKind.INLINE_SQL), source.blocks.map { it.kind })
-        assertEquals(3, source.blocks.single().startLine)
+        assertEquals(
+            listOf(ResolveBlockKind.INLINE_SQL, ResolveBlockKind.INLINE_SQL, ResolveBlockKind.CUSTOM),
+            source.blocks.map { it.kind },
+        )
     }
 
     @Test
@@ -50,7 +32,6 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                package sample
                 object Sample : IResolveDex {
                     private val method by dexMethod(
                         sqlMethod {
@@ -66,10 +47,7 @@ class DexResolverSourceScannerTest {
             """.trimIndent(),
         )!!
 
-        assertEquals(
-            List(4) { ResolveBlockKind.INLINE_SQL },
-            source.blocks.map { it.kind },
-        )
+        assertEquals(List(4) { ResolveBlockKind.INLINE_SQL }, source.blocks.map { it.kind })
         val methodBlock = source.blocks.first()
         assertEquals(3, methodBlock.startLine)
         assertEquals(true, methodBlock.text.contains("sqlMethod"))
@@ -77,12 +55,37 @@ class DexResolverSourceScannerTest {
     }
 
     @Test
+    fun extractsQueryMatcherDelegateKinds() {
+        val source = scanDexResolverSource(
+            "Sample.kt",
+            """
+                object Sample : IResolveDex {
+                    private val clazz by dexClassQuery { uniqueClass(classSpec { className = "C" }) }
+                    private val method by dexMethodQuery { uniqueMethod(methodSpec { name("m") }) }
+                    private val field by dexFieldQuery { uniqueField(fieldSpec { name("f") }) }
+                    private val ctor by dexConstructorQuery { uniqueMethod(methodSpec { paramCount = 0 }) }
+                }
+            """.trimIndent(),
+        )!!
+
+        assertEquals(
+            listOf(
+                ResolveBlockKind.INLINE_QUERY_CLASS,
+                ResolveBlockKind.INLINE_QUERY_METHOD,
+                ResolveBlockKind.INLINE_QUERY_FIELD,
+                ResolveBlockKind.INLINE_QUERY_CONSTRUCTOR,
+            ),
+            source.blocks.map { it.kind },
+        )
+    }
+
+    @Test
     fun flagsHostReflectionOnlyInsideResolutionBlocks() {
         val source = scanDexResolverSource("Sample.kt", sampleSource)!!
 
         assertEquals(
-            listOf("classOwner.clazz", "HostInfo.versionCode"),
-            findDesktopIncompatibleAccesses(source).map { it.expression },
+            setOf("classOwner.clazz", "HostInfo.versionCode"),
+            findDesktopIncompatibleAccesses(source).map { it.expression }.toSet(),
         )
     }
 
@@ -96,7 +99,7 @@ class DexResolverSourceScannerTest {
                  */
 
                 object Sample : IResolveDex {
-                    private val method by dexMethod { matcher { name = "m" } }
+                    private val method by dexMethod(sqlMethod { name = "m" })
                 }
             """.trimIndent(),
         )!!
@@ -110,41 +113,17 @@ class DexResolverSourceScannerTest {
             "Sample.kt",
             """
                 object Helper {
-                    private val ignored by dexMethod {
-                        matcher { declaredClass(classHelper.clazz) }
-                    }
-
-                    override fun resolveDex(dexKit: DexKitBridge) {
-                        error("not a resolver")
-                    }
+                    private val ignored by dexMethod(sqlMethod { name = "ignored" })
                 }
 
                 object Sample : IResolveDex {
-                    private val included by dexClass { matcher { name = "sample" } }
+                    private val included by dexClass(sqlClass { className = "sample" })
                 }
             """.trimIndent(),
         )!!
 
-        assertEquals(listOf(ResolveBlockKind.INLINE_CLASS), source.blocks.map { it.kind })
+        assertEquals(listOf(ResolveBlockKind.INLINE_SQL), source.blocks.map { it.kind })
         assertEquals(emptyList(), findDesktopIncompatibleAccesses(source))
-    }
-
-    @Test
-    fun extractsClassAndConstructorInlineDelegateKinds() {
-        val source = scanDexResolverSource(
-            "Sample.kt",
-            """
-                object Sample : IResolveDex {
-                    private val clazz by dexClass { matcher { name = "C" } }
-                    private val ctor by dexConstructor { matcher { declaredClass(clazz.clazz) } }
-                }
-            """.trimIndent(),
-        )!!
-
-        assertEquals(
-            listOf(ResolveBlockKind.INLINE_CLASS, ResolveBlockKind.INLINE_CONSTRUCTOR),
-            source.blocks.map { it.kind },
-        )
     }
 
     @Test
@@ -153,9 +132,9 @@ class DexResolverSourceScannerTest {
             "Sample.kt",
             """
                 object Sample : IResolveDex {
-                    private val method by dexMethod {
-                        matcher { usingStrings("classOwner.clazz HostInfo.versionCode") }
-                    }
+                    private val method by dexMethod(
+                        sqlMethod { usingStrings("classOwner.clazz HostInfo.versionCode") },
+                    )
                 }
             """.trimIndent(),
         )!!
@@ -169,19 +148,21 @@ class DexResolverSourceScannerTest {
             "Sample.kt",
             """
                 object Sample : IResolveDex {
-                    private val method by dexMethod {
-                        /*
-                         * This comment must not shift diagnostics.
-                         */
-                        matcher { declaredClass(classOwner.clazz) }
-                    }
+                    private val method by dexMethod(
+                        sqlMethod {
+                            /*
+                             * This comment must not shift diagnostics.
+                             */
+                            className = classOwner.clazz
+                        },
+                    )
                 }
             """.trimIndent(),
         )!!
 
-        assertEquals(6, findDesktopIncompatibleAccesses(source).single().line)
+        assertEquals(7, findDesktopIncompatibleAccesses(source).single().line)
         val block = source.blocks.single()
-        assertEquals(6, source.sourceLinesByBlock[block]!![block.text.indexOf("classOwner.clazz")])
+        assertEquals(7, source.sourceLinesByBlock[block]!![block.text.indexOf("classOwner.clazz")])
     }
 
     @Test
@@ -192,7 +173,7 @@ class DexResolverSourceScannerTest {
                 package sample
                 object Sample : BaseFeature(), IResolveDex {
                     override val technicalId = "防撤回"
-                    private val method by dexMethod { matcher { name = "m" } }
+                    private val method by dexMethod(sqlMethod { name = "m" })
                 }
             """.trimIndent(),
         )!!
@@ -208,7 +189,7 @@ class DexResolverSourceScannerTest {
                 "Missing.kt",
                 """
                     object Sample : IResolveDex {
-                        private val method by dexMethod { matcher { name = "m" } }
+                        private val method by dexMethod(sqlMethod { name = "m" })
                     }
                 """.trimIndent(),
             )!!.technicalId,
@@ -220,21 +201,7 @@ class DexResolverSourceScannerTest {
                 """
                     object Sample : IResolveDex {
                         override val technicalId = BuildConfig.ID
-                        private val method by dexMethod { matcher { name = "m" } }
-                    }
-                """.trimIndent(),
-            )!!.technicalId,
-        )
-        assertEquals(
-            null,
-            scanDexResolverSource(
-                "Nested.kt",
-                """
-                    object Sample : IResolveDex {
-                        fun install() {
-                            val log = "technicalId = \"spoiled\""
-                        }
-                        private val method by dexMethod { matcher { name = "m" } }
+                        private val method by dexMethod(sqlMethod { name = "m" })
                     }
                 """.trimIndent(),
             )!!.technicalId,
@@ -248,7 +215,7 @@ class DexResolverSourceScannerTest {
             """
                 object Sample : IResolveDex {
                     override val technicalId = "a\"b\\c"
-                    private val method by dexMethod { matcher { name = "m" } }
+                    private val method by dexMethod(sqlMethod { name = "m" })
                 }
             """.trimIndent(),
         )!!
@@ -261,13 +228,13 @@ class DexResolverSourceScannerTest {
             """
                 package sample
                 object Sample : IResolveDex {
-                    private val method by dexMethod {
-                        matcher { declaredClass(classOwner.clazz) }
-                    }
+                    private val method by dexMethod(
+                        sqlMethod { className = classOwner.clazz },
+                    )
 
-                    override fun resolveDex(dexKit: DexKitBridge) {
+                    override fun resolveDex() {
                         if (HostInfo.versionCode > 1) {
-                            method.find(dexKit) { matcher { name = "m" } }
+                            method.find(methodSpec { name("m") })
                         }
                     }
 

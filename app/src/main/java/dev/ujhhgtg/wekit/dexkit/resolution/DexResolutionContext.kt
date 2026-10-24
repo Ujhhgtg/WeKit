@@ -1,14 +1,20 @@
 package dev.ujhhgtg.wekit.dexkit.resolution
 
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.resolveFromDexSql
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
-import dev.ujhhgtg.wekit.dexkit.DexSqlMetadataProvider
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.meta.DexClassInfo
+import dev.ujhhgtg.wekit.dexkit.meta.DexFieldInfo
 import dev.ujhhgtg.wekit.dexkit.meta.DexMetadata
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
-import org.luckypray.dexkit.DexKitBridge
 
 data class DexHostMetadata(
     val versionCode: Long,
@@ -25,21 +31,34 @@ data class DexHostMetadata(
 }
 
 object DexResolutionContext {
-    private data class Session(
-        val dexKit: DexKitBridge,
+    private class Session(
         val host: DexHostMetadata,
         val coordinator: ResolutionCoordinator<BaseFeature>,
         val dexSql: DexSqlBridge?,
         val metadata: DexMetadata? = dexSql?.let { DexMetadata(DexSqlMetadataProvider(it)) },
-        val stack: MutableList<BaseFeature> = mutableListOf(),
+    ) : AutoCloseable {
+        val stack: MutableList<BaseFeature> = mutableListOf()
+
         /** Delegates currently being resolved on demand (cycle detection). */
-        val resolving: MutableList<BaseDexDelegate> = mutableListOf(),
-    )
+        val resolving: MutableList<BaseDexDelegate> = mutableListOf()
+
+        private var matcherSession: DexMatcherSession? = null
+
+        val matcher: DexMatcherSession
+            get() {
+                matcherSession?.let { return it }
+                val sql = dexSql ?: error("DexSQL session is not active")
+                val md = metadata ?: DexMetadata(DexSqlMetadataProvider(sql))
+                return DexMatcherSession(sql, md).also { matcherSession = it }
+            }
+
+        override fun close() {
+            matcherSession?.close()
+            matcherSession = null
+        }
+    }
 
     private val current = ThreadLocal<Session?>()
-
-    val dexKit: DexKitBridge
-        get() = current.get()?.dexKit ?: error("Dex resolution context is not active")
 
     val host: DexHostMetadata
         get() = current.get()?.host ?: error("Dex resolution context is not active")
@@ -52,6 +71,28 @@ object DexResolutionContext {
         get() = current.get()?.metadata
             ?: error("DexSQL metadata context is not active")
 
+    /** Session-scoped query matcher usable from custom resolveDex bodies. */
+    val matcher: DexMatcherSession
+        get() = current.get()?.matcher ?: error("Dex resolution context is not active")
+
+    fun findClasses(
+        spec: ClassSpec,
+        packages: List<String> = emptyList(),
+        excludePackages: List<String> = emptyList(),
+    ): List<DexClassInfo> = matcher.findClasses(spec, packages, excludePackages)
+
+    fun findMethods(
+        spec: MethodSpec,
+        packages: List<String> = emptyList(),
+        excludePackages: List<String> = emptyList(),
+    ): List<DexMethodInfo> = matcher.findMethods(spec, packages, excludePackages)
+
+    fun findFields(
+        spec: FieldSpec,
+        packages: List<String> = emptyList(),
+        excludePackages: List<String> = emptyList(),
+    ): List<DexFieldInfo> = matcher.findFields(spec, packages, excludePackages)
+
     fun ensureResolved(delegate: BaseDexDelegate) {
         val session = current.get() ?: error("Dex resolution context is not active")
         if (session.coordinator.isOwnedByCurrentThread(delegate.owner)) {
@@ -62,10 +103,9 @@ object DexResolutionContext {
     }
 
     /**
-     * Resolves a delegate whose owner feature is the one currently being resolved. Inline
-     * matchers are resolved by the owner's inline phase, but a later SQL delegate may refer to a
-     * delegate that has not been touched yet; in that case resolve it on demand. This also
-     * permits deferred SQL providers to read each other's metadata as long as there is no cycle.
+     * Resolves a delegate whose owner is the feature currently being resolved. SQL providers may
+     * refer to a sibling delegate whose provider has not run yet; resolve it on demand. This also
+     * permits SQL providers to read each other's metadata as long as there is no cycle.
      */
     private fun resolveWithinOwner(delegate: BaseDexDelegate, session: Session) {
         if (delegate.isSettled) return
@@ -82,13 +122,13 @@ object DexResolutionContext {
         session.resolving += delegate
         try {
             val spec = delegate.dexSqlSpec
-            if (spec != null) {
-                val dexSql = session.dexSql
-                    ?: error("DexSQL resolution context is not active for " + delegate.owner.technicalPath)
-                delegate.resolveFromDexSql(dexSql)
-            } else {
-                delegate.findInline(session.dexKit)
-            }
+                ?: error(
+                    "Dex delegate " + delegate.owner.technicalPath + "#" + delegate.key +
+                        " has no SQL plan (DexKit inline matchers were removed)",
+                )
+            val dexSql = session.dexSql
+                ?: error("DexSQL resolution context is not active for " + delegate.owner.technicalPath)
+            delegate.resolveFromDexSql(dexSql)
             check(delegate.isSettled) {
                 "Dex delegate " + delegate.owner.technicalPath + "#" + delegate.key +
                     " did not settle during on-demand resolution"
@@ -99,21 +139,24 @@ object DexResolutionContext {
     }
 
     fun <T> withResolutionContext(
-        dexKit: DexKitBridge,
         host: DexHostMetadata,
         coordinator: ResolutionCoordinator<BaseFeature>? = null,
         dexSql: DexSqlBridge? = null,
         block: () -> T,
     ): T {
         val previous = current.get()
-        if (previous?.dexKit === dexKit && previous.host == host && previous.dexSql === dexSql &&
+        if (previous != null && previous.host == host && previous.dexSql === dexSql &&
             (coordinator == null || previous.coordinator === coordinator)
-        ) return block()
-        current.set(Session(dexKit, host, coordinator ?: newCoordinator(emptyList()), dexSql))
+        ) {
+            return block()
+        }
+        val session = Session(host, coordinator ?: newCoordinator(emptyList()), dexSql)
+        current.set(session)
         try {
             return block()
         } finally {
             current.set(previous)
+            session.close()
         }
     }
 
@@ -131,26 +174,22 @@ object DexResolutionContext {
             try {
                 item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
                 // SQL builders are lazy: they execute here, inside the resolution context, so
-                // .data references inside a builder resolve their dependencies on demand. SQL
-                // delegates still run before the inline phase because inline matchers restored
-                // from a SQL migration may read their .data; on-demand resolution also covers
-                // inline dependencies referenced from a SQL builder.
+                // .data references inside a builder resolve their dependencies on demand.
                 val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
                 if (sqlDelegates.isNotEmpty()) {
                     val dexSql = session.dexSql
                         ?: error("DexSQL resolution context is not active for " + feature.technicalPath)
                     sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
                 }
-                feature.resolveInlineDex(session.dexKit)
-                item.resolveDex(session.dexKit)
+                item.resolveDex()
                 item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
                 check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {
-                    "Incomplete or failed Dex resolution: ${feature.technicalPath}"
+                    "Incomplete or failed Dex resolution: " + feature.technicalPath
                 }
             } catch (error: Throwable) {
                 val causeKey = item.dexDelegates.firstOrNull {
                     it.state is DexResolutionState.UnexpectedFailure
-                }?.key ?: "${feature.javaClass.name}#resolveDex"
+                }?.key ?: feature.javaClass.name + "#resolveDex"
                 item.dexDelegates.forEach { it.markBlocked(causeKey) }
                 throw error
             } finally {
@@ -166,10 +205,9 @@ object DexResolutionContext {
 }
 
 fun IResolveDex.resolveAllDex(
-    dexKit: DexKitBridge,
     host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
     coordinator: ResolutionCoordinator<BaseFeature> = DexResolutionContext.newCoordinator(listOf(this)),
     dexSql: DexSqlBridge? = null,
-) = DexResolutionContext.withResolutionContext(dexKit, host, coordinator, dexSql) {
+) = DexResolutionContext.withResolutionContext(host, coordinator, dexSql) {
     DexResolutionContext.resolve(this)
 }

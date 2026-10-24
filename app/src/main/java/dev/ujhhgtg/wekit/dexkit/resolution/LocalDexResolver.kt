@@ -5,7 +5,6 @@ import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.reflection.withDexKitSuspending
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -60,14 +59,12 @@ object LocalDexResolver {
                         // feature set has no SQL query delegate.
                         val dexSql = DexSqlBridge.openHost()
                         try {
-                            withDexKitSuspending { dexKit ->
-                                resolveDexBatch(
-                                    roots,
-                                    dexKit,
-                                    DexHostMetadata.currentAndroidHost(),
-                                    WORKER_COUNT,
-                                    dexSql,
-                                ) { event ->
+                            resolveDexBatch(
+                                roots,
+                                DexHostMetadata.currentAndroidHost(),
+                                WORKER_COUNT,
+                                dexSql,
+                            ) { event ->
                             val item = event.item
                             val displayName = (item as BaseFeature).technicalPath
                             when (event) {
@@ -93,7 +90,6 @@ object LocalDexResolver {
                                     finished += item
                                 }
                             }
-                                }
                             }
                         } finally {
                             dexSql?.close()

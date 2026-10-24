@@ -9,7 +9,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import org.luckypray.dexkit.DexKitBridge
 import kotlin.time.TimeSource
 
 sealed interface DexResolutionEvent {
@@ -26,7 +25,6 @@ sealed interface DexResolutionEvent {
 /** Shared by Android and desktop validation. The caller owns the bridge until this returns. */
 suspend fun resolveDexBatch(
     items: List<IResolveDex>,
-    dexKit: DexKitBridge,
     host: DexHostMetadata,
     workerCount: Int = 4,
     dexSql: DexSqlBridge? = null,
@@ -53,7 +51,7 @@ suspend fun resolveDexBatch(
                             events.send(DexResolutionEvent.Start(item))
                             val started = TimeSource.Monotonic.markNow()
                             val error = try {
-                                item.resolveAllDex(dexKit, host, coordinator, dexSql)
+                                item.resolveAllDex(host, coordinator, dexSql)
                                 null
                             } catch (error: CancellationException) {
                                 throw error

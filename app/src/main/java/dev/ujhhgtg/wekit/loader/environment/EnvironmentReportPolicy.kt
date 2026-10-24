@@ -15,7 +15,7 @@ class EnvironmentReportPolicy(
             clean.split('/').any { it == modulePackage || it.startsWith("$modulePackage-") } ||
             clean.startsWith("/data/adb/lspd/") || clean.startsWith("/data/adb/modules/zygisk_lsposed/") ||
             clean == "/memfd:wk" || clean == "/memfd:wekit-inline-hook" || clean == "/memfd:wekit-payload" ||
-            clean.substringAfterLast('/') in setOf("libwekit_native.so", "libwekit_zygisk.so", "libwekit_loader.so", "libdexkit.so", "liblsposed.so", "liblspd.so")
+            clean.substringAfterLast('/') in setOf("libwekit_native.so", "libwekit_zygisk.so", "libwekit_loader.so", "liblsposed.so", "liblspd.so")
     }
 
     fun rewriteFields(message: ByteArray): ByteArray {

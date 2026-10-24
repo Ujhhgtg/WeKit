@@ -1,13 +1,12 @@
 package dev.ujhhgtg.wekit.dexkit.abc
 
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
-import org.luckypray.dexkit.DexKitBridge
 
 /**
- * 表示一个需要通过 DexKit 查找符号的 Feature。
+ * 表示一个需要通过 DexSQL 查询解析符号的 Feature。
  *
- * 实现类通过 [dev.ujhhgtg.wekit.dexkit.dsl.dexClass] / [dev.ujhhgtg.wekit.dexkit.dsl.dexMethod] / [dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor] 工厂函数声明委托属性，
- * 这些委托在构造时自动注册到 [dexDelegates]。
+ * 实现类通过 SQL-only 的 dexClass/dexMethod/dexField/dexConstructor 工厂（或 query-matcher
+ * 工厂）声明委托属性；这些委托在构造时自动注册到 [dexDelegates]。
  */
 interface IResolveDex {
 
@@ -18,10 +17,11 @@ interface IResolveDex {
     val dexDelegates: List<BaseDexDelegate>
 
     /**
-     * 执行 DexKit 查找，将结果写入各委托自身。
-     * 调用方通过 [collectDescriptors] 读取结果后持久化。
+     * 执行仍未解析的自定义查找（大多数 Feature 没有自定义逻辑）。
+     * SQL 委托与 query-matcher 委托已由解析上下文完成，调用方随后通过
+     * [collectDescriptors] 读取结果。
      */
-    fun resolveDex(dexKit: DexKitBridge) {}
+    fun resolveDex() {}
 
     /**
      * 将所有委托的解析结果收集为 key → descriptor 映射，
@@ -37,7 +37,7 @@ interface IResolveDex {
      * 从缓存 Map 中逐个恢复委托状态。
      * 每个委托独立加载，某个 key 缺失不会影响其他委托。
      *
-     * @return 缓存中不存在的 key 集合（需要重新 DexKit 扫描的委托）
+     * @return 缓存中不存在的 key 集合（需要重新扫描的委托）
      */
     fun loadFromCache(cache: Map<String, String?>): Set<String> {
         val missingKeys = mutableSetOf<String>()

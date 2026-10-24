@@ -2,10 +2,6 @@ import java.io.File
 
 internal enum class ResolveBlockKind {
     CUSTOM,
-    INLINE_CLASS,
-    INLINE_FIELD,
-    INLINE_METHOD,
-    INLINE_CONSTRUCTOR,
     INLINE_SQL,
     INLINE_QUERY_CLASS,
     INLINE_QUERY_FIELD,
@@ -122,29 +118,8 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
             }
         }
     }
-    clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
-        val startScan = match.range.last + 1
-        val nextOpenBrace = clean.indexOfCode('{', startScan)
-        val candidateParenthesis = clean.indexOfCode('(', match.range.last)
-        val openParenthesis = candidateParenthesis.takeIf {
-            it >= startScan && (nextOpenBrace == -1 || it < nextOpenBrace)
-        } ?: -1
-        val parenthesisEnd = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
-        val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, parenthesisEnd)
-        if (
-            firstArgument != null &&
-            (clean.text[firstArgument] == '"' || clean.matchesAt(SQL_DSL_CALL, firstArgument))
-        ) return@forEach
-        if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
-            val end = clean.findBlockEnd(nextOpenBrace)
-            if (end != -1 && end < classBodyEnd) {
-                addBlock(match.groupValues[1].toResolveBlockKind(), nextOpenBrace, end)
-            }
-        }
-    }
-
     if (blocks.isEmpty()) {
-        error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any inline dex blocks.")
+        error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any SQL/query dex delegate.")
     }
 
     return DexResolverSource(file, fullClassName, technicalId, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
@@ -166,14 +141,6 @@ internal fun findDesktopIncompatibleAccesses(source: DexResolverSource): List<De
             }
     }
 
-private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
-    "Class" -> ResolveBlockKind.INLINE_CLASS
-    "Field" -> ResolveBlockKind.INLINE_FIELD
-    "Method" -> ResolveBlockKind.INLINE_METHOD
-    "Constructor" -> ResolveBlockKind.INLINE_CONSTRUCTOR
-    else -> error("Unsupported dex resolver delegate kind: $this")
-}
-
 private fun String.toQueryResolveBlockKind(): ResolveBlockKind = when (this) {
     "Class" -> ResolveBlockKind.INLINE_QUERY_CLASS
     "Field" -> ResolveBlockKind.INLINE_QUERY_FIELD
@@ -184,7 +151,6 @@ private fun String.toQueryResolveBlockKind(): ResolveBlockKind = when (this) {
 
 private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
 private val SQL_DSL_CALL = Regex("""sql(?:Method|Class|Field|Constructor)\b""")
-private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
 private val INLINE_QUERY_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)Query\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
