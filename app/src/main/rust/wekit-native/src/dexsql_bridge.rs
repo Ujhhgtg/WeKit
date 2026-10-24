@@ -146,7 +146,10 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
             method_used_types: false,
         },
         eager_code_items: true,
-        full_code_items: false,
+        // Opcode lists and annotations are only available when the loader keeps full code items
+        // and the raw DEX payloads, so the query matcher can evaluate DexKit opNames/annotation
+        // constraints.
+        full_code_items: true,
         retain_classes: true,
         threads: None,
     };
