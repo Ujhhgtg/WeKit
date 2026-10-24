@@ -44,14 +44,19 @@ import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.any
-import dev.ujhhgtg.wekit.utils.reflection.asClass
-import dev.ujhhgtg.wekit.utils.reflection.asConstructor
-import dev.ujhhgtg.wekit.utils.reflection.asMethod
+import dev.ujhhgtg.wekit.dexkit.asClass
+import dev.ujhhgtg.wekit.dexkit.asConstructor
+import dev.ujhhgtg.wekit.dexkit.asMethod
+import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
+import dev.ujhhgtg.wekit.dexkit.matcher.StringSpec
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
-import dev.ujhhgtg.wekit.utils.reflection.withDexKit
 import me.hd.wauxv.data.bean.ContactLabelBean
 import me.hd.wauxv.data.bean.MsgInfoBean
 import me.hd.wauxv.data.bean.info.FriendInfo
@@ -1455,17 +1460,21 @@ object JavaEngine {
                     JavaHookApi.unhook(handle)
                 })
 
-            // === DexKit Search APIs ===
+            // === DexSQL Search APIs ===
             setMethod(BshMethod("findClassList", arrayOf(List::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 val usingStrings = it[0] as List<String>
                 return@BshMethod runCatchingBsh("findClassList") {
-                    withDexKit { dexKit ->
-                        dexKit.findClass {
-                            matcher {
-                                usingStrings(usingStrings)
-                            }
-                        }.map { data -> data.asClass }
+                    withDexSql { runtime ->
+                        DexMatcherSession(runtime.bridge, runtime.metadata).use { session ->
+                            session.findClasses(
+                                ClassSpec(
+                                    usingStrings = usingStrings.map {
+                                        StringSpec(it, NameMatch.Contains)
+                                    },
+                                ),
+                            ).map { info -> info.asClass }
+                        }
                     }
                 }.getOrDefault(emptyList<Any>())
             })
@@ -1473,17 +1482,20 @@ object JavaEngine {
                 @Suppress("UNCHECKED_CAST")
                 val usingStrings = it[0] as List<String>
                 return@BshMethod runCatchingBsh("findMemberList") {
-                    withDexKit { dexKit ->
-                        dexKit.findMethod {
-                            matcher {
-                                usingStrings(usingStrings)
-                            }
-                        }.mapNotNull { data ->
-                            val name = data.name
-                            if (name == "<init>" || name == "<clinit>") {
-                                data.asConstructor
-                            } else {
-                                data.asMethod
+                    withDexSql { runtime ->
+                        DexMatcherSession(runtime.bridge, runtime.metadata).use { session ->
+                            session.findMethods(
+                                MethodSpec(
+                                    usingStrings = usingStrings.map {
+                                        StringSpec(it, NameMatch.Contains)
+                                    },
+                                ),
+                            ).mapNotNull { info ->
+                                if (info.name == "<init>" || info.name == "<clinit>") {
+                                    info.asConstructor
+                                } else {
+                                    info.asMethod
+                                }
                             }
                         }
                     }

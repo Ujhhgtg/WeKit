@@ -1,36 +1,56 @@
 package dev.ujhhgtg.wekit.utils.monet
 
-import dev.ujhhgtg.wekit.utils.reflection.withDexKit
-import org.luckypray.dexkit.result.FieldUsingType
-import org.luckypray.dexkit.result.MethodData
+import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
+import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dexkit.withDexSql
 
 object MonetDexEvidenceCollector {
-    fun collect(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> = withDexKit { bridge ->
-        collect(bridge, candidates)
-    }
+    fun collect(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> =
+        withDexSql { runtime ->
+            collect(runtime.bridge, candidates)
+        }
 
+    /** Test/embedded entry point over an already-open bridge; the caller owns [bridge]. */
     fun collect(
-        bridge: org.luckypray.dexkit.DexKitBridge,
+        bridge: DexSqlBridge,
+        candidates: List<MonetDexCandidate>,
+    ): List<MonetResourceDexEvidence> =
+        DexMatcherSession(bridge).use { session -> collect(session, candidates) }
+
+    private fun collect(
+        session: DexMatcherSession,
         candidates: List<MonetDexCandidate>,
     ): List<MonetResourceDexEvidence> {
         val candidateKeys = candidates.associateBy { it.type to it.name }
         val fieldReaders = candidates.map(MonetDexCandidate::type).distinct().flatMap { resourceType ->
-            bridge.findField {
-                matcher {
-                    declaredClass = "com.tencent.mm.R\$$resourceType"
-                    type = "int"
+            session.findFields(
+                FieldSpec(
+                    declaredClass = ClassSpec(
+                        className = NameSpec("com.tencent.mm.R\$$resourceType"),
+                    ),
+                    type = ClassSpec(className = NameSpec("int")),
+                ),
+            ).mapNotNull { field ->
+                candidateKeys[resourceType to field.name]?.let { candidate ->
+                    candidate to session.fieldAccessMethods(field.descriptor, "get")
                 }
-            }.mapNotNull { field ->
-                candidateKeys[resourceType to field.name]?.let { candidate -> candidate to field.readers }
             }
         }.toMap()
         val methods = candidates.associateWith { candidate ->
-            val direct = bridge.findMethod { matcher { usingNumbers(candidate.resourceId) } }
+            val direct = session.findMethods(
+                MethodSpec(usingNumbers = listOf<Number>(candidate.resourceId)),
+            )
             (direct + fieldReaders[candidate].orEmpty())
-                .distinctBy(MethodData::descriptor)
-                .sortedBy(MethodData::descriptor)
+                .distinctBy { it.descriptor }
+                .sortedBy { it.descriptor }
         }
-        val descriptors = methods.mapValues { (_, users) -> users.map(MethodData::descriptor).toSet() }
+        val descriptors = methods.mapValues { (_, users) -> users.map { it.descriptor }.toSet() }
         return methods.map { (candidate, users) ->
             MonetResourceDexEvidence(
                 candidate.resourceId,
@@ -38,8 +58,8 @@ object MonetDexEvidenceCollector {
                     MonetMethodDexEvidence(
                         descriptor = method.descriptor,
                         ownerPackage = method.declaredClassName.substringBeforeLast('.', ""),
-                        methodShape = "(${method.paramTypeNames.joinToString(",", transform = ::typeShape)}):${typeShape(method.returnTypeName)}",
-                        stableStrings = (sequenceOf(method) + method.callers.asSequence())
+                        methodShape = "(" + method.paramTypeNames.joinToString(",", transform = ::typeShape) + "):" + typeShape(method.returnTypeName),
+                        stableStrings = (sequenceOf(method) + session.callers(method.descriptor).asSequence())
                             .flatMap { it.usingStrings.asSequence() }.distinct().sorted().toList(),
                         invokedMethodShapes = method.invokes.map(::invokeShape).distinct().sorted(),
                         neighboringResourceIds = descriptors.filter { (other, users) ->
@@ -61,10 +81,10 @@ object MonetDexEvidenceCollector {
         }
     }
 
-    private fun invokeShape(method: MethodData): String {
+    private fun invokeShape(method: DexMethodInfo): String {
         val params = method.paramTypeNames.joinToString(",", transform = ::typeShape)
         val owner = method.declaredClassName.takeIf(::stableOwner)?.plus("#") ?: ""
-        return "$owner${method.name}($params):${typeShape(method.returnTypeName)}"
+        return owner + method.name + "(" + params + "):" + typeShape(method.returnTypeName)
     }
 
     private fun typeShape(type: String): String = when {

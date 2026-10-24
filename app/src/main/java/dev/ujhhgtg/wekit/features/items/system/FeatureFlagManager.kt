@@ -65,7 +65,8 @@ import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.reflection.withDexKit
+import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -73,7 +74,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import org.luckypray.dexkit.query.matchers.ClassMatcher
 import java.lang.reflect.Modifier as JavaModifier
 
 /**
@@ -241,25 +241,43 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
             }
         }
 
-        // DexKit class scanning
+        // DexSQL class scanning
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
                 val superClassName = classFeatureFlagBase.clazz.name
+                val baseDescriptor = dottedClassNameToDescriptor(superClassName)
 
-                featureFlagClasses = withDexKit { dexKit ->
-                    dexKit.findClass {
-                        matcher {
-                            modifiers(JavaModifier.FINAL)
-                            anyOf(
-                                ClassMatcher().apply {
-                                    superClass { superClass = superClassName }
-                                },
-                                ClassMatcher().apply {
-                                    superClass { superClass { superClass = superClassName } }
-                                }
-                            )
+                featureFlagClasses = withDexSql { runtime ->
+                    fun queryDescriptors(sql: String): List<String> =
+                        runtime.bridge.query(sql).rows.mapNotNull { row -> row.firstOrNull() }
+
+                    fun quote(descriptor: String): String = "'" + descriptor.replace("'", "''") + "'"
+
+                    val direct = queryDescriptors(
+                        "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                            "WHERE c.superclass_descriptor = " + quote(baseDescriptor) +
+                            " ORDER BY c.descriptor;",
+                    )
+                    val grandchildren = if (direct.isEmpty()) {
+                        emptyList()
+                    } else {
+                        queryDescriptors(
+                            "SELECT DISTINCT c.descriptor AS descriptor FROM classes c " +
+                                "WHERE c.superclass_descriptor IN " +
+                                direct.joinToString(prefix = "(", postfix = ")") { quote(it) } +
+                                " ORDER BY c.descriptor;",
+                        )
+                    }
+
+                    (direct + grandchildren)
+                        .distinct()
+                        .filterNot { it.startsWith("[") }
+                        .mapNotNull { descriptor ->
+                            runtime.metadata.classInfo(descriptor)
+                                ?.takeIf { JavaModifier.isFinal(it.modifiers) }
+                                ?.name
                         }
-                    }.map { it.name }.sorted()
+                        .sorted()
                 }
                 isLoading = false
             }
