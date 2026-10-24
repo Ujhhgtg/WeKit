@@ -97,6 +97,7 @@ exec cargo xtask "$@"
 | `./x payload publish` | 构建、加密、签名并发布 release payload |
 | `./x check` | 对 Rust native 库执行 `cargo check` |
 | `./x clippy` | 对 Rust native 库执行 `cargo clippy -- -D warnings` |
+| `./x fmt` | 格式化 Rust（`cargo fmt`）与 Kotlin/Gradle（`spotlessApply`）代码 |
 | `./x i18n-check` | 校验 Android 国际化资源目录 |
 | `./x dex-test` | 在桌面测试 Dex 解析器 |
 | `./x dex-report-diff <report...>` | 离线比较版本报告中的方法和构造函数签名 |

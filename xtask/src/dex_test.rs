@@ -79,7 +79,6 @@ pub struct DexTestArgs {
     /// Print every successful delegate and descriptor.
     #[arg(long)]
     pub verbose: bool,
-
 }
 
 #[derive(Clone, Debug)]
@@ -329,7 +328,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         )
     }
 }
-
 
 fn parse_feature_filter(value: &str) -> std::result::Result<String, String> {
     let selectors = value.split(',').map(str::trim).collect::<Vec<_>>();

@@ -9,6 +9,7 @@
 //!   payload publish      Build the private release payload and publish it locally.
 //!   check [OPTIONS]      Run `cargo check` on the native library.
 //!   clippy [OPTIONS]     Run `cargo clippy` on the native library.
+//!   fmt                  Format Rust (cargo fmt) and Kotlin/Gradle (spotlessApply).
 //!   dex-test [OPTIONS]   Resolve WeKit DexSQL targets against desktop APKs.
 //!   dex-report-diff      Compare member signatures in existing per-APK reports.
 //!   dex-test-ci          Prepare APK sources and mutable Dex-Test Release assets.
@@ -102,6 +103,9 @@ enum Cmd {
 
     /// Run `cargo clippy` on the native library for each target ABI.
     Clippy(NativeArgs),
+
+    /// Format Rust (cargo fmt) and Kotlin/Gradle (spotlessApply) sources.
+    Fmt,
 
     /// Run DexSQL resolvers against one or more WeChat APKs on this Linux desktop.
     DexTest(dex_test::DexTestArgs),
@@ -319,6 +323,7 @@ fn main() -> Result<()> {
         },
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
         Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
+        Cmd::Fmt => task_fmt()?,
         Cmd::DexTest(args) => dex_test::task_dex_test(args)?,
         Cmd::DexReportDiff(args) => dex_test::diff::task_dex_report_diff(args)?,
         Cmd::DexTestCi(args) => dex_test_ci::task_dex_test_ci(args)?,
@@ -1409,6 +1414,20 @@ fn install_zygisk_apk(
     );
     install_result?;
     cleanup_result
+}
+
+// ── Task: fmt ──────────────────────────────────────────────────────────────────
+
+fn task_fmt() -> Result<()> {
+    let root = workspace_root();
+
+    println!("fmt: cargo fmt --all");
+    run_cargo(&["fmt", "--all"], &root)?;
+
+    println!("fmt: ./gradlew spotlessApply");
+    run_gradlew(&["spotlessApply"], &root)?;
+
+    Ok(())
 }
 
 // ── Task: check / clippy ───────────────────────────────────────────────────────
