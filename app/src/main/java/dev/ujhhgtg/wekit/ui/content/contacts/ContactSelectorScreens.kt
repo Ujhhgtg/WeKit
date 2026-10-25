@@ -63,7 +63,7 @@ fun ContactsSelectorScreen(
         BaseWidget(
             title = contact.displayName,
             description = subtitleProvider(contact),
-            leadingContent = { ContactAvatar(contact.avatarUrl, size = 40.dp) },
+            leadingContent = { ContactAvatar(contact, size = 40.dp) },
             onClick = {
                 onSelectionChange(
                     if (checked) selectedWxIds - contact.wxId else selectedWxIds + contact.wxId,
@@ -100,7 +100,7 @@ fun ContactPickerScreen(
         BaseWidget(
             title = contact.displayName,
             description = subtitleProvider(contact),
-            leadingContent = { ContactAvatar(contact.avatarUrl, size = 40.dp) },
+            leadingContent = { ContactAvatar(contact, size = 40.dp) },
             onClick = { onPick(contact) },
             trailingContent = {
                 Icon(

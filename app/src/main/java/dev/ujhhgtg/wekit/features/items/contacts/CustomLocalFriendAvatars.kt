@@ -988,9 +988,9 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
             isSelected = { it.wxId in entries },
             avatarModelProvider = { contact ->
                 if (contact.wxId in entries) {
-                    AssetStore.readBinding(AVATAR_ASSET_OWNER, contact.wxId) ?: contact.avatarUrl
+                    AssetStore.readBinding(AVATAR_ASSET_OWNER, contact.wxId)
                 } else {
-                    contact.avatarUrl
+                    null
                 }
             },
             subtitleProvider = { contact ->

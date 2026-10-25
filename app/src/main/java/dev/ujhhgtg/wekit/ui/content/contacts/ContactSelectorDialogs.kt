@@ -40,6 +40,9 @@ import kotlinx.coroutines.launch
 /**
  * Dialog contact list with search, filter chips, sticky section headers and a letter index.
  * Searching, filtering and sorting are handled here; selection stays with the caller.
+ *
+ * @param avatarModelProvider optional caller-provided avatar content for a row (e.g. a custom
+ *   avatar byte array); when it returns null the avatar is resolved from WeChat's caches/URLs.
  */
 @Composable
 fun BaseContactSelector(
@@ -54,7 +57,7 @@ fun BaseContactSelector(
     isSelected: (IWeContact) -> Boolean,
     showConfirmButton: Boolean = true,
     dismissButtonText: String? = null,
-    avatarModelProvider: ((IWeContact) -> Any)? = { it.avatarUrl },
+    avatarModelProvider: ((IWeContact) -> Any?)? = null,
     subtitleProvider: ((IWeContact) -> String)? = { it.wxId },
     leadingControl: @Composable (LazyItemScope.(IWeContact) -> Unit)? = null,
     trailingControl: @Composable (LazyItemScope.(IWeContact) -> Unit)? = null,
@@ -120,8 +123,10 @@ fun BaseContactSelector(
                                             Spacer(modifier = Modifier.width(12.dp))
                                         }
                                         ContactAvatar(
-                                            avatarModelProvider?.invoke(contact)
-                                                ?: contact.avatarUrl,
+                                            wxId = contact.wxId,
+                                            avatarUrl = contact.avatarUrl,
+                                            avatarBigUrl = contact.avatarBigUrl,
+                                            overrideModel = avatarModelProvider?.invoke(contact),
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {

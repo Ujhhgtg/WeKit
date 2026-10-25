@@ -587,8 +587,13 @@ fun rememberMemberName(groupId: String, memberId: String): String =
 
 @Composable
 fun AutomationAvatar(wxId: String, size: androidx.compose.ui.unit.Dp = 40.dp) {
-    val url = remember(wxId) { WeDatabaseApi.getAvatarUrl(wxId) }
-    ContactAvatar(url.ifBlank { null }, size = size)
+    val avatarUrls = remember(wxId) { WeDatabaseApi.getAvatarUrls(wxId) }
+    ContactAvatar(
+        wxId = wxId,
+        size = size,
+        avatarUrl = avatarUrls.first,
+        avatarBigUrl = avatarUrls.second,
+    )
 }
 
 /** Avatar of a CONTACT or GROUP_MEMBER scope; null for other scopes. */

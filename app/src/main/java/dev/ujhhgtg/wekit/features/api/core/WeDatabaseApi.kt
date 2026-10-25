@@ -108,16 +108,18 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         const val CONTACT_FIELDS =
             """
             r.username, r.alias, r.conRemark, r.nickname,
-            r.pyInitial, r.quanPin, r.encryptUsername, i.reserved2 AS avatarUrl
+            r.pyInitial, r.quanPin, r.encryptUsername,
+            i.reserved2 AS avatarUrl, i.reserved1 AS avatarBigUrl
         """
 
         // 基础字段 - 群聊查询常用字段
         const val GROUP_FIELDS =
-            "r.username, r.nickname, r.pyInitial, r.quanPin, i.reserved2 AS avatarUrl"
+            "r.username, r.nickname, r.pyInitial, r.quanPin, " +
+                "i.reserved2 AS avatarUrl, i.reserved1 AS avatarBigUrl"
 
         // 基础字段 - 公众号查询常用字段
         const val OFFICIAL_ACCOUNT_FIELDS =
-            "r.username, r.alias, r.nickname, i.reserved2 AS avatarUrl"
+            "r.username, r.alias, r.nickname, i.reserved2 AS avatarUrl, i.reserved1 AS avatarBigUrl"
 
         // 基础 JOIN 语句
         const val LEFT_JOIN_IMG_FLAG = "LEFT JOIN img_flag i ON r.username = i.username"
@@ -317,10 +319,10 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             """
                 .trimIndent()
 
-        /** 获取头像 URL */
+        /** 获取头像 URL（small = reserved2, big = reserved1） */
         fun avatar(wxid: String) =
             """
-            SELECT i.reserved2 AS avatarUrl
+            SELECT i.reserved2 AS avatarUrl, i.reserved1 AS avatarBigUrl
             FROM img_flag i
             WHERE i.username = '$wxid'
             """
@@ -494,6 +496,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nicknameShortPinyin = row.str("pyInitial"),
                 nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl"),
+                avatarBigUrl = row.str("avatarBigUrl"),
             )
         } catch (e: Exception) {
             WeLogger.e(TAG, "failed to get group; wxid=$wxId", e)
@@ -539,6 +542,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 nicknameShortPinyin = row.str("pyInitial"),
                 nicknamePinyin = row.str("quanPin"),
                 avatarUrl = row.str("avatarUrl"),
+                avatarBigUrl = row.str("avatarBigUrl"),
             )
         }
 
@@ -661,6 +665,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
                 wxId = row.str("username"),
                 nickname = row.str("nickname"),
                 avatarUrl = row.str("avatarUrl"),
+                avatarBigUrl = row.str("avatarBigUrl"),
             )
         }
 
@@ -732,15 +737,16 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             emptyMap()
         }
 
-    /** 获取头像 */
-    fun getAvatarUrl(wxid: String): String {
-        if (wxid.isEmpty()) return ""
+    /** 获取头像 URL（小头像，等同 [getAvatarUrls] 的 first） */
+    fun getAvatarUrl(wxid: String): String = getAvatarUrls(wxid).first
+
+    /** 获取头像 URL：small = `img_flag.reserved2`, big = `img_flag.reserved1` */
+    fun getAvatarUrls(wxid: String): Pair<String, String> {
+        if (wxid.isEmpty()) return "" to ""
         val result = executeQuery(SqlStatements.avatar(wxid))
-        return if (result.isNotEmpty()) {
-            result[0]["avatarUrl"] as? String ?: ""
-        } else {
-            ""
-        }
+        if (result.isEmpty()) return "" to ""
+        val row = result[0]
+        return (row["avatarUrl"] as? String ?: "") to (row["avatarBigUrl"] as? String ?: "")
     }
 
     private fun mapToContacts(data: List<Map<String, Any?>>): List<WeContact> = data.map { row ->
@@ -754,6 +760,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             avatarUrl = row.str("avatarUrl"),
             encryptedUsername = row.str("encryptUsername"),
             type = row.int("type"),
+            avatarBigUrl = row.str("avatarBigUrl"),
         )
     }
 
