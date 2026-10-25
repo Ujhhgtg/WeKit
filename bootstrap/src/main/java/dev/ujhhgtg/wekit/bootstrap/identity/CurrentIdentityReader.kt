@@ -8,10 +8,12 @@ data class CurrentIdentity(val wxId: String?, val alias: String?, val readState:
 /**
  * Reads the live WeChat identity during bootstrap startup without DEX scanning.
  *
- * The account name (wxid) and WeChat alias are persisted by WeChat's stable login preference layer
- * in the host's default "<package>_preferences" SharedPreferences file:
- * - "login_user_name" = current account wxid
- * - "login_weixin_username" = current account's WeChat alias (when set)
+ * The account wxId and WeChat alias are persisted by WeChat's stable last-login preference layer in
+ * the host's default "<package>_preferences" SharedPreferences file:
+ * - "login_weixin_username" = current account wxId
+ * - "last_login_alias" = current account's WeChat alias (when set)
+ *
+ * "login_user_name" is login history/identifier data and is not the current account wxId.
  *
  * These keys are stable across the supported 8.0.65-8.0.79 range (verified in the decompiled host
  * sources: the account preference wrapper reads/writes exactly these keys and commits them to the
@@ -24,9 +26,9 @@ class CurrentIdentityReader(private val application: Application) {
             application.packageName + "_preferences",
             Context.MODE_PRIVATE,
         )
-        val wxId = preferences.getString("login_user_name", "")?.takeUnless(String::isEmpty)
+        val wxId = preferences.getString("login_weixin_username", "")?.takeUnless(String::isEmpty)
             ?: return CurrentIdentity(null, null, "NOT_READY", false)
-        val alias = preferences.getString("login_weixin_username", "")?.takeUnless(String::isEmpty)
+        val alias = preferences.getString("last_login_alias", "")?.takeUnless(String::isEmpty)
         return CurrentIdentity(
             wxId = wxId,
             alias = alias,
