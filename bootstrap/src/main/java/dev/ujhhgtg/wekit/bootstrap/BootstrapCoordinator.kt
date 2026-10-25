@@ -175,6 +175,9 @@ object BootstrapCoordinator {
             val authorization = run {
                 val response = api.signedPost("/v1/initializations", WireJson.body(request), state, processNonce)
                 initializationId = response.string("initializationId")
+                if (response.string("payloadMode") == "CLOUD") {
+                    key = WireProtocol.decode(response.string("contentKey"), 32)
+                }
                 JsonObject(response.filterKeys { it != "contentKey" })
             }
             val payloadMode = authorization.string("payloadMode")
@@ -215,7 +218,6 @@ object BootstrapCoordinator {
                 BootstrapLog.i("Bootstrap", "Cloud payload cache is not ready in this process")
                 return
             }
-            key = WireProtocol.decode(authorization.string("contentKey"), 32)
             val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
             require(authorization.string("payloadId") == release.descriptor.payloadId)
             if (mainProcess && (openedCache?.release == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
@@ -239,7 +241,7 @@ object BootstrapCoordinator {
                 return
             }
             check(Looper.myLooper() == Looper.getMainLooper())
-            val loaded = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key,
+            val loaded = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key!!,
                 File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
             key.fill(0); key = null
             prepared = loaded
