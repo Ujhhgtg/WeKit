@@ -190,7 +190,7 @@ object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
         val caughtAd =
             adJsonHits.isNotBlank() || creativeHits.isNotBlank() || itemAdHits.isNotBlank()
 
-        WeLogger.logChunkedI(
+        WeLogger.i(
             "$TAG.Capture",
             buildString {
                 append("SUMMARY caughtAd=$caughtAd uri=$uri cgiId=$cgiId len=$len\n")

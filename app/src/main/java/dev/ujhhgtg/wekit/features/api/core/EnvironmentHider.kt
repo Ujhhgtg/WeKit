@@ -236,7 +236,7 @@ object EnvironmentHider : ApiFeature() {
                 val values = args[2] as Array<*>
                 if (values[1] != "ClientCheckConsistency") return@hookBefore
                 val xml = values[0] as String
-                WeLogger.logChunkedI(TAG, "ClientCheckConsistency received:\n$xml")
+                WeLogger.i(TAG, "ClientCheckConsistency received:\n$xml")
                 try {
                     val directory =
                         KnownPaths.moduleRoot.resolve("logs/client-check-consistency").toFile()

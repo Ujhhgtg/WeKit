@@ -9,6 +9,7 @@ import kotlin.system.exitProcess
 
 fun restartHost() {
     WeLogger.i("KillHostUtils", "restarting host")
+    WeLogger.flush()
     showToast(localizedString(R.string.noncompose_restarting_host))
     val instance =
         "com.tencent.mm.process.KillProcessHelperActivity".toClass().reflekt().firstField().get()!!
@@ -17,5 +18,6 @@ fun restartHost() {
 
 fun killHost() {
     WeLogger.i("KillHostUtils", "killing host")
+    WeLogger.flush()
     exitProcess(0)
 }
