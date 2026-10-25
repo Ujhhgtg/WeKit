@@ -35,7 +35,6 @@
 - `libs/common/annotation-scanner/` — KSP processors: source-subtype discovery for
   `BaseFeature`/`ExtensionPack` objects, the Feature → Feature reference scan
   (`GeneratedFeatureDependencies.DIRECT`), plus the `@AgentTool` scanner
-- `libs/common/libxposed-api/` — compileOnly LibXposed API stubs (provided by the user's Xposed framework)
 - `libs/common/bsh/` — submodule: forked BeanShell interpreter with snapshot serialization
   (`BshSnapshot`, `BshSnapshotHelper`); snapshots are encrypted AST bytes used by the WAuxiliary
   Xposed module. `app/src/main/java/dev/ujhhgtg/wekit/utils/BshSnapshotDecompiler.kt` decompiles

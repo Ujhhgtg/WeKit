@@ -62,7 +62,7 @@ object BootstrapNativeLibraries {
             "bootstrap APK/process verification failed"
         }
         val owner = BootstrapNativeLibraries::class.java.classLoader as BaseDexClassLoader
-        // LibXposed's module loader supplies its own APK lookup and namespace path.
+        // libxposed's module loader supplies its own APK lookup and namespace path.
         // Zygisk's plain memory loader needs a path before its first native load.
         if (listOf("wekit_loader", "androidx.graphics.path").any { owner.findLibrary(it) == null }) {
             installNativeSearchPath(owner, directory)

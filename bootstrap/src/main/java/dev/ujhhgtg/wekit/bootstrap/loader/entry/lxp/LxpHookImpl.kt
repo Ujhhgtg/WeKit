@@ -19,7 +19,7 @@ object LxpHookImpl : IHookBridge, ILoaderService {
     lateinit var self: XposedModule
     private const val TAG = "LxpHookImpl"
 
-    override val loaderName: String get() = "LibXposed API ${self.apiVersion}"
+    override val loaderName: String get() = "libxposed API ${self.apiVersion}"
     override val hookBridgeName: String get() = loaderName
     override val frameworkName: String get() = self.frameworkName
     override val frameworkVersion: String get() = self.frameworkVersion
