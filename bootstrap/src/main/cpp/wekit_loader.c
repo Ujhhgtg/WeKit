@@ -417,7 +417,12 @@ static jbyteArray loader_request(JNIEnv *env, jobject receiver, jstring path_tex
     jint status = (*env)->CallIntMethod(env, connection, response);
     if (has_exception(env)) { clear_exception(env); throw_io(env, "read HTTPS response"); goto disconnect; }
     if (!verify_pins(env, connection)) { throw_class(env, "java/lang/SecurityException", "HTTPS pin mismatch"); goto disconnect; }
-    const char *input_name = status >= 400 ? "getErrorStream" : "getInputStream"; jmethodID input_method = (*env)->GetMethodID(env, connection_type, input_name, "()Ljava/io/InputStream;");
+    const char *input_name = status >= 400 ? "getErrorStream" : "getInputStream";
+    // getErrorStream() is declared by HttpURLConnection, while getInputStream()
+    // is inherited from URLConnection. Looking up the former on URLConnection
+    // leaves NoSuchMethodError pending and the next JNI call aborts the process.
+    jclass input_owner = status >= 400 ? http_type : connection_type;
+    jmethodID input_method = (*env)->GetMethodID(env, input_owner, input_name, "()Ljava/io/InputStream;");
     jobject input = input_method == NULL ? NULL : (*env)->CallObjectMethod(env, connection, input_method); jclass input_type = (*env)->FindClass(env, "java/io/InputStream"); jmethodID read = input_type == NULL ? NULL : (*env)->GetMethodID(env, input_type, "read", "([B)I"); jbyteArray chunk = read == NULL ? NULL : (*env)->NewByteArray(env, 8192);
     unsigned char *contents = NULL; size_t length = 0, capacity = 0;
     if (input != NULL && read != NULL && chunk != NULL) {
@@ -491,7 +496,10 @@ static jbyteArray loader_download(JNIEnv *env, jobject receiver, jstring path_te
     jmethodID content_length = (*env)->GetMethodID(env, connection_type, "getContentLengthLong", "()J");
     jlong actual_length = content_length == NULL ? -1 : (*env)->CallLongMethod(env, connection, content_length);
     if (status >= 200 && status < 300 && actual_length != expected_length) { throw_class(env, "java/io/IOException", "download length differs from signed size"); goto disconnect_download; }
-    const char *input_name = status >= 400 ? "getErrorStream" : "getInputStream"; jmethodID input_method = (*env)->GetMethodID(env, connection_type, input_name, "()Ljava/io/InputStream;");
+    const char *input_name = status >= 400 ? "getErrorStream" : "getInputStream";
+    // See loader_request: the error-stream method belongs to HttpURLConnection.
+    jclass input_owner = status >= 400 ? http_type : connection_type;
+    jmethodID input_method = (*env)->GetMethodID(env, input_owner, input_name, "()Ljava/io/InputStream;");
     jobject input = input_method == NULL ? NULL : (*env)->CallObjectMethod(env, connection, input_method); jclass input_type = (*env)->FindClass(env, "java/io/InputStream"); jmethodID read = input_type == NULL ? NULL : (*env)->GetMethodID(env, input_type, "read", "([B)I"); jbyteArray chunk = read == NULL ? NULL : (*env)->NewByteArray(env, 65536);
     unsigned char *error_body = NULL; size_t error_length = 0, error_capacity = 0; jlong received = 0;
     if (input != NULL && read != NULL && chunk != NULL) {
