@@ -105,7 +105,7 @@
 ## Desktop Dex validation
 
 - `./x dex-test` runs the same `IResolveDex`/DexSQL resolution as `DexCacheManager.kt` against
-  WeChat APKs on the desktop. Only the supported range **8.0.65–8.0.79** is a compatibility gate;
+  WeChat APKs on the desktop. Only the supported range **8.0.65–8.0.80** is a compatibility gate;
   other APKs are for investigation only.
 - `--workers 4` exercises the shared batch scheduler used by Android resolution; `--workers 1` is
   its serial comparison; omitting it keeps per-feature runs. Batch runs initialize/reset all
@@ -191,7 +191,7 @@
 - `app` is an application module; don't use Kotlin `internal` in `app/src/main` (it provides no
   boundary) — use the default `public`.
 - Min SDK 29, target SDK 37, compile SDK 37
-- Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.79. Current host info in `HostInfo`
+- Target: WeChat `com.tencent.mm`, versions 8.0.65–8.0.80. Current host info in `HostInfo`
 - Process targeting via `TargetProcesses`: override `startup()` to check
   `TargetProcesses.isInMain` / `TargetProcesses.currentType`. Default: main process only.
 - NEVER wrap `hookBefore`/`hookAfter` in a catch-all `try-catch`/`runCatching`. They should not fail; if they

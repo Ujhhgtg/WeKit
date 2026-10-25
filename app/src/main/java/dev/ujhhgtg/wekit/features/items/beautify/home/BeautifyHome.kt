@@ -91,13 +91,14 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
     val fieldRecyclerActionBar by dexField()
     val fieldRecyclerSpacer by dexField()
 
-    private val fieldPlusItem by dexField {
-        declaredClass = "com.tencent.mm.ui.HomeUI"
-        type = "android.view.MenuItem"
-        readMethod {
-            usingEqStrings("bindPlusItemActionView plusActionView")
+    private val fieldPlusItem by
+        dexField(allowFailure = true) {
+            declaredClass = "com.tencent.mm.ui.HomeUI"
+            type = "android.view.MenuItem"
+            readMethod {
+                usingEqStrings("bindPlusItemActionView plusActionView")
+            }
         }
-    }
     val fieldSearchItem by dexField()
     val methodShowPlusMenu by dexMethod()
 
@@ -140,15 +141,24 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
             fieldRecyclerSpacer.markExpectedFailure()
         }
 
-        // Across both layouts HomeUI has a search and a plus MenuItem. Identify the plus item
-        // by its binding method, rather than relying on the newer contacts-search alpha log.
-        fieldSearchItem.setDescriptor(
-            DexResolutionContext.findFields {
-                    declaredClass = "com.tencent.mm.ui.HomeUI"
-                    type = "android.view.MenuItem"
+        // The plus binding method is absent in the newer search-entrance layout.
+        if (fieldPlusItem.isFound) {
+            fieldSearchItem.setDescriptor(
+                DexResolutionContext.findFields {
+                        declaredClass = "com.tencent.mm.ui.HomeUI"
+                        type = "android.view.MenuItem"
+                    }
+                    .single { it.descriptor != fieldPlusItem.data.descriptor },
+            )
+        } else {
+            fieldSearchItem.find {
+                declaredClass = "com.tencent.mm.ui.HomeUI"
+                type = "android.view.MenuItem"
+                readMethod {
+                    usingEqString("restoreSearchActionViewAlpha")
                 }
-                .single { it.descriptor != fieldPlusItem.data.descriptor },
-        )
+            }
+        }
 
         val buildMenu = WeHomeScreenPopupMenuApi.methodAddItem.data
         val plusMenuClass = WeHomeScreenPopupMenuApi.methodHandleItemClick.data.declaredClass!!

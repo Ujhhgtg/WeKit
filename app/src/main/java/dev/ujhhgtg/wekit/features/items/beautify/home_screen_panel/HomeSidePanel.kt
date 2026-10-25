@@ -105,7 +105,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     override val descriptionRes = R.string.feature_home_side_panel_description
 
     private val classWalletCache by dexClass {
-        className = "com.tencent.mm.wallet_core.model.m1"
+        searchPackages("com.tencent.mm.wallet_core.model")
+        usingEqStrings(
+            "CREATE TABLE IF NOT EXISTS walletcache ( sid TEXT PRIMARY KEY, type INT, value TEXT )",
+        )
     }
 
     private val classWalletPayPlugin by dexClass {
@@ -117,14 +120,14 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     }
 
     private val methodWalletCacheRead by dexMethod {
-        declaredClass = "com.tencent.mm.wallet_core.model.m1"
+        declaredClass = classWalletCache.data.name
         name = "i"
         returnType = "java.lang.Object"
         paramCount = 2
     }
 
     private val methodWalletCacheWrite by dexMethod {
-        declaredClass = "com.tencent.mm.wallet_core.model.m1"
+        declaredClass = classWalletCache.data.name
         name = "j"
         returnType = "void"
         paramCount = 2
