@@ -29,11 +29,12 @@ import kotlin.io.path.div
  * formatting, encoding, buffering, rotation and I/O happen on a single background writer thread.
  *
  * File write policy: records are buffered and written in one `write()` call when the buffer reaches
- * [BUFFER_TARGET] chars, when [FLUSH_INTERVAL_MS] has elapsed since the oldest buffered record, when
- * an ERROR-or-higher record arrives, or when [flush] is called. Each `write()` contains only whole
- * records on an append-mode stream, so records from different WeChat processes never interleave.
- * Call [flush] if you need the buffered records on disk right now (e.g. in an uncaught-exception
- * handler); anything still buffered or queued when the process is killed is lost.
+ * [BUFFER_TARGET] chars, when [FLUSH_INTERVAL_MS] has elapsed since the oldest buffered record,
+ * when an ERROR-or-higher record arrives, or when [flush] is called. Each `write()` contains only
+ * whole records on an append-mode stream, so records from different WeChat processes never
+ * interleave. Call [flush] if you need the buffered records on disk right now (e.g. in an
+ * uncaught-exception handler); anything still buffered or queued when the process is killed is
+ * lost.
  */
 object WeLogger {
     private const val TAG = BuildConfig.TAG
@@ -61,7 +62,10 @@ object WeLogger {
     private val secFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
     private sealed interface Item
-    private class Record(val timeMs: Long, val priority: Int, val tag: String?, val text: String) : Item
+
+    private class Record(val timeMs: Long, val priority: Int, val tag: String?, val text: String) :
+        Item
+
     private class FlushMarker : Item {
         val latch = CountDownLatch(1)
     }
@@ -87,9 +91,13 @@ object WeLogger {
     // ========== Public API ==========
 
     fun e(tag: String?, msg: String, e: Throwable? = null) = log(Log.ERROR, tag, msg, e)
+
     fun w(tag: String?, msg: String, e: Throwable? = null) = log(Log.WARN, tag, msg, e)
+
     fun i(tag: String?, msg: String, e: Throwable? = null) = log(Log.INFO, tag, msg, e)
+
     fun d(tag: String?, msg: String, e: Throwable? = null) = log(Log.DEBUG, tag, msg, e)
+
     fun v(tag: String?, msg: String, e: Throwable? = null) = log(Log.VERBOSE, tag, msg, e)
 
     /**
@@ -100,7 +108,7 @@ object WeLogger {
         val marker = FlushMarker()
         return try {
             queue.offer(marker, timeoutMs, TimeUnit.MILLISECONDS) &&
-                    marker.latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+                marker.latch.await(timeoutMs, TimeUnit.MILLISECONDS)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             false
@@ -116,12 +124,13 @@ object WeLogger {
         get() {
             val dir = logsDir ?: return emptyList()
             return runCatching {
-                dir.toFile().listFiles()
-                    ?.filter { it.isFile && logFileRegex.matches(it.name) }
-                    ?.sortedByDescending { it.name }
-                    ?.map { it.toPath() }
-                    ?: emptyList()
-            }.getOrDefault(emptyList())
+                    dir.toFile()
+                        .listFiles()
+                        ?.filter { it.isFile && logFileRegex.matches(it.name) }
+                        ?.sortedByDescending { it.name }
+                        ?.map { it.toPath() } ?: emptyList()
+                }
+                .getOrDefault(emptyList())
         }
 
     // ========== Caller side ==========
@@ -169,8 +178,9 @@ object WeLogger {
         }
         if (truncated) {
             Log.println(
-                priority, TAG,
-                "$prefix[truncated] ${text.length - start} more chars omitted from logcat; see log file"
+                priority,
+                TAG,
+                "$prefix[truncated] ${text.length - start} more chars omitted from logcat; see log file",
             )
         }
     }
@@ -185,10 +195,22 @@ object WeLogger {
             val w: Int
             val step: Int
             when {
-                c.code < 0x80 -> { w = 1; step = 1 }
-                c.code < 0x800 -> { w = 2; step = 1 }
-                c.isHighSurrogate() && i + 1 < len && text[i + 1].isLowSurrogate() -> { w = 4; step = 2 }
-                else -> { w = 3; step = 1 }
+                c.code < 0x80 -> {
+                    w = 1
+                    step = 1
+                }
+                c.code < 0x800 -> {
+                    w = 2
+                    step = 1
+                }
+                c.isHighSurrogate() && i + 1 < len && text[i + 1].isLowSurrogate() -> {
+                    w = 4
+                    step = 2
+                }
+                else -> {
+                    w = 3
+                    step = 1
+                }
             }
             if (bytes + w > limitBytes) break
             bytes += w
@@ -196,7 +218,8 @@ object WeLogger {
             if (c == '\n') lastNewline = i
         }
         // Prefer breaking at a newline if it keeps at least half of the chunk.
-        if (i < len && lastNewline > start && lastNewline - start >= (i - start) / 2) return lastNewline
+        if (i < len && lastNewline > start && lastNewline - start >= (i - start) / 2)
+            return lastNewline
         return i
     }
 
@@ -208,7 +231,10 @@ object WeLogger {
             when {
                 c.code < 0x80 -> n += 1
                 c.code < 0x800 -> n += 2
-                c.isHighSurrogate() && i + 1 < s.length && s[i + 1].isLowSurrogate() -> { n += 4; i++ }
+                c.isHighSurrogate() && i + 1 < s.length && s[i + 1].isLowSurrogate() -> {
+                    n += 4
+                    i++
+                }
                 else -> n += 3
             }
             i++
@@ -223,12 +249,13 @@ object WeLogger {
         val batch = ArrayList<Item>(BATCH_MAX)
         while (true) {
             try {
-                val first: Item? = if (sb.isEmpty()) {
-                    queue.take()
-                } else {
-                    val left = FLUSH_INTERVAL_NS - (System.nanoTime() - pendingSince)
-                    if (left > 0) queue.poll(left, TimeUnit.NANOSECONDS) else null
-                }
+                val first: Item? =
+                    if (sb.isEmpty()) {
+                        queue.take()
+                    } else {
+                        val left = FLUSH_INTERVAL_NS - (System.nanoTime() - pendingSince)
+                        if (left > 0) queue.poll(left, TimeUnit.NANOSECONDS) else null
+                    }
                 if (first == null) { // buffered data aged out
                     writeOut()
                     continue
@@ -251,7 +278,12 @@ object WeLogger {
                 }
                 val d = dropped.getAndSet(0)
                 if (d > 0) {
-                    appendRecord(System.currentTimeMillis(), Log.WARN, "WeLogger", "dropped $d records (queue full)")
+                    appendRecord(
+                        System.currentTimeMillis(),
+                        Log.WARN,
+                        "WeLogger",
+                        "dropped $d records (queue full)",
+                    )
                 }
                 if (force || sb.length >= BUFFER_TARGET) writeOut()
             } catch (_: InterruptedException) {
@@ -267,9 +299,10 @@ object WeLogger {
     private fun tsPrefix(ms: Long): String {
         val sec = Math.floorDiv(ms, 1000L)
         if (sec != cachedSec) {
-            cachedPrefix = secFmt.format(
-                LocalDateTime.ofInstant(Instant.ofEpochSecond(sec), ZoneId.systemDefault())
-            )
+            cachedPrefix =
+                secFmt.format(
+                    LocalDateTime.ofInstant(Instant.ofEpochSecond(sec), ZoneId.systemDefault()),
+                )
             cachedDay = cachedPrefix.substring(0, 10)
             cachedSec = sec
         }
@@ -291,11 +324,15 @@ object WeLogger {
         sb.append(milli)
         sb.append(' ')
             .append(if (priority in 2..7) LEVEL_CHARS[priority] else '?')
-            .append('/').append(TAG).append(' ')
+            .append('/')
+            .append(TAG)
+            .append(' ')
         if (tag != null) sb.append(tag).append(": ")
         if (text.length > MAX_FILE_CHARS) {
             sb.append(text, 0, MAX_FILE_CHARS)
-                .append("\n[truncated ").append(text.length - MAX_FILE_CHARS).append(" chars]")
+                .append("\n[truncated ")
+                .append(text.length - MAX_FILE_CHARS)
+                .append(" chars]")
         } else {
             sb.append(text)
         }
@@ -305,7 +342,8 @@ object WeLogger {
     private fun writeOut() {
         if (sb.isEmpty()) return
         val bytes = sb.toString().toByteArray(Charsets.UTF_8)
-        if (sb.capacity() > MAX_RETAINED_BUFFER) sb = StringBuilder(BUFFER_TARGET + 4096) else sb.setLength(0)
+        if (sb.capacity() > MAX_RETAINED_BUFFER) sb = StringBuilder(BUFFER_TARGET + 4096)
+        else sb.setLength(0)
 
         val out = ensureOutput(bufferDay) ?: return // file unavailable: records are dropped
         try {
@@ -326,10 +364,13 @@ object WeLogger {
         if (now < retryAt) return null // don't hammer mkdirs/open while the fs is failing
 
         val dir = logsDir
-        val stream = if (dir == null) null else {
-            deleteOldLogs(dir, day)
-            runCatching { FileOutputStream((dir / "wekit-$day.log").toFile(), true) }.getOrNull()
-        }
+        val stream =
+            if (dir == null) null
+            else {
+                deleteOldLogs(dir, day)
+                runCatching { FileOutputStream((dir / "wekit-$day.log").toFile(), true) }
+                    .getOrNull()
+            }
         if (stream == null) {
             retryAt = now + RETRY_OPEN_MS
             return null

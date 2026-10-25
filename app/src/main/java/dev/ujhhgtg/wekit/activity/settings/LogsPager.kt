@@ -1,5 +1,6 @@
 package dev.ujhhgtg.wekit.activity.settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +73,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Expand_more
@@ -98,13 +102,17 @@ import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import dev.ujhhgtg.wekit.utils.fs.copyTo
+import java.io.RandomAccessFile
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.name
+import kotlin.io.path.readBytes
 import kotlin.io.path.readText
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -160,7 +168,8 @@ private val RUN_LOG_REGEX =
  */
 private fun parseRunLog(text: String): List<RunLogEntry> {
     val out = ArrayList<RunLogEntry>()
-    for (line in text.lineSequence()) {
+    val body = if (text.endsWith('\n')) text.dropLast(1) else text
+    for (line in body.lineSequence()) {
         if (line.isEmpty() && out.isEmpty()) continue
         val m = RUN_LOG_REGEX.matchEntire(line)
         when {
@@ -478,6 +487,7 @@ fun LogsPager() {
             val request = refreshRequests[k]
             LogTabContent(
                 kind = k,
+                live = k == kind,
                 listState = if (k == LogKind.RUN) runListState else crashListState,
                 backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
@@ -497,8 +507,9 @@ fun LogsPager() {
 @Composable
 private fun LogTabContent(
     kind: LogKind,
+    live: Boolean,
     listState: LazyListState,
-    backdropLayer: Modifier,
+    @SuppressLint("ModifierParameter") backdropLayer: Modifier,
     innerPadding: PaddingValues,
     refreshRequest: LogRefreshRequest?,
     isPullRefreshing: Boolean,
@@ -520,6 +531,9 @@ private fun LogTabContent(
     var handledRefreshGeneration by remember(kind) { mutableIntStateOf(0) }
     val operationToken = remember(kind, refreshRequest?.generation, fileReadGeneration) { Any() }
     val currentOperationToken by rememberUpdatedState(operationToken)
+    var tailOffset by remember(kind) { mutableLongStateOf(0L) }
+    var followTick by remember(kind) { mutableIntStateOf(0) }
+    val lifecycle = LocalComponentActivity.current.lifecycle
 
     // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
     LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
@@ -551,12 +565,17 @@ private fun LogTabContent(
                 runEntries = emptyList()
                 crashSections = emptyList()
             } else {
-                val text = withContext(Dispatchers.IO) { readLog(selectedFile) }
                 when (kind) {
-                    LogKind.RUN ->
+                    LogKind.RUN -> {
+                        val (text, consumed) =
+                            withContext(Dispatchers.IO) { readRunLog(selectedFile) }
+                        tailOffset = consumed
                         runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
-                    LogKind.CRASH ->
+                    }
+                    LogKind.CRASH -> {
+                        val text = withContext(Dispatchers.IO) { readLog(selectedFile) }
                         crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
+                    }
                 }
             }
             completedSuccessfully = true
@@ -568,6 +587,42 @@ private fun LogTabContent(
                 if (completedSuccessfully) refreshRequest?.let(onRefreshFinished)
             }
         }
+    }
+
+    // Live tail: only for the newest (current-day) run log, only while visible and STARTED.
+    LaunchedEffect(kind, live, selectedIndex, fileReadGeneration, refreshRequest?.generation) {
+        if (kind != LogKind.RUN || !live || selectedIndex != 0) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(LIVE_POLL_INTERVAL)
+                if (loading || !listed) continue
+                val result =
+                    withContext(Dispatchers.IO) { pollTail(files.firstOrNull(), tailOffset) }
+                when (result) {
+                    TailResult.Unchanged -> Unit
+                    TailResult.Reload -> fileReadGeneration++
+                    TailResult.Relist -> {
+                        listed = false // forces the main effect to relist
+                        fileReadGeneration++
+                    }
+                    is TailResult.Appended -> {
+                        val added = withContext(Dispatchers.Default) { parseRunLog(result.text) }
+                        val info = listState.layoutInfo
+                        val wasAtBottom =
+                            info.visibleItemsInfo.lastOrNull()?.index ?: 0 >=
+                                info.totalItemsCount - 2
+                        runEntries = appendRunEntries(runEntries, added)
+                        tailOffset = result.newOffset
+                        if (wasAtBottom) followTick++
+                    }
+                }
+            }
+        }
+    }
+
+    // Runs after the new items are composed, so the target index exists.
+    LaunchedEffect(followTick) {
+        if (followTick > 0) listState.scrollToItem(runEntries.size + 1) // +1 = bottom-inset spacer
     }
 
     PullToRefreshBox(
@@ -739,6 +794,70 @@ private fun readLog(file: Path): String = runCatching {
     file.readText()
 }
     .getOrElse { localizedString(R.string.logs_read_failed, it.message.orEmpty()) }
+
+private val LIVE_POLL_INTERVAL = 500L.milliseconds
+
+/**
+ * Reads a run log, returning the text up to the last complete line and the byte offset consumed.
+ */
+private fun readRunLog(file: Path): Pair<String, Long> = runCatching {
+    val bytes = file.readBytes()
+    val end = bytes.lastIndexOf('\n'.code.toByte()) + 1
+    String(bytes, 0, end, Charsets.UTF_8) to end.toLong()
+}
+    .getOrElse { localizedString(R.string.logs_read_failed, it.message.orEmpty()) to 0L }
+
+private sealed interface TailResult {
+    data object Unchanged : TailResult
+
+    data object Reload : TailResult // file shrank / was replaced
+
+    data object Relist : TailResult // newest file on disk is not the one shown
+
+    class Appended(val text: String, val newOffset: Long) : TailResult
+}
+
+private fun pollTail(current: Path?, offset: Long): TailResult {
+    val newest = WeLogger.allLogFiles.firstOrNull()
+    if (newest?.name != current?.name) return TailResult.Relist
+    if (current == null) return TailResult.Unchanged
+    val file = current.toFile()
+    val size = file.length()
+    if (size < offset) return TailResult.Reload
+    if (size == offset) return TailResult.Unchanged
+    val bytes =
+        runCatching {
+            RandomAccessFile(file, "r").use { raf ->
+                raf.seek(offset)
+                ByteArray((size - offset).toInt()).also(raf::readFully)
+            }
+        }
+            .getOrNull() ?: return TailResult.Unchanged
+    val end = bytes.lastIndexOf('\n'.code.toByte()) + 1 // only whole lines
+    if (end == 0) return TailResult.Unchanged
+    return TailResult.Appended(String(bytes, 0, end, Charsets.UTF_8), offset + end)
+}
+
+/** Appends freshly parsed entries; leading continuation lines fold into the last existing card. */
+private fun appendRunEntries(old: List<RunLogEntry>, added: List<RunLogEntry>): List<RunLogEntry> {
+    if (added.isEmpty()) return old
+    val out = ArrayList<RunLogEntry>(old.size + added.size)
+    out.addAll(old)
+    for (e in added) {
+        if (e.time == null && out.isNotEmpty()) {
+            val prev = out.removeAt(out.lastIndex)
+            out.add(
+                prev.copy(
+                    message =
+                        if (prev.message.isEmpty()) e.message else prev.message + "\n" + e.message,
+                ),
+            )
+        } else {
+            out.add(e)
+        }
+    }
+    return out
+}
 
 // ---------------------------------------------------------------------------
 //  File selector + cards + empty state
