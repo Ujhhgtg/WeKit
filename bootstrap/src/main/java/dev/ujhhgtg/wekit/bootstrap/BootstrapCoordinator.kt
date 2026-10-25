@@ -294,7 +294,7 @@ object BootstrapCoordinator {
             val firstRegistration = mode != "REGISTERED_KEY"
             if (firstRegistration && !store.hasKey(state.keyAlias)) {
                 try {
-                    store.createKey(application, state)
+                    store.createKey(state)
                 } catch (error: Throwable) {
                     if (mode == "NEW_KEY" && isAttestationGenerationFailure(error)) {
                         // Unlocked devices whose vendor TEE/RKP is broken may still expose

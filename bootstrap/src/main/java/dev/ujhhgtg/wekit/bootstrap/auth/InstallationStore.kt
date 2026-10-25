@@ -1,11 +1,9 @@
 package dev.ujhhgtg.wekit.bootstrap.auth
 
 import android.app.Application
-import android.content.pm.PackageManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
-import android.security.keystore.StrongBoxUnavailableException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.io.File
@@ -80,33 +78,21 @@ class InstallationStore(application: Application) {
 
     fun hasKey(alias: String): Boolean = keyStore.containsAlias(alias)
 
-    fun createKey(application: Application, state: InstallationState) {
+    fun createKey(state: InstallationState) {
         check(!hasKey(state.keyAlias))
+        // Always generate in the default hardware-backed keystore (TEE); StrongBox is never
+        // attempted. Unlocked devices can have a broken TEE attestation path; that case falls
+        // back to UNATTESTED_KEY, which the server deliberately treats as low assurance and
+        // never accepts as Android-attested evidence.
         val lowAssurance = state.registrationMode == "UNATTESTED_KEY"
         val challenge = if (lowAssurance) null else state.attestationChallenge?.let { WireProtocol.decode(it, 32) }
-        fun generate(strongBox: Boolean) {
+        try {
             val builder = KeyGenParameterSpec.Builder(state.keyAlias, KeyProperties.PURPOSE_SIGN)
                 .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
                 .setDigests(KeyProperties.DIGEST_SHA256).setUserAuthenticationRequired(false)
-                .setIsStrongBoxBacked(strongBox)
             if (challenge != null) builder.setAttestationChallenge(challenge)
-            val spec = builder.build()
             KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
-                .apply { initialize(spec) }.generateKeyPair()
-        }
-        try {
-            if (lowAssurance) {
-                // Unlocked devices can have a broken StrongBox/TEE path. The key is
-                // deliberately treated as low assurance by the server and is never
-                // accepted as Android-attested evidence.
-                generate(false)
-            } else if (application.packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)) {
-                try { generate(true) }
-                catch (_: StrongBoxUnavailableException) {
-                    if (hasKey(state.keyAlias)) keyStore.deleteEntry(state.keyAlias)
-                    generate(false)
-                }
-            } else generate(false)
+                .apply { initialize(builder.build()) }.generateKeyPair()
         } catch (error: Throwable) {
             if (hasKey(state.keyAlias)) keyStore.deleteEntry(state.keyAlias)
             throw error
