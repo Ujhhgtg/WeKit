@@ -542,17 +542,6 @@ fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
     Ok(Some(fs::canonicalize(library)?))
 }
 
-fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
-    walkdir::WalkDir::new(root)
-        .into_iter()
-        .filter_map(Result::ok)
-        .map(|entry| entry.into_path())
-        .find(|path| {
-            path.file_name().and_then(|value| value.to_str()) == Some(name) && path.is_file()
-        })
-        .and_then(|path| fs::canonicalize(path).ok())
-}
-
 fn read_apk_metadata(_root: &Path, apk: &Path) -> Result<ApkMetadata> {
     let analyzer = find_apkanalyzer()
         .context("cannot find apkanalyzer under ANDROID_HOME/ANDROID_SDK_ROOT")?;

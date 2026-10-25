@@ -707,99 +707,27 @@ dependencies = [
 [[package]]
 name = "dexsql"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#e39412770312a7a0ab555379568a68e4bc0f8f06"
 dependencies = [
- "dexsql-cache",
- "dexsql-query",
+ "dexsql-core",
  "serde_json",
 ]
 
 [[package]]
-name = "dexsql-ast"
+name = "dexsql-core"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-
-[[package]]
-name = "dexsql-cache"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#e39412770312a7a0ab555379568a68e4bc0f8f06"
 dependencies = [
  "crc32fast",
- "dexsql-inflate",
- "dexsql-mutf8",
+ "flate2",
+ "memchr",
  "memmap2",
  "rayon",
  "rustc-hash 2.1.3",
  "serde_json",
  "sha2 0.10.9",
-]
-
-[[package]]
-name = "dexsql-exec"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-dependencies = [
- "dexsql-ir",
-]
-
-[[package]]
-name = "dexsql-inflate"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-dependencies = [
- "flate2",
- "memmap2",
- "rayon",
-]
-
-[[package]]
-name = "dexsql-ir"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-
-[[package]]
-name = "dexsql-lower"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-dependencies = [
- "dexsql-ir",
  "sqlparser",
 ]
-
-[[package]]
-name = "dexsql-mutf8"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-
-[[package]]
-name = "dexsql-optimizer"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-dependencies = [
- "dexsql-ir",
-]
-
-[[package]]
-name = "dexsql-query"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
-dependencies = [
- "dexsql-ast",
- "dexsql-cache",
- "dexsql-exec",
- "dexsql-lower",
- "dexsql-optimizer",
- "dexsql-schema",
- "rayon",
- "rustc-hash 2.1.3",
- "serde_json",
- "sqlparser",
-]
-
-[[package]]
-name = "dexsql-schema"
-version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3264e2a7630ad753b0b38e1816f096827b947a89"
 
 [[package]]
 name = "digest"

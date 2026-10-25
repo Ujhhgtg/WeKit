@@ -134,8 +134,8 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
 
     // Match the WeKit SQL DSL's relation surface exactly: the canonical
     // queries only use method strings, method numbers and field accesses. The
-    // loader keeps code offsets (eager_code_items) but does not retain full
-    // code items, and the shared Rayon pool uses the host's default width.
+    // loader retains code items for opcode and annotation constraints, and
+    // the shared Rayon pool uses the host's default width.
     let options = EngineOptions {
         index_needs: IndexNeeds {
             method_lookup: true,
@@ -145,6 +145,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
             method_calls: true,
             method_field_accesses: true,
             method_used_types: false,
+            ..IndexNeeds::default()
         },
         eager_code_items: true,
         // Opcode lists and annotations are only available when the loader keeps full code items
