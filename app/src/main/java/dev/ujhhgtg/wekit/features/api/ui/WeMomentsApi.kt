@@ -32,6 +32,7 @@ import dev.ujhhgtg.wekit.features.api.net.models.protobuf.TimelineObjectProto
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi.buildMusicTimelineBundle
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.moments.AntiMomentsDelete
 import dev.ujhhgtg.wekit.features.items.moments.localizedMomentsString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -921,7 +922,11 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
 
     fun isDeleted(snsInfo: Any?): Boolean {
         val normalized = normalizeSnsInfo(snsInfo) ?: return false
-        return normalized.reflekt().firstMethodOrNull { name = "isDeadSource"; parameters(); superclass() }?.invoke() as? Boolean == true
+        val snsId = normalized.reflekt().getField("field_snsId", true) as Long
+        val sourceType = normalized.reflekt().getField("field_sourceType", true) as Int
+        return sourceType and ACTIVE_SOURCE_MASK == 0 ||
+                AntiMomentsDelete.isRetained(snsId) ||
+                normalized.reflekt().firstMethodOrNull { name = "isDeadSource"; parameters(); superclass() }?.invoke() as? Boolean == true
     }
 
     fun getContent(snsInfo: Any?): ByteArray? {
@@ -2926,8 +2931,12 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         }
 
         return runCatching {
-            sendLikeMethod().invoke(null, normalized, LIKE_COMMENT_TYPE, null, sourceScene)
-            ActionResult(success = true, sent = true, message = "like request sent")
+            val request = sendLikeMethod().invoke(null, normalized, LIKE_COMMENT_TYPE, null, sourceScene)
+            if (request == null || request == false) {
+                ActionResult(success = false, sent = false, message = "like request rejected by SnsService")
+            } else {
+                ActionResult(success = true, sent = true, message = "like request queued")
+            }
         }.getOrElse { error ->
             WeLogger.e(TAG, "failed to send Moments like request", error)
             ActionResult(success = false, sent = false, message = error.message ?: "failed to send like request", error = error)
