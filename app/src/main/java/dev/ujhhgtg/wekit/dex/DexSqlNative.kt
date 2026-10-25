@@ -7,7 +7,7 @@ package dev.ujhhgtg.wekit.dex
  * return an envelope is [open], so a zero handle means that opening failed. Keeping this object
  * free of Kotlin logic also keeps the JNI names stable when the bridge implementation changes.
  *
- * JNI symbols for this object are: `Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_{open,query,close}`.
+ * JNI symbols for this object use the `Java_dev_ujhhgtg_wekit_dex_DexSqlNative_` prefix.
  *
  * The engine executes read-only SQL only. Row selection and resolver-state classification (single
  * row, expected failure, ...) are WeKit concerns implemented by [DexSqlBridge]/the Dex delegate

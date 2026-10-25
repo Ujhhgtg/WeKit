@@ -115,7 +115,7 @@ fn response_string(env: *mut RawJNIEnv, response: String) -> jstring {
 /// SQL delegates.  A later optimization can pre-scan a batch of delegates
 /// before calling this function without changing the handle protocol.
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dex_DexSqlNative_open(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     paths: jobjectArray,
@@ -171,7 +171,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_open(
 ///
 /// Java signature: `(JLjava/lang/String;)Ljava/lang/String;`
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_query(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dex_DexSqlNative_query(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     handle: jlong,
@@ -199,7 +199,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_query(
 /// kind is class, method or field; descriptor is a DEX descriptor.
 /// The envelope is {ok:true, metadata:<object|null>} or {ok:false,error}.
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadata(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dex_DexSqlNative_metadata(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     handle: jlong,
@@ -241,7 +241,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadata(
 /// Java signature: (JLjava/lang/String;)Ljava/lang/String;
 /// Envelope: {ok:true, callers:<array|null>} or {ok:false,error}.
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadataCallers(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dex_DexSqlNative_metadataCallers(
     env: *mut RawJNIEnv,
     _thiz: jobject,
     handle: jlong,
@@ -268,7 +268,7 @@ pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_metadataCallers(
 ///
 /// Java signature: `(J)V`
 #[unsafe(no_mangle)]
-pub extern "C" fn Java_dev_ujhhgtg_wekit_dexkit_DexSqlNative_close(
+pub extern "C" fn Java_dev_ujhhgtg_wekit_dex_DexSqlNative_close(
     _env: *mut RawJNIEnv,
     _thiz: jobject,
     handle: jlong,
