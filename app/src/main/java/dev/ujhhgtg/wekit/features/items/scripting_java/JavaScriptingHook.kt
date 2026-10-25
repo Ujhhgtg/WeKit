@@ -17,8 +17,8 @@ import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi

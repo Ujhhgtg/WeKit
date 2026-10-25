@@ -27,10 +27,10 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.entity.SpoofedChatMessageEntity
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.data
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi

@@ -8,8 +8,8 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds

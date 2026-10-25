@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionStatus
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path

@@ -7,14 +7,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.dsl.find
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 

@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals

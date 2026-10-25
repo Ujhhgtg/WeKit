@@ -49,8 +49,8 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
 import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi

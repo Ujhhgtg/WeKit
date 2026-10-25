@@ -47,11 +47,11 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.AssetStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.data
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi

@@ -251,11 +251,15 @@ object EdgeTtsDrm {
     private fun sha256Init(data: ByteArray): IntArray {
         val words = IntArray(64)
         words[14] =
-            data[0].toInt() and 0xFF shl 16 or
+            data[0].toInt() and
+                0xFF shl
+                16 or
                 (data[1].toInt() and 0xFF shl 8) or
                 (data[2].toInt() and 0xFF)
         words[15] =
-            data[3].toInt() and 0xFF shl 24 or
+            data[3].toInt() and
+                0xFF shl
+                24 or
                 (data[4].toInt() and 0xFF shl 16) or
                 (data[5].toInt() and 0xFF shl 8) or
                 (data[6].toInt() and 0xFF)
@@ -363,7 +367,7 @@ object EdgeTtsDrm {
             var term = words[index] * if (index % 2 == 0) keyA else keyB
             var offset =
                 rotateLeft16(words[index]) *
-                        if (index % 2 == 0) 0xEF0569FB.toInt() else 0xC31713DB.toInt()
+                    if (index % 2 == 0) 0xEF0569FB.toInt() else 0xC31713DB.toInt()
             if (index == 0) {
                 term += CS64_ADJUSTMENT0 * factorA
                 offset += CS64_ADJUSTMENT1
@@ -426,13 +430,16 @@ object EdgeTtsDrm {
     private fun rotateLeft16(value: Int): Int = value shl 16 or (value ushr 16)
 
     private fun ByteArray.readBigEndianInt(offset: Int): Int =
-        this[offset].toInt() and 0xFF shl 24 or
+        this[offset].toInt() and
+            0xFF shl
+            24 or
             (this[offset + 1].toInt() and 0xFF shl 16) or
             (this[offset + 2].toInt() and 0xFF shl 8) or
             (this[offset + 3].toInt() and 0xFF)
 
     private fun ByteArray.readLittleEndianInt(offset: Int): Int =
-        this[offset].toInt() and 0xFF or
+        this[offset].toInt() and
+            0xFF or
             (this[offset + 1].toInt() and 0xFF shl 8) or
             (this[offset + 2].toInt() and 0xFF shl 16) or
             (this[offset + 3].toInt() and 0xFF shl 24)

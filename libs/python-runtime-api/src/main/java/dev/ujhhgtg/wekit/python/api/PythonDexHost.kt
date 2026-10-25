@@ -5,7 +5,7 @@ package dev.ujhhgtg.wekit.python.api
  *
  * The Python `wekit.dex` module builds plain snake_case spec dicts and passes their JSON encoding;
  * the host executes them through WeKit's standalone
- * [dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession]. There is no DexKit matcher ABI in this API.
+ * [dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession]. There is no DexKit matcher ABI in this API.
  */
 interface PythonDexHost {
     fun findClasses(

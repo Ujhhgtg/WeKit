@@ -13,11 +13,11 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.asClass
-import dev.ujhhgtg.wekit.dexkit.asConstructor
-import dev.ujhhgtg.wekit.dexkit.asMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
-import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dex.asClass
+import dev.ujhhgtg.wekit.dex.asConstructor
+import dev.ujhhgtg.wekit.dex.asMethod
+import dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dex.withDexSql
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeAuthApi

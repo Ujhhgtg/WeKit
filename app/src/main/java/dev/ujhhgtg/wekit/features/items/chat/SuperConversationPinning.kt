@@ -15,9 +15,9 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.data
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi

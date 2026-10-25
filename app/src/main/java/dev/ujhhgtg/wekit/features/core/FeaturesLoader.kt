@@ -2,9 +2,9 @@ package dev.ujhhgtg.wekit.features.core
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
-import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.cache.DexCacheManager
+import dev.ujhhgtg.wekit.dex.cache.DexItemState
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.DexResolutionMode

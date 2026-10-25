@@ -5,12 +5,9 @@ import android.os.Looper
 import android.webkit.ValueCallback
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.evaluateJavascript
-import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.loadUrl
-import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.reload
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.matcher.NameMatch
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.tracked
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds

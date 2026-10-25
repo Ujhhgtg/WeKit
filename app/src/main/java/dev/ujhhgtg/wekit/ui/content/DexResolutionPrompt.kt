@@ -2,7 +2,7 @@ package dev.ujhhgtg.wekit.ui.content
 
 import android.content.Context
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.time.Duration.Companion.seconds

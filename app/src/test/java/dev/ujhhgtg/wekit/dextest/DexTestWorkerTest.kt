@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
-import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
 import dev.ujhhgtg.wekit.utils.fs.asPath

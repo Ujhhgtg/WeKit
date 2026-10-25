@@ -47,11 +47,11 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.meta.dottedClassNameToDescriptor
-import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.meta.dottedClassNameToDescriptor
+import dev.ujhhgtg.wekit.dex.withDexSql
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.localizedString

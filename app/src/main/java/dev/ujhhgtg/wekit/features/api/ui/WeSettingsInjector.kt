@@ -20,11 +20,11 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
-import dev.ujhhgtg.wekit.dexkit.matcher.NameMatch
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.matcher.NameMatch
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.localizedString

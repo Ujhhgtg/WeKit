@@ -4,8 +4,8 @@ import android.view.MenuItem
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
 import dev.ujhhgtg.wekit.features.core.ClickableFeature

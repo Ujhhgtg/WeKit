@@ -2,8 +2,8 @@ package dev.ujhhgtg.wekit.features.api.net
 
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature

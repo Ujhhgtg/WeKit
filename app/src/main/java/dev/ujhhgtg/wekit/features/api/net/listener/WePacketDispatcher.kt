@@ -6,8 +6,8 @@ import androidx.core.os.postDelayed
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.core.ApiFeature

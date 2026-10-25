@@ -1,14 +1,14 @@
 package dev.ujhhgtg.wekit.utils.monet
 
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
-import dev.ujhhgtg.wekit.dexkit.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
-import dev.ujhhgtg.wekit.dexkit.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
-import dev.ujhhgtg.wekit.dexkit.meta.FieldUsingType
-import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.wekit.dex.matcher.ClassSpec
+import dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dex.matcher.FieldSpec
+import dev.ujhhgtg.wekit.dex.matcher.MethodSpec
+import dev.ujhhgtg.wekit.dex.matcher.NameSpec
+import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.dex.meta.FieldUsingType
+import dev.ujhhgtg.wekit.dex.withDexSql
 
 object MonetDexEvidenceCollector {
     fun collect(candidates: List<MonetDexCandidate>): List<MonetResourceDexEvidence> =

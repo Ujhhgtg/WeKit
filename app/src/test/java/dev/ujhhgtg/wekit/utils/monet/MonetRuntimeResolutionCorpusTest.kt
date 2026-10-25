@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.utils.monet
 
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
+import dev.ujhhgtg.wekit.dex.DexSqlBridge
 import java.io.File
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

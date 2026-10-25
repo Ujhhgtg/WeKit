@@ -7,11 +7,11 @@ import androidx.annotation.StringRes
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
-import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.DexConstructorDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.cache.DexItemState
+import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexConstructorDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.utils.HookAction
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam

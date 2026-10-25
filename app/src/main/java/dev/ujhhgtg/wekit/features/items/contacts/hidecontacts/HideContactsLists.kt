@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.features.items.contacts.hidecontacts
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.items.contacts.HideContacts
 import dev.ujhhgtg.wekit.utils.WeLogger

@@ -20,7 +20,7 @@ import androidx.lifecycle.Lifecycle
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.dsl.DexFieldDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexFieldDelegate
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.LauncherNavigation
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_CONTACTS
 import dev.ujhhgtg.wekit.features.items.beautify.navigation_bar.TAB_DISCOVER

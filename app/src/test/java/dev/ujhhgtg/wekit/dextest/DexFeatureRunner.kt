@@ -1,15 +1,15 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dexkit.DexSqlBridge
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.cache.GeneratedMethodHashes
-import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
-import dev.ujhhgtg.wekit.dexkit.resolution.DexHostMetadata
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionEvent
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionState
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
-import dev.ujhhgtg.wekit.dexkit.resolution.resolveAllDex
-import dev.ujhhgtg.wekit.dexkit.resolution.resolveDexBatch
+import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.cache.GeneratedMethodHashes
+import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionEvent
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionState
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionStatus
+import dev.ujhhgtg.wekit.dex.resolution.resolveAllDex
+import dev.ujhhgtg.wekit.dex.resolution.resolveDexBatch
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import kotlin.time.TimeMark

@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.features.core
 import android.content.Context
 import androidx.annotation.StringRes
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.cache.DexItemState
+import dev.ujhhgtg.wekit.dex.cache.DexItemState
 
 /**
  * Why a feature cannot be started or enabled. Each error is shown as one line under its

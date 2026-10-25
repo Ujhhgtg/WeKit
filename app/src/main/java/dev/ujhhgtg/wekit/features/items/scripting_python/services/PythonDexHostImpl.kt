@@ -1,11 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.services
 
 import com.tencent.mm.boot.BuildConfig as WeChatBuildConfig
-import dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession
-import dev.ujhhgtg.wekit.dexkit.matcher.MatcherSpecJson
-import dev.ujhhgtg.wekit.dexkit.matcher.NameSpec
-import dev.ujhhgtg.wekit.dexkit.meta.DexMethodInfo
-import dev.ujhhgtg.wekit.dexkit.withDexSql
+import dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession
+import dev.ujhhgtg.wekit.dex.matcher.MatcherSpecJson
+import dev.ujhhgtg.wekit.dex.matcher.NameSpec
+import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.dex.withDexSql
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.python.api.PythonDexHost
 import dev.ujhhgtg.wekit.python.api.PythonMemberKind
