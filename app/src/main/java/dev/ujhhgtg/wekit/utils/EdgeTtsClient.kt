@@ -11,8 +11,9 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.nio.file.Path
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -20,14 +21,13 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
 import kotlin.io.path.outputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * 逆向自开源项目 edge-tts (https://github.com/rany2/edge-tts) 的免费云端 TTS: 直接连接 Microsoft Edge 内置语音合成用的
  * WebSocket 接口,不需要 API Key, 服务端直接吐出 mp3 音频流。
  *
- * 协议细节参考了原库的 drm.py (Sec-MS-GEC 生成算法) 和 communicate.py (消息格式)。
+ * 协议细节参考了原库的 drm.py 和 communicate.py (消息格式)。`Sec-MS-GEC` 使用的是 v2 token (原库 >= 7.3.0), 生成算法见
+ * [EdgeTtsDrm]; 与之配套的 `Sec-MS-GEC-Version` 必须带 `2-` 方案前缀, 旧版 v1 token + `1-` 前缀会被服务端以 403 拒绝。
  *
  * 已实现的健壮性处理:
  * - 长文本按 4096 字节分片、多轮请求后把音频顺序拼接;
@@ -52,14 +52,8 @@ object EdgeTtsClient : AutoCloseable {
         "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list" +
             "?trustedclienttoken=$TRUSTED_CLIENT_TOKEN"
 
-    // Windows 文件时间纪元 (1601-01-01) 相对 Unix 纪元 (1970-01-01) 的秒数偏移
-    private const val WIN_EPOCH_SECONDS = 11_644_473_600L
-
     // 单次请求 SSML 文本内容的最大字节数 (原库常量), 超过则分片。
     private const val MAX_CHUNK_BYTES = 4096
-
-    // 本地时钟相对服务器的偏差 (秒), 由 403 处理逻辑累加校正。原库 DRM.clock_skew_seconds。
-    @Volatile private var clockSkewSeconds: Double = 0.0
 
     private val USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" +
@@ -153,8 +147,9 @@ object EdgeTtsClient : AutoCloseable {
             WSS_URL +
                 "?TrustedClientToken=$TRUSTED_CLIENT_TOKEN" +
                 "&ConnectionId=$connectionId" +
-                "&Sec-MS-GEC=${generateSecMsGec()}" +
-                "&Sec-MS-GEC-Version=1-$CHROMIUM_FULL_VERSION"
+                "&Sec-MS-GEC=${EdgeTtsDrm.generateSecMsGec(TRUSTED_CLIENT_TOKEN)}" +
+                // v2 token 必须配 2- 方案前缀; 旧的 1- 方案服务端会直接回 403。
+                "&Sec-MS-GEC-Version=2-$CHROMIUM_FULL_VERSION"
 
         var audioReceived = false
         httpClient.webSocket(
@@ -185,7 +180,7 @@ object EdgeTtsClient : AutoCloseable {
                         val headerLength =
                             data[0].toInt() and 0xFF shl 8 or (data[1].toInt() and 0xFF)
                         // 帧被截断/损坏时长度字段会越界, 直接跳过, 否则 String(...) 会抛越界异常。
-                        if (headerLength !in 0..(data.size - 2)) {
+                        if (headerLength !in 0..data.size - 2) {
                             WeLogger.w(
                                 TAG,
                                 "skipping malformed binary frame: headerLength=$headerLength size=${data.size}",
@@ -217,8 +212,9 @@ object EdgeTtsClient : AutoCloseable {
     private fun WebSocketException.isHandshake403(): Boolean = message?.contains("was 403") == true
 
     /**
-     * 复刻 edge-tts 的 drm.py: 拿一个普通 HTTPS 请求的响应 Date 头当作服务器时间, 累加校正本地时钟偏差 clockSkewSeconds。之后
-     * generateSecMsGec 会带上这个偏差。 与原库不同: Ktor 的 WebSocketException 不携带握手响应头, 所以这里单独发一个请求取 Date。
+     * 复刻 edge-tts 的 drm.py: 拿一个普通 HTTPS 请求的响应 Date 头当作服务器时间, 累加校正本地时钟偏差。之后
+     * [EdgeTtsDrm.generateSecMsGec] 会带上这个偏差。 与原库不同: Ktor 的 WebSocketException 不携带握手响应头,
+     * 所以这里单独发一个请求取 Date。
      */
     private suspend fun correctClockSkewFromServer() {
         val response: HttpResponse =
@@ -231,8 +227,8 @@ object EdgeTtsClient : AutoCloseable {
         val serverEpochSeconds =
             parseRfc1123Date(serverDate)
                 ?: throw IllegalStateException("无法解析服务器 Date 头: $serverDate")
-        val clientEpochSeconds = System.currentTimeMillis() / 1000.0 + clockSkewSeconds
-        clockSkewSeconds += serverEpochSeconds - clientEpochSeconds
+        val clientEpochSeconds = EdgeTtsDrm.getUnixTimestamp()
+        EdgeTtsDrm.adjustClockSkewSeconds(serverEpochSeconds - clientEpochSeconds)
         WeLogger.i(TAG, "clock skew corrected")
     }
 
@@ -245,19 +241,6 @@ object EdgeTtsClient : AutoCloseable {
         } catch (_: java.text.ParseException) {
             null
         }
-
-    /** 复刻 edge-tts 的 drm.py: DRM.generate_sec_ms_gec(), 带时钟偏差校正。 */
-    private fun generateSecMsGec(): String {
-        // 秒级 Unix 时间 + 时钟偏差, 再切到 Windows 文件时间纪元。
-        var ticks =
-            (System.currentTimeMillis() / 1000.0 + clockSkewSeconds).toLong() + WIN_EPOCH_SECONDS
-        ticks -= ticks % 300 // 向下取整到最近的 5 分钟
-        val windowsTicks = ticks * 10_000_000L // 秒 -> 100ns (Windows 文件时间单位)
-        val toHash = "$windowsTicks$TRUSTED_CLIENT_TOKEN"
-        val digest =
-            MessageDigest.getInstance("SHA-256").digest(toHash.toByteArray(Charsets.US_ASCII))
-        return digest.joinToString("") { "%02X".format(it) }
-    }
 
     private fun generateMuid(): String {
         val bytes = ByteArray(16)
