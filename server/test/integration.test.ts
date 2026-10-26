@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { build } from "esbuild";
 import { Miniflare } from "miniflare";
 import { SignJWT } from "jose";
@@ -101,14 +101,17 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
   });
   try {
     const db = await mf.getD1Database("DB", "api");
-    await db.exec(readFileSync("migrations/0001_remote_payload.sql", "utf8"));
-    await db.exec(
-      readFileSync("migrations/0002_unattested_hardware.sql", "utf8"),
-    );
-    await db.exec(
-      readFileSync("migrations/0003_user_release_channels.sql", "utf8"),
-    );
-    await db.exec(readFileSync("migrations/0004_release_deletion.sql", "utf8"));
+    for (const migration of readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort())
+      // Miniflare's D1 exec() rejects chunks that only contain comments; the
+      // production migration runner accepts them, so strip comment lines here.
+      await db.exec(
+        readFileSync(`migrations/${migration}`, "utf8").replace(
+          /^--.*$/gm,
+          "",
+        ),
+      );
     const api = await mf.getWorker("api"),
       bot = await mf.getWorker("bot"),
       admin = await mf.getWorker("admin");
@@ -998,14 +1001,6 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     assert.equal(
       evidence!.evidence_sha256,
       await sha(new Uint8Array(await saved!.arrayBuffer())),
-    );
-    assert.equal(
-      (await db
-        .prepare(
-          "SELECT count(*) AS n FROM request_attempts WHERE current_result='AUTHORIZATION_DENIED'",
-        )
-        .first<{ n: number }>())!.n,
-      2,
     );
     await db.prepare("UPDATE attestation_snapshots SET fetched_at=0").run();
     const stale = await signed("/v1/initializations", initBody, {

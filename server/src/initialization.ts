@@ -84,9 +84,11 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
       auth.actorId,
     ],
     (g) => [
+      // last_seen_at is only an admin display value; refresh it at most once
+      // every 6 hours per user instead of writing a row on every startup.
       env.DB.prepare(
-        `UPDATE users SET last_seen_at=? WHERE telegram_user_id=(SELECT b.telegram_user_id FROM credentials c JOIN bindings b ON b.binding_id=c.binding_id WHERE c.credential_id=?) AND ${g.sql}`,
-      ).bind(now, auth.actorId, ...g.bindings),
+        `UPDATE users SET last_seen_at=? WHERE last_seen_at<? AND telegram_user_id=(SELECT b.telegram_user_id FROM credentials c JOIN bindings b ON b.binding_id=c.binding_id WHERE c.credential_id=?) AND ${g.sql}`,
+      ).bind(now, now - 6 * 60 * 60 * 1000, auth.actorId, ...g.bindings),
       env.DB.prepare(
         `INSERT INTO initializations SELECT json_extract(o.result_json,'$.initializationId'),c.credential_id,b.binding_id,i.installation_id,u.telegram_user_id,?, ?,?,?,?,?,?,?,?, ?,json_extract(o.result_json,'$.result'),json_extract(o.result_json,'$.payloadId'),? FROM request_operations o ${authorityFrom.replace("FROM", "JOIN")} WHERE o.actor_type=? AND o.actor_id=? AND o.operation=? AND o.request_id=? AND c.credential_id=o.actor_id AND ${g.sql} ON CONFLICT(initialization_id) DO NOTHING`,
       ).bind(

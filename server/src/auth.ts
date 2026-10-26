@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { opaqueId, random, sha, unb64, verify } from "./crypto";
-import { binary, body, fail, id, nonce, path, source } from "./http";
+import { binary, body, fail, id, nonce, path } from "./http";
 import { LIMITS, type Env } from "./env";
 export interface Auth {
   actorType: "REGISTRATION" | "CREDENTIAL";
@@ -324,7 +324,10 @@ export async function transact<T>(
   const attempt = opaqueId(),
     g = guard(auth, attempt);
   const now = Date.now();
-  const origin = source(req, env);
+  // Only the challenge consumption, the idempotent operation result, the
+  // operation's own rows and the final read are written here. D1 bills rows
+  // written (including one per touched index), so per-request bookkeeping that
+  // no query reads would dominate storage cost as enrollments grow.
   const statements = [
     env.DB.prepare(
       "UPDATE challenges SET consumption_id=?,consumed_request_id=? WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND process_nonce=? AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
@@ -354,20 +357,6 @@ export async function transact<T>(
       attempt,
     ),
     ...extras(g),
-    env.DB.prepare(
-      `INSERT INTO request_attempts SELECT ?,?,?,?,?,COALESCE(json_extract(q.result_json,'$.currentResult'),json_extract(q.result_json,'$.result'),'COMMITTED'),?,?,? FROM (${finalSql} AND ${g.sql}) q`,
-    ).bind(
-      attempt,
-      auth.actorType,
-      auth.actorId,
-      auth.operation,
-      auth.requestId,
-      origin.ip,
-      origin.sourceType,
-      now,
-      ...finalBindings,
-      ...g.bindings,
-    ),
     env.DB.prepare(`${finalSql} AND ${g.sql}`).bind(
       ...finalBindings,
       ...g.bindings,
