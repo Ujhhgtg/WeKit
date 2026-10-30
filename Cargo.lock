@@ -707,7 +707,7 @@ dependencies = [
 [[package]]
 name = "dexsql"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#e39412770312a7a0ab555379568a68e4bc0f8f06"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3703574990cf160d0bb31bd8ab8afd6253a6a554"
 dependencies = [
  "dexsql-core",
  "serde_json",
@@ -716,7 +716,7 @@ dependencies = [
 [[package]]
 name = "dexsql-core"
 version = "0.1.1"
-source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#e39412770312a7a0ab555379568a68e4bc0f8f06"
+source = "git+https://github.com/Ujhhgtg/dexsql.git?branch=main#3703574990cf160d0bb31bd8ab8afd6253a6a554"
 dependencies = [
  "crc32fast",
  "flate2",
