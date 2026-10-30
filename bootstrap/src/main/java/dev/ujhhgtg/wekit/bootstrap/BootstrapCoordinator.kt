@@ -97,6 +97,10 @@ object BootstrapCoordinator {
         bridge: IHookBridge, mode: InjectionMode, rootAccess: TelegramRootAccess?,
     ) {
         check(Looper.myLooper() == Looper.getMainLooper()) { "bootstrap startup must run on the main thread" }
+        if (!BootstrapProcess.isCurrentProcessTargeted()) {
+            BootstrapLog.i("Bootstrap", "skipping non-target process ${Application.getProcessName()}")
+            return
+        }
         if (initialized) return
         application = hostApplication; hostLoader = hostClassLoader; loaderService = service
         hookBridge = bridge; injectionMode = mode; telegramRootAccess = rootAccess

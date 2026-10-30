@@ -2,12 +2,14 @@
 
 package dev.ujhhgtg.wekit.bootstrap.loader.entry.zygisk
 
+import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.bootstrap.BuildConfig
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.bootstrap.BootstrapLifecycle
+import dev.ujhhgtg.wekit.bootstrap.BootstrapProcess
 import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.api.TelegramRootAccess
 import dev.ujhhgtg.wekit.bootstrap.BootstrapLog
@@ -38,6 +40,7 @@ object ZygiskEntry : TelegramRootAccess {
     private var hookBridge: ArtHookBridge? = null
     private var modulePath: String = ""
 
+    @SuppressLint("PrivateApi", "SoonBlockedPrivateApi")
     @Keep
     @JvmStatic
     fun init(
@@ -48,6 +51,10 @@ object ZygiskEntry : TelegramRootAccess {
         val targetPackage = processName.substringBefore(':')
         if (!targetPackage.startsWith("com.tencent.mm")) {
             BootstrapLog.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
+            return
+        }
+        if (!BootstrapProcess.isTargeted(processName)) {
+            BootstrapLog.i(TAG, "ignoring non-target Zygisk process: $processName")
             return
         }
         synchronized(entryLock) {

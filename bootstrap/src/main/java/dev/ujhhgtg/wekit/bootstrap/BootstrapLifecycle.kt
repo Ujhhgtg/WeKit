@@ -10,6 +10,7 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 /** Connects the real host Application lifecycle to remote-payload initialization. */
 object BootstrapLifecycle {
+    private const val TAG = "Bootstrap"
     private var installed = false
 
     @Synchronized
@@ -21,6 +22,10 @@ object BootstrapLifecycle {
         telegramRootAccess: TelegramRootAccess?,
     ) {
         if (installed) return
+        if (!BootstrapProcess.isCurrentProcessTargeted()) {
+            BootstrapLog.i(TAG, "skipping non-target process ${Application.getProcessName()}")
+            return
+        }
         HiddenApiBypass.setHiddenApiExemptions("L")
         val member = Instrumentation::class.java.getDeclaredMethod("callApplicationOnCreate", Application::class.java)
         hookBridge.hookMethod(member, object : IHookBridge.IMemberHookCallback {
