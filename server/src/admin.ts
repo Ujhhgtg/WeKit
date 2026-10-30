@@ -263,8 +263,11 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     // unguessable and has no identity meaning until this Access-protected
     // Worker resolves it against D1.
     if (/^[A-Za-z0-9_-]{32}$/.test(v.ciphertext)) {
+      // `initializations.result` stores the authorization decision (`ALLOWED`, `CACHE_MISMATCH`,
+      // ...); the payload-load report result (`LOADED`) lives in `initialization_reports`. A frame
+      // is only rendered by an authorized payload, so `ALLOWED` is the row the screenshot belongs to.
       const matches = await env.DB.prepare(
-        "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.initialization_id=? AND i.result='LOADED' LIMIT 1",
+        "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.initialization_id=? AND i.result='ALLOWED' LIMIT 1",
       )
         .bind(v.ciphertext)
         .all<Record<string, unknown>>();
@@ -377,7 +380,9 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     if (!/^[^\u0000\r\n]{1,256}$/.test(wxId))
       fail(400, "WATERMARK_INVALID", "水印身份无效");
     const matches = await env.DB.prepare(
-      "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.self_wx_id=? AND i.result='LOADED' ORDER BY i.created_at DESC LIMIT 20",
+      // Same column semantics as the opaque-token branch: `result` is the authorization decision,
+      // so the successfully loaded initialization is the `ALLOWED` row.
+      "SELECT i.telegram_user_id,i.initialization_id,i.installation_id,i.self_wx_id,i.self_alias,i.created_at,u.username,u.display_name,u.status FROM initializations i LEFT JOIN users u ON u.telegram_user_id=i.telegram_user_id WHERE i.self_wx_id=? AND i.result='ALLOWED' ORDER BY i.created_at DESC LIMIT 20",
     )
       .bind(wxId)
       .all<Record<string, unknown>>();

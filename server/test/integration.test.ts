@@ -704,6 +704,29 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         accessHeaders,
       ),
     );
+    // Screenshot tracing resolves the on-device watermark token (an initialization ID) to the
+    // account. The initialization row stores the authorization decision, so the trace must not
+    // filter on the payload-load report result.
+    const watermarkTrace = await ok(
+      await send(
+        admin,
+        "https://admin.example/admin/api/watermark/trace",
+        "POST",
+        { ciphertext: initialized.initializationId },
+        {
+          ...accessHeaders,
+          origin: env.ADMIN_ORIGIN,
+          "x-wekit-csrf-token": adminSession.data.csrfToken,
+        },
+      ),
+    );
+    assert.equal(watermarkTrace.data.matched, true);
+    assert.equal(watermarkTrace.data.wxId, "wxid_test");
+    assert.equal(
+      watermarkTrace.data.identity.initialization_id,
+      initialized.initializationId,
+    );
+    assert.equal(watermarkTrace.data.candidates.length, 1);
     await ok(
       await send(
         api,
