@@ -48,7 +48,7 @@
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar" />
 
         <activity
-            android:name=".features.items.chat.spoof.SpoofChatMessagesActivity"
+            android:name=".features.items.chat.spoof.SpoofChatMessagesSettingsActivity"
             android:exported="true"
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar" />
 

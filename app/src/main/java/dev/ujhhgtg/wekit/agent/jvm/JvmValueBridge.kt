@@ -168,7 +168,8 @@ object JvmValueBridge {
 
     /**
      * Resolves a fully-qualified class name to a [Class], supporting primitives (`int`), arrays
-     * (`java.lang.String[]`, `int[]`), and any host/module class via [ClassLoaders.HYBRID].
+     * (`java.lang.String[]`, `int[]`), and any host/module class via
+     * [ClassLoaders.HYBRID_FOR_MODULE].
      */
     fun resolveClass(fqcn: String): Class<*> {
         val name = fqcn.trim()
@@ -179,7 +180,7 @@ object JvmValueBridge {
             val component = resolveClass(name.removeSuffix("[]"))
             return java.lang.reflect.Array.newInstance(component, 0).javaClass
         }
-        return runCatching { name.toClass(ClassLoaders.HYBRID) }
+        return runCatching { name.toClass(ClassLoaders.HYBRID_FOR_MODULE) }
             .getOrElse { throw JvmBridgeException("Class not found: $name (${it.message})") }
     }
 

@@ -232,7 +232,7 @@ object SpoofChatMessages :
     private val drawableImageMask by lazy { hostResource("bzt", "drawable") }
 
     override fun onClick(context: ComponentActivity) {
-        context.startActivity(Intent(context, SpoofChatMessagesActivity::class.java))
+        context.startActivity(Intent(context, SpoofChatMessagesSettingsActivity::class.java))
     }
 
     override fun getMenuItems() =

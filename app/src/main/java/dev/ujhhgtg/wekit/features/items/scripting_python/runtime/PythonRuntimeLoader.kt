@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.scripting_python.runtime
 
-import android.os.Build
 import dalvik.system.InMemoryDexClassLoader
 import dev.ujhhgtg.wekit.extensions.MountedPythonRuntime
 import dev.ujhhgtg.wekit.extensions.PythonRuntimeArchive
@@ -125,7 +124,7 @@ object PythonRuntimeLoader {
     fun <T> withLookupClassLoader(block: () -> T): T {
         val thread = Thread.currentThread()
         val previous = thread.contextClassLoader
-        thread.contextClassLoader = ClassLoaders.HYBRID
+        thread.contextClassLoader = ClassLoaders.HYBRID_FOR_MODULE
         return try {
             block()
         } finally {
@@ -158,7 +157,7 @@ object PythonRuntimeLoader {
                 runtimeApk = mounted.runtimeApk,
                 nativeDirectory = mounted.nativeDirectory,
                 sdkRoot = mounted.sdkDirectory,
-                lookupClassLoader = ClassLoaders.HYBRID,
+                lookupClassLoader = ClassLoaders.HYBRID_FOR_MODULE,
                 syncHookBudgetMs = PythonRuntimeLimits.SYNC_HOOK_BUDGET_MS,
                 taskDrainTimeoutMs = PythonRuntimeLimits.TASK_DRAIN_TIMEOUT_MS,
                 maxManifestBytes = PythonRuntimeLimits.MAX_MANIFEST_BYTES,
@@ -200,15 +199,11 @@ object PythonRuntimeLoader {
                     .toTypedArray()
             }
         dexBuffers = buffers
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            InMemoryDexClassLoader(
-                buffers,
-                mounted.nativeDirectory.absolutePath,
-                ClassLoaders.MODULE,
-            )
-        } else {
-            InMemoryDexClassLoader(buffers, ClassLoaders.MODULE)
-        }
+        return InMemoryDexClassLoader(
+            buffers,
+            mounted.nativeDirectory.absolutePath,
+            ClassLoaders.MODULE,
+        )
     }
 
     private fun publish(state: PythonRuntimeState, mounted: MountedPythonRuntime, phase: String) {

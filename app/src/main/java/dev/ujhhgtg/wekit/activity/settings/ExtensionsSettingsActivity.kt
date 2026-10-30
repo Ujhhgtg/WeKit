@@ -55,7 +55,7 @@ import java.util.Locale
 /**
  * 扩展包管理页。入口：设置页“更新”分组的“扩展包”行；依赖弹窗带 EXTRA_PACK_ID + EXTRA_AUTO_DOWNLOAD 跳入并立即开始下载。
  *
- * 命名以 SettingsActivity 结尾，使 ActivityProxy 走透明启动代理。
+ * 命名以 SettingsActivity 结尾，使 ActivityProxy 走不透明 splash 启动代理（WeChatSplashActivity）。
  */
 @Keep
 class ExtensionsSettingsActivity : ComponentActivity() {

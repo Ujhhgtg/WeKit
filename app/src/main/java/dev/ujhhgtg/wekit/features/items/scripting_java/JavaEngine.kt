@@ -234,7 +234,7 @@ object JavaEngine {
         val interpreter = plugin.interpreter
 
         val classManager = interpreter.classManager
-        classManager.setClassLoader(ClassLoaders.HYBRID)
+        classManager.setClassLoader(ClassLoaders.HYBRID_FOR_MODULE)
         ScriptDepsPack.classLoader()?.let { classManager.addClassLoader(it) }
 
         val nameSpace = interpreter.nameSpace

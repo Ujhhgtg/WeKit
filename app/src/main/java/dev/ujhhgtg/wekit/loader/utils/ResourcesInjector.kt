@@ -14,8 +14,8 @@ import dev.ujhhgtg.wekit.extensions.PackFs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asHidden
 import java.io.File
-import java.lang.reflect.Array as ReflectArray
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.reflect.Array as ReflectArray
 
 class InjectionHandle(val sha256: String, val cookie: Int, val keepAlive: Any)
 
@@ -37,9 +37,9 @@ object ResourcesInjector {
         if (hasModuleRes(resources)) return
         injectApk(resources, payloadApk, payloadSha256)
         check(hasModuleRes(resources)) {
-            "business resource sentinel is missing after FD injection"
+            "resources are still missing after injection"
         }
-        WeLogger.d(TAG, "injected business resources from sealed APK $payloadSha256")
+        WeLogger.d(TAG, "injected resources")
     }
 
     private fun hasModuleRes(resources: Resources): Boolean =

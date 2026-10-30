@@ -140,7 +140,7 @@ object EnvironmentHider : ApiFeature() {
     private fun hasNPatchApkRedirect(hostLoader: ClassLoader): Boolean {
         val name = "top.nkbe.npatch.loader.SigBypass"
         val bypass =
-            name.toClassOrNull(ClassLoaders.HYBRID)
+            name.toClassOrNull(ClassLoaders.HYBRID_FOR_MODULE)
                 ?: name.toClassOrNull(hostLoader)
                 ?: return false
         val reflected = bypass.reflekt()

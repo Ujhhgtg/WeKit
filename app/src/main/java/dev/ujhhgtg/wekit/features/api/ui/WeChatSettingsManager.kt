@@ -7,10 +7,10 @@ import com.android.dx.stock.ProxyBuilder
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
-import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
+import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.buildClass
 import dev.ujhhgtg.wekit.utils.reflection.createProxyBuilder
 import java.lang.reflect.InvocationHandler
@@ -252,7 +252,7 @@ class WeChatSettingsManager(
             }
         val proxyClass =
             createProxyBuilder(
-                    ParcelableFixer.hybridClassLoader,
+                    ClassLoaders.HYBRID_FOR_HOST,
                     targetBaseClass,
                     arrayOf("androidx.appcompat.app.AppCompatActivity".toClass()),
                     handler,

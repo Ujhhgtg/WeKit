@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -71,9 +72,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Lists every spoofed message, filtered by kind or searched, for editing and removal. */
+/**
+ * Lists every spoofed message, filtered by kind or searched, for editing and removal.
+ *
+ * Named `*SettingsActivity` so [dev.ujhhgtg.wekit.loader.utils.ActivityProxy] routes it through the
+ * opaque splash proxy when launched from WeChat's host process.
+ */
 @Keep
-class SpoofChatMessagesActivity : ComponentActivity() {
+class SpoofChatMessagesSettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -104,7 +110,7 @@ private fun SpoofChatMessagesScreen(onFinish: () -> Unit) {
     var confirmRemoveAll by rememberSaveable { mutableStateOf(false) }
     // The picker can outlive this activity instance, so remember its row by saveable key parts.
     var pickingTalker by rememberSaveable { mutableStateOf<String?>(null) }
-    var pickingMsgId by rememberSaveable { mutableStateOf(0L) }
+    var pickingMsgId by rememberSaveable { mutableLongStateOf(0L) }
     val scope = rememberCoroutineScope()
     val failedMessage = stringResource(R.string.spoof_message_save_failed)
 

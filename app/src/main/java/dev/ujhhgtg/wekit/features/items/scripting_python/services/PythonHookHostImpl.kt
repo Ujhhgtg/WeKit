@@ -156,9 +156,9 @@ class PythonHookHostImpl(
     private fun resolve(descriptor: String): Executable {
         val name = descriptor.substringAfter("->").substringBefore("(")
         return if (name == "<init>") {
-            descriptor.descriptorToConstructor(ClassLoaders.HYBRID)
+            descriptor.descriptorToConstructor(ClassLoaders.HYBRID_FOR_MODULE)
         } else {
-            descriptor.descriptorToMethod(ClassLoaders.HYBRID)
+            descriptor.descriptorToMethod(ClassLoaders.HYBRID_FOR_MODULE)
         }
     }
 

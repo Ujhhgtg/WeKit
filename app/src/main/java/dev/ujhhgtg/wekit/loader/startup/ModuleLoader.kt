@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.loader.api.PayloadEnvironment
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
-import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
@@ -70,8 +69,6 @@ object ModuleLoader {
             "loading in process name=${TargetProcesses.currentName}, type=${TargetProcesses.currentType}",
         )
 
-        ParcelableFixer.init()
-
         DexCacheManager.init()
 
         val appContext = context.applicationContext ?: context
@@ -79,7 +76,7 @@ object ModuleLoader {
         LocaleController.initialize(HostInfo.application)
 
         if (TargetProcesses.isInMain) {
-            ActivityProxy.init(appContext)
+            ActivityProxy.init()
 
             val prefs =
                 context.getSharedPreferences(

@@ -14,6 +14,17 @@ object ClassLoaders {
     inline val BOOT: ClassLoader
         get() = Context::class.java.classLoader!!
 
-    inline val HYBRID: ClassLoader
+    inline val HYBRID_FOR_MODULE: ClassLoader
         get() = HybridClassLoader
+
+    /**
+     * Host-first, module-fallback ClassLoader for APIs that must define or resolve classes visible
+     * from both sides. Used as the `ProxyBuilder.parentClassLoader(...)` for classes that extend a
+     * host base class while implementing module marker interfaces.
+     */
+    val HYBRID_FOR_HOST by lazy {
+        object : ClassLoader(HOST) {
+            override fun findClass(name: String): Class<*> = MODULE.loadClass(name)
+        }
+    }
 }
