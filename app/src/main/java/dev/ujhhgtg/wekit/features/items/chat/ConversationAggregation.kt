@@ -47,8 +47,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
-import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
-import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -77,13 +75,15 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
+import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 
 object ConversationAggregation :
     ClickableFeature(),
@@ -99,7 +99,7 @@ object ConversationAggregation :
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_conversation_aggregation_description
 
-    private const val TAG = "AggregateChats"
+    private const val TAG = "ConversationAggregation"
     const val FOLDER_PREFIX = "wekit_folder_"
     private const val FOLDER_CONFIG_MENU_ID = 0x0721C0DE
     private const val REMOVE_FROM_FOLDER_MENU_ID = 777020
