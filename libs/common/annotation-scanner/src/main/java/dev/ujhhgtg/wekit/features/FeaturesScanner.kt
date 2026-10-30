@@ -28,7 +28,7 @@ private const val FEATURES_CORE_PACKAGE = "$PACKAGE_NAME.features.core"
 private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "$FEATURES_CORE_PACKAGE.BaseFeature"
 private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
-private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
+private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dex.abc.IResolveDex"
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =

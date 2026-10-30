@@ -21,7 +21,7 @@ abstract class GenerateMethodHashesTask : DefaultTask() {
     fun generate() {
         val srcDir = sourceDir.get().asFile
         val outDir = outputDir.get().asFile
-        val outputFile = outDir.resolve("${namespace.get().replace(".", "/")}/dexkit/cache/GeneratedMethodHashes.kt")
+        val outputFile = outDir.resolve("${namespace.get().replace(".", "/")}/dex/cache/GeneratedMethodHashes.kt")
 
         val sources = srcDir.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
@@ -54,7 +54,7 @@ abstract class GenerateMethodHashesTask : DefaultTask() {
         outputFile.parentFile.mkdirs()
         outputFile.writeText(
             """
-            package ${namespace.get()}.dexkit.cache
+            package ${namespace.get()}.dex.cache
 
             object GeneratedMethodHashes {
                 val HASHES = mapOf(${hashMap.entries.sortedBy { it.key }.joinToString(", \n") { "\"${it.key.kotlinLiteral()}\" to \"${it.value}\"" }})
