@@ -16,6 +16,7 @@ import android.os.UserHandle
 import com.android.internal.content.ReferrerIntent
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -257,7 +258,9 @@ object ActivityProxy {
     // --- instantiation + onCreate side effects ---
 
     private fun installActivityInstantiationHook() {
-        instrumentationMethod(
+        "com.tencent.mm.splash.SplashHackInstrumentation"
+            .toClass()
+            .getDeclaredMethod(
                 "newActivity",
                 ClassLoader::class.java,
                 String::class.java,
@@ -267,8 +270,8 @@ object ActivityProxy {
                 val className = args[1] as String
                 if (shouldProxy(className)) {
                     // Instrumentation.newActivity hands this ClassLoader to the host
-                    // AppComponentFactory, so the real module class is created exactly like any
-                    // other Activity.
+                    // AppComponentFactory, so the real module class is created exactly like
+                    // any other Activity.
                     args[0] = ClassLoaders.MODULE
                 }
             }
