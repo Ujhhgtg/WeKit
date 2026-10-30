@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -57,6 +58,29 @@ data class InitializationReport(val requestId: String, val installationId: Strin
     val initializationId: String, val stage: String, val result: String, val selfWxId: String?, val selfAlias: String?, val identityReadState: String)
 @Serializable
 data class InstallationAction(val requestId: String, val installationId: String, val processNonce: String)
+
+/**
+ * Single-use challenge pre-issued by the server inside a signed response, so the next
+ * signed request does not need a separate POST /v1/challenges round trip.
+ * `processNonce` is set for challenges bound to the current process (report after
+ * initialization) and null for "floating" challenges reusable by the next process.
+ */
+@Serializable
+data class ChallengeTicket(
+    val challengeId: String,
+    val serverNonce: String,
+    val expiresAt: Long,
+    val method: String,
+    val path: String,
+    val processNonce: String? = null,
+)
+
+/** Challenge tickets carried by a successful signed response; absent on old servers. */
+fun JsonObject.challengeTickets(): List<ChallengeTicket> {
+    val node = get("challenges") ?: return emptyList()
+    if (node !is kotlinx.serialization.json.JsonArray) return emptyList()
+    return node.map { WireJson.format.decodeFromJsonElement(ChallengeTicket.serializer(), it) }
+}
 
 @Serializable
 data class ReleaseEnvelope(val keyId: String, val manifest: String, val signature: String)

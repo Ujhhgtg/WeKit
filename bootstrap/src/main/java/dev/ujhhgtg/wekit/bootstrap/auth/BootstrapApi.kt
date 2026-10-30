@@ -17,6 +17,8 @@ class RemoteApiException(val code: String, message: String, val retryable: Boole
 
 /** Synchronous API for startup and background account/download work; responses are scoped to execute. */
 class BootstrapApi(private val config: BootstrapConfig, private val store: InstallationStore) {
+    /** Challenges pre-issued by the server (challenge pipelining); see ChallengePool. */
+    private val pool = ChallengePool(store)
     /**
      * Control-plane HTTP is dispatched by the native loader.  Keeping the
      * transport, redirect policy, and certificate pin check beside the native
@@ -45,8 +47,19 @@ class BootstrapApi(private val config: BootstrapConfig, private val store: Insta
         requestId: String,
         registration: Boolean,
     ): JsonObject {
-        val headers = signedHeadersNative(method, path, body, state, nonce, requestId, registration)
-        return nativeJsonRequest(method, path, body, headers)
+        val response = try {
+            nativeJsonRequest(method, path, body,
+                signedHeadersNative(method, path, body, state, nonce, requestId, registration))
+        } catch (error: RemoteApiException) {
+            if (error.code != "CHALLENGE_INVALID") throw error
+            // A pipelined challenge can expire, or lose a cross-process race and be
+            // consumed elsewhere; fetch a fresh one once before surfacing the failure.
+            nativeJsonRequest(method, path, body,
+                signedHeadersNative(method, path, body, state, nonce, requestId, registration,
+                    forceFresh = true))
+        }
+        pool.offer(response.challengeTickets(), nonce)
+        return response
     }
 
     private fun signedHeadersNative(
@@ -59,17 +72,26 @@ class BootstrapApi(private val config: BootstrapConfig, private val store: Insta
         registration: Boolean,
         range: String = "",
         grantId: String = "",
+        forceFresh: Boolean = false,
     ): Map<String, String> {
         val scope = WireJson.body(ChallengeRequest(method, path, nonce,
             registrationId = if (registration) state.registrationId!! else null,
             installationId = if (registration) null else state.installationId!!,
             grantId = grantId.ifEmpty { null }))
-        val challenge = nativeJsonRequest(
-            "POST", "/v1/challenges", WireJson.bytes(scope),
-            mapOf(HttpHeaders.Authorization to "Bearer ${state.token}"),
-        )
-        val challengeId = challenge.string("challengeId")
-        val serverNonce = challenge.string("serverNonce")
+        val pooled = if (forceFresh || registration) null else pool.take(method, path, nonce)
+        val challengeId: String
+        val serverNonce: String
+        if (pooled != null) {
+            challengeId = pooled.challengeId
+            serverNonce = pooled.serverNonce
+        } else {
+            val challenge = nativeJsonRequest(
+                "POST", "/v1/challenges", WireJson.bytes(scope),
+                mapOf(HttpHeaders.Authorization to "Bearer ${state.token}"),
+            )
+            challengeId = challenge.string("challengeId")
+            serverNonce = challenge.string("serverNonce")
+        }
         WireProtocol.decode(serverNonce, 32)
         val signature = store.sign(state, WireProtocol.requestBytes(method, path, body, state.token,
             challengeId, serverNonce, requestId, nonce, range, grantId))
@@ -84,6 +106,7 @@ class BootstrapApi(private val config: BootstrapConfig, private val store: Insta
         )
         if (range.isNotEmpty()) headers[HttpHeaders.Range] = range
         if (grantId.isNotEmpty()) headers["X-WeKit-Grant-Id"] = grantId
+        else headers["X-WeKit-Challenge-Pool"] = pool.floatingCount().toString()
         return headers
     }
 

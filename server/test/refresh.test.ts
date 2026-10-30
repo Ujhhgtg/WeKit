@@ -8,7 +8,7 @@ test("real workerd refresh bulk-inserts 1759 revocations atomically and rolls ba
   await build({
     stdin: {
       contents:
-        'import {refreshAttestation} from "./src/attestation.ts"; export default {async fetch(request,env){await refreshAttestation(env);return Response.json({ok:true});}}',
+        'import {refreshAttestation} from "./src/attestation-pkijs.ts"; export default {async fetch(request,env){await refreshAttestation(env);return Response.json({ok:true});}}',
       resolveDir: process.cwd(),
       sourcefile: "refresh-test.ts",
       loader: "ts",

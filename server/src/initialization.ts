@@ -6,10 +6,15 @@ import {
   canonicalRange,
   transact,
 } from "./auth";
-import { currentTrust, installationAttestation } from "./attestation";
+import { installationAttestation } from "./attestation";
 import { b64, opaqueId, unwrap, type Wrapped } from "./crypto";
 import { body, fail, hash, id, json, nonce, source, text } from "./http";
 import { LIMITS, type Env } from "./env";
+import {
+  initializationResponseChallengeSpecs,
+  issueChallengesBestEffort,
+  reportResponseChallengeSpecs,
+} from "./challenge-pipeline";
 import type { ManifestEnvelope } from "./contracts";
 const requestFields = {
   requestId: id,
@@ -52,6 +57,20 @@ function allowed(result: { result: string; currentResult?: string }): void {
     fail(403, code, "当前安装或载荷未获授权", code !== "AUTHORIZATION_DENIED");
 }
 /**
+ * The only trust fact these handlers need before their own SQL authority gate is
+ * that the attestation snapshot is present and fresh; only registration consumes
+ * the trusted roots. This is currentTrust()'s freshness query alone, without the
+ * roots fetch, and keeps the same externally visible 503
+ * ATTESTATION_STATUS_UNAVAILABLE (retryable) failure.
+ */
+async function requireFreshAttestation(env: Env): Promise<void> {
+  const current = await env.DB.prepare(
+    "SELECT s.fetched_at FROM attestation_current c JOIN attestation_snapshots s ON s.snapshot_id=c.snapshot_id WHERE c.singleton=1",
+  ).first<{ fetched_at: number }>();
+  if (!current || Date.now() - current.fetched_at >= LIMITS.attestationFreshMs)
+    fail(503, "ATTESTATION_STATUS_UNAVAILABLE", "证明状态资料不可用", true);
+}
+/**
  * An installation whose attestation chain Google revoked after registration keeps a
  * valid credential and binding; only its hardware claim is gone. Low-assurance mode is
  * already available to any client, so downgrade it once instead of denying every
@@ -81,7 +100,11 @@ async function downgradeRevokedInstallation(
     );
 }
 export async function initialize(env: Env, req: Request): Promise<Response> {
-  const { value: v, raw } = await body(req, initSchema);
+  const {
+    value: v,
+    raw,
+    text: rawText,
+  } = await body(req, initSchema);
   if (v.requestedPayloadId !== null && !v.cachedApkSha256)
     fail(400, "CACHE_HASH_REQUIRED", "请求缓存载荷须提供摘要");
   const auth = await authenticate(env, req, raw, v);
@@ -92,7 +115,7 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
       .bind(auth.installationId)
       .first<{ assurance: string }>();
     if (installation?.assurance !== "UNATTESTED_HARDWARE") {
-      await currentTrust(env);
+      await requireFreshAttestation(env);
       await downgradeRevokedInstallation(env, auth.installationId);
     }
   }
@@ -135,7 +158,7 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
         v.hostVersionName,
         v.bootstrapVersion,
         v.processName,
-        new TextDecoder().decode(raw),
+        rawText,
         now,
         auth.actorType,
         auth.actorId,
@@ -159,6 +182,14 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
     [auth.actorType, auth.actorId, auth.operation, auth.requestId],
   );
   allowed(result);
+  // Pipelined challenges are opt-in: a client that advertises a challenge pool gets
+  // the report challenge here, so the report needs no separate /v1/challenges request.
+  const challenges = await issueChallengesBestEffort(
+    env,
+    auth,
+    initializationResponseChallengeSpecs(req),
+  );
+  const pipelined = challenges.length > 0 ? { challenges } : {};
   if (result.payloadMode === "LOCAL") {
     return json({
       initializationId: result.initializationId,
@@ -169,6 +200,7 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
       manifest: null,
       contentKey: null,
       downloadPath: null,
+      ...pipelined,
     });
   }
   const release = await env.DB.prepare(
@@ -192,6 +224,7 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
     manifest: JSON.parse(release.manifest_json) as ManifestEnvelope,
     contentKey: b64(key),
     downloadPath: `/v1/payloads/${result.payloadId}/content`,
+    ...pipelined,
   });
 }
 const renewSchema = z.strictObject({
@@ -211,7 +244,7 @@ export async function renew(env: Env, req: Request): Promise<Response> {
       .bind(auth.installationId)
       .first<{ assurance: string }>();
     if (installation?.assurance !== "UNATTESTED_HARDWARE")
-      await currentTrust(env);
+      await requireFreshAttestation(env);
   }
   const newGrant = opaqueId(),
     expiry = Date.now() + LIMITS.grantMs;
@@ -284,7 +317,7 @@ export async function download(
       .bind(auth.installationId)
       .first<{ assurance: string }>();
     if (installation?.assurance !== "UNATTESTED_HARDWARE")
-      await currentTrust(env);
+      await requireFreshAttestation(env);
   }
   if (!auth.grantId) fail(401, "GRANT_REQUIRED", "需要下载许可");
   const from = `${authorityFrom} JOIN load_grants grantrow ON grantrow.credential_id=c.credential_id JOIN payload_releases p ON p.payload_id=grantrow.payload_id`;
@@ -356,7 +389,11 @@ const reportSchema = z.strictObject({
   errorMessage: text(2048, true).optional(),
 });
 export async function report(env: Env, req: Request): Promise<Response> {
-  const { value: v, raw } = await body(req, reportSchema);
+  const {
+    value: v,
+    raw,
+    text: rawText,
+  } = await body(req, reportSchema);
   const auth = await authenticate(env, req, raw, v);
   const reportId = opaqueId();
   const origin = source(req, env);
@@ -378,7 +415,7 @@ export async function report(env: Env, req: Request): Promise<Response> {
         auth.requestId,
         v.stage,
         v.result,
-        new TextDecoder().decode(raw),
+        rawText,
         origin.ip,
         Date.now(),
         auth.actorType,
@@ -405,7 +442,17 @@ export async function report(env: Env, req: Request): Promise<Response> {
     },
   );
   allowed(r);
-  return json({ reportId: r.reportId });
+  // Replenish the client's challenge pool: another report challenge for this process
+  // plus floating initialization challenges for the next process starts.
+  const challenges = await issueChallengesBestEffort(
+    env,
+    auth,
+    reportResponseChallengeSpecs(req),
+  );
+  return json({
+    reportId: r.reportId,
+    ...(challenges.length > 0 ? { challenges } : {}),
+  });
 }
 export async function unbind(env: Env, req: Request): Promise<Response> {
   const { value: v, raw } = await body(req, z.strictObject(requestFields));

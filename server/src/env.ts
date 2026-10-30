@@ -36,6 +36,9 @@ export const LIMITS = {
   apk: 128 * 1024 * 1024,
   part: 8 * 1024 * 1024,
   challengeMs: 120_000,
+  // Pre-issued "floating" challenges travel to the next process, so they must outlive
+  // the current process lifecycle. They stay single-use and actor/path scoped.
+  pipelinedChallengeMs: 1_800_000,
   bindingMs: 600_000,
   grantMs: 600_000,
   attestationFreshMs: 86_400_000,

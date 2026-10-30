@@ -58,19 +58,21 @@ const installationPaths = [
   "/v1/initializations/report",
   "/v1/installations/unbind",
 ];
+// Zod schemas are immutable and safeParse() is stateless, so the challenge
+// schema is built once at module scope instead of on every challenge request.
+const challengeSchema = z.strictObject({
+  registrationId: id.optional(),
+  installationId: id.optional(),
+  method: z.enum(["POST", "GET"]),
+  path: z.string().max(160),
+  processNonce: nonce,
+  grantId: id.optional(),
+});
 export async function issueChallenge(
   env: Env,
   req: Request,
 ): Promise<Response> {
-  const schema = z.strictObject({
-    registrationId: id.optional(),
-    installationId: id.optional(),
-    method: z.enum(["POST", "GET"]),
-    path: z.string().max(160),
-    processNonce: nonce,
-    grantId: id.optional(),
-  });
-  const { value: v } = await body(req, schema);
+  const { value: v } = await body(req, challengeSchema);
   const digest = await tokenHash(req);
   unb64(v.processNonce, 32);
   if (Boolean(v.registrationId) === Boolean(v.installationId))
@@ -210,8 +212,11 @@ export async function authenticate(
     (fields.processNonce ?? fields.registrationNonce) !== processNonce
   )
     fail(400, "HEADER_BODY_MISMATCH", "头与 body 不一致");
+  // A challenge with an empty process_nonce is a pre-issued floating challenge
+  // (see challenge-pipeline.ts): it may be consumed by any process of the same
+  // actor. Everything else about the challenge gate is unchanged.
   const c = await env.DB.prepare(
-    "SELECT nonce FROM challenges WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND process_nonce=? AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
+    "SELECT nonce FROM challenges WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND (process_nonce=? OR process_nonce='') AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
   )
     .bind(
       challengeId,
@@ -337,7 +342,7 @@ export async function transact<T>(
   // no query reads would dominate storage cost as enrollments grow.
   const statements = [
     env.DB.prepare(
-      "UPDATE challenges SET consumption_id=?,consumed_request_id=? WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND process_nonce=? AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
+      "UPDATE challenges SET consumption_id=?,consumed_request_id=? WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND (process_nonce=? OR process_nonce='') AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
     ).bind(
       attempt,
       auth.requestId,
@@ -409,7 +414,11 @@ export async function transact<T>(
   }
   return JSON.parse(last[0].result_json) as T;
 }
-export function hardwareSql(installation = "i"): string {
+// Every call site uses the default "i" installation alias, so build the two
+// authority condition fragments once at module scope instead of re-creating the
+// long strings on every request. Non-default aliases keep working through the
+// exported functions below.
+function hardwareCondition(installation: string): string {
   // A low-assurance installation has no verifiable Google chain. It is still
   // gated by the active Telegram binding/credential and every request is
   // signed by its registered P-256 key; only the hardware-origin claim is
@@ -417,8 +426,15 @@ export function hardwareSql(installation = "i"): string {
   // gate below.
   return `(${installation}.assurance='UNATTESTED_HARDWARE' OR EXISTS(SELECT 1 FROM attestation_current ac JOIN attestation_snapshots ats ON ats.snapshot_id=ac.snapshot_id JOIN attestation_roots ar ON ar.snapshot_id=ac.snapshot_id WHERE ac.singleton=1 AND ats.fetched_at>CAST(strftime('%s','now') AS INTEGER)*1000-${LIMITS.attestationFreshMs} AND ar.spki_sha256=${installation}.root_spki_sha256 AND NOT EXISTS(SELECT 1 FROM installation_attestation_serials iss JOIN attestation_revocations rev ON rev.serial=iss.serial AND rev.snapshot_id=ac.snapshot_id WHERE iss.installation_id=${installation}.installation_id)))`;
 }
+const defaultHardwareSql = hardwareCondition("i");
+const defaultAuthoritySql = `c.status='ACTIVE' AND b.status='ACTIVE' AND u.status='ACTIVE' AND c.auth_epoch=u.auth_epoch AND ${defaultHardwareSql}`;
+export function hardwareSql(installation = "i"): string {
+  return installation === "i"
+    ? defaultHardwareSql
+    : hardwareCondition(installation);
+}
 export function authoritySql(): string {
-  return `c.status='ACTIVE' AND b.status='ACTIVE' AND u.status='ACTIVE' AND c.auth_epoch=u.auth_epoch AND ${hardwareSql()}`;
+  return defaultAuthoritySql;
 }
 export const authorityFrom =
   "FROM credentials c JOIN bindings b ON b.binding_id=c.binding_id JOIN users u ON u.telegram_user_id=b.telegram_user_id JOIN installations i ON i.installation_id=c.installation_id";

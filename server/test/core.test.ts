@@ -9,7 +9,7 @@ import {
   certificate,
   certSpki,
   verifyAttestation,
-} from "../src/attestation.ts";
+} from "../src/attestation-pkijs.ts";
 Object.assign(crypto.subtle, { timingSafeEqual });
 test("strict JSON rejects escaped duplicate keys, nested duplicates, trailing and excessive nesting", () => {
   assert.deepEqual(strictJson('{"a":[{"x":1},{"x":2}],"b":"\\\""}'), {

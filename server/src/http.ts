@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { decodeBody, encodeBody } from "./body-transform";
+// One-shot TextEncoder/TextDecoder calls keep no state between requests, so a
+// single instance per isolate is enough: these are hot on every request.
+const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -208,21 +212,27 @@ export function strictJson(text: string): unknown {
     fail(400, "INVALID_JSON", "JSON 无效");
   }
 }
-export function decodeJson(raw: Uint8Array): unknown {
+// Strict JSON validation and the initialize/report handlers both need the
+// decoded body text, so decode it once here and hand the text back with the
+// parsed value. Errors keep the decodeJson() mapping: our own HttpErrors pass
+// through, a failed UTF-8 decode becomes INVALID_JSON.
+function parseJson(raw: Uint8Array): { value: unknown; text: string } {
   try {
-    return strictJson(
-      new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(raw),
-    );
+    const text = decoder.decode(raw);
+    return { value: strictJson(text), text };
   } catch (e) {
     if (e instanceof HttpError) throw e;
     fail(400, "INVALID_JSON", "UTF-8 无效");
   }
 }
+export function decodeJson(raw: Uint8Array): unknown {
+  return parseJson(raw).value;
+}
 export async function body<T>(
   req: Request,
   schema: z.ZodType<T>,
   maximum = 32768,
-): Promise<{ value: T; raw: Uint8Array<ArrayBuffer> }> {
+): Promise<{ value: T; raw: Uint8Array<ArrayBuffer>; text: string }> {
   if (
     req.headers.get("content-type")?.split(";")[0]?.trim() !==
     "application/json"
@@ -231,12 +241,18 @@ export async function body<T>(
   const wire = await bytes(req, maximum + 4);
   let raw: Uint8Array<ArrayBuffer>;
   if (req.headers.get("x-wekit-body-transform") === "WKX1") {
-    try { raw = new Uint8Array(decodeBody(wire)); }
-    catch { fail(400, "INVALID_BODY_TRANSFORM", "请求编码无效"); }
+    try {
+      // decodeBody always returns a fresh ArrayBuffer-backed array; the
+      // workers-types generic default only widens it, so no copy is needed.
+      raw = decodeBody(wire) as Uint8Array<ArrayBuffer>;
+    } catch {
+      fail(400, "INVALID_BODY_TRANSFORM", "请求编码无效");
+    }
   } else raw = wire;
-  const result = schema.safeParse(decodeJson(raw));
+  const { value, text: rawText } = parseJson(raw);
+  const result = schema.safeParse(value);
   if (!result.success) fail(400, "INVALID_INPUT", "请求字段无效");
-  return { value: result.data, raw };
+  return { value: result.data, raw, text: rawText };
 }
 export const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 export const hash = z.string().regex(/^[0-9a-f]{64}$/);
@@ -247,7 +263,7 @@ export const text = (maximum: number, allowNewlines = false) =>
     .string()
     .refine(
       (v) =>
-        new TextEncoder().encode(v).length <= maximum &&
+        encoder.encode(v).length <= maximum &&
         !(allowNewlines ? /\0/ : /[\r\n\0]/).test(v),
     );
 export function path(req: Request): string {

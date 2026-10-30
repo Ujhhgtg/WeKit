@@ -34,6 +34,21 @@ export interface ChallengeRequest {
   processNonce: string;
   grantId?: string;
 }
+/**
+ * A single-use server challenge pre-issued inside a signed operation response, so the
+ * client can sign its next request without a separate POST /v1/challenges round trip.
+ * `processNonce` is present only when the challenge is bound to one process; a missing
+ * value means the challenge is "floating" and may be consumed by any process of the
+ * same credential.
+ */
+export interface ChallengeTicket {
+  challengeId: string;
+  serverNonce: string;
+  expiresAt: number;
+  method: "POST" | "GET";
+  path: string;
+  processNonce?: string;
+}
 export interface InitializationResponse {
   initializationId: string;
   grantId: string;
@@ -42,4 +57,6 @@ export interface InitializationResponse {
   manifest: ManifestEnvelope;
   contentKey: string;
   downloadPath: string;
+  /** Optional pipelined challenges; absent for clients that did not ask for them. */
+  challenges?: ChallengeTicket[];
 }

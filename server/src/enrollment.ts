@@ -10,7 +10,6 @@ import {
   currentTrust,
   installationAttestation,
   revokedSerials,
-  verifyAttestation,
   type Proof,
 } from "./attestation";
 import {
@@ -199,6 +198,9 @@ export async function register(env: Env, req: Request): Promise<Response> {
     )
       fail(409, "REGISTRATION_EVIDENCE_MISMATCH", "登记证据不能更换");
     if (ctx.state === "PREPARED") {
+      // pkijs/asn1js are only needed for hardware attestation; load them lazily
+      // so they stay out of the worker's startup path.
+      const { verifyAttestation } = await import("./attestation-pkijs");
       proof = await verifyAttestation(
         v.certificateChain,
         v.spki,

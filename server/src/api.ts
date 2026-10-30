@@ -2,14 +2,16 @@ import { endpoint, fail, path } from "./http";
 import { issueChallenge } from "./auth";
 import { prepareRegistration, register, binding } from "./enrollment";
 import { initialize, download, renew, report, unbind } from "./initialization";
-import { refreshAttestation } from "./attestation";
-import { publishing } from "./publishing";
 import type { Env } from "./env";
 export async function apiRequest(req: Request, env: Env): Promise<Response> {
   if (new URL(req.url).protocol !== "https:")
     fail(400, "HTTPS_REQUIRED", "接口只接受 HTTPS");
   const route = path(req);
-  if (route.startsWith("/ci/")) return publishing(env, req, route);
+  if (route.startsWith("/ci/")) {
+    // jose is only needed by the CI publishing routes; load it lazily.
+    const { publishing } = await import("./publishing");
+    return publishing(env, req, route);
+  }
   if (req.method === "POST") {
     switch (route) {
       case "/v1/registration/challenges":
@@ -45,6 +47,8 @@ export default {
   scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(
       (async () => {
+        // pkijs/asn1js are only needed by the attestation refresh; load lazily.
+        const { refreshAttestation } = await import("./attestation-pkijs");
         await refreshAttestation(env);
         await env.DB.prepare(
           "UPDATE enrollment_sessions SET state='EXPIRED',code_hmac=NULL,code_wrapped_json=NULL,confirm_nonce=NULL WHERE state IN('PENDING','APPROVED') AND expires_at<=?",

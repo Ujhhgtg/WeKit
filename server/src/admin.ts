@@ -13,7 +13,6 @@ import {
   text,
 } from "./http";
 import type { Env } from "./env";
-import { refreshAttestation } from "./attestation";
 interface AdminIdentity {
   subject: string;
   email: string;
@@ -412,6 +411,8 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
   }
   if (route === "/admin/api/attestation/refresh" && req.method === "POST") {
     const { value: v } = await body(req, z.strictObject({}));
+    // pkijs/asn1js are only needed by the attestation refresh; load lazily.
+    const { refreshAttestation } = await import("./attestation-pkijs");
     await refreshAttestation(env);
     await env.DB.prepare(
       "INSERT INTO admin_audit(subject,email,action,target,reason,before_json,after_json,source_ip,created_at) VALUES(?,?,'attestation_refresh','official',?,'{}','{}',?,?)",

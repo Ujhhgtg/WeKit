@@ -576,6 +576,9 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     });
     const initialized = await ok(init.response);
     assert.equal(initialized.contentKey, contentKey);
+    // Pipelined challenges are opt-in: a client that does not advertise a challenge
+    // pool keeps the old response shape.
+    assert.equal(initialized.challenges, undefined);
     const replay = await send(
       api,
       "https://auth.example" + init.route,
@@ -1174,6 +1177,151 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       bindingSessionId: lowRegistration.bindingSessionId,
     });
     assert.equal((await ok(lowClaim)).state, "CLAIMED");
+
+    // Pipelined challenges: a client that advertises its challenge pool receives
+    // pre-issued single-use challenges in signed responses, removing the separate
+    // POST /v1/challenges round trip per initialization/report.
+    const poolInstallation = lowRegistration.installationId as string;
+    async function poolSigned(
+      route: string,
+      value: Record<string, unknown>,
+      processNonce: string,
+      challenge: { challengeId: string; serverNonce: string },
+      poolSize: number,
+    ) {
+      const requestId = opaqueId();
+      const payload = {
+        ...value,
+        requestId,
+        installationId: poolInstallation,
+        processNonce,
+      };
+      const raw = utf8(JSON.stringify(payload));
+      const canonical = [
+        "WEKIT-REQUEST-V1",
+        "POST",
+        route,
+        await sha(raw),
+        lowDigest,
+        challenge.challengeId,
+        challenge.serverNonce,
+        requestId,
+        processNonce,
+        "",
+        "",
+        "",
+      ].join("\n");
+      const signature = b64(
+        await crypto.subtle.sign(
+          { name: "ECDSA", hash: "SHA-256" },
+          lowKey.privateKey,
+          utf8(canonical),
+        ),
+      );
+      return send(api, "https://auth.example" + route, "POST", payload, {
+        authorization: `Bearer ${lowToken}`,
+        "x-wekit-installation-id": poolInstallation,
+        "x-wekit-request-id": requestId,
+        "x-wekit-process-nonce": processNonce,
+        "x-wekit-challenge-id": challenge.challengeId,
+        "x-wekit-signature": signature,
+        "x-wekit-challenge-pool": String(poolSize),
+      });
+    }
+    const pooledNonce = random(32);
+    const firstInit = await ok(
+      await poolSigned(
+        "/v1/initializations",
+        initBody,
+        pooledNonce,
+        await ok(
+          await send(
+            api,
+            "https://auth.example/v1/challenges",
+            "POST",
+            {
+              installationId: poolInstallation,
+              method: "POST",
+              path: "/v1/initializations",
+              processNonce: pooledNonce,
+            },
+            { authorization: `Bearer ${lowToken}` },
+          ),
+        ),
+        0,
+      ),
+    );
+    const reportTicket = (firstInit.challenges as any[]).find(
+      (ticket) =>
+        ticket.path === "/v1/initializations/report" &&
+        ticket.processNonce === pooledNonce,
+    );
+    assert.ok(reportTicket, "initialization issues a bound report challenge");
+    // A challenge bound to this process must not be usable from another process.
+    const wrongProcessNonce = random(32);
+    assert.equal(
+      (
+        await poolSigned(
+          "/v1/initializations/report",
+          {
+            initializationId: firstInit.initializationId,
+            stage: "ENTRY_RETURNED",
+            result: "LOADED",
+          },
+          wrongProcessNonce,
+          reportTicket,
+          0,
+        )
+      ).status,
+      401,
+    );
+    const pipelinedReport = await ok(
+      await poolSigned(
+        "/v1/initializations/report",
+        {
+          initializationId: firstInit.initializationId,
+          stage: "ENTRY_RETURNED",
+          result: "LOADED",
+        },
+        pooledNonce,
+        reportTicket,
+        0,
+      ),
+    );
+    const tickets = pipelinedReport.challenges as any[];
+    const floating = tickets.find(
+      (ticket) =>
+        ticket.path === "/v1/initializations" &&
+        ticket.processNonce === undefined,
+    );
+    assert.ok(floating, "report hands out a floating initialization challenge");
+    assert.ok(
+      tickets.filter(
+        (ticket) =>
+          ticket.path === "/v1/initializations" &&
+          ticket.processNonce === undefined,
+      ).length >= 1,
+      "report replenishes the floating challenge pool",
+    );
+    // The floating challenge lets the next process start without a challenge request.
+    const nextNonce = random(32);
+    const nextInit = await ok(
+      await poolSigned("/v1/initializations", initBody, nextNonce, floating, 1),
+    );
+    assert.ok(nextInit.initializationId);
+    // Floating challenges are still single-use.
+    assert.equal(
+      (
+        await poolSigned(
+          "/v1/initializations",
+          initBody,
+          random(32),
+          floating,
+          1,
+        )
+      ).status,
+      401,
+    );
   } finally {
     await mf.dispose();
   }
