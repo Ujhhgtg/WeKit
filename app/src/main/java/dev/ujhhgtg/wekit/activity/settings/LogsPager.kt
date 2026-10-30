@@ -36,6 +36,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -48,6 +49,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -67,6 +69,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -921,82 +924,87 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
         )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                entry.level?.let { level ->
-                    Box(
-                        modifier =
-                            Modifier.clip(RoundedCornerShape(4.dp))
-                                .background(levelColor(level))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            level.toString(),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                        )
+        // Miuix log cards use natural font metrics; Material 3 would inherit bodyLarge's 24sp line
+        // height and 0.5sp tracking here (each 12sp message line would be 24dp tall).
+        CompositionLocalProvider(LocalTextStyle provides TextStyle.Default) {
+            Column(Modifier.padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    entry.level?.let { level ->
+                        Box(
+                            modifier =
+                                Modifier.clip(RoundedCornerShape(4.dp))
+                                    .background(levelColor(level))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                level.toString(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        entry.tag?.let {
+                            Text(
+                                text = it,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        entry.time?.let {
+                            Text(
+                                it,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (isLong) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Expand_more,
+                                contentDescription =
+                                    stringResource(
+                                        if (expanded) R.string.logs_collapse
+                                        else R.string.logs_expand,
+                                    ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp).rotate(chevronRotation),
+                            )
+                        }
+                    }
                 }
-                Column(Modifier.weight(1f)) {
-                    entry.tag?.let {
-                        Text(
-                            text = it,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    entry.time?.let {
-                        Text(
-                            it,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (isLong) {
-                    IconButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.Expand_more,
-                            contentDescription =
-                                stringResource(
-                                    if (expanded) R.string.logs_collapse else R.string.logs_expand,
-                                ),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp).rotate(chevronRotation),
-                        )
-                    }
-                }
-            }
-            if (entry.message.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                SelectionContainer {
-                    Column {
-                        Text(
-                            text = if (isLong) head else entry.message,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (isLong) {
-                            AnimatedVisibility(
-                                visible = expanded,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut(),
-                            ) {
-                                Text(
-                                    text = rest,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
+                if (entry.message.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    SelectionContainer {
+                        Column {
+                            Text(
+                                text = if (isLong) head else entry.message,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (isLong) {
+                                AnimatedVisibility(
+                                    visible = expanded,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut(),
+                                ) {
+                                    Text(
+                                        text = rest,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         }
                     }
@@ -1021,60 +1029,63 @@ private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifie
         )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
-            if (section.title.isNotEmpty() || isLong) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (section.title.isNotEmpty()) {
-                        Text(
-                            text = section.title,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                    if (isLong) {
-                        IconButton(
-                            onClick = { expanded = !expanded },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                imageVector = MaterialSymbols.Outlined.Expand_more,
-                                contentDescription =
-                                    stringResource(
-                                        if (expanded) R.string.logs_collapse
-                                        else R.string.logs_expand,
-                                    ),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp).rotate(chevronRotation),
+        // See RunLogCard: keep Miuix-like natural line metrics instead of M3 bodyLarge.
+        CompositionLocalProvider(LocalTextStyle provides TextStyle.Default) {
+            Column(Modifier.padding(14.dp)) {
+                if (section.title.isNotEmpty() || isLong) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (section.title.isNotEmpty()) {
+                            Text(
+                                text = section.title,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
                             )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                        if (isLong) {
+                            IconButton(
+                                onClick = { expanded = !expanded },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    imageVector = MaterialSymbols.Outlined.Expand_more,
+                                    contentDescription =
+                                        stringResource(
+                                            if (expanded) R.string.logs_collapse
+                                            else R.string.logs_expand,
+                                        ),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp).rotate(chevronRotation),
+                                )
+                            }
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
                 }
-                Spacer(Modifier.height(8.dp))
-            }
-            SelectionContainer {
-                Column {
-                    Text(
-                        text = if (isLong) head else section.body,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (isLong) {
-                        AnimatedVisibility(
-                            visible = expanded,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
-                        ) {
-                            Text(
-                                text = rest,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                SelectionContainer {
+                    Column {
+                        Text(
+                            text = if (isLong) head else section.body,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (isLong) {
+                            AnimatedVisibility(
+                                visible = expanded,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Text(
+                                    text = rest,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }

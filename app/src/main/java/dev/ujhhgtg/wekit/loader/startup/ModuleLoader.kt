@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.loader.api.PayloadEnvironment
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.NativeLoader
+import dev.ujhhgtg.wekit.loader.utils.OplusFontCompat
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
@@ -77,6 +78,7 @@ object ModuleLoader {
 
         if (TargetProcesses.isInMain) {
             ActivityProxy.init()
+            OplusFontCompat.init()
 
             val prefs =
                 context.getSharedPreferences(
