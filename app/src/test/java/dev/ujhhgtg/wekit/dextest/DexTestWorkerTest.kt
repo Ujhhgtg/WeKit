@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test
 
 internal data class DexTestWorkerConfig(
     val apk: Path,
-    val dexSqlNativeLibrary: Path,
     val report: Path,
     val engineVersion: String,
     val engineRevision: String,
@@ -37,11 +36,6 @@ internal data class DexTestWorkerConfig(
                 }
             return DexTestWorkerConfig(
                 apk = required("wekit.dexTest.apk").asPath.toAbsolutePath().normalize(),
-                dexSqlNativeLibrary =
-                    required("wekit.dexTest.dexSqlNativeLibrary")
-                        .asPath
-                        .toAbsolutePath()
-                        .normalize(),
                 report = required("wekit.dexTest.report").asPath.toAbsolutePath().normalize(),
                 engineVersion = required("wekit.dexTest.engineVersion"),
                 engineRevision = required("wekit.dexTest.engineRevision"),
@@ -101,10 +95,6 @@ class DexTestWorkerTest {
                 require(Files.isRegularFile(config.apk)) {
                     "APK is not a regular file: " + config.apk
                 }
-                require(Files.isRegularFile(config.dexSqlNativeLibrary)) {
-                    "DexSQL native library is not a regular file: " + config.dexSqlNativeLibrary
-                }
-                System.load(config.dexSqlNativeLibrary.toString())
                 val host =
                     DexHostMetadata(config.versionCode, config.versionName, config.isGooglePlay)
                 val classLoader = javaClass.classLoader ?: error("worker class loader is null")

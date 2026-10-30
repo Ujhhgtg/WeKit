@@ -1,16 +1,16 @@
 package dev.ujhhgtg.wekit.dex.dsl
 
-import dev.ujhhgtg.wekit.dex.matcher.ClassMatcher
-import dev.ujhhgtg.wekit.dex.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dex.matcher.FieldMatcher
-import dev.ujhhgtg.wekit.dex.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dex.matcher.MethodMatcher
-import dev.ujhhgtg.wekit.dex.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dex.matcher.NameMatch
-import dev.ujhhgtg.wekit.dex.matcher.NameSpec
-import dev.ujhhgtg.wekit.dex.meta.DexClassInfo
-import dev.ujhhgtg.wekit.dex.meta.DexFieldInfo
-import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
+import dev.ujhhgtg.dexsql.matcher.ClassMatcher
+import dev.ujhhgtg.dexsql.matcher.ClassSpec
+import dev.ujhhgtg.dexsql.matcher.FieldMatcher
+import dev.ujhhgtg.dexsql.matcher.FieldSpec
+import dev.ujhhgtg.dexsql.matcher.MethodMatcher
+import dev.ujhhgtg.dexsql.matcher.MethodSpec
+import dev.ujhhgtg.dexsql.matcher.NameMatch
+import dev.ujhhgtg.dexsql.matcher.NameSpec
+import dev.ujhhgtg.dexsql.meta.DexClassInfo
+import dev.ujhhgtg.dexsql.meta.DexFieldInfo
+import dev.ujhhgtg.dexsql.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 
 /**

@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.GeneratedMethodHashes
 import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate

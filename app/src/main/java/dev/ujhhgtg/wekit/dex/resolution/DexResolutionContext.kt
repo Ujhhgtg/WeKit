@@ -1,21 +1,21 @@
 package dev.ujhhgtg.wekit.dex.resolution
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
-import dev.ujhhgtg.wekit.dex.DexSqlMetadataProvider
+import dev.ujhhgtg.dexsql.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlMetadataProvider
+import dev.ujhhgtg.dexsql.matcher.ClassMatcher
+import dev.ujhhgtg.dexsql.matcher.ClassSpec
+import dev.ujhhgtg.dexsql.matcher.DexMatcherSession
+import dev.ujhhgtg.dexsql.matcher.FieldMatcher
+import dev.ujhhgtg.dexsql.matcher.FieldSpec
+import dev.ujhhgtg.dexsql.matcher.MethodMatcher
+import dev.ujhhgtg.dexsql.matcher.MethodSpec
+import dev.ujhhgtg.dexsql.meta.DexClassInfo
+import dev.ujhhgtg.dexsql.meta.DexFieldInfo
+import dev.ujhhgtg.dexsql.meta.DexMetadata
+import dev.ujhhgtg.dexsql.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dex.dsl.resolveFromDexSql
-import dev.ujhhgtg.wekit.dex.matcher.ClassMatcher
-import dev.ujhhgtg.wekit.dex.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession
-import dev.ujhhgtg.wekit.dex.matcher.FieldMatcher
-import dev.ujhhgtg.wekit.dex.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dex.matcher.MethodMatcher
-import dev.ujhhgtg.wekit.dex.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dex.meta.DexClassInfo
-import dev.ujhhgtg.wekit.dex.meta.DexFieldInfo
-import dev.ujhhgtg.wekit.dex.meta.DexMetadata
-import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 

@@ -21,6 +21,9 @@ import com.android.dx.stock.ProxyBuilder
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.MMFragment
 import com.tencent.mm.ui.widget.SwipeBackLayout
+import dev.ujhhgtg.dexsql.meta.DexFieldInfo
+import dev.ujhhgtg.dexsql.meta.DexMethodInfo
+import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
@@ -33,9 +36,6 @@ import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.meta.DexFieldInfo
-import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
-import dev.ujhhgtg.wekit.dex.meta.FieldUsingType
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature

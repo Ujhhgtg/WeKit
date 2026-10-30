@@ -15,6 +15,7 @@ androidx-core-ktx = "1.19.1"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
 serialization = "1.12.0"
+dexsql = "0.1.1"
 lombok = "1.18.48"
 google-protobuf = "4.36.2"
 ksp = "2.3.12"
@@ -104,6 +105,9 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
+dexsql = { module = "dev.ujhhgtg:dexsql", version.ref = "dexsql" }
+dexsql-android = { module = "dev.ujhhgtg:dexsql-android", version.ref = "dexsql" }
+dexsql-natives = { module = "dev.ujhhgtg:dexsql-natives-linux-x86_64", version.ref = "dexsql" }
 
 markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
 markwon-ext-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }

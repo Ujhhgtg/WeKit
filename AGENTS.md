@@ -58,9 +58,9 @@
   (always-on), `BaseFeature` (abstract base, do not use directly)
 - DEX analysis uses DexSQL queries plus the WeKit query matcher; DexKit has been removed, so
   every target lives behind an `IResolveDex` delegate. Resolver bodies and delegate blocks are
-  MD5-hashed as the cache key (`GenerateMethodHashesTask`). The embedded `dexsql` Rust crate only
-  executes read-only SQL — row selection and resolver-state classification are WeKit
-  responsibilities.
+  MD5-hashed as the cache key (`GenerateMethodHashesTask`). The `dev.ujhhgtg:dexsql` library's
+  Rust engine only executes read-only SQL — row selection and resolver-state classification are
+  WeKit responsibilities.
 - If any started feature needs Dex resolution, no feature starts (in any process); the dialog
   resolves and restarts WeChat. Failures are persisted per resolver hash. A feature with
   `BaseFeature.errors` (own/transitive-dependency Dex state or `declaredErrors`) never starts
@@ -155,7 +155,7 @@
   whose existence differs across supported versions. If a resolution should succeed on every
   supported version, don't set it — failure must be loud, not a silent no-op. Never turn
   exceptions or uncertain matches into expected failures to get a green report. Expected
-  failures carry no reason. The `dexsql` crate itself has no resolver-failure policy; WeKit
+  failures carry no reason. The dexsql engine itself has no resolver-failure policy; WeKit
   maps an empty SQL result to an expected failure only through this delegate-level flag.
 - Prefer structure-based compatibility over host-version checks. In resolution, probe one stable
   member that exists only on the newer path; if it yields zero results, it is an expected failure;
@@ -211,8 +211,8 @@
   wrong code must throw loudly into `HookUtils`' or the code's own exception handler instead of
   being silently swallowed. Genuinely reasonable guards stay.
 - You are NOT familiar with `reflekt`, the DexSQL schema/DSL, or the WeKit query matcher. Read
-  their code (`dexkit/dsl/`, `dexkit/matcher/`, `dexkit/sql/`, and the dexsql repo's
-  schema/tools) before using them; don't hallucinate APIs.
+  their code (`dex/dsl/` here, the `dev.ujhhgtg:dexsql` sources/matcher/sql, and the dexsql-rs
+  repo's schema/tools) before using them; don't hallucinate APIs.
 - In Compose, `LocalContext` is always the platform context and is never localized by WeKit. Use
   standard Compose resource APIs for composable text and `LocalLocalizedContext` only for
   imperative WeKit resource reads; mixed platform/resource operations read both. Use

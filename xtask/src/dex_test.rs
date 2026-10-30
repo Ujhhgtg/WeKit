@@ -1,8 +1,8 @@
 //! Desktop DexSQL resolver orchestration.
 //!
-//! The Rust command owns APK discovery, the host native-library build, and one
-//! Gradle/JVM worker per APK. The worker itself lives in the app's JVM test
-//! source set so it executes the production Kotlin resolver code.
+//! The Rust command owns APK discovery and one Gradle/JVM worker per APK. The
+//! worker itself lives in the app's JVM test source set so it executes the
+//! production Kotlin resolver code.
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
@@ -22,39 +22,31 @@ use crate::workspace_root;
 #[path = "dex_report_diff.rs"]
 pub mod diff;
 
-/// Engine name, version and resolved git revision reported by the worker environment.
+/// Engine name and version reported by the worker environment.
 ///
-/// The dependency tracks dexsql's `main` branch, so the exact revision lives in Cargo.lock;
-/// read it from there instead of duplicating it in source.
+/// The engine now ships inside the `dev.ujhhgtg:dexsql` artifact, whose version is pinned in the
+/// Gradle version catalog; read it from there instead of duplicating it in source.
 fn engine_identity(root: &Path) -> (String, String) {
-    let unknown = "unknown".to_string();
-    let Ok(text) = fs::read_to_string(root.join("Cargo.lock")) else {
-        return (unknown.clone(), unknown);
-    };
-    let mut current: Option<String> = None;
-    let mut version: Option<String> = None;
-    for line in text.lines() {
-        let line = line.trim();
-        if let Some(name) = line.strip_prefix("name = ") {
-            current = Some(name.trim_matches('"').to_string());
-            version = None;
-        } else if let Some(value) = line.strip_prefix("version = ") {
-            if current.as_deref() == Some("dexsql") {
-                version = Some(value.trim_matches('"').to_string());
-            }
-        } else if let Some(source) = line.strip_prefix("source = ") {
-            if current.as_deref() == Some("dexsql") {
-                let source = source.trim_matches('"');
-                if let Some(revision) = source.rsplit('#').next() {
-                    return (
-                        version.unwrap_or_else(|| "dexsql".to_string()),
-                        revision.to_string(),
-                    );
-                }
-            }
-        }
+    #[derive(Deserialize)]
+    struct Catalog {
+        versions: Versions,
     }
-    (unknown.clone(), unknown)
+
+    #[derive(Deserialize)]
+    struct Versions {
+        dexsql: Option<String>,
+    }
+
+    let unknown = "unknown".to_string();
+    let Ok(text) = fs::read_to_string(root.join("gradle/libs.versions.toml")) else {
+        return ("dexsql".to_string(), unknown);
+    };
+    let version = toml::from_str::<Catalog>(&text)
+        .ok()
+        .and_then(|catalog| catalog.versions.dexsql)
+        .filter(|version| !version.trim().is_empty())
+        .unwrap_or(unknown);
+    (version.clone(), version)
 }
 
 #[derive(Args, Debug)]
@@ -239,7 +231,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         })
         .unwrap_or_else(|| root.join("dex-test-results"));
     let run_dir = create_run_dir(&output_root)?;
-    let dex_sql_native = ensure_linux_wekit_native(&root)?;
     let identities = apks
         .iter()
         .map(|path| ApkIdentity {
@@ -250,10 +241,9 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let report_names = report_file_names(&identities);
 
     println!(
-        "dex-test: {} APK(s), engine dexsql {} ({})",
+        "dex-test: {} APK(s), engine dexsql {}",
         apks.len(),
         engine_version,
-        engine_revision
     );
     let mut reports = Vec::with_capacity(apks.len());
     for (index, apk) in apks.iter().enumerate() {
@@ -281,7 +271,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             &report_path,
             args.features.as_deref(),
             args.workers,
-            dex_sql_native.as_deref(),
             &engine_revision,
         );
         let report = match (status, read_report(&report_path)) {
@@ -500,48 +489,6 @@ pub fn report_file_names(identities: &[ApkIdentity]) -> Vec<String> {
         .collect()
 }
 
-/// Build and locate the host (Linux x86_64) copy of WeKit's JNI library.
-///
-/// The desktop worker runs the Kotlin/DexSQL resolver. This library is
-/// loaded only when the selected feature set contains a DexSQL delegate, so a
-/// missing host toolchain does not make JVM-worker runs unavailable.
-fn ensure_linux_wekit_native(root: &Path) -> Result<Option<PathBuf>> {
-    if env::consts::OS != "linux" {
-        return Ok(None);
-    }
-    let target_dir = env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .map(|path| {
-            if path.is_absolute() {
-                path
-            } else {
-                root.join(path)
-            }
-        })
-        .unwrap_or_else(|| root.join("target"));
-    let library = target_dir.join("release/libwekit_native.so");
-    // Always run the (incremental) build: a stale library left over from an earlier
-    // checkout would silently back the worker with an outdated native contract.
-    println!("dex-test: building host WeKit native library");
-    run_command(
-        Command::new("cargo").current_dir(root).args([
-            "build",
-            "--locked",
-            "--release",
-            "-p",
-            "wekit-native",
-        ]),
-        "build host WeKit native library",
-    )?;
-    if !library.is_file() {
-        bail!(
-            "host WeKit native build did not produce {}",
-            library.display()
-        );
-    }
-    Ok(Some(fs::canonicalize(library)?))
-}
-
 fn read_apk_metadata(_root: &Path, apk: &Path) -> Result<ApkMetadata> {
     let analyzer = find_apkanalyzer()
         .context("cannot find apkanalyzer under ANDROID_HOME/ANDROID_SDK_ROOT")?;
@@ -630,7 +577,6 @@ fn run_worker(
     report: &Path,
     features: Option<&str>,
     workers: Option<u16>,
-    dex_sql_native: Option<&Path>,
     engine_revision: &str,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
@@ -655,12 +601,6 @@ fn run_worker(
     }
     if let Some(workers) = workers {
         properties.push(("wekit.dexTest.workers", workers.to_string()));
-    }
-    if let Some(library) = dex_sql_native {
-        properties.push((
-            "wekit.dexTest.dexSqlNativeLibrary",
-            library.to_string_lossy().into_owned(),
-        ));
     }
     let mut command = Command::new(&gradle);
     command
@@ -880,16 +820,6 @@ fn command_output(command: &mut Command, description: &str) -> Result<String> {
     }
     String::from_utf8(output.stdout)
         .with_context(|| format!("{description} produced non-UTF-8 output"))
-}
-
-fn run_command(command: &mut Command, description: &str) -> Result<()> {
-    let status = command
-        .status()
-        .with_context(|| format!("{description}: spawn failed"))?;
-    if !status.success() {
-        bail!("{description} failed with {status}; reproduce command: {command:?}");
-    }
-    Ok(())
 }
 
 fn sha256_file(path: &Path) -> Result<String> {

@@ -1,10 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.voip
 
+import dev.ujhhgtg.dexsql.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier

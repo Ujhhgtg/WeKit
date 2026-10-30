@@ -1,8 +1,12 @@
 package dev.ujhhgtg.wekit.dex
 
-import dev.ujhhgtg.wekit.dex.meta.DexClassInfo
-import dev.ujhhgtg.wekit.dex.meta.DexMetadata
-import dev.ujhhgtg.wekit.dex.meta.DexMethodInfo
+import dev.ujhhgtg.dexsql.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlMetadataProvider
+import dev.ujhhgtg.dexsql.android.open
+import dev.ujhhgtg.dexsql.meta.DexClassInfo
+import dev.ujhhgtg.dexsql.meta.DexMetadata
+import dev.ujhhgtg.dexsql.meta.DexMethodInfo
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.descriptorToConstructor
@@ -23,8 +27,8 @@ import kotlinx.coroutines.launch
  * This is the DexKit-free replacement for the shared DexKit bridge that scripts, Monet evidence
  * collection and feature-flag probing used at runtime. The session owns an immutable dataset:
  * [bridge] executes SQL, [metadata] reads indexed class/method/field documents, and
- * `dev.ujhhgtg.wekit.dexkit.matcher.DexMatcherSession` (created from [bridge] + [metadata]) runs
- * the same query matcher the resolve phase uses.
+ * `dev.ujhhgtg.dexsql.matcher.DexMatcherSession` (created from [bridge] + [metadata]) runs the same
+ * query matcher the resolve phase uses.
  */
 class DexSqlRuntime internal constructor(val bridge: DexSqlBridge) : AutoCloseable {
     val metadata: DexMetadata = DexMetadata(DexSqlMetadataProvider(bridge))
@@ -55,7 +59,7 @@ private object DexSqlHolder {
                 } else {
                     // Repackaging frameworks such as NPatch may expose a loader-only outer APK
                     // through sourceDir.
-                    DexSqlRuntime(DexSqlBridge.openHost()).also { runtime = it }
+                    DexSqlRuntime(DexSqlBridge.open(HostInfo.appInfo)).also { runtime = it }
                 }
 
             activeLeaseCount++

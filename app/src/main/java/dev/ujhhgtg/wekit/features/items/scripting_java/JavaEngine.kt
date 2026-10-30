@@ -7,6 +7,7 @@ import android.os.Looper
 import bsh.BshMethod
 import bsh.NameSpace
 import dalvik.system.InMemoryDexClassLoader
+import dev.ujhhgtg.dexsql.matcher.DexMatcherSession
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
@@ -16,7 +17,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dex.asClass
 import dev.ujhhgtg.wekit.dex.asConstructor
 import dev.ujhhgtg.wekit.dex.asMethod
-import dev.ujhhgtg.wekit.dex.matcher.DexMatcherSession
 import dev.ujhhgtg.wekit.dex.withDexSql
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
 import dev.ujhhgtg.wekit.features.api.core.WeApi

@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dex.resolution
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.TimeSource

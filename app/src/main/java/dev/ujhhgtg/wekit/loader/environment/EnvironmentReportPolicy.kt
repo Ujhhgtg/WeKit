@@ -26,6 +26,7 @@ class EnvironmentReportPolicy(
                     "libwekit_native.so",
                     "libwekit_zygisk.so",
                     "libwekit_loader.so",
+                    "libdexsql_jni.so",
                     "liblsposed.so",
                     "liblspd.so",
                 )

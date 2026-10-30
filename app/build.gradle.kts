@@ -400,6 +400,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.protobuf)
 
+    implementation(libs.dexsql.android)
+
     implementation(project(":libs:common:bsh"))
     add(arsclibSource.name, libs.arsclib)
     implementation(files(prepareAndroidArsclib))
@@ -460,13 +462,14 @@ dependencies {
     testImplementation(project(":libs:common:stubs"))
     testImplementation(libs.libxposed.api)
     testImplementation(libs.sqlite.jdbc)
+    // Host JNI library, picked up by DexSqlLibrary's bundled-natives path in the dex-test worker.
+    testRuntimeOnly(libs.dexsql.natives)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 val dexTestWorkerProperties =
     listOf(
         "wekit.dexTest.apk",
-        "wekit.dexTest.dexSqlNativeLibrary",
         "wekit.dexTest.report",
         "wekit.dexTest.engineVersion",
         "wekit.dexTest.engineRevision",

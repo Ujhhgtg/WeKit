@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import android.util.Pair
+import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.data
@@ -8,7 +9,6 @@ import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.dsl.find
-import dev.ujhhgtg.wekit.dex.meta.FieldUsingType
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds

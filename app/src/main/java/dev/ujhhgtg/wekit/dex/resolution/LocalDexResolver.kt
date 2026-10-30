@@ -1,9 +1,11 @@
 package dev.ujhhgtg.wekit.dex.resolution
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
+import dev.ujhhgtg.dexsql.android.open
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.time.measureTimedValue
 import kotlinx.coroutines.CancellationException
@@ -52,8 +54,7 @@ object LocalDexResolver {
                         if (roots.isNotEmpty()) {
                             // Metadata reads (*Data replacement) need the DexSQL dataset even when
                             // a feature set has no SQL query delegate.
-                            val dexSql = DexSqlBridge.openHost()
-                            dexSql.use { dexSql ->
+                            DexSqlBridge.open(HostInfo.appInfo).use { dexSql ->
                                 resolveDexBatch(
                                     roots,
                                     DexHostMetadata.currentAndroidHost(),

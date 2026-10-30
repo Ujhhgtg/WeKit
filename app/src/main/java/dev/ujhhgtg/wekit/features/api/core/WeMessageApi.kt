@@ -19,6 +19,7 @@ import com.tencent.mm.opensdk.modelmsg.WXVideoObject
 import com.tencent.mm.opensdk.modelmsg.WXWebpageObject
 import com.tencent.mm.plugin.gif.MMWXGFJNI
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
+import dev.ujhhgtg.dexsql.meta.FieldUsingType as MetaFieldUsingType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.spec.VagueType
 import dev.ujhhgtg.reflekt.utils.Modifiers
@@ -33,7 +34,6 @@ import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.dsl.find
-import dev.ujhhgtg.wekit.dex.meta.FieldUsingType as MetaFieldUsingType
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType

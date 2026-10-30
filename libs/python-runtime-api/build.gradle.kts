@@ -36,3 +36,5 @@ configure<LibraryExtension> {
         targetCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
     }
 }
+
+dependencies { implementation(libs.dexsql) }

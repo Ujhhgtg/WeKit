@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.utils.monet
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.zip.ZipFile

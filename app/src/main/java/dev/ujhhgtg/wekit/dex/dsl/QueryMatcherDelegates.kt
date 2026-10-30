@@ -2,14 +2,14 @@
 
 package dev.ujhhgtg.wekit.dex.dsl
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
-import dev.ujhhgtg.wekit.dex.DexSqlMetadataProvider
-import dev.ujhhgtg.wekit.dex.matcher.BridgeMatcherRelations
-import dev.ujhhgtg.wekit.dex.matcher.ClassSpec
-import dev.ujhhgtg.wekit.dex.matcher.FieldSpec
-import dev.ujhhgtg.wekit.dex.matcher.MatcherSessionCache
-import dev.ujhhgtg.wekit.dex.matcher.MethodSpec
-import dev.ujhhgtg.wekit.dex.matcher.QueryMatcherScope
+import dev.ujhhgtg.dexsql.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlMetadataProvider
+import dev.ujhhgtg.dexsql.matcher.BridgeMatcherRelations
+import dev.ujhhgtg.dexsql.matcher.ClassSpec
+import dev.ujhhgtg.dexsql.matcher.FieldSpec
+import dev.ujhhgtg.dexsql.matcher.MatcherSessionCache
+import dev.ujhhgtg.dexsql.matcher.MethodSpec
+import dev.ujhhgtg.dexsql.matcher.QueryMatcherScope
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import kotlin.properties.PropertyDelegateProvider
@@ -77,7 +77,7 @@ internal fun constructorSpecMatcherDexSqlSpec(spec: MethodSpec, allowFailure: Bo
     QueryMatcherSpec(allowFailure) {
             uniqueMethod(
                 spec.copy(
-                    name = dev.ujhhgtg.wekit.dex.matcher.NameSpec("<init>"),
+                    name = dev.ujhhgtg.dexsql.matcher.NameSpec("<init>"),
                 ),
             )
         }

@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.dex.dsl
 
-import dev.ujhhgtg.wekit.dex.DexSqlBridge
+import dev.ujhhgtg.dexsql.DexSqlBridge
 
 /**
  * Resolution plan attached to a Dex delegate.
@@ -12,7 +12,7 @@ import dev.ujhhgtg.wekit.dex.DexSqlBridge
  *   other delegates' metadata naturally (for example declaredClass = classFoo.data.name), exactly
  *   like a DexKit matcher block; static raw SQL simply returns its string.
  * - Query-matcher-backed ([queryMatcher]): a Kotlin resolver runs a
- *   [dev.ujhhgtg.wekit.dex.matcher.QueryMatcherScope] block during resolution and returns the
+ *   [dev.ujhhgtg.dexsql.matcher.QueryMatcherScope] block during resolution and returns the
  *   descriptor (or null for a not-found result).
  *
  * For SQL-backed plans the SQL must return the descriptor in its first column and is written to

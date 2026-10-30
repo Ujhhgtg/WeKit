@@ -29,7 +29,10 @@ object NativeLoader {
     fun init() {
         if (loaded) return
         val owner = NativeLoader::class.java.classLoader as BaseDexClassLoader
-        for (name in listOf("androidx.graphics.path", "wekit_native")) {
+        // The payload's native directory is scrubbed right after startup returns, so every
+        // business JNI library has to be mapped now. dexsql_jni is loaded eagerly for that
+        // reason: DexSqlLibrary would otherwise load it lazily on the first DexSQL call.
+        for (name in listOf("androidx.graphics.path", "wekit_native", "dexsql_jni")) {
             val library = File(nativeDirectory, "lib$name.so")
             require(library.isFile && library.canRead()) { "missing business library: $library" }
             check(File(owner.findLibrary(name)!!).canonicalFile == library.canonicalFile) {
