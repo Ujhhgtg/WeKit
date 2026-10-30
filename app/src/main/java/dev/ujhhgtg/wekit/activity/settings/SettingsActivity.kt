@@ -255,16 +255,6 @@ fun featureCategoryTitleRes(categoryId: String): Int =
         else -> FEATURE_CATEGORIES.first { it.id == categoryId }.titleRes
     }
 
-/**
- * Features whose source file entered the repo within [NewFeatures.WINDOW_DAYS] days of the build's
- * HEAD commit (joined by generated Feature source keys at compile time), newest first.
- *
- * Features that belong to no real category — the `API` internals — are dropped: they carry no
- * switch a user would meaningfully flip.
- */
-val NEW_FEATURE_ITEMS: List<BaseFeature>
-    get() = FeatureCategoryState.newItems
-
 // ---------------------------------------------------------------------------
 //  Root: three-tab pager + floating bottom bar, with category drill-down
 // ---------------------------------------------------------------------------
