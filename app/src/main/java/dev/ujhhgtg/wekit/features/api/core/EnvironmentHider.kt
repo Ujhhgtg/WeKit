@@ -34,13 +34,13 @@ import java.lang.reflect.Modifier
 import java.security.MessageDigest
 import java.util.zip.ZipFile
 
-/** Always-on protection in every host process, installed by the normal feature lifecycle. */
+/** Always-on protection in the main process and the normsg data-service process (:hotpot..). */
 object EnvironmentHider : ApiFeature() {
     override val technicalId = "环境隐藏服务"
     override val nameRes = R.string.feature_environment_hider_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
     override val descriptionRes = R.string.feature_environment_hider_description
-    override val targetProcesses = TargetProcess.entries.toSet()
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.HOTPOT)
 
     private const val TAG = "EnvironmentHider"
     private const val TABLES_SHA256 =
