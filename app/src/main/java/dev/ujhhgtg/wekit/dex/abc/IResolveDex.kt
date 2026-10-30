@@ -19,8 +19,8 @@ interface IResolveDex {
     fun resolveDex() {}
 
     /**
-     * 将所有委托的解析结果收集为 key → descriptor 映射， 供 [dev.ujhhgtg.wekit.dex.cache.DexCacheManager]
-     * 持久化；`null` 表示预期内的解析失败。
+     * 将所有委托的解析结果收集为 key → descriptor 映射， 供 [dev.ujhhgtg.wekit.dex.cache.DexCacheManager] 持久化；`null`
+     * 表示预期内的解析失败。
      */
     fun collectDescriptors(): Map<String, String?> = dexDelegates.associate { delegate ->
         check(delegate.isSettled) {

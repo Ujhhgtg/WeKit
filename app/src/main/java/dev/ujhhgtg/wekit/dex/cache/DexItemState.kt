@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.dex.cache
 
-/**
- * Persisted Dex state of one [dev.ujhhgtg.wekit.dex.abc.IResolveDex] item for the current host.
- */
+/** Persisted Dex state of one [dev.ujhhgtg.wekit.dex.abc.IResolveDex] item for the current host. */
 sealed interface DexItemState {
     /** The cache is complete for the current resolver hash. */
     data object Valid : DexItemState

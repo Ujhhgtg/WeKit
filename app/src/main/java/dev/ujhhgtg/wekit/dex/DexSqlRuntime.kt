@@ -7,15 +7,15 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.descriptorToConstructor
 import dev.ujhhgtg.wekit.utils.reflection.descriptorToMethod
+import java.lang.reflect.Constructor
+import java.lang.reflect.Method
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.lang.reflect.Constructor
-import java.lang.reflect.Method
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * One open runtime DexSQL session over the host APK.
