@@ -47,6 +47,8 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
+import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -75,15 +77,13 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.BString
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
-import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
 
 object ConversationAggregation :
     ClickableFeature(),
