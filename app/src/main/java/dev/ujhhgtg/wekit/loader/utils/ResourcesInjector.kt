@@ -14,8 +14,8 @@ import dev.ujhhgtg.wekit.extensions.PackFs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asHidden
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.lang.reflect.Array as ReflectArray
+import java.util.concurrent.ConcurrentHashMap
 
 class InjectionHandle(val sha256: String, val cookie: Int, val keepAlive: Any)
 
