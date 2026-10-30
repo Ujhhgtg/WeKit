@@ -11,10 +11,12 @@ use crate::protocol::{
 };
 use crate::zygisk::{ApiTable, AppSpecializeArgs, DLCLOSE_MODULE_LIBRARY, ServerSpecializeArgs};
 use crate::{loge, logi};
+use anyhow::{Result, ensure};
 use jni::sys::{JNIEnv as RawJNIEnv, jobject, jstring};
 use std::{
     ffi::{CStr, c_char},
     fs::File,
+    io::{Cursor, Read},
     os::{
         fd::{FromRawFd, OwnedFd},
         unix::io::AsRawFd,
@@ -25,7 +27,7 @@ pub struct WeKitModule {
     pub api: *mut ApiTable,
     pub env: *mut RawJNIEnv,
     // filled in preAppSpecialize
-    pub module_dir_fd: Option<OwnedFd>,
+    pub apk_bytes: Option<Vec<u8>>,
     pub data_dir: String,
     pub process_name: String,
     // DirectByteBuffers reference these allocations for the process lifetime.
@@ -41,7 +43,7 @@ impl WeKitModule {
         Self {
             api,
             env,
-            module_dir_fd: None,
+            apk_bytes: None,
             data_dir: String::new(),
             process_name: String::new(),
             dex_buffers: Vec::new(),
@@ -111,6 +113,39 @@ fn negotiate_telegram_socket(api: *mut ApiTable, uid: i32, process_name: &str) -
     name
 }
 
+// Read module.apk relative to the module directory fd, before the fd and the
+// privileged context are gone. The directory fd is consumed here.
+fn read_module_apk(module_dir: OwnedFd) -> Result<Vec<u8>> {
+    let fd = unsafe {
+        libc::openat(
+            module_dir.as_raw_fd(),
+            c"module.apk".as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        )
+    };
+    ensure!(
+        fd >= 0,
+        "open module.apk: {}",
+        std::io::Error::last_os_error()
+    );
+    let mut apk = File::from_raw_fd(fd);
+    let metadata = apk.metadata()?;
+    ensure!(metadata.is_file(), "module.apk is not a regular file");
+    let size = metadata.len();
+    ensure!(size > 0, "empty module APK");
+    ensure!(size <= crate::apk::MAX_APK_BYTES, "module APK exceeds size limit");
+    // Cap the reservation, not just the limit: the declared size can disagree with
+    // a module swapped between stat and read, so let the buffer grow into the real
+    // length instead of trusting it for a single large allocation.
+    let mut bytes = Vec::with_capacity(usize::min(size as usize, 8 * 1024 * 1024));
+    apk.read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() as u64 <= crate::apk::MAX_APK_BYTES,
+        "module APK exceeds size limit"
+    );
+    Ok(bytes)
+}
+
 // ── Lifecycle callbacks ───────────────────────────────────────────────────────
 
 pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpecializeArgs) {
@@ -141,9 +176,21 @@ pub unsafe fn do_pre_app_specialize(module: &mut WeKitModule, args: *mut AppSpec
         (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
         return;
     }
-    // Preserve the pre-dual-format lifecycle: keep the module directory, then
-    // open and copy the payload in postAppSpecialize. No exemptFd dependency.
-    module.module_dir_fd = Some(OwnedFd::from_raw_fd(mod_fd));
+    // Read the payload now, while this process is still privileged and the module
+    // directory fd is still open. `getModuleDir()` hands out an fd that is only
+    // guaranteed inside the pre\*Specialize window: the host closes every fd it has
+    // not whitelisted before postAppSpecialize runs, and after the UID/SELinux
+    // switch the path itself is unreachable. Whether an fd survives is host-specific
+    // (ZygiskNext keeps a long-lived one, NyaZygisk opens a fresh one per request),
+    // so carry the bytes across specialization instead of an fd.
+    match read_module_apk(OwnedFd::from_raw_fd(mod_fd)) {
+        Ok(bytes) => module.apk_bytes = Some(bytes),
+        Err(error) => {
+            loge!("Zygisk: cannot read module.apk: {error:#}");
+            (*module.api).set_option(DLCLOSE_MODULE_LIBRARY);
+            return;
+        }
+    }
     module.data_dir = app_data_dir;
     module.process_name = nice_name.clone();
 
@@ -165,30 +212,14 @@ pub unsafe fn do_post_app_specialize(module: &mut WeKitModule, _args: *const App
         return;
     }
     module.enabled = false;
-    let Some(module_dir) = module.module_dir_fd.take() else {
+    // Publish from the bytes captured in preAppSpecialize. Only the app itself may
+    // own these files, so publication still happens after the UID switch.
+    let Some(apk_bytes) = module.apk_bytes.take() else {
+        loge!("Zygisk: module APK payload was not captured");
         return;
     };
-    let fd = libc::openat(
-        module_dir.as_raw_fd(),
-        c"module.apk".as_ptr(),
-        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
-    );
-    if fd < 0 {
-        loge!(
-            "Zygisk: cannot open module.apk: {}",
-            std::io::Error::last_os_error()
-        );
-        return;
-    }
-    let apk = File::from_raw_fd(fd);
-    if !apk.metadata().is_ok_and(|metadata| {
-        metadata.is_file() && metadata.len() > 0 && metadata.len() <= crate::apk::MAX_APK_BYTES
-    }) {
-        loge!("Zygisk: invalid module.apk");
-        return;
-    }
     let data_dir = module.data_dir.clone();
-    let (apk_dst, dex_bufs) = match crate::payload::publish_apk(apk, &data_dir) {
+    let (apk_dst, dex_bufs) = match crate::payload::publish_apk(Cursor::new(apk_bytes), &data_dir) {
         Ok(payload) => payload,
         Err(error) => {
             loge!("Zygisk: cannot prepare module APK: {error:#}");
