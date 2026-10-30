@@ -89,7 +89,7 @@ export async function issueChallenge(
       ctx.state === "EXPIRED" ||
       ctx.registration_nonce !== v.processNonce
     )
-      fail(401, "REGISTRATION_EXPIRED", "登记上下文无效");
+      fail(401, "REGISTRATION_EXPIRED", "登记上下文无效", true);
     if (v.method !== "POST" || !registeredPaths.includes(v.path) || v.grantId)
       fail(400, "CHALLENGE_SCOPE", "登记操作无效");
     actorId = ctx.registration_id;
@@ -171,7 +171,7 @@ export async function authenticate(
       ctx.state === "EXPIRED" ||
       (ctx.state === "PREPARED" && ctx.expires_at <= Date.now())
     )
-      fail(401, "REGISTRATION_EXPIRED", "登记上下文无效");
+      fail(401, "REGISTRATION_EXPIRED", "登记上下文无效", true);
     actorType = "REGISTRATION";
     actorId = registrationId;
     installed = ctx.installation_id ?? ctx.existing_installation_id;
@@ -306,6 +306,12 @@ export function guard(auth: Auth, attemptId: string): Guard {
     ],
   };
 }
+export interface EmptyResultFailure {
+  status: number;
+  code: string;
+  message: string;
+  retryable?: boolean;
+}
 export async function transact<T>(
   env: Env,
   req: Request,
@@ -320,6 +326,7 @@ export async function transact<T>(
     auth.operation,
     auth.requestId,
   ],
+  emptyResult?: EmptyResultFailure,
 ): Promise<T> {
   const attempt = opaqueId(),
     g = guard(auth, attempt);
@@ -366,8 +373,40 @@ export async function transact<T>(
   if (results[0]!.meta.changes !== 1)
     fail(401, "CHALLENGE_INVALID", "挑战已使用");
   const last = results.at(-1)!.results as { result_json?: string }[];
-  if (!last[0]?.result_json)
-    fail(409, "OPERATION_CONFLICT", "请求 ID 与操作不一致或状态已改变");
+  if (!last[0]?.result_json) {
+    // The guarded read saw no stored operation result. Distinguish a genuine
+    // request-id/digest conflict from an operation-level state gate that produced no
+    // row in this batch: the former keeps idempotency semantics, while the latter must
+    // surface as an explicit caller-defined failure instead of a misleading 409.
+    const existing = await env.DB.prepare(
+      "SELECT operation_digest FROM request_operations WHERE actor_type=? AND actor_id=? AND operation=? AND request_id=?",
+    )
+      .bind(auth.actorType, auth.actorId, auth.operation, auth.requestId)
+      .first<{ operation_digest: string }>();
+    const event = JSON.stringify({
+      event: "operation_result_unavailable",
+      operation: auth.operation,
+      actorType: auth.actorType,
+      requestId: auth.requestId,
+      existing: existing
+        ? existing.operation_digest === auth.digest
+          ? "same_digest"
+          : "other_digest"
+        : "absent",
+    });
+    // A stored row with another digest is a client bug; a missing row is an ordinary
+    // state-gate failure that the caller maps to its own code.
+    if (existing) console.error(event);
+    else console.log(event);
+    if (existing && existing.operation_digest !== auth.digest)
+      fail(409, "REQUEST_ID_CONFLICT", "请求 ID 已被其他操作使用");
+    fail(
+      emptyResult?.status ?? 409,
+      emptyResult?.code ?? "OPERATION_STATE_CHANGED",
+      emptyResult?.message ?? "操作前置状态已变化，请重试",
+      emptyResult?.retryable ?? false,
+    );
+  }
   return JSON.parse(last[0].result_json) as T;
 }
 export function hardwareSql(installation = "i"): string {

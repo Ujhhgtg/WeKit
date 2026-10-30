@@ -6,7 +6,13 @@ import {
   transact,
   type RegistrationContext,
 } from "./auth";
-import { currentTrust, verifyAttestation, type Proof } from "./attestation";
+import {
+  currentTrust,
+  installationAttestation,
+  revokedSerials,
+  verifyAttestation,
+  type Proof,
+} from "./attestation";
 import {
   b64,
   hmac,
@@ -74,9 +80,9 @@ export async function prepareRegistration(
     ctx.existing_installation_id !== (v.existingInstallationId ?? null) ||
     ctx.assurance !== assurance
   )
-    fail(409, "OPERATION_CONFLICT", "登记主体不一致");
+    fail(409, "REGISTRATION_CONTEXT_CONFLICT", "登记上下文与既有登记不一致");
   if (ctx.state === "PREPARED" && ctx.expires_at <= Date.now())
-    fail(410, "REGISTRATION_EXPIRED", "请使用新的登记 nonce");
+    fail(410, "REGISTRATION_EXPIRED", "请使用新的登记 nonce", true);
   return json({
     registrationId: ctx.registration_id,
     attestationChallenge: ctx.attestation_challenge,
@@ -211,6 +217,42 @@ export async function register(env: Env, req: Request): Promise<Response> {
     }
   }
   if (!installationId) fail(400, "REGISTRATION_MODE", "缺少安装信息");
+  // Google revokes attestation CAs (typically leaked keyboxes) after the fact. The
+  // client cannot repair such a chain, and an unattested low-assurance registration is
+  // openly available anyway, so keep the user onboarded in that mode instead of failing
+  // the operation. The evidence is retained for audit, and the response reports the
+  // downgrade so a client can explain it.
+  let downgrade: { reason: "REVOKED" | "SUSPENDED"; serials: string[] } | null =
+    null;
+  if (!lowAssurance) {
+    if (proof) {
+      const revoked = await revokedSerials(env, proof.serials);
+      if (revoked.revoked.length > 0 || revoked.suspended.length > 0)
+        downgrade = {
+          reason: revoked.revoked.length > 0 ? "REVOKED" : "SUSPENDED",
+          serials: [...revoked.revoked, ...revoked.suspended],
+        };
+    } else {
+      const installation = await installationAttestation(env, installationId);
+      if (
+        installation &&
+        installation.rootTrusted &&
+        installation.fresh &&
+        (installation.revoked > 0 || installation.suspended > 0)
+      ) {
+        downgrade = {
+          reason: installation.revoked > 0 ? "REVOKED" : "SUSPENDED",
+          serials: [],
+        };
+        if (installation.assurance === "ATTESTED")
+          await env.DB.prepare(
+            "UPDATE installations SET assurance='UNATTESTED_HARDWARE' WHERE installation_id=? AND assurance='ATTESTED'",
+          )
+            .bind(installationId)
+            .run();
+      }
+    }
+  }
   const priorSession = await env.DB.prepare(
     "SELECT binding_session_id FROM enrollment_sessions WHERE registration_id=?",
   )
@@ -227,9 +269,8 @@ export async function register(env: Env, req: Request): Promise<Response> {
   let proofGate: string;
   let proofArgs: (string | number)[];
   let evidenceHash = "";
-  let assurance: "ATTESTED" | "UNATTESTED_HARDWARE" = lowAssurance
-    ? "UNATTESTED_HARDWARE"
-    : "ATTESTED";
+  const assurance: "ATTESTED" | "UNATTESTED_HARDWARE" =
+    lowAssurance || downgrade ? "UNATTESTED_HARDWARE" : "ATTESTED";
   let evidenceKey = `attestation/${installationId}.json`;
   const unattestedPublicKeyHash =
     lowAssurance && v.spki ? await sha(unb64(v.spki)) : null;
@@ -246,6 +287,21 @@ export async function register(env: Env, req: Request): Promise<Response> {
     evidenceHash = await sha(evidence);
     evidenceKey = `unattested/${installationId}.json`;
     await env.PAYLOADS.put(evidenceKey, evidence);
+  } else if (downgrade) {
+    proofGate = "1";
+    proofArgs = [];
+    if (proof) {
+      // A fresh registration keeps its chain evidence even though the device is
+      // admitted as low assurance, so the revocation decision stays auditable.
+      const evidence = JSON.stringify({
+        certificateChain: v.certificateChain,
+        proof,
+        downgrade,
+        declaredAt: Date.now(),
+      });
+      evidenceHash = await sha(evidence);
+      await env.PAYLOADS.put(evidenceKey, evidence);
+    }
   } else if (proof) {
     proofGate = `EXISTS(SELECT 1 FROM attestation_current ac JOIN attestation_snapshots s ON s.snapshot_id=ac.snapshot_id JOIN attestation_roots r ON r.snapshot_id=ac.snapshot_id WHERE s.fetched_at>? AND r.spki_sha256=? AND NOT EXISTS(SELECT 1 FROM json_each(?) serial JOIN attestation_revocations rev ON rev.snapshot_id=ac.snapshot_id AND rev.serial=serial.value))`;
     proofArgs = [
@@ -289,7 +345,7 @@ export async function register(env: Env, req: Request): Promise<Response> {
         const rootSpkiSha256 = proof ? proof.rootSpkiSha256 : "";
         const securityLevel = proof ? proof.securityLevel : "TEE";
         const attestationJson = proof
-          ? JSON.stringify(proof)
+          ? JSON.stringify(downgrade ? { ...proof, downgraded: downgrade } : proof)
           : JSON.stringify({
               type: "UNATTESTED_HARDWARE",
               hardwareKey: true,
@@ -348,6 +404,13 @@ export async function register(env: Env, req: Request): Promise<Response> {
       );
       return statements;
     },
+    undefined,
+    undefined,
+    {
+      status: 403,
+      code: "ATTESTATION_UNTRUSTED",
+      message: "设备硬件证明无法验证，请重新登记",
+    },
   );
   const session = await env.DB.prepare(
     "SELECT state,expires_at,code_wrapped_json FROM enrollment_sessions WHERE binding_session_id=?",
@@ -359,6 +422,15 @@ export async function register(env: Env, req: Request): Promise<Response> {
       code_wrapped_json: string | null;
     }>();
   if (!session) fail(503, "REGISTRATION_UNAVAILABLE", "登记尚未完成", true);
+  if (downgrade)
+    console.log(
+      JSON.stringify({
+        event: "attestation_downgraded",
+        installationId: registered.installationId,
+        reason: downgrade.reason,
+        serials: downgrade.serials,
+      }),
+    );
   const bindingCode =
     session.code_wrapped_json && session.expires_at > Date.now()
       ? new TextDecoder().decode(
@@ -377,6 +449,8 @@ export async function register(env: Env, req: Request): Promise<Response> {
       session.expires_at <= Date.now() && session.state !== "CLAIMED"
         ? "EXPIRED"
         : session.state,
+    assurance,
+    degraded: downgrade?.reason ?? null,
   });
 }
 const sessionSchema = z.strictObject({

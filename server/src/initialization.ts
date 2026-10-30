@@ -6,7 +6,7 @@ import {
   canonicalRange,
   transact,
 } from "./auth";
-import { currentTrust } from "./attestation";
+import { currentTrust, installationAttestation } from "./attestation";
 import { b64, opaqueId, unwrap, type Wrapped } from "./crypto";
 import { body, fail, hash, id, json, nonce, source, text } from "./http";
 import { LIMITS, type Env } from "./env";
@@ -45,8 +45,40 @@ interface InitResult {
   currentResult?: string;
 }
 function allowed(result: { result: string; currentResult?: string }): void {
-  if ((result.currentResult ?? result.result) !== "ALLOWED")
-    fail(403, result.currentResult ?? result.result, "当前安装或载荷未获授权");
+  const code = result.currentResult ?? result.result;
+  if (code !== "ALLOWED")
+    // A permanent denial leaves the client no retry path; transient states (payload
+    // not yet published, epoch reconfirmation, cache mismatch) can succeed later.
+    fail(403, code, "当前安装或载荷未获授权", code !== "AUTHORIZATION_DENIED");
+}
+/**
+ * An installation whose attestation chain Google revoked after registration keeps a
+ * valid credential and binding; only its hardware claim is gone. Low-assurance mode is
+ * already available to any client, so downgrade it once instead of denying every
+ * initialization forever.
+ */
+async function downgradeRevokedInstallation(
+  env: Env,
+  installationId: string,
+): Promise<void> {
+  const trust = await installationAttestation(env, installationId);
+  if (!trust || trust.assurance !== "ATTESTED" || !trust.rootTrusted || !trust.fresh)
+    return;
+  if (trust.revoked === 0 && trust.suspended === 0) return;
+  const updated = await env.DB.prepare(
+    "UPDATE installations SET assurance='UNATTESTED_HARDWARE' WHERE installation_id=? AND assurance='ATTESTED'",
+  )
+    .bind(installationId)
+    .run();
+  if (updated.meta.changes === 1)
+    console.log(
+      JSON.stringify({
+        event: "attestation_downgraded",
+        installationId,
+        revoked: trust.revoked,
+        suspended: trust.suspended,
+      }),
+    );
 }
 export async function initialize(env: Env, req: Request): Promise<Response> {
   const { value: v, raw } = await body(req, initSchema);
@@ -59,8 +91,10 @@ export async function initialize(env: Env, req: Request): Promise<Response> {
     )
       .bind(auth.installationId)
       .first<{ assurance: string }>();
-    if (installation?.assurance !== "UNATTESTED_HARDWARE")
+    if (installation?.assurance !== "UNATTESTED_HARDWARE") {
       await currentTrust(env);
+      await downgradeRevokedInstallation(env, auth.installationId);
+    }
   }
   const initializationId = opaqueId(),
     grantId = opaqueId(),
@@ -218,6 +252,12 @@ export async function renew(env: Env, req: Request): Promise<Response> {
     ],
     `SELECT json_set(o.result_json,'$.currentResult',CASE WHEN ${authoritySql()} AND p.status='ALLOWED' AND old.revoked=0 THEN json_extract(o.result_json,'$.result') ELSE 'AUTHORIZATION_DENIED' END) AS result_json FROM request_operations o ${from.replace("FROM", "JOIN")} WHERE o.actor_type=? AND o.actor_id=? AND o.operation=? AND o.request_id=? AND ${filter}`,
     [auth.actorType, auth.actorId, auth.operation, auth.requestId, ...args],
+    {
+      status: 409,
+      code: "GRANT_STALE",
+      message: "下载许可已失效，请重新初始化",
+      retryable: true,
+    },
   );
   allowed(r);
   return json({
@@ -265,6 +305,11 @@ export async function download(
     () => [],
     `SELECT json_set(o.result_json,'$.result',CASE WHEN ${valid} THEN 'ALLOWED' ELSE 'AUTHORIZATION_DENIED' END) AS result_json FROM request_operations o ${from.replace("FROM", "JOIN")} WHERE o.actor_type=? AND o.actor_id=? AND o.operation=? AND o.request_id=? AND ${filter}`,
     [auth.actorType, auth.actorId, auth.operation, auth.requestId, ...args],
+    {
+      status: 403,
+      code: "AUTHORIZATION_DENIED",
+      message: "当前安装或载荷未获授权",
+    },
   );
   allowed(metadata);
   const range = canonicalRange(req.headers.get("range"));
@@ -352,6 +397,12 @@ export async function report(env: Env, req: Request): Promise<Response> {
       v.initializationId,
       auth.processNonce,
     ],
+    {
+      status: 409,
+      code: "INITIALIZATION_STATE_CHANGED",
+      message: "初始化状态已变化，请重试",
+      retryable: true,
+    },
   );
   allowed(r);
   return json({ reportId: r.reportId });

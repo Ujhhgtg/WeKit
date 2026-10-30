@@ -88,6 +88,8 @@ object BootstrapCoordinator {
     private var successfulState: InstallationState? = null
     private var reportedAlias: String? = null
     private var payloadReadyForRestart = false
+    /** Set after a non-retryable API failure; cleared only by an explicit user action. */
+    private var retryBlocked = false
 
     @Synchronized
     fun start(
@@ -129,6 +131,9 @@ object BootstrapCoordinator {
     }
 
     private fun initialize(allowEntry: Boolean = false) {
+        // Lifecycle callbacks re-run initialization on every resume; a failure the server
+        // marked as non-retryable must not be replayed until the user asks for it.
+        if (retryBlocked) return
         ensureSetup()
         if (payloadReadyForRestart) return
         if (entryAttempted) {
@@ -353,6 +358,7 @@ object BootstrapCoordinator {
                     bindingCode = null, bindingExpiresAt = 0, attestationChallenge = null))
                 pendingBinding = null
                 mainHandler.post { bindingDialog?.dismiss(); bindingDialog = null; bindingDialogSession = null }
+                retryBlocked = false
                 initialize()
             }
             "EXPIRED", "CANCELLED" -> {
@@ -418,6 +424,7 @@ object BootstrapCoordinator {
     private fun failed(error: Throwable) {
         BootstrapLog.e("Bootstrap", "Remote payload initialization failed", error)
         if (!mainProcess) return
+        if (error is RemoteApiException && !error.retryable) retryBlocked = true
         if (error is RemoteApiException && error.code == "RECONFIRM_REQUIRED") {
             val candidate = store.candidate(store.load())
             pendingBinding = null
@@ -455,7 +462,7 @@ object BootstrapCoordinator {
             }
             if (!entryAttempted && !payloadReadyForRestart) {
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_more)) { authorizationControls.show(owner) })
-                add(BootstrapDialogAction(uiText(R.string.wekit_auth_retry)) { submit { initialize() } })
+                add(BootstrapDialogAction(uiText(R.string.wekit_auth_retry)) { retryBlocked = false; submit { initialize() } })
             }
         }
         BootstrapDialogs.create(owner, File(loaderService.mainModulePath), "WeKit",
@@ -478,7 +485,7 @@ object BootstrapCoordinator {
             val fingerprint = if (state != null && store.hasKey(state.keyAlias)) store.fingerprint(state).takeLast(12) else uiText(R.string.wekit_auth_not_registered)
             val buttons = buildList {
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_close)))
-                if (!entryAttempted) add(BootstrapDialogAction(uiText(R.string.wekit_auth_download_again)) { submit { ensureSetup(); cache.clear(); initialize() } })
+                if (!entryAttempted) add(BootstrapDialogAction(uiText(R.string.wekit_auth_download_again)) { retryBlocked = false; submit { ensureSetup(); cache.clear(); initialize() } })
                 if (state?.active == true) add(BootstrapDialogAction(uiText(R.string.wekit_auth_unbind)) {
                     BootstrapDialogs.create(activity, File(loaderService.mainModulePath), uiText(R.string.wekit_auth_unbind_title),
                         uiText(R.string.wekit_auth_unbind_message),
@@ -493,6 +500,7 @@ object BootstrapCoordinator {
                         })).show()
                 })
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_rebind)) {
+                    retryBlocked = false
                     submit { ensureSetup(); pendingBinding = null; store.candidate(store.load()); ensureBinding(store.load()) }
                 })
             }

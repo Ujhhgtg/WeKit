@@ -1178,3 +1178,586 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     await mf.dispose();
   }
 });
+
+test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT", async () => {
+  await build({
+    entryPoints: ["src/api.ts", "src/bot.ts", "src/admin.ts"],
+    bundle: true,
+    outdir: "dist",
+    format: "esm",
+    platform: "browser",
+  });
+  const env = {
+    KEK_KEYS_JSON: JSON.stringify({ test: random(32) }),
+    CURRENT_KEK_ID: "test",
+    BIND_CODE_PEPPER: random(32),
+    DEFAULT_CHANNEL: "stable",
+  };
+  const mf = new Miniflare({
+    workers: [
+      {
+        name: "api",
+        modules: true,
+        scriptPath: "dist/api.js",
+        routes: ["auth.example/*"],
+        compatibilityDate: "2026-07-30",
+        bindings: env,
+        d1Databases: { DB: "test-db" },
+        r2Buckets: { PAYLOADS: "test-r2" },
+      },
+    ],
+  });
+  try {
+    const db = await mf.getD1Database("DB", "api");
+    for (const migration of readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort())
+      await db.exec(
+        readFileSync(`migrations/${migration}`, "utf8").replace(
+          /^--.*$/gm,
+          "",
+        ),
+      );
+    const api = await mf.getWorker("api");
+    async function send(
+      _worker: any,
+      url: string,
+      method = "GET",
+      value?: unknown,
+      headers: Record<string, string> = {},
+    ) {
+      return mf.dispatchFetch(url, {
+        method,
+        headers: {
+          "cf-connecting-ip": "198.51.100.1",
+          ...(value !== undefined
+            ? { "content-type": "application/json" }
+            : {}),
+          ...headers,
+        },
+        ...(value !== undefined ? { body: JSON.stringify(value) } : {}),
+      });
+    }
+    async function ok(response: Response, status = 200) {
+      const value = await response.json();
+      assert.equal(response.status, status, JSON.stringify(value));
+      return value as any;
+    }
+    async function error(response: Response) {
+      const value = await response.json();
+      return {
+        status: response.status,
+        code: value.error?.code as string,
+        retryable: value.error?.retryable as boolean,
+      };
+    }
+
+    const now = Date.now(),
+      roots = JSON.parse(
+        readFileSync("test/fixtures/google-roots.json", "utf8"),
+      );
+    await db.batch([
+      db
+        .prepare("INSERT INTO attestation_snapshots VALUES(?,?,?,?)")
+        .bind("snapshot", now, "roots-hash", "status-hash"),
+      db
+        .prepare("INSERT INTO attestation_roots VALUES(?,?,?)")
+        .bind(
+          "snapshot",
+          "feb2ea7551ee316ed4bb443c8293b884dbfdea40b603ee3e4f4a897e4580fbae",
+          roots[0],
+        ),
+      db.prepare("INSERT INTO attestation_current VALUES(1,?)").bind("snapshot"),
+    ]);
+
+    type RegistrationActor = {
+      token: string;
+      digest: string;
+      nonce: string;
+      registrationId: string;
+    };
+    type CredentialActor = {
+      token: string;
+      digest: string;
+      nonce: string;
+      installationId: string;
+    };
+    type Actor = RegistrationActor | CredentialActor;
+    function isRegistration(actor: Actor): actor is RegistrationActor {
+      return "registrationId" in actor;
+    }
+    async function signed(
+      actor: Actor,
+      key: CryptoKey,
+      route: string,
+      value: Record<string, unknown> | null,
+      options: {
+        method?: "POST" | "GET";
+        grant?: string;
+        range?: string;
+        requestId?: string;
+      } = {},
+    ) {
+      const method = options.method ?? "POST",
+        requestId = options.requestId ?? opaqueId(),
+        payload =
+          method === "GET"
+            ? null
+            : {
+                ...value,
+                requestId,
+                ...(isRegistration(actor)
+                  ? {
+                      registrationId: actor.registrationId,
+                      registrationNonce: actor.nonce,
+                    }
+                  : {
+                      installationId: actor.installationId,
+                      processNonce: actor.nonce,
+                    }),
+              };
+      const challenge = await ok(
+        await send(
+          api,
+          "https://auth.example/v1/challenges",
+          "POST",
+          {
+            ...(isRegistration(actor)
+              ? { registrationId: actor.registrationId }
+              : { installationId: actor.installationId }),
+            method,
+            path: route,
+            processNonce: actor.nonce,
+            ...(options.grant ? { grantId: options.grant } : {}),
+          },
+          { authorization: `Bearer ${actor.token}` },
+        ),
+      );
+      const raw = payload ? utf8(JSON.stringify(payload)) : new Uint8Array();
+      const canonical = [
+        "WEKIT-REQUEST-V1",
+        method,
+        route,
+        await sha(raw),
+        actor.digest,
+        challenge.challengeId,
+        challenge.serverNonce,
+        requestId,
+        actor.nonce,
+        options.range ?? "",
+        options.grant ?? "",
+        "",
+      ].join("\n");
+      const signature = b64(
+        await crypto.subtle.sign(
+          { name: "ECDSA", hash: "SHA-256" },
+          key,
+          utf8(canonical),
+        ),
+      );
+      const headers: Record<string, string> = {
+        authorization: `Bearer ${actor.token}`,
+        "x-wekit-request-id": requestId,
+        "x-wekit-challenge-id": challenge.challengeId,
+        "x-wekit-process-nonce": actor.nonce,
+        "x-wekit-signature": signature,
+        ...(isRegistration(actor)
+          ? { "x-wekit-registration-id": actor.registrationId }
+          : { "x-wekit-installation-id": actor.installationId }),
+        ...(options.grant ? { "x-wekit-grant-id": options.grant } : {}),
+        ...(options.range ? { range: options.range } : {}),
+      };
+      return {
+        response: await send(
+          api,
+          "https://auth.example" + route,
+          method,
+          payload ?? undefined,
+          headers,
+        ),
+        requestId,
+        payload,
+        headers,
+      };
+    }
+    async function registrationTokens() {
+      const token = random(32),
+        nonce = random(32),
+        digest = await sha(unb64(token));
+      const context = await ok(
+        await send(
+          api,
+          "https://auth.example/v1/registration/challenges",
+          "POST",
+          { mode: "NEW_KEY", tokenSha256: digest, registrationNonce: nonce },
+        ),
+      );
+      return { token, nonce, digest, context };
+    }
+    async function attestedRegistration() {
+      const tokens = await registrationTokens();
+      const actor: RegistrationActor = {
+        token: tokens.token,
+        digest: tokens.digest,
+        nonce: tokens.nonce,
+        registrationId: tokens.context.registrationId,
+      };
+      const key = await crypto.subtle.generateKey(
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["sign", "verify"],
+      );
+      const hardware = await hardwareClaimFixture(
+        key.publicKey,
+        tokens.context.attestationChallenge,
+      );
+      await db
+        .prepare("INSERT OR IGNORE INTO attestation_roots VALUES(?,?,?)")
+        .bind(
+          "snapshot",
+          await sha(unb64(hardware.rootSpki)),
+          hardware.root,
+        )
+        .run();
+      const body = {
+        spki: b64(await crypto.subtle.exportKey("spki", key.publicKey)),
+        certificateChain: hardware.chain,
+        deviceInfo: { sdkInt: 35 },
+      };
+      const request = await signed(
+        actor,
+        key.privateKey,
+        "/v1/registrations",
+        body,
+      );
+      return { actor, key, body, request };
+    }
+
+    // Two healthy attested registrations happen before Google revokes the fixture
+    // CA chain; the second one is later used for the initialization recovery case.
+    const warmupA = await attestedRegistration();
+    const createdA = await ok(warmupA.request.response);
+    assert.equal(createdA.state, "PENDING");
+    assert.equal(createdA.assurance, "ATTESTED");
+    assert.equal(createdA.degraded, null);
+    const replayBefore = await ok(
+      (
+        await signed(
+          warmupA.actor,
+          warmupA.key.privateKey,
+          "/v1/registrations",
+          warmupA.body,
+          { requestId: warmupA.request.requestId },
+        )
+      ).response,
+    );
+    assert.equal(replayBefore.installationId, createdA.installationId);
+    assert.equal(replayBefore.bindingSessionId, createdA.bindingSessionId);
+    const warmupB = await attestedRegistration();
+    const createdB = await ok(warmupB.request.response);
+    assert.equal(createdB.assurance, "ATTESTED");
+
+    // Google revokes one CA serial after the fact. Every installation built from the
+    // fixture chain now fails the revocation gate, but that must not surface as a
+    // request-id conflict or hide the registration entirely.
+    const serialsA = (
+      await db
+        .prepare(
+          "SELECT serial FROM installation_attestation_serials WHERE installation_id=?",
+        )
+        .bind(createdA.installationId)
+        .all<{ serial: string }>()
+    ).results.map((row) => row.serial);
+    assert.ok(serialsA.length >= 3);
+    const revokedSerial = serialsA.find((serial) => serial !== "1")!;
+    await db
+      .prepare("INSERT INTO attestation_revocations VALUES(?,?,?)")
+      .bind("snapshot", revokedSerial, "REVOKED")
+      .run();
+
+    // A new attested registration is admitted as low assurance, with the downgrade
+    // reported and evidence retained for audit.
+    const downgraded = await attestedRegistration();
+    const downgradedRegistration = await ok(downgraded.request.response);
+    assert.equal(downgradedRegistration.state, "PENDING");
+    assert.equal(downgradedRegistration.assurance, "UNATTESTED_HARDWARE");
+    assert.equal(downgradedRegistration.degraded, "REVOKED");
+    const storedDowngrade = await db
+      .prepare(
+        "SELECT assurance,attestation_json,evidence_key FROM installations WHERE installation_id=?",
+      )
+      .bind(downgradedRegistration.installationId)
+      .first<{
+        assurance: string;
+        attestation_json: string;
+        evidence_key: string;
+      }>();
+    assert.equal(storedDowngrade!.assurance, "UNATTESTED_HARDWARE");
+    assert.match(storedDowngrade!.attestation_json, /"downgraded"/);
+    assert.equal(
+      storedDowngrade!.evidence_key,
+      `attestation/${downgradedRegistration.installationId}.json`,
+    );
+    const downgradeEvidence = await (
+      await mf.getR2Bucket("PAYLOADS", "api")
+    ).get(storedDowngrade!.evidence_key);
+    assert.ok(downgradeEvidence);
+    const downgradeEvidenceJson = JSON.parse(await downgradeEvidence!.text());
+    assert.equal(downgradeEvidenceJson.downgrade.reason, "REVOKED");
+    // The downgraded operation still commits its idempotent result row and consumes
+    // exactly one challenge; it is not an empty transact() failure.
+    const downgradedOperation = await db
+      .prepare(
+        "SELECT count(*) AS n FROM request_operations WHERE operation='POST /v1/registrations' AND request_id=?",
+      )
+      .bind(downgraded.request.requestId)
+      .first<{ n: number }>();
+    assert.equal(downgradedOperation!.n, 1);
+    const downgradedChallenge = await db
+      .prepare(
+        "SELECT consumption_id FROM challenges WHERE consumed_request_id=?",
+      )
+      .bind(downgraded.request.requestId)
+      .first<{ consumption_id: string | null }>();
+    assert.notEqual(downgradedChallenge!.consumption_id, null);
+
+    // SUSPENDED is reported separately and also downgrades instead of failing.
+    await db
+      .prepare(
+        "UPDATE attestation_revocations SET status='SUSPENDED' WHERE snapshot_id='snapshot' AND serial=?",
+      )
+      .bind(revokedSerial)
+      .run();
+    const suspended = await attestedRegistration();
+    const suspendedRegistration = await ok(suspended.request.response);
+    assert.equal(suspendedRegistration.assurance, "UNATTESTED_HARDWARE");
+    assert.equal(suspendedRegistration.degraded, "SUSPENDED");
+
+    // REGISTERED_KEY reuse of an attested installation whose chain was revoked also
+    // downgrades the existing installation and keeps the binding flow usable.
+    const reuseToken = random(32),
+      reuseNonce = random(32),
+      reuseDigest = await sha(unb64(reuseToken));
+    const reuseContext = await ok(
+      await send(
+        api,
+        "https://auth.example/v1/registration/challenges",
+        "POST",
+        {
+          mode: "REGISTERED_KEY",
+          tokenSha256: reuseDigest,
+          registrationNonce: reuseNonce,
+          existingInstallationId: createdA.installationId,
+        },
+      ),
+    );
+    assert.equal(reuseContext.attestationChallenge, null);
+    const reuseActor: RegistrationActor = {
+      token: reuseToken,
+      digest: reuseDigest,
+      nonce: reuseNonce,
+      registrationId: reuseContext.registrationId,
+    };
+    const reused = await ok(
+      (
+        await signed(
+          reuseActor,
+          warmupA.key.privateKey,
+          "/v1/registrations",
+          { deviceInfo: { model: "reuse" } },
+        )
+      ).response,
+    );
+    assert.equal(reused.installationId, createdA.installationId);
+    assert.equal(reused.assurance, "UNATTESTED_HARDWARE");
+    assert.equal(reused.degraded, "SUSPENDED");
+    assert.equal(
+      (
+        await db
+          .prepare("SELECT assurance FROM installations WHERE installation_id=?")
+          .bind(createdA.installationId)
+          .first<{ assurance: string }>()
+      )!.assurance,
+      "UNATTESTED_HARDWARE",
+    );
+    // Idempotent replay with the same request id keeps returning the stored result.
+    const replayAfter = await ok(
+      (
+        await signed(
+          warmupA.actor,
+          warmupA.key.privateKey,
+          "/v1/registrations",
+          warmupA.body,
+          { requestId: warmupA.request.requestId },
+        )
+      ).response,
+    );
+    assert.equal(replayAfter.installationId, createdA.installationId);
+    assert.equal(replayAfter.bindingSessionId, createdA.bindingSessionId);
+
+    // An already-bound installation whose chain is revoked later is downgraded on its
+    // next initialization instead of being denied forever with AUTHORIZATION_DENIED.
+    const credentialToken = random(32),
+      credentialDigest = await sha(unb64(credentialToken)),
+      credentialNonce = random(32),
+      credentialInstallation = createdB.installationId;
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO users(telegram_user_id,created_at,last_seen_at,release_channel) VALUES(?,?,?,?)",
+        )
+        .bind("tg-downgrade", now, now, "local"),
+      db
+        .prepare(
+          "INSERT INTO bindings(binding_id,installation_id,telegram_user_id,status,created_at) VALUES(?,?,?,'ACTIVE',?)",
+        )
+        .bind(
+          "binding-downgrade",
+          credentialInstallation,
+          "tg-downgrade",
+          now,
+        ),
+      db
+        .prepare(
+          "INSERT INTO credentials(credential_id,installation_id,binding_id,token_sha256,auth_epoch,status,created_at) VALUES(?,?,?,?,1,'ACTIVE',?)",
+        )
+        .bind(
+          "credential-downgrade",
+          credentialInstallation,
+          "binding-downgrade",
+          credentialDigest,
+          now,
+        ),
+    ]);
+    const credentialActor: CredentialActor = {
+      token: credentialToken,
+      digest: credentialDigest,
+      nonce: credentialNonce,
+      installationId: credentialInstallation,
+    };
+    const initBody = {
+      processName: "com.tencent.mm",
+      hostPackage: "com.tencent.mm",
+      hostVersionCode: "1",
+      hostVersionName: "8.0.79",
+      sdkInt: 35,
+      processAbi: "arm64-v8a",
+      bootstrapVersion: "test",
+      selfWxId: "wxid_test",
+      selfAlias: null,
+      identityReadState: "ALIAS_UNAVAILABLE",
+      requestedPayloadId: null,
+    };
+    const initRequest = await signed(
+      credentialActor,
+      warmupB.key.privateKey,
+      "/v1/initializations",
+      initBody,
+    );
+    const initialized = await ok(initRequest.response);
+    assert.equal(initialized.payloadMode, "LOCAL");
+    assert.ok(initialized.initializationId);
+    assert.ok(initialized.grantId);
+    assert.equal(
+      (
+        await db
+          .prepare("SELECT assurance FROM installations WHERE installation_id=?")
+          .bind(credentialInstallation)
+          .first<{ assurance: string }>()
+      )!.assurance,
+      "UNATTESTED_HARDWARE",
+    );
+
+    // The old misleading generic 409 is split into explicit operation failures.
+    const conflict = await error(
+      (
+        await signed(
+          credentialActor,
+          warmupB.key.privateKey,
+          "/v1/initializations",
+          { ...initBody, selfAlias: "different-alias" },
+          { requestId: initRequest.requestId },
+        )
+      ).response,
+    );
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.code, "REQUEST_ID_CONFLICT");
+    assert.equal(conflict.retryable, false);
+    const renewFailure = await error(
+      (
+        await signed(
+          credentialActor,
+          warmupB.key.privateKey,
+          "/v1/load-grants/renew",
+          {
+            initializationId: "missing-initialization",
+            grantId: "missing-grant",
+            payloadId: "missing-payload",
+            apkSha256: "0".repeat(64),
+          },
+        )
+      ).response,
+    );
+    assert.equal(renewFailure.status, 409);
+    assert.equal(renewFailure.code, "GRANT_STALE");
+    assert.equal(renewFailure.retryable, true);
+    const reportFailure = await error(
+      (
+        await signed(
+          credentialActor,
+          warmupB.key.privateKey,
+          "/v1/initializations/report",
+          {
+            initializationId: "missing-initialization",
+            stage: "ENTRY_RETURNED",
+            result: "LOADED",
+          },
+        )
+      ).response,
+    );
+    assert.equal(reportFailure.status, 409);
+    assert.equal(reportFailure.code, "INITIALIZATION_STATE_CHANGED");
+    assert.equal(reportFailure.retryable, true);
+    const downloadFailure = await error(
+      (
+        await signed(
+          credentialActor,
+          warmupB.key.privateKey,
+          "/v1/payloads/missing-payload/content",
+          null,
+          { method: "GET", grant: "missing-grant" },
+        )
+      ).response,
+    );
+    assert.equal(downloadFailure.status, 403);
+    assert.equal(downloadFailure.code, "AUTHORIZATION_DENIED");
+    assert.equal(downloadFailure.retryable, false);
+
+    // Recoverable registration-context expiry is marked retryable so a client that
+    // honours the flag keeps retrying only states it can actually fix.
+    const expiredTokens = await registrationTokens();
+    await db
+      .prepare("UPDATE registration_contexts SET expires_at=0 WHERE registration_id=?")
+      .bind(expiredTokens.context.registrationId)
+      .run();
+    const expired = await error(
+      await send(
+        api,
+        "https://auth.example/v1/challenges",
+        "POST",
+        {
+          registrationId: expiredTokens.context.registrationId,
+          method: "POST",
+          path: "/v1/registrations",
+          processNonce: expiredTokens.nonce,
+        },
+        { authorization: `Bearer ${expiredTokens.token}` },
+      ),
+    );
+    assert.equal(expired.status, 401);
+    assert.equal(expired.code, "REGISTRATION_EXPIRED");
+    assert.equal(expired.retryable, true);
+  } finally {
+    await mf.dispose();
+  }
+});
