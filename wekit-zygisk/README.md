@@ -42,9 +42,11 @@ loader copies that APK into the host's private directory under a content hash,
 then reads its DEX into memory. Resources, native libraries and child processes
 use the same APK version.
 
-`preAppSpecialize` retains the module directory FD; `postAppSpecialize` opens
-`module.apk` through that directory and prepares the private APK copy and in-memory
-DEX. The current lifecycle does not require `exemptFd`.
+`preAppSpecialize` reads `module.apk` from the module directory while
+`getModuleDir()` is guaranteed to be usable, and `postAppSpecialize` publishes
+those bytes into the host's private directory and prepares the in-memory DEX.
+The lifecycle does not require `exemptFd`, and it never relies on the
+module-directory fd surviving the UID/SELinux switch.
 
 The installer compares the new loader byte-for-byte with the active module's
 `zygisk/arm64-v8a.so`, not a pending update. Native changes require a device reboot;

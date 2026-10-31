@@ -5,15 +5,21 @@ use anyhow::{Context, Result, ensure};
 use jni::sys::{JNIEnv as RawJNIEnv, jobject};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{Read, Write},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 
-/// Copy the already-open module APK after specialization. Content-addressed paths
-/// keep resources, DEX, native libraries and child processes on the same version.
-pub fn publish_apk(mut source: File, data_dir: &str) -> Result<(PathBuf, Vec<Vec<u8>>)> {
+/// Publish an APK payload that the caller already read out of the module
+/// directory. Content-addressed paths keep resources, DEX, native libraries and
+/// child processes on the same version.
+///
+/// The payload arrives as a reader rather than a live fd: the Zygisk API contract
+/// only allows accessing the directory returned by `getModuleDir()` inside the
+/// pre*Specialize callbacks, so callers read the bytes there and publish them
+/// after specialization.
+pub fn publish_apk(mut source: impl Read, data_dir: &str) -> Result<(PathBuf, Vec<Vec<u8>>)> {
     let directory = Path::new(data_dir).join("files/mmkv");
     fs::create_dir_all(&directory)?;
     let temporary = directory.join(format!(".wekit-bootstrap-{}.tmp", std::process::id()));
@@ -152,33 +158,54 @@ pub unsafe fn build_dex_classloader(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::{
+        fs::File,
+        io::Cursor,
+        sync::atomic::{AtomicU64, Ordering},
+    };
     use zip::{ZipWriter, write::SimpleFileOptions};
+
+    struct Directory(PathBuf);
+
+    impl Directory {
+        fn new(label: &str) -> Self {
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "wekit-apk-{label}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+
+        fn join(&self, child: &str) -> PathBuf {
+            self.0.join(child)
+        }
+    }
+
+    impl Drop for Directory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn apk_with_dex(dex: &[u8]) -> Vec<u8> {
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        zip.start_file("classes.dex", SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(dex).unwrap();
+        zip.finish().unwrap().into_inner()
+    }
 
     #[test]
     fn publication_keeps_versions_readonly_and_failure_preserves_previous_apks() {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        struct Directory(PathBuf);
-        impl Drop for Directory {
-            fn drop(&mut self) {
-                let _ = fs::remove_dir_all(&self.0);
-            }
-        }
-        let directory = Directory(std::env::temp_dir().join(format!(
-            "wekit-apk-publication-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )));
-        fs::create_dir(&directory.0).unwrap();
-        let source = directory.0.join("input.apk");
-        let host = directory.0.join("host");
+        let directory = Directory::new("publication");
+        let source = directory.join("input.apk");
+        let host = directory.join("host");
         let mut previous = Vec::new();
         for dex in [b"first".as_slice(), b"second".as_slice()] {
-            let mut zip = ZipWriter::new(File::create(&source).unwrap());
-            zip.start_file("classes.dex", SimpleFileOptions::default())
-                .unwrap();
-            zip.write_all(dex).unwrap();
-            zip.finish().unwrap();
+            fs::write(&source, apk_with_dex(dex)).unwrap();
             let original = fs::read(&source).unwrap();
             let (path, buffers) =
                 publish_apk(File::open(&source).unwrap(), host.to_str().unwrap()).unwrap();
@@ -194,5 +221,20 @@ mod tests {
             assert_eq!(fs::read(path).unwrap(), bytes);
         }
         assert_eq!(fs::read_dir(host.join("files/mmkv")).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn publishes_from_an_in_memory_reader() {
+        let directory = Directory::new("memory");
+        let host = directory.join("host");
+        let apk = apk_with_dex(b"memory");
+
+        let (path, buffers) =
+            publish_apk(Cursor::new(apk.clone()), host.to_str().unwrap()).unwrap();
+
+        assert_eq!(buffers, [b"memory".to_vec()]);
+        assert_eq!(fs::read(&path).unwrap(), apk);
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o222, 0);
+        assert_eq!(fs::read_dir(host.join("files/mmkv")).unwrap().count(), 1);
     }
 }
