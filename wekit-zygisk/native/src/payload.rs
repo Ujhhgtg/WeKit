@@ -5,15 +5,21 @@ use anyhow::{Context, Result, ensure};
 use jni::sys::{JNIEnv as RawJNIEnv, jobject};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{Read, Write},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 
-/// Copy the already-open module APK after specialization. Content-addressed paths
-/// keep resources, DEX, native libraries and child processes on the same version.
-pub fn publish_apk(mut source: File, data_dir: &str) -> Result<(PathBuf, Vec<Vec<u8>>)> {
+/// Publish a module APK payload that the caller already read out of the module
+/// directory. Content-addressed paths keep resources, DEX, native libraries and
+/// child processes on the same version.
+///
+/// The payload arrives as a reader rather than a live fd: the module directory fd
+/// handed out by `getModuleDir()` is only guaranteed to be usable inside the
+/// pre\*Specialize window (SELinux + the UID switch), so callers read the bytes
+/// there and publish them after specialization.
+pub fn publish_apk(mut source: impl Read, data_dir: &str) -> Result<(PathBuf, Vec<Vec<u8>>)> {
     let directory = Path::new(data_dir).join("files/mmkv");
     fs::create_dir_all(&directory)?;
     let temporary = directory.join(format!(".wekit-bootstrap-{}.tmp", std::process::id()));
@@ -152,6 +158,7 @@ pub unsafe fn build_dex_classloader(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
     use std::sync::atomic::{AtomicU64, Ordering};
     use zip::{ZipWriter, write::SimpleFileOptions};
 
