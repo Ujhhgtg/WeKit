@@ -55,12 +55,12 @@ object EnvironmentHider : ApiFeature() {
         installDebug()
 
         // ClientCheckConsistency
-        installConsistencyRootIndicator(context.classLoader)
-        installConsistencyLogging()
-        installConsistencyCheck(context)
+//        installConsistencyRootIndicator(context.classLoader)
+//        installConsistencyLogging()
+//        installConsistencyCheck(context)
 
         // ClientCheckHook
-        installReport(context, StartupInfo.modulePath)
+//        installReport(context, StartupInfo.modulePath)
         hideNativeLibraries()
 
         WeLogger.i(TAG, "environment hooks installed")
