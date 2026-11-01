@@ -175,7 +175,11 @@ export async function register(env: Env, req: Request): Promise<Response> {
         fail(409, "KEY_ALREADY_REGISTERED", "请使用 REGISTERED_KEY");
     }
     submissionHash = await sha(
-      JSON.stringify({ spki: v.spki, certificateChain: null, hardwareKey: true }),
+      JSON.stringify({
+        spki: v.spki,
+        certificateChain: null,
+        hardwareKey: true,
+      }),
     );
     if (
       ctx.state === "REGISTERED" &&
@@ -347,7 +351,9 @@ export async function register(env: Env, req: Request): Promise<Response> {
         const rootSpkiSha256 = proof ? proof.rootSpkiSha256 : "";
         const securityLevel = proof ? proof.securityLevel : "TEE";
         const attestationJson = proof
-          ? JSON.stringify(downgrade ? { ...proof, downgraded: downgrade } : proof)
+          ? JSON.stringify(
+              downgrade ? { ...proof, downgraded: downgrade } : proof,
+            )
           : JSON.stringify({
               type: "UNATTESTED_HARDWARE",
               hardwareKey: true,

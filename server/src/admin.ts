@@ -280,7 +280,10 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
           user.email,
           `initialization:${v.ciphertext}`,
           latest ? "水印截图身份解析" : "水印截图未匹配到初始化记录",
-          JSON.stringify({ matched: Boolean(latest), matchCount: matches.results.length }),
+          JSON.stringify({
+            matched: Boolean(latest),
+            matchCount: matches.results.length,
+          }),
           source(req, env).ip,
           Date.now(),
         )
@@ -288,7 +291,9 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       return json({
         data: {
           matched: Boolean(latest),
-          epochSeconds: latest ? Math.floor(Number(latest.created_at) / 1000) : 0,
+          epochSeconds: latest
+            ? Math.floor(Number(latest.created_at) / 1000)
+            : 0,
           wxId: latest?.self_wx_id ?? "",
           identity: latest,
           candidates: matches.results,
@@ -306,9 +311,14 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
     let privateDer: Uint8Array<ArrayBuffer>;
     try {
       const pem = env.WATERMARK_PRIVATE_KEY_PEM.trim();
-      const match = /^-----BEGIN PRIVATE KEY-----([A-Za-z0-9+/=\r\n]+)-----END PRIVATE KEY-----$/.exec(pem);
+      const match =
+        /^-----BEGIN PRIVATE KEY-----([A-Za-z0-9+/=\r\n]+)-----END PRIVATE KEY-----$/.exec(
+          pem,
+        );
       if (!match) throw new Error("private key must be PKCS#8 PEM");
-      privateDer = Uint8Array.from(atob(match[1]!.replace(/\s/g, "")), (c) => c.charCodeAt(0));
+      privateDer = Uint8Array.from(atob(match[1]!.replace(/\s/g, "")), (c) =>
+        c.charCodeAt(0),
+      );
     } catch {
       fail(503, "WATERMARK_UNAVAILABLE", "水印追踪密钥不可用", true);
     }
@@ -346,18 +356,26 @@ export async function adminRequest(req: Request, env: Env): Promise<Response> {
       new TextDecoder("ascii").decode(plaintext.subarray(0, 4)) === "WKID" &&
       plaintext[4] === 1;
     const current = watermarkMagic === "WKWM1V2\0";
-    if ((!legacy && !current) || plaintext.length < (current ? 8 : 4) + (current ? 0 : 1) + 8 + 2 + 1 + 16)
+    if (
+      (!legacy && !current) ||
+      plaintext.length < (current ? 8 : 4) + (current ? 0 : 1) + 8 + 2 + 1 + 16
+    )
       fail(400, "WATERMARK_INVALID", "水印格式无效");
-    const view = new DataView(plaintext.buffer, plaintext.byteOffset, plaintext.byteLength);
+    const view = new DataView(
+      plaintext.buffer,
+      plaintext.byteOffset,
+      plaintext.byteLength,
+    );
     const epochOffset = current ? 8 : 5;
     const wxIdLengthOffset = epochOffset + 8;
     const wxIdStart = wxIdLengthOffset + 2;
     const rawEpoch = Number(view.getBigUint64(epochOffset, false));
     // Early clients wrote milliseconds in the current frame. Keep those
     // screenshots traceable while all new clients use epoch seconds.
-    const epochSeconds = current && rawEpoch > 100_000_000_000
-      ? Math.floor(rawEpoch / 1000)
-      : rawEpoch;
+    const epochSeconds =
+      current && rawEpoch > 100_000_000_000
+        ? Math.floor(rawEpoch / 1000)
+        : rawEpoch;
     const wxIdLength = view.getUint16(wxIdLengthOffset, false);
     const wxIdEnd = wxIdStart + wxIdLength;
     if (

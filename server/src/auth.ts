@@ -159,6 +159,13 @@ export async function authenticate(
   let actorType: "REGISTRATION" | "CREDENTIAL";
   let spki: string;
   let installed: string | null = installationId;
+  // The route and the raw grant header are challenge-lookup parameters, so they are needed
+  // before the credential row is known. They are still validated in the original order below,
+  // which keeps the observable failure precedence unchanged.
+  const route = path(req),
+    grantId = req.headers.get("x-wekit-grant-id") ?? "";
+  /** Set by the credential path when its joined challenge row was valid. */
+  let challengeNonce: string | null = null;
   if (!id.safeParse(registrationId ?? installationId).success)
     fail(400, "INVALID_HEADER", "主体 ID 无效");
   if (registrationId) {
@@ -187,18 +194,28 @@ export async function authenticate(
     spki = key?.spki ?? newSpki ?? "";
     if (!spki) fail(401, "REGISTRATION_NOT_VERIFIED", "先提交硬件证明");
   } else {
+    // One statement resolves the credential, its installation SPKI and the challenge row
+    // (LEFT JOIN: an unusable challenge leaves "nonce" NULL) instead of two round trips.
     const row = await env.DB.prepare(
-      "SELECT c.credential_id,i.spki FROM credentials c JOIN installations i ON i.installation_id=c.installation_id WHERE c.token_sha256=? AND c.installation_id=?",
+      "SELECT c.credential_id,i.spki,ch.nonce FROM credentials c JOIN installations i ON i.installation_id=c.installation_id LEFT JOIN challenges ch ON ch.challenge_id=? AND ch.actor_type='CREDENTIAL' AND ch.actor_id=c.credential_id AND ch.method=? AND ch.path=? AND (ch.process_nonce=? OR ch.process_nonce='') AND ch.grant_id=? AND ch.expires_at>? AND ch.consumption_id IS NULL WHERE c.token_sha256=? AND c.installation_id=?",
     )
-      .bind(token, installationId!)
-      .first<{ credential_id: string; spki: string }>();
+      .bind(
+        challengeId,
+        req.method,
+        route,
+        processNonce,
+        grantId,
+        Date.now(),
+        token,
+        installationId!,
+      )
+      .first<{ credential_id: string; spki: string; nonce: string | null }>();
     if (!row) fail(401, "INVALID_TOKEN", "安装 token 无效");
     actorType = "CREDENTIAL";
     actorId = row.credential_id;
     spki = row.spki;
+    challengeNonce = row.nonce;
   }
-  const route = path(req),
-    grantId = req.headers.get("x-wekit-grant-id") ?? "";
   if (grantId && !id.safeParse(grantId).success)
     fail(400, "INVALID_HEADER", "grant ID 无效");
   const range = canonicalRange(req.headers.get("range"));
@@ -214,22 +231,31 @@ export async function authenticate(
     fail(400, "HEADER_BODY_MISMATCH", "头与 body 不一致");
   // A challenge with an empty process_nonce is a pre-issued floating challenge
   // (see challenge-pipeline.ts): it may be consumed by any process of the same
-  // actor. Everything else about the challenge gate is unchanged.
-  const c = await env.DB.prepare(
-    "SELECT nonce FROM challenges WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND (process_nonce=? OR process_nonce='') AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
-  )
-    .bind(
-      challengeId,
-      actorType,
-      actorId,
-      req.method,
-      route,
-      processNonce,
-      grantId,
-      Date.now(),
+  // actor. Everything else about the challenge gate is unchanged. The credential path
+  // already resolved the challenge in its joined read; only the registration path needs
+  // this separate lookup.
+  let nonceValue: string;
+  if (challengeNonce !== null) {
+    nonceValue = challengeNonce;
+  } else {
+    if (!registrationId) fail(401, "CHALLENGE_INVALID", "挑战过期或已使用");
+    const c = await env.DB.prepare(
+      "SELECT nonce FROM challenges WHERE challenge_id=? AND actor_type=? AND actor_id=? AND method=? AND path=? AND (process_nonce=? OR process_nonce='') AND grant_id=? AND expires_at>? AND consumption_id IS NULL",
     )
-    .first<{ nonce: string }>();
-  if (!c) fail(401, "CHALLENGE_INVALID", "挑战过期或已使用");
+      .bind(
+        challengeId,
+        actorType,
+        actorId,
+        req.method,
+        route,
+        processNonce,
+        grantId,
+        Date.now(),
+      )
+      .first<{ nonce: string }>();
+    if (!c) fail(401, "CHALLENGE_INVALID", "挑战过期或已使用");
+    nonceValue = c.nonce;
+  }
   const bodyHash = await sha(raw);
   await verify(
     spki,
@@ -241,7 +267,7 @@ export async function authenticate(
       bodyHash,
       token,
       challengeId,
-      c.nonce,
+      nonceValue,
       requestId,
       processNonce,
       range,

@@ -38,12 +38,20 @@ export async function endpoint(
 ): Promise<Response> {
   const transform = request.headers.get("x-wekit-body-transform") === "WKX1";
   const wireResponse = async (response: Response): Promise<Response> => {
-    if (!transform || !response.headers.get("content-type")?.startsWith("application/json")) return response;
+    if (
+      !transform ||
+      !response.headers.get("content-type")?.startsWith("application/json")
+    )
+      return response;
     const encoded = encodeBody(new Uint8Array(await response.arrayBuffer()));
     const headers = new Headers(response.headers);
     headers.set("X-WeKit-Body-Transform", "WKX1");
     headers.set("Content-Length", String(encoded.byteLength));
-    return new Response(encoded, { status: response.status, statusText: response.statusText, headers });
+    return new Response(encoded, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   };
   try {
     return await wireResponse(await handler());
@@ -86,20 +94,22 @@ export async function endpoint(
         console.error(JSON.stringify({ event: "rejection_log_failed" }));
       }
     }
-    return await wireResponse(json(
-      {
-        error: {
-          code: known ? e.code : "SERVICE_UNAVAILABLE",
-          message: known ? e.message : "服务暂不可用",
-          retryable: known ? e.retryable : true,
-          requestId:
-            requestId && /^[A-Za-z0-9_-]{1,64}$/.test(requestId)
-              ? requestId
-              : null,
+    return await wireResponse(
+      json(
+        {
+          error: {
+            code: known ? e.code : "SERVICE_UNAVAILABLE",
+            message: known ? e.message : "服务暂不可用",
+            retryable: known ? e.retryable : true,
+            requestId:
+              requestId && /^[A-Za-z0-9_-]{1,64}$/.test(requestId)
+                ? requestId
+                : null,
+          },
         },
-      },
-      known ? e.status : 503,
-    ));
+        known ? e.status : 503,
+      ),
+    );
   }
 }
 export async function bytes(

@@ -107,7 +107,10 @@ export async function webhook(req: Request, env: Env): Promise<Response> {
         }
       } catch {
         console.error(
-          JSON.stringify({ event: "telegram_reply_failed", stage: "callback_delete" }),
+          JSON.stringify({
+            event: "telegram_reply_failed",
+            stage: "callback_delete",
+          }),
         );
       }
       try {
@@ -120,7 +123,10 @@ export async function webhook(req: Request, env: Env): Promise<Response> {
         });
       } catch {
         console.error(
-          JSON.stringify({ event: "telegram_reply_failed", stage: "callback_message" }),
+          JSON.stringify({
+            event: "telegram_reply_failed",
+            stage: "callback_message",
+          }),
         );
       }
     }

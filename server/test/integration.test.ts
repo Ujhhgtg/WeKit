@@ -107,10 +107,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       // Miniflare's D1 exec() rejects chunks that only contain comments; the
       // production migration runner accepts them, so strip comment lines here.
       await db.exec(
-        readFileSync(`migrations/${migration}`, "utf8").replace(
-          /^--.*$/gm,
-          "",
-        ),
+        readFileSync(`migrations/${migration}`, "utf8").replace(/^--.*$/gm, ""),
       );
     const api = await mf.getWorker("api"),
       bot = await mf.getWorker("bot"),
@@ -1364,10 +1361,7 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       .filter((name) => name.endsWith(".sql"))
       .sort())
       await db.exec(
-        readFileSync(`migrations/${migration}`, "utf8").replace(
-          /^--.*$/gm,
-          "",
-        ),
+        readFileSync(`migrations/${migration}`, "utf8").replace(/^--.*$/gm, ""),
       );
     const api = await mf.getWorker("api");
     async function send(
@@ -1418,7 +1412,9 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
           "feb2ea7551ee316ed4bb443c8293b884dbfdea40b603ee3e4f4a897e4580fbae",
           roots[0],
         ),
-      db.prepare("INSERT INTO attestation_current VALUES(1,?)").bind("snapshot"),
+      db
+        .prepare("INSERT INTO attestation_current VALUES(1,?)")
+        .bind("snapshot"),
     ]);
 
     type RegistrationActor = {
@@ -1564,11 +1560,7 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       );
       await db
         .prepare("INSERT OR IGNORE INTO attestation_roots VALUES(?,?,?)")
-        .bind(
-          "snapshot",
-          await sha(unb64(hardware.rootSpki)),
-          hardware.root,
-        )
+        .bind("snapshot", await sha(unb64(hardware.rootSpki)), hardware.root)
         .run();
       const body = {
         spki: b64(await crypto.subtle.exportKey("spki", key.publicKey)),
@@ -1711,24 +1703,19 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
     };
     const reused = await ok(
       (
-        await signed(
-          reuseActor,
-          warmupA.key.privateKey,
-          "/v1/registrations",
-          { deviceInfo: { model: "reuse" } },
-        )
+        await signed(reuseActor, warmupA.key.privateKey, "/v1/registrations", {
+          deviceInfo: { model: "reuse" },
+        })
       ).response,
     );
     assert.equal(reused.installationId, createdA.installationId);
     assert.equal(reused.assurance, "UNATTESTED_HARDWARE");
     assert.equal(reused.degraded, "SUSPENDED");
     assert.equal(
-      (
-        await db
-          .prepare("SELECT assurance FROM installations WHERE installation_id=?")
-          .bind(createdA.installationId)
-          .first<{ assurance: string }>()
-      )!.assurance,
+      (await db
+        .prepare("SELECT assurance FROM installations WHERE installation_id=?")
+        .bind(createdA.installationId)
+        .first<{ assurance: string }>())!.assurance,
       "UNATTESTED_HARDWARE",
     );
     // Idempotent replay with the same request id keeps returning the stored result.
@@ -1786,12 +1773,7 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
         .prepare(
           "INSERT INTO bindings(binding_id,installation_id,telegram_user_id,status,created_at) VALUES(?,?,?,'ACTIVE',?)",
         )
-        .bind(
-          "binding-downgrade",
-          credentialInstallation,
-          "tg-downgrade",
-          now,
-        ),
+        .bind("binding-downgrade", credentialInstallation, "tg-downgrade", now),
       db
         .prepare(
           "INSERT INTO credentials(credential_id,installation_id,binding_id,token_sha256,auth_epoch,status,created_at) VALUES(?,?,?,?,1,'ACTIVE',?)",
@@ -1833,12 +1815,10 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
     assert.ok(initialized.initializationId);
     assert.ok(initialized.grantId);
     assert.equal(
-      (
-        await db
-          .prepare("SELECT assurance FROM installations WHERE installation_id=?")
-          .bind(credentialInstallation)
-          .first<{ assurance: string }>()
-      )!.assurance,
+      (await db
+        .prepare("SELECT assurance FROM installations WHERE installation_id=?")
+        .bind(credentialInstallation)
+        .first<{ assurance: string }>())!.assurance,
       "UNATTESTED_HARDWARE",
     );
 
@@ -1911,7 +1891,9 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
     // honours the flag keeps retrying only states it can actually fix.
     const expiredTokens = await registrationTokens();
     await db
-      .prepare("UPDATE registration_contexts SET expires_at=0 WHERE registration_id=?")
+      .prepare(
+        "UPDATE registration_contexts SET expires_at=0 WHERE registration_id=?",
+      )
       .bind(expiredTokens.context.registrationId)
       .run();
     const expired = await error(

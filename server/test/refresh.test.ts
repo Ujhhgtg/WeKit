@@ -41,8 +41,12 @@ test("real workerd refresh bulk-inserts 1759 revocations atomically and rolls ba
   try {
     const db = await mf.getD1Database("DB");
     await db.exec(readFileSync("migrations/0001_remote_payload.sql", "utf8"));
-    await db.exec(readFileSync("migrations/0002_unattested_hardware.sql", "utf8"));
-    await db.exec(readFileSync("migrations/0003_user_release_channels.sql", "utf8"));
+    await db.exec(
+      readFileSync("migrations/0002_unattested_hardware.sql", "utf8"),
+    );
+    await db.exec(
+      readFileSync("migrations/0003_user_release_channels.sql", "utf8"),
+    );
     const response = await mf.dispatchFetch("https://refresh.test/");
     assert.equal(response.status, 200, await response.text());
     const first = await db

@@ -6,7 +6,10 @@ import {
   canonicalRange,
   transact,
 } from "./auth";
-import { installationAttestation } from "./attestation";
+import {
+  installationAttestation,
+  type InstallationAttestation,
+} from "./attestation";
 import { b64, opaqueId, unwrap, type Wrapped } from "./crypto";
 import { body, fail, hash, id, json, nonce, source, text } from "./http";
 import { LIMITS, type Env } from "./env";
@@ -78,9 +81,9 @@ async function requireFreshAttestation(env: Env): Promise<void> {
 async function downgradeRevokedInstallation(
   env: Env,
   installationId: string,
+  trust: InstallationAttestation,
 ): Promise<void> {
-  const trust = await installationAttestation(env, installationId);
-  if (!trust || trust.assurance !== "ATTESTED" || !trust.rootTrusted || !trust.fresh)
+  if (trust.assurance !== "ATTESTED" || !trust.rootTrusted || !trust.fresh)
     return;
   if (trust.revoked === 0 && trust.suspended === 0) return;
   const updated = await env.DB.prepare(
@@ -99,23 +102,20 @@ async function downgradeRevokedInstallation(
     );
 }
 export async function initialize(env: Env, req: Request): Promise<Response> {
-  const {
-    value: v,
-    raw,
-    text: rawText,
-  } = await body(req, initSchema);
+  const { value: v, raw, text: rawText } = await body(req, initSchema);
   if (v.requestedPayloadId !== null && !v.cachedApkSha256)
     fail(400, "CACHE_HASH_REQUIRED", "请求缓存载荷须提供摘要");
   const auth = await authenticate(env, req, raw, v);
   if (auth.installationId) {
-    const installation = await env.DB.prepare(
-      "SELECT assurance FROM installations WHERE installation_id=?",
-    )
-      .bind(auth.installationId)
-      .first<{ assurance: string }>();
-    if (installation?.assurance !== "UNATTESTED_HARDWARE") {
-      await requireFreshAttestation(env);
-      await downgradeRevokedInstallation(env, auth.installationId);
+    // One read answers all three pre-checks: the assurance mode, the snapshot freshness gate
+    // and the post-registration revocation downgrade.
+    const trust = await installationAttestation(env, auth.installationId);
+    if (!trust)
+      fail(503, "ATTESTATION_STATUS_UNAVAILABLE", "证明状态资料不可用", true);
+    if (trust.assurance !== "UNATTESTED_HARDWARE") {
+      if (!trust.fresh)
+        fail(503, "ATTESTATION_STATUS_UNAVAILABLE", "证明状态资料不可用", true);
+      await downgradeRevokedInstallation(env, auth.installationId, trust);
     }
   }
   const initializationId = opaqueId(),
@@ -374,11 +374,7 @@ const reportSchema = z.strictObject({
   errorMessage: text(2048, true).optional(),
 });
 export async function report(env: Env, req: Request): Promise<Response> {
-  const {
-    value: v,
-    raw,
-    text: rawText,
-  } = await body(req, reportSchema);
+  const { value: v, raw, text: rawText } = await body(req, reportSchema);
   const auth = await authenticate(env, req, raw, v);
   const reportId = opaqueId();
   const origin = source(req, env);

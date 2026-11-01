@@ -23,11 +23,31 @@ const CACHE_BYTES_LIMIT = 2 * 1024 * 1024;
 // no single entry can dominate the cache budget.
 const CACHE_LENGTH_LIMIT = 32768;
 
-const XOR_SEED = [0xeb,0x6f,0xf0,0x9b,0x17,0xb8,0xc5,0x39,0x39,0xa9,0xa3,0x12,0x22,0xff,0xb9,0x13,0x33,0x0c,0x02,0x83,0x56,0x67,0x5e,0xc7,0x9e,0x4d,0x46,0xc1,0x88,0x95,0x4e,0x2f];
-const CENTER_SELECTOR = [0x25,0xbe,0xe2,0x86,0xf5,0xd7,0x79,0xea,0xb4,0x65,0xef,0x61,0x58,0x15,0x8b,0xda,0x83,0xb6,0x82,0x3a,0x0f,0x54,0x39,0x0f,0x85,0x6f,0x7f,0xa9,0x63,0x84,0xd6,0x29];
-const CENTER_SEED = [0x73,0x83,0xf0,0xb4,0x23,0x2b,0x2e,0x76,0x63,0x5b,0x26,0x04,0x14,0xf2,0x99,0x94,0x8a,0x9f,0x37,0x46,0x93,0x8e,0x2b,0xfa,0x24,0x51,0x5a,0x0f,0x74,0xc7,0xf3,0x00];
-const STRIDE_SELECTOR = [0xd5,0x95,0xff,0x8b,0x81,0x85,0x97,0x4a,0x6e,0x5b,0x39,0x75,0x25,0xb3,0xe6,0x40,0x94,0xda,0xbf,0x4e,0x66,0xcb,0x10,0xae,0x24,0xfe,0xf7,0x29,0x51,0x39,0xb0,0xb0];
-const STRIDE_SEED = [0xde,0xa0,0xb9,0x10,0x9d,0x47,0x66,0x27,0x5a,0xc1,0xb9,0xfa,0x2e,0x48,0xf0,0x4d,0x13,0xbc,0x94,0x31,0xb3,0x42,0x2e,0x9b,0x8c,0x3a,0x1b,0xd2,0x22,0x75,0x59,0x9f];
+const XOR_SEED = [
+  0xeb, 0x6f, 0xf0, 0x9b, 0x17, 0xb8, 0xc5, 0x39, 0x39, 0xa9, 0xa3, 0x12, 0x22,
+  0xff, 0xb9, 0x13, 0x33, 0x0c, 0x02, 0x83, 0x56, 0x67, 0x5e, 0xc7, 0x9e, 0x4d,
+  0x46, 0xc1, 0x88, 0x95, 0x4e, 0x2f,
+];
+const CENTER_SELECTOR = [
+  0x25, 0xbe, 0xe2, 0x86, 0xf5, 0xd7, 0x79, 0xea, 0xb4, 0x65, 0xef, 0x61, 0x58,
+  0x15, 0x8b, 0xda, 0x83, 0xb6, 0x82, 0x3a, 0x0f, 0x54, 0x39, 0x0f, 0x85, 0x6f,
+  0x7f, 0xa9, 0x63, 0x84, 0xd6, 0x29,
+];
+const CENTER_SEED = [
+  0x73, 0x83, 0xf0, 0xb4, 0x23, 0x2b, 0x2e, 0x76, 0x63, 0x5b, 0x26, 0x04, 0x14,
+  0xf2, 0x99, 0x94, 0x8a, 0x9f, 0x37, 0x46, 0x93, 0x8e, 0x2b, 0xfa, 0x24, 0x51,
+  0x5a, 0x0f, 0x74, 0xc7, 0xf3, 0x00,
+];
+const STRIDE_SELECTOR = [
+  0xd5, 0x95, 0xff, 0x8b, 0x81, 0x85, 0x97, 0x4a, 0x6e, 0x5b, 0x39, 0x75, 0x25,
+  0xb3, 0xe6, 0x40, 0x94, 0xda, 0xbf, 0x4e, 0x66, 0xcb, 0x10, 0xae, 0x24, 0xfe,
+  0xf7, 0x29, 0x51, 0x39, 0xb0, 0xb0,
+];
+const STRIDE_SEED = [
+  0xde, 0xa0, 0xb9, 0x10, 0x9d, 0x47, 0x66, 0x27, 0x5a, 0xc1, 0xb9, 0xfa, 0x2e,
+  0x48, 0xf0, 0x4d, 0x13, 0xbc, 0x94, 0x31, 0xb3, 0x42, 0x2e, 0x9b, 0x8c, 0x3a,
+  0x1b, 0xd2, 0x22, 0x75, 0x59, 0x9f,
+];
 
 // The original per-byte mixer multiplies a u64 by the two constants below; with
 // the BigInt implementation each byte costs ~450 BigInt ops and ~9KB of garbage,
@@ -40,7 +60,8 @@ const C1_LO = 0x7f4a7c15;
 const C2_HI = 0xd6e8feb8;
 const C2_LO = 0x6659fd93;
 
-const rotl8 = (value: number, count: number) => ((value << (count & 7)) | (value >>> ((8 - count) & 7))) & 255;
+const rotl8 = (value: number, count: number) =>
+  ((value << (count & 7)) | (value >>> ((8 - count) & 7))) & 255;
 const rotr8 = (value: number, count: number) => rotl8(value, 8 - (count & 7));
 const gcd = (a: number, b: number): number => {
   while (b) {
@@ -65,10 +86,14 @@ let productLo = 0;
 
 function mul64(aHi: number, aLo: number, bHi: number, bLo: number): void {
   // 16-bit limbs, little-endian: [a0, a1, a2, a3].
-  const a0 = aLo & 0xffff, a1 = (aLo >>> 16) & 0xffff;
-  const a2 = aHi & 0xffff, a3 = (aHi >>> 16) & 0xffff;
-  const b0 = bLo & 0xffff, b1 = (bLo >>> 16) & 0xffff;
-  const b2 = bHi & 0xffff, b3 = (bHi >>> 16) & 0xffff;
+  const a0 = aLo & 0xffff,
+    a1 = (aLo >>> 16) & 0xffff;
+  const a2 = aHi & 0xffff,
+    a3 = (aHi >>> 16) & 0xffff;
+  const b0 = bLo & 0xffff,
+    b1 = (bLo >>> 16) & 0xffff;
+  const b2 = bHi & 0xffff,
+    b3 = (bHi >>> 16) & 0xffff;
   // Only the low four 16-bit limbs of the full product survive truncation.
   const r0 = a0 * b0;
   const r1 = a0 * b1 + a1 * b0 + Math.floor(r0 / 65536);
@@ -82,7 +107,12 @@ function mul64(aHi: number, aLo: number, bHi: number, bLo: number): void {
 // 8 seed-byte injections, 8 xor-shift-multiply-rotate rounds, then the final
 // seed/index fold. Only used while generating a keystream; the transform hot
 // path never calls it.
-function streamByte(seed: number[], length: number, tag: number, index: number): number {
+function streamByte(
+  seed: number[],
+  length: number,
+  tag: number,
+  index: number,
+): number {
   // x = length * C1 ^ (tag << 29); length and tag fit in 32 bits.
   mul64(0, length >>> 0, C1_HI, C1_LO);
   let hi = (productHi ^ (tag >>> 3)) >>> 0;
@@ -134,25 +164,47 @@ function streamByte(seed: number[], length: number, tag: number, index: number):
   return (lo ^ seed[index & 31]! ^ ((index * 99) & 255)) & 255;
 }
 
-function selectorParameters(selector: number[], length: number, offset: number): [number, number] {
-  let step = (((selector[offset]! | (selector[offset + 1]! << 8)) % length) | 1);
-  while (gcd(step, length) !== 1) { step = (step + 2) % length; if (step < 2) step = 1; }
-  return [step, (selector[offset + 2]! | (selector[offset + 3]! << 8)) % length];
+function selectorParameters(
+  selector: number[],
+  length: number,
+  offset: number,
+): [number, number] {
+  let step = ((selector[offset]! | (selector[offset + 1]! << 8)) % length) | 1;
+  while (gcd(step, length) !== 1) {
+    step = (step + 2) % length;
+    if (step < 2) step = 1;
+  }
+  return [
+    step,
+    (selector[offset + 2]! | (selector[offset + 3]! << 8)) % length,
+  ];
 }
 
 // The three stages below are the original transform writes, unchanged apart
 // from the 32-bit streamByte(). Run over a zero-filled buffer they emit the
 // keystream K; run over real data they perform the in-place transform.
 function xorStage(data: Uint8Array): void {
-  for (let i = 0; i < data.length; i++) data[i] = data[i]! ^ streamByte(XOR_SEED, data.length, 0x1c1f7500, i);
+  for (let i = 0; i < data.length; i++)
+    data[i] = data[i]! ^ streamByte(XOR_SEED, data.length, 0x1c1f7500, i);
 }
 function centerStage(data: Uint8Array): void {
   if (!data.length) return;
   const [step, start] = selectorParameters(CENTER_SELECTOR, data.length, 0);
   for (let index = 0; index < data.length; index++) {
-    const center = (index & 1) === 0 ? (data.length + Math.floor(data.length / 2) - ((Math.floor(index / 2) + 1) % data.length)) % data.length : (Math.floor(index / 2) + Math.floor(data.length / 2)) % data.length;
+    const center =
+      (index & 1) === 0
+        ? (data.length +
+            Math.floor(data.length / 2) -
+            ((Math.floor(index / 2) + 1) % data.length)) %
+          data.length
+        : (Math.floor(index / 2) + Math.floor(data.length / 2)) % data.length;
     const position = (start + center * step) % data.length;
-    data[position] = data[position]! ^ CENTER_SELECTOR[(position + index) & 31]! ^ ((index * 0x5d) & 255) ^ rotl8(position & 255, index & 7) ^ streamByte(CENTER_SEED, data.length, 0x6d3a5b17, index);
+    data[position] =
+      data[position]! ^
+      CENTER_SELECTOR[(position + index) & 31]! ^
+      ((index * 0x5d) & 255) ^
+      rotl8(position & 255, index & 7) ^
+      streamByte(CENTER_SEED, data.length, 0x6d3a5b17, index);
   }
 }
 function strideStage(data: Uint8Array): void {
@@ -160,7 +212,12 @@ function strideStage(data: Uint8Array): void {
   const [step, start] = selectorParameters(STRIDE_SELECTOR, data.length, 8);
   for (let index = 0; index < data.length; index++) {
     const position = (start + index * step) % data.length;
-    data[position] = data[position]! ^ streamByte(STRIDE_SEED, data.length, 0x2e4981c3, index) ^ ((index * 0xa7) & 255) ^ rotr8(position & 255, index & 7) ^ ((STRIDE_SELECTOR[(position ^ index) & 31]! + position) & 255);
+    data[position] =
+      data[position]! ^
+      streamByte(STRIDE_SEED, data.length, 0x2e4981c3, index) ^
+      ((index * 0xa7) & 255) ^
+      rotr8(position & 255, index & 7) ^
+      ((STRIDE_SELECTOR[(position ^ index) & 31]! + position) & 255);
   }
 }
 
@@ -197,7 +254,10 @@ function keystreamFor(length: number): Uint8Array | null {
   return keystream;
 }
 
-function transformWithKeystream(input: Uint8Array, keystream: Uint8Array): Uint8Array {
+function transformWithKeystream(
+  input: Uint8Array,
+  keystream: Uint8Array,
+): Uint8Array {
   const data = new Uint8Array(input.length);
   for (let i = 0; i < data.length; i++) data[i] = input[i]! ^ keystream[i]!;
   return data;
@@ -207,8 +267,15 @@ function transformWithKeystream(input: Uint8Array, keystream: Uint8Array): Uint8
 // on a copy, in the same order the original implementation used per direction.
 function transformUncached(input: Uint8Array, encode: boolean): Uint8Array {
   const data = input.slice();
-  if (encode) { xorStage(data); centerStage(data); strideStage(data); }
-  else { strideStage(data); centerStage(data); xorStage(data); }
+  if (encode) {
+    xorStage(data);
+    centerStage(data);
+    strideStage(data);
+  } else {
+    strideStage(data);
+    centerStage(data);
+    xorStage(data);
+  }
   return data;
 }
 
@@ -227,7 +294,13 @@ export function encodeBody(input: Uint8Array): Uint8Array {
 }
 
 export function decodeBody(input: Uint8Array): Uint8Array {
-  if (input.length < 4 || input[0] !== 0x57 || input[1] !== 0x4b || input[2] !== 0x58 || input[3] !== 0x31)
+  if (
+    input.length < 4 ||
+    input[0] !== 0x57 ||
+    input[1] !== 0x4b ||
+    input[2] !== 0x58 ||
+    input[3] !== 0x31
+  )
     throw new Error("transformed body marker missing");
   return transformBody(input.subarray(4), false);
 }

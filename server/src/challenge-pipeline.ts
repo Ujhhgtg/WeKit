@@ -123,7 +123,9 @@ export function initializationResponseChallengeSpecs(
  * Challenges attached to POST /v1/initializations/report: another report challenge for
  * this process plus floating initialization challenges for the next process starts.
  */
-export function reportResponseChallengeSpecs(request: Request): ChallengeSpec[] {
+export function reportResponseChallengeSpecs(
+  request: Request,
+): ChallengeSpec[] {
   const hint = challengePoolHint(request);
   if (hint < 0) return [];
   return [reportChallengeSpec(), ...floatingInitializationSpecs(hint)];
@@ -144,7 +146,10 @@ export async function issueChallengesBestEffort(
     return await issueChallenges(env, auth, specs);
   } catch {
     console.error(
-      JSON.stringify({ event: "pipelined_challenge_issue_failed", path: auth.path }),
+      JSON.stringify({
+        event: "pipelined_challenge_issue_failed",
+        path: auth.path,
+      }),
     );
     return [];
   }
