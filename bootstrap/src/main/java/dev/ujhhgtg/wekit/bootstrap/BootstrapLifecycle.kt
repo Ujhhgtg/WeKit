@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.bootstrap
 
 import android.app.Application
 import android.app.Instrumentation
+import android.os.Process
+import android.os.SystemClock
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.api.InjectionMode
@@ -27,9 +29,23 @@ object BootstrapLifecycle {
             return
         }
         HiddenApiBypass.setHiddenApiExemptions("L")
+        BootstrapLog.i(TAG, "hook installed ${SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()} " +
+            "ms after process start")
         val member = Instrumentation::class.java.getDeclaredMethod("callApplicationOnCreate", Application::class.java)
         hookBridge.hookMethod(member, object : IHookBridge.IMemberHookCallback {
-            override fun beforeHookedMember(param: IHookBridge.IMemberHookParam) = Unit
+            override fun beforeHookedMember(param: IHookBridge.IMemberHookParam) {
+                // The embedded local payload has no network phase and keeps the original path.
+                if (BuildConfig.EMBEDDED_PAYLOAD) return
+
+                // The host has not executed Application.onCreate yet: start native preparation,
+                // authorization and payload decryption now so they overlap the host's own startup.
+                val application = param.args[0] as Application
+                if (!application.packageName.startsWith("com.tencent.mm")) return
+                val applicationLoader = application.baseContext.classLoader ?: hostLoader
+                BootstrapCoordinator.prewarm(application, applicationLoader,
+                    loaderService, hookBridge, injectionMode, telegramRootAccess)
+            }
+
             override fun afterHookedMember(param: IHookBridge.IMemberHookParam) {
                 if (param.throwable != null) return
                 val application = param.args[0] as Application

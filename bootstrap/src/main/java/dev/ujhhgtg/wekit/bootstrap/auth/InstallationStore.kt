@@ -4,6 +4,7 @@ import android.app.Application
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
+import dev.ujhhgtg.wekit.bootstrap.utils.fs.ensurePrivateDirectory
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.io.File
@@ -35,12 +36,7 @@ data class InstallationState(
 }
 
 class InstallationStore(application: Application) {
-    val directory = File(application.noBackupFilesDir, "wekit-loader").also {
-        check(it.isDirectory || it.mkdirs())
-        it.setReadable(false, false); it.setReadable(true, true)
-        it.setWritable(false, false); it.setWritable(true, true)
-        it.setExecutable(false, false); it.setExecutable(true, true)
-    }
+    val directory = File(application.noBackupFilesDir, "wekit-loader").also(File::ensurePrivateDirectory)
     private val file = File(directory, "installation.json")
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 

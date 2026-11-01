@@ -55,7 +55,8 @@ data class RenewGrantRequest(val requestId: String, val installationId: String, 
     val initializationId: String, val grantId: String, val payloadId: String, val apkSha256: String)
 @Serializable
 data class InitializationReport(val requestId: String, val installationId: String, val processNonce: String,
-    val initializationId: String, val stage: String, val result: String, val selfWxId: String?, val selfAlias: String?, val identityReadState: String)
+    val initializationId: String, val stage: String, val result: String, val selfWxId: String?, val selfAlias: String?,
+    val identityReadState: String, val errorCode: String? = null, val errorMessage: String? = null)
 @Serializable
 data class InstallationAction(val requestId: String, val installationId: String, val processNonce: String)
 

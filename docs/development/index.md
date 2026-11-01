@@ -91,8 +91,8 @@ exec cargo xtask "$@"
 |------|------|
 | `./x configure` | 生成 Rust Android linker 配置 |
 | `./x bootstrap build` | 构建公开的二合一 bootstrap APK，或仅准备 Zygisk native 输入 |
-| `./x bootstrap build --local` | 构建内嵌 release payload 的离线二合一 bootstrap APK |
-| `./x bootstrap install` | 构建并安装 bootstrap APK；`--local` 使用内嵌 release payload 的离线变体，`--zygisk` 作为模块刷入 |
+| `./x bootstrap build --local` | 构建内嵌 debug payload 的离线二合一 bootstrap APK；添加 `--release` 则内嵌 release payload |
+| `./x bootstrap install` | 构建并安装 bootstrap APK；`--local` 默认内嵌 debug payload，添加 `--release` 则内嵌 release payload，`--zygisk` 作为模块刷入 |
 | `./x payload build` | 构建私有业务 payload APK |
 | `./x payload publish` | 构建、加密、签名并发布 release payload |
 | `./x check` | 对 Rust native 库执行 `cargo check` |
@@ -132,8 +132,11 @@ wekit-zygisk/native/.cargo/config.toml
 # release bootstrap APK
 ./x bootstrap build
 
-# release bootstrap APK，内嵌同一提交构建的 release payload
+# release bootstrap APK，默认内嵌同一提交构建的 debug payload
 ./x bootstrap build --local
+
+# release bootstrap APK，内嵌同一提交构建的 release payload
+./x bootstrap build --local --release
 
 # 只准备 bootstrap 的 Zygisk native 输入，跳过 Gradle
 ./x bootstrap build --native-only
@@ -186,12 +189,16 @@ bootstrap/build/outputs/apk/release/bootstrap-release.apk
 # 安装普通 release bootstrap
 ./x bootstrap install
 
-# 安装内嵌 release payload、加载过程完全不触网的内部测试版
+# 安装内嵌 debug payload、加载过程完全不触网的内部测试版
 ./x bootstrap install --local
+
+# 安装内嵌 release payload 的内部测试版
+./x bootstrap install --local --release
 ```
 
 `bootstrap install` 执行 release/profile 对应的 Gradle 安装任务；`--local` 使用
-`installLocal`，并会先自动构建 app native 和内嵌的 `app-release.apk`。
+`installLocal`，默认自动构建并内嵌 `app-debug.apk`，添加 `--release` 后改为内嵌
+`app-release.apk`。
 
 存在多个 adb 设备时，可通过 `ANDROID_SERIAL` 选择设备：
 
@@ -243,21 +250,25 @@ Magisk、KernelSU 或 APatch 的模块安装入口刷入。首次刷入后在 We
 # 正常 APK 安装（release）
 ./x bootstrap install
 
-# 正常 APK 安装离线 local 变体
+# 正常 APK 安装离线 local 变体（debug payload）
 ./x bootstrap install --local
+
+# 离线 local 变体（release payload）
+./x bootstrap install --local --release
 
 # 构建同一 APK，以模块方式刷入；仅显式 --reboot 才重启
 ./x bootstrap install --zygisk --device SERIAL --root ksu --reboot
 # local 变体同样可作为模块刷入
 ./x bootstrap install --zygisk --local
+./x bootstrap install --zygisk --local --release
 ```
 
 Bootstrap APK 输出到 `bootstrap/build/outputs/apk/<release|local>/`；payload APK 输出到
 `app/build/outputs/apk/<debug|release>/`。
 符号归档输出到 `target/zygisk-symbols/WeKit-<commit>-arm64-v8a-symbols.zip`。
-Bootstrap 构建始终使用 release profile。`local` 变体会自动构建并内嵌
-`app-release.apk`，完全跳过远程授权和载荷下载。内嵌载荷是可直接提取的明文，`local`
-产物只能用于内部测试，不得公开发布。
+Bootstrap 构建始终使用 release profile。`local` 变体默认自动构建并内嵌
+`app-debug.apk`，添加 `--release` 后改为内嵌 `app-release.apk`；两者都完全跳过远程授权和
+载荷下载。内嵌载荷是可直接提取的明文，`local` 产物只能用于内部测试，不得公开发布。
 
 ### 打包与加载
 

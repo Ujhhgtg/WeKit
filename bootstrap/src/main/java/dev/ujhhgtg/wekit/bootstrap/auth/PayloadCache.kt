@@ -21,6 +21,15 @@ class PayloadCache(private val store: InstallationStore, private val config: Boo
         if (destination.exists()) check(destination.delete()) { "Cannot remove damaged payload cache" }
     }
 
+    /** Removes the published cache and any unfinished download; returns true when something was removed. */
+    fun clearAll(): Boolean {
+        var removed = false
+        for (file in listOf(destination, partial)) {
+            if (file.exists() && file.delete()) removed = true
+        }
+        return removed
+    }
+
     fun open(): OpenPayloadCache? {
         if (!destination.isFile) return null
         val fd = ParcelFileDescriptor.open(destination, ParcelFileDescriptor.MODE_READ_ONLY)

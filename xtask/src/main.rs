@@ -145,9 +145,13 @@ struct BootstrapBuildArgs {
     #[arg(long)]
     native_only: bool,
 
-    /// Build bootstrap-local with the release payload embedded in the APK.
+    /// Build bootstrap-local with the debug payload embedded by default.
     #[arg(long, conflicts_with = "native_only")]
     local: bool,
+
+    /// Embed the release app payload instead of debug; bootstrap itself is always release.
+    #[arg(long, requires = "local")]
+    release: bool,
 
     /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/.
     #[arg(long)]
@@ -236,9 +240,13 @@ struct InstallArgs {
     #[arg(long)]
     zygisk: bool,
 
-    /// Install bootstrap-local with the release payload embedded in the APK.
+    /// Install bootstrap-local with the debug payload embedded by default.
     #[arg(long)]
     local: bool,
+
+    /// Embed the release app payload instead of debug; bootstrap itself is always release.
+    #[arg(long, requires = "local")]
+    release: bool,
 
     /// adb device serial (also used for normal APK installation).
     #[arg(short, long)]
@@ -520,12 +528,25 @@ fn bootstrap_gradle_task(verb: &str, local: bool) -> String {
     )
 }
 
-fn bootstrap_apk_path(local: bool) -> &'static str {
+fn bootstrap_apk_path(local: bool, release_payload: bool) -> &'static str {
     if local {
-        "bootstrap/build/outputs/apk/local/bootstrap-local.apk"
+        if release_payload {
+            "bootstrap/build/outputs/apk/local/bootstrap-local-release.apk"
+        } else {
+            "bootstrap/build/outputs/apk/local/bootstrap-local-debug.apk"
+        }
     } else {
         "bootstrap/build/outputs/apk/release/bootstrap-release.apk"
     }
+}
+
+fn embedded_payload_gradle_arg(local: bool, release_payload: bool) -> Option<String> {
+    local.then(|| {
+        format!(
+            "-Pwekit.embeddedPayloadBuildType={}",
+            if release_payload { "release" } else { "debug" }
+        )
+    })
 }
 
 /// Build the public release bootstrap or its offline embedded-payload variant.
@@ -539,7 +560,12 @@ fn task_build_bootstrap(args: &BootstrapBuildArgs) -> Result<()> {
     }
     if !args.native_only {
         let gradle_task = bootstrap_gradle_task("assemble", args.local);
-        run_gradlew(&[&gradle_task, "--no-configuration-cache"], &root)?;
+        let payload_arg = embedded_payload_gradle_arg(args.local, args.release);
+        let mut gradle_args = vec![gradle_task.as_str(), "--no-configuration-cache"];
+        if let Some(arg) = payload_arg.as_deref() {
+            gradle_args.push(arg);
+        }
+        run_gradlew(&gradle_args, &root)?;
     }
     Ok(())
 }
@@ -565,13 +591,14 @@ fn task_install(args: InstallArgs) -> Result<()> {
     command.arg(&gradle_task).current_dir(&root);
     if args.local {
         command.arg("--no-configuration-cache");
+        command.arg(embedded_payload_gradle_arg(true, args.release).unwrap());
     }
     if let Some(device) = &args.device {
         command.env("ANDROID_SERIAL", device);
     }
     run_checked(&mut command, "build/install dual-format APK")?;
     if args.zygisk {
-        let apk = root.join(bootstrap_apk_path(args.local));
+        let apk = root.join(bootstrap_apk_path(args.local, args.release));
         validate_module_apk(&apk)?;
         install_zygisk_apk(&root, &apk, args.device.as_deref(), args.root.as_deref())?;
         if args.reboot {
@@ -1432,7 +1459,18 @@ mod tests {
             ":bootstrap:assembleLocal"
         );
         assert!(!parse_bootstrap_build_args(&[]).local);
-        assert!(parse_bootstrap_build_args(&["--local"]).local);
+        let local = parse_bootstrap_build_args(&["--local"]);
+        let local_release = parse_bootstrap_build_args(&["--local", "--release"]);
+        assert!(local.local && !local.release);
+        assert!(local_release.local && local_release.release);
+        assert_eq!(
+            embedded_payload_gradle_arg(local.local, local.release).as_deref(),
+            Some("-Pwekit.embeddedPayloadBuildType=debug")
+        );
+        assert_eq!(
+            embedded_payload_gradle_arg(local_release.local, local_release.release).as_deref(),
+            Some("-Pwekit.embeddedPayloadBuildType=release")
+        );
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "build", "--release"]).is_err());
         assert!(
             Cli::try_parse_from(["xtask", "bootstrap", "build", "--local", "--native-only"])
@@ -1448,8 +1486,10 @@ mod tests {
     fn bootstrap_install_selects_release_or_local() {
         let release = parse_install_args(&[]);
         let local = parse_install_args(&["--local"]);
+        let local_release = parse_install_args(&["--local", "--release"]);
         assert!(!release.local);
-        assert!(local.local);
+        assert!(local.local && !local.release);
+        assert!(local_release.local && local_release.release);
         assert_eq!(
             bootstrap_gradle_task("install", release.local),
             ":bootstrap:installRelease"
@@ -1465,12 +1505,23 @@ mod tests {
     #[test]
     fn install_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
         let args = parse_install_args(&[
-            "--zygisk", "--local", "--device", "serial", "--root", "ksu", "--reboot",
+            "--zygisk",
+            "--local",
+            "--release",
+            "--device",
+            "serial",
+            "--root",
+            "ksu",
+            "--reboot",
         ]);
-        assert!(args.zygisk && args.local && args.reboot);
+        assert!(args.zygisk && args.local && args.release && args.reboot);
         assert_eq!(
-            bootstrap_apk_path(args.local),
-            "bootstrap/build/outputs/apk/local/bootstrap-local.apk"
+            bootstrap_apk_path(args.local, args.release),
+            "bootstrap/build/outputs/apk/local/bootstrap-local-release.apk"
+        );
+        assert_eq!(
+            bootstrap_apk_path(true, false),
+            "bootstrap/build/outputs/apk/local/bootstrap-local-debug.apk"
         );
         assert_eq!(
             bootstrap_gradle_task("assemble", args.local),

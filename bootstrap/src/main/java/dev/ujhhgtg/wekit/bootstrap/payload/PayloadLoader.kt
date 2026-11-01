@@ -2,7 +2,11 @@ package dev.ujhhgtg.wekit.bootstrap.payload
 
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import android.system.OsConstants
 import dalvik.system.InMemoryDexClassLoader
+import dev.ujhhgtg.wekit.bootstrap.BootstrapLog
+import dev.ujhhgtg.wekit.bootstrap.utils.fs.ensurePrivateDirectory
+import dev.ujhhgtg.wekit.bootstrap.utils.fs.makeOwnerReadOnly
 import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
@@ -63,7 +67,13 @@ object PayloadLoader {
     private const val MAX_NATIVE_SIZE = 64L * 1024 * 1024
     private const val ABI = "arm64-v8a"
     private const val NATIVE_PREFIX = "proc-"
+    private const val FALLBACK_PREFIX = ".payload-"
     private const val EMBEDDED_PAYLOAD_ASSET = "assets/wekit/payload.apk"
+
+    private data class PayloadAccess(
+        val apk: ParcelFileDescriptor,
+        val archive: ZipFile,
+    )
 
     /** The caller has verified the envelope; this method never resolves or reopens the cache name. */
     fun prepare(
@@ -80,23 +90,15 @@ object PayloadLoader {
             "cache length does not match the signed release"
         }
         val writableApk = ParcelFileDescriptor.adoptFd(LoaderNatives.create())
-        val apk = writableApk.use {
+        try {
             LoaderNatives.decryptPayload(
-                cache.fd, ciphertextOffset, it.fd, manifest.apkSize,
+                cache.fd, ciphertextOffset, writableApk.fd, manifest.apkSize,
                 manifest.chunkCount, manifest.chunkSize, manifest.noncePrefix,
                 manifest.payloadId, manifest.apkSha256, manifest.cipherSha256, contentKey,
             )
-            LoaderNatives.seal(it.fd)
-            // F_SEAL_WRITE rejects AssetManager's shared mapping through the original
-            // O_RDWR open file description. Reopen read-only; dup() would retain O_RDWR.
-            ParcelFileDescriptor.open(File("/proc/self/fd/" + it.fd), ParcelFileDescriptor.MODE_READ_ONLY)
-        }
-        try {
-            return prepareArchive(apk, manifest.apkSha256, nativeRoot, parent)
-        } catch (error: Throwable) {
-            apk.close()
-            throw error
-        }
+            LoaderNatives.seal(writableApk.fd)
+            return prepareArchive(writableApk, manifest.apkSha256, nativeRoot, parent)
+        } finally { writableApk.close() }
     }
 
     /** Streams the release payload embedded in this bootstrap APK into a sealed, read-only file. */
@@ -105,7 +107,7 @@ object PayloadLoader {
         nativeRoot: File,
         parent: ClassLoader,
     ): PreparedPayload {
-        val (apk, apkSha256) = ZipFile(bootstrapApk).use { archive ->
+        return ZipFile(bootstrapApk).use { archive ->
             val matches = archive.entries().asSequence()
                 .filter { !it.isDirectory && it.name == EMBEDDED_PAYLOAD_ASSET }
                 .toList()
@@ -115,11 +117,11 @@ object PayloadLoader {
             val entry = matches.single()
             require(entry.size in 1..PayloadDescriptor.MAX_APK_SIZE) { "embedded payload size is invalid" }
             val writableApk = ParcelFileDescriptor.adoptFd(LoaderNatives.create())
-            writableApk.use { writable ->
+            try {
                 val digest = MessageDigest.getInstance("SHA-256")
                 var copied = 0L
                 ParcelFileDescriptor.AutoCloseOutputStream(
-                    ParcelFileDescriptor.dup(writable.fileDescriptor)
+                    ParcelFileDescriptor.dup(writableApk.fileDescriptor)
                 ).use { output ->
                     archive.getInputStream(entry).use { input ->
                         val bytes = ByteArray(64 * 1024)
@@ -135,29 +137,21 @@ object PayloadLoader {
                     output.flush()
                 }
                 check(copied == entry.size) { "embedded payload is truncated" }
-                LoaderNatives.seal(writable.fd)
-                val readOnly = ParcelFileDescriptor.open(
-                    File("/proc/self/fd/${writable.fd}"),
-                    ParcelFileDescriptor.MODE_READ_ONLY,
-                )
-                readOnly to digest.digest().toHex()
-            }
-        }
-        return try {
-            prepareArchive(apk, apkSha256, nativeRoot, parent)
-        } catch (error: Throwable) {
-            apk.close()
-            throw error
+                LoaderNatives.seal(writableApk.fd)
+                prepareArchive(writableApk, digest.digest().toHex(), nativeRoot, parent)
+            } finally { writableApk.close() }
         }
     }
 
     private fun prepareArchive(
-        apk: ParcelFileDescriptor,
+        writableApk: ParcelFileDescriptor,
         apkSha256: String,
         nativeRoot: File,
         parent: ClassLoader,
     ): PreparedPayload {
-        val archive = ZipFile("/proc/self/fd/${apk.fd}")
+        val access = openPayloadAccess(writableApk, nativeRoot)
+        val apk = access.apk
+        val archive = access.archive
         try {
             val entries = validateArchive(archive)
             val dex = readDex(archive, entries)
@@ -189,7 +183,149 @@ object PayloadLoader {
             return PreparedPayload(apk, dex, directory, loader, apkSha256, archive)
         } catch (error: Throwable) {
             archive.close()
+            apk.close()
             throw error
+        }
+    }
+
+    /**
+     * Reopening a sealed memfd through procfs is not permitted by every SELinux policy.
+     * Fall back to an unlinked private file only when the kernel rejects that access.
+     */
+    private fun openPayloadAccess(writableApk: ParcelFileDescriptor, nativeRoot: File): PayloadAccess {
+        val fallbackDirectory = fallbackDirectory(nativeRoot)
+        if (fallbackDirectory.isDirectory) sweepFallbackRoot(fallbackDirectory)
+        try {
+            return openMemfdPayload(writableApk)
+        } catch (primary: Throwable) {
+            if (!isAccessDenied(primary)) throw primary
+            BootstrapLog.w(
+                "PayloadLoader",
+                "procfs payload reopen denied (${primary.message}); using private fallback",
+            )
+            return try {
+                openFallbackPayload(writableApk, nativeRoot)
+            } catch (fallback: Throwable) {
+                fallback.addSuppressed(primary)
+                throw fallback
+            }
+        }
+    }
+
+    private fun openMemfdPayload(writableApk: ParcelFileDescriptor): PayloadAccess {
+        val path = "/proc/self/fd/${writableApk.fd}"
+        val apk = openDescriptor(path, OsConstants.O_RDONLY or OsConstants.O_CLOEXEC)
+        try {
+            return PayloadAccess(apk, ZipFile(path))
+        } catch (error: Throwable) {
+            apk.close()
+            throw error
+        }
+    }
+
+    private fun openFallbackPayload(writableApk: ParcelFileDescriptor, nativeRoot: File): PayloadAccess {
+        val directory = fallbackDirectory(nativeRoot)
+        directory.ensurePrivateDirectory()
+        val file = File(directory, "$FALLBACK_PREFIX${Os.getpid()}-${UUID.randomUUID()}.apk")
+        try {
+            val output = openDescriptor(
+                file.absolutePath,
+                OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or
+                    OsConstants.O_CLOEXEC or OsConstants.O_NOFOLLOW,
+                OsConstants.S_IRUSR or OsConstants.S_IWUSR,
+            )
+            try {
+                copyPayload(writableApk, output)
+                Os.fsync(output.fileDescriptor)
+            } finally { output.close() }
+            file.makeOwnerReadOnly()
+            val apk = openDescriptor(
+                file.absolutePath,
+                OsConstants.O_RDONLY or OsConstants.O_CLOEXEC or OsConstants.O_NOFOLLOW,
+                0,
+            )
+            try {
+                val archive = ZipFile(file)
+                try {
+                    // Both handles now own the inode; no plaintext pathname remains.
+                    check(file.delete()) { "cannot unlink fallback payload" }
+                    return PayloadAccess(apk, archive)
+                } catch (error: Throwable) {
+                    archive.close()
+                    throw error
+                }
+            } catch (error: Throwable) {
+                apk.close()
+                throw error
+            }
+        } finally { file.delete() }
+    }
+
+    private fun fallbackDirectory(nativeRoot: File): File = File(
+        checkNotNull(nativeRoot.parentFile) { "payload native root has no parent" },
+        "tmp",
+    )
+
+    private fun copyPayload(source: ParcelFileDescriptor, destination: ParcelFileDescriptor) {
+        val size = Os.fstat(source.fileDescriptor).st_size
+        require(size > 0)
+        val buffer = ByteArray(64 * 1024)
+        var offset = 0L
+        while (offset < size) {
+            val count = Os.pread(
+                source.fileDescriptor,
+                buffer,
+                0,
+                minOf(buffer.size.toLong(), size - offset).toInt(),
+                offset,
+            )
+            check(count > 0) { "payload fallback ended before the verified size" }
+            var written = 0
+            while (written < count) {
+                val progress = Os.pwrite(
+                    destination.fileDescriptor,
+                    buffer,
+                    written,
+                    count - written,
+                    offset + written,
+                )
+                check(progress > 0) { "payload fallback write made no progress" }
+                written += progress
+            }
+            offset += count
+        }
+        check(Os.fstat(destination.fileDescriptor).st_size == size) {
+            "payload fallback length mismatch"
+        }
+    }
+
+    private fun openDescriptor(path: String, flags: Int, mode: Int = 0): ParcelFileDescriptor {
+        val fd = Os.open(path, flags, mode)
+        return try {
+            ParcelFileDescriptor.dup(fd)
+        } finally {
+            Os.close(fd)
+        }
+    }
+
+    private fun isAccessDenied(error: Throwable): Boolean {
+        var current: Throwable? = error
+        repeat(8) {
+            val item = current ?: return false
+            if (item is android.system.ErrnoException &&
+                item.errno in setOf(OsConstants.EACCES, OsConstants.EPERM)) return true
+            val message = item.message.orEmpty()
+            if ("EACCES" in message || "EPERM" in message || "Permission denied" in message) return true
+            current = item.cause
+        }
+        return false
+    }
+
+    private fun sweepFallbackRoot(root: File) {
+        for (child in root.listFiles().orEmpty()) {
+            if (!child.name.startsWith(FALLBACK_PREFIX)) continue
+            val owner = child.name.removePrefix(FALLBACK_PREFIX).substringBefore('-').toIntOrNull()
+            if (owner == null || !File("/proc/$owner").exists()) child.deleteRecursively()
         }
     }
 
@@ -296,7 +432,7 @@ object PayloadLoader {
                 }
             }
             check(size == entry.size && crc.value == entry.crc) { "native entry CRC/length mismatch: ${entry.name}" }
-            check(target.setReadable(true, true) && target.setExecutable(true, true) && target.setWritable(false, false)) {
+            check(target.setExecutable(true, true)) {
                 "cannot protect native library: $target"
             }
         }

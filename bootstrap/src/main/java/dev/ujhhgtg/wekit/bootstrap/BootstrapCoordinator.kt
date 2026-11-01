@@ -11,6 +11,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.os.SystemClock
+import android.system.ErrnoException
+import android.system.OsConstants
 import android.widget.Toast
 import androidx.activity.ComponentDialog
 import androidx.core.net.toUri
@@ -23,11 +26,14 @@ import dev.ujhhgtg.wekit.bootstrap.auth.InitializationRequest
 import dev.ujhhgtg.wekit.bootstrap.auth.InstallationAction
 import dev.ujhhgtg.wekit.bootstrap.auth.InstallationState
 import dev.ujhhgtg.wekit.bootstrap.auth.InstallationStore
+import dev.ujhhgtg.wekit.bootstrap.auth.LocalAuthorization
+import dev.ujhhgtg.wekit.bootstrap.auth.LocalAuthorizationStore
 import dev.ujhhgtg.wekit.bootstrap.auth.PayloadCache
 import dev.ujhhgtg.wekit.bootstrap.auth.RegistrationContextRequest
 import dev.ujhhgtg.wekit.bootstrap.auth.RegistrationRequest
 import dev.ujhhgtg.wekit.bootstrap.auth.ReleaseManifest
 import dev.ujhhgtg.wekit.bootstrap.auth.RemoteApiException
+import dev.ujhhgtg.wekit.bootstrap.auth.VerifiedRelease
 import dev.ujhhgtg.wekit.bootstrap.auth.WireJson
 import dev.ujhhgtg.wekit.bootstrap.auth.WireProtocol
 import dev.ujhhgtg.wekit.bootstrap.auth.integer
@@ -49,9 +55,14 @@ import dev.ujhhgtg.wekit.loader.api.PayloadEnvironment
 import dev.ujhhgtg.wekit.loader.api.TelegramRootAccess
 import kotlinx.serialization.json.JsonObject
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.lang.ref.WeakReference
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.zip.ZipException
 
 /** One initialization in this process. Other processes neither wait for nor communicate with it. */
 object BootstrapCoordinator {
@@ -90,8 +101,90 @@ object BootstrapCoordinator {
     private var payloadReadyForRestart = false
     /** Set after a non-retryable API failure; cleared only by an explicit user action. */
     private var retryBlocked = false
+    /**
+     * Work started from the `callApplicationOnCreate` before hook: it overlaps the host's own
+     * `Application.onCreate` instead of extending the synchronous startup window. [start] joins it.
+     */
+    private var prewarm: CompletableFuture<PreparedStart?>? = null
+    private var prewarmStartedAt = 0L
+    /** `main`, `push`, `appbrand0`, ... used to tell interleaved process logs apart. */
+    private var processLabel = "?"
+    /** [start] installs the payload entry at most once per process. */
+    private var startConsumed = false
+    /** Sealed short-lived authorization that lets a start skip the control plane. */
+    private lateinit var localAuthorization: LocalAuthorizationStore
+    private var restartScheduled = false
+
+    /** Everything the main thread needs to install the payload entry after the worker is done. */
+    private class PreparedStart(
+        val state: InstallationState,
+        val identity: CurrentIdentity,
+        val release: VerifiedRelease,
+        /** Watermark identity: a fresh initialization, or the last online one for an offline boot. */
+        val initializationId: String,
+        val loaded: PreparedPayload,
+        /** True when the payload was decrypted from the local authorization, without the server. */
+        val offline: Boolean,
+    )
+
 
     @Synchronized
+    private fun bind(
+        hostApplication: Application, hostClassLoader: ClassLoader, service: ILoaderService,
+        bridge: IHookBridge, mode: InjectionMode, rootAccess: TelegramRootAccess?,
+    ) {
+        application = hostApplication; hostLoader = hostClassLoader; loaderService = service
+        hookBridge = bridge; injectionMode = mode; telegramRootAccess = rootAccess
+        mainProcess = Application.getProcessName() == hostApplication.packageName
+        processLabel = Application.getProcessName()?.let {
+            if (it == hostApplication.packageName) "main" else it.substringAfterLast(':')
+        } ?: "?"
+        store = InstallationStore(hostApplication)
+        localAuthorization = LocalAuthorizationStore(hostApplication)
+        identityReader = CurrentIdentityReader(hostApplication)
+        if (mainProcess) hostApplication.registerActivityLifecycleCallbacks(Lifecycle())
+        initialized = true
+    }
+
+    /**
+     * Starts native preparation, credential/cache reads, the initialization request and the payload
+     * decryption on the bootstrap worker from the `callApplicationOnCreate` before hook, so all of it
+     * overlaps the host's own `Application.onCreate` instead of extending the synchronous window.
+     *
+     * The payload entry is still installed synchronously by [start]; only work that does not need the
+     * main thread is moved here. Never throws into the host's startup hook: failures are rethrown by
+     * [start], which reports them exactly like a synchronous failure.
+     */
+    fun prewarm(
+        hostApplication: Application, hostClassLoader: ClassLoader, service: ILoaderService,
+        bridge: IHookBridge, mode: InjectionMode, rootAccess: TelegramRootAccess?,
+    ) {
+        check(Looper.myLooper() == Looper.getMainLooper()) { "bootstrap prewarm must run on the main thread" }
+        if (!BootstrapProcess.isCurrentProcessTargeted()) {
+            BootstrapLog.i("Bootstrap", "skipping non-target process ${Application.getProcessName()}")
+            return
+        }
+        val future = CompletableFuture<PreparedStart?>()
+        synchronized(this) {
+            if (initialized) return
+            prewarm = future
+            try {
+                bind(hostApplication, hostClassLoader, service, bridge, mode, rootAccess)
+            } catch (error: Throwable) {
+                future.completeExceptionally(error)
+                return
+            }
+            prewarmStartedAt = SystemClock.elapsedRealtime()
+            log("prewarm started ${SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()} ms " +
+                "after process start, before the host's Application.onCreate")
+            worker.execute {
+                try { future.complete(authorizeAndPrepare(allowEntry = true)) }
+                catch (error: Throwable) { future.completeExceptionally(error) }
+            }
+        }
+    }
+
+    /** Main-thread entry point from the `callApplicationOnCreate` after hook. */
     fun start(
         hostApplication: Application, hostClassLoader: ClassLoader, service: ILoaderService,
         bridge: IHookBridge, mode: InjectionMode, rootAccess: TelegramRootAccess?,
@@ -101,19 +194,40 @@ object BootstrapCoordinator {
             BootstrapLog.i("Bootstrap", "skipping non-target process ${Application.getProcessName()}")
             return
         }
-        if (initialized) return
-        application = hostApplication; hostLoader = hostClassLoader; loaderService = service
-        hookBridge = bridge; injectionMode = mode; telegramRootAccess = rootAccess
-        mainProcess = Application.getProcessName() == hostApplication.packageName
-        store = InstallationStore(hostApplication)
-        identityReader = CurrentIdentityReader(hostApplication)
-        if (mainProcess) hostApplication.registerActivityLifecycleCallbacks(Lifecycle())
-        initialized = true
-        // Finish installing business hooks before returning to the host's startup callback.
-        // Posting the entry later lets the host run with only a partially installed module.
-        try { initialize(allowEntry = true) }
-        catch (error: Throwable) { failed(error) }
+        try {
+            val enteredAt = millisSincePrewarm()
+            if (prewarm != null) log("startup hook entered at $enteredAt ms")
+            val pending: CompletableFuture<PreparedStart?>?
+            synchronized(this) {
+                if (startConsumed) return
+                startConsumed = true
+                pending = prewarm
+                if (pending == null && !initialized)
+                    bind(hostApplication, hostClassLoader, service, bridge, mode, rootAccess)
+            }
+            // Finish installing business hooks before returning to the host's startup callback.
+            // Posting the entry later lets the host run with only a partially installed module.
+            val preparedStart = if (pending != null) awaitPrewarm(pending, enteredAt)
+            else authorizeAndPrepare(allowEntry = true)
+            if (preparedStart != null) startPreparedEntry(preparedStart)
+        } catch (error: Throwable) { failed(error) }
     }
+
+    private fun awaitPrewarm(pending: CompletableFuture<PreparedStart?>, enteredAt: Long): PreparedStart? {
+        val preparedStart = try {
+            pending.get()
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
+        val joinedAt = millisSincePrewarm()
+        log("prewarm joined at $joinedAt ms (host startup window $enteredAt ms, main waited ${joinedAt - enteredAt} ms)")
+        return preparedStart
+    }
+
+    private fun millisSincePrewarm(): Long =
+        if (prewarmStartedAt == 0L) 0 else SystemClock.elapsedRealtime() - prewarmStartedAt
+
+    private fun log(message: String) = BootstrapLog.i("Bootstrap", "[${Process.myPid()} $processLabel] $message")
 
     private fun submit(action: () -> Unit) {
         if (!running.compareAndSet(false, true)) return
@@ -124,6 +238,7 @@ object BootstrapCoordinator {
         }
     }
 
+    @Synchronized
     private fun ensureSetup() {
         if (::api.isInitialized) return
         check(Process.is64Bit()) { "WeKit bootstrap requires arm64" }
@@ -134,112 +249,361 @@ object BootstrapCoordinator {
         cache = PayloadCache(store, config)
     }
 
-    private fun initialize(allowEntry: Boolean = false) {
+    /** Retry and lifecycle re-check entry point; runs on the bootstrap worker. */
+    private fun initialize() {
+        authorizeAndPrepare(allowEntry = false)
+    }
+
+    /** Authorization decisions that invalidate the cached payload and its local authorization. */
+    private val denialCodes =
+        setOf("AUTHORIZATION_DENIED", "PAYLOAD_UNAVAILABLE", "INVALID_TOKEN", "RECONFIRM_REQUIRED")
+
+    /**
+     * Everything that does not need the main thread: native preparation, the local authorization
+     * read, the initialization request and the payload decryption/class loading. Runs on the
+     * prewarm worker, or on the startup callback itself when prewarming is unavailable.
+     */
+    private fun authorizeAndPrepare(allowEntry: Boolean): PreparedStart? {
         // Lifecycle callbacks re-run initialization on every resume; a failure the server
         // marked as non-retryable must not be replayed until the user asks for it.
-        if (retryBlocked) return
+        if (retryBlocked) return null
         ensureSetup()
-        if (payloadReadyForRestart) return
-        if (entryAttempted) {
-            if (mainProcess && loadedWxId != null && !warnedAccountSwitch) {
-                val now = identityReader.read()
-                if (now.ready && now.wxId != loadedWxId) {
-                    warnedAccountSwitch = true
-                    message(uiText(R.string.wekit_auth_account_changed))
-                } else if (now.ready && now.alias != null && now.alias != reportedAlias && successfulInitializationId != null) {
-                    if (report(successfulState!!, successfulInitializationId!!, "IDENTITY_READ", "IDENTITY_UPDATE", now)) reportedAlias = now.alias
-                }
-            }
-            return
-        }
+        if (payloadReadyForRestart) return null
+        if (entryAttempted) { refreshIdentityReport(); return null }
         val state = store.load()
         if (state == null || !state.active || !store.hasKey(state.keyAlias)) {
-            if (!mainProcess) { BootstrapLog.i("Bootstrap", "No active installation; skipping this process"); return }
+            if (!mainProcess) { log("no active installation; skipping this process"); return null }
             ensureBinding(state)
-            return
+            return null
         }
+        if (allowEntry) {
+            // A locally authorized boot never waits for the control plane. Only the main process
+            // validates and renews it in the background; other processes boot offline or skip.
+            val local = tryLocalBoot(state)
+            if (local != null) return local
+        }
+        if (!mainProcess) { log("no local authorization; skipping this process"); return null }
+        return authorizeOnline(state, allowEntry)
+    }
+
+    /**
+     * Decrypts the cached payload from the locally stored authorization. Returns null when no
+     * usable record exists (missing, expired, mismatched, corrupt); the caller then falls back to
+     * the online path, so a broken record can only delay a start, never block one.
+     */
+    private fun tryLocalBoot(state: InstallationState): PreparedStart? {
+        val installationId = state.installationId!!
+        val local = localAuthorization.read(installationId) ?: return null
+        if (!local.usable(System.currentTimeMillis())) {
+            log("local authorization expired; using the online path")
+            localAuthorization.clear(installationId)
+            return null
+        }
+        val opened = try {
+            cache.open()
+        } catch (_: Exception) {
+            log("payload cache is unreadable; discarding the local authorization")
+            cache.clearAll()
+            localAuthorization.clear(installationId)
+            return null
+        } ?: return null
+        var prepared: PreparedPayload? = null
+        var key: ByteArray? = null
+        try {
+            if (!local.covers(installationId, opened.release)) {
+                log("local authorization does not cover the cached payload; discarding it")
+                localAuthorization.clear(installationId)
+                return null
+            }
+            val identity = localIdentity()
+            if (!identity.ready) { log("local authorization skipped: the account is not ready"); return null }
+            key = local.contentKeyBytes()
+            val loaded = PayloadLoader.prepare(opened.fd, opened.offset, opened.release.descriptor, key,
+                File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
+            prepared = loaded
+            log("locally authorized payload prepared at ${millisSincePrewarm()} ms")
+            return PreparedStart(state, identity, opened.release, local.initializationId, loaded, offline = true)
+        } catch (error: Throwable) {
+            prepared?.close()
+            localAuthorization.clear(installationId)
+            log("local authorization could not load the payload; using the online path: " +
+                (error.message ?: error.javaClass.simpleName))
+            return null
+        } finally {
+            key?.fill(0)
+            opened.close()
+        }
+    }
+
+    /** Online authorization and payload preparation; only the main process runs this. */
+    private fun authorizeOnline(state: InstallationState, allowEntry: Boolean): PreparedStart? {
         val openedCache = try { cache.open() }
         catch (error: Exception) {
-            if (!mainProcess) throw error
             BootstrapLog.e("Bootstrap", "Invalid payload cache; downloading the authorized object", error)
-            cache.clear()
+            cache.clearAll()
             null
         }
-        if (!mainProcess && openedCache == null) { BootstrapLog.i("Bootstrap", "No complete cache; skipping this process"); return }
-        val identity = if (mainProcess) identityReader.read() else CurrentIdentity(null, null, "UNAVAILABLE_IN_PROCESS", true)
+        val identity = localIdentity()
         if (!identity.ready) {
             openedCache?.close()
             message(uiText(R.string.wekit_auth_account_not_ready))
-            return
-        }
-        var request = initializationBody(state, identity)
-        if (!mainProcess && openedCache != null) {
-            request = request.copy(requestedPayloadId = openedCache.release.descriptor.payloadId,
-                cachedApkSha256 = openedCache.release.descriptor.apkSha256)
+            return null
         }
         var initializationId: String? = null
         var key: ByteArray? = null
         var selectedCache = openedCache
+        var stage = "AUTHORIZE"
+        var loaded: PreparedPayload? = null
         try {
-            val authorization = run {
-                val response = api.signedPost("/v1/initializations", WireJson.body(request), state, processNonce)
-                initializationId = response.string("initializationId")
-                key = WireProtocol.decode(response.string("contentKey"), 32)
-                JsonObject(response.filterKeys { it != "contentKey" })
-            }
-            if (!mainProcess && selectedCache == null) {
-                BootstrapLog.i("Bootstrap", "Cloud payload cache is not ready in this process")
-                return
-            }
-            val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
-            require(authorization.string("payloadId") == release.descriptor.payloadId)
-            if (mainProcess && (openedCache == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
+            val authorization = authorizeWithServer(state, identity)
+            initializationId = authorization.initializationId
+            key = authorization.contentKey()
+            log("initialization authorized at ${millisSincePrewarm()} ms")
+            stage = "RELEASE_VERIFY"
+            val release = authorization.release
+            if (openedCache == null || openedCache.release.manifestSha256 != release.manifestSha256) {
                 openedCache?.close(); selectedCache = null
                 val download = {
-                    cache.download(api, state, processNonce, authorization, release)
+                    cache.download(api, state, processNonce, authorization.response, release)
+                    persistLocalAuthorization(state, authorization, "download")
                     payloadReadyForRestart = true
-                    message(uiText(R.string.wekit_auth_payload_ready))
+                    message(uiText(R.string.wekit_auth_payload_updated))
                 }
                 // Downloads can outlive startup. Activate them only in a new process, whose
                 // synchronous startup still owns the hook-installation window.
                 if (allowEntry) submit(download) else download()
-                return
+                return null
             }
-            val selected = selectedCache!!
-            val selectedRelease = selected.release
-            require(selectedRelease.manifestSha256 == release.manifestSha256) { "Cache differs from authorized manifest" }
+            val selected = selectedCache
+            require(selected.release.manifestSha256 == release.manifestSha256) { "Cache differs from authorized manifest" }
             if (!allowEntry) {
                 payloadReadyForRestart = true
                 message(uiText(R.string.wekit_auth_payload_ready))
-                return
+                return null
             }
-            check(Looper.myLooper() == Looper.getMainLooper())
-            val loaded = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key!!,
+            stage = "PAYLOAD_LOAD"
+            val preparedPayload = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key!!,
                 File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
+            loaded = preparedPayload
+            persistLocalAuthorization(state, authorization, "boot")
             key.fill(0); key = null
-            prepared = loaded
+            log("payload prepared at ${millisSincePrewarm()} ms")
+            return PreparedStart(state, identity, release, authorization.initializationId, preparedPayload,
+                offline = false)
+        } catch (error: Throwable) {
+            loaded?.close()
+            if (initializationId != null) {
+                report(state, initializationId, "INITIALIZATION", "FAILED", identity, stage, error)
+            }
+            throw error
+        } finally { selectedCache?.close(); key?.fill(0) }
+    }
+
+    private fun localIdentity(): CurrentIdentity =
+        if (mainProcess) identityReader.read() else CurrentIdentity(null, null, "UNAVAILABLE_IN_PROCESS", true)
+
+    private class ServerAuthorization(
+        /** Full initialization response without the content key, for downloads and reporting. */
+        val response: JsonObject,
+        val initializationId: String,
+        /** Base64url content key; decoded only where it is used. */
+        val contentKeyText: String,
+        val release: VerifiedRelease,
+    ) {
+        fun contentKey(): ByteArray = WireProtocol.decode(contentKeyText, 32)
+    }
+
+    private fun authorizeWithServer(state: InstallationState, identity: CurrentIdentity): ServerAuthorization {
+        val requestStartedAt = SystemClock.elapsedRealtime()
+        val response = api.signedPost("/v1/initializations", WireJson.body(initializationBody(state, identity)),
+            state, processNonce)
+        log("initialization request finished in ${SystemClock.elapsedRealtime() - requestStartedAt} ms")
+        val initializationId = response.string("initializationId")
+        val contentKeyText = response.string("contentKey")
+        WireProtocol.decode(contentKeyText, 32)
+        val authorization = JsonObject(response.filterKeys { it != "contentKey" })
+        val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
+        require(authorization.string("payloadId") == release.descriptor.payloadId)
+        return ServerAuthorization(authorization, initializationId, contentKeyText, release)
+    }
+
+    /** Renews the local authorization after a successful online authorization. */
+    private fun persistLocalAuthorization(
+        state: InstallationState,
+        authorization: ServerAuthorization,
+        reason: String,
+    ) {
+        try {
+            val descriptor = authorization.release.descriptor
+            val now = System.currentTimeMillis()
+            localAuthorization.write(LocalAuthorization(
+                installationId = state.installationId!!,
+                initializationId = authorization.initializationId,
+                payloadId = descriptor.payloadId,
+                apkSha256 = descriptor.apkSha256,
+                cipherSha256 = descriptor.cipherSha256,
+                manifestSha256 = authorization.release.manifestSha256,
+                issuedAt = now,
+                expiresAt = now + LocalAuthorization.GRACE_MS,
+                contentKey = authorization.contentKeyText,
+            ))
+            log("local authorization renewed ($reason, ${LocalAuthorization.GRACE_MS / 3_600_000} h)")
+        } catch (error: Throwable) {
+            BootstrapLog.e("Bootstrap", "cannot persist the local authorization", error)
+        }
+    }
+
+    /**
+     * Validates and renews the local authorization after an offline boot. Runs on the worker and
+     * never extends the startup window; a denial wipes the cached payload and restarts the host.
+     */
+    private fun refreshAuthorizationInBackground(preparedStart: PreparedStart) {
+        val state = preparedStart.state
+        val identity = preparedStart.identity
+        worker.execute {
+            try {
+                val authorization = authorizeWithServer(state, identity)
+                if (authorization.release.manifestSha256 == preparedStart.release.manifestSha256) {
+                    persistLocalAuthorization(state, authorization, "refresh")
+                    successfulInitializationId = authorization.initializationId
+                    successfulState = state
+                    report(state, authorization.initializationId, "ENTRY_RETURNED", "LOADED", identity)
+                    log("local authorization refreshed in the background")
+                    return@execute
+                }
+                log("the server selected another payload; downloading it in the background")
+                cache.download(api, state, processNonce, authorization.response, authorization.release)
+                persistLocalAuthorization(state, authorization, "update")
+                payloadReadyForRestart = true
+                message(uiText(R.string.wekit_auth_payload_updated))
+            } catch (error: RemoteApiException) {
+                if (handleDenial(error)) return@execute
+                log("background authorization failed: ${error.code}")
+            } catch (error: Throwable) {
+                log("background authorization failed: ${error.message ?: error.javaClass.simpleName}")
+            }
+        }
+    }
+
+    /**
+     * Handles a terminal authorization denial: the cached payload and its local authorization are
+     * removed immediately, and a running payload is stopped by restarting the host afterwards.
+     * Returns false when the error is not a denial.
+     */
+    private fun handleDenial(error: RemoteApiException): Boolean {
+        if (error.code !in denialCodes) return false
+        retryBlocked = true
+        val wiped = wipeLocalAuthorization()
+        log("authorization denied by ${error.code}; cached payload wiped=$wiped")
+        val text = uiText(R.string.wekit_auth_load_failure, error.message ?: error.code)
+        if (!wiped) {
+            // Nothing was cached here (already handled, or this process never had a payload):
+            // use the ordinary recovery path instead of restarting again.
+            if (error.code == "RECONFIRM_REQUIRED") {
+                val candidate = store.candidate(store.load())
+                pendingBinding = null
+                submit { ensureBinding(candidate) }
+            } else {
+                message(text)
+            }
+            return true
+        }
+        if (entryAttempted) {
+            // Deleting files cannot unload the payload that is already running in this process.
+            mainHandler.post { Toast.makeText(application, text, Toast.LENGTH_LONG).show() }
+            if (!restartScheduled) {
+                restartScheduled = true
+                mainHandler.postDelayed(::restartHost, 1500)
+            }
+        } else {
+            message(text)
+        }
+        return true
+    }
+
+    /** Removes the cached payload, the extracted native payload and the local authorization. */
+    private fun wipeLocalAuthorization(): Boolean {
+        var wiped = false
+        try { if (localAuthorization.clearAll()) wiped = true }
+        catch (error: Throwable) { BootstrapLog.e("Bootstrap", "cannot clear the local authorization", error) }
+        try { if (cache.clearAll()) wiped = true }
+        catch (error: Throwable) { BootstrapLog.e("Bootstrap", "cannot clear the payload cache", error) }
+        val native = File(store.directory, "native")
+        if (native.exists()) {
+            if (native.deleteRecursively()) wiped = true
+            else BootstrapLog.e("Bootstrap", "cannot clear the extracted payload", IOException(native.path))
+        }
+        return wiped
+    }
+
+    /** Runs on the main thread; the host's startup callback must not return before this completes. */
+    private fun startPreparedEntry(preparedStart: PreparedStart) {
+        check(Looper.myLooper() == Looper.getMainLooper())
+        val loaded = preparedStart.loaded
+        prepared = loaded
+        try {
             val environment = PayloadEnvironment(application, hostLoader, hookBridge, loaderService,
                 injectionMode, telegramRootAccess, File(loaderService.mainModulePath), loaded.apk,
-                release.descriptor.apkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null,
-                watermarkToken = initializationId)
+                preparedStart.release.descriptor.apkSha256, loaded.nativeDirectory,
+                if (mainProcess) authorizationControls else null,
+                watermarkToken = preparedStart.initializationId)
             // Keep all inputs alive even if partially initialized business hooks later throw.
             entryAttempted = true
-            val entry = loaded.classLoader.loadClass(release.descriptor.entryClass)
+            val entry = loaded.classLoader.loadClass(preparedStart.release.descriptor.entryClass)
                 .getDeclaredConstructor().newInstance() as PayloadEntry
             // start() loads the JNI libraries; do not leave the plaintext copies on disk, even if it throws.
             try { entry.start(environment) } finally { loaded.scrubNativeLibraries() }
-            BootstrapLog.i("Bootstrap", "Payload entry returned synchronously on the main thread")
-            loadedWxId = identity.wxId
-            successfulInitializationId = initializationId
-            successfulState = state
-            reportedAlias = identity.alias
-            report(state, initializationId!!, "ENTRY_RETURNED", "LOADED", identity)
+            log("payload entry returned synchronously on the main thread at ${millisSincePrewarm()} ms")
+            loadedWxId = preparedStart.identity.wxId
+            successfulInitializationId = if (preparedStart.offline) null else preparedStart.initializationId
+            successfulState = preparedStart.state
+            reportedAlias = preparedStart.identity.alias
+            if (preparedStart.offline) {
+                // The report needs an initialization row owned by this process; the background
+                // refresh creates one and reports ENTRY_RETURNED as soon as it has it.
+                refreshAuthorizationInBackground(preparedStart)
+            } else {
+                // Audit-only report: never extend the host's startup callback for this round trip.
+                reportAsync(preparedStart.state, preparedStart.initializationId, "ENTRY_RETURNED", "LOADED",
+                    preparedStart.identity)
+            }
             mainHandler.post { bindingDialog?.dismiss(); pendingMessage = null }
         } catch (error: Throwable) {
             if (!entryAttempted) { prepared?.close(); prepared = null }
-            if (initializationId != null) report(state, initializationId, "INITIALIZATION", "FAILED", identity)
+            if (!preparedStart.offline) {
+                report(preparedStart.state, preparedStart.initializationId, "INITIALIZATION", "FAILED",
+                    preparedStart.identity, "PAYLOAD_ENTRY", error)
+            }
             throw error
-        } finally { selectedCache?.close(); key?.fill(0) }
+        }
+    }
+
+    /** The report is audit bookkeeping; startup must not wait for its round trip. */
+    private fun reportAsync(
+        state: InstallationState,
+        initializationId: String,
+        phase: String,
+        result: String,
+        identity: CurrentIdentity,
+    ) {
+        val startedAt = SystemClock.elapsedRealtime()
+        worker.execute {
+            report(state, initializationId, phase, result, identity)
+            log("background report finished after ${SystemClock.elapsedRealtime() - startedAt} ms " +
+                "(kept out of the startup window)")
+        }
+    }
+
+    private fun refreshIdentityReport() {
+        if (!mainProcess || loadedWxId == null || warnedAccountSwitch) return
+        val now = identityReader.read()
+        if (now.ready && now.wxId != loadedWxId) {
+            warnedAccountSwitch = true
+            message(uiText(R.string.wekit_auth_account_changed))
+        } else if (now.ready && now.alias != null && now.alias != reportedAlias && successfulInitializationId != null) {
+            if (report(successfulState!!, successfulInitializationId!!, "IDENTITY_READ", "IDENTITY_UPDATE", now))
+                reportedAlias = now.alias
+        }
     }
 
     private fun initializationBody(state: InstallationState, identity: CurrentIdentity): InitializationRequest {
@@ -380,28 +744,90 @@ object BootstrapCoordinator {
         mainHandler.postDelayed(pollBinding, 5000)
     }
 
-    private fun report(state: InstallationState, initializationId: String, phase: String, result: String, identity: CurrentIdentity): Boolean {
+    private fun report(
+        state: InstallationState,
+        initializationId: String,
+        phase: String,
+        result: String,
+        identity: CurrentIdentity,
+        failureStage: String? = null,
+        error: Throwable? = null,
+    ): Boolean {
         try {
             val body = WireJson.body(InitializationReport(WireProtocol.requestId(), state.installationId!!,
-                processNonce, initializationId, phase, result, identity.wxId, identity.alias, identity.readState))
+                processNonce, initializationId, phase, result, identity.wxId, identity.alias, identity.readState,
+                errorCode = error?.let { diagnosticCode(failureStage ?: phase, it) },
+                errorMessage = error?.let(::diagnosticMessage)))
             api.signedPost("/v1/initializations/report", body, state, processNonce)
             return true
         } catch (error: Exception) { BootstrapLog.e("Bootstrap", "Initialization result report failed", error); return false }
     }
 
+    private fun diagnosticCode(stage: String, error: Throwable): String {
+        val messages = throwableChain(error).joinToString(" ") { it.message.orEmpty() }
+        val failure = when {
+            error is RemoteApiException -> "REMOTE_${sanitizeCode(error.code)}"
+            error is ErrnoException -> errnoName(error.errno)
+            messages.contains("EACCES") -> "EACCES"
+            messages.contains("EPERM") || messages.contains("Permission denied") -> "EPERM"
+            error is FileNotFoundException -> "FILE_NOT_FOUND"
+            error is ZipException -> "ZIP_INVALID"
+            error is SecurityException -> "SECURITY"
+            error is IOException -> "IO"
+            else -> sanitizeCode(error.javaClass.simpleName.ifEmpty { "ERROR" }).uppercase()
+        }
+        return "${sanitizeCode(stage).uppercase()}_$failure".take(96)
+    }
+
+    private fun diagnosticMessage(error: Throwable): String =
+        throwableChain(error).joinToString(" | ") { item ->
+            val text = item.message.orEmpty()
+                .replace(Regex("[\\u0000-\\u001f\\u007f]+"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            "${item.javaClass.name}: ${text.ifEmpty { "<no message>" }}"
+        }.take(500)
+
+    private fun throwableChain(error: Throwable): List<Throwable> {
+        val result = ArrayList<Throwable>()
+        val pending = java.util.ArrayDeque<Throwable>().apply { add(error) }
+        while (pending.isNotEmpty() && result.size < 6) {
+            val item = pending.removeFirst()
+            result += item
+            item.cause?.takeUnless { cause -> result.any { it === cause } }?.let(pending::addLast)
+            item.suppressed.take(2).forEach { suppressed ->
+                if (result.none { it === suppressed }) pending.addLast(suppressed)
+            }
+        }
+        return result
+    }
+
+    private fun errnoName(errno: Int): String = when (errno) {
+        OsConstants.EACCES -> "EACCES"
+        OsConstants.EPERM -> "EPERM"
+        OsConstants.ENOENT -> "ENOENT"
+        OsConstants.EIO -> "EIO"
+        OsConstants.ENOSPC -> "ENOSPC"
+        OsConstants.EMFILE -> "EMFILE"
+        OsConstants.ENFILE -> "ENFILE"
+        OsConstants.EBADF -> "EBADF"
+        OsConstants.ELOOP -> "ELOOP"
+        else -> "ERRNO_$errno"
+    }
+
+    private fun sanitizeCode(value: String): String =
+        value.replace(Regex("[^A-Za-z0-9_.-]+"), "_").trim('_', '.', '-').ifEmpty { "ERROR" }.take(80)
+
     private fun failed(error: Throwable) {
         BootstrapLog.e("Bootstrap", "Remote payload initialization failed", error)
         if (!mainProcess) return
-        if (error is RemoteApiException && !error.retryable) retryBlocked = true
-        if (error is RemoteApiException && error.code == "RECONFIRM_REQUIRED") {
-            val candidate = store.candidate(store.load())
-            pendingBinding = null
-            submit { ensureBinding(candidate) }
-            return
-        }
-        if (error is RemoteApiException && error.code in setOf("REGISTRATION_EXPIRED", "CREDENTIAL_REVOKED", "EPOCH_MISMATCH")) {
-            store.candidate(store.load())
-            pendingBinding = null
+        if (error is RemoteApiException) {
+            if (!error.retryable) retryBlocked = true
+            if (handleDenial(error)) return
+            if (error.code in setOf("REGISTRATION_EXPIRED", "CREDENTIAL_REVOKED", "EPOCH_MISMATCH")) {
+                store.candidate(store.load())
+                pendingBinding = null
+            }
         }
         message(uiText(R.string.wekit_auth_load_failure, error.message ?: error.javaClass.simpleName), restartRequired = entryAttempted)
     }
@@ -424,7 +850,7 @@ object BootstrapCoordinator {
         pendingRestartRequired = false
         val buttons = buildList {
             if (payloadReadyForRestart) {
-                add(BootstrapDialogAction(uiText(R.string.dialog_confirm)) { restartHost() })
+                add(BootstrapDialogAction(uiText(R.string.wekit_auth_restart_wechat)) { restartHost() })
             } else {
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_close)))
             }

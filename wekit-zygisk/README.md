@@ -64,8 +64,11 @@ The APK and loader follow the manager's module activation lifecycle together.
 # Bootstrap dual-format APKs (arm64-v8a).
 ./x bootstrap build
 
-# Release bootstrap with app-release.apk embedded for offline internal testing.
+# Release bootstrap with app-debug.apk embedded for offline internal testing.
 ./x bootstrap build --local
+
+# Release bootstrap with app-release.apk embedded.
+./x bootstrap build --local --release
 
 # Private payload APKs (built separately from the bootstrap).
 ./x payload build
@@ -80,6 +83,7 @@ The APK and loader follow the manager's module activation lifecycle together.
 # Normal Android installation.
 ./x bootstrap install
 ./x bootstrap install --local
+./x bootstrap install --local --release
 
 # Build and install as a module; omit --root for manager auto-detection.
 ./x bootstrap install --zygisk --device SERIAL --root ksu --reboot
@@ -88,14 +92,15 @@ The APK and loader follow the manager's module activation lifecycle together.
 ```
 
 Bootstrap APKs are in `bootstrap/build/outputs/apk/<type>/`. The offline variant is
-`bootstrap/build/outputs/apk/local/bootstrap-local.apk`. Payload APKs are in
+`bootstrap/build/outputs/apk/local/bootstrap-local-debug.apk` by default, or
+`bootstrap-local-release.apk` with `--release`. Payload APKs are in
 `app/build/outputs/apk/<type>/`. No separate module ZIP is built or published.
 The device-side `.zip` used by `bootstrap install --zygisk` has exactly the APK's
 bytes. Symbols are in `target/zygisk-symbols/`.
 Module resources are added by `GenerateZygiskResourcesTask` before AGP signs each
 APK; never append files to or repack the signed output.
-`bootstrap-local` always builds the release payload, embeds that exact APK as
-`assets/wekit/payload.apk`, and bypasses the remote authentication and download paths.
+`bootstrap-local` itself is always a release build. It embeds `app-debug.apk` by default and
+`app-release.apk` with `--release`, then bypasses the remote authentication and download paths.
 The embedded payload is plaintext and extractable; this variant is for internal testing only.
 Pass `--local` to `bootstrap install` to install the same local APK through adb or a root manager.
 Bootstrap builds always use the release profile. Run `./x bootstrap build --help` or `./x bootstrap install --help` for options.
