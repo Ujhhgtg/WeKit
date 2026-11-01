@@ -12,6 +12,7 @@ import java.net.URL
 import java.net.URLConnection
 import java.net.URLStreamHandler
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.util.Collections
 import java.util.Enumeration
 import java.util.UUID
@@ -25,6 +26,7 @@ class PreparedPayload(
     val dexBuffers: Array<ByteBuffer>,
     val nativeDirectory: File,
     val classLoader: InMemoryDexClassLoader,
+    val apkSha256: String,
     private val archive: ZipFile,
 ) : Closeable {
     /**
@@ -61,6 +63,7 @@ object PayloadLoader {
     private const val MAX_NATIVE_SIZE = 64L * 1024 * 1024
     private const val ABI = "arm64-v8a"
     private const val NATIVE_PREFIX = "proc-"
+    private const val EMBEDDED_PAYLOAD_ASSET = "assets/wekit/payload.apk"
 
     /** The caller has verified the envelope; this method never resolves or reopens the cache name. */
     fun prepare(
@@ -112,6 +115,58 @@ object PayloadLoader {
         }
     }
 
+    /** Streams the release payload embedded in this bootstrap APK into a sealed, read-only file. */
+    fun prepareEmbedded(
+        bootstrapApk: File,
+        nativeRoot: File,
+        parent: ClassLoader,
+    ): PreparedPayload {
+        val (apk, apkSha256) = ZipFile(bootstrapApk).use { archive ->
+            val matches = archive.entries().asSequence()
+                .filter { !it.isDirectory && it.name == EMBEDDED_PAYLOAD_ASSET }
+                .toList()
+            require(matches.size == 1) {
+                "bootstrap must contain exactly one $EMBEDDED_PAYLOAD_ASSET"
+            }
+            val entry = matches.single()
+            require(entry.size in 1..PayloadDescriptor.MAX_APK_SIZE) { "embedded payload size is invalid" }
+            val writableApk = ParcelFileDescriptor.adoptFd(LoaderNatives.create())
+            writableApk.use { writable ->
+                val digest = MessageDigest.getInstance("SHA-256")
+                var copied = 0L
+                ParcelFileDescriptor.AutoCloseOutputStream(
+                    ParcelFileDescriptor.dup(writable.fileDescriptor)
+                ).use { output ->
+                    archive.getInputStream(entry).use { input ->
+                        val bytes = ByteArray(64 * 1024)
+                        while (true) {
+                            val count = input.read(bytes)
+                            if (count == -1) break
+                            copied += count
+                            check(copied <= entry.size) { "embedded payload exceeds its ZIP entry size" }
+                            digest.update(bytes, 0, count)
+                            output.write(bytes, 0, count)
+                        }
+                    }
+                    output.flush()
+                }
+                check(copied == entry.size) { "embedded payload is truncated" }
+                LoaderNatives.seal(writable.fd)
+                val readOnly = ParcelFileDescriptor.open(
+                    File("/proc/self/fd/${writable.fd}"),
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                )
+                readOnly to digest.digest().toHex()
+            }
+        }
+        return try {
+            prepareArchive(apk, apkSha256, nativeRoot, parent)
+        } catch (error: Throwable) {
+            apk.close()
+            throw error
+        }
+    }
+
     private fun prepareArchive(
         apk: ParcelFileDescriptor,
         apkSha256: String,
@@ -147,7 +202,7 @@ object PayloadLoader {
                 directory.deleteRecursively()
                 throw error
             }
-            return PreparedPayload(apk, dex, directory, loader, archive)
+            return PreparedPayload(apk, dex, directory, loader, apkSha256, archive)
         } catch (error: Throwable) {
             archive.close()
             throw error
@@ -264,6 +319,8 @@ object PayloadLoader {
     }
 
 }
+
+private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it.toInt() and 255) }
 
 /**
  * Parent for the private payload's DEX loader. Android's class loader is parent-first, so the

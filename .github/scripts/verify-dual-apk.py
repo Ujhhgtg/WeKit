@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 from apk_dex_definitions import dex_definitions
@@ -26,9 +27,30 @@ REQUIRED = (
     "lib/arm64-v8a/libandroidx.graphics.path.so",
 )
 EXPECTED_BOOTSTRAP_CERT_SHA256 = "6bc3be50d46327b8c66b564ff946a9c51bbb72a198fc7cd651e9726901584315"
+EMBEDDED_PAYLOAD = "assets/wekit/payload.apk"
 
 
-def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, expected_apk_sha256=None):
+def check_embedded_payload(archive, expected_app_apk=None):
+    entry = archive.getinfo(EMBEDDED_PAYLOAD)
+    payload = archive.read(entry)
+    assert payload, "embedded payload is empty"
+    if expected_app_apk is not None:
+        assert payload == expected_app_apk.read_bytes(), "embedded payload differs from the release app APK"
+    with tempfile.TemporaryDirectory(prefix="wekit-embedded-payload-") as work:
+        extracted = Path(work) / "app-release.apk"
+        extracted.write_bytes(payload)
+        verifier = Path(__file__).with_name("verify-payload-apk.py")
+        subprocess.run([sys.executable, str(verifier), str(extracted)], check=True)
+
+
+def check_apk(
+    apk,
+    tools,
+    expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256,
+    expected_apk_sha256=None,
+    allow_embedded_payload=False,
+    expected_app_apk=None,
+):
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
         assert not [name for name, count in Counter(names).items() if count != 1], "duplicate ZIP entries"
@@ -38,7 +60,13 @@ def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, e
         for name in ("lib/arm64-v8a/libwekit_loader.so",
                      "lib/arm64-v8a/libandroidx.graphics.path.so"):
             assert archive.getinfo(name).compress_type == zipfile.ZIP_STORED, f"framework native lookup requires STORED: {name}"
-        assert not any(name.endswith((".apk", "dex.list")) or name.startswith(("payload/", "zygisk/")) for name in names), "nested payload or duplicated loader"
+        nested_apks = [name for name in names if name.endswith(".apk")]
+        if allow_embedded_payload:
+            assert nested_apks == [EMBEDDED_PAYLOAD], f"unexpected nested APK entries: {nested_apks}"
+            check_embedded_payload(archive, expected_app_apk)
+        else:
+            assert not nested_apks, "nested payload in public bootstrap"
+        assert not any(name.endswith("dex.list") or name.startswith(("payload/", "zygisk/")) for name in names), "duplicated loader"
         assert not any(name in names for name in ("verify.sh", "post-fs-data.sh", "service.sh")), "obsolete installer files"
         dex = [name for name in names if name.endswith(".dex")]
         assert set(dex) == {"classes.dex", *(f"classes{i}.dex" for i in range(2, len(dex) + 1))}, "noncanonical or duplicate DEX"
@@ -79,7 +107,10 @@ def check_apk(apk, tools, expected_cert_sha256=EXPECTED_BOOTSTRAP_CERT_SHA256, e
         text=True,
         stderr=subprocess.STDOUT,
     )
-    certificate_digests = re.findall(r"Signer(?: #\d+)? certificate SHA-256 digest: ([0-9A-Fa-f:]+)", signer_output)
+    certificate_digests = re.findall(
+        r"(?:V\d+(?:\.\d+)? )?Signer(?: #\d+)?:? certificate SHA-256 digest: ([0-9A-Fa-f:]+)",
+        signer_output,
+    )
     assert len(certificate_digests) == 1, "APK must have exactly one signer certificate"
     certificate_digest = certificate_digests[0].replace(":", "").lower()
     if expected_cert_sha256 is not None:
@@ -168,6 +199,8 @@ def main():
     parser.add_argument("--expected-cert-sha256", default=EXPECTED_BOOTSTRAP_CERT_SHA256)
     parser.add_argument("--expected-apk-sha256", default=os.environ.get("WEKIT_BOOTSTRAP_APK_SHA256"))
     parser.add_argument("--allow-nonproduction-signer", action="store_true")
+    parser.add_argument("--embedded-payload", action="store_true")
+    parser.add_argument("--expected-app-apk", type=Path)
     args = parser.parse_args()
     tools = args.build_tools
     if tools is None:
@@ -176,7 +209,14 @@ def main():
         tools = max(stable, key=lambda path: tuple(map(int, path.name.split('.'))))
     for apk in args.apk:
         expected_cert = None if args.allow_nonproduction_signer else args.expected_cert_sha256
-        check_apk(apk.resolve(), tools.resolve(), expected_cert, args.expected_apk_sha256)
+        check_apk(
+            apk.resolve(),
+            tools.resolve(),
+            expected_cert,
+            args.expected_apk_sha256,
+            args.embedded_payload,
+            args.expected_app_apk.resolve() if args.expected_app_apk else None,
+        )
         if args.check_installer:
             check_installer(apk.resolve())
 

@@ -145,6 +145,10 @@ struct BootstrapBuildArgs {
     #[arg(long)]
     native_only: bool,
 
+    /// Build bootstrap-local with the release payload embedded in the APK.
+    #[arg(long, conflicts_with = "native_only")]
+    local: bool,
+
     /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/.
     #[arg(long)]
     save_symbols: bool,
@@ -254,6 +258,10 @@ struct InstallArgs {
     #[arg(long)]
     zygisk: bool,
 
+    /// Install bootstrap-local with the release payload embedded in the APK.
+    #[arg(long)]
+    local: bool,
+
     /// adb device serial (also used for normal APK installation).
     #[arg(short, long)]
     device: Option<String>,
@@ -265,12 +273,6 @@ struct InstallArgs {
     /// Reboot after a successful module installation.
     #[arg(short, long, requires = "zygisk")]
     reboot: bool,
-}
-
-impl InstallArgs {
-    fn is_release(&self) -> bool {
-        true
-    }
 }
 
 /// Arguments shared by --native-only builds, `check`, and `clippy`.
@@ -305,15 +307,7 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Configure => task_configure()?,
         Cmd::Bootstrap(args) => match args.command {
-            BootstrapCommand::Build(args) => task_build_module(
-                &BuildArgs {
-                    native_only: args.native_only,
-                    release: true,
-                    save_symbols: args.save_symbols,
-                    native: args.native,
-                },
-                "bootstrap",
-            )?,
+            BootstrapCommand::Build(args) => task_build_bootstrap(&args)?,
             BootstrapCommand::Install(args) => task_install(args)?,
         },
         Cmd::Payload(args) => match args.command {
@@ -542,18 +536,49 @@ fn gradle_variant_task(verb: &str, release: bool) -> String {
     format!("{verb}{profile}")
 }
 
+fn bootstrap_gradle_task(verb: &str, local: bool) -> String {
+    format!(
+        ":bootstrap:{verb}{}",
+        if local { "Local" } else { "Release" }
+    )
+}
+
+fn bootstrap_apk_path(local: bool) -> &'static str {
+    if local {
+        "bootstrap/build/outputs/apk/local/bootstrap-local.apk"
+    } else {
+        "bootstrap/build/outputs/apk/release/bootstrap-release.apk"
+    }
+}
+
+/// Build the public release bootstrap or its offline embedded-payload variant.
+fn task_build_bootstrap(args: &BootstrapBuildArgs) -> Result<()> {
+    let root = workspace_root();
+    task_configure()?;
+    build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
+    build_bootstrap_loader(&root, &args.native.abis, true)?;
+    if args.local {
+        task_build_native(&args.native.abis)?;
+    }
+    if !args.native_only {
+        let gradle_task = bootstrap_gradle_task("assemble", args.local);
+        run_gradlew(&[&gradle_task, "--no-configuration-cache"], &root)?;
+    }
+    Ok(())
+}
+
 /// Install the bootstrap APK on a connected device or emulator via Gradle (native inputs compiled first).
 fn task_install(args: InstallArgs) -> Result<()> {
     validate_root_manager(args.root.as_deref())?;
     let root = workspace_root();
     task_configure()?;
     build_zygisk_native(&root, &[], false)?;
-    build_bootstrap_loader(&root, &[], args.is_release())?;
+    build_bootstrap_loader(&root, &[], true)?;
+    if args.local {
+        task_build_native(&[])?;
+    }
     let verb = if args.zygisk { "assemble" } else { "install" };
-    let gradle_task = format!(
-        ":bootstrap:{}",
-        gradle_variant_task(verb, args.is_release())
-    );
+    let gradle_task = bootstrap_gradle_task(verb, args.local);
     println!("bootstrap install: ./gradlew {gradle_task}");
     let mut command = Command::new(root.join(if cfg!(windows) {
         "gradlew.bat"
@@ -561,19 +586,15 @@ fn task_install(args: InstallArgs) -> Result<()> {
         "gradlew"
     }));
     command.arg(&gradle_task).current_dir(&root);
+    if args.local {
+        command.arg("--no-configuration-cache");
+    }
     if let Some(device) = &args.device {
         command.env("ANDROID_SERIAL", device);
     }
     run_checked(&mut command, "build/install dual-format APK")?;
     if args.zygisk {
-        let profile = if args.is_release() {
-            "release"
-        } else {
-            "debug"
-        };
-        let apk = root.join(format!(
-            "bootstrap/build/outputs/apk/{profile}/bootstrap-{profile}.apk"
-        ));
+        let apk = root.join(bootstrap_apk_path(args.local));
         validate_module_apk(&apk)?;
         install_zygisk_apk(&root, &apk, args.device.as_deref(), args.root.as_deref())?;
         if args.reboot {
@@ -1504,39 +1525,63 @@ mod tests {
         }
     }
 
-    fn parse_build_args(scope: &str, extra: &[&str]) -> BuildArgs {
-        let mut argv = vec!["xtask", scope, "build"];
+    fn parse_bootstrap_build_args(extra: &[&str]) -> BootstrapBuildArgs {
+        let mut argv = vec!["xtask", "bootstrap", "build"];
         argv.extend_from_slice(extra);
         match Cli::try_parse_from(argv).unwrap().command {
             Cmd::Bootstrap(BootstrapArgs {
                 command: BootstrapCommand::Build(args),
-            }) if scope == "bootstrap" => BuildArgs {
-                native_only: args.native_only,
-                release: true,
-                save_symbols: args.save_symbols,
-                native: args.native,
-            },
+            }) => args,
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_payload_build_args(extra: &[&str]) -> BuildArgs {
+        let mut argv = vec!["xtask", "payload", "build"];
+        argv.extend_from_slice(extra);
+        match Cli::try_parse_from(argv).unwrap().command {
             Cmd::Payload(PayloadArgs {
                 command: PayloadCommand::Build(args),
-            }) if scope == "payload" => args,
+            }) => args,
             _ => unreachable!(),
         }
     }
 
     #[test]
     fn scoped_build_commands_parse_their_module_options() {
-        assert!(parse_build_args("bootstrap", &[]).release);
+        assert_eq!(
+            bootstrap_gradle_task("assemble", false),
+            ":bootstrap:assembleRelease"
+        );
+        assert_eq!(
+            bootstrap_gradle_task("assemble", true),
+            ":bootstrap:assembleLocal"
+        );
+        assert!(!parse_bootstrap_build_args(&[]).local);
+        assert!(parse_bootstrap_build_args(&["--local"]).local);
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "build", "--release"]).is_err());
-        assert!(parse_build_args("payload", &["--release"]).release);
-        assert!(parse_build_args("payload", &["--native-only"]).native_only);
+        assert!(
+            Cli::try_parse_from(["xtask", "bootstrap", "build", "--local", "--native-only"])
+                .is_err()
+        );
+        assert!(parse_payload_build_args(&["--release"]).release);
+        assert!(parse_payload_build_args(&["--native-only"]).native_only);
         assert!(Cli::try_parse_from(["xtask", "build"]).is_err());
     }
 
     #[test]
-    fn bootstrap_install_always_uses_release() {
+    fn bootstrap_install_selects_release_or_local() {
+        let release = parse_install_args(&[]);
+        let local = parse_install_args(&["--local"]);
+        assert!(!release.local);
+        assert!(local.local);
         assert_eq!(
-            gradle_variant_task("install", parse_install_args(&[]).is_release()),
-            "installRelease"
+            bootstrap_gradle_task("install", release.local),
+            ":bootstrap:installRelease"
+        );
+        assert_eq!(
+            bootstrap_gradle_task("install", local.local),
+            ":bootstrap:installLocal"
         );
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--debug"]).is_err());
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--release"]).is_err());
@@ -1545,9 +1590,17 @@ mod tests {
     #[test]
     fn install_zygisk_accepts_install_options_and_rejects_them_for_app_install() {
         let args = parse_install_args(&[
-            "--zygisk", "--device", "serial", "--root", "ksu", "--reboot",
+            "--zygisk", "--local", "--device", "serial", "--root", "ksu", "--reboot",
         ]);
-        assert!(args.zygisk && args.is_release() && args.reboot);
+        assert!(args.zygisk && args.local && args.reboot);
+        assert_eq!(
+            bootstrap_apk_path(args.local),
+            "bootstrap/build/outputs/apk/local/bootstrap-local.apk"
+        );
+        assert_eq!(
+            bootstrap_gradle_task("assemble", args.local),
+            ":bootstrap:assembleLocal"
+        );
         assert_eq!(args.device.as_deref(), Some("serial"));
         assert_eq!(args.root.as_deref(), Some("ksu"));
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--root", "ksu"]).is_err());

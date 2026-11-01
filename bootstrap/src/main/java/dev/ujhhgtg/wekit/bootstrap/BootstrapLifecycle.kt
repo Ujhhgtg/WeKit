@@ -34,8 +34,14 @@ object BootstrapLifecycle {
                 if (param.throwable != null) return
                 val application = param.args[0] as Application
                 if (application.packageName.startsWith("com.tencent.mm")) {
-                    BootstrapCoordinator.start(application, application.baseContext.classLoader ?: hostLoader,
-                        loaderService, hookBridge, injectionMode, telegramRootAccess)
+                    val applicationLoader = application.baseContext.classLoader ?: hostLoader
+                    if (BuildConfig.EMBEDDED_PAYLOAD) {
+                        EmbeddedPayloadCoordinator.start(application, applicationLoader,
+                            loaderService, hookBridge, injectionMode, telegramRootAccess)
+                    } else {
+                        BootstrapCoordinator.start(application, applicationLoader,
+                            loaderService, hookBridge, injectionMode, telegramRootAccess)
+                    }
                 }
             }
         }, 10000)

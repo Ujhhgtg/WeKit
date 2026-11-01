@@ -9,12 +9,14 @@
 
 ```bash
 ./x bootstrap build                 # release bootstrap APK
+./x bootstrap build --local         # release bootstrap APK with the release payload embedded
 ./x bootstrap build --native-only   # only prepare Zygisk native inputs
 ./x payload build                   # debug payload APK
 ./x payload install --device SERIAL # write debug payload.cache to the default WeChat user
 ./x payload install --release --device SERIAL # write release payload.cache
 ./x payload publish                 # build, encrypt, sign, and publish the release payload
 ./x bootstrap install --zygisk      # build the bootstrap APK and install it as a Zygisk module
+./x bootstrap install --local       # install bootstrap-local with the embedded release payload
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
@@ -24,7 +26,10 @@
 - Bootstrap debug/release APKs are dual-format: install as an APK, or rename to `.zip`
   and install through a root manager. Module files enter the bootstrap APK before AGP signs it;
   never modify or repack the signed output. Payload APKs are private runtime payloads and are not
-  installed or flashed directly. There is no separate `zygisk build` command.
+  installed or flashed directly. `bootstrap-local` always embeds the release payload and skips all
+  bootstrap authentication, binding, cache, and download paths; because the payload is present in
+  plaintext, never publish this variant outside internal testing. There is no separate `zygisk build`
+  command.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
 - CI builds one release APK (`app-release.apk`) and publishes it to the CI GitHub release and
   Xposed Modules Repository.

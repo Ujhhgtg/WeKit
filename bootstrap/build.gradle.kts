@@ -21,6 +21,7 @@ val commitTimestamp = providers.exec {
     workingDir(rootProject.layout.projectDirectory)
     commandLine("git", "log", "-1", "--format=%ct", "HEAD")
 }.standardOutput.asText.map { it.trim().toLong() * 1000L }
+var foundKeystore = false
 
 android {
     namespace = "dev.ujhhgtg.wekit.bootstrap"
@@ -36,8 +37,6 @@ android {
         // noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
     }
-
-    var foundKeystore = false
 
     @Suppress("LocalVariableName")
     signingConfigs {
@@ -74,6 +73,11 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "bootstrap-rules.pro")
             signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
         }
+        create("local") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+            signingConfig = signingConfigs.getByName(if (foundKeystore) "release" else "debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.toVersion(libs.versions.jdk.get().toInt())
@@ -101,6 +105,8 @@ androidComponents {
             output.versionCode.set(commitCount)
             output.versionName.set(gitHash.map { "git+$it" })
         }
+        val embeddedPayload = variant.name == "local"
+        variant.buildConfigFields!!.put("EMBEDDED_PAYLOAD", BuildConfigField("boolean", "$embeddedPayload", null))
         variant.buildConfigFields!!.put("COMMIT_HASH", gitHash.map {
             BuildConfigField("String", "\"$it\"", null)
         })
@@ -119,6 +125,22 @@ androidComponents {
         }
         variant.sources.resources!!.addGeneratedSourceDirectory(generateZygiskResources,
             GenerateZygiskResourcesTask::outputDir)
+        if (embeddedPayload) {
+            val prepareEmbeddedPayload = tasks.register<PrepareEmbeddedPayloadTask>(
+                "prepare${variant.name.replaceFirstChar { it.uppercase() }}EmbeddedPayload"
+            ) {
+                description = "Embed the private release payload in the bootstrap APK"
+                dependsOn(":app:assembleRelease")
+                appApk.set(rootProject.layout.projectDirectory.file(
+                    "app/build/outputs/apk/release/app-release.apk"
+                ))
+                requireProductionSigning.set(true)
+                productionSigningConfigured.set(foundKeystore)
+                outputDir.set(layout.buildDirectory.dir("generated/embeddedPayload/${variant.name}"))
+            }
+            variant.sources.assets!!.addGeneratedSourceDirectory(prepareEmbeddedPayload,
+                PrepareEmbeddedPayloadTask::outputDir)
+        }
     }
 }
 
