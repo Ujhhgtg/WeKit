@@ -36,13 +36,15 @@ class PreparedPayload(
     /**
      * Removes the plaintext libraries once the payload has loaded them. A deleted file stays mapped, but
      * the class loader's `findLibrary` stops resolving it, so any later `System.loadLibrary` from payload
-     * code would throw. Each file is therefore replaced by an empty placeholder: ART returns early for a
-     * library it already loaded under that path, so the placeholder is never handed to the linker.
-     * This relies on ART behavior and needs a check on a device.
+     * code would throw. Each file is therefore replaced by an empty placeholder through an atomic rename:
+     * the library path never stops resolving, so a concurrent `findLibrary` still finds it, and ART
+     * returns the handle it already mapped for that path instead of reading the placeholder.
      */
     fun scrubNativeLibraries() {
-        nativeDirectory.listFiles()?.forEach { file ->
-            check(file.delete() && file.createNewFile()) { "cannot scrub native library: $file" }
+        nativeDirectory.listFiles()?.forEach { library ->
+            val placeholder = File(nativeDirectory, "${library.name}.${UUID.randomUUID()}.scrub")
+            check(placeholder.createNewFile()) { "cannot create scrub placeholder: $placeholder" }
+            check(placeholder.renameTo(library)) { "cannot scrub native library: $library" }
         }
     }
 
@@ -394,15 +396,30 @@ object PayloadLoader {
     }
 
     /**
+     * Removes the extracted native directories owned by processes that no longer exist. A live payload
+     * keeps its own (scrubbed) directory: its class loader resolves every later JNI load through that
+     * path, so deleting it turns the next `System.loadLibrary` in that process into an
+     * `UnsatisfiedLinkError` that crashes the host.
+     */
+    fun purgeDeadProcessNativeDirectories(nativeRoot: File): Boolean {
+        var removed = false
+        for (child in nativeRoot.listFiles().orEmpty()) {
+            if (!child.name.startsWith(NATIVE_PREFIX)) continue
+            val owner = child.name.removePrefix(NATIVE_PREFIX).substringBefore('-').toIntOrNull() ?: continue
+            if (File("/proc/$owner").exists()) continue
+            if (child.deleteRecursively()) removed = true
+        }
+        return removed
+    }
+
+    /**
      * Drops directories left by processes that died before scrubbing, plus the shared per-release
      * directories earlier builds kept. A live process's directory is left alone.
      */
     private fun sweepNativeRoot(root: File) {
+        purgeDeadProcessNativeDirectories(root)
         for (child in root.listFiles().orEmpty()) {
-            val owner = if (child.name.startsWith(NATIVE_PREFIX)) {
-                child.name.removePrefix(NATIVE_PREFIX).substringBefore('-').toIntOrNull()
-            } else null
-            if (owner == null || !File("/proc/$owner").exists()) child.deleteRecursively()
+            if (!child.name.startsWith(NATIVE_PREFIX)) child.deleteRecursively()
         }
     }
 
@@ -432,9 +449,10 @@ object PayloadLoader {
                 }
             }
             check(size == entry.size && crc.value == entry.crc) { "native entry CRC/length mismatch: ${entry.name}" }
-            check(target.setExecutable(true, true)) {
-                "cannot protect native library: $target"
-            }
+            // Android 16 warns about (and a later release rejects) `System.load` on writable code
+            // files; the payload loader verifies and then loads these copies itself.
+            check(target.setReadable(true, true) && target.setExecutable(true, true) &&
+                target.setWritable(false, false)) { "cannot protect native library: $target" }
         }
     }
 

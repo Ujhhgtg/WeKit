@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.agent.environment
 
 import android.os.ParcelFileDescriptor
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicLong
@@ -80,9 +81,7 @@ private constructor(
 
     private object Native {
         init {
-            try {
-                System.loadLibrary("wekit_native")
-            } catch (_: UnsatisfiedLinkError) {}
+            NativeLoader.requireLoaded("wekit_native")
         }
 
         external fun start(argv: Array<String>, environment: Array<String>, cwd: String): LongArray?

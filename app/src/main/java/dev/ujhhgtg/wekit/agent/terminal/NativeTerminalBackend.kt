@@ -2,10 +2,13 @@ package dev.ujhhgtg.wekit.agent.terminal
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
+import dev.ujhhgtg.wekit.loader.utils.NativeLoader
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class NativeTerminalBackend : TerminalBackend {
     override suspend fun start(
@@ -70,7 +73,11 @@ class NativeTerminalBackend : TerminalBackend {
 
         override suspend fun close() {
             val writeLock = lifecycleLock.writeLock()
-            check(writeLock.tryLock(CLOSE_LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            check(
+                withContext(Dispatchers.IO) {
+                    writeLock.tryLock(CLOSE_LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                },
+            ) {
                 "timed out closing native PTY"
             }
             try {
@@ -87,9 +94,7 @@ class NativeTerminalBackend : TerminalBackend {
 
     private object NativePty {
         init {
-            try {
-                System.loadLibrary("wekit_native")
-            } catch (_: UnsatisfiedLinkError) {}
+            NativeLoader.requireLoaded("wekit_native")
         }
 
         external fun start(

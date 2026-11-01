@@ -528,10 +528,14 @@ object BootstrapCoordinator {
         catch (error: Throwable) { BootstrapLog.e("Bootstrap", "cannot clear the local authorization", error) }
         try { if (cache.clearAll()) wiped = true }
         catch (error: Throwable) { BootstrapLog.e("Bootstrap", "cannot clear the payload cache", error) }
-        val native = File(store.directory, "native")
-        if (native.exists()) {
-            if (native.deleteRecursively()) wiped = true
-            else BootstrapLog.e("Bootstrap", "cannot clear the extracted payload", IOException(native.path))
+        // A payload that is still running keeps resolving JNI libraries through its own extracted
+        // directory, so only the directories of dead processes may go here. A wholesale delete makes
+        // the next lazy native load in a live payload process crash with UnsatisfiedLinkError.
+        try {
+            val native = File(store.directory, "native")
+            if (PayloadLoader.purgeDeadProcessNativeDirectories(native)) wiped = true
+        } catch (error: Throwable) {
+            BootstrapLog.e("Bootstrap", "cannot clear the extracted payload", error)
         }
         return wiped
     }

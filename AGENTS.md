@@ -8,15 +8,16 @@
 ## Build
 
 ```bash
-./x bootstrap build                 # release bootstrap APK
-./x bootstrap build --local         # release bootstrap APK with the debug payload embedded
-./x bootstrap build --local --release # release bootstrap APK with the release payload embedded
-./x bootstrap build --native-only   # only prepare Zygisk native inputs
-./x payload build                   # debug payload APK
-./x payload publish                 # build, encrypt, sign, and publish the release payload
-./x bootstrap install --zygisk      # build the bootstrap APK and install it as a Zygisk module
-./x bootstrap install --local       # install bootstrap-local with the debug payload embedded
+./x bootstrap build                     # release bootstrap APK
+./x bootstrap build --local             # release bootstrap APK with the debug payload embedded
+./x bootstrap build --local --release   # release bootstrap APK with the release payload embedded
+./x bootstrap build --native-only       # only prepare Zygisk native inputs
+./x payload build                       # debug payload APK
+./x payload publish                     # build, encrypt, sign, and publish the release payload
+./x bootstrap install --zygisk          # build the bootstrap APK and install it as a Zygisk module
+./x bootstrap install --local           # install bootstrap-local with the debug payload embedded
 ./x bootstrap install --local --release # install bootstrap-local with the release payload embedded
+./x fmt                                 # formats Kotlin/Java with spotless and Rust with cargo
 # (./x is alias to `cargo xtask` which orchestrates the build process)
 ```
 
