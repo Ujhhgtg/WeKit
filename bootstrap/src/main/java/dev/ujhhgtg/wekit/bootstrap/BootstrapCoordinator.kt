@@ -382,7 +382,7 @@ object BootstrapCoordinator {
                 return null
             }
             stage = "PAYLOAD_LOAD"
-            val preparedPayload = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key!!,
+            val preparedPayload = PayloadLoader.prepare(selected.fd, selected.offset, release.descriptor, key,
                 File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
             loaded = preparedPayload
             persistLocalAuthorization(state, authorization, "boot")
