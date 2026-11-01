@@ -108,11 +108,12 @@ object EmbeddedPayloadCoordinator {
 
     private fun failed(error: Throwable) {
         BootstrapLog.e(TAG, "Embedded payload initialization failed", error)
+        if (error is StackOverflowError) {
+            BootstrapLog.w(TAG, BootstrapFailure.describeOverflow(error))
+        }
         if (!mainProcess) return
-        failureMessage = uiText(
-            R.string.wekit_auth_load_failure,
-            error.message ?: error.javaClass.simpleName,
-        )
+        failureMessage =
+            BootstrapFailure.loadFailure(application, File(loaderService.mainModulePath), error)
         failureRestartRequired = entryAttempted
         mainHandler.post(::showFailure)
     }

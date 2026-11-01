@@ -789,7 +789,12 @@ object BootstrapCoordinator {
                 .replace(Regex("[\\u0000-\\u001f\\u007f]+"), " ")
                 .replace(Regex("\\s+"), " ")
                 .trim()
-            "${item.javaClass.name}: ${text.ifEmpty { "<no message>" }}"
+            // ART reports an overflow only as `stack size <n>KB`; the report needs the loop site.
+            val detail =
+                if (item is StackOverflowError) {
+                    " (${BootstrapFailure.describeOverflow(item)})"
+                } else ""
+            "${item.javaClass.name}: ${text.ifEmpty { "<no message>" }}$detail"
         }.take(500)
 
     private fun throwableChain(error: Throwable): List<Throwable> {
@@ -824,6 +829,9 @@ object BootstrapCoordinator {
 
     private fun failed(error: Throwable) {
         BootstrapLog.e("Bootstrap", "Remote payload initialization failed", error)
+        if (error is StackOverflowError) {
+            BootstrapLog.w("Bootstrap", BootstrapFailure.describeOverflow(error))
+        }
         if (!mainProcess) return
         if (error is RemoteApiException) {
             if (!error.retryable) retryBlocked = true
@@ -833,7 +841,10 @@ object BootstrapCoordinator {
                 pendingBinding = null
             }
         }
-        message(uiText(R.string.wekit_auth_load_failure, error.message ?: error.javaClass.simpleName), restartRequired = entryAttempted)
+        message(
+            BootstrapFailure.loadFailure(application, File(loaderService.mainModulePath), error),
+            restartRequired = entryAttempted,
+        )
     }
 
     private fun uiText(id: Int, vararg args: Any): String =
