@@ -24,7 +24,7 @@ object DexCacheManager {
 
     fun init() {
         hostVersion = hostVersionKey()
-        WeLogger.i(TAG, "using Room Dex cache version: $hostVersion")
+        WeLogger.i(TAG, "using dex cache version: $hostVersion")
     }
 
     /**
