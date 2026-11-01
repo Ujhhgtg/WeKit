@@ -168,9 +168,6 @@ enum PayloadCommand {
     /// Build the private business payload APK.
     Build(BuildArgs),
 
-    /// Build the payload APK and write it as the local payload.cache on a rooted device.
-    Install(PayloadInstallArgs),
-
     /// Build the private release payload locally, then encrypt/sign and publish it.
     Publish(PublishArgs),
 }
@@ -230,25 +227,6 @@ struct PublishArgs {
     prepare_only: bool,
     #[arg(long, default_value = "target/private-payload")]
     output_dir: PathBuf,
-}
-
-#[derive(Args)]
-struct PayloadInstallArgs {
-    /// adb device serial; uses the default device when omitted.
-    #[arg(short, long)]
-    device: Option<String>,
-
-    /// Android user ID owning the WeChat installation.
-    #[arg(long, default_value_t = 0)]
-    user: u32,
-
-    /// WeChat package to update.
-    #[arg(long, default_value = "com.tencent.mm")]
-    package: String,
-
-    /// Build and install the release payload instead of debug.
-    #[arg(long)]
-    release: bool,
 }
 
 /// Arguments for `bootstrap install` (install + launch via Gradle).
@@ -312,7 +290,6 @@ fn main() -> Result<()> {
         },
         Cmd::Payload(args) => match args.command {
             PayloadCommand::Build(args) => task_build_module(&args, "app")?,
-            PayloadCommand::Install(args) => task_payload_install(args)?,
             PayloadCommand::Publish(args) => task_publish(args)?,
         },
         Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
@@ -609,86 +586,6 @@ fn task_install(args: InstallArgs) -> Result<()> {
                 ],
             )?;
         }
-    }
-    Ok(())
-}
-
-/// Build the selected payload variant and copy the plain APK to a rooted WeChat installation.
-fn task_payload_install(args: PayloadInstallArgs) -> Result<()> {
-    validate_android_package(&args.package)?;
-    let build = BuildArgs {
-        native_only: false,
-        release: args.release,
-        save_symbols: false,
-        native: NativeArgs { abis: Vec::new() },
-    };
-    task_build_module(&build, "app")?;
-    let root = workspace_root();
-    let profile = if args.release { "release" } else { "debug" };
-    let apk = root.join(format!("app/build/outputs/apk/{profile}/app-{profile}.apk"));
-    let pid = adb_output(
-        &root,
-        args.device.as_deref(),
-        &["shell".into(), "pidof".into(), args.package.clone()],
-    )?
-    .split_whitespace()
-    .next()
-    .map(str::to_owned)
-    .with_context(|| {
-        format!(
-            "{} must be running while installing the payload",
-            args.package
-        )
-    })?;
-    let remote = format!("/data/local/tmp/wekit-payload-{}.apk", std::process::id());
-    run_adb(
-        &root,
-        args.device.as_deref(),
-        &["push".into(), apk.display().to_string(), remote.clone()],
-    )?;
-
-    let data_dir = format!("/data/user/{}/{}", args.user, args.package);
-    let loader_dir = format!("{data_dir}/no_backup/wekit-loader");
-    let cache = format!("{loader_dir}/payload.cache");
-    let temporary = format!("{cache}.part");
-    let command = format!(
-        "set -eu; data={data_dir}; dir={loader_dir}; test -d \"$data\" || exit 2; uid=$(stat -c %u \"$data\") || exit 3; mkdir -p \"$dir\" || exit 4; chown \"$uid:$uid\" \"$dir\" || exit 5; cp {remote} {temporary} || exit 6; chown \"$uid:$uid\" {temporary} || exit 7; chmod 600 {temporary} || exit 8; mv -f {temporary} {cache} || exit 9; test -f {cache} || exit 10; test \"$(stat -c %u {cache})\" = \"$uid\" || exit 11; rm -f {remote}",
-    );
-    let namespace_command =
-        format!("nsenter -t {pid} -m -u -i -n -p -- /system/bin/sh -c '{command}' >/dev/null");
-    let result = run_adb(
-        &root,
-        args.device.as_deref(),
-        &["shell".into(), "su".into(), "-c".into(), namespace_command],
-    );
-    if result.is_err() {
-        let _ = run_adb(
-            &root,
-            args.device.as_deref(),
-            &[
-                "shell".into(),
-                "su".into(),
-                "-c".into(),
-                format!("nsenter -t {pid} -m -u -i -n -p -- /system/bin/rm -f {remote} >/dev/null"),
-            ],
-        );
-    }
-    result?;
-    println!(
-        "payload install: wrote {cache} for Android user {} package {}",
-        args.user, args.package
-    );
-    Ok(())
-}
-
-fn validate_android_package(package: &str) -> Result<()> {
-    if package.is_empty()
-        || package.len() > 255
-        || !package
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_'))
-    {
-        bail!("invalid Android package `{package}`");
     }
     Ok(())
 }
@@ -1356,29 +1253,6 @@ fn run_adb(root: &Path, device: Option<&str>, args: &[String]) -> Result<()> {
     run_cmd_owned("adb", &adb_args, root)
 }
 
-fn adb_output(root: &Path, device: Option<&str>, args: &[String]) -> Result<String> {
-    let mut adb_args = Vec::new();
-    if let Some(device) = device {
-        adb_args.push("-s".to_owned());
-        adb_args.push(device.to_owned());
-    }
-    adb_args.extend(args.iter().cloned());
-    let output = Command::new("adb")
-        .args(&adb_args)
-        .current_dir(root)
-        .output()
-        .context("failed to run adb")?;
-    if !output.status.success() {
-        bail!(
-            "`adb {}` exited with {}: {}",
-            adb_args.join(" "),
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-    Ok(String::from_utf8(output.stdout)?.trim().to_owned())
-}
-
 fn install_zygisk_apk(
     root: &Path,
     apk_path: &Path,
@@ -1566,6 +1440,7 @@ mod tests {
         );
         assert!(parse_payload_build_args(&["--release"]).release);
         assert!(parse_payload_build_args(&["--native-only"]).native_only);
+        assert!(Cli::try_parse_from(["xtask", "payload", "install"]).is_err());
         assert!(Cli::try_parse_from(["xtask", "build"]).is_err());
     }
 

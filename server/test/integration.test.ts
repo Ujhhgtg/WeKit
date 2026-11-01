@@ -757,7 +757,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         .first<{ release_channel: string }>())!.release_channel,
       "beta",
     );
-    await ok(
+    const rejectedLocal = await ok(
       await send(
         admin,
         "https://admin.example/admin/api/users/1001/actions",
@@ -769,29 +769,9 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
           "x-wekit-csrf-token": adminSession.data.csrfToken,
         },
       ),
+      404,
     );
-    const localInit = await signed("/v1/initializations", initBody, {
-      registration: false,
-      nonce: processNonce,
-      requestId: opaqueId(),
-    });
-    const local = await ok(localInit.response);
-    assert.equal(local.payloadMode, "LOCAL");
-    assert.equal(local.payloadId, null);
-    assert.equal(local.contentKey, null);
-    await ok(
-      await send(
-        admin,
-        "https://admin.example/admin/api/users/1001/actions",
-        "POST",
-        { action: "channel", channel: "beta" },
-        {
-          ...accessHeaders,
-          origin: env.ADMIN_ORIGIN,
-          "x-wekit-csrf-token": adminSession.data.csrfToken,
-        },
-      ),
-    );
+    assert.equal(rejectedLocal.error.code, "CHANNEL_NOT_FOUND");
     await ok(
       await send(
         admin,
@@ -815,7 +795,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       (await db
         .prepare("SELECT count(*) AS n FROM initializations")
         .first<{ n: number }>())!.n,
-      3,
+      2,
     );
     const revokedReport = await signed(
       "/v1/initializations/report",
@@ -1768,6 +1748,30 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
 
     // An already-bound installation whose chain is revoked later is downgraded on its
     // next initialization instead of being denied forever with AUTHORIZATION_DENIED.
+    const downgradePayloadId = "downgrade-payload";
+    const downgradeContentKey = random(32);
+    const downgradeWrapped = await wrap(
+      env as any,
+      unb64(downgradeContentKey),
+      `WEKIT-CONTENT-KEY-V1\n${downgradePayloadId}\n`,
+    );
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO payload_releases(payload_id,manifest_json,apk_sha256,apk_size,cipher_sha256,cipher_size,r2_key,content_key_wrapped_json,status,created_at) VALUES(?,'{}',?,1,?,1,?,?,'ALLOWED',?)",
+        )
+        .bind(
+          downgradePayloadId,
+          "0".repeat(64),
+          "1".repeat(64),
+          `${downgradePayloadId}/key`,
+          JSON.stringify(downgradeWrapped),
+          now,
+        ),
+      db
+        .prepare("INSERT INTO channels VALUES('stable',?,?)")
+        .bind(downgradePayloadId, now),
+    ]);
     const credentialToken = random(32),
       credentialDigest = await sha(unb64(credentialToken)),
       credentialNonce = random(32),
@@ -1777,7 +1781,7 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
         .prepare(
           "INSERT INTO users(telegram_user_id,created_at,last_seen_at,release_channel) VALUES(?,?,?,?)",
         )
-        .bind("tg-downgrade", now, now, "local"),
+        .bind("tg-downgrade", now, now, "stable"),
       db
         .prepare(
           "INSERT INTO bindings(binding_id,installation_id,telegram_user_id,status,created_at) VALUES(?,?,?,'ACTIVE',?)",
@@ -1826,7 +1830,6 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       initBody,
     );
     const initialized = await ok(initRequest.response);
-    assert.equal(initialized.payloadMode, "LOCAL");
     assert.ok(initialized.initializationId);
     assert.ok(initialized.grantId);
     assert.equal(

@@ -71,9 +71,6 @@ The APK and loader follow the manager's module activation lifecycle together.
 ./x payload build
 ./x payload build --release
 
-# Write the debug payload APK directly to a rooted WeChat installation.
-./x payload install --device SERIAL --user 0 --package com.tencent.mm
-
 # Prepare Zygisk native libraries without building an APK.
 ./x bootstrap build --native-only
 

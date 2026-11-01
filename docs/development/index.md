@@ -94,7 +94,6 @@ exec cargo xtask "$@"
 | `./x bootstrap build --local` | 构建内嵌 release payload 的离线二合一 bootstrap APK |
 | `./x bootstrap install` | 构建并安装 bootstrap APK；`--local` 使用内嵌 release payload 的离线变体，`--zygisk` 作为模块刷入 |
 | `./x payload build` | 构建私有业务 payload APK |
-| `./x payload install` | 构建 debug payload 并写入设备上指定 WeChat 用户的 `payload.cache` |
 | `./x payload publish` | 构建、加密、签名并发布 release payload |
 | `./x check` | 对 Rust native 库执行 `cargo check` |
 | `./x clippy` | 对 Rust native 库执行 `cargo clippy -- -D warnings` |
@@ -176,14 +175,8 @@ bootstrap/build/outputs/apk/release/bootstrap-release.apk
 ./x payload publish --prepare-only
 ```
 
-调试 payload 时，先在管理员 WebUI 将用户渠道切换为 `local`，再把 debug APK 直接写入目标设备：
-
-```bash
-./x payload install --device SERIAL --user 0 --package com.tencent.mm
-./x payload install --release --device SERIAL --user 0 --package com.tencent.mm
-```
-
-设备上的 WeKit bootstrap 仍会向服务端进行初始化授权；`local` 渠道授权后才读取这个本地 APK。
+旧的服务端 `local` 发布渠道和 `./x payload install` 明文缓存入口已移除。需要不经过网络加载
+载荷时，使用内嵌 release payload 的 `bootstrap-local` 变体。
 
 ### 安装
 

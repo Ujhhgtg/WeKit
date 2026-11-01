@@ -99,22 +99,6 @@ object PayloadLoader {
         }
     }
 
-    /** Loads a plain local payload APK after the server has authorized local mode. */
-    fun preparePlain(
-        cache: ParcelFileDescriptor,
-        apkSha256: String,
-        nativeRoot: File,
-        parent: ClassLoader,
-    ): PreparedPayload {
-        val apk = ParcelFileDescriptor.dup(cache.fileDescriptor)
-        return try {
-            prepareArchive(apk, apkSha256, nativeRoot, parent)
-        } catch (error: Throwable) {
-            apk.close()
-            throw error
-        }
-    }
-
     /** Streams the release payload embedded in this bootstrap APK into a sealed, read-only file. */
     fun prepareEmbedded(
         bootstrapApk: File,

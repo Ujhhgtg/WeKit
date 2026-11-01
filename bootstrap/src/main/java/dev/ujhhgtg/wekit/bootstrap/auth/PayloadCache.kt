@@ -9,8 +9,7 @@ import java.security.MessageDigest
 class OpenPayloadCache(
     val fd: ParcelFileDescriptor,
     val offset: Long,
-    val release: VerifiedRelease?,
-    val localApkSha256: String?,
+    val release: VerifiedRelease,
 ) : AutoCloseable {
     override fun close() = fd.close()
 }
@@ -18,7 +17,9 @@ class OpenPayloadCache(
 class PayloadCache(private val store: InstallationStore, private val config: BootstrapConfig) {
     private val destination = File(store.directory, "payload.cache")
     private val partial = File(store.directory, "payload.cache.part")
-    fun clear() { if (destination.exists()) check(destination.delete()) { "Cannot remove damaged payload cache" } }
+    fun clear() {
+        if (destination.exists()) check(destination.delete()) { "Cannot remove damaged payload cache" }
+    }
 
     fun open(): OpenPayloadCache? {
         if (!destination.isFile) return null
@@ -27,9 +28,6 @@ class PayloadCache(private val store: InstallationStore, private val config: Boo
             // The pathname is used only to obtain an independent read position on this same open inode.
             RandomAccessFile("/proc/self/fd/${fd.fd}", "r").use { input ->
                 val magic = ByteArray(8).also(input::readFully)
-                if (magic[0] == 'P'.code.toByte() && magic[1] == 'K'.code.toByte()) {
-                    return OpenPayloadCache(fd, 0, null, sha256(destination))
-                }
                 require(magic.contentEquals(MAGIC)) { "Invalid payload cache magic" }
                 val length = input.readInt()
                 require(length in 1..65536) { "Invalid manifest envelope length" }
@@ -37,22 +35,9 @@ class PayloadCache(private val store: InstallationStore, private val config: Boo
                 val release = ReleaseManifest.verify(envelope, config)
                 val offset = 12L + length
                 require(fd.statSize == offset + release.descriptor.cipherSize) { "Incomplete payload cache" }
-                return OpenPayloadCache(fd, offset, release, null)
+                return OpenPayloadCache(fd, offset, release)
             }
         } catch (error: Throwable) { fd.close(); throw error }
-    }
-
-    private fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                digest.update(buffer, 0, count)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     fun download(api: BootstrapApi, state: InstallationState, processNonce: String, authorization: kotlinx.serialization.json.JsonObject, release: VerifiedRelease) {

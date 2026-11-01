@@ -12,8 +12,6 @@
 ./x bootstrap build --local         # release bootstrap APK with the release payload embedded
 ./x bootstrap build --native-only   # only prepare Zygisk native inputs
 ./x payload build                   # debug payload APK
-./x payload install --device SERIAL # write debug payload.cache to the default WeChat user
-./x payload install --release --device SERIAL # write release payload.cache
 ./x payload publish                 # build, encrypt, sign, and publish the release payload
 ./x bootstrap install --zygisk      # build the bootstrap APK and install it as a Zygisk module
 ./x bootstrap install --local       # install bootstrap-local with the embedded release payload
@@ -29,7 +27,8 @@
   installed or flashed directly. `bootstrap-local` always embeds the release payload and skips all
   bootstrap authentication, binding, cache, and download paths; because the payload is present in
   plaintext, never publish this variant outside internal testing. There is no separate `zygisk build`
-  command.
+  command. The legacy server-side `local` release channel and `./x payload install` command have
+  been removed.
 - JDK 21, AGP 9, Gradle version catalog in `gradle/libs.versions.toml`
 - CI builds one release APK (`app-release.apk`) and publishes it to the CI GitHub release and
   Xposed Modules Repository.

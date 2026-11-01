@@ -161,7 +161,7 @@ object BootstrapCoordinator {
         val openedCache = try { cache.open() }
         catch (error: Exception) {
             if (!mainProcess) throw error
-            BootstrapLog.e("Bootstrap", "Invalid local cache; downloading the authorized object", error)
+            BootstrapLog.e("Bootstrap", "Invalid payload cache; downloading the authorized object", error)
             cache.clear()
             null
         }
@@ -173,7 +173,7 @@ object BootstrapCoordinator {
             return
         }
         var request = initializationBody(state, identity)
-        if (!mainProcess && openedCache?.release != null) {
+        if (!mainProcess && openedCache != null) {
             request = request.copy(requestedPayloadId = openedCache.release.descriptor.payloadId,
                 cachedApkSha256 = openedCache.release.descriptor.apkSha256)
         }
@@ -184,52 +184,16 @@ object BootstrapCoordinator {
             val authorization = run {
                 val response = api.signedPost("/v1/initializations", WireJson.body(request), state, processNonce)
                 initializationId = response.string("initializationId")
-                if (response.string("payloadMode") == "CLOUD") {
-                    key = WireProtocol.decode(response.string("contentKey"), 32)
-                }
+                key = WireProtocol.decode(response.string("contentKey"), 32)
                 JsonObject(response.filterKeys { it != "contentKey" })
             }
-            val payloadMode = authorization.string("payloadMode")
-            if (payloadMode == "LOCAL") {
-                val selected = selectedCache ?: error("Local payload cache is missing")
-                require(selected.release == null) { "Local payload cache is not a plain APK" }
-                val localApkSha256 = selected.localApkSha256 ?: error("Local payload cache is missing")
-                if (!allowEntry) {
-                    payloadReadyForRestart = true
-                    message(uiText(R.string.wekit_auth_payload_ready))
-                    return
-                }
-                check(Looper.myLooper() == Looper.getMainLooper())
-                val loaded = PayloadLoader.preparePlain(selected.fd, localApkSha256,
-                    File(store.directory, "native"), BootstrapCoordinator::class.java.classLoader!!)
-                prepared = loaded
-                val environment = PayloadEnvironment(application, hostLoader, hookBridge, loaderService,
-                    injectionMode, telegramRootAccess, File(loaderService.mainModulePath), loaded.apk,
-                    localApkSha256, loaded.nativeDirectory, if (mainProcess) authorizationControls else null,
-                    watermarkToken = initializationId)
-                entryAttempted = true
-                val entry = loaded.classLoader.loadClass("dev.ujhhgtg.wekit.loader.startup.PayloadEntryImpl")
-                    .getDeclaredConstructor().newInstance() as PayloadEntry
-                try { entry.start(environment) } finally { loaded.scrubNativeLibraries() }
-                BootstrapLog.i("Bootstrap", "Local payload entry returned synchronously on the main thread")
-                loadedWxId = identity.wxId
-                successfulInitializationId = initializationId
-                successfulState = state
-                reportedAlias = identity.alias
-                report(state, initializationId!!, "ENTRY_RETURNED", "LOADED", identity)
-                mainHandler.post { bindingDialog?.dismiss(); pendingMessage = null }
-                return
-            }
-            require(payloadMode == "CLOUD") { "Unknown payload mode: $payloadMode" }
-            if (!mainProcess && selectedCache?.release == null) {
-                selectedCache?.close()
-                selectedCache = null
+            if (!mainProcess && selectedCache == null) {
                 BootstrapLog.i("Bootstrap", "Cloud payload cache is not ready in this process")
                 return
             }
             val release = ReleaseManifest.verify(authorization.obj("manifest"), config)
             require(authorization.string("payloadId") == release.descriptor.payloadId)
-            if (mainProcess && (openedCache?.release == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
+            if (mainProcess && (openedCache == null || openedCache.release.manifestSha256 != release.manifestSha256)) {
                 openedCache?.close(); selectedCache = null
                 val download = {
                     cache.download(api, state, processNonce, authorization, release)
@@ -242,7 +206,7 @@ object BootstrapCoordinator {
                 return
             }
             val selected = selectedCache!!
-            val selectedRelease = selected.release ?: error("Cloud payload cache is missing")
+            val selectedRelease = selected.release
             require(selectedRelease.manifestSha256 == release.manifestSha256) { "Cache differs from authorized manifest" }
             if (!allowEntry) {
                 payloadReadyForRestart = true
