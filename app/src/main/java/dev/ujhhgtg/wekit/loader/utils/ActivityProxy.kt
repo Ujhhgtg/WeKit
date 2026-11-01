@@ -20,8 +20,8 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.ScreenCaptureBlocker
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.currentHookBridge
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -84,7 +84,7 @@ object ActivityProxy {
             initialized = true
             WeLogger.i(
                 TAG,
-                "module activity hooks installed via ${currentHookBridge.hookBridgeName}",
+                "module activity hooks installed",
             )
         }
             .onFailure { WeLogger.e(TAG, "failed to install module activity hooks", it) }
@@ -295,15 +295,14 @@ object ActivityProxy {
             )
         targets.forEach { method ->
             method.hookBeforeDirectly(HOOK_PRIORITY) {
-                fixActivityCreate(args[0] as Activity)
+                val activity = args[0] as Activity
+                ResourcesInjector.injectModuleRes(activity.resources)
+                if (activity.javaClass.classLoader === ClassLoaders.MODULE) {
+                    ScreenCaptureBlocker.activity(activity)
+                }
             }
         }
         WeLogger.i(TAG, "installed ${targets.size} activity onCreate hooks")
-    }
-
-    private fun fixActivityCreate(activity: Activity) {
-        // Host Activities that host module dialogs/panels need payload resources too.
-        ResourcesInjector.injectModuleRes(activity.resources)
     }
 
     // --- shared routing data ---

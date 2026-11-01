@@ -16,6 +16,7 @@ import dev.ujhhgtg.wekit.loader.utils.OplusFontCompat
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
+import dev.ujhhgtg.wekit.utils.ScreenCaptureBlocker
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
@@ -79,6 +80,7 @@ object ModuleLoader {
         if (TargetProcesses.isInMain) {
             ActivityProxy.init()
             OplusFontCompat.init()
+            ScreenCaptureBlocker.init()
 
             val prefs =
                 context.getSharedPreferences(

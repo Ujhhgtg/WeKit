@@ -21,6 +21,7 @@ val commitTimestamp = providers.exec {
     workingDir(rootProject.layout.projectDirectory)
     commandLine("git", "log", "-1", "--format=%ct", "HEAD")
 }.standardOutput.asText.map { it.trim().toLong() * 1000L }
+val embeddedPayloadBuildType = providers.gradleProperty("wekit.embeddedPayloadBuildType").orElse("debug")
 var foundKeystore = false
 
 android {
@@ -101,11 +102,21 @@ android {
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get())) } }
 androidComponents {
     onVariants { variant ->
+        val embeddedPayload = variant.name == "local"
+        val payloadBuildType = if (embeddedPayload) {
+            embeddedPayloadBuildType.get().also {
+                require(it == "debug" || it == "release") {
+                    "wekit.embeddedPayloadBuildType must be debug or release"
+                }
+            }
+        } else null
         variant.outputs.forEach { output ->
             output.versionCode.set(commitCount)
             output.versionName.set(gitHash.map { "git+$it" })
+            if (payloadBuildType != null) {
+                output.outputFileName.set("bootstrap-local-$payloadBuildType.apk")
+            }
         }
-        val embeddedPayload = variant.name == "local"
         variant.buildConfigFields!!.put("EMBEDDED_PAYLOAD", BuildConfigField("boolean", "$embeddedPayload", null))
         variant.buildConfigFields!!.put("COMMIT_HASH", gitHash.map {
             BuildConfigField("String", "\"$it\"", null)
@@ -126,13 +137,14 @@ androidComponents {
         variant.sources.resources!!.addGeneratedSourceDirectory(generateZygiskResources,
             GenerateZygiskResourcesTask::outputDir)
         if (embeddedPayload) {
+            val appBuildType = payloadBuildType!!
             val prepareEmbeddedPayload = tasks.register<PrepareEmbeddedPayloadTask>(
                 "prepare${variant.name.replaceFirstChar { it.uppercase() }}EmbeddedPayload"
             ) {
-                description = "Embed the private release payload in the bootstrap APK"
-                dependsOn(":app:assembleRelease")
+                description = "Embed the $appBuildType app payload in the bootstrap APK"
+                dependsOn(":app:assemble${appBuildType.replaceFirstChar { it.uppercase() }}")
                 appApk.set(rootProject.layout.projectDirectory.file(
-                    "app/build/outputs/apk/release/app-release.apk"
+                    "app/build/outputs/apk/$appBuildType/app-$appBuildType.apk"
                 ))
                 requireProductionSigning.set(true)
                 productionSigningConfigured.set(foundKeystore)
