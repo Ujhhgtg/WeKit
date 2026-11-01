@@ -4,7 +4,6 @@ import dalvik.system.InMemoryDexClassLoader
 import dev.ujhhgtg.wekit.extensions.MountedPythonRuntime
 import dev.ujhhgtg.wekit.extensions.PythonRuntimeArchive
 import dev.ujhhgtg.wekit.extensions.PythonRuntimePack
-import dev.ujhhgtg.wekit.loader.utils.HybridClassLoader
 import dev.ujhhgtg.wekit.loader.utils.InjectionHandle
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.python.api.PythonPluginHost
@@ -58,7 +57,7 @@ object PythonRuntimeLoader {
     @Volatile private var backend: PythonRuntimeBackend? = null
     private var startup: CompletableFuture<PythonRuntimeBackend>? = null
     private var injectionHandle: InjectionHandle? = null
-    private var runtimeClassLoader: ClassLoader? = null
+    @Volatile private var runtimeClassLoader: ClassLoader? = null
     private var dexBuffers: Array<ByteBuffer>? = null
 
     fun ensureStarted(host: PythonPluginHost): PythonRuntimeBackend {
@@ -121,16 +120,24 @@ object PythonRuntimeLoader {
 
     fun syncHookBudgetMs(): Long = PythonRuntimeLimits.SYNC_HOOK_BUDGET_MS
 
+    /**
+     * Runs [block] with the mounted runtime's class loader as this thread's context ClassLoader.
+     * Its parent is [ClassLoaders.MODULE], so the one loader resolves runtime DEX, module and host
+     * classes without registering it on the hybrid loader.
+     */
     fun <T> withLookupClassLoader(block: () -> T): T {
         val thread = Thread.currentThread()
         val previous = thread.contextClassLoader
-        thread.contextClassLoader = ClassLoaders.HYBRID_FOR_MODULE
+        thread.contextClassLoader = lookupClassLoader()
         return try {
             block()
         } finally {
             thread.contextClassLoader = previous
         }
     }
+
+    private fun lookupClassLoader(): ClassLoader =
+        checkNotNull(runtimeClassLoader) { "Python runtime is not started" }
 
     private fun start(host: PythonPluginHost): PythonRuntimeBackend {
         val mounted = PythonRuntimePack.selectForMount() ?: throw PythonRuntimeMissingException()
@@ -147,7 +154,6 @@ object PythonRuntimeLoader {
         publish(PythonRuntimeState.MOUNTING, mounted, "dex")
         val loader = createClassLoader(mounted)
         runtimeClassLoader = loader
-        HybridClassLoader.additionalLoaders.addIfAbsent(loader)
         val entrypoint = loader.loadClass(PythonRuntimeApi.ENTRYPOINT_CLASS)
 
         publish(PythonRuntimeState.STARTING, mounted, "bootstrap")
@@ -157,7 +163,7 @@ object PythonRuntimeLoader {
                 runtimeApk = mounted.runtimeApk,
                 nativeDirectory = mounted.nativeDirectory,
                 sdkRoot = mounted.sdkDirectory,
-                lookupClassLoader = ClassLoaders.HYBRID_FOR_MODULE,
+                lookupClassLoader = loader,
                 syncHookBudgetMs = PythonRuntimeLimits.SYNC_HOOK_BUDGET_MS,
                 taskDrainTimeoutMs = PythonRuntimeLimits.TASK_DRAIN_TIMEOUT_MS,
                 maxManifestBytes = PythonRuntimeLimits.MAX_MANIFEST_BYTES,

@@ -9,8 +9,10 @@ Chaquopy normally caches `Python.class.getClassLoader()` in
 `java.chaquopy.set_java_class_loader`, clears the native `FindClass` cache when
 the loader changes, and makes `dynamic_proxy` define proxies through the same
 loader. `ChaquopyRuntimeBackend` calls the operation with
-`ClassLoaders.HYBRID` immediately after `Python.start` and before loading the
-WeKit SDK or any plugin.
+`PythonRuntimeConfig.lookupClassLoader`, the runtime DEX loader whose parent is
+`ClassLoaders.MODULE`, immediately after `Python.start` and before loading the
+WeKit SDK or any plugin. That one loader resolves runtime DEX, module and host
+classes, so nothing has to be registered on `HybridClassLoader`.
 
 `xtask extensions pack` builds `java/chaquopy.so` from that pinned source and
 patch with Cython 3.0.11, the Android NDK
