@@ -87,8 +87,9 @@ object BootstrapCoordinator {
     private var bindingDialog: ComponentDialog? = null
     private var bindingDialogSession: String? = null
     private var pendingBinding: InstallationState? = null
-    private var pendingMessage: String? = null
-    private var pendingRestartRequired = false
+    /** Queued messages; one dialog is shown at a time so a failure and its follow-up never overlap. */
+    private val pendingMessages = ArrayDeque<QueuedMessage>()
+    private var messageDialog: ComponentDialog? = null
     private var prepared: PreparedPayload? = null
     private var entryAttempted = false
     private var loadedWxId: String? = null
@@ -114,6 +115,13 @@ object BootstrapCoordinator {
     /** Sealed short-lived authorization that lets a start skip the control plane. */
     private lateinit var localAuthorization: LocalAuthorizationStore
     private var restartScheduled = false
+    /**
+     * Online refresh started for a locally authorized boot before the payload entry runs. It keeps
+     * the update path alive when the entry itself throws (StackOverflowError and friends): the
+     * worker finishes the check and the download even though the main thread never returned.
+     * Null when this process does not run the refresh (non-main processes, online authorization).
+     */
+    private var pendingRefresh: CompletableFuture<RefreshOutcome>? = null
 
     /** Everything the main thread needs to install the payload entry after the worker is done. */
     private class PreparedStart(
@@ -126,6 +134,21 @@ object BootstrapCoordinator {
         /** True when the payload was decrypted from the local authorization, without the server. */
         val offline: Boolean,
     )
+
+    /** One user-facing message; [restartRequired] adds the "entry was attempted" restart hint. */
+    private class QueuedMessage(val text: String, val restartRequired: Boolean)
+
+    /** Outcome of [runPendingRefresh]; the entry path decides how to act on it in [finishPendingRefresh]. */
+    private sealed interface RefreshOutcome {
+        /** The server still selects the running payload; the local authorization can be renewed. */
+        class Current(val authorization: ServerAuthorization) : RefreshOutcome
+        /** A newer payload was downloaded and the user has to restart to activate it. */
+        object Updated : RefreshOutcome
+        /** The server denied the installation; a denial is acted on only after the entry attempt. */
+        class Denied(val error: RemoteApiException) : RefreshOutcome
+        /** Network or protocol failure; the running payload is unaffected. */
+        class Unavailable(val error: Throwable) : RefreshOutcome
+    }
 
 
     @Synchronized
@@ -194,6 +217,9 @@ object BootstrapCoordinator {
             BootstrapLog.i("Bootstrap", "skipping non-target process ${Application.getProcessName()}")
             return
         }
+        // Tracked outside the try: a failed entry must still report against the pre-entry online
+        // authorization, which keeps running on the bootstrap worker.
+        var attemptedStart: PreparedStart? = null
         try {
             val enteredAt = millisSincePrewarm()
             if (prewarm != null) log("startup hook entered at $enteredAt ms")
@@ -209,8 +235,14 @@ object BootstrapCoordinator {
             // Posting the entry later lets the host run with only a partially installed module.
             val preparedStart = if (pending != null) awaitPrewarm(pending, enteredAt)
             else authorizeAndPrepare(allowEntry = true)
+            attemptedStart = preparedStart
             if (preparedStart != null) startPreparedEntry(preparedStart)
-        } catch (error: Throwable) { failed(error) }
+        } catch (error: Throwable) {
+            failed(error)
+            // The pre-entry refresh must outlive the entry failure: it is what discovers and
+            // downloads the fixed payload. Report the failure against it once the refresh is done.
+            attemptedStart?.takeIf { it.offline }?.let { finishPendingRefresh(it, error) }
+        }
     }
 
     private fun awaitPrewarm(pending: CompletableFuture<PreparedStart?>, enteredAt: Long): PreparedStart? {
@@ -277,10 +309,16 @@ object BootstrapCoordinator {
             return null
         }
         if (allowEntry) {
-            // A locally authorized boot never waits for the control plane. Only the main process
-            // validates and renews it in the background; other processes boot offline or skip.
+            // A locally authorized boot never waits for the control plane: the payload is decrypted
+            // and prepared from the local record, and the main process starts the online refresh
+            // before the entry runs so a broken payload still discovers and downloads an update.
+            // Other processes boot offline and never contact the server, so a child process cannot
+            // keep renewing the local authorization of a main process whose entry keeps failing.
             val local = tryLocalBoot(state)
-            if (local != null) return local
+            if (local != null) {
+                beginPendingRefresh(local)
+                return local
+            }
         }
         if (!mainProcess) { log("no local authorization; skipping this process"); return null }
         return authorizeOnline(state, allowEntry)
@@ -454,33 +492,93 @@ object BootstrapCoordinator {
     }
 
     /**
-     * Validates and renews the local authorization after an offline boot. Runs on the worker and
-     * never extends the startup window; a denial wipes the cached payload and restarts the host.
+     * Starts the online refresh for a locally authorized boot before the payload entry runs.
+     *
+     * The entry never waits for it, but the refresh is what discovers a newer release: keeping it
+     * on the worker means a payload that throws during its own entry still gets replaced on the
+     * next start. Only the main process runs it; a child process must never renew the local
+     * authorization on behalf of a main process whose payload keeps failing to start.
      */
-    private fun refreshAuthorizationInBackground(preparedStart: PreparedStart) {
-        val state = preparedStart.state
-        val identity = preparedStart.identity
+    private fun beginPendingRefresh(preparedStart: PreparedStart) {
+        if (!mainProcess || pendingRefresh != null) return
+        val future = CompletableFuture<RefreshOutcome>()
+        pendingRefresh = future
         worker.execute {
-            try {
-                val authorization = authorizeWithServer(state, identity)
-                if (authorization.release.manifestSha256 == preparedStart.release.manifestSha256) {
-                    persistLocalAuthorization(state, authorization, "refresh")
-                    successfulInitializationId = authorization.initializationId
-                    successfulState = state
-                    report(state, authorization.initializationId, "ENTRY_RETURNED", "LOADED", identity)
-                    log("local authorization refreshed in the background")
-                    return@execute
-                }
-                log("the server selected another payload; downloading it in the background")
-                cache.download(api, state, processNonce, authorization.response, authorization.release)
-                persistLocalAuthorization(state, authorization, "update")
-                payloadReadyForRestart = true
-                message(uiText(R.string.wekit_auth_payload_updated))
-            } catch (error: RemoteApiException) {
-                if (handleDenial(error)) return@execute
-                log("background authorization failed: ${error.code}")
+            // Never leave the future incomplete: [finishPendingRefresh] waits for it on this same
+            // worker thread, and an unfinished future would stall every later worker job.
+            val outcome = try {
+                runPendingRefresh(preparedStart)
             } catch (error: Throwable) {
-                log("background authorization failed: ${error.message ?: error.javaClass.simpleName}")
+                RefreshOutcome.Unavailable(error)
+            }
+            future.complete(outcome)
+        }
+    }
+
+    /**
+     * The online half of the refresh: authorize, compare the manifest and download a newer release.
+     * It only discovers and renews; user-visible actions and authorization denials are deferred to
+     * [finishPendingRefresh] so they happen after the entry attempt, as the post-entry refresh did.
+     */
+    private fun runPendingRefresh(preparedStart: PreparedStart): RefreshOutcome = try {
+        val authorization = authorizeWithServer(preparedStart.state, preparedStart.identity)
+        if (authorization.release.manifestSha256 == preparedStart.release.manifestSha256) {
+            log("background authorization matches the prepared payload")
+            RefreshOutcome.Current(authorization)
+        } else {
+            log("the server selected another payload; downloading it in the background")
+            cache.download(api, preparedStart.state, processNonce, authorization.response, authorization.release)
+            persistLocalAuthorization(preparedStart.state, authorization, "update")
+            payloadReadyForRestart = true
+            RefreshOutcome.Updated
+        }
+    } catch (error: RemoteApiException) {
+        log("background authorization failed: ${error.code}")
+        RefreshOutcome.Denied(error)
+    } catch (error: Throwable) {
+        log("background authorization failed: ${error.message ?: error.javaClass.simpleName}")
+        RefreshOutcome.Unavailable(error)
+    }
+
+    /**
+     * Acts on the pre-entry refresh after the entry has been attempted, or after it failed with
+     * [error]. The result either renews the local authorization and reports the successful entry,
+     * reports the failure against the same initialization, or hands a denial to [handleDenial] now
+     * that the entry attempt is over.
+     *
+     * Runs on the worker. [beginPendingRefresh] always queues its job first, so the future is done.
+     */
+    private fun finishPendingRefresh(preparedStart: PreparedStart, error: Throwable? = null) {
+        val future = pendingRefresh ?: return
+        worker.execute {
+            val outcome = try {
+                future.get()
+            } catch (failure: Throwable) {
+                log("background authorization result unavailable: ${failure.message ?: failure.javaClass.simpleName}")
+                return@execute
+            }
+            try {
+                when (outcome) {
+                    is RefreshOutcome.Current -> if (error == null) {
+                        persistLocalAuthorization(preparedStart.state, outcome.authorization, "refresh")
+                        successfulInitializationId = outcome.authorization.initializationId
+                        successfulState = preparedStart.state
+                        report(preparedStart.state, outcome.authorization.initializationId, "ENTRY_RETURNED", "LOADED",
+                            preparedStart.identity)
+                        log("local authorization refreshed in the background")
+                    } else {
+                        // An offline boot has no online initialization of its own, so the pre-entry
+                        // authorization is the only way the server learns about this failure.
+                        report(preparedStart.state, outcome.authorization.initializationId, "INITIALIZATION", "FAILED",
+                            preparedStart.identity, "PAYLOAD_ENTRY", error)
+                        log("payload entry failure reported against the pre-entry initialization")
+                    }
+                    RefreshOutcome.Updated -> message(uiText(R.string.wekit_auth_payload_updated))
+                    is RefreshOutcome.Denied -> handleDenial(outcome.error)
+                    is RefreshOutcome.Unavailable -> Unit
+                }
+            } catch (failure: Throwable) {
+                log("background refresh was not applied: ${failure.message ?: failure.javaClass.simpleName}")
             }
         }
     }
@@ -562,16 +660,18 @@ object BootstrapCoordinator {
             successfulInitializationId = if (preparedStart.offline) null else preparedStart.initializationId
             successfulState = preparedStart.state
             reportedAlias = preparedStart.identity.alias
+            // Messages from an earlier attempt are stale now; the refresh below may add its own.
+            pendingMessages.clear()
             if (preparedStart.offline) {
-                // The report needs an initialization row owned by this process; the background
-                // refresh creates one and reports ENTRY_RETURNED as soon as it has it.
-                refreshAuthorizationInBackground(preparedStart)
+                // The report needs an initialization row owned by this process; the pre-entry
+                // refresh provides it and reports ENTRY_RETURNED now that the entry returned.
+                finishPendingRefresh(preparedStart)
             } else {
                 // Audit-only report: never extend the host's startup callback for this round trip.
                 reportAsync(preparedStart.state, preparedStart.initializationId, "ENTRY_RETURNED", "LOADED",
                     preparedStart.identity)
             }
-            mainHandler.post { bindingDialog?.dismiss(); pendingMessage = null }
+            mainHandler.post { bindingDialog?.dismiss() }
         } catch (error: Throwable) {
             if (!entryAttempted) { prepared?.close(); prepared = null }
             if (!preparedStart.offline) {
@@ -850,19 +950,21 @@ object BootstrapCoordinator {
     private fun uiText(id: Int, vararg args: Any): String =
         BootstrapResources.getString(application, File(loaderService.mainModulePath), id, *args)
 
+    /** Queues [text] for the main thread; a message waits for the currently shown dialog to close. */
     private fun message(text: String, restartRequired: Boolean = false) {
         if (!mainProcess) return
-        pendingMessage = text
-        pendingRestartRequired = restartRequired
-        mainHandler.post { showMessage() }
+        mainHandler.post {
+            pendingMessages.addLast(QueuedMessage(text, restartRequired))
+            showMessage()
+        }
     }
     private fun showMessage() {
-        val text = pendingMessage ?: return
+        // One dialog at a time: a failure and the "payload updated" follow-up must not overlap.
+        // The reference is cleared by onDismiss (which is posted), so keep it as the gate too.
+        if (messageDialog != null) return
         val owner = activity.get() ?: return
         if (owner.isFinishing || owner.isDestroyed || bindingDialog?.isShowing == true) return
-        pendingMessage = null
-        val restartRequired = pendingRestartRequired
-        pendingRestartRequired = false
+        val message = pendingMessages.removeFirstOrNull() ?: return
         val buttons = buildList {
             if (payloadReadyForRestart) {
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_restart_wechat)) { restartHost() })
@@ -874,9 +976,18 @@ object BootstrapCoordinator {
                 add(BootstrapDialogAction(uiText(R.string.wekit_auth_retry)) { retryBlocked = false; submit { initialize() } })
             }
         }
-        BootstrapDialogs.create(owner, File(loaderService.mainModulePath), "WeKit",
-            if (restartRequired) uiText(R.string.wekit_auth_restart_after_entry, text) else text,
-            buttons).show()
+        // The identity check keeps a late onDismiss of a destroyed activity's dialog from clearing
+        // the reference of a dialog that was already shown for the next activity.
+        var shown: ComponentDialog? = null
+        shown = BootstrapDialogs.create(owner, File(loaderService.mainModulePath), "WeKit",
+            if (message.restartRequired) uiText(R.string.wekit_auth_restart_after_entry, message.text) else message.text,
+            buttons,
+            onDismiss = {
+                if (messageDialog === shown) messageDialog = null
+                mainHandler.post { showMessage() }
+            })
+        messageDialog = shown
+        shown!!.show()
     }
 
     private fun restartHost() {
@@ -929,7 +1040,10 @@ object BootstrapCoordinator {
         }
         override fun onActivityPaused(owner: Activity) { foreground = false; mainHandler.removeCallbacks(pollBinding) }
         override fun onActivityDestroyed(owner: Activity) {
-            if (activity.get() === owner) { bindingDialog?.dismiss(); bindingDialog = null; activity.clear() }
+            if (activity.get() === owner) {
+                messageDialog?.dismiss(); messageDialog = null
+                bindingDialog?.dismiss(); bindingDialog = null; activity.clear()
+            }
         }
         override fun onActivityCreated(owner: Activity, state: Bundle?) = Unit
         override fun onActivityStarted(owner: Activity) = Unit
