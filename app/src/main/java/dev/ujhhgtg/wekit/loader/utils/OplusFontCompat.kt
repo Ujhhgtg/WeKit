@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.loader.utils
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
@@ -36,12 +37,12 @@ object OplusFontCompat {
     fun init() {
         val fontUtils = "com.oplus.util.OplusFontUtils".toClassOrNull(ClassLoaders.BOOT) ?: return
         fontUtils
-            .getDeclaredMethod(
-                "replaceTypefaceWithVariation",
-                Typeface::class.java,
-                Paint::class.java,
-            )
-            .hookBeforeDirectly {
+            .reflekt()
+            .firstMethodOrNull {
+                name = "replaceTypefaceWithVariation"
+                parameters(Typeface::class, Paint::class)
+            }
+            ?.hookBeforeDirectly {
                 val typeface = args[0] as? Typeface ?: return@hookBeforeDirectly
                 if (typeface.isMonospaceFamily()) result = typeface
             }
