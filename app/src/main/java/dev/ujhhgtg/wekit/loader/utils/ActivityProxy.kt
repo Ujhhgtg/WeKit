@@ -245,6 +245,24 @@ object ActivityProxy {
         }
 
     private fun recoverIntent(wrapper: Intent): Intent? {
+        // A Bundle binds every lazily parcelled value to the ClassLoader it has when it first
+        // unparcels (Parcel.LazyValue.mLoader is final), and a later Intent.setExtrasClassLoader()
+        // cannot repair values that were already bound. This hook runs in
+        // ClientTransaction.preExecute, i.e. before ActivityThread installs the real extras
+        // ClassLoader, so reading extras here without installing one first would bind every host
+        // Parcelable to the boot ClassLoader and crash WeChat with BadParcelableException once it
+        // reads them. Nothing is touched unless this module has a launch in flight.
+        if (intentCache.isEmpty()) return null
+
+        // Host stubs are the only Activities this module starts, so only they can carry the token.
+        val proxyClass = wrapper.component?.className
+        if (proxyClass != SETTINGS_PROXY && proxyClass != TRANSPARENT_PROXY) return null
+
+        // ClassLoaders.HOST is exactly the ClassLoader ActivityThread installs for the launched
+        // Activity, so this is framework parity rather than a workaround. The wrapper's extras
+        // only hold a String token, so no module class fallback is needed.
+        wrapper.setExtrasClassLoader(ClassLoaders.HOST)
+
         if (!wrapper.hasExtra(ACTIVITY_PROXY_INTENT_TOKEN)) return null
 
         val token = wrapper.getStringExtra(ACTIVITY_PROXY_INTENT_TOKEN)
@@ -355,6 +373,8 @@ object ActivityProxy {
             val entry = cache.remove(token) ?: return null
             return entry.intent.takeIf { System.currentTimeMillis() - entry.timestamp <= EXPIRE_MS }
         }
+
+        fun isEmpty(): Boolean = cache.isEmpty()
 
         private fun cleanup() {
             val now = System.currentTimeMillis()
