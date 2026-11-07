@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +36,8 @@ import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
-import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -46,8 +47,10 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.openInSystem
 
 object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityListener {
@@ -82,17 +85,8 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
         // prevent loop
         if (intent.getBooleanExtra("skip_link_hook", false)) return
 
-        val context =
-            if (
-                intent.extras?.run {
-                    containsKey("key_scan_qr_code_get_a8key_resp") ||
-                        containsKey("key_scan_qr_code_get_a8key_req")
-                } ?: false
-            ) {
-                LauncherUI.getInstance()!!
-            } else {
-                param.thisObject as Context
-            }
+        val callerContext = param.thisObject as Context
+        val callerActivity = callerContext.baseActivity
 
         val component = intent.component ?: return
         val shortClassName = component.shortClassName ?: return
@@ -107,7 +101,7 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
         newIntent.addCategory(Intent.CATEGORY_BROWSABLE)
         newIntent.data = url
 
-        val pm = context.packageManager
+        val pm = callerContext.packageManager
 
         @SuppressLint("QueryPermissionsNeeded")
         val resolveInfos =
@@ -116,62 +110,100 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
                 PackageManager.MATCH_DEFAULT_ONLY,
             )
 
-        showComposeDialog(context) {
-            AlertDialogContent(
-                title = { Text(stringResource(R.string.system_link_open_with)) },
-                text = {
-                    LazyColumn {
-                        items(resolveInfos) { info ->
-                            AppItemRow(info, pm) {
-                                launchApp(context, info, url)
-                                onDismiss()
-                            }
-                        }
+        val originalMethod = param.captureOriginalMethod()
+        val originalArgs = param.args.copyOf()
+        val intentArgumentIndex = originalArgs.indexOfFirst { it === intent }
+        if (intentArgumentIndex < 0) return
 
-                        item {
-                            CustomTabsRow {
-                                url.openInSystem(context, true)
-                                onDismiss()
-                            }
-                        }
-
-                        if (!resolveInfos.isEmpty()) {
-                            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
-                        }
-
-                        item {
-                            InternalWebViewRow {
-                                try {
-                                    intent.putExtra("skip_link_hook", true)
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    WeLogger.e(TAG, "failed to open internal webview", e)
-                                }
-                                onDismiss()
-                            }
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            copyToClipboard(context, url.toString())
-                            showToast(
-                                context,
-                                context.localizedString(R.string.system_link_copied),
-                            )
-                            onDismiss()
-                        },
-                    ) {
-                        Text(stringResource(R.string.system_link_copy))
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                },
-            )
+        fun relaunch(selectedIntent: Intent) {
+            val args = originalArgs.copyOf()
+            args[intentArgumentIndex] = selectedIntent
+            originalMethod(args)
         }
 
+        TransparentActivity.launch(callerContext) {
+            val chooserActivity = this
+            fun launchSelected(selectedIntent: Intent) {
+                val callerIsUsable =
+                    callerActivity != null &&
+                        !callerActivity.isFinishing &&
+                        !callerActivity.isDestroyed
+                if (callerIsUsable) {
+                    relaunch(selectedIntent)
+                } else {
+                    chooserActivity.startActivity(selectedIntent)
+                }
+            }
+
+            showComposeDialog(chooserActivity) {
+                SideEffect { dialog.setOnDismissListener { chooserActivity.finish() } }
+
+                AlertDialogContent(
+                    title = { Text(stringResource(R.string.system_link_open_with)) },
+                    text = {
+                        LazyColumn {
+                            items(resolveInfos) { info ->
+                                AppItemRow(info, pm) {
+                                    launchApp(
+                                        info,
+                                        url,
+                                        ::launchSelected,
+                                    )
+                                    onDismiss()
+                                }
+                            }
+
+                            item {
+                                CustomTabsRow {
+                                    url.openInSystem(chooserActivity, true)
+                                    onDismiss()
+                                }
+                            }
+
+                            if (resolveInfos.isNotEmpty()) {
+                                item {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                }
+                            }
+
+                            item {
+                                InternalWebViewRow {
+                                    try {
+                                        launchSelected(
+                                            Intent(intent).apply {
+                                                putExtra("skip_link_hook", true)
+                                            },
+                                        )
+                                    } catch (e: Exception) {
+                                        WeLogger.e(TAG, "failed to open internal webview", e)
+                                    }
+                                    onDismiss()
+                                }
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                copyToClipboard(chooserActivity, url.toString())
+                                showToast(
+                                    chooserActivity,
+                                    chooserActivity.localizedString(R.string.system_link_copied),
+                                )
+                                onDismiss()
+                            },
+                        ) {
+                            Text(stringResource(R.string.system_link_copy))
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(R.string.dialog_cancel))
+                        }
+                    },
+                )
+            }
+        }
         param.result = null
     }
 
@@ -274,14 +306,17 @@ object LinkExternalAppJump : SwitchFeature(), WeStartActivityApi.IStartActivityL
         }
     }
 
-    private fun launchApp(context: Context, info: ResolveInfo, url: Uri) {
+    private fun launchApp(
+        info: ResolveInfo,
+        url: Uri,
+        relaunch: (Intent) -> Unit,
+    ) {
         val finalIntent =
             Intent(Intent.ACTION_VIEW, url).apply {
                 addCategory(Intent.CATEGORY_BROWSABLE)
                 setClassName(info.activityInfo.packageName, info.activityInfo.name)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
 
-        context.startActivity(finalIntent)
+        relaunch(finalIntent)
     }
 }
