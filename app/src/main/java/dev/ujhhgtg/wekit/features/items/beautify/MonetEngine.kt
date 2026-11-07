@@ -74,6 +74,10 @@ import dev.ujhhgtg.wekit.utils.monet.MonetResolveStage
 import dev.ujhhgtg.wekit.utils.monet.MonetResourceResolver
 import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter
 import dev.ujhhgtg.wekit.utils.monet.MonetThemeRenderer
+import java.io.File
+import kotlin.concurrent.thread
+import kotlin.io.path.div
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -83,10 +87,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import kotlin.concurrent.thread
-import kotlin.io.path.div
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Runtime Monet for WeChat: injects an ID-preserving resource table into WeChat's AssetManagers
