@@ -560,6 +560,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                         usingEqString("params")
                     }
                     paramCount = 1
+                    paramTypes(classImageTask.data.name)
                     usingEqString("params")
                 }
                 methodAppInfoSetAppId.find {

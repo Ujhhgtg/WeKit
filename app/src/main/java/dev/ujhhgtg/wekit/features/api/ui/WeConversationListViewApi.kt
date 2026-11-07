@@ -373,7 +373,6 @@ object WeConversationListViewApi : ApiFeature(), IResolveDex {
                 className = classConversationRecyclerView.data.name
             }
             paramTypes("float", "boolean")
-            returnType = "void"
             usingString("[applyEmptyFooterHeight] fromUpdate:")
         }
     }
