@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
  */
 object MonetResourceResolver {
     /** Bump when binding extraction changes so stale caches are re-resolved. */
-    private const val VERSION = 6
+    private const val VERSION = 7
 
     private val json = Json { ignoreUnknownKeys = true }
 

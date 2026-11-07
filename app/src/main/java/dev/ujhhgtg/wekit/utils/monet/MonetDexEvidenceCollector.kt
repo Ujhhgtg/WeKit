@@ -4,10 +4,10 @@ import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.dexsql.matcher.ClassSpec
 import dev.ujhhgtg.dexsql.matcher.DexMatcherSession
 import dev.ujhhgtg.dexsql.matcher.FieldSpec
-import dev.ujhhgtg.dexsql.matcher.MethodSpec
 import dev.ujhhgtg.dexsql.matcher.NameSpec
 import dev.ujhhgtg.dexsql.meta.DexMethodInfo
 import dev.ujhhgtg.dexsql.meta.FieldUsingType
+import dev.ujhhgtg.dexsql.sql.sqlMethod
 import dev.ujhhgtg.wekit.dex.withDexSql
 
 object MonetDexEvidenceCollector {
@@ -21,9 +21,10 @@ object MonetDexEvidenceCollector {
         bridge: DexSqlBridge,
         candidates: List<MonetDexCandidate>,
     ): List<MonetResourceDexEvidence> =
-        DexMatcherSession(bridge).use { session -> collect(session, candidates) }
+        DexMatcherSession(bridge).use { session -> collect(bridge, session, candidates) }
 
     private fun collect(
+        bridge: DexSqlBridge,
         session: DexMatcherSession,
         candidates: List<MonetDexCandidate>,
     ): List<MonetResourceDexEvidence> {
@@ -52,9 +53,10 @@ object MonetDexEvidenceCollector {
                 .toMap()
         val methods = candidates.associateWith { candidate ->
             val direct =
-                session.findMethods(
-                    MethodSpec(usingNumbers = listOf<Number>(candidate.resourceId)),
-                )
+                bridge
+                    .query(sqlMethod { usingNumbers(candidate.resourceId) }.toSql())
+                    .rows
+                    .map { row -> session.metadata.methodInfo(row.single())!! }
             (direct + fieldReaders[candidate].orEmpty())
                 .distinctBy { it.descriptor }
                 .sortedBy { it.descriptor }
