@@ -84,51 +84,11 @@ fn signal_description(sig: c_int) -> &'static str {
 // Signal context layout
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// bionic's arm64 `sigcontext` (what `uc_mcontext` actually is).
-#[cfg(target_arch = "aarch64")]
-#[repr(C, align(16))]
-struct BionicSigContext {
-    fault_address: u64,
-    regs: [u64; 31],
-    sp: u64,
-    pc: u64,
-    pstate: u64,
-    // A 4096-byte `__reserved` blob follows (FP/SIMD state); we never read it.
-}
-
-/// bionic's arm64 `ucontext_t`.
-///
-/// This exists because `libc::ucontext_t` for `aarch64-linux-android` is WRONG — a known upstream
-/// bug: rust-lang/libc#5159, fixed by rust-lang/libc#5189, which is approved but not yet in a
-/// release we can pin. The NDK header reserves `__u8 __linux_unused[1024 / 8 - sizeof(sigset_t)]`
-/// between `uc_sigmask` and `uc_mcontext` so the kernel can grow `sigset_t`; the `libc` crate omits
-/// it, putting `uc_mcontext` at offset 48 instead of 176.
-///
-/// Reading the signal context through `libc::ucontext_t` therefore lands 128 bytes early and every
-/// register comes out shifted by 16 slots. That is exactly what earlier crash reports showed: the
-/// fault address sitting in `x15` (48 + 8 + 15*8 == 176, the real `fault_address`), `x0`–`x14` all
-/// zero because they were reading the tail of the sigmask and its padding, and impossible values
-/// like `pc: 0x8` for what were really `x16`/`x17`.
-///
-/// Keep this struct even after upstream lands the fix: it is pinned to the ABI we verified against,
-/// and [`ASSERT_MCONTEXT_OFFSET`] fails the build if that ever stops holding.
-#[cfg(target_arch = "aarch64")]
-#[repr(C)]
-struct BionicUcontext {
-    uc_flags: c_ulong,
-    uc_link: *mut c_void,
-    uc_stack: stack_t,
-    uc_sigmask: sigset_t,
-    __linux_unused: [u8; 1024 / 8 - core::mem::size_of::<sigset_t>()],
-    uc_mcontext: BionicSigContext,
-}
-
 /// Offsets straight out of the NDK headers, per rust-lang/libc#5159. A mismatch here means every
 /// register and both backtraces in the crash report would be silently wrong, so fail the build.
 #[cfg(target_arch = "aarch64")]
-#[allow(dead_code)] // const-evaluated for its assertion; never read at runtime
-const ASSERT_MCONTEXT_OFFSET: () = {
-    assert!(core::mem::offset_of!(BionicUcontext, uc_mcontext) == 176);
+const _: () = {
+    assert!(core::mem::offset_of!(ucontext_t, uc_mcontext) == 176);
 };
 
 /// Reads one word of the crashed thread's stack, returning `None` if the address is unreadable.
@@ -765,8 +725,7 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
 
             #[cfg(target_arch = "aarch64")]
             {
-                // NB: BionicUcontext, not libc::ucontext_t — see its doc comment.
-                let uc = &*(ctx as *const BionicUcontext);
+                let uc = &*(ctx as *const ucontext_t);
                 let mc = &uc.uc_mcontext;
                 for i in 0..31usize {
                     w.s("x");
@@ -836,7 +795,7 @@ unsafe fn write_crash_log(sig: c_int, info: *mut siginfo_t, ctx: *mut c_void) {
 
         #[cfg(target_arch = "aarch64")]
         if !ctx.is_null() {
-            let uc = &*(ctx as *const BionicUcontext);
+            let uc = &*(ctx as *const ucontext_t);
             let mc = &uc.uc_mcontext;
             count = capture_fault_backtrace(
                 &mut frames,
