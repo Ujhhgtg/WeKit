@@ -14,6 +14,11 @@ const chatSchema = z.object({
   id: z.number().int().max(Number.MAX_SAFE_INTEGER),
   type: z.string(),
 });
+const chatMemberSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.enum(["creator", "administrator", "member"]) }),
+  z.object({ status: z.literal("restricted"), is_member: z.boolean() }),
+  z.object({ status: z.enum(["left", "kicked"]) }),
+]);
 const updateSchema = z.object({
   update_id: z.number().int().nonnegative(),
   message: z
@@ -41,7 +46,7 @@ async function telegram(
   env: Env,
   method: string,
   value: unknown,
-): Promise<void> {
+): Promise<unknown> {
   if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(env.TELEGRAM_BOT_TOKEN))
     throw new Error("Bot secret missing");
   const response = await fetch(
@@ -53,9 +58,11 @@ async function telegram(
       redirect: "manual",
     },
   );
-  const data = decodeJson(await bytes(response, 65536));
-  if (!response.ok || !(data as { ok?: boolean }).ok)
-    throw new Error("Telegram method failed");
+  const data = z
+    .object({ ok: z.boolean(), result: z.unknown().optional() })
+    .parse(decodeJson(await bytes(response, 65536)));
+  if (!response.ok || !data.ok) throw new Error("Telegram method failed");
+  return data.result;
 }
 export async function webhook(req: Request, env: Env): Promise<Response> {
   if (new URL(req.url).protocol !== "https:")
@@ -161,6 +168,46 @@ export async function webhook(req: Request, env: Env): Promise<Response> {
       } catch {
         console.error(
           JSON.stringify({ event: "telegram_reply_failed", stage: "help" }),
+        );
+      }
+    }
+    return json({ ok: true });
+  }
+  const member = chatMemberSchema.parse(
+    await telegram(env, "getChatMember", {
+      chat_id: -1004325719803,
+      user_id: sender.id,
+    }),
+  );
+  const joined =
+    member.status === "creator" ||
+    member.status === "administrator" ||
+    member.status === "member" ||
+    (member.status === "restricted" && member.is_member);
+  if (!joined) {
+    const result = await env.DB.batch([insert]);
+    if (result[0]!.meta.changes === 1) {
+      try {
+        await telegram(env, "sendMessage", {
+          chat_id: chatId,
+          text: "绑定前请先加入 WeKit 唯一官方群组：\nhttps://t.me/+7j5dJ6g16B43OWVl\n\n除上述群组外，任何其他自称 WeKit 官方的频道和群组均非官方，属于假冒。官方无法确保其中分发的软件的安全性，建议退出这些频道和群组，并加入官方群组。\n\n入群后，请重新发送微信中显示的绑定码；如已过期，请先在微信中获取新的绑定码。\n\nBefore binding, please join the only official WeKit group:\nhttps://t.me/+7j5dJ6g16B43OWVl\n\nAny other channel or group claiming to be official is an impersonation. We cannot ensure the safety of software distributed there. Please leave those channels and groups and join the official group.\n\nAfter joining, resend the binding code shown in WeChat. If it has expired, obtain a new code in WeChat first.",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "加入官方群组 / Join official group",
+                  url: "https://t.me/+7j5dJ6g16B43OWVl",
+                },
+              ],
+            ],
+          },
+        });
+      } catch {
+        console.error(
+          JSON.stringify({
+            event: "telegram_reply_failed",
+            stage: "join_group",
+          }),
         );
       }
     }

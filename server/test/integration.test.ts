@@ -75,10 +75,33 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     CI_SESSION_SECRET: random(32),
     DEFAULT_CHANNEL: "stable",
   };
+  let telegramMember: { status: string; is_member?: boolean } = {
+    status: "member",
+  };
+  let telegramMembershipFails = false;
+  const telegramMessages: {
+    chat_id: string;
+    text: string;
+    reply_markup?: unknown;
+  }[] = [];
   const outboundService = async (req: Request) => {
     const host = new URL(req.url).hostname;
-    if (host === "api.telegram.org")
+    if (host === "api.telegram.org") {
+      if (new URL(req.url).pathname.endsWith("/getChatMember")) {
+        const request = (await req.json()) as {
+          chat_id: number;
+          user_id: number;
+        };
+        assert.equal(request.chat_id, -1004325719803);
+        assert.equal(typeof request.user_id, "number");
+        return telegramMembershipFails
+          ? Response.json({ ok: false }, { status: 400 })
+          : Response.json({ ok: true, result: telegramMember });
+      }
+      if (new URL(req.url).pathname.endsWith("/sendMessage"))
+        telegramMessages.push(await req.json());
       return Response.json({ ok: true, result: {} });
+    }
     if (
       host === "token.actions.githubusercontent.com" ||
       host === "test-team.cloudflareaccess.com"
@@ -318,6 +341,99 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       registration.bindingSessionId,
     );
     assert.equal(recoveredRegistration.bindingCode, registration.bindingCode);
+    const bindingUpdate = (updateId: number) => ({
+      update_id: updateId,
+      message: {
+        from: { id: 1001, is_bot: false, first_name: "Test" },
+        chat: { id: 1001, type: "private" },
+        text: registration.bindingCode,
+      },
+    });
+    const botHeaders = {
+      "x-telegram-bot-api-secret-token": env.TELEGRAM_WEBHOOK_SECRET,
+    };
+    for (const [index, member] of [
+      { status: "left" },
+      { status: "kicked" },
+      { status: "restricted", is_member: false },
+    ].entries()) {
+      telegramMember = member;
+      const update = bindingUpdate(10 + index);
+      const before = telegramMessages.length;
+      await ok(
+        await send(
+          bot,
+          "https://bot.example/webhook",
+          "POST",
+          update,
+          botHeaders,
+        ),
+      );
+      assert.equal(telegramMessages.length, before + 1);
+      const notice = telegramMessages.at(-1)!;
+      assert.equal(notice.chat_id, "1001");
+      assert.match(notice.text, /https:\/\/t\.me\/\+7j5dJ6g16B43OWVl/);
+      assert.match(notice.text, /假冒/);
+      assert.match(notice.text, /无法确保其中分发的软件的安全性/);
+      assert.deepEqual(notice.reply_markup, {
+        inline_keyboard: [
+          [
+            {
+              text: "加入官方群组 / Join official group",
+              url: "https://t.me/+7j5dJ6g16B43OWVl",
+            },
+          ],
+        ],
+      });
+      await ok(
+        await send(
+          bot,
+          "https://bot.example/webhook",
+          "POST",
+          update,
+          botHeaders,
+        ),
+      );
+      assert.equal(telegramMessages.length, before + 1);
+      const session = await db
+        .prepare(
+          "SELECT state,candidate_user_id,confirm_nonce FROM enrollment_sessions WHERE binding_session_id=?",
+        )
+        .bind(registration.bindingSessionId)
+        .first();
+      assert.deepEqual(session, {
+        state: "PENDING",
+        candidate_user_id: null,
+        confirm_nonce: null,
+      });
+      assert.equal(
+        (await db
+          .prepare("SELECT count(*) AS n FROM users")
+          .first<{ n: number }>())!.n,
+        0,
+      );
+    }
+    telegramMembershipFails = true;
+    assert.equal(
+      (
+        await send(
+          bot,
+          "https://bot.example/webhook",
+          "POST",
+          bindingUpdate(1),
+          botHeaders,
+        )
+      ).status,
+      503,
+    );
+    assert.equal(
+      await db
+        .prepare("SELECT update_id FROM telegram_updates WHERE update_id='1'")
+        .first(),
+      null,
+    );
+    telegramMembershipFails = false;
+    telegramMember = { status: "restricted", is_member: true };
     await ok(
       await send(
         bot,
@@ -334,6 +450,8 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         { "x-telegram-bot-api-secret-token": env.TELEGRAM_WEBHOOK_SECRET },
       ),
     );
+    assert.match(telegramMessages.at(-1)!.text, /确认绑定这次 WeKit 安装/);
+    telegramMember = { status: "member" };
     await ok(
       await send(
         bot,
