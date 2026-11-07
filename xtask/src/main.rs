@@ -554,7 +554,15 @@ fn task_build_bootstrap(args: &BootstrapBuildArgs) -> Result<()> {
     let root = workspace_root();
     task_configure()?;
     build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
-    build_bootstrap_loader(&root, &args.native.abis, true)?;
+    build_bootstrap_loader(
+        &root,
+        &args.native.abis,
+        if args.local {
+            OmvllMode::Disabled
+        } else {
+            OmvllMode::Required
+        },
+    )?;
     if args.local {
         task_build_native(&args.native.abis)?;
     }
@@ -576,7 +584,15 @@ fn task_install(args: InstallArgs) -> Result<()> {
     let root = workspace_root();
     task_configure()?;
     build_zygisk_native(&root, &[], false)?;
-    build_bootstrap_loader(&root, &[], true)?;
+    build_bootstrap_loader(
+        &root,
+        &[],
+        if args.local {
+            OmvllMode::Disabled
+        } else {
+            OmvllMode::Required
+        },
+    )?;
     if args.local {
         task_build_native(&[])?;
     }
@@ -622,7 +638,15 @@ fn task_build_module(args: &BuildArgs, module: &str) -> Result<()> {
     task_configure()?;
     if module == "bootstrap" {
         build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
-        build_bootstrap_loader(&root, &args.native.abis, args.release)?;
+        build_bootstrap_loader(
+            &root,
+            &args.native.abis,
+            if args.release {
+                OmvllMode::Required
+            } else {
+                OmvllMode::Optional
+            },
+        )?;
     } else {
         task_build_native(&args.native.abis)?;
     }
@@ -648,13 +672,25 @@ struct OmvllLoaderConfig {
     runtime_library_path: PathBuf,
 }
 
+#[derive(Clone, Copy)]
+enum OmvllMode {
+    Required,
+    Optional,
+    Disabled,
+}
+
 /// Resolve the separately provisioned O-MVLL toolchain used for the public loader.
 ///
 /// O-MVLL is coupled to the LLVM revision used by its NDK.  WeKit's Android build
 /// currently uses NDK r30, while released O-MVLL toolchains target r29, so silently
 /// passing the plugin to the project compiler would produce an unprotected or broken
 /// loader.  Release builds therefore require an explicit, complete r29 toolchain.
-fn omvll_loader_config(root: &Path, required: bool) -> Result<Option<OmvllLoaderConfig>> {
+fn omvll_loader_config(root: &Path, mode: OmvllMode) -> Result<Option<OmvllLoaderConfig>> {
+    if matches!(mode, OmvllMode::Disabled) {
+        return Ok(None);
+    }
+
+    let required = matches!(mode, OmvllMode::Required);
     let mut configured = HashMap::new();
     let config_file = root.join("omvll.env");
     if let Ok(contents) = fs::read_to_string(&config_file) {
@@ -768,8 +804,8 @@ fn omvll_loader_config(root: &Path, required: bool) -> Result<Option<OmvllLoader
     }))
 }
 
-fn build_bootstrap_loader(root: &Path, abi_names: &[String], release: bool) -> Result<()> {
-    let omvll = omvll_loader_config(root, release)?;
+fn build_bootstrap_loader(root: &Path, abi_names: &[String], omvll_mode: OmvllMode) -> Result<()> {
+    let omvll = omvll_loader_config(root, omvll_mode)?;
     let ndk = pinned_ndk_dir(root, None)?;
     let bin = ndk
         .join("toolchains/llvm/prebuilt")
@@ -1500,6 +1536,15 @@ mod tests {
         );
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--debug"]).is_err());
         assert!(Cli::try_parse_from(["xtask", "bootstrap", "install", "--release"]).is_err());
+    }
+
+    #[test]
+    fn local_bootstrap_skips_omvll_configuration() {
+        assert!(
+            omvll_loader_config(Path::new("missing-omvll-config"), OmvllMode::Disabled)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
