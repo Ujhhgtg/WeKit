@@ -118,6 +118,7 @@
     <string name="feature_error_google_play_unsupported">Error: Feature is unavailable on the Google Play version of WeChat</string>
     <string name="feature_error_host_version_unsupported">Error: Feature does not support the current WeChat version</string>
     <string name="feature_error_requires_android_11">Error: Requires Android 11 or later</string>
+    <string name="feature_error_requires_android_12">Error: Requires Android 12 or later</string>
     <string name="feature_error_requires_android_14">Error: Requires Android 14 or later</string>
     <string name="location_picker_instruction">Tap the map or the coordinates below to choose a virtual location.</string>
     <string name="location_picker_title">Choose location on map</string>
@@ -463,7 +464,7 @@
     <string name="feature_add_main_screen_fab_name">Add home-screen FAB</string>
     <string name="feature_add_main_screen_fab_description">Add floating action buttons to WeChat home screen</string>
     <string name="feature_apply_dialog_background_blur_name">Dialog background blur</string>
-    <string name="feature_apply_dialog_background_blur_description">Add window-level background blur to module and WeChat dialogs [requires SDK &gt;= 31]</string>
+    <string name="feature_apply_dialog_background_blur_description">Add window-level background blur to module and WeChat dialogs</string>
     <string name="feature_apply_global_background_name">Apply global background</string>
     <string name="feature_apply_global_background_description">Globally replace the WeChat background with a picture</string>
     <string name="feature_beautify_conversation_list_name">Customize conversation list</string>
@@ -481,7 +482,7 @@
     <string name="feature_hide_other_devices_banner_name">Hide other device banners</string>
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
     <string name="feature_monet_engine_name">Monet engine</string>
-    <string name="feature_monet_engine_description">Recolor WeChat’s own UI resources at runtime to follow the WeKit theme color. No root or module needed; option changes apply live. Requires Android 11+.</string>
+    <string name="feature_monet_engine_description">Recolor WeChat’s own UI resources at runtime to follow the WeKit theme color. No root or module needed; option changes apply live.</string>
     <string name="feature_beautify_navigation_bar_name">Beautify home navigation bar</string>
     <string name="feature_beautify_navigation_bar_description">Restyle the home bottom bar and manage its pages and badges, edited live on the home screen</string>
     <string name="feature_themes_name">Themes</string>
@@ -3177,8 +3178,6 @@
     <string name="payment_fingerprint_missing_cipher">Fingerprint authentication succeeded, but the cipher object is unavailable. Please report this issue.</string>
     <string name="payment_fingerprint_encrypt_failed">Encryption failed. Please report this issue.</string>
     <string name="payment_fingerprint_decrypt_failed">Decryption failed. Please report this issue.</string>
-    <string name="payment_fingerprint_android_too_old">Android is too old (&lt; Android 11) for biometric authentication!</string>
-    <string name="payment_fingerprint_android_too_old_details">Android is too old (&lt; Android 11) for biometric authentication!\nFor simplicity and stability, this project uses the AndroidX Biometric API and does not support devices below Android 11.\nIf you need this feature, consider the third-party project eritpchy/FingerprintPay.</string>
 
     <string name="profile_new_nickname">New nickname</string>
     <string name="profile_nickname_success">Request sent</string>

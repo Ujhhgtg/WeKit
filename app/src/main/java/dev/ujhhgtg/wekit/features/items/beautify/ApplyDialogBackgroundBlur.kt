@@ -38,6 +38,14 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_apply_dialog_background_blur_description
 
+    override val declaredErrors: List<Int>
+        get() =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                listOf(R.string.feature_error_requires_android_12)
+            } else {
+                emptyList()
+            }
+
     private const val TAG = "ApplyDialogBackgroundBlur"
 
     const val KEY_BLUR_RADIUS = "blur_radius"
@@ -47,7 +55,7 @@ object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
         usingEqStrings("MicroMsg.MMAlertDialog", "dialog dismiss error!")
     }
     private val classMmProgressDialog by dexClass {
-        usingEqStrings("com/tencent/mm/ui/widget/dialog/MMProgressDialog\$Builder", "show")
+        usingEqStrings($$"com/tencent/mm/ui/widget/dialog/MMProgressDialog$Builder", "show")
     }
     private val classMmQuickDialog by dexClass {
         superClass {

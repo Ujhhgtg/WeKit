@@ -53,10 +53,10 @@ object MonetDexEvidenceCollector {
                 .toMap()
         val methods = candidates.associateWith { candidate ->
             val direct =
-                bridge
-                    .query(sqlMethod { usingNumbers(candidate.resourceId) }.toSql())
-                    .rows
-                    .map { row -> session.metadata.methodInfo(row.single())!! }
+                bridge.query(sqlMethod { usingNumbers(candidate.resourceId) }.toSql()).rows.map {
+                    row ->
+                    session.metadata.methodInfo(row.single())!!
+                }
             (direct + fieldReaders[candidate].orEmpty())
                 .distinctBy { it.descriptor }
                 .sortedBy { it.descriptor }

@@ -52,6 +52,14 @@ object FingerprintPay : ClickableFeature() {
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
     override val descriptionRes = R.string.feature_fingerprint_pay_description
 
+    override val declaredErrors: List<Int>
+        get() =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                listOf(R.string.feature_error_requires_android_11)
+            } else {
+                emptyList()
+            }
+
     private const val TAG = "FingerprintPay"
     private var encryptedData by prefOption("payment_pswd_encdata", nul<String>())
 
@@ -110,7 +118,6 @@ object FingerprintPay : ClickableFeature() {
 
     override fun onClick(context: ComponentActivity) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showToast(localizedString(R.string.payment_fingerprint_android_too_old))
             return
         }
 
@@ -358,27 +365,6 @@ object FingerprintPay : ClickableFeature() {
     }
 
     override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
-        if (newState && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            showComposeDialog(context) {
-                AlertDialogContent(
-                    title = { Text(text = stringResource(R.string.error)) },
-                    text = {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.payment_fingerprint_android_too_old_details,
-                                ),
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                    },
-                )
-            }
-            showToast(localizedString(R.string.payment_fingerprint_android_too_old))
-            return false
-        }
-
         if (newState) {
             showComposeDialog(context) {
                 AlertDialogContent(

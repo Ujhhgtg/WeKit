@@ -117,11 +117,11 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 object AddMainScreenFab : ClickableFeature() {
     override val technicalId = "主屏幕添加 FAB"
@@ -547,7 +547,8 @@ object AddMainScreenFab : ClickableFeature() {
                                 } else {
                                     Color(0xFFF7F7F7)
                                 }
-                        val activeColor = monet?.primary?.let(::Color) ?: Color(ThemeSettings.DEFAULT_SEED_COLOR)
+                        val activeColor =
+                            monet?.primary?.let(::Color) ?: Color(ThemeSettings.DEFAULT_SEED_COLOR)
                         val errorColor = MaterialTheme.colorScheme.error
                         val layoutDirection = LocalLayoutDirection.current
 

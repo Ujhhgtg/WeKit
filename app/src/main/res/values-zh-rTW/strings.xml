@@ -102,6 +102,7 @@
     <string name="feature_error_google_play_unsupported">錯誤：功能在 Google Play 版微信上不可用</string>
     <string name="feature_error_host_version_unsupported">錯誤：功能不支援當前版本微信</string>
     <string name="feature_error_requires_android_11">錯誤：需要 Android 11 或更高版本</string>
+    <string name="feature_error_requires_android_12">錯誤：需要 Android 12 或更高版本</string>
     <string name="feature_error_requires_android_14">錯誤：需要 Android 14 或更高版本</string>
     <string name="location_picker_instruction">點擊地圖或下方座標以選擇虛擬位置</string>
     <string name="location_picker_title">地圖選點</string>
@@ -425,7 +426,7 @@
     <string name="feature_add_main_screen_fab_name">主屏幕添加 FAB</string>
     <string name="feature_add_main_screen_fab_description">向微信主屏幕添加浮動操作按鈕</string>
     <string name="feature_apply_dialog_background_blur_name">對話框窗口級背景模糊</string>
-    <string name="feature_apply_dialog_background_blur_description">爲模塊與微信的對話框添加窗口級模糊處理 [需 SDK &gt;= 31]</string>
+    <string name="feature_apply_dialog_background_blur_description">爲模塊與微信的對話框添加窗口級模糊處理</string>
     <string name="feature_apply_global_background_name">應用全局背景</string>
     <string name="feature_apply_global_background_description">將微信背景全局替換爲圖片</string>
     <string name="feature_beautify_conversation_list_name">美化對話列表</string>
@@ -443,7 +444,7 @@
     <string name="feature_hide_other_devices_banner_name">隱藏其他設備橫幅</string>
     <string name="feature_hide_other_devices_banner_description">隱藏主頁頂部其他設備已登錄橫幅</string>
     <string name="feature_monet_engine_name">莫奈引擎</string>
-    <string name="feature_monet_engine_description">在執行時重新著色微信自身的介面資源，跟隨 WeKit 主題色。無需 Root 或模組，選項修改即時生效。需要 Android 11+。</string>
+    <string name="feature_monet_engine_description">在執行時重新著色微信自身的介面資源，跟隨 WeKit 主題色。無需 Root 或模組，選項修改即時生效。</string>
     <string name="feature_beautify_navigation_bar_name">美化首頁底部導航欄</string>
     <string name="feature_beautify_navigation_bar_description">自訂首頁底欄樣式、頁面與角標，直接在首頁即時編輯</string>
     <string name="feature_themes_name">主題</string>
@@ -3196,8 +3197,6 @@
     <string name="payment_fingerprint_missing_cipher">指紋驗證成功, 但無法獲取密文對象! 請向模塊作者報告問題</string>
     <string name="payment_fingerprint_encrypt_failed">加密失敗! 請向模塊作者報告問題</string>
     <string name="payment_fingerprint_decrypt_failed">解密失敗! 請向模塊作者報告問題</string>
-    <string name="payment_fingerprint_android_too_old">Android 版本過低 (&lt; Android 11), 無法使用指紋驗證!</string>
-    <string name="payment_fingerprint_android_too_old_details">Android 版本過低 (&lt; Android 11), 無法使用指紋驗證!\n爲追求代碼簡潔度與穩定性, 本項目使用 AndroidX Biometric API, 不支持 &lt; Android 11 的設備\n如確實需要此功能, 可使用第三方項目 eritpchy/FingerprintPay</string>
     <string name="profile_new_nickname">新的暱稱</string>
     <string name="profile_nickname_success">發送成功</string>
     <string name="profile_nickname_server_code">服務器返回碼: %1$s</string>
