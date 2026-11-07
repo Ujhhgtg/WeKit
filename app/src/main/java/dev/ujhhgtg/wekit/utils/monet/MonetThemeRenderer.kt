@@ -19,6 +19,7 @@ import kotlin.math.sqrt
  * are always opaque, so the two never collide).
  */
 object MonetThemeRenderer {
+    @Suppress("PropertyName")
     data class Palette(
         val surfaceLight: Int,
         val surfaceDark: Int,
@@ -35,6 +36,7 @@ object MonetThemeRenderer {
         val accent1_500: Int,
         val accent1_700: Int,
         val accent2_100: Int,
+        val accent2_600: Int,
         val neutral2_700: Int,
     )
 
@@ -76,6 +78,7 @@ object MonetThemeRenderer {
             accent1_500 = pick("system_accent1_500"),
             accent1_700 = pick("system_accent1_700"),
             accent2_100 = pick("system_accent2_100"),
+            accent2_600 = pick("system_accent2_600"),
             neutral2_700 = pick("system_neutral2_700", "system_surface_dark"),
         )
     }

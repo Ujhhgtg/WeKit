@@ -112,12 +112,12 @@ class ArtHookBridge : IHookBridge {
             "callback", Array<Any?>::class.java,
         )
 
-        @JvmStatic private external fun nativeHookMethod(
+        private external fun nativeHookMethod(
             target: Executable, hooker: Any, callback: Method,
         ): Method?
-        @JvmStatic private external fun nativeDeoptimize(executable: Executable): Boolean
-        @JvmStatic private external fun nativeAllocateInstance(clazz: Class<*>): Any
-        @JvmStatic private external fun nativeHideLoadedModuleLibraries(): Boolean
+        private external fun nativeDeoptimize(executable: Executable): Boolean
+        private external fun nativeAllocateInstance(clazz: Class<*>): Any
+        private external fun nativeHideLoadedModuleLibraries(): Boolean
     }
 
     private class ArtUnhookHandle(

@@ -7,9 +7,10 @@ import android.content.res.Configuration
 import android.os.Process
 
 inline val Context.isDarkMode
-    get() =
-        resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
-            Configuration.UI_MODE_NIGHT_YES
+    get() = resources.configuration.isDarkMode
+
+inline val Configuration.isDarkMode
+    get() = uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
 inline val androidUserId: Int
     get() = Process.myUid() / 100_000

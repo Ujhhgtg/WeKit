@@ -36,7 +36,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.livephoto.WeKitLivePhotoBackend
+import dev.ujhhgtg.wekit.utils.motion_photo.WeKitLivePhotoBackend
 import java.lang.reflect.Modifier
 import org.json.JSONObject
 

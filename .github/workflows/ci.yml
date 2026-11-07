@@ -129,11 +129,12 @@ jobs:
           uv sync --locked --managed-python --project wekit-zygisk --all-groups
           echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Validate build tools, DEX reader, and i18n catalogs
+      - name: Validate build tools, native core, DEX reader, and i18n catalogs
         run: |
           cargo test -p xtask --bin xtask
+          cargo test -p wekit-native-common --lib
           cargo test -p wekit-zygisk --lib
-          uv run --no-sync --project wekit-zygisk python wekit-zygisk/native/tests/arm64_relocation.py
+          uv run --no-sync --project wekit-zygisk python crates/wekit-native-common/tests/arm64_relocation.py
           ./x i18n-check
 
       - name: Decode keystore
@@ -422,7 +423,7 @@ jobs:
               - 'extension-packs/**'
               - 'extensions/**'
               - 'libs/python-runtime-api/**'
-              - 'app/src/main/rust/**'
+              - 'crates/**'
               - 'xtask/**'
               - 'buildSrc/**'
               - 'gradle/**'

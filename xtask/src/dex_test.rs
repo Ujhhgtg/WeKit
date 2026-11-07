@@ -19,7 +19,6 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::workspace_root;
 
-#[path = "dex_report_diff.rs"]
 pub mod diff;
 
 /// Engine name and version reported by the worker environment.

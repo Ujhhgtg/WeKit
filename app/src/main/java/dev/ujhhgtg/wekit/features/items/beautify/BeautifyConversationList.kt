@@ -99,6 +99,8 @@ object BeautifyConversationList : ClickableFeature() {
     private val unreadFailuresLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val pinFlagFields = ConcurrentHashMap<Class<*>, ReflectedField<Any>>()
 
+    private val surfaceColorsListener = { refreshAppearance() }
+
     private val bindListener =
         WeConversationListViewApi.IBindViewListener { _, row, conversation, context ->
             bindRow(row, conversation, context)
@@ -145,10 +147,12 @@ object BeautifyConversationList : ClickableFeature() {
                 }
             }
         WeConversationListViewApi.addListener(bindListener)
+        MonetEngine.addSurfaceColorsListener(surfaceColorsListener)
         refreshAppearance()
     }
 
     override fun onDisable() {
+        MonetEngine.removeSurfaceColorsListener(surfaceColorsListener)
         WeConversationListViewApi.removeListener(bindListener)
         postOnUiThread {
             restoreAppearance()
@@ -229,6 +233,9 @@ object BeautifyConversationList : ClickableFeature() {
                 this,
                 isEnabled && (layoutEnabled || hideDividersEnabled),
             )
+            if (isLayoutBeautificationEnabled) {
+                WeConversationListViewApi.currentContainer()?.let(::paintEmptyFooters)
+            }
         }
     }
 

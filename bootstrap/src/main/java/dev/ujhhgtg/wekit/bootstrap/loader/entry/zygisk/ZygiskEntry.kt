@@ -6,13 +6,13 @@ import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.wekit.bootstrap.BootstrapLifecycle
+import dev.ujhhgtg.wekit.bootstrap.BootstrapLog
+import dev.ujhhgtg.wekit.bootstrap.BootstrapProcess
 import dev.ujhhgtg.wekit.bootstrap.BuildConfig
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
-import dev.ujhhgtg.wekit.bootstrap.BootstrapLifecycle
-import dev.ujhhgtg.wekit.bootstrap.BootstrapProcess
 import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.api.TelegramRootAccess
-import dev.ujhhgtg.wekit.bootstrap.BootstrapLog
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -109,7 +109,6 @@ object ZygiskEntry : TelegramRootAccess {
         }
     }
 
-    @JvmStatic
     private external fun nativeInitialize(): Boolean
 
     /**
@@ -128,13 +127,10 @@ object ZygiskEntry : TelegramRootAccess {
         shmFd: Int,
     ): Int = nativeCopyTelegramDatabaseSnapshot(packageName, databaseFd, walFd, shmFd)
 
-    @JvmStatic
     private external fun nativeHasTelegramRootCompanion(): Boolean
 
-    @JvmStatic
     private external fun nativeListTelegramInstances(): Array<String>
 
-    @JvmStatic
     private external fun nativeCopyTelegramDatabaseSnapshot(
         packageName: String,
         databaseFd: Int,

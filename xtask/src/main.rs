@@ -333,7 +333,11 @@ pub(crate) fn workspace_root() -> PathBuf {
 }
 
 fn native_crate_dir(root: &Path) -> PathBuf {
-    root.join("app/src/main/rust/wekit-native")
+    root.join("crates/wekit-native")
+}
+
+fn zygisk_crate_dir(root: &Path) -> PathBuf {
+    root.join("crates/wekit-zygisk")
 }
 
 fn jni_libs_dir(root: &Path) -> PathBuf {
@@ -504,7 +508,7 @@ fn task_configure() -> Result<()> {
         "{out}WEKIT_ANDROID_NDK = \"{}\"\nWEKIT_ANDROID_API = \"{MIN_SDK}\"\n",
         ndk_dir.to_string_lossy().replace('\\', "/")
     );
-    let zygisk_config_path = zygisk_dir(&root).join("native/.cargo/config.toml");
+    let zygisk_config_path = zygisk_crate_dir(&root).join(".cargo/config.toml");
     fs::create_dir_all(zygisk_config_path.parent().unwrap())?;
     fs::write(&zygisk_config_path, &zygisk_out)
         .with_context(|| format!("failed to write {}", zygisk_config_path.display()))?;
@@ -1122,7 +1126,7 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
                 abi.cargo_triple,
                 "--release",
             ],
-            &zygisk_dir(root).join("native"),
+            &zygisk_crate_dir(root),
         )?;
         let name = format!("lib{ZYGISK_MODULE_ID}.so");
         let source = root

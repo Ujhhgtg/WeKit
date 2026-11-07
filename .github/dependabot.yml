@@ -63,25 +63,9 @@ updates:
           - "minor"
           - "patch"
 
-  # Cargo — native Rust library (compiled into APK)
+  # Cargo — workspace crates, services, and build tools
   - package-ecosystem: "cargo"
-    directory: "/app/src/main/rust/wekit-native"
-    schedule:
-      interval: "daily"
-      time: "06:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
-    groups:
-      rust-deps:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Cargo — read-receipts service (separate project)
-  - package-ecosystem: "cargo"
-    directory: "/services/read-receipts"
+    directory: "/"
     schedule:
       interval: "daily"
       time: "06:00"

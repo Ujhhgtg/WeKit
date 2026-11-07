@@ -60,9 +60,11 @@ import dev.ujhhgtg.wekit.ui.utils.theme.SeedResolver
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.monet.FlutterMonet
 import dev.ujhhgtg.wekit.utils.monet.MonetAssetInjector
 import dev.ujhhgtg.wekit.utils.monet.MonetBindings
 import dev.ujhhgtg.wekit.utils.monet.MonetBubbleStyle
@@ -72,10 +74,6 @@ import dev.ujhhgtg.wekit.utils.monet.MonetResolveStage
 import dev.ujhhgtg.wekit.utils.monet.MonetResourceResolver
 import dev.ujhhgtg.wekit.utils.monet.MonetRuntimePackageWriter
 import dev.ujhhgtg.wekit.utils.monet.MonetThemeRenderer
-import java.io.File
-import kotlin.concurrent.thread
-import kotlin.io.path.div
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -85,11 +83,15 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.concurrent.thread
+import kotlin.io.path.div
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Runtime Monet for WeChat: injects an ID-preserving resource table into WeChat's AssetManagers
  * (see [MonetAssetInjector]) and rebuilds it live whenever the WeKit theme or a Monet option
- * changes. Replaces the former RRO/Magisk module generator; no root is involved.
+ * changes. [FlutterMonet] supplies the same palette to native Dart semantic color hooks.
  */
 object MonetEngine : ClickableFeature() {
     override val technicalId = "莫奈引擎"
@@ -158,12 +160,21 @@ object MonetEngine : ClickableFeature() {
 
     /** Snapshot state: Compose readers recompose and View binders read the latest value on bind. */
     private val surfaceColorsState = mutableStateOf<Pair<SurfaceColors, SurfaceColors>?>(null)
+    private val surfaceColorsListeners = mutableSetOf<() -> Unit>()
 
     /**
      * Colors of the applied Monet table, or `null` while none is applied (feature off / not ready).
      */
     fun surfaceColors(dark: Boolean): SurfaceColors? =
         surfaceColorsState.value?.let { (light, night) -> if (dark) night else light }
+
+    fun addSurfaceColorsListener(listener: () -> Unit) {
+        surfaceColorsListeners += listener
+    }
+
+    fun removeSurfaceColorsListener(listener: () -> Unit) {
+        surfaceColorsListeners -= listener
+    }
 
     private class HostResources(val apks: List<String>, val fingerprint: String)
 
@@ -221,6 +232,7 @@ object MonetEngine : ClickableFeature() {
         MonetAssetInjector.managedImpls().forEach {
             MonetAssetInjector.registerImpl(it, flush = true)
         }
+        FlutterMonet.start(this)
 
         val cached = MonetResourceResolver.load(cacheDir, fingerprint)
         if (cached != null) {
@@ -243,6 +255,7 @@ object MonetEngine : ClickableFeature() {
         "NewApi",
     ) // Only runs after onEnable, which declaredErrors keeps off below API 30.
     override fun onDisable() {
+        FlutterMonet.stop()
         clearPendingResolve()
         host = null
         scope?.cancel()
@@ -254,6 +267,8 @@ object MonetEngine : ClickableFeature() {
             currentProvider = null
             appliedKey = null
             surfaceColorsState.value = null
+            surfaceColorsListeners.forEach { it() }
+            Snapshot.sendApplyNotifications()
         }
     }
 
@@ -307,6 +322,9 @@ object MonetEngine : ClickableFeature() {
             object : ComponentCallbacks {
                     override fun onConfigurationChanged(newConfig: Configuration) {
                         configTick.intValue++
+                        if (appliedKey != null) {
+                            publishColors(currentState(), newConfig.isDarkMode)
+                        }
                         Snapshot.sendApplyNotifications()
                     }
 
@@ -326,13 +344,19 @@ object MonetEngine : ClickableFeature() {
         MonetAssetInjector.swap(provider)
         currentProvider = provider
         appliedKey = "${bindings.fingerprint}-${state.key}"
-        surfaceColorsState.value =
-            surfaceColors(state, dark = false) to surfaceColors(state, dark = true)
+        publishColors(state, HostInfo.application.isDarkMode)
         Snapshot.sendApplyNotifications()
         WeLogger.i(
             TAG,
             "applied ${file.name} (${bindings.roles.size} roles, ${bindings.unresolved.size} unresolved)",
         )
+    }
+
+    private fun publishColors(state: ThemeState, dark: Boolean) {
+        surfaceColorsState.value =
+            surfaceColors(state, dark = false) to surfaceColors(state, dark = true)
+        FlutterMonet.update(flutterColors(state), dark)
+        surfaceColorsListeners.forEach { it() }
     }
 
     private fun build(bindings: MonetBindings, state: ThemeState): File {
@@ -437,8 +461,8 @@ object MonetEngine : ClickableFeature() {
         val primaryContainer =
             argb(if (dark) palette.primaryContainerDark else palette.primaryContainerLight)
         return SurfaceColors(
-            page = argb(if (dark) palette.surfaceDark else palette.surfaceContainerLight),
-            surface = argb(if (dark) palette.surfaceContainerDark else palette.surfaceLight),
+            page = argb(if (dark) palette.surfaceContainerDark else palette.surfaceContainerLight),
+            surface = argb(if (dark) palette.surfaceDark else palette.surfaceLight),
             surfaceHigh =
                 argb(
                     if (dark) {
@@ -458,6 +482,46 @@ object MonetEngine : ClickableFeature() {
             primary = primary,
             primaryContainer = primaryContainer,
             onPrimaryContainer = on("on_primary_container", primaryContainer),
+        )
+    }
+
+    private fun flutterColors(state: ThemeState): IntArray {
+        val color = colorSource(state)
+        val palette = MonetThemeRenderer.palette(color)
+        val containerLight = argb(palette.surfaceContainerLight)
+        val containerDark = argb(palette.surfaceContainerDark)
+        val surfaceLight = argb(palette.surfaceLight)
+        val surfaceDark = argb(palette.surfaceDark)
+        val secondarySurface = argb(palette.accent2_600)
+        val foregroundLight = 0xFF000000.toInt()
+        val foregroundDark = 0xFFFFFFFF.toInt()
+        return intArrayOf(
+            containerLight,
+            containerDark,
+            containerLight,
+            containerDark,
+            surfaceLight,
+            surfaceDark,
+            containerLight,
+            containerDark,
+            secondarySurface,
+            secondarySurface,
+            surfaceLight,
+            surfaceDark,
+            foregroundLight,
+            foregroundDark,
+            foregroundLight,
+            foregroundDark,
+            foregroundLight,
+            foregroundDark,
+            foregroundLight,
+            foregroundDark,
+            foregroundLight,
+            foregroundDark,
+            foregroundLight,
+            foregroundDark,
+            argb(palette.primaryLight),
+            argb(palette.primaryDark),
         )
     }
 

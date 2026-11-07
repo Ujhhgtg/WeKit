@@ -3288,6 +3288,15 @@ dependencies = [
  "silk-v3-sys",
  "symphonia",
  "webm-iterable",
+ "wekit-native-common",
+]
+
+[[package]]
+name = "wekit-native-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "libc",
 ]
 
 [[package]]
@@ -3317,6 +3326,7 @@ dependencies = [
  "jni",
  "libc",
  "sha2",
+ "wekit-native-common",
  "zip",
 ]
 

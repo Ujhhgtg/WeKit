@@ -17,6 +17,7 @@ bin/
 local.properties
 
 /target
+/crates/*/.cargo/config.toml
 /.wekit/
 /dex-test-results/
 /monet-test-results/

@@ -107,6 +107,16 @@ Bootstrap builds always use the release profile. Run `./x bootstrap build --help
 
 ## Development environment
 
+- `crates/wekit-native/` contains the payload JNI library and Flutter native hooks.
+- `crates/wekit-zygisk/` contains the Zygisk loader and ART hook integration.
+- `crates/wekit-native-common/` supplies both libraries with shared `memory`, `aarch64`, and
+  `logging` modules for executable memory, instruction relocation, and platform logging. Each
+  native library keeps only a thin logger configuration/forwarding module.
+- `wekit-zygisk/` remains the uv tooling project, with its `pyproject.toml`,
+  `uv.lock` and managed Python environment.
+
+Required tools:
+
 - Rust toolchain with the Android targets
 - rust-analyzer
 - Android NDK pinned in `gradle/libs.versions.toml`
@@ -130,7 +140,7 @@ The LSPlant gitlink is pinned to `1dc6ef5c6c5c4eb4d5565fcf50791450c5ede5a9`;
 its LGPL-3.0 license remains in the submodule.
 
 The native build requires NDK `30.0.16248370`, CMake 3.31.6+ and Ninja 1.11+.
-`native/cmake/cxx` supplies LSPlant's `cxx::cxx` package using the selected NDK's
+`crates/wekit-zygisk/cmake/cxx` supplies LSPlant's `cxx::cxx` package using the selected NDK's
 libc++ headers and `std.cppm`. The module is compiled locally, and its archive
 joins the NDK's static libc++/libc++abi archives in Cargo's final link; no Prefab
 or shared C++ runtime is needed. A generated copy of `std.cppm` includes
@@ -140,7 +150,9 @@ while allowing the C wrappers to be exported. Installed NDK files are not modifi
 ART mini debug symbols use statically linked XZ Embedded (0BSD), with the existing
 64 MiB output limit. No system `liblzma.so` is required.
 
-The ARM64 backend is in `native/src/art/inline_hook/`. It provides executable
+The ART hook backend is in `crates/wekit-zygisk/src/art/inline_hook/`. It uses
+`wekit_native_common::{aarch64, logging, memory}`, also shared with the payload JNI library
+in `crates/wekit-native/`. It provides executable
 original-function backups, near entry veneers with an absolute-branch fallback,
 PC-relative instruction relocation (ADR/ADRP, integer/SIMD literal loads, PRFM,
 B/BL, conditional/compare/test branches), and internal branch destination mapping.
@@ -173,8 +185,9 @@ and [Arm's code synchronization guidance](https://developer.arm.com/community/ar
 Desktop validation (from the repository root, with uv and Rust installed):
 
 ```sh
+cargo test -p wekit-native-common --lib
 cargo test -p wekit-zygisk --lib
-uv run --locked --project wekit-zygisk --group test python wekit-zygisk/native/tests/arm64_relocation.py
+uv run --locked --project wekit-zygisk --group test python crates/wekit-native-common/tests/arm64_relocation.py
 ```
 
 Python tooling dependencies are declared in `pyproject.toml` and pinned in
@@ -186,7 +199,9 @@ To make the pinned build tools available to the native build, run:
 uv run --locked --project wekit-zygisk --group build ./x bootstrap build --native-only
 ```
 
-The Unicorn suite compiles the production Rust emitter, executes original and
+The Unicorn suite builds the production Rust emitter's Cargo driver once with
+`cargo build -p wekit-native-common --features relocation-driver --bin wekit-relocation-driver`,
+then executes the resulting binary directly for each case. It executes original and
 relocated functions, and compares general/SIMD registers, SP and NZCV for near
 and far allocations. It also tests poisoned original entries, embedded literals,
 existing veneers, function calls and both branch outcomes. It does not establish

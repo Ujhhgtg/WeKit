@@ -38,7 +38,14 @@
 
 ## Project Structure
 
-- `app/` — main Android module, entrypoints, hooks, UI, native Rust lib
+- `app/` — main Android module, entrypoints, hooks and UI
+- `crates/wekit-native/` — payload JNI library, Flutter native hooks and desktop Dex native support
+- `crates/wekit-zygisk/` — Zygisk loader and LSPlant ART hook integration
+- `crates/wekit-native-common/` — shared `memory`, `aarch64`, and `logging` modules for executable
+  memory, ARM64 instruction relocation, and platform logging, used by both native libraries
+  (the platform logger is configured by thin per-library forwarding modules)
+- `wekit-zygisk/` — uv tooling project and Zygisk documentation; the `build` dependency group
+  supplies CMake/Ninja and the `test` group supplies Unicorn
 - `libs/common/annotation-scanner/` — KSP processors: source-subtype discovery for
   `BaseFeature`/`ExtensionPack` objects, the Feature → Feature reference scan
   (`GeneratedFeatureDependencies.DIRECT`), plus the `@AgentTool` scanner
@@ -191,6 +198,12 @@
   readability, is reused, or isolates genuinely complex behavior.
 - Dex resolution is validated by `./x dex-test`; everything else is validated by manual testing in
   real WeChat on a device — desktop/Gradle tests never replace it.
+- Shared native core tests run with `cargo test -p wekit-native-common --lib`; Zygisk host tests
+  run with `cargo test -p wekit-zygisk --lib`. The ARM64 relocation suite runs from the repository
+  root with `uv run --locked --project wekit-zygisk --group test python crates/wekit-native-common/tests/arm64_relocation.py`.
+  It builds the `wekit-relocation-driver` Cargo binary once with the explicit `relocation-driver`
+  feature before executing the generated code in Unicorn. These tests cover core logic, not
+  Android cache coherency or real ART/WeChat compatibility.
 
 ## Key Conventions
 

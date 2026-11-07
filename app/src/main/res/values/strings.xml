@@ -482,7 +482,7 @@
     <string name="feature_hide_other_devices_banner_name">Hide other device banners</string>
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
     <string name="feature_monet_engine_name">Monet engine</string>
-    <string name="feature_monet_engine_description">Recolor WeChat’s own UI resources at runtime to follow the WeKit theme color. No root or module needed; option changes apply live.</string>
+    <string name="feature_monet_engine_description">Apply the WeKit palette to WeChat UI resources and supported Flutter themes at runtime.</string>
     <string name="feature_beautify_navigation_bar_name">Beautify home navigation bar</string>
     <string name="feature_beautify_navigation_bar_description">Restyle the home bottom bar and manage its pages and badges, edited live on the home screen</string>
     <string name="feature_themes_name">Themes</string>

@@ -446,7 +446,7 @@
     <string name="feature_hide_other_devices_banner_name">隐藏其他设备横幅</string>
     <string name="feature_hide_other_devices_banner_description">隐藏主页顶部其他设备已登录横幅</string>
     <string name="feature_monet_engine_name">莫奈引擎</string>
-    <string name="feature_monet_engine_description">在运行时重新着色微信自身的界面资源，跟随 WeKit 主题色。无需 Root 或模块，选项修改实时生效。</string>
+    <string name="feature_monet_engine_description">为微信原生界面及受支持的 Flutter 主题添加莫奈配色，跟随 WeKit 主题。</string>
     <string name="feature_beautify_navigation_bar_name">美化首页底部导航栏</string>
     <string name="feature_beautify_navigation_bar_description">自定义首页底栏样式、页面与角标，直接在首页实时编辑</string>
     <string name="feature_themes_name">主题</string>

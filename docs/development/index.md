@@ -114,8 +114,8 @@ exec cargo xtask "$@"
 该命令使用版本目录配置的 NDK，为 ARM64 生成 linker 配置，包括：
 
 ```text
-app/src/main/rust/wekit-native/.cargo/config.toml
-wekit-zygisk/native/.cargo/config.toml
+crates/wekit-native/.cargo/config.toml
+crates/wekit-zygisk/.cargo/config.toml
 ```
 
 完整 APK 模式的 `./x bootstrap build`、`./x bootstrap install` 和 `./x payload build` 会自动执行该步骤。直接运行
@@ -294,7 +294,7 @@ Bootstrap 构建始终使用 release profile。`local` 变体默认自动构建�
 `--root` 和 `--reboot` 仅用于 `--zygisk`。
 不再提供独立 `zygisk` 构建/刷入命令或按修改时间选择旧 ZIP 的选项。
 
-原生调试可在 `wekit-zygisk/native` 中直接运行 `cargo build --target aarch64-linux-android`；
+原生调试可在 `crates/wekit-zygisk` 中直接运行 `cargo build --target aarch64-linux-android`；
 先用 `./x configure` 准备 NDK 链接配置。正常出 bootstrap 包使用 `./x bootstrap build`，
 正常出 payload 包使用 `./x payload build`；Gradle 只负责消费这些 native 输入并打包签名。直接 Cargo 构建还需要已
 初始化的 LSPlant 运行时依赖，以及可用的 CMake / Ninja。
@@ -303,8 +303,9 @@ Bootstrap 构建始终使用 release profile。`local` 变体默认自动构建�
 
 Zygisk 的生命周期、companion IPC、APK 加载、JNI 注册和 ART 符号解析由 Rust
 实现。Java 方法 Hook 使用静态链接到 `libwekit_zygisk.so` 的 LSPlant，原生
-inline hook 由 `wekit-zygisk/native/src/art/inline_hook/` 下的 Rust ARM64 后端
-提供；不再使用原先自研的 ART 方法 Hook，也不再依赖 Dobby。
+inline hook 入口位于 `crates/wekit-zygisk/src/art/inline_hook/`，可执行内存与 ARM64
+重定位与两端共享日志接口由 `crates/wekit-native-common/` 提供；两端仅保留薄日志配置/宏转发层。
+不再使用原先自研的 ART 方法 Hook，也不再依赖 Dobby。
 
 LSPlant 在 `postAppSpecialize` 中、进入模块 Java 代码前初始化。Kotlin
 `IHookBridge` 保留回调优先级、参数和结果修改、调用原方法等接口；移除 Hook
@@ -313,8 +314,9 @@ LSPlant 在 `postAppSpecialize` 中、进入模块 Java 代码前初始化。Kot
 在仓库根目录运行原生桌面验证：
 
 ```bash
+cargo test -p wekit-native-common --lib
 cargo test -p wekit-zygisk --lib
-uv run --locked --project wekit-zygisk --group test python wekit-zygisk/native/tests/arm64_relocation.py
+uv run --locked --project wekit-zygisk --group test python crates/wekit-native-common/tests/arm64_relocation.py
 ```
 
 CI 还对每个产出的 APK 执行 `.github/scripts/verify-dual-apk.py --check-installer`，

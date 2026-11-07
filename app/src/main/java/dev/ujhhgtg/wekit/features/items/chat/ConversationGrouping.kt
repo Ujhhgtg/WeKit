@@ -1642,7 +1642,7 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
                 null
             }
         // The floating islands follow the Monet card surface when the engine is applied.
-        val monetSurface = MonetEngine.surfaceColors(darkTheme)?.surface?.let(::Color)
+        val monetSurface = MonetEngine.surfaceColors(darkTheme)?.surfaceHigh?.let(::Color)
         val glassTint =
             if (darkTheme) {
                 (monetSurface ?: Color(0xFF1C1C1E)).copy(alpha = 0.55f)
