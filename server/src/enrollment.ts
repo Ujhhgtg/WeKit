@@ -10,6 +10,7 @@ import {
   currentTrust,
   installationAttestation,
   revokedSerials,
+  type AttestationDowngrade,
   type Proof,
 } from "./attestation";
 import {
@@ -150,6 +151,7 @@ export async function register(env: Env, req: Request): Promise<Response> {
     fail(400, "ATTESTATION_NOT_ACCEPTED", "低保证登记不接受证明证书链");
   const trust = lowAssurance ? null : await currentTrust(env);
   let proof: Proof | undefined;
+  let downgrade: AttestationDowngrade | null = null;
   let installationId = ctx.installation_id ?? ctx.existing_installation_id;
   let submissionHash: string | null = null;
   if (lowAssurance) {
@@ -205,12 +207,12 @@ export async function register(env: Env, req: Request): Promise<Response> {
       // pkijs/asn1js are only needed for hardware attestation; load them lazily
       // so they stay out of the worker's startup path.
       const { verifyAttestation } = await import("./attestation-pkijs");
-      proof = await verifyAttestation(
+      ({ proof, downgrade } = await verifyAttestation(
         v.certificateChain,
         v.spki,
         ctx.attestation_challenge,
         trust!.roots,
-      );
+      ));
       if (
         await env.DB.prepare(
           "SELECT installation_id FROM installations WHERE public_key_sha256=?",
@@ -223,13 +225,6 @@ export async function register(env: Env, req: Request): Promise<Response> {
     }
   }
   if (!installationId) fail(400, "REGISTRATION_MODE", "缺少安装信息");
-  // Google revokes attestation CAs (typically leaked keyboxes) after the fact. The
-  // client cannot repair such a chain, and an unattested low-assurance registration is
-  // openly available anyway, so keep the user onboarded in that mode instead of failing
-  // the operation. The evidence is retained for audit, and the response reports the
-  // downgrade so a client can explain it.
-  let downgrade: { reason: "REVOKED" | "SUSPENDED"; serials: string[] } | null =
-    null;
   if (!lowAssurance) {
     if (proof) {
       const revoked = await revokedSerials(env, proof.serials);
@@ -297,8 +292,6 @@ export async function register(env: Env, req: Request): Promise<Response> {
     proofGate = "1";
     proofArgs = [];
     if (proof) {
-      // A fresh registration keeps its chain evidence even though the device is
-      // admitted as low assurance, so the revocation decision stays auditable.
       const evidence = JSON.stringify({
         certificateChain: v.certificateChain,
         proof,
@@ -421,13 +414,15 @@ export async function register(env: Env, req: Request): Promise<Response> {
     },
   );
   const session = await env.DB.prepare(
-    "SELECT state,expires_at,code_wrapped_json FROM enrollment_sessions WHERE binding_session_id=?",
+    "SELECT e.state,e.expires_at,e.code_wrapped_json,i.assurance,json_extract(i.attestation_json,'$.downgraded.reason') AS degraded FROM enrollment_sessions e JOIN installations i ON i.installation_id=e.installation_id WHERE e.binding_session_id=?",
   )
     .bind(registered.bindingSessionId)
     .first<{
       state: string;
       expires_at: number;
       code_wrapped_json: string | null;
+      assurance: "ATTESTED" | "UNATTESTED_HARDWARE";
+      degraded: AttestationDowngrade["reason"] | null;
     }>();
   if (!session) fail(503, "REGISTRATION_UNAVAILABLE", "登记尚未完成", true);
   if (downgrade)
@@ -457,8 +452,8 @@ export async function register(env: Env, req: Request): Promise<Response> {
       session.expires_at <= Date.now() && session.state !== "CLAIMED"
         ? "EXPIRED"
         : session.state,
-    assurance,
-    degraded: downgrade?.reason ?? null,
+    assurance: session.assurance,
+    degraded: downgrade?.reason ?? session.degraded,
   });
 }
 const sessionSchema = z.strictObject({

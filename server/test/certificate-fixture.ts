@@ -12,14 +12,23 @@ import { b64, unb64 } from "../src/crypto.ts";
 export async function hardwareClaimFixture(
   target: CryptoKey,
   challenge: string,
+  options: {
+    securityLevel?: 0 | 1 | 2;
+    provisioning?: "FACTORY" | "RKP";
+    certifiedSecurityLevel?: "TEE" | "StrongBox";
+    notBefore?: Date;
+    notAfter?: Date;
+  } = {},
 ) {
   setEngine(
     "test",
     crypto,
     new CryptoEngine({ name: "test", crypto, subtle: crypto.subtle }),
   );
+  const rkp = options.provisioning === "RKP";
+  const chainLength = rkp ? 5 : 4;
   const keys = await Promise.all(
-    Array.from({ length: 3 }, () =>
+    Array.from({ length: chainLength - 1 }, () =>
       crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
         "sign",
         "verify",
@@ -27,37 +36,61 @@ export async function hardwareClaimFixture(
     ),
   );
   const certificates: Certificate[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < chainLength; i++) {
     const c = new Certificate();
     c.version = 2;
     c.serialNumber = new asn1.Integer({ value: i + 1 });
     const attributes =
-      i < 2
+      rkp && i === 1
         ? [
             new AttributeTypeAndValue({
-              type: "2.5.4.5",
-              value: new asn1.PrintableString({
-                value: i === 0 ? "test-root" : "test-factory",
-              }),
+              type: "2.5.4.3",
+              value: new asn1.Utf8String({ value: "Droid CA2" }),
+            }),
+            new AttributeTypeAndValue({
+              type: "2.5.4.10",
+              value: new asn1.Utf8String({ value: "Google LLC" }),
             }),
           ]
-        : [
-            new AttributeTypeAndValue({
-              type: "2.5.4.3",
-              value: new asn1.Utf8String({
-                value: i === 2 ? "Test Attester" : "Android Keystore Key",
+        : rkp && i === chainLength - 2
+          ? [
+              new AttributeTypeAndValue({
+                type: "2.5.4.10",
+                value: new asn1.Utf8String({
+                  value: options.certifiedSecurityLevel ?? "TEE",
+                }),
               }),
-            }),
-          ];
+            ]
+          : i < 2
+            ? [
+                new AttributeTypeAndValue({
+                  type: "2.5.4.5",
+                  value: new asn1.PrintableString({
+                    value: i === 0 ? "test-root" : "test-factory",
+                  }),
+                }),
+              ]
+            : [
+                new AttributeTypeAndValue({
+                  type: "2.5.4.3",
+                  value: new asn1.Utf8String({
+                    value: i === 2 ? "Test Attester" : "Android Keystore Key",
+                  }),
+                }),
+              ];
     c.subject.typesAndValues = attributes;
     c.issuer.typesAndValues =
       i === 0 ? attributes : certificates[i - 1]!.subject.typesAndValues;
     c.notBefore.value = new Date(Date.now() - 60000);
     c.notAfter.value = new Date(Date.now() + 86400000);
+    if (i > 0 && i < chainLength - 1) {
+      if (options.notBefore) c.notBefore.value = options.notBefore;
+      if (options.notAfter) c.notAfter.value = options.notAfter;
+    }
     await c.subjectPublicKeyInfo.importKey(
-      i === 3 ? target : keys[i]!.publicKey,
+      i === chainLength - 1 ? target : keys[i]!.publicKey,
     );
-    if (i === 3) {
+    if (i === chainLength - 1) {
       const tag = (n: number, value: asn1.BaseBlock) =>
         new asn1.Constructed({
           idBlock: { tagClass: 3, tagNumber: n },
@@ -67,9 +100,9 @@ export async function hardwareClaimFixture(
       const description = new asn1.Sequence({
         value: [
           int(300),
-          new asn1.Enumerated({ value: 1 }),
+          new asn1.Enumerated({ value: options.securityLevel ?? 1 }),
           int(3),
-          new asn1.Enumerated({ value: 1 }),
+          new asn1.Enumerated({ value: options.securityLevel ?? 1 }),
           new asn1.OctetString({ valueHex: unb64(challenge) }),
           new asn1.OctetString({ valueHex: new Uint8Array() }),
           new asn1.Sequence({ value: [] }),

@@ -1,6 +1,9 @@
 import * as asn1 from "asn1js";
 import { Certificate, CryptoEngine, setEngine } from "pkijs";
-import type { Proof } from "./attestation";
+import type {
+  AttestationDowngrade,
+  AttestationVerification,
+} from "./attestation";
 import { equal, hex, opaqueId, sha, unb64 } from "./crypto";
 import { bytes, decodeJson, fail } from "./http";
 import { LIMITS, type Env } from "./env";
@@ -89,7 +92,7 @@ export async function verifyAttestation(
   challenge: string,
   roots: string[],
   now = Date.now(),
-): Promise<Proof> {
+): Promise<AttestationVerification> {
   setEngine(
     "workers",
     crypto,
@@ -101,6 +104,7 @@ export async function verifyAttestation(
   if (encodedChain.length < 3 || encodedChain.length > 5)
     fail(400, "INVALID_ATTESTATION", "证书链结构无效");
   const chain = encodedChain.map(certificate);
+  let downgrade: AttestationDowngrade | null = null;
   const root = chain.at(-1)!;
   const anchor = roots
     .map(certificate)
@@ -151,7 +155,7 @@ export async function verifyAttestation(
       (c.notBefore.value.getTime() > now ||
         (!factory && c.notAfter.value.getTime() < now))
     )
-      fail(403, "ATTESTATION_CERTIFICATE_TIME", "证明证书时间无效");
+      downgrade ??= { reason: "ATTESTATION_CERTIFICATE_TIME", serials: [] };
   }
   const target = chain[0]!;
   if (!equal(certSpki(target), unb64(spki)))
@@ -214,23 +218,26 @@ export async function verifyAttestation(
         ),
       )
   )
-    fail(403, "ATTESTATION_LEVEL_MISMATCH", "StrongBox 链声明不一致");
+    downgrade ??= { reason: "ATTESTATION_LEVEL_MISMATCH", serials: [] };
   if (rkp) {
     const certified = dn(chain[1]!, "2.5.4.10");
     if (certified !== (level === 2 ? "StrongBox" : "TEE"))
-      fail(403, "ATTESTATION_LEVEL_MISMATCH", "硬件级别不一致");
+      downgrade ??= { reason: "ATTESTATION_LEVEL_MISMATCH", serials: [] };
   }
   return {
-    spki,
-    publicKeySha256: await sha(unb64(spki)),
-    rootSpkiSha256: await sha(certSpki(anchor)),
-    serials: chain.map(serial),
-    securityLevel: level === 2 ? "STRONGBOX" : "TEE",
-    provisioning: factory ? "FACTORY" : "RKP",
-    deviceLocked: rot[1].valueBlock.value,
-    verifiedBootState: state,
-    osVersion: hardware.has(705) ? integer(hardware.get(705)) : null,
-    osPatchLevel: hardware.has(706) ? integer(hardware.get(706)) : null,
+    proof: {
+      spki,
+      publicKeySha256: await sha(unb64(spki)),
+      rootSpkiSha256: await sha(certSpki(anchor)),
+      serials: chain.map(serial),
+      securityLevel: level === 2 ? "STRONGBOX" : "TEE",
+      provisioning: factory ? "FACTORY" : "RKP",
+      deviceLocked: rot[1].valueBlock.value,
+      verifiedBootState: state,
+      osVersion: hardware.has(705) ? integer(hardware.get(705)) : null,
+      osPatchLevel: hardware.has(706) ? integer(hardware.get(706)) : null,
+    },
+    downgrade,
   };
 }
 export async function refreshAttestation(env: Env): Promise<void> {

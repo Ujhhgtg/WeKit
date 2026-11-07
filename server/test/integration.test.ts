@@ -1327,7 +1327,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
   }
 });
 
-test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT", async () => {
+test("real workerd: attestation time, level and revocation failures downgrade instead of blocking registration", async () => {
   await build({
     entryPoints: ["src/api.ts", "src/bot.ts", "src/admin.ts"],
     bundle: true,
@@ -1541,7 +1541,10 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       );
       return { token, nonce, digest, context };
     }
-    async function attestedRegistration() {
+    async function attestedRegistration(
+      options: NonNullable<Parameters<typeof hardwareClaimFixture>[2]> = {},
+      challenge?: string,
+    ) {
       const tokens = await registrationTokens();
       const actor: RegistrationActor = {
         token: tokens.token,
@@ -1556,7 +1559,8 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       );
       const hardware = await hardwareClaimFixture(
         key.publicKey,
-        tokens.context.attestationChallenge,
+        challenge ?? tokens.context.attestationChallenge,
+        options,
       );
       await db
         .prepare("INSERT OR IGNORE INTO attestation_roots VALUES(?,?,?)")
@@ -1575,6 +1579,169 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       );
       return { actor, key, body, request };
     }
+
+    const degradedInstallations: {
+      actor: RegistrationActor;
+      key: CryptoKeyPair;
+      installationId: string;
+    }[] = [];
+    for (const [reason, options] of [
+      ["ATTESTATION_CERTIFICATE_TIME", { notBefore: new Date(now + 86400000) }],
+      [
+        "ATTESTATION_CERTIFICATE_TIME",
+        { provisioning: "RKP", notAfter: new Date(now - 1000) },
+      ],
+      ["ATTESTATION_LEVEL_MISMATCH", { securityLevel: 2 }],
+      [
+        "ATTESTATION_LEVEL_MISMATCH",
+        { provisioning: "RKP", certifiedSecurityLevel: "StrongBox" },
+      ],
+    ] as const) {
+      const registration = await attestedRegistration(options);
+      const created = await ok(registration.request.response);
+      assert.equal(created.state, "PENDING");
+      assert.equal(created.assurance, "UNATTESTED_HARDWARE");
+      assert.equal(created.degraded, reason);
+      assert.ok(created.bindingCode);
+      const stored = await db
+        .prepare(
+          "SELECT assurance,attestation_json,evidence_key,evidence_sha256 FROM installations WHERE installation_id=?",
+        )
+        .bind(created.installationId)
+        .first<{
+          assurance: string;
+          attestation_json: string;
+          evidence_key: string;
+          evidence_sha256: string;
+        }>();
+      assert.equal(stored!.assurance, "UNATTESTED_HARDWARE");
+      assert.equal(
+        JSON.parse(stored!.attestation_json).downgraded.reason,
+        reason,
+      );
+      const evidence = await (
+        await mf.getR2Bucket("PAYLOADS", "api")
+      ).get(stored!.evidence_key);
+      const evidenceBytes = new Uint8Array(await evidence!.arrayBuffer());
+      assert.equal(await sha(evidenceBytes), stored!.evidence_sha256);
+      const saved = JSON.parse(new TextDecoder().decode(evidenceBytes));
+      assert.equal(saved.downgrade.reason, reason);
+      assert.deepEqual(
+        saved.certificateChain,
+        registration.body.certificateChain,
+      );
+      for (const requestId of [registration.request.requestId, opaqueId()]) {
+        const replay = await ok(
+          (
+            await signed(
+              registration.actor,
+              registration.key.privateKey,
+              "/v1/registrations",
+              registration.body,
+              { requestId },
+            )
+          ).response,
+        );
+        assert.equal(replay.installationId, created.installationId);
+        assert.equal(replay.bindingSessionId, created.bindingSessionId);
+        assert.equal(replay.bindingCode, created.bindingCode);
+        assert.equal(replay.assurance, "UNATTESTED_HARDWARE");
+        assert.equal(replay.degraded, reason);
+      }
+      const reuseToken = random(32),
+        reuseNonce = random(32),
+        reuseDigest = await sha(unb64(reuseToken));
+      const reuseContext = await ok(
+        await send(
+          api,
+          "https://auth.example/v1/registration/challenges",
+          "POST",
+          {
+            mode: "REGISTERED_KEY",
+            tokenSha256: reuseDigest,
+            registrationNonce: reuseNonce,
+            existingInstallationId: created.installationId,
+          },
+        ),
+      );
+      const reuseActor: RegistrationActor = {
+        token: reuseToken,
+        nonce: reuseNonce,
+        digest: reuseDigest,
+        registrationId: reuseContext.registrationId,
+      };
+      const reused = await ok(
+        (
+          await signed(
+            reuseActor,
+            registration.key.privateKey,
+            "/v1/registrations",
+            {},
+          )
+        ).response,
+      );
+      assert.equal(reused.installationId, created.installationId);
+      assert.equal(reused.assurance, "UNATTESTED_HARDWARE");
+      assert.equal(reused.degraded, reason);
+      const bindingBody = { bindingSessionId: created.bindingSessionId };
+      const denied = await error(
+        (
+          await signed(
+            registration.actor,
+            registration.key.privateKey,
+            "/v1/bindings/claim",
+            bindingBody,
+          )
+        ).response,
+      );
+      assert.equal(denied.code, "BINDING_NOT_APPROVED");
+      const userId = opaqueId();
+      await db.batch([
+        db
+          .prepare(
+            "INSERT INTO users(telegram_user_id,created_at,last_seen_at,release_channel) VALUES(?,?,?,'stable')",
+          )
+          .bind(userId, now, now),
+        db
+          .prepare(
+            "UPDATE enrollment_sessions SET state='APPROVED',candidate_user_id=?,candidate_epoch=1 WHERE binding_session_id=?",
+          )
+          .bind(userId, created.bindingSessionId),
+      ]);
+      const claimed = await ok(
+        (
+          await signed(
+            registration.actor,
+            registration.key.privateKey,
+            "/v1/bindings/claim",
+            bindingBody,
+          )
+        ).response,
+      );
+      assert.equal(claimed.state, "CLAIMED");
+      assert.equal(claimed.telegramUserId, userId);
+      degradedInstallations.push({
+        actor: registration.actor,
+        key: registration.key,
+        installationId: created.installationId,
+      });
+    }
+    const badChallenge = await attestedRegistration(
+      { notBefore: new Date(now + 86400000) },
+      random(32),
+    );
+    assert.equal(
+      (await error(badChallenge.request.response)).code,
+      "ATTESTATION_CHALLENGE_MISMATCH",
+    );
+    const software = await attestedRegistration({
+      securityLevel: 0,
+      notBefore: new Date(now + 86400000),
+    });
+    assert.equal(
+      (await error(software.request.response)).code,
+      "SOFTWARE_KEY_REJECTED",
+    );
 
     // Two healthy attested registrations happen before Google revokes the fixture
     // CA chain; the second one is later used for the initialization recovery case.
@@ -1805,6 +1972,26 @@ test("real workerd: revoked attestation downgrades instead of OPERATION_CONFLICT
       identityReadState: "ALIAS_UNAVAILABLE",
       requestedPayloadId: null,
     };
+    for (const installation of degradedInstallations) {
+      const actor: CredentialActor = {
+        token: installation.actor.token,
+        digest: installation.actor.digest,
+        nonce: random(32),
+        installationId: installation.installationId,
+      };
+      const initialized = await ok(
+        (
+          await signed(
+            actor,
+            installation.key.privateKey,
+            "/v1/initializations",
+            initBody,
+          )
+        ).response,
+      );
+      assert.ok(initialized.initializationId);
+      assert.ok(initialized.grantId);
+    }
     const initRequest = await signed(
       credentialActor,
       warmupB.key.privateKey,

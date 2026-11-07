@@ -12,6 +12,18 @@ export interface Proof {
   osVersion: number | null;
   osPatchLevel: number | null;
 }
+export interface AttestationDowngrade {
+  reason:
+    | "REVOKED"
+    | "SUSPENDED"
+    | "ATTESTATION_CERTIFICATE_TIME"
+    | "ATTESTATION_LEVEL_MISMATCH";
+  serials: string[];
+}
+export interface AttestationVerification {
+  proof: Proof;
+  downgrade: AttestationDowngrade | null;
+}
 export async function currentTrust(
   env: Env,
 ): Promise<{ snapshotId: string; roots: string[] }> {

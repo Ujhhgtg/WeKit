@@ -10,6 +10,7 @@ import {
   certSpki,
   verifyAttestation,
 } from "../src/attestation-pkijs.ts";
+import { hardwareClaimFixture } from "./certificate-fixture.ts";
 Object.assign(crypto.subtle, { timingSafeEqual });
 test("strict JSON rejects escaped duplicate keys, nested duplicates, trailing and excessive nesting", () => {
   assert.deepEqual(strictJson('{"a":[{"x":1},{"x":2}],"b":"\\\""}'), {
@@ -73,11 +74,12 @@ test("Android specialized verifier validates old/new RKP roots and matching hard
       roots,
       Date.parse(now),
     );
-    assert.equal(result.securityLevel, level);
-    assert.equal(result.provisioning, "RKP");
+    assert.equal(result.proof.securityLevel, level);
+    assert.equal(result.proof.provisioning, "RKP");
+    assert.equal(result.downgrade, null);
   }
 });
-test("Android specialized verifier rejects challenge/SPKI substitution, untrusted roots, appended target and expired RKP", async () => {
+test("Android specialized verifier rejects challenge/SPKI substitution, untrusted roots, appended target and invalid signatures", async () => {
   const f = fixture("rkp-2026-tee"),
     now = Date.parse("2026-03-01T00:16:08.500Z");
   await assert.rejects(
@@ -110,15 +112,6 @@ test("Android specialized verifier rejects challenge/SPKI substitution, untruste
       now,
     ),
   );
-  await assert.rejects(
-    verifyAttestation(
-      f.chain,
-      f.spki,
-      f.challenge,
-      roots,
-      Date.parse("2030-01-01"),
-    ),
-  );
   const corrupted = Uint8Array.from(
     atob(f.chain[0]!.replace(/-/g, "+").replace(/_/g, "/")),
     (c) => c.charCodeAt(0),
@@ -132,6 +125,100 @@ test("Android specialized verifier rejects challenge/SPKI substitution, untruste
       roots,
       now,
     ),
+  );
+});
+test("expired and not-yet-valid RKP certificates downgrade while challenge, key and signature checks remain strict", async () => {
+  const evidence = fixture("rkp-2026-tee");
+  for (const now of [Date.parse("2020-01-01"), Date.parse("2030-01-01")]) {
+    const result = await verifyAttestation(
+      evidence.chain,
+      evidence.spki,
+      evidence.challenge,
+      roots,
+      now,
+    );
+    assert.equal(result.downgrade!.reason, "ATTESTATION_CERTIFICATE_TIME");
+    await assert.rejects(
+      verifyAttestation(
+        evidence.chain,
+        evidence.spki,
+        b64(utf8("wrong")),
+        roots,
+        now,
+      ),
+      { code: "ATTESTATION_CHALLENGE_MISMATCH" },
+    );
+    await assert.rejects(
+      verifyAttestation(
+        evidence.chain,
+        b64(certSpki(certificate(evidence.chain[1]!))),
+        evidence.challenge,
+        roots,
+        now,
+      ),
+      { code: "ATTESTATION_KEY_MISMATCH" },
+    );
+    await assert.rejects(
+      verifyAttestation(
+        evidence.chain,
+        evidence.spki,
+        evidence.challenge,
+        [],
+        now,
+      ),
+      { code: "UNTRUSTED_ATTESTATION" },
+    );
+    const corrupted = Uint8Array.from(
+      Buffer.from(evidence.chain[0]!, "base64url"),
+    );
+    corrupted[corrupted.length - 1] ^= 1;
+    await assert.rejects(
+      verifyAttestation(
+        [b64(corrupted), ...evidence.chain.slice(1)],
+        evidence.spki,
+        evidence.challenge,
+        roots,
+        now,
+      ),
+      { code: "INVALID_ATTESTATION_SIGNATURE" },
+    );
+  }
+});
+test("hardware level mismatches downgrade but software keys and other policy failures remain rejected", async () => {
+  const key = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign", "verify"],
+  );
+  const spki = b64(await crypto.subtle.exportKey("spki", key.publicKey));
+  const challenge = b64(crypto.getRandomValues(new Uint8Array(32)));
+  for (const options of [
+    { securityLevel: 2 },
+    { provisioning: "RKP", certifiedSecurityLevel: "StrongBox" },
+  ] as const) {
+    const evidence = await hardwareClaimFixture(
+      key.publicKey,
+      challenge,
+      options,
+    );
+    const result = await verifyAttestation(evidence.chain, spki, challenge, [
+      evidence.root,
+    ]);
+    assert.equal(result.downgrade!.reason, "ATTESTATION_LEVEL_MISMATCH");
+    await assert.rejects(
+      verifyAttestation(evidence.chain, spki, b64(utf8("wrong")), [
+        evidence.root,
+      ]),
+      { code: "ATTESTATION_CHALLENGE_MISMATCH" },
+    );
+  }
+  const software = await hardwareClaimFixture(key.publicKey, challenge, {
+    securityLevel: 0,
+    notBefore: new Date(Date.now() + 86400000),
+  });
+  await assert.rejects(
+    verifyAttestation(software.chain, spki, challenge, [software.root]),
+    { code: "SOFTWARE_KEY_REJECTED" },
   );
 });
 test("legacy Sony path passes specialized path checks but SHA-512-only key is rejected for this SHA-256 protocol", async () => {
