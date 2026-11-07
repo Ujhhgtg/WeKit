@@ -79,7 +79,7 @@ test("Android specialized verifier validates old/new RKP roots and matching hard
     assert.equal(result.downgrade, null);
   }
 });
-test("Android specialized verifier rejects challenge/SPKI substitution, untrusted roots, appended target and invalid signatures", async () => {
+test("Android specialized verifier rejects challenge/SPKI substitution, appended target and invalid signatures", async () => {
   const f = fixture("rkp-2026-tee"),
     now = Date.parse("2026-03-01T00:16:08.500Z");
   await assert.rejects(
@@ -100,9 +100,14 @@ test("Android specialized verifier rejects challenge/SPKI substitution, untruste
       now,
     ),
   );
-  await assert.rejects(
-    verifyAttestation(f.chain, f.spki, f.challenge, [], now),
+  const untrusted = await verifyAttestation(
+    f.chain,
+    f.spki,
+    f.challenge,
+    [],
+    now,
   );
+  assert.equal(untrusted.downgrade!.reason, "UNTRUSTED_ATTESTATION");
   await assert.rejects(
     verifyAttestation(
       [f.chain[0]!, ...f.chain],
@@ -158,16 +163,14 @@ test("expired and not-yet-valid RKP certificates downgrade while challenge, key 
       ),
       { code: "ATTESTATION_KEY_MISMATCH" },
     );
-    await assert.rejects(
-      verifyAttestation(
-        evidence.chain,
-        evidence.spki,
-        evidence.challenge,
-        [],
-        now,
-      ),
-      { code: "UNTRUSTED_ATTESTATION" },
+    const untrusted = await verifyAttestation(
+      evidence.chain,
+      evidence.spki,
+      evidence.challenge,
+      [],
+      now,
     );
+    assert.equal(untrusted.downgrade!.reason, "UNTRUSTED_ATTESTATION");
     const corrupted = Uint8Array.from(
       Buffer.from(evidence.chain[0]!, "base64url"),
     );
@@ -184,7 +187,7 @@ test("expired and not-yet-valid RKP certificates downgrade while challenge, key 
     );
   }
 });
-test("hardware level mismatches downgrade but software keys and other policy failures remain rejected", async () => {
+test("software keys, hardware level mismatches, missing root state and key policy failures downgrade while challenge and structure checks remain strict", async () => {
   const key = await crypto.subtle.generateKey(
     { name: "ECDSA", namedCurve: "P-256" },
     true,
@@ -192,9 +195,20 @@ test("hardware level mismatches downgrade but software keys and other policy fai
   );
   const spki = b64(await crypto.subtle.exportKey("spki", key.publicKey));
   const challenge = b64(crypto.getRandomValues(new Uint8Array(32)));
-  for (const options of [
-    { securityLevel: 2 },
-    { provisioning: "RKP", certifiedSecurityLevel: "StrongBox" },
+  for (const [reason, options] of [
+    ["ATTESTATION_LEVEL_MISMATCH", { securityLevel: 2 }],
+    [
+      "ATTESTATION_LEVEL_MISMATCH",
+      { provisioning: "RKP", certifiedSecurityLevel: "StrongBox" },
+    ],
+    [
+      "SOFTWARE_KEY_REJECTED",
+      { securityLevel: 0, softwareEnforced: true, omitRootOfTrust: true },
+    ],
+    ["SOFTWARE_KEY_REJECTED", { securityLevel: 1, keySecurityLevel: 2 }],
+    ["ATTESTATION_ROOT_OF_TRUST", { omitRootOfTrust: true }],
+    ["ATTESTATION_KEY_POLICY", { digest: 6 }],
+    ["ATTESTATION_KEY_POLICY", { omitKeyOrigin: true }],
   ] as const) {
     const evidence = await hardwareClaimFixture(
       key.publicKey,
@@ -204,7 +218,13 @@ test("hardware level mismatches downgrade but software keys and other policy fai
     const result = await verifyAttestation(evidence.chain, spki, challenge, [
       evidence.root,
     ]);
-    assert.equal(result.downgrade!.reason, "ATTESTATION_LEVEL_MISMATCH");
+    assert.equal(result.downgrade!.reason, reason);
+    if (reason === "SOFTWARE_KEY_REJECTED")
+      assert.equal(result.proof.securityLevel, null);
+    if ("omitRootOfTrust" in options && options.omitRootOfTrust) {
+      assert.equal(result.proof.deviceLocked, null);
+      assert.equal(result.proof.verifiedBootState, null);
+    }
     await assert.rejects(
       verifyAttestation(evidence.chain, spki, b64(utf8("wrong")), [
         evidence.root,
@@ -212,25 +232,77 @@ test("hardware level mismatches downgrade but software keys and other policy fai
       { code: "ATTESTATION_CHALLENGE_MISMATCH" },
     );
   }
-  const software = await hardwareClaimFixture(key.publicKey, challenge, {
-    securityLevel: 0,
+  const malformed = await hardwareClaimFixture(key.publicKey, challenge, {
+    digest: 6,
+    verifiedBootState: 4,
     notBefore: new Date(Date.now() + 86400000),
   });
   await assert.rejects(
-    verifyAttestation(software.chain, spki, challenge, [software.root]),
-    { code: "SOFTWARE_KEY_REJECTED" },
+    verifyAttestation(malformed.chain, spki, challenge, [malformed.root]),
+    { code: "INVALID_ATTESTATION" },
   );
 });
-test("legacy Sony path passes specialized path checks but SHA-512-only key is rejected for this SHA-256 protocol", async () => {
-  const f = fixture("factory-sony");
-  await assert.rejects(
-    verifyAttestation(
-      f.chain,
-      f.spki,
-      f.challenge,
-      roots,
-      Date.parse("2024-04-21T17:34:49.500Z"),
-    ),
-    (e) => (e as { code: string }).code === "ATTESTATION_KEY_POLICY",
+test("untrusted or invalid attestation roots downgrade while leaf signatures, keys and challenges remain strict", async () => {
+  const evidence = fixture("rkp-2026-tee");
+  const corruptedRoot = Uint8Array.from(
+    Buffer.from(evidence.chain.at(-1)!, "base64url"),
   );
+  corruptedRoot[corruptedRoot.length - 1] ^= 1;
+  for (const [chain, trustedRoots] of [
+    [evidence.chain, []],
+    [[...evidence.chain.slice(0, -1), b64(corruptedRoot)], roots],
+  ] as const) {
+    const now = Date.parse("2026-03-01T00:16:08.500Z");
+    const result = await verifyAttestation(
+      [...chain],
+      evidence.spki,
+      evidence.challenge,
+      trustedRoots,
+      now,
+    );
+    assert.equal(result.downgrade!.reason, "UNTRUSTED_ATTESTATION");
+    await assert.rejects(
+      verifyAttestation(
+        [...chain],
+        evidence.spki,
+        b64(utf8("wrong")),
+        trustedRoots,
+        now,
+      ),
+      { code: "ATTESTATION_CHALLENGE_MISMATCH" },
+    );
+    await assert.rejects(
+      verifyAttestation(
+        [...chain],
+        b64(certSpki(certificate(chain[1]!))),
+        evidence.challenge,
+        trustedRoots,
+        now,
+      ),
+      { code: "ATTESTATION_KEY_MISMATCH" },
+    );
+    const corruptedLeaf = Uint8Array.from(Buffer.from(chain[0]!, "base64url"));
+    corruptedLeaf[corruptedLeaf.length - 1] ^= 1;
+    await assert.rejects(
+      verifyAttestation(
+        [b64(corruptedLeaf), ...chain.slice(1)],
+        evidence.spki,
+        evidence.challenge,
+        trustedRoots,
+        now,
+      ),
+      { code: "INVALID_ATTESTATION_SIGNATURE" },
+    );
+  }
+});
+test("legacy Sony SHA-512-only key downgrades for this SHA-256 protocol", async () => {
+  const f = fixture("factory-sony");
+  const result = await verifyAttestation(
+    f.chain,
+    f.spki,
+    f.challenge,
+    roots,
+    Date.parse("2024-04-21T17:34:49.500Z"),
+  );
+  assert.equal(result.downgrade!.reason, "ATTESTATION_KEY_POLICY");
 });

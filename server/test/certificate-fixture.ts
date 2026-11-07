@@ -14,6 +14,12 @@ export async function hardwareClaimFixture(
   challenge: string,
   options: {
     securityLevel?: 0 | 1 | 2;
+    keySecurityLevel?: 0 | 1 | 2;
+    softwareEnforced?: boolean;
+    omitRootOfTrust?: boolean;
+    omitKeyOrigin?: boolean;
+    digest?: number;
+    verifiedBootState?: number;
     provisioning?: "FACTORY" | "RKP";
     certifiedSecurityLevel?: "TEE" | "StrongBox";
     notBefore?: Date;
@@ -97,37 +103,50 @@ export async function hardwareClaimFixture(
           value: [value],
         });
       const int = (value: number) => new asn1.Integer({ value });
+      const authorization = new asn1.Sequence({
+        value: [
+          tag(1, new asn1.Set({ value: [int(2)] })),
+          tag(2, int(3)),
+          tag(3, int(256)),
+          tag(5, new asn1.Set({ value: [int(options.digest ?? 4)] })),
+          tag(10, int(1)),
+          tag(503, new asn1.Null()),
+          ...(options.omitKeyOrigin ? [] : [tag(702, int(0))]),
+          ...(options.omitRootOfTrust
+            ? []
+            : [
+                tag(
+                  704,
+                  new asn1.Sequence({
+                    value: [
+                      new asn1.OctetString({ valueHex: new Uint8Array(32) }),
+                      new asn1.Boolean({ value: false }),
+                      new asn1.Enumerated({
+                        value: options.verifiedBootState ?? 2,
+                      }),
+                      new asn1.OctetString({ valueHex: new Uint8Array(32) }),
+                    ],
+                  }),
+                ),
+              ]),
+        ],
+      });
       const description = new asn1.Sequence({
         value: [
           int(300),
           new asn1.Enumerated({ value: options.securityLevel ?? 1 }),
           int(3),
-          new asn1.Enumerated({ value: options.securityLevel ?? 1 }),
+          new asn1.Enumerated({
+            value: options.keySecurityLevel ?? options.securityLevel ?? 1,
+          }),
           new asn1.OctetString({ valueHex: unb64(challenge) }),
           new asn1.OctetString({ valueHex: new Uint8Array() }),
-          new asn1.Sequence({ value: [] }),
-          new asn1.Sequence({
-            value: [
-              tag(1, new asn1.Set({ value: [int(2)] })),
-              tag(2, int(3)),
-              tag(3, int(256)),
-              tag(5, new asn1.Set({ value: [int(4)] })),
-              tag(10, int(1)),
-              tag(503, new asn1.Null()),
-              tag(702, int(0)),
-              tag(
-                704,
-                new asn1.Sequence({
-                  value: [
-                    new asn1.OctetString({ valueHex: new Uint8Array(32) }),
-                    new asn1.Boolean({ value: false }),
-                    new asn1.Enumerated({ value: 2 }),
-                    new asn1.OctetString({ valueHex: new Uint8Array(32) }),
-                  ],
-                }),
-              ),
-            ],
-          }),
+          options.softwareEnforced
+            ? authorization
+            : new asn1.Sequence({ value: [] }),
+          options.softwareEnforced
+            ? new asn1.Sequence({ value: [] })
+            : authorization,
         ],
       });
       c.extensions = [

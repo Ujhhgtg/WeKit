@@ -25,6 +25,9 @@ function integer(n: Node | undefined): number {
     fail(400, "INVALID_ATTESTATION", "证明整数无效");
   return n.valueBlock.valueDec;
 }
+function optionalInteger(n: Node | undefined): number | null {
+  return n === undefined ? null : integer(n);
+}
 function octets(n: Node | undefined): Uint8Array<ArrayBuffer> {
   if (!(n instanceof asn1.OctetString) || n.idBlock.isConstructed)
     fail(400, "INVALID_ATTESTATION", "证明字节无效");
@@ -117,7 +120,7 @@ export async function verifyAttestation(
     !root.subject.isEqual(root.issuer) ||
     !(await root.verify(anchor))
   )
-    fail(403, "UNTRUSTED_ATTESTATION", "不受信任的证明根");
+    downgrade = { reason: "UNTRUSTED_ATTESTATION", serials: [] };
   const intermediate = chain.at(-2)!;
   const factory = dn(intermediate, "2.5.4.5") !== null;
   const rkp =
@@ -147,7 +150,8 @@ export async function verifyAttestation(
   // provisioning roles and extension placement remain strict.
   for (let index = chain.length - 2; index >= 0; index--) {
     const c = chain[index]!;
-    const parent = index === chain.length - 2 ? anchor : chain[index + 1]!;
+    const parent =
+      index === chain.length - 2 ? (anchor ?? root) : chain[index + 1]!;
     if (!c.issuer.isEqual(parent.subject) || !(await c.verify(parent)))
       fail(403, "INVALID_ATTESTATION_SIGNATURE", "证书链签名无效");
     if (
@@ -172,30 +176,37 @@ export async function verifyAttestation(
   const level = integer(values[1]);
   const keyLevel = integer(values[3]);
   if (level !== keyLevel || ![1, 2].includes(level))
-    fail(403, "SOFTWARE_KEY_REJECTED", "必须使用硬件密钥");
+    downgrade ??= { reason: "SOFTWARE_KEY_REJECTED", serials: [] };
   if (!equal(octets(values[4]), unb64(challenge)))
     fail(403, "ATTESTATION_CHALLENGE_MISMATCH", "证明挑战不一致");
   const hardware = attributes(values[7]!);
   attributes(values[6]!);
   if (
-    integer(hardware.get(702)) !== 0 ||
-    integer(hardware.get(2)) !== 3 ||
-    integer(hardware.get(3)) !== 256 ||
-    integer(hardware.get(10)) !== 1 ||
+    optionalInteger(hardware.get(702)) !== 0 ||
+    optionalInteger(hardware.get(2)) !== 3 ||
+    optionalInteger(hardware.get(3)) !== 256 ||
+    optionalInteger(hardware.get(10)) !== 1 ||
     !contains(hardware.get(1), 2) ||
     !contains(hardware.get(5), 4) ||
     !(hardware.get(503) instanceof asn1.Null) ||
     hardware.has(504)
   )
-    fail(403, "ATTESTATION_KEY_POLICY", "硬件密钥用途不符合要求");
+    downgrade ??= { reason: "ATTESTATION_KEY_POLICY", serials: [] };
   const rootOfTrust = hardware.get(704);
-  if (!rootOfTrust) fail(403, "ATTESTATION_ROOT_OF_TRUST", "缺少硬件根状态");
-  const rot = sequence(rootOfTrust);
-  if (rot.length < 3 || rot.length > 4 || !(rot[1] instanceof asn1.Boolean))
-    fail(400, "INVALID_ATTESTATION", "RootOfTrust 无效");
-  octets(rot[0]);
-  const state = integer(rot[2]);
-  if (state > 3) fail(400, "INVALID_ATTESTATION", "VerifiedBootState 无效");
+  let deviceLocked: boolean | null = null;
+  let verifiedBootState: number | null = null;
+  if (!rootOfTrust) {
+    downgrade ??= { reason: "ATTESTATION_ROOT_OF_TRUST", serials: [] };
+  } else {
+    const rot = sequence(rootOfTrust);
+    if (rot.length < 3 || rot.length > 4 || !(rot[1] instanceof asn1.Boolean))
+      fail(400, "INVALID_ATTESTATION", "RootOfTrust 无效");
+    octets(rot[0]);
+    verifiedBootState = integer(rot[2]);
+    if (verifiedBootState > 3)
+      fail(400, "INVALID_ATTESTATION", "VerifiedBootState 无效");
+    deviceLocked = rot[1].valueBlock.value;
+  }
   // Ensure the target's actual SPKI is EC P-256, independently of metadata.
   try {
     await crypto.subtle.importKey(
@@ -206,7 +217,7 @@ export async function verifyAttestation(
       ["verify"],
     );
   } catch {
-    fail(403, "ATTESTATION_KEY_POLICY", "密钥必须 EC P-256");
+    downgrade ??= { reason: "ATTESTATION_KEY_POLICY", serials: [] };
   }
   if (
     level === 2 &&
@@ -228,12 +239,17 @@ export async function verifyAttestation(
     proof: {
       spki,
       publicKeySha256: await sha(unb64(spki)),
-      rootSpkiSha256: await sha(certSpki(anchor)),
+      rootSpkiSha256: await sha(certSpki(anchor ?? root)),
       serials: chain.map(serial),
-      securityLevel: level === 2 ? "STRONGBOX" : "TEE",
+      securityLevel:
+        level !== keyLevel || ![1, 2].includes(level)
+          ? null
+          : level === 2
+            ? "STRONGBOX"
+            : "TEE",
       provisioning: factory ? "FACTORY" : "RKP",
-      deviceLocked: rot[1].valueBlock.value,
-      verifiedBootState: state,
+      deviceLocked,
+      verifiedBootState,
       osVersion: hardware.has(705) ? integer(hardware.get(705)) : null,
       osPatchLevel: hardware.has(706) ? integer(hardware.get(706)) : null,
     },

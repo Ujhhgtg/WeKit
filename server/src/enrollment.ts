@@ -342,7 +342,7 @@ export async function register(env: Env, req: Request): Promise<Response> {
           ? proof.publicKeySha256
           : unattestedPublicKeyHash!;
         const rootSpkiSha256 = proof ? proof.rootSpkiSha256 : "";
-        const securityLevel = proof ? proof.securityLevel : "TEE";
+        const securityLevel = proof?.securityLevel ?? "TEE";
         const attestationJson = proof
           ? JSON.stringify(
               downgrade ? { ...proof, downgraded: downgrade } : proof,

@@ -5,10 +5,10 @@ export interface Proof {
   publicKeySha256: string;
   rootSpkiSha256: string;
   serials: string[];
-  securityLevel: "TEE" | "STRONGBOX";
+  securityLevel: "TEE" | "STRONGBOX" | null;
   provisioning: "FACTORY" | "RKP";
-  deviceLocked: boolean;
-  verifiedBootState: number;
+  deviceLocked: boolean | null;
+  verifiedBootState: number | null;
   osVersion: number | null;
   osPatchLevel: number | null;
 }
@@ -17,7 +17,11 @@ export interface AttestationDowngrade {
     | "REVOKED"
     | "SUSPENDED"
     | "ATTESTATION_CERTIFICATE_TIME"
-    | "ATTESTATION_LEVEL_MISMATCH";
+    | "SOFTWARE_KEY_REJECTED"
+    | "ATTESTATION_LEVEL_MISMATCH"
+    | "ATTESTATION_ROOT_OF_TRUST"
+    | "ATTESTATION_KEY_POLICY"
+    | "UNTRUSTED_ATTESTATION";
   serials: string[];
 }
 export interface AttestationVerification {

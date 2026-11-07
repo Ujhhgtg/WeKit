@@ -1445,7 +1445,7 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
   }
 });
 
-test("real workerd: attestation time, level and revocation failures downgrade instead of blocking registration", async () => {
+test("real workerd: attestation trust, hardware policy, time, level and revocation failures downgrade instead of blocking registration", async () => {
   await build({
     entryPoints: ["src/api.ts", "src/bot.ts", "src/admin.ts"],
     bundle: true,
@@ -1662,6 +1662,7 @@ test("real workerd: attestation time, level and revocation failures downgrade in
     async function attestedRegistration(
       options: NonNullable<Parameters<typeof hardwareClaimFixture>[2]> = {},
       challenge?: string,
+      trustedRoot = true,
     ) {
       const tokens = await registrationTokens();
       const actor: RegistrationActor = {
@@ -1680,10 +1681,11 @@ test("real workerd: attestation time, level and revocation failures downgrade in
         challenge ?? tokens.context.attestationChallenge,
         options,
       );
-      await db
-        .prepare("INSERT OR IGNORE INTO attestation_roots VALUES(?,?,?)")
-        .bind("snapshot", await sha(unb64(hardware.rootSpki)), hardware.root)
-        .run();
+      if (trustedRoot)
+        await db
+          .prepare("INSERT OR IGNORE INTO attestation_roots VALUES(?,?,?)")
+          .bind("snapshot", await sha(unb64(hardware.rootSpki)), hardware.root)
+          .run();
       const body = {
         spki: b64(await crypto.subtle.exportKey("spki", key.publicKey)),
         certificateChain: hardware.chain,
@@ -1714,8 +1716,21 @@ test("real workerd: attestation time, level and revocation failures downgrade in
         "ATTESTATION_LEVEL_MISMATCH",
         { provisioning: "RKP", certifiedSecurityLevel: "StrongBox" },
       ],
+      [
+        "SOFTWARE_KEY_REJECTED",
+        { securityLevel: 0, softwareEnforced: true, omitRootOfTrust: true },
+      ],
+      ["SOFTWARE_KEY_REJECTED", { keySecurityLevel: 2 }],
+      ["ATTESTATION_ROOT_OF_TRUST", { omitRootOfTrust: true }],
+      ["ATTESTATION_KEY_POLICY", { digest: 6 }],
+      ["ATTESTATION_KEY_POLICY", { omitKeyOrigin: true }],
+      ["UNTRUSTED_ATTESTATION", {}],
     ] as const) {
-      const registration = await attestedRegistration(options);
+      const registration = await attestedRegistration(
+        options,
+        undefined,
+        reason !== "UNTRUSTED_ATTESTATION",
+      );
       const created = await ok(registration.request.response);
       assert.equal(created.state, "PENDING");
       assert.equal(created.assurance, "UNATTESTED_HARDWARE");
@@ -1744,6 +1759,12 @@ test("real workerd: attestation time, level and revocation failures downgrade in
       assert.equal(await sha(evidenceBytes), stored!.evidence_sha256);
       const saved = JSON.parse(new TextDecoder().decode(evidenceBytes));
       assert.equal(saved.downgrade.reason, reason);
+      if (reason === "SOFTWARE_KEY_REJECTED")
+        assert.equal(saved.proof.securityLevel, null);
+      if ("omitRootOfTrust" in options && options.omitRootOfTrust) {
+        assert.equal(saved.proof.deviceLocked, null);
+        assert.equal(saved.proof.verifiedBootState, null);
+      }
       assert.deepEqual(
         saved.certificateChain,
         registration.body.certificateChain,
@@ -1852,13 +1873,14 @@ test("real workerd: attestation time, level and revocation failures downgrade in
       (await error(badChallenge.request.response)).code,
       "ATTESTATION_CHALLENGE_MISMATCH",
     );
-    const software = await attestedRegistration({
-      securityLevel: 0,
+    const malformed = await attestedRegistration({
+      digest: 6,
+      verifiedBootState: 4,
       notBefore: new Date(now + 86400000),
     });
     assert.equal(
-      (await error(software.request.response)).code,
-      "SOFTWARE_KEY_REJECTED",
+      (await error(malformed.request.response)).code,
+      "INVALID_ATTESTATION",
     );
 
     // Two healthy attested registrations happen before Google revokes the fixture
