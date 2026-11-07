@@ -88,8 +88,8 @@
     <string name="dex_cache_cloud_downloading">正在下载并校验云端解析报告…</string>
     <string name="dex_cache_total_progress">总进度: %1$d/%2$d</string>
     <string name="dex_cache_start_local_resolution">开始解析</string>
-    <string name="dex_error_report_title">=== WeKit Dex 扫描错误报告 ===</string>
-    <string name="dex_error_report_entry">%1$d. %2$s\n   错误信息: %3$s\n   堆栈跟踪:\n%4$s\n\n</string>
+    <string name="dex_error_report_title">=== WeKit Dex 解析错误报告 ===</string>
+    <string name="dex_error_report_entry">%1$d. %2$s\n   %3$s\n\n</string>
     <plurals name="dex_cache_rerun_message">
         <item quantity="other">开始后将清除全部 Dex 缓存，并重新解析 %1$d 个功能。完成后将自动重启微信</item>
     </plurals>

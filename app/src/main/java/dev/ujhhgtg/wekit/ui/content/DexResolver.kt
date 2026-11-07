@@ -36,12 +36,11 @@ import dev.ujhhgtg.wekit.dex.resolution.LocalDexFailure
 import dev.ujhhgtg.wekit.dex.resolution.LocalDexProgress
 import dev.ujhhgtg.wekit.dex.resolution.LocalDexResolver
 import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.restartHost
-import java.io.PrintWriter
-import java.io.StringWriter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -299,17 +298,14 @@ fun DexResolver(
 }
 
 private fun buildErrorReport(context: Context, failedResults: List<LocalDexFailure>) = buildString {
-    append(context.getString(R.string.dex_error_report_title)).append("\n\n")
+    append(context.localizedString(R.string.dex_error_report_title)).append("\n\n")
     failedResults.forEachIndexed { index, result ->
-        val stackTrace = StringWriter()
-        result.error.printStackTrace(PrintWriter(stackTrace))
         append(
-            context.getString(
+            context.localizedString(
                 R.string.dex_error_report_entry,
                 index + 1,
                 result.displayName,
-                result.error.message ?: context.getString(R.string.error_unknown),
-                stackTrace.toString(),
+                result.error.toString(),
             ),
         )
     }
