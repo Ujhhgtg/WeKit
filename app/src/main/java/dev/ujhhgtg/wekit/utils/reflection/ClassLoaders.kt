@@ -15,7 +15,7 @@ object ClassLoaders {
         get() = Context::class.java.classLoader!!
 
     inline val HYBRID_FOR_MODULE: ClassLoader
-        get() = HybridClassLoader
+        get() = HybridClassLoader.INSTANCE
 
     /**
      * Host-first, module-fallback ClassLoader for APIs that must define or resolve classes visible

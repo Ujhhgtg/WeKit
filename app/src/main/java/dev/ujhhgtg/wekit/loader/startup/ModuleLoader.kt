@@ -39,16 +39,16 @@ object ModuleLoader {
         StartupInfo.modulePath = "/proc/self/fd/${environment.payloadApk.fd}"
         ReflectionClassLoader.value = environment.hostClassLoader
         val self = ClassLoaders.MODULE
-        HybridClassLoader.moduleParentClassLoader = self.parent!!
-        HybridClassLoader.moduleClassLoader = self
-        HybridClassLoader.hostClassLoader = environment.hostClassLoader
+        HybridClassLoader.INSTANCE.moduleParentClassLoader = self.parent!!
+        HybridClassLoader.INSTANCE.moduleClassLoader = self
+        HybridClassLoader.INSTANCE.hostClassLoader = environment.hostClassLoader
         self
             .reflekt()
             .firstField {
                 name = "parent"
                 superclass()
             }
-            .set(HybridClassLoader)
+            .set(HybridClassLoader.INSTANCE)
         check(R.string.res_inject_success ushr 24 == 0x69) {
             "payload resource package ID must be 0x69"
         }
