@@ -111,16 +111,17 @@ import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 object AddMainScreenFab : ClickableFeature() {
     override val technicalId = "主屏幕添加 FAB"
@@ -146,8 +147,6 @@ object AddMainScreenFab : ClickableFeature() {
 
     /** 展开的菜单与主 FAB 之间的距离 */
     private val MENU_GAP = 16.dp
-
-    private val SAVE_GREEN = Color(0xFF07C160)
 
     private var expanded by mutableStateOf(false)
 
@@ -548,8 +547,7 @@ object AddMainScreenFab : ClickableFeature() {
                                 } else {
                                     Color(0xFFF7F7F7)
                                 }
-                        val activeColor =
-                            monet?.primary?.let(::Color) ?: MaterialTheme.colorScheme.primary
+                        val activeColor = monet?.primary?.let(::Color) ?: Color(ThemeSettings.DEFAULT_SEED_COLOR)
                         val errorColor = MaterialTheme.colorScheme.error
                         val layoutDirection = LocalLayoutDirection.current
 
@@ -677,7 +675,6 @@ object AddMainScreenFab : ClickableFeature() {
                                     },
                                 backgroundColor = backgroundColor,
                                 activeColor = activeColor,
-                                saveColor = SAVE_GREEN,
                                 minDx = minDx,
                                 maxDx = maxDx,
                                 minDy = minDy,
@@ -825,7 +822,6 @@ object AddMainScreenFab : ClickableFeature() {
         modifier: Modifier,
         backgroundColor: Color,
         activeColor: Color,
-        saveColor: Color,
         minDx: Float,
         maxDx: Float,
         minDy: Float,
@@ -862,7 +858,7 @@ object AddMainScreenFab : ClickableFeature() {
                 Icon(
                     MaterialSymbols.OutlinedFilled.Check,
                     contentDescription = stringResource(R.string.fab_save_position_description),
-                    tint = saveColor,
+                    tint = activeColor,
                 )
             } else {
                 val rotation by animateFloatAsState(if (expanded) 45f else 0f)

@@ -1281,7 +1281,7 @@
     <string name="fab_shortcuts_title">Home-screen shortcuts</string>
     <string name="fab_reorder_immediate_hint">Long press a drag handle to reorder. Changes take effect immediately.</string>
     <string name="fab_adjust_position">Adjust position</string>
-    <string name="fab_adjust_position_summary">Return to WeChat home, drag the button, then tap the green checkmark to save</string>
+    <string name="fab_adjust_position_summary">Return to WeChat home, drag the button, then tap the main button to save</string>
     <string name="fab_empty_shortcuts">No shortcuts yet. Tap Add in the top-right to configure one.</string>
     <string name="fab_description_mark_all_read">Mark all unread messages as read</string>
     <string name="fab_description_open_module_settings">Open module settings</string>

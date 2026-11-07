@@ -1236,7 +1236,7 @@
     <string name="fab_shortcuts_title">主屏幕快捷入口</string>
     <string name="fab_reorder_immediate_hint">長按拖動手柄調整順序，改動會立即生效</string>
     <string name="fab_adjust_position">調整位置</string>
-    <string name="fab_adjust_position_summary">回到微信主界面拖動按鈕，點擊綠色對勾保存</string>
+    <string name="fab_adjust_position_summary">回到微信主界面拖動按鈕，點擊主按鈕保存</string>
     <string name="fab_empty_shortcuts">還沒有快捷入口，點擊右上角“添加”開始配置。</string>
     <string name="fab_description_mark_all_read">將全部未讀消息標記爲已讀</string>
     <string name="fab_description_open_module_settings">打開模塊設置</string>
