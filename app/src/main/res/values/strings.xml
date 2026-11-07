@@ -768,6 +768,8 @@
     <string name="feature_custom_details_description">Long press the Moments to customize the bottom details of the article\nYou need to open "Moments/Bottom Details" at the same time</string>
     <string name="feature_custom_source_app_name">Custom source app</string>
     <string name="feature_custom_source_app_description">Customize the application source displayed in the post Moments</string>
+    <string name="feature_disable_moments_folding_name">Disable Moments folding</string>
+    <string name="feature_disable_moments_folding_description">Request unfolded Moments posts from WeChat, please refresh Moments after enabling</string>
     <string name="feature_disable_videos_auto_play_name">Disable autoplay videos</string>
     <string name="feature_disable_videos_auto_play_description">Disable automatic playback of videos in Moments</string>
     <string name="feature_display_details_name">Bottom details</string>

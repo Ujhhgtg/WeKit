@@ -730,6 +730,8 @@
     <string name="feature_custom_details_description">長按朋友圈自定義該條底部詳細信息\n需同時打開「朋友圈/底部詳細信息」</string>
     <string name="feature_custom_source_app_name">自定義尾巴</string>
     <string name="feature_custom_source_app_description">自定義發表朋友圈顯示的應用來源</string>
+    <string name="feature_disable_moments_folding_name">禁用朋友圈摺疊</string>
+    <string name="feature_disable_moments_folding_description">請求微信傳回不摺疊的朋友圈, 啟用後請重新整理朋友圈</string>
     <string name="feature_disable_videos_auto_play_name">禁止自動播放視頻</string>
     <string name="feature_disable_videos_auto_play_description">禁止朋友圈中的視頻自動播放</string>
     <string name="feature_display_details_name">底部詳細信息</string>
