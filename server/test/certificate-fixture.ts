@@ -20,6 +20,8 @@ export async function hardwareClaimFixture(
     omitKeyOrigin?: boolean;
     digest?: number;
     verifiedBootState?: number;
+    attestationVersion?: number;
+    invalidCertificate?: boolean;
     provisioning?: "FACTORY" | "RKP";
     certifiedSecurityLevel?: "TEE" | "StrongBox";
     notBefore?: Date;
@@ -133,7 +135,7 @@ export async function hardwareClaimFixture(
       });
       const description = new asn1.Sequence({
         value: [
-          int(300),
+          int(options.attestationVersion ?? 300),
           new asn1.Enumerated({ value: options.securityLevel ?? 1 }),
           int(3),
           new asn1.Enumerated({
@@ -164,6 +166,12 @@ export async function hardwareClaimFixture(
     rootSpki: b64(
       certificates[0]!.subjectPublicKeyInfo.toSchema().toBER(false),
     ),
-    chain: certificates.reverse().map((c) => b64(c.toSchema().toBER(false))),
+    chain: certificates
+      .reverse()
+      .map((certificate, index) =>
+        options.invalidCertificate && index === 0
+          ? b64(new Uint8Array([0x30, 0x80]))
+          : b64(certificate.toSchema().toBER(false)),
+      ),
   };
 }

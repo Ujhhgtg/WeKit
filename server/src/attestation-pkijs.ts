@@ -5,7 +5,7 @@ import type {
   AttestationVerification,
 } from "./attestation";
 import { equal, hex, opaqueId, sha, unb64 } from "./crypto";
-import { bytes, decodeJson, fail } from "./http";
+import { bytes, decodeJson, fail, HttpError } from "./http";
 import { LIMITS, type Env } from "./env";
 type Node = ReturnType<typeof asn1.fromBER>["result"];
 const ATTESTATION = "1.3.6.1.4.1.11129.2.1.17";
@@ -47,7 +47,12 @@ export function certificate(encoded: string): Certificate {
       )
     : unb64(encoded);
   if (raw.length > 16384) fail(400, "INVALID_ATTESTATION", "证书过大");
-  return new Certificate({ schema: parse(raw) });
+  const schema = parse(raw);
+  try {
+    return new Certificate({ schema });
+  } catch {
+    fail(400, "INVALID_ATTESTATION", "证书结构无效");
+  }
 }
 export function certSpki(c: Certificate): Uint8Array<ArrayBuffer> {
   return new Uint8Array(c.subjectPublicKeyInfo.toSchema().toBER(false));
@@ -90,6 +95,39 @@ function contains(n: Node | undefined, value: number): boolean {
   );
 }
 export async function verifyAttestation(
+  encodedChain: string[],
+  spki: string,
+  challenge: string,
+  roots: string[],
+  now = Date.now(),
+): Promise<AttestationVerification> {
+  try {
+    return await validateAttestation(encodedChain, spki, challenge, roots, now);
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.code !== "INVALID_ATTESTATION")
+      throw error;
+    return {
+      proof: {
+        spki,
+        publicKeySha256: await sha(unb64(spki)),
+        rootSpkiSha256: "",
+        serials: [],
+        securityLevel: null,
+        provisioning: null,
+        deviceLocked: null,
+        verifiedBootState: null,
+        osVersion: null,
+        osPatchLevel: null,
+      },
+      downgrade: {
+        reason: "INVALID_ATTESTATION",
+        serials: [],
+        message: error.message,
+      },
+    };
+  }
+}
+async function validateAttestation(
   encodedChain: string[],
   spki: string,
   challenge: string,

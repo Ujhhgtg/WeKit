@@ -79,7 +79,7 @@ test("Android specialized verifier validates old/new RKP roots and matching hard
     assert.equal(result.downgrade, null);
   }
 });
-test("Android specialized verifier rejects challenge/SPKI substitution, appended target and invalid signatures", async () => {
+test("Android specialized verifier rejects challenge/SPKI substitution and invalid signatures, and downgrades malformed chains", async () => {
   const f = fixture("rkp-2026-tee"),
     now = Date.parse("2026-03-01T00:16:08.500Z");
   await assert.rejects(
@@ -108,15 +108,14 @@ test("Android specialized verifier rejects challenge/SPKI substitution, appended
     now,
   );
   assert.equal(untrusted.downgrade!.reason, "UNTRUSTED_ATTESTATION");
-  await assert.rejects(
-    verifyAttestation(
-      [f.chain[0]!, ...f.chain],
-      f.spki,
-      f.challenge,
-      roots,
-      now,
-    ),
+  const appended = await verifyAttestation(
+    [f.chain[0]!, ...f.chain],
+    f.spki,
+    f.challenge,
+    roots,
+    now,
   );
+  assert.equal(appended.downgrade!.reason, "INVALID_ATTESTATION");
   const corrupted = Uint8Array.from(
     atob(f.chain[0]!.replace(/-/g, "+").replace(/_/g, "/")),
     (c) => c.charCodeAt(0),
@@ -187,7 +186,7 @@ test("expired and not-yet-valid RKP certificates downgrade while challenge, key 
     );
   }
 });
-test("software keys, hardware level mismatches, missing root state and key policy failures downgrade while challenge and structure checks remain strict", async () => {
+test("software keys, hardware level mismatches, missing root state and key policy failures downgrade while challenge checks remain strict", async () => {
   const key = await crypto.subtle.generateKey(
     { name: "ECDSA", namedCurve: "P-256" },
     true,
@@ -237,9 +236,56 @@ test("software keys, hardware level mismatches, missing root state and key polic
     verifiedBootState: 4,
     notBefore: new Date(Date.now() + 86400000),
   });
+  const invalidState = await verifyAttestation(
+    malformed.chain,
+    spki,
+    challenge,
+    [malformed.root],
+  );
+  assert.equal(invalidState.downgrade!.reason, "INVALID_ATTESTATION");
+  assert.equal(invalidState.downgrade!.message, "VerifiedBootState 无效");
+});
+test("invalid attestation encodings downgrade without fabricated hardware metadata", async () => {
+  const evidence = fixture("rkp-2026-tee");
+  for (const [chain, message] of [
+    [[], "证书链结构无效"],
+    [
+      [b64(new Uint8Array([0x30, 0x01])), ...evidence.chain.slice(1)],
+      "DER 无效",
+    ],
+    [
+      [b64(new Uint8Array([0x30, 0x00])), ...evidence.chain.slice(1)],
+      "证书结构无效",
+    ],
+    [[b64(new Uint8Array(16385)), ...evidence.chain.slice(1)], "证书过大"],
+  ] as const) {
+    const result = await verifyAttestation(
+      [...chain],
+      evidence.spki,
+      evidence.challenge,
+      roots,
+    );
+    assert.deepEqual(result.downgrade, {
+      reason: "INVALID_ATTESTATION",
+      serials: [],
+      message,
+    });
+    assert.equal(result.proof.spki, evidence.spki);
+    assert.equal(result.proof.rootSpkiSha256, "");
+    assert.deepEqual(result.proof.serials, []);
+    assert.equal(result.proof.securityLevel, null);
+    assert.equal(result.proof.provisioning, null);
+    assert.equal(result.proof.deviceLocked, null);
+    assert.equal(result.proof.verifiedBootState, null);
+  }
   await assert.rejects(
-    verifyAttestation(malformed.chain, spki, challenge, [malformed.root]),
-    { code: "INVALID_ATTESTATION" },
+    verifyAttestation(
+      ["!", ...evidence.chain.slice(1)],
+      evidence.spki,
+      evidence.challenge,
+      roots,
+    ),
+    { code: "INVALID_ENCODING" },
   );
 });
 test("untrusted or invalid attestation roots downgrade while leaf signatures, keys and challenges remain strict", async () => {

@@ -1725,6 +1725,9 @@ test("real workerd: attestation trust, hardware policy, time, level and revocati
       ["ATTESTATION_KEY_POLICY", { digest: 6 }],
       ["ATTESTATION_KEY_POLICY", { omitKeyOrigin: true }],
       ["UNTRUSTED_ATTESTATION", {}],
+      ["INVALID_ATTESTATION", { verifiedBootState: 4 }],
+      ["INVALID_ATTESTATION", { attestationVersion: 999 }],
+      ["INVALID_ATTESTATION", { invalidCertificate: true }],
     ] as const) {
       const registration = await attestedRegistration(
         options,
@@ -1759,6 +1762,12 @@ test("real workerd: attestation trust, hardware policy, time, level and revocati
       assert.equal(await sha(evidenceBytes), stored!.evidence_sha256);
       const saved = JSON.parse(new TextDecoder().decode(evidenceBytes));
       assert.equal(saved.downgrade.reason, reason);
+      if (reason === "INVALID_ATTESTATION") {
+        assert.ok(saved.downgrade.message);
+        assert.equal(saved.proof.provisioning, null);
+        assert.equal(saved.proof.securityLevel, null);
+        assert.deepEqual(saved.proof.serials, []);
+      }
       if (reason === "SOFTWARE_KEY_REJECTED")
         assert.equal(saved.proof.securityLevel, null);
       if ("omitRootOfTrust" in options && options.omitRootOfTrust) {
@@ -1879,7 +1888,7 @@ test("real workerd: attestation trust, hardware policy, time, level and revocati
       notBefore: new Date(now + 86400000),
     });
     assert.equal(
-      (await error(malformed.request.response)).code,
+      (await ok(malformed.request.response)).degraded,
       "INVALID_ATTESTATION",
     );
 

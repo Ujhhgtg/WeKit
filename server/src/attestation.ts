@@ -6,7 +6,7 @@ export interface Proof {
   rootSpkiSha256: string;
   serials: string[];
   securityLevel: "TEE" | "STRONGBOX" | null;
-  provisioning: "FACTORY" | "RKP";
+  provisioning: "FACTORY" | "RKP" | null;
   deviceLocked: boolean | null;
   verifiedBootState: number | null;
   osVersion: number | null;
@@ -21,8 +21,10 @@ export interface AttestationDowngrade {
     | "ATTESTATION_LEVEL_MISMATCH"
     | "ATTESTATION_ROOT_OF_TRUST"
     | "ATTESTATION_KEY_POLICY"
-    | "UNTRUSTED_ATTESTATION";
+    | "UNTRUSTED_ATTESTATION"
+    | "INVALID_ATTESTATION";
   serials: string[];
+  message?: string;
 }
 export interface AttestationVerification {
   proof: Proof;
