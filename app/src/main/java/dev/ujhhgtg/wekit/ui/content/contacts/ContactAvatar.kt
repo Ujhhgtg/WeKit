@@ -42,9 +42,9 @@ fun ContactAvatar(
                 WeChatAvatarCache.candidates(wxId, avatarUrl, avatarBigUrl).forEach { cached ->
                     add(
                         ImageRequest.Builder(context)
-                            .data(cached.file)
+                            .data(cached.path.toFile())
                             .memoryCacheKey(
-                                "wechat-avatar/${cached.file.path}/${cached.lastModified}",
+                                "wechat-avatar/${cached.path}/${cached.lastModified}",
                             )
                             .build(),
                     )

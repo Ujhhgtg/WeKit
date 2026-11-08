@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.ContentValues
-import android.view.ViewGroup
 import androidx.activity.ComponentActivity
+import com.tencent.mm.plugin.sns.storage.SnsInfo
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.data.KvStore
@@ -90,15 +90,8 @@ object AutoRepostMoments :
         processSnsInfoValues(table, values)
     }
 
-    override fun processVisibleItems(list: ViewGroup) {
-        for (index in 0 until list.childCount) {
-            runCatching {
-                locateSnsInfo(list.getChildAt(index))?.let { processSnsInfoAsync(it, "visible") }
-            }
-                .onFailure {
-                    WeLogger.w(TAG, "failed to process visible Moments item", it)
-                }
-        }
+    override fun processVisibleSnsInfo(snsInfo: SnsInfo) {
+        processSnsInfoAsync(snsInfo, "visible")
     }
 
     private fun processSnsInfoValues(table: String, values: ContentValues) {
@@ -170,19 +163,19 @@ object AutoRepostMoments :
         return result
     }
 
-    private fun processSnsInfo(snsInfo: Any, source: String, scope: AutomationScope) {
+    private fun processSnsInfo(snsInfo: SnsInfo, source: String, scope: AutomationScope) {
         if (!isAutomationCurrent(scope)) return
-        val owner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
+        val owner = snsInfo.userName?.trim().orEmpty()
         val rules = settings.resolve(owner)
         if (owner.isBlank() || owner == WeApi.selfWxId) return
         if (source != "visible" && rules.effectiveMode != MomentAutomationMode.ALL_LOADED) return
         if (!matchesPublicationWindow(snsInfo, rules.effectiveMode, scope)) return
         if (!rules.matchesMoment(snsInfo)) return
-        if (WeMomentsApi.isDeleted(snsInfo)) return
+        if (snsInfo.isDeadSource) return
 
-        val snsTableId = WeMomentsApi.getSnsTableId(snsInfo) ?: return
+        val snsTableId = snsInfo.snsId
         if (isIntercepted(snsInfo) || snsTableId in handledSnsIds) return
-        if (isAlreadyForwarded(snsTableId)) {
+        if (snsTableId in forwardedSnsIds) {
             handledSnsIds.add(snsTableId)
             return
         }
@@ -191,11 +184,6 @@ object AutoRepostMoments :
         val result =
             sendWithDelay(
                 delay = rules.interval.value(),
-                // Committed while the action lock is still held: a repost whose media download
-                // outlives
-                // RETRY_INTERVAL_MS (routine for videos/live photos) lets a second thread clear
-                // canAttempt and queue up on the lock, and if the mark landed after the lock was
-                // released that thread would see isAlreadyForwarded == false and post a duplicate.
                 commit = { committed ->
                     if (committed.success && isAutomationCurrent(scope)) {
                         handledSnsIds.add(snsTableId)
@@ -210,7 +198,7 @@ object AutoRepostMoments :
                         message = "automation stopped",
                     )
                 }
-                val latestOwner = WeMomentsApi.getOwnerWxId(snsInfo)?.trim().orEmpty()
+                val latestOwner = snsInfo.userName?.trim().orEmpty()
                 val latestRules = settings.resolve(latestOwner)
                 when {
                     latestOwner.isBlank() || latestOwner == WeApi.selfWxId ->
@@ -242,14 +230,14 @@ object AutoRepostMoments :
                             message = "rules changed",
                         )
 
-                    WeMomentsApi.isDeleted(snsInfo) ->
+                    snsInfo.isDeadSource ->
                         WeMomentsApi.ActionResult(
                             success = true,
                             sent = false,
                             message = "deleted/recalled",
                         )
 
-                    isAlreadyForwarded(snsTableId) ->
+                    snsTableId in forwardedSnsIds ->
                         WeMomentsApi.ActionResult(
                             success = true,
                             sent = false,
@@ -272,8 +260,8 @@ object AutoRepostMoments :
                                             scope,
                                         ) &&
                                         currentRules.matchesMoment(snsInfo) &&
-                                        !WeMomentsApi.isDeleted(snsInfo) &&
-                                        !isAlreadyForwarded(snsTableId)
+                                        !snsInfo.isDeadSource &&
+                                        snsTableId !in forwardedSnsIds
                                 },
                             )
                         }
@@ -301,7 +289,7 @@ object AutoRepostMoments :
             true
         }
 
-    private fun processSnsInfoAsync(snsInfo: Any, source: String) {
+    private fun processSnsInfoAsync(snsInfo: SnsInfo, source: String) {
         val scope = captureAutomationScope() ?: return
         submitItemWork {
             runCatching { processSnsInfo(snsInfo, source, scope) }
@@ -329,8 +317,6 @@ object AutoRepostMoments :
             commit(result)
             result
         }
-
-    private fun isAlreadyForwarded(snsTableId: String): Boolean = snsTableId in forwardedSnsIds
 
     @Synchronized
     private fun markForwarded(snsTableId: String) {

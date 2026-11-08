@@ -82,9 +82,6 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
         )
     }
 
-    private val headerUicClass: Class<*>
-        get() = methodGetNotifyLayout.method.declaringClass
-
     override fun onEnable() {
         methodHideNotifyBar.hookAfter {
             noInteractionMessages = true
@@ -122,9 +119,13 @@ object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
         }
     }
 
-    /** 协程闭包持有外层 ImproveHeaderUIC 的引用 */
     private fun extractHeaderUic(closure: Any): Any? =
-        closure.reflekt().firstFieldOrNull { type = headerUicClass }?.get()
+        closure
+            .reflekt()
+            .firstFieldOrNull {
+                type = methodGetNotifyLayout.method.declaringClass
+            }
+            ?.get()
 
     private fun notifyLayout(headerUic: Any) =
         methodGetNotifyLayout.method.invoke(null, headerUic) as View

@@ -929,6 +929,8 @@
     <string name="feature_we_main_activity_beautify_api_description">提供美化微信主屏幕的能力</string>
     <string name="feature_we_launcher_back_api_name">微信主界面返回手势服务</string>
     <string name="feature_we_launcher_back_api_description">供微信主界面上的悬浮界面处理返回手势</string>
+    <string name="feature_we_vfs_api_name">微信虚拟文件系统服务</string>
+    <string name="feature_we_vfs_api_description">提供微信虚拟文件读写与文件系统挂钩能力</string>
     <string name="feature_we_moments_api_name">朋友圈服务</string>
     <string name="feature_we_moments_api_description">提供操作朋友圈的能力</string>
     <string name="feature_we_moments_context_menu_api_name">朋友圈菜单增强扩展</string>

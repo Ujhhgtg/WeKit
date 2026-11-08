@@ -4,13 +4,13 @@ import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import java.io.File
-import java.io.FileOutputStream
+import java.nio.file.Path
+import kotlin.io.path.outputStream
 
 object AndroidAudioDecoder {
     data class DecodedPcm(val sampleRate: Int, val channelCount: Int)
 
-    fun decodeToPcm16(sourcePath: String, destination: File): DecodedPcm {
+    fun decodeToPcm16(sourcePath: String, destination: Path): DecodedPcm {
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(sourcePath)
@@ -41,7 +41,7 @@ object AndroidAudioDecoder {
     private fun decode(
         codec: MediaCodec,
         extractor: MediaExtractor,
-        destination: File,
+        destination: Path,
     ): DecodedPcm {
         val bufferInfo = MediaCodec.BufferInfo()
         var inputEnded = false
@@ -49,7 +49,7 @@ object AndroidAudioDecoder {
         var decodedPcm: DecodedPcm? = null
         var wroteOutput = false
 
-        FileOutputStream(destination).use { output ->
+        destination.outputStream().use { output ->
             while (!outputEnded) {
                 if (!inputEnded) {
                     val inputIndex = codec.dequeueInputBuffer(CODEC_TIMEOUT_US)

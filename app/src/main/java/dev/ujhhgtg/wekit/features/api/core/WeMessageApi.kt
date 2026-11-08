@@ -55,8 +55,6 @@ import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
 import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.io.OutputStream
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -190,13 +188,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val classAppMessage by dexClass {
         usingEqStrings("MicroMsg.AppMessage", "parse amessage xml failed")
     }
-    val methodSendAppMsg by dexMethod {
-        searchPackages("com.tencent.mm.pluginsdk.model.app")
-        usingEqStrings(
-            "MicroMsg.AppMsgLogic",
-            "summerbig sendAppMsg attachFilePath[%s], content[%s]",
-        )
-    }
     private val methodShareFile by dexMethod {
         paramTypes(
             "com.tencent.mm.opensdk.modelmsg.WXMediaMessage",
@@ -299,9 +290,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         dexClass(allowFailure = true) {
             usingEqStrings("MicroMsg.VoiceLogic", "startRecord insert voicestg success")
         }
-    val classVfs by dexClass {
-        usingStrings("MicroMsg.VFSFileOp", "Cannot resolve path or URI")
-    }
     private val classPathUtil by dexClass {
         searchPackages("com.tencent.mm.sdk.platformtools")
         method {
@@ -391,10 +379,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
     private val crossParamsClass: Class<*> by lazy { taskConstructor.parameterTypes[4] }
 
-    // 语音 & VFS
-    private lateinit var vfsCopyMethod: Method // VFS.L (write)
-    private lateinit var vfsReadMethod: Method // VFS.F (read)
-    private lateinit var vfsExistsMethod: Method // VFS.k/e (exists)
     private val voiceNameGenMethod: Method by lazy {
         classVoiceNameGen
             .reflekt()
@@ -1482,34 +1466,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         return forwardVideo.invoke(service, element, toUser) as Boolean
     }
 
-    override fun onEnable() {
-        classVfs.reflekt().apply {
-            vfsReadMethod =
-                firstMethod {
-                    modifiers(Modifiers.STATIC)
-                    parameters(String::class)
-                    returnType = InputStream::class
-                }
-                    .self
-
-            vfsCopyMethod =
-                firstMethod {
-                    modifiers(Modifiers.STATIC)
-                    parameters(String::class, Boolean::class)
-                    returnType = OutputStream::class
-                }
-                    .self
-
-            vfsExistsMethod =
-                firstMethod {
-                    modifiers(Modifiers.STATIC)
-                    parameters(String::class)
-                    returnType = Boolean::class
-                }
-                    .self
-        }
-    }
-
     /** 动态解析 AccPath 获取方法 */
     private fun getAccPath(): String {
         val storageObj =
@@ -1767,7 +1723,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                 pathGenMethod.invoke(null, voice2Root, "msg_", fileName, ".amr", 2) as? String
                     ?: error("failed to generate path")
 
-            if (!copyFileViaVfs(path, destFullPath)) return false
+            if (!WeVfsApi.copy(path, destFullPath)) return false
 
             // 设置语音信息
             val finalDurationMs = durationMs.coerceIn(1, 60_000)
@@ -1908,41 +1864,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
         WeLogger.d(TAG, "appmsg info: appid=$appId, title=$title")
         return WeAppMsgApi.sendXmlAppMsg(target, title, appId, null, null, xmlContent)
-    }
-
-    /** 使用微信内部 VFS 引擎进行物理拷贝 */
-    private fun copyFileViaVfs(src: String, dst: String): Boolean {
-        WeLogger.d(TAG, "VFS Copy: $src -> $dst")
-        return try {
-            val input =
-                vfsReadMethod.invoke(null, src) as? InputStream ?: error("VFS Open Failed for $src")
-
-            val output =
-                vfsCopyMethod.invoke(null, dst, false) as? OutputStream
-                    ?: error("VFS Create Failed for $dst")
-
-            input.use { i ->
-                output.use { o ->
-                    i.copyTo(o)
-                }
-            }
-
-            // 校验
-            val exists = vfsExistsMethod.invoke(null, dst) as? Boolean ?: false
-            if (exists) {
-                WeLogger.i(TAG, "VFS copy succeeded")
-            } else {
-                WeLogger.e(TAG, "VFS copy seems successful but actually failed")
-            }
-            exists
-        } catch (e: Exception) {
-            WeLogger.e(TAG, "VFS copy failed", e)
-            false
-        }
-    }
-
-    private fun readFileViaVfs(path: String): ByteArray? {
-        return (vfsReadMethod.invoke(null, path) as? InputStream)?.use { it.readBytes() }
     }
 
     fun shareWebpage(
@@ -2466,7 +2387,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                         thumbImgPath,
                     ) as String?
                 val sourceBytes = resolvedPath?.let { path ->
-                    runCatching { readFileViaVfs(path) }.getOrNull()
+                    runCatching { WeVfsApi.readBytes(path) }.getOrNull()
                 }
                 if (sourceBytes != null) {
                     if (resolvedPath == previousPath && sourceBytes.contentEquals(previousBytes)) {
@@ -2509,7 +2430,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         if (SystemClock.elapsedRealtime() >= deadlineElapsedRealtime) return null
         val sourceBytes =
             runCatching {
-                readFileViaVfs(source.absolutePathString())
+                WeVfsApi.readBytes(source.absolutePathString())
             }
                 .getOrNull() ?: return null
         return materializeImageBytes(sourceBytes, destination, deadlineElapsedRealtime)

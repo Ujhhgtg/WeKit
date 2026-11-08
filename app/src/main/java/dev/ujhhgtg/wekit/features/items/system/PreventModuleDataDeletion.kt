@@ -1,36 +1,18 @@
 package dev.ujhhgtg.wekit.features.items.system
 
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlin.io.path.div
 
-object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
+object PreventModuleDataDeletion : SwitchFeature() {
     override val technicalId = "阻止微信清理模块数据"
     override val nameRes = R.string.feature_prevent_module_data_deletion_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_prevent_module_data_deletion_description
-
-    private val methodNativeFileSystemEntryDelete by dexMethod {
-        declaredClass {
-            usingString("VFS.NativeFileSystem")
-            usingString(
-                "Base directory exists but is not a directory, delete and proceed.Base path: ",
-            )
-        }
-        paramTypes("java.lang.String")
-        returnType = "boolean"
-        invokeMethod {
-            declaredClass = "java.io.File"
-            name = "delete"
-        }
-    }
 
     // WeChat's VFS canonicalizes base paths (/data/user/0 -> /data/data), so compare canonically
     private val protectedRoots by lazy {
@@ -47,16 +29,9 @@ object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
     }
 
     override fun onEnable() {
-        methodNativeFileSystemEntryDelete.hookBefore {
+        WeVfsApi.methodNativeEntryDelete.hookBefore {
             val relPath = args[0] as String
-            val basePath =
-                thisObject!!
-                    .reflekt()
-                    .firstField {
-                        type = String::class
-                        modifiers(Modifiers.FINAL)
-                    }
-                    .get() as String
+            val basePath = WeVfsApi.fieldNativeEntryBasePath.field.get(thisObject) as String
 
             val path = if (relPath.isEmpty()) basePath else "$basePath/$relPath"
             if (protectedRoots.any { path == it || path.startsWith("$it/") }) {

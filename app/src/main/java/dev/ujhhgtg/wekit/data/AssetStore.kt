@@ -4,10 +4,14 @@ import dev.ujhhgtg.wekit.data.dao.AssetDao
 import dev.ujhhgtg.wekit.data.entity.AssetBindingEntity
 import dev.ujhhgtg.wekit.data.entity.AssetChunkEntity
 import dev.ujhhgtg.wekit.data.entity.AssetEntity
+import dev.ujhhgtg.wekit.utils.fs.moveReplacing
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.io.InputStream
+import java.nio.file.Path
 import java.security.MessageDigest
+import kotlin.io.path.fileSize
+import kotlin.io.path.inputStream
+import kotlin.io.path.outputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -33,17 +37,17 @@ object AssetStore {
      * Streams the asset bound to [owner]/[slot] into [target], replacing it only once the copy is
      * complete. Returns false when the slot is unbound or on failure.
      */
-    fun copyBinding(owner: String, slot: String, target: File): Boolean = runCatching {
+    fun copyBinding(owner: String, slot: String, target: Path): Boolean = runCatching {
         runBlocking(Dispatchers.IO) {
             val dao = WeKitDatabase.instance.assetDao()
             val binding = dao.getBinding(owner, slot) ?: return@runBlocking false
-            val partial = File(target.path + ".partial")
+            val partial = target.resolveSibling("${target.fileName}.partial")
             partial.outputStream().buffered().use { output ->
                 dao.openChunkCursor(binding.assetId).use { cursor ->
                     while (cursor.moveToNext()) output.write(cursor.getBlob(1))
                 }
             }
-            check(partial.renameTo(target)) { "cannot move $partial to $target" }
+            partial.moveReplacing(target)
             true
         }
     }
@@ -84,7 +88,7 @@ object AssetStore {
     fun importBinding(
         owner: String,
         slot: String,
-        source: File,
+        source: Path,
         mimeType: String,
         metadataJson: String? = null,
     ): Boolean = runCatching {
@@ -97,7 +101,7 @@ object AssetStore {
                 digest.update(buffer, 0, read)
             }
         }
-        import(owner, slot, source.length(), digest.digest(), mimeType, metadataJson) {
+        import(owner, slot, source.fileSize(), digest.digest(), mimeType, metadataJson) {
             source.inputStream()
         }
     }

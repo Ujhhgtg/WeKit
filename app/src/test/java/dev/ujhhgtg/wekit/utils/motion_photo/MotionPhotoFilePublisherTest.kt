@@ -1,7 +1,14 @@
 package dev.ujhhgtg.wekit.utils.motion_photo
 
-import java.io.File
 import java.io.IOException
+import java.nio.file.Path
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.name
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -9,14 +16,14 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 class MotionPhotoFilePublisherTest {
-    @TempDir lateinit var directory: File
+    @TempDir lateinit var directory: Path
 
     @Test
     fun `publishes a new pair and consumes both stages`() {
         val photoStage = file("photo-stage.jpg", "new photo")
         val videoStage = file("video-stage.mp4", "new video")
-        val photoOutput = File(directory, "output.jpg")
-        val videoOutput = File(directory, "output.mp4")
+        val photoOutput = directory / "output.jpg"
+        val videoOutput = directory / "output.mp4"
 
         MotionPhotoFilePublisher.publishPair(photoStage, videoStage, photoOutput, videoOutput)
 
@@ -47,7 +54,7 @@ class MotionPhotoFilePublisherTest {
         val videoStage = file("video-stage.mp4", "new video")
         val photoOutput = file("output.jpg", "old photo")
         val videoOutput = file("output.mp4", "old video")
-        photoStage.delete()
+        photoStage.deleteExisting()
 
         assertThrows(IOException::class.java) {
             MotionPhotoFilePublisher.publishPair(photoStage, videoStage, photoOutput, videoOutput)
@@ -62,9 +69,9 @@ class MotionPhotoFilePublisherTest {
     fun `a second move failure removes the newly published video when no previous pair exists`() {
         val photoStage = file("photo-stage.jpg", "new photo")
         val videoStage = file("video-stage.mp4", "new video")
-        val photoOutput = File(directory, "output.jpg")
-        val videoOutput = File(directory, "output.mp4")
-        photoStage.delete()
+        val photoOutput = directory / "output.jpg"
+        val videoOutput = directory / "output.mp4"
+        photoStage.deleteExisting()
 
         assertThrows(IOException::class.java) {
             MotionPhotoFilePublisher.publishPair(photoStage, videoStage, photoOutput, videoOutput)
@@ -72,13 +79,16 @@ class MotionPhotoFilePublisherTest {
 
         assertFalse(photoOutput.exists())
         assertFalse(videoOutput.exists())
-        assertEquals(emptySet<String>(), directory.list()!!.toSet())
+        assertEquals(emptySet<String>(), directory.listDirectoryEntries().map { it.name }.toSet())
     }
 
     private fun file(name: String, content: String) =
-        File(directory, name).apply { writeText(content) }
+        (directory / name).apply { writeText(content) }
 
     private fun assertOnlyOutputs() {
-        assertEquals(setOf("output.jpg", "output.mp4"), directory.list()!!.toSet())
+        assertEquals(
+            setOf("output.jpg", "output.mp4"),
+            directory.listDirectoryEntries().map { it.name }.toSet(),
+        )
     }
 }

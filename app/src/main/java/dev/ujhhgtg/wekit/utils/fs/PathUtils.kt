@@ -4,6 +4,7 @@ package dev.ujhhgtg.wekit.utils.fs
 
 import android.net.Uri
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.AtomicMoveNotSupportedException
@@ -13,7 +14,10 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.fileSize
 import kotlin.io.path.inputStream
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.moveTo
 import kotlin.io.path.outputStream
 
@@ -49,3 +53,12 @@ fun Path.copyFrom(input: InputStream, vararg options: OpenOption): Long =
 /** Copies this path into [output] and closes the input stream opened for the path. */
 fun Path.copyTo(output: OutputStream, vararg options: OpenOption): Long =
     inputStream(*options).use { it.copyTo(output) }
+
+fun Path.regularFileSizeOrNull(): Long? = if (isRegularFile()) fileSize() else null
+
+fun Path.tryDelete(): Boolean =
+    try {
+        deleteIfExists()
+    } catch (_: IOException) {
+        false
+    }

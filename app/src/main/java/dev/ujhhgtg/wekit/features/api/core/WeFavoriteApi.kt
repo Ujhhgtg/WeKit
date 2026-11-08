@@ -16,11 +16,13 @@ import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
-import java.io.File
+import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.fs.regularFileSizeOrNull
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.div
+import kotlin.io.path.isRegularFile
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
@@ -215,8 +217,9 @@ object WeFavoriteApi : ApiFeature(), IResolveDex {
          */
         val isDownloaded: Boolean
             get() =
-                File(filePath).let {
-                    if (fileSize > 0) it.length() == fileSize.toLong() else it.isFile
+                filePath.asPath.let {
+                    if (fileSize > 0) it.regularFileSizeOrNull() == fileSize.toLong()
+                    else it.isRegularFile()
                 }
     }
 

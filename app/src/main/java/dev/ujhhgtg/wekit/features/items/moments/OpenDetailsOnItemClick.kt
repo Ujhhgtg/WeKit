@@ -2,13 +2,13 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -61,14 +61,12 @@ object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
         )
     }
 
-    private lateinit var getImproveListItemMethod: Method
-    private lateinit var getImproveSnsInfoMethod: Method
     private lateinit var getUserNameMethod: Method
 
     override fun onEnable() {
         // 该监听器是所有 WxRecyclerAdapter 列表共用的, 所以要按条目类型过滤
         methodItemClickListenerOnClick.hookAfter {
-            val itemView = args.getOrNull(0) as? View ?: return@hookAfter
+            val itemView = args[0] as View
             if (!classImproveTimelineItem.clazz.isInstance(itemView)) return@hookAfter
             openDetails(itemView)
         }
@@ -76,35 +74,8 @@ object OpenDetailsOnItemClick : SwitchFeature(), IResolveDex {
 
     private fun openDetails(itemView: View) {
         val activity = itemView.context.baseActivity ?: return
-        val improveSnsInfoClass = methodGetLocalIdString.method.declaringClass
-
-        if (!::getImproveListItemMethod.isInitialized) {
-            getImproveListItemMethod =
-                itemView
-                    .reflekt()
-                    .firstMethod {
-                        name = "getImproveListItem"
-                        parameters()
-                        superclass()
-                    }
-                    .self
-                    .makeAccessible()
-        }
-        val listItem = getImproveListItemMethod.invoke(itemView) ?: return
-
-        if (!::getImproveSnsInfoMethod.isInitialized) {
-            getImproveSnsInfoMethod =
-                listItem
-                    .reflekt()
-                    .firstMethod {
-                        parameters()
-                        superclass()
-                        returnType { it isSubclassOf improveSnsInfoClass }
-                    }
-                    .self
-                    .makeAccessible()
-        }
-        val snsInfo = getImproveSnsInfoMethod.invoke(listItem) ?: return
+        val item = WeMomentsApi.methodGetTimelineViewItem.method.invoke(itemView) ?: return
+        val snsInfo = WeMomentsApi.methodGetTimelineItemInfo.method.invoke(item)!!
 
         val localId = methodGetLocalIdString.method.invoke(snsInfo) as? String
         if (localId.isNullOrBlank()) {

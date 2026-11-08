@@ -1,55 +1,58 @@
 package dev.ujhhgtg.wekit.utils.motion_photo
 
 import dev.ujhhgtg.wekit.utils.fs.moveReplacing
-import java.io.File
+import dev.ujhhgtg.wekit.utils.fs.tryDelete
 import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.nio.file.Path
+import kotlin.io.path.copyTo
+import kotlin.io.path.createTempFile
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.exists
 
 /** Publishes an already validated pair, restoring previous outputs if either move fails. */
 object MotionPhotoFilePublisher {
-    fun publishPair(photoStage: File, videoStage: File, photoOutput: File, videoOutput: File) {
+    fun publishPair(photoStage: Path, videoStage: Path, photoOutput: Path, videoOutput: Path) {
         val photoBackup = backup(photoOutput, ".jpg")
         val videoBackup =
             try {
                 backup(videoOutput, ".mp4")
             } catch (failure: IOException) {
-                photoBackup?.delete()
+                photoBackup?.tryDelete()
                 throw failure
             }
 
         try {
-            videoStage.toPath().moveReplacing(videoOutput.toPath())
-            photoStage.toPath().moveReplacing(photoOutput.toPath())
+            videoStage.moveReplacing(videoOutput)
+            photoStage.moveReplacing(photoOutput)
         } catch (failure: IOException) {
             restore(photoOutput, photoBackup, failure)
             restore(videoOutput, videoBackup, failure)
             throw failure
         }
-        photoBackup?.delete()
-        videoBackup?.delete()
+        photoBackup?.tryDelete()
+        videoBackup?.tryDelete()
     }
 
-    private fun backup(output: File, suffix: String): File? {
+    private fun backup(output: Path, suffix: String): Path? {
         if (!output.exists()) return null
         // Scoped storage determines media type from the extension, including temporary files.
         val backup =
-            File.createTempFile("wekit-livephoto-backup-", suffix, output.absoluteFile.parentFile)
+            createTempFile(output.toAbsolutePath().parent, "wekit-livephoto-backup-", suffix)
         try {
-            Files.copy(output.toPath(), backup.toPath(), REPLACE_EXISTING)
+            output.copyTo(backup, overwrite = true)
         } catch (failure: IOException) {
-            backup.delete()
+            backup.tryDelete()
             throw failure
         }
         return backup
     }
 
-    private fun restore(output: File, backup: File?, failure: IOException) {
+    private fun restore(output: Path, backup: Path?, failure: IOException) {
         try {
             if (backup == null) {
-                Files.deleteIfExists(output.toPath())
+                output.deleteIfExists()
             } else {
-                backup.toPath().moveReplacing(output.toPath())
+                backup.moveReplacing(output)
             }
         } catch (restoreFailure: IOException) {
             // Keep a backup that could not be restored, so the old output remains recoverable.

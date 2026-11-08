@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import com.tencent.mm.plugin.sns.storage.SnsInfo
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.automation.AutomationCodecs
@@ -90,7 +91,7 @@ class MomentAutomationRuleSet(
     val effectiveMode: MomentAutomationMode
         get() = rules[spec.mode].let { if (it.enabled) it.mode else MomentAutomationMode.WHEN_SEEN }
 
-    fun matchesMoment(snsInfo: Any): Boolean {
+    fun matchesMoment(snsInfo: SnsInfo): Boolean {
         val keyword = rules[spec.keyword]
         val contentType = rules[spec.contentType]
         val maximumAge = rules[spec.maximumAge]

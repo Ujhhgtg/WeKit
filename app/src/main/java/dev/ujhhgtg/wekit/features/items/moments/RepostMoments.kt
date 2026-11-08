@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import android.content.Context
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
@@ -193,12 +192,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                     activity = activity,
                     text = data.contentText,
                     content = data,
-                    source = context.source,
                 )
             if (!result.success) {
                 showToastSuspend(
                     activity,
-                    activity.localizedRepostResult(result),
+                    result.messageRes?.let { activity.localizedString(it) } ?: result.message,
                 )
             }
         }
@@ -229,11 +227,8 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             val result = WeMomentsApi.quickRepostEnsuringCached(data)
             showToastSuspend(
                 activity,
-                activity.localizedRepostResult(result),
+                result.messageRes?.let { activity.localizedString(it) } ?: result.message,
             )
         }
     }
-
-    private fun Context.localizedRepostResult(result: WeMomentsApi.ActionResult): String =
-        result.messageRes?.let { localizedString(it) } ?: result.message
 }

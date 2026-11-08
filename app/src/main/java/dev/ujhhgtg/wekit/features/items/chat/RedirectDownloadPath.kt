@@ -14,6 +14,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.localizedString
@@ -24,11 +25,16 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
-import java.io.File
+import java.nio.file.Path
 import java.util.Locale
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
 import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+import kotlin.io.path.name
 
 object RedirectDownloadPath : ClickableFeature(), IResolveDex {
 
@@ -41,7 +47,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     private var saveDir by prefOption("redirect_download_path_save_dir", "")
 
     override fun onEnable() {
-        methodDownloadFile.hookBefore {
+        WeVfsApi.methodResolveDownloadDirectory.hookBefore {
             val type = args[0] as? String? ?: return@hookBefore
             if (type != "attachment") return@hookBefore
             result = ensureSaveDir()
@@ -71,10 +77,10 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             var pathInput by remember { mutableStateOf(currentSaveDir()) }
             val normalizedPath = normalizeSaveDir(pathInput)
-            val dir = File(normalizedPath)
+            val dir = normalizedPath.asPath
             val statusText =
                 when {
-                    dir.isDirectory -> stringResource(R.string.chat_redirect_path_exists)
+                    dir.isDirectory() -> stringResource(R.string.chat_redirect_path_exists)
                     dir.exists() -> stringResource(R.string.chat_redirect_path_not_directory)
                     else -> stringResource(R.string.chat_redirect_path_will_create)
                 }
@@ -124,7 +130,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
                         onClick = {
                             val saveDir = normalizeSaveDir(pathInput)
                             this@RedirectDownloadPath.saveDir = saveDir
-                            runCatching { File(saveDir).mkdirs() }
+                            runCatching { saveDir.asPath.createDirectories() }
                             showToast(
                                 context,
                                 context.localizedString(R.string.chat_redirect_saved),
@@ -139,16 +145,6 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val methodDownloadFile by dexMethod {
-        searchPackages("com.tencent.mm.vfs")
-        returnType = "java.lang.String"
-        paramTypes("java.lang.String")
-        declaredClass {
-            usingStrings("VFS.VFSStrategy")
-            usingStrings("Found wrong moving file: ")
-            usingStrings("accountSalt")
-        }
-    }
     private val methodInitDownloadAttach by dexMethod {
         searchPackages("com.tencent.mm.pluginsdk.model.app")
         returnType = "java.lang.String"
@@ -187,21 +183,21 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     }
 
     private fun ensureSaveDir(): String {
-        val configured = File(currentSaveDir())
-        if (configured.exists() && !configured.isDirectory) {
+        val configured = currentSaveDir().asPath.toAbsolutePath()
+        if (configured.exists() && !configured.isDirectory()) {
             WeLogger.w(
                 TAG,
-                "configured download path is not a directory: ${configured.absolutePath}",
+                "configured download path is not a directory: $configured",
             )
             return createDefaultSaveDir()
         }
 
-        runCatching { configured.mkdirs() }
+        runCatching { configured.createDirectories() }
             .onFailure {
-                WeLogger.w(TAG, "failed to create download path: ${configured.absolutePath}", it)
+                WeLogger.w(TAG, "failed to create download path: $configured", it)
             }
 
-        return configured.absolutePath
+        return configured.absolutePathString()
     }
 
     private fun currentSaveDir(): String {
@@ -212,7 +208,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         val normalized = rawPath.trim().replace('\\', '/').trimEnd('/')
         if (normalized.isEmpty()) return defaultSaveDir()
         if (normalized.startsWith("/")) return normalized
-        return File(KnownPaths.internalStorage.toFile(), normalized).absolutePath
+        return KnownPaths.internalStorage.resolve(normalized).absolutePathString()
     }
 
     private fun defaultSaveDir(): String {
@@ -226,12 +222,12 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
     }
 
     private fun buildRedirectedFilePath(msgXml: String, currentPath: String?): String? {
-        val saveDir = File(ensureSaveDir())
+        val saveDir = ensureSaveDir().asPath
         val nameFromXml = extractOriginalFileName(msgXml)
         val extFromXml = extractXmlTag(msgXml, "fileext")
-        val fallbackName = currentPath?.let { File(it).name }?.takeIf { it.isNotBlank() }
+        val fallbackName = currentPath?.asPath?.name?.takeIf { it.isNotBlank() }
         val fileName = buildFileName(nameFromXml ?: fallbackName, extFromXml)
-        return nextAvailableFile(saveDir, fileName).absolutePath
+        return nextAvailableFile(saveDir, fileName).absolutePathString()
     }
 
     private fun redirectExistingFilePath(currentPath: String): String? {
@@ -242,7 +238,7 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
             currentPath.replace('\\', '/').substringAfterLast('/').takeIf { it.isNotBlank() }
                 ?: return null
 
-        return nextAvailableFile(File(ensureSaveDir()), fileName).absolutePath
+        return nextAvailableFile(ensureSaveDir().asPath, fileName).absolutePathString()
     }
 
     private fun buildFileName(rawName: String?, rawExt: String?): String {
@@ -264,25 +260,24 @@ object RedirectDownloadPath : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun nextAvailableFile(dir: File, fileName: String): File {
-        val first = File(dir, fileName)
+    private fun nextAvailableFile(dir: Path, fileName: String): Path {
+        val first = dir / fileName
         if (!first.exists()) return first
 
         repeat(19) { index ->
-            val candidate = File(dir, "${index + 1}_$fileName")
+            val candidate = dir / "${index + 1}_$fileName"
             if (!candidate.exists()) return candidate
         }
 
         val dotIndex = fileName.lastIndexOf('.')
         val prefix = if (dotIndex > 0) fileName.substring(0, dotIndex) else fileName
         val suffix = if (dotIndex > 0) fileName.substring(dotIndex) else ""
-        return File(dir, "${prefix}_${System.currentTimeMillis()}$suffix")
+        return dir / "${prefix}_${System.currentTimeMillis()}$suffix"
     }
 
     private fun isUnderSaveDir(path: String): Boolean {
-        val saveDir = File(currentSaveDir()).absolutePath.trimEnd('/', '\\')
-        val target = File(path).absolutePath
-        return target == saveDir || target.startsWith("$saveDir${File.separator}")
+        val saveDir = currentSaveDir().asPath.toAbsolutePath().normalize()
+        return path.asPath.toAbsolutePath().normalize().startsWith(saveDir)
     }
 
     @SuppressLint("SdCardPath")

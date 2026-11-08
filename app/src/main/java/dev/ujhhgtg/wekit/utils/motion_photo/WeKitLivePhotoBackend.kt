@@ -18,6 +18,7 @@ import android.system.OsConstants
 import android.util.LruCache
 import androidx.exifinterface.media.ExifInterface
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.io.File
 import java.io.FileDescriptor
 import java.io.FileInputStream
@@ -503,7 +504,12 @@ object WeKitLivePhotoBackend {
                 fail(INVALID_MEDIA, "Generated Motion Photo lost the OPlus compatibility tag")
             }
             if (companion != null) {
-                MotionPhotoFilePublisher.publishPair(generated, videoTemporary!!, output, companion)
+                MotionPhotoFilePublisher.publishPair(
+                    generated.asPath,
+                    videoTemporary!!.asPath,
+                    output.asPath,
+                    companion.asPath,
+                )
                 // FIXME: Vivo V1 pairing is indexed from both files' shared private ID.
                 //        Scan both files, matching the native protocol; scanning only the JPEG
                 //        cannot populate the companion row. Single-file formats need no pair scan.

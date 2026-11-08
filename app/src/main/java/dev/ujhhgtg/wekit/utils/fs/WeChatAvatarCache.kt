@@ -2,8 +2,9 @@ package dev.ujhhgtg.wekit.utils.fs
 
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.strings.md5Hex
-import java.io.File
+import java.nio.file.Path
 import kotlin.io.path.div
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isRegularFile
 
 /**
@@ -19,7 +20,7 @@ import kotlin.io.path.isRegularFile
  * content. Older hosts only have the legacy cache.
  */
 object WeChatAvatarCache {
-    data class CachedAvatar(val file: File, val lastModified: Long)
+    data class CachedAvatar(val path: Path, val lastModified: Long)
 
     /**
      * Existing local avatar files for [wxId], most preferred first: new HD, legacy HD, new normal,
@@ -39,8 +40,7 @@ object WeChatAvatarCache {
         }
         return paths.mapNotNull { path ->
             if (!path.isRegularFile()) return@mapNotNull null
-            val file = path.toFile()
-            CachedAvatar(file, file.lastModified())
+            CachedAvatar(path, path.getLastModifiedTime().toMillis())
         }
     }
 }

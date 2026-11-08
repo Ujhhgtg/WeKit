@@ -12,6 +12,7 @@ import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.SpoofedChatMessageEntity
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -219,7 +220,7 @@ object SpoofedMessageStore {
                         "cannot decode the selected image"
                     }
                 }
-                check(AssetStore.importBinding(ASSET_OWNER, slot, source, mimeType))
+                check(AssetStore.importBinding(ASSET_OWNER, slot, source.asPath, mimeType))
                 deleteCachedFiles(target.key)
                 source.renameTo(
                     cachedFile(
@@ -297,7 +298,7 @@ object SpoofedMessageStore {
                 it.name.startsWith("${fileStem(key)}-$assetId.") && !it.name.endsWith(".partial")
             }
                 ?: cachedFile(key, assetId, extension).also {
-                    check(AssetStore.copyBinding(ASSET_OWNER, slot, it)) {
+                    check(AssetStore.copyBinding(ASSET_OWNER, slot, it.asPath)) {
                         "cannot materialize spoofed media $slot"
                     }
                 }

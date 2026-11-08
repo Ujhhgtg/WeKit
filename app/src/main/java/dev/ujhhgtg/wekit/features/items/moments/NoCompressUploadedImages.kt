@@ -12,12 +12,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -26,8 +25,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.fs.asPath
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.bool
 import kotlin.io.path.copyTo
 
 object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
@@ -64,14 +61,6 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
             "MicroMsg.snsMediaStorage",
             "convertImg2WxamWithoutZip origPath:%s OutOfMemoryError! rollback",
         )
-    }
-
-    private val vfsGetCachePathMethod by lazy {
-        WeMessageApi.classVfs.reflekt().firstMethod {
-            modifiers(Modifiers.STATIC)
-            parameters(BString, bool)
-            returnType = BString
-        }
     }
 
     override fun onEnable() {
@@ -136,9 +125,8 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
                 if (isUpload) {
                     val src = str13.asPath
                     val strConcat2 = str11 + str
-                    val cachePath = vfsGetCachePathMethod.invoke(strConcat2, true) as? String
-                    if (cachePath != null) {
-                        val dst = cachePath.asPath
+                    val dst = WeVfsApi.resolveLocalPath(strConcat2, forWrite = true)
+                    if (dst != null) {
                         src.copyTo(dst, overwrite = true)
                     }
                 }

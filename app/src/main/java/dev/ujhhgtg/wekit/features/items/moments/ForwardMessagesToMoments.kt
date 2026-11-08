@@ -36,12 +36,6 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
             MessageType.VIDEO,
         )
 
-    // TEXT and QUOTE both boil down to a piece of text for a Moments post
-    private fun MessageInfo.isTextLike() = type == MessageType.TEXT || type == MessageType.QUOTE
-
-    private fun MessageInfo.momentsText(): String =
-        if (type == MessageType.QUOTE) quoteMsgActualContent!! else actualContent
-
     // a selection maps to a valid Moments post if it is one of:
     //   - any number of texts (concatenated)
     //   - any number of texts + any number of images
@@ -50,11 +44,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     private fun isSupportedSelection(msgInfos: List<MessageInfo>): Boolean {
         if (msgInfos.isEmpty()) return false
         // only text/image/video participate; quotes count as text
-        if (
-            msgInfos.any {
-                it.type != MessageType.IMAGE && it.type != MessageType.VIDEO && !it.isTextLike()
-            }
-        ) {
+        if (msgInfos.any { it.type !in SUPPORTED_MSG_TYPES }) {
             return false
         }
 
@@ -74,8 +64,11 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     ) {
         val text =
             msgInfos
-                .filter { it.isTextLike() }
-                .joinToString("\n\n") { it.momentsText() }
+                .filter { it.type == MessageType.TEXT || it.type == MessageType.QUOTE }
+                .joinToString("\n\n") {
+                    if (it.type == MessageType.QUOTE) it.quoteMsgActualContent!!
+                    else it.actualContent
+                }
                 .takeIf { it.isNotBlank() }
 
         val imageMd5s =

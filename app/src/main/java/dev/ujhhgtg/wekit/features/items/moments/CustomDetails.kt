@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
-import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
@@ -80,7 +79,7 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 EditIcon,
                 { _, _ -> true },
             ) click@{ moment ->
-                val snsId = resolveSnsId(moment.snsInfo)
+                val snsId = moment.snsInfo?.field_snsId
                 if (snsId == null) {
                     showToast(
                         moment.activity.localizedString(R.string.moments_sns_id_not_found),
@@ -197,7 +196,4 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             )
         }
     }
-
-    private fun resolveSnsId(snsInfo: Any?): Long? =
-        (snsInfo?.reflekt()?.getField("field_snsId", true) as? Number)?.toLong()
 }
