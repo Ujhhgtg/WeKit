@@ -498,9 +498,13 @@ tasks.withType<Test>().configureEach {
         filter {
             includeTestsMatching("dev.ujhhgtg.wekit.dextest.DexTestWorkerTest")
         }
-        dexTestWorkerProperties.forEach { propertyName ->
-            systemProperty(propertyName, providers.gradleProperty(propertyName).orNull.orEmpty())
-        }
+        jvmArgumentProviders.add(
+            objects.newInstance<JvmSystemPropertyArgumentProvider>().apply {
+                dexTestWorkerProperties.forEach { propertyName ->
+                    properties.put(propertyName, providers.gradleProperty(propertyName).orElse(""))
+                }
+            },
+        )
         outputs.upToDateWhen { false }
     } else {
         filter {
