@@ -218,6 +218,8 @@ android {
         unitTests.isReturnDefaultValues = true
         unitTests.all {
             it.useJUnitPlatform()
+            // APK packaging excludes *.bin; native codec fixtures still need them on the test classpath.
+            it.classpath += files("src/test/resources", "src/main/assets")
         }
     }
 }

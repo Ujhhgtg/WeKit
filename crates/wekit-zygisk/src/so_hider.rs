@@ -2,6 +2,7 @@
 
 use crate::{loge, logi};
 use libc::c_int;
+use std::io;
 
 #[derive(Debug)]
 pub struct MapEntry {
@@ -46,34 +47,21 @@ pub fn parse_maps_line(line: &[u8]) -> Option<MapEntry> {
     })
 }
 
-fn collect_matching_entries(needle: &str) -> Vec<MapEntry> {
-    // SAFETY: standard POSIX open/read/close on /proc/self/maps
-    let fd = unsafe { libc::open(c"/proc/self/maps".as_ptr(), libc::O_RDONLY) };
-    if fd < 0 {
-        return Vec::new();
-    }
-    let mut bytes = Vec::with_capacity(65536);
-    let mut buf = [0u8; 4096];
-    loop {
-        let n = unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) };
-        if n <= 0 {
-            break;
-        }
-        bytes.extend_from_slice(&buf[..n as usize]);
-    }
-    unsafe { libc::close(fd) };
-    // Collect ALL matching entries first (close maps fd), THEN remap — matches C++ order
-    bytes
+fn collect_matching_entries(needle: &str) -> io::Result<Vec<MapEntry>> {
+    // Finish reading and close maps before remapping; read errors must not look like no matches.
+    let bytes = std::fs::read("/proc/self/maps")?;
+    Ok(bytes
         .split(|&b| b == b'\n')
         .filter_map(parse_maps_line)
         .filter(|e| e.path.contains(needle))
-        .collect()
+        .collect())
 }
 
 // SAFETY: All raw pointer/syscall operations are contained in this function.
 unsafe fn remap_segment(start: usize, len: usize, orig_prot: c_int) -> bool {
     if orig_prot == libc::PROT_NONE {
-        return true;
+        // This segment is left untouched, so the caller must report incomplete hiding.
+        return false;
     }
     // Temporarily add PROT_READ so we can copy contents; track whether we changed it
     let read_prot_changed = orig_prot & libc::PROT_READ == 0;
@@ -142,24 +130,26 @@ unsafe fn remap_segment(start: usize, len: usize, orig_prot: c_int) -> bool {
             libc::close(mfd);
             return false;
         }
-        if orig_prot != (libc::PROT_READ | libc::PROT_WRITE) {
-            libc::mprotect(addr, len, orig_prot);
-        }
-        true
+        orig_prot == (libc::PROT_READ | libc::PROT_WRITE)
+            || libc::mprotect(addr, len, orig_prot) == 0
     };
     libc::close(mfd);
     ok
 }
 
 /// Remap all segments whose path contains `needle`.
-/// Returns number of segments remapped, or -1 on fatal error.
+/// Returns true when maps was read and every matching segment was remapped successfully.
+/// No matches is success: the library may be absent or already hidden.
 /// Order: collect ALL entries first (closes /proc/self/maps fd), then remap.
-pub fn hide_path(needle: &str) -> i32 {
-    let entries = collect_matching_entries(needle);
-    if entries.is_empty() {
-        return 0;
-    }
-    let mut count = 0i32;
+pub fn hide_path(needle: &str) -> bool {
+    let entries = match collect_matching_entries(needle) {
+        Ok(entries) => entries,
+        Err(error) => {
+            loge!("Zygisk: cannot read maps for {needle}: {error}");
+            return false;
+        }
+    };
+    let mut count = 0;
     for e in &entries {
         let len = e.end - e.start;
         if unsafe { remap_segment(e.start, len, e.prot) } {
@@ -168,8 +158,11 @@ pub fn hide_path(needle: &str) -> i32 {
             loge!("Zygisk: remap_segment failed for {}", e.path);
         }
     }
-    logi!("Zygisk: hide_path({needle}) remapped {count} segments");
-    count
+    logi!(
+        "Zygisk: hide_path({needle}) remapped {count}/{} segments",
+        entries.len()
+    );
+    count == entries.len()
 }
 
 // ── Host unit tests ───────────────────────────────────────────────────────────

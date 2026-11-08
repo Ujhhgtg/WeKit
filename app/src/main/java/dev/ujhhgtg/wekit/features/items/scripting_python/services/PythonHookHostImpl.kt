@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonCrashGuard
 import dev.ujhhgtg.wekit.features.items.scripting_python.plugin.PythonPluginScope
 import dev.ujhhgtg.wekit.features.items.scripting_python.runtime.PythonRuntimeLoader
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
+import dev.ujhhgtg.wekit.loader.environment.MethodAccessFlags
 import dev.ujhhgtg.wekit.python.api.PythonHookCallback
 import dev.ujhhgtg.wekit.python.api.PythonHookHost
 import dev.ujhhgtg.wekit.python.api.PythonHookToken
@@ -82,6 +83,7 @@ class PythonHookHostImpl(
                     )
                 else -> error("Unsupported hook member: $member")
             }
+        MethodAccessFlags.captureBeforeHook(executable)
         val hook =
             currentHookBridge.hookMethod(
                 executable,

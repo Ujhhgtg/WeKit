@@ -6,6 +6,7 @@ class EnvironmentReportPolicy(
     private val moduleApk: String,
     private val moduleDataDirectory: String,
     private val loaderDataDirectory: String = moduleDataDirectory,
+    private val methodFlags: () -> Map<Int, NormsgMethodCodec.Flags> = { emptyMap() },
 ) {
     fun isModuleMapping(path: String): Boolean {
         val clean = path.removeSuffix(" (deleted)")
@@ -41,6 +42,23 @@ class EnvironmentReportPolicy(
             val cleared =
                 root and 7L.inv() // KernelSU, Magisk, APatch; retain unconfirmed upper bits.
             if (cleared != root) working = inner.encode(cleared, working)
+        }
+        val originals = methodFlags()
+        if (originals.isNotEmpty() && fields.any { it.number == 206 && it.wire == 2 }) {
+            val codec = NormsgMethodCodec(message)
+            val methods = ReportWire.bytes(working, 206)
+            val restored =
+                ReportWire.rewrite(methods) { field ->
+                    val original = originals[field.number]
+                    if (original == null || field.wire != 2) return@rewrite null
+                    val before = methods.copyOfRange(field.data, field.end)
+                    val after = codec.restore(before, original)
+                    if (before.contentEquals(after)) null
+                    else ReportWire.encode(field.number, after)
+                }
+            if (!methods.contentEquals(restored)) {
+                working = ReportWire.replace(working, 206, ReportWire.encode(206, restored))
+            }
         }
         return ReportWire.rewrite(working) { field ->
             when (field.number) {

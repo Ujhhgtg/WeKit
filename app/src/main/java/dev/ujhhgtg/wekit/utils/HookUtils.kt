@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.utils
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
+import dev.ujhhgtg.wekit.loader.environment.MethodAccessFlags
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
@@ -41,8 +42,9 @@ inline val currentHookBridge: IHookBridge
 fun BaseReflectedMethod.hookBeforeDirectly(priority: Int = 50, action: HookAction) =
     self.hookBeforeDirectly(priority, action)
 
-fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookHandle =
-    currentHookBridge.hookMethod(
+fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookHandle {
+    MethodAccessFlags.captureBeforeHook(this)
+    return currentHookBridge.hookMethod(
         this,
         object : HookCallback(priority) {
             override fun beforeHookedMethod(param: HookParam) {
@@ -51,6 +53,7 @@ fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookH
         },
         priority,
     )
+}
 
 fun BaseReflectedMethod.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
     self.hookAfterDirectly(priority, action)
@@ -58,8 +61,9 @@ fun BaseReflectedMethod.hookAfterDirectly(priority: Int = 50, action: HookAction
 fun ReflectedConstructor<*>.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
     self.hookAfterDirectly(priority, action)
 
-fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
-    currentHookBridge.hookMethod(
+fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle {
+    MethodAccessFlags.captureBeforeHook(this)
+    return currentHookBridge.hookMethod(
         this,
         object : HookCallback(priority) {
             override fun afterHookedMethod(param: HookParam) {
@@ -68,11 +72,14 @@ fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHa
         },
         priority,
     )
+}
 
 fun BaseReflectedMethod.hookDirectly(hook: HookCallback): HookHandle = self.hookDirectly(hook)
 
-fun Executable.hookDirectly(hook: HookCallback): HookHandle =
-    currentHookBridge.hookMethod(this, hook, hook.priority)
+fun Executable.hookDirectly(hook: HookCallback): HookHandle {
+    MethodAccessFlags.captureBeforeHook(this)
+    return currentHookBridge.hookMethod(this, hook, hook.priority)
+}
 
 fun HookParam.captureOriginalMethod(): OriginalMethodInvoker {
     val method =

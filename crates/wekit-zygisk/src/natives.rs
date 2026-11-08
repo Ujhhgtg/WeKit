@@ -71,9 +71,14 @@ extern "C" fn jni_allocate_instance(
 }
 
 extern "C" fn jni_hide_loaded_module_libraries(_env: *mut RawJNIEnv, _class: jclass) -> jboolean {
-    let ok = crate::so_hider::hide_path("libwekit_native.so") >= 0
-        && crate::so_hider::hide_path("libwekit_loader.so") >= 0;
-    if ok { JNI_TRUE } else { JNI_FALSE }
+    // Try both libraries even when the first one cannot be completely hidden.
+    let native_hidden = crate::so_hider::hide_path("libwekit_native.so");
+    let loader_hidden = crate::so_hider::hide_path("libwekit_loader.so");
+    if native_hidden && loader_hidden {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
 }
 
 // ── ZygiskEntry JNI implementations ──────────────────────────────────────────

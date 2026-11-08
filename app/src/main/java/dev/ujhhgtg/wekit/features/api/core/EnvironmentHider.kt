@@ -18,6 +18,7 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.loader.environment.EmbeddedOriginApk
 import dev.ujhhgtg.wekit.loader.environment.EnvironmentReportPolicy
+import dev.ujhhgtg.wekit.loader.environment.MethodAccessFlags
 import dev.ujhhgtg.wekit.loader.environment.NormsgCompatibility
 import dev.ujhhgtg.wekit.loader.environment.NormsgReportCodec
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -55,12 +56,12 @@ object EnvironmentHider : ApiFeature() {
         installDebug()
 
         // ClientCheckConsistency
-        // installConsistencyRootIndicator(context.classLoader)
-        // installConsistencyLogging()
-        // installConsistencyCheck(context)
+        installConsistencyRootIndicator(context.classLoader)
+        installConsistencyLogging()
+        installConsistencyCheck(context)
 
         // ClientCheckHook
-        // installReport(context, StartupInfo.modulePath)
+        installReport(context, StartupInfo.modulePath)
         hideNativeLibraries()
 
         WeLogger.i(TAG, "environment hooks installed")
@@ -340,6 +341,7 @@ object EnvironmentHider : ApiFeature() {
                 StartupInfo.payloadEnvironment.bootstrapApk.absolutePath,
                 KnownPaths.moduleRoot.toString(),
                 File(context.noBackupFilesDir, "wekit-loader").absolutePath,
+                MethodAccessFlags::snapshot,
             )
         val codec by lazy { loadCodec(context.applicationInfo, modulePath) }
         val endpoints = findReportEndpoints(context.classLoader)

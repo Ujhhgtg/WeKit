@@ -34,7 +34,7 @@ class NormsgRootCodecTest {
             val decoded = report.decode(changedReport)
             val changed = ReportWire.bytes(decoded, 3)
             assertEquals(root and 7L.inv(), NormsgRootCodec(changed).decode(changed), name)
-            // The user's narrowed scope explicitly leaves method attributes unchanged.
+            // Without a pre-hook flags snapshot, the method attributes remain untouched.
             assertArrayEquals(ReportWire.bytes(message, 206), ReportWire.bytes(changed, 206), name)
             assertArrayEquals(changedReport, report.encode(decoded, changedReport), name)
             assertSame(changedReport, report.rewrite(changedReport, policy), name)
