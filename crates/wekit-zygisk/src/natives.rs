@@ -109,13 +109,18 @@ unsafe fn get_class_loader(env: *mut RawJNIEnv, entry_class: jclass) -> jobject 
     loader
 }
 
-extern "C" fn jni_native_initialize(env: *mut RawJNIEnv, entry: jclass) -> jboolean {
+extern "C" fn jni_native_initialize(env: *mut RawJNIEnv, entry: jobject) -> jboolean {
     unsafe {
         if !crate::art::is_initialized() {
             loge!("Zygisk: ZygiskEntry.nativeInitialize: LSPlant bootstrap did not complete");
             return JNI_FALSE;
         }
-        let loader = get_class_loader(env, entry);
+        let entry_class = ((*(*env)).v1_6.GetObjectClass)(env, entry);
+        if entry_class.is_null() {
+            return JNI_FALSE;
+        }
+        let loader = get_class_loader(env, entry_class);
+        ((*(*env)).v1_6.DeleteLocalRef)(env, entry_class);
         if loader.is_null() {
             return JNI_FALSE;
         }
