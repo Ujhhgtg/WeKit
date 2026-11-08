@@ -18,6 +18,10 @@ import android.widget.Toast
 import androidx.activity.ComponentDialog
 import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.bootstrap.BootstrapCoordinator.beginPendingRefresh
+import dev.ujhhgtg.wekit.bootstrap.BootstrapCoordinator.finishPendingRefresh
+import dev.ujhhgtg.wekit.bootstrap.BootstrapCoordinator.handleDenial
+import dev.ujhhgtg.wekit.bootstrap.BootstrapCoordinator.runPendingRefresh
 import dev.ujhhgtg.wekit.bootstrap.auth.BindingRequest
 import dev.ujhhgtg.wekit.bootstrap.auth.BootstrapApi
 import dev.ujhhgtg.wekit.bootstrap.auth.DeviceMetadata
@@ -987,7 +991,7 @@ object BootstrapCoordinator {
                 mainHandler.post { showMessage() }
             })
         messageDialog = shown
-        shown!!.show()
+        shown.show()
     }
 
     private fun restartHost() {

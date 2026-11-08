@@ -95,6 +95,7 @@ class InstallationStore(application: Application) {
         }
         val info = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
             .getKeySpec(privateKey(state), KeyInfo::class.java)
+        @Suppress("DEPRECATION")
         if (!lowAssurance && !info.isInsideSecureHardware) {
             keyStore.deleteEntry(state.keyAlias)
             error("Hardware-backed Android Keystore is required")
