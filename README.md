@@ -51,6 +51,26 @@
 
 [I-Am-Pad](https://github.com/Houvven/I-Am-Pad)
 
+## 赞助
+
+WeKit Fork 是一个利用业余时间开发和维护的项目。如果你愿意支持本项目，并希望出现在这里，欢迎[创建 Issue](https://github.com/Ujhhgtg/WeKit/issues/new)、通过 [Telegram](https://t.me/+7j5dJ6g16B43OWVl) 联系我，或[发送邮件](mailto:feyxiexzf@gmail.com)。
+
+<table>
+<tr>
+<td width="240" align="center"><a href="https://awsdatas.com"><img src="assets/sponsors/gdcs.jpg" alt="GDCS" width="220"></a></td>
+<td>
+<p><strong>高端GPU显卡服务器直购专区：</strong></p>
+<p><a href="https://gdc-server.com/cart?action=configureproduct&amp;pid=882">https://gdc-server.com/cart?action=configureproduct&amp;pid=882</a></p>
+<p><strong>阿里云/腾讯云/AWS/GCP低至8折代充</strong></p>
+<p>阿里云国际站，50美金起充送账号。充值200$ 送账号并享受 95 折。充值500$ 送账号并享受 9 折，充值1000$ 送账号并享 8 折。</p>
+<p>腾讯云国际站 50美金起充送账号。充值200$ 送账号并享受 95 折。充值500$ 送账号并享受 9 折，充值1000$ 送账号并享 8 折</p>
+<p>AWS亚马逊云代充值，AWS 500美金起充送账号。充值1000$ 送账号并享 98 折。充值2000$送账号并享 96 折，充值5000$ 送账号并享受 95 折。</p>
+<p>GCP谷歌云代充值，GCP 500美金起充送账号。充值1000$ 送账号并享 98 折。充值2000$送账号并享 96 折，充值5000$ 送账号并享受 95 折。</p>
+<p><strong>✈️在线自助充值平台（送账号）</strong><br><a href="https://awsdatas.com">https://awsdatas.com</a></p>
+</td>
+</tr>
+</table>
+
 ---
 
 <p align="center">
