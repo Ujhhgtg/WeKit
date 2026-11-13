@@ -108,6 +108,7 @@ class McpToolProvider(
                     }
 
                     McpTransport.SSE -> {
+                        @Suppress("DEPRECATION")
                         SseClientTransport(
                             httpClient,
                             endpointUrl,
