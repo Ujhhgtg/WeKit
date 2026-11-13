@@ -289,22 +289,14 @@ class WeChatSettingsManager(
     @Suppress("UNCHECKED_CAST")
     fun install() {
         classSettingItemClassesProvider.reflekt().firstMethod().hookAfterDirectly {
-            val originalMap = result as? Map<Any, Any> ?: return@hookAfterDirectly
+            val originalMap = result as Map<String, Set<Class<*>>>
             val mutMap = originalMap.toMutableMap()
+            val settingsClasses = LinkedHashSet(originalMap.getValue("Repairer_Setting"))
 
-            val groupedByPage = registeredItems.groupBy { it.spec.pageClass ?: it.proxyClass }
-            for ((page, items) in groupedByPage) {
-                val classesToAdd = items.map { it.proxyClass }
-                val existingCollection = mutMap[page] as? Collection<Any>
-
-                if (existingCollection != null) {
-                    val updatedSet = LinkedHashSet(existingCollection)
-                    updatedSet.addAll(classesToAdd)
-                    mutMap[page] = updatedSet
-                } else {
-                    mutMap[page] = LinkedHashSet(classesToAdd)
-                }
+            for (item in registeredItems) {
+                settingsClasses.add(item.proxyClass)
             }
+            mutMap["Repairer_Setting"] = settingsClasses
             result = mutMap
         }
 
