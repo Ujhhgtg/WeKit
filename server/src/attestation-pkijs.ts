@@ -321,7 +321,10 @@ export async function refreshAttestation(env: Env): Promise<void> {
   const entries = (status as { entries?: unknown }).entries;
   if (typeof entries !== "object" || entries === null || Array.isArray(entries))
     throw new Error("Invalid official revocations");
-  const snapshot = opaqueId();
+  const current = await env.DB.prepare(
+    "SELECT snapshot_id FROM attestation_current WHERE singleton=1",
+  ).first<{ snapshot_id: string }>();
+  const snapshot = current?.snapshot_id ?? opaqueId();
   const now = Date.now();
   const rootRows: { spkiSha256: string; pem: string }[] = [];
   for (const pem of roots) {
@@ -337,10 +340,6 @@ export async function refreshAttestation(env: Env): Promise<void> {
     )
       throw new Error("Invalid official revocation entry");
   }
-  // A statement per revoked serial exhausts the invocation's D1 query budget.
-  // JSON1 inserts the fully validated snapshot in four statements and one
-  // transaction; a failed bulk insert leaves the old pointer and no partial
-  // snapshot behind. Keep the original dictionary to stay within input bounds.
   const rootsJson = JSON.stringify(rootRows),
     revocationsJson = JSON.stringify(entries);
   if (
@@ -349,20 +348,23 @@ export async function refreshAttestation(env: Env): Promise<void> {
   )
     throw new Error("Attestation snapshot exceeds D1 binding limit");
   await env.DB.batch([
-    env.DB.prepare("INSERT INTO attestation_snapshots VALUES(?,?,?,?)").bind(
-      snapshot,
-      now,
-      await sha(rootsRaw),
-      await sha(statusRaw),
-    ),
     env.DB.prepare(
-      "INSERT INTO attestation_roots SELECT ?,json_extract(value,'$.spkiSha256'),json_extract(value,'$.pem') FROM json_each(?)",
+      "INSERT INTO attestation_snapshots VALUES(?,?,?,?) ON CONFLICT(snapshot_id) DO UPDATE SET fetched_at=excluded.fetched_at,roots_sha256=excluded.roots_sha256,status_sha256=excluded.status_sha256",
+    ).bind(snapshot, now, await sha(rootsRaw), await sha(statusRaw)),
+    env.DB.prepare(
+      "DELETE FROM attestation_roots WHERE snapshot_id=? AND spki_sha256 NOT IN (SELECT json_extract(value,'$.spkiSha256') FROM json_each(?))",
     ).bind(snapshot, rootsJson),
     env.DB.prepare(
-      "INSERT INTO attestation_revocations SELECT ?,key,json_extract(value,'$.status') FROM json_each(?)",
+      "INSERT INTO attestation_roots SELECT ?,json_extract(value,'$.spkiSha256'),json_extract(value,'$.pem') FROM json_each(?) WHERE true ON CONFLICT(snapshot_id,spki_sha256) DO UPDATE SET pem=excluded.pem WHERE pem IS NOT excluded.pem",
+    ).bind(snapshot, rootsJson),
+    env.DB.prepare(
+      "DELETE FROM attestation_revocations WHERE snapshot_id=? AND serial NOT IN (SELECT key FROM json_each(?))",
     ).bind(snapshot, revocationsJson),
     env.DB.prepare(
-      "INSERT INTO attestation_current VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET snapshot_id=excluded.snapshot_id",
+      "INSERT INTO attestation_revocations SELECT ?,key,json_extract(value,'$.status') FROM json_each(?) WHERE true ON CONFLICT(snapshot_id,serial) DO UPDATE SET status=excluded.status WHERE status IS NOT excluded.status",
+    ).bind(snapshot, revocationsJson),
+    env.DB.prepare(
+      "INSERT INTO attestation_current VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET snapshot_id=excluded.snapshot_id WHERE snapshot_id IS NOT excluded.snapshot_id",
     ).bind(snapshot),
   ]);
 }

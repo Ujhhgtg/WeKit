@@ -434,6 +434,9 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
     );
     telegramMembershipFails = false;
     telegramMember = { status: "restricted", is_member: true };
+    const previousUpdates = await db
+      .prepare("SELECT * FROM telegram_updates ORDER BY bot_id,update_id")
+      .all();
     await ok(
       await send(
         bot,
@@ -451,6 +454,27 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
       ),
     );
     assert.match(telegramMessages.at(-1)!.text, /确认绑定这次 WeKit 安装/);
+    assert.deepEqual(
+      (
+        await db
+          .prepare(
+            "SELECT * FROM telegram_updates WHERE update_id!='1' ORDER BY bot_id,update_id",
+          )
+          .all()
+      ).results,
+      previousUpdates.results,
+    );
+    assert.deepEqual(
+      await db
+        .prepare(
+          "SELECT result,binding_session_id FROM telegram_updates WHERE update_id='1'",
+        )
+        .first(),
+      {
+        result: "BINDING_CODE",
+        binding_session_id: registration.bindingSessionId,
+      },
+    );
     telegramMember = { status: "member" };
     await ok(
       await send(
@@ -492,15 +516,47 @@ test("real workerd: registration reuse, Bot approval/claim, publish, authenticat
         data: `bind:${confirmation!.confirm_nonce}`,
       },
     };
+    const beforeConfirmation = await db
+      .prepare("SELECT * FROM telegram_updates ORDER BY bot_id,update_id")
+      .all();
     await ok(
       await send(bot, "https://bot.example/webhook", "POST", update, {
         "x-telegram-bot-api-secret-token": env.TELEGRAM_WEBHOOK_SECRET,
       }),
     );
+    assert.deepEqual(
+      (
+        await db
+          .prepare(
+            "SELECT * FROM telegram_updates WHERE update_id!='2' ORDER BY bot_id,update_id",
+          )
+          .all()
+      ).results,
+      beforeConfirmation.results,
+    );
+    assert.deepEqual(
+      await db
+        .prepare(
+          "SELECT result,binding_session_id FROM telegram_updates WHERE update_id='2'",
+        )
+        .first(),
+      { result: "APPROVED", binding_session_id: registration.bindingSessionId },
+    );
+    const beforeDuplicate = await db
+      .prepare("SELECT * FROM telegram_updates ORDER BY bot_id,update_id")
+      .all();
     await ok(
       await send(bot, "https://bot.example/webhook", "POST", update, {
         "x-telegram-bot-api-secret-token": env.TELEGRAM_WEBHOOK_SECRET,
       }),
+    );
+    assert.deepEqual(
+      (
+        await db
+          .prepare("SELECT * FROM telegram_updates ORDER BY bot_id,update_id")
+          .all()
+      ).results,
+      beforeDuplicate.results,
     );
     const claim = await ok(
       (

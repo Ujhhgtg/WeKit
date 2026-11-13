@@ -101,7 +101,7 @@ export async function webhook(req: Request, env: Env): Promise<Response> {
         `UPDATE enrollment_sessions SET state='APPROVED' WHERE confirm_nonce=? AND candidate_user_id=? AND candidate_chat_id=? AND state='PENDING' AND expires_at>? AND EXISTS(SELECT 1 FROM users u WHERE u.telegram_user_id=candidate_user_id AND u.status='ACTIVE' AND u.auth_epoch=candidate_epoch) AND ${owner} RETURNING binding_session_id`,
       ).bind(confirmation, userId, chatId, now, ...args),
       env.DB.prepare(
-        `UPDATE telegram_updates SET result=CASE WHEN EXISTS(SELECT 1 FROM enrollment_sessions WHERE confirm_nonce=? AND state='APPROVED' AND candidate_user_id=?) THEN 'APPROVED' ELSE 'REJECTED' END,binding_session_id=(SELECT binding_session_id FROM enrollment_sessions WHERE confirm_nonce=?) WHERE ${owner}`,
+        "UPDATE telegram_updates SET result=CASE WHEN EXISTS(SELECT 1 FROM enrollment_sessions WHERE confirm_nonce=? AND state='APPROVED' AND candidate_user_id=?) THEN 'APPROVED' ELSE 'REJECTED' END,binding_session_id=(SELECT binding_session_id FROM enrollment_sessions WHERE confirm_nonce=?) WHERE bot_id=? AND update_id=? AND attempt_id=?",
       ).bind(confirmation, userId, confirmation, ...args),
     ]);
     if (results[0]!.meta.changes === 1) {
@@ -244,7 +244,7 @@ export async function webhook(req: Request, env: Env): Promise<Response> {
       ...args,
     ),
     env.DB.prepare(
-      `UPDATE telegram_updates SET binding_session_id=(SELECT binding_session_id FROM enrollment_sessions WHERE code_hmac=? AND candidate_user_id=?),result='BINDING_CODE' WHERE ${owner}`,
+      "UPDATE telegram_updates SET binding_session_id=(SELECT binding_session_id FROM enrollment_sessions WHERE code_hmac=? AND candidate_user_id=?),result='BINDING_CODE' WHERE bot_id=? AND update_id=? AND attempt_id=?",
     ).bind(codeHash, userId, ...args),
   ]);
   if (results[0]!.meta.changes === 0) return json({ ok: true });
