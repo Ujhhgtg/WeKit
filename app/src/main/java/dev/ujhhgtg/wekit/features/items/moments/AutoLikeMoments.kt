@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.ContentValues
+import android.os.SystemClock
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
@@ -8,8 +9,13 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android._mainHandler
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 object AutoLikeMoments : AutoMomentsBase(),
@@ -25,14 +31,17 @@ object AutoLikeMoments : AutoMomentsBase(),
     override val TAG = "AutoLikeMoments"
 
     private const val RETRY_INTERVAL_MS = 30_000L
+    private const val MIN_ACTION_INTERVAL_MS = 2_000L
+    private const val MAIN_THREAD_TIMEOUT_SECONDS = 10L
 
     private val settings = MomentsAutomationSettings.Like
     private val handledSnsIds = ConcurrentHashMap.newKeySet<String>()
     private val lastAttemptAt = ConcurrentHashMap<String, Long>()
     private val actionLock = Any()
+    private val scanningCachedMoments = AtomicBoolean()
 
     @Volatile
-    private var lastActionSentAt = 0L
+    private var lastActionAttemptAt = 0L
 
     override fun onEnable() {
         startAutomation()
@@ -108,18 +117,23 @@ object AutoLikeMoments : AutoMomentsBase(),
     private fun scanCachedTargetMoments() {
         if (!settings.hasAllLoadedTargets()) return
         val scope = captureAutomationScope() ?: return
+        if (!scanningCachedMoments.compareAndSet(false, true)) return
         thread(name = "ScanMomentsToAutoLikeThread") {
-            if (!isAutomationCurrent(scope)) return@thread
-            val snsIds = runCatching { queryCachedTargetSnsIds(scope) }
-                .onFailure { WeLogger.w(TAG, "failed to query cached target moments", it) }
-                .getOrDefault(emptyList())
+            try {
+                if (!isAutomationCurrent(scope)) return@thread
+                val snsIds = runCatching { queryCachedTargetSnsIds(scope) }
+                    .onFailure { WeLogger.w(TAG, "failed to query cached target moments", it) }
+                    .getOrDefault(emptyList())
 
-            WeLogger.d(TAG, "scanCachedTargetMoments: found ${snsIds.size} cached moments")
-            for (snsId in snsIds) {
-                if (!isAutomationCurrent(scope)) break
-                val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
-                runCatching { processSnsInfo(snsInfo, "cached", scope) }
-                    .onFailure { WeLogger.w(TAG, "auto-like processing failed", it) }
+                WeLogger.d(TAG, "scanCachedTargetMoments: found ${snsIds.size} cached moments")
+                for (snsId in snsIds) {
+                    if (!isAutomationCurrent(scope)) break
+                    val snsInfo = WeMomentsApi.getSnsInfoBySnsId(snsId) ?: continue
+                    runCatching { processSnsInfo(snsInfo, "cached", scope) }
+                        .onFailure { WeLogger.w(TAG, "auto-like processing failed", it) }
+                }
+            } finally {
+                scanningCachedMoments.set(false)
             }
         }
     }
@@ -162,19 +176,20 @@ object AutoLikeMoments : AutoMomentsBase(),
         if (WeMomentsApi.isDeleted(snsInfo)) return
 
         val snsTableId = WeMomentsApi.getSnsTableId(snsInfo) ?: return
-        if (isIntercepted(snsInfo) || snsTableId in handledSnsIds) return
-
         val action = rules.effectiveAction
+        if (isIntercepted(snsInfo) || wasHandled(scope, snsTableId, action)) return
+
+        val handledKey = "${scope.account}:$snsTableId:$action"
         val liked = WeMomentsApi.isLiked(snsInfo)
         if (action == MomentAutomationAction.LIKE && liked) {
-            handledSnsIds.add(snsTableId)
+            handledSnsIds.add(handledKey)
             return
         }
         if (action == MomentAutomationAction.UNLIKE && !liked) {
-            handledSnsIds.add(snsTableId)
+            handledSnsIds.add(handledKey)
             return
         }
-        if (!canAttempt(snsTableId)) return
+        if (!canAttempt(handledKey)) return
 
         val result = sendWithDelay(rules.interval.value()) {
             if (!isAutomationCurrent(scope)) {
@@ -192,13 +207,13 @@ object AutoLikeMoments : AutoMomentsBase(),
                 !matchesPublicationWindow(snsInfo, latestRules.effectiveMode, scope) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "predates activation")
 
-                snsTableId in handledSnsIds ->
+                wasHandled(scope, snsTableId, latestRules.effectiveAction) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "already handled")
 
                 !latestRules.matchesMoment(snsInfo) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "rules changed")
 
-                WeMomentsApi.isDeleted(snsInfo) ->
+                WeMomentsApi.isDeleted(snsInfo) || isIntercepted(snsInfo) ->
                     WeMomentsApi.ActionResult(success = true, sent = false, message = "deleted/recalled")
 
                 latestRules.effectiveAction == MomentAutomationAction.LIKE && WeMomentsApi.isLiked(snsInfo) ->
@@ -210,7 +225,10 @@ object AutoLikeMoments : AutoMomentsBase(),
                 latestRules.effectiveAction == MomentAutomationAction.UNLIKE -> WeMomentsApi.unlike(snsInfo)
                 else -> WeMomentsApi.like(snsInfo)
             }
-            if (outcome.success && isAutomationCurrent(scope)) handledSnsIds.add(snsTableId)
+            // A queued request can still be rejected by the server. Remember dispatches rather
+            // than relying on likeFlag, which remains clear after a failed request and on stale
+            // SnsInfo instances. Do not replay those requests after a refresh or process restart.
+            if (outcome.sent) rememberDispatch(scope, snsTableId, latestRules.effectiveAction)
             outcome
         }
 
@@ -223,11 +241,31 @@ object AutoLikeMoments : AutoMomentsBase(),
     }
 
     private fun canAttempt(snsTableId: String): Boolean = synchronized(lastAttemptAt) {
-        val now = System.currentTimeMillis()
-        val last = lastAttemptAt[snsTableId] ?: 0L
-        if (now - last < RETRY_INTERVAL_MS) return@synchronized false
+        val now = SystemClock.elapsedRealtime()
+        val last = lastAttemptAt[snsTableId]
+        if (last != null && now - last < RETRY_INTERVAL_MS) return@synchronized false
         lastAttemptAt[snsTableId] = now
         true
+    }
+
+    private fun wasHandled(scope: AutomationScope, snsTableId: String, action: MomentAutomationAction): Boolean =
+        "${scope.account}:$snsTableId:$action" in handledSnsIds ||
+                "$snsTableId:$action" in WePrefs.getStringSetOrDef(historyKey(scope), emptySet())
+
+    private fun historyKey(scope: AutomationScope): String = "${technicalId}_dispatched_${scope.account}"
+
+    // Called only from the main-thread action below, so updates to an account's history are serial.
+    private fun rememberDispatch(scope: AutomationScope, snsTableId: String, action: MomentAutomationAction) {
+        val key = historyKey(scope)
+        val history = WePrefs.getStringSetOrDef(key, emptySet()).toMutableSet()
+        // Retain the last dispatched action so switching between like/unlike remains possible.
+        MomentAutomationAction.entries.forEach {
+            history.remove("$snsTableId:$it")
+            handledSnsIds.remove("${scope.account}:$snsTableId:$it")
+        }
+        history.add("$snsTableId:$action")
+        WePrefs.putStringSet(key, history)
+        handledSnsIds.add("${scope.account}:$snsTableId:$action")
     }
 
     private fun processSnsInfoAsync(snsInfo: Any, source: String) {
@@ -242,13 +280,26 @@ object AutoLikeMoments : AutoMomentsBase(),
         delay: Long,
         block: () -> WeMomentsApi.ActionResult
     ): WeMomentsApi.ActionResult = synchronized(actionLock) {
-        if (delay > 0L) {
-            val wait = delay - (System.currentTimeMillis() - lastActionSentAt)
-            if (wait > 0L) Thread.sleep(wait)
+        val wait = delay.coerceAtLeast(MIN_ACTION_INTERVAL_MS) -
+                (SystemClock.elapsedRealtime() - lastActionAttemptAt)
+        if (wait > 0L) Thread.sleep(wait)
+
+        // SnsService mutates cached SNS protobufs. Match WeChat's UI-thread call path so these
+        // writes cannot race SnsCommentDetailUI's size calculation / toByteArray serialization.
+        // Keep the final scope/rule/dedup checks in the same main-thread action as the mutation.
+        val task = FutureTask {
+            block().also {
+                if (it.sent || !it.success) lastActionAttemptAt = SystemClock.elapsedRealtime()
+            }
         }
-        val result = block()
-        if (result.sent) lastActionSentAt = System.currentTimeMillis()
-        result
+        check(_mainHandler.post(task)) { "failed to schedule Moments action" }
+        try {
+            task.get(MAIN_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } finally {
+            // A timed-out queued action must not send later, after the caller has moved on.
+            task.cancel(false)
+            _mainHandler.removeCallbacks(task)
+        }
     }
 
     private fun actionLabel(action: MomentAutomationAction): String =
