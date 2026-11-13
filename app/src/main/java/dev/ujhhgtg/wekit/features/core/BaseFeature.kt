@@ -13,13 +13,13 @@ import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.utils.HookAction
+import dev.ujhhgtg.wekit.utils.HookBuilder
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.hookAfterDirectly
-import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
+import dev.ujhhgtg.wekit.utils.hookDirectly
 import java.lang.reflect.Executable
 import kotlin.reflect.KClass
 
@@ -123,14 +123,26 @@ abstract class BaseFeature {
         unhooks.clear()
     }
 
+    /** Registers one paired callback with feature-owned teardown and error reporting. */
+    fun Executable.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        registerUnhook(hookDirectly(HookBuilder(priority, ::executeHookAction).apply(block)))
+
+    fun BaseReflectedMethod.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        self.hook(priority, block)
+
+    fun ReflectedConstructor<*>.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        self.hook(priority, block)
+
+    fun DexMethodDelegate.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        method.hook(priority, block)
+
+    fun DexConstructorDelegate.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        constructor.hook(priority, block)
+
     // --- hookBefore ---
 
     fun Executable.hookBefore(priority: Int = 50, action: HookAction) =
-        registerUnhook(
-            hookBeforeDirectly(priority) {
-                executeHookAction(this, action)
-            },
-        )
+        hook(priority) { before(action) }
 
     @JvmName("hookBefore2")
     fun BaseReflectedMethod.hookBefore(priority: Int = 50, action: HookAction) =
@@ -157,11 +169,7 @@ abstract class BaseFeature {
     // --- hookAfter ---
 
     fun Executable.hookAfter(priority: Int = 50, action: HookAction) =
-        registerUnhook(
-            hookAfterDirectly(priority) {
-                executeHookAction(this, action)
-            },
-        )
+        hook(priority) { after(action) }
 
     @JvmName("hookAfter2")
     fun BaseReflectedMethod.hookAfter(priority: Int = 50, action: HookAction) =

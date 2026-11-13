@@ -16,11 +16,10 @@ object LxpHookWrapper {
 
     private val EMPTY_CALLBACKS = arrayOfNulls<CallbackWrapper>(0).filterNotNull().toTypedArray()
 
-    private val sNextHookId = AtomicLong(1)
-    private val sHookedMethods: MutableSet<Member> = ConcurrentHashMap.newKeySet()
-    private val sRegistryWriteLock = Any()
+    private val nextHookId = AtomicLong(1)
+    private val registryWriteLock = Any()
 
-    private val sCallbackRegistry =
+    private val callbackRegistry =
         ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Member, CallbackListHolder>>>()
 
     fun interface Hooker : XposedInterface.Hooker {
@@ -33,7 +32,7 @@ object LxpHookWrapper {
         val priority: Int,
     ) {
         @Suppress("unused")
-        val hookId: Long = sNextHookId.getAndIncrement()
+        val hookId: Long = nextHookId.getAndIncrement()
     }
 
     class CallbackListHolder {
@@ -53,13 +52,13 @@ object LxpHookWrapper {
         val handle = UnhookHandle(wrapper, method)
         val declaringClass = method.declaringClass
         val holder: CallbackListHolder
-        synchronized(sRegistryWriteLock) {
-            val taggedCallbackRegistry = sCallbackRegistry.getOrPut(priority) { ConcurrentHashMap() }
+        synchronized(registryWriteLock) {
+            val taggedCallbackRegistry = callbackRegistry.getOrPut(priority) { ConcurrentHashMap() }
             val callbackList = taggedCallbackRegistry.getOrPut(declaringClass) { ConcurrentHashMap() }
             var h = callbackList[method]
             if (h == null) {
                 if (method is Executable) {
-                    val agent = Lsp101HookDispatchAgent(priority)
+                    val agent = LxpHookDispatchAgent(priority)
                     val hookHandle = self!!.hook(method)
                         .setPriority(priority)
                         .setExceptionMode(XposedInterface.ExceptionMode.PASSTHROUGH)
@@ -70,7 +69,7 @@ object LxpHookWrapper {
                 }
                 h = CallbackListHolder()
                 callbackList[method] = h
-                sHookedMethods.add(method)
+                hookedMethodsRaw.add(method)
             }
             holder = h
         }
@@ -94,7 +93,7 @@ object LxpHookWrapper {
     }
 
     fun removeMethodCallback(method: Member, callback: CallbackWrapper) {
-        val taggedCallbackRegistry = sCallbackRegistry[callback.priority] ?: return
+        val taggedCallbackRegistry = callbackRegistry[callback.priority] ?: return
         val callbackList = taggedCallbackRegistry[method.declaringClass] ?: return
         val holder = callbackList[method] ?: return
         synchronized(holder.lock) {
@@ -103,7 +102,7 @@ object LxpHookWrapper {
     }
 
     fun isMethodCallbackRegistered(method: Member, callback: CallbackWrapper): Boolean {
-        val taggedCallbackRegistry = sCallbackRegistry[callback.priority] ?: return false
+        val taggedCallbackRegistry = callbackRegistry[callback.priority] ?: return false
         val callbackList = taggedCallbackRegistry[method.declaringClass] ?: return false
         val holder = callbackList[method] ?: return false
         return holder.callbacks.any { it === callback }
@@ -205,7 +204,7 @@ object LxpHookWrapper {
         }
     }
 
-    class Lsp101HookDispatchAgent(private val mPriority: Int) : Hooker {
+    class LxpHookDispatchAgent(private val mPriority: Int) : Hooker {
 
         private var mHandle: XposedInterface.HookHandle? = null
 
@@ -216,7 +215,7 @@ object LxpHookWrapper {
 
         override fun intercept(chain: XposedInterface.Chain): Any? {
             val executable = chain.executable
-            val taggedCallbackRegistry = sCallbackRegistry[mPriority] ?: return chain.proceed()
+            val taggedCallbackRegistry = callbackRegistry[mPriority] ?: return chain.proceed()
             val callbackList = taggedCallbackRegistry[executable.declaringClass] ?: return chain.proceed()
             val holder = callbackList[executable] ?: return chain.proceed()
             val callbacks = copyCallbacks(holder)
@@ -298,8 +297,8 @@ object LxpHookWrapper {
     }
 
     val hookCounter: Int
-        get() = (sNextHookId.get() - 1).toInt()
+        get() = (nextHookId.get() - 1).toInt()
 
     val hookedMethodsRaw: Set<Member>
-        get() = sHookedMethods
+        field: MutableSet<Member> = ConcurrentHashMap.newKeySet()
 }

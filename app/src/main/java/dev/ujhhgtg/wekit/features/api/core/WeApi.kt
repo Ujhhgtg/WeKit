@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import android.content.Context
+import android.content.Intent
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.android.Intent
@@ -60,11 +61,13 @@ object WeApi {
         }
     }
 
-    fun openMoments(context: Context, wxId: String) {
+    @JvmOverloads
+    fun openMoments(context: Context, wxId: String, configure: Intent.() -> Unit = {}) {
         context.startActivity(
             Intent {
                 setClassName(context.packageName, "${PackageNames.WECHAT}.plugin.sns.ui.SnsUserUI")
                 putExtra("sns_userName", wxId)
+                configure()
             },
         )
     }

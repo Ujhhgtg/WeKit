@@ -26,6 +26,11 @@ interface IHookBridge {
 
         var throwable: Throwable?
 
+        /**
+         * State for this method invocation and callback registration. The same registration's
+         * before/after phases share it; other registrations and recursive invocations do not.
+         * Separate before-only and after-only registrations cannot exchange state through it.
+         */
         var extra: Any?
     }
 

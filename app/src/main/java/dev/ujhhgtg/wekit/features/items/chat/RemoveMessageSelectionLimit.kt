@@ -10,9 +10,6 @@ import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.HookCallback
-import dev.ujhhgtg.wekit.utils.HookParam
-import dev.ujhhgtg.wekit.utils.hookDirectly
 import java.lang.reflect.Field
 import java.util.concurrent.CopyOnWriteArraySet
 
@@ -100,37 +97,34 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
             }
         }
 
-        val hook =
-            object : HookCallback() {
-                override fun beforeHookedMethod(param: HookParam) {
-                    val adapter = param.thisObject ?: return
-                    val message = param.args[0] ?: return
+        WeMessageApi.methodToggleMessageSelection.hook {
+            before {
+                val adapter = thisObject ?: return@before
+                val message = args[0] ?: return@before
 
-                    @Suppress("UNCHECKED_CAST")
-                    val selectedMessages =
-                        selectedMessagesField.get(adapter) as CopyOnWriteArraySet<Any>
-                    if (message in selectedMessages || selectedMessages.size < SELECTION_LIMIT) {
-                        return
-                    }
-
-                    // Let WeChat run its original add and UI refresh path with 99 existing
-                    // selections.
-                    val removed = selectedMessages.take(selectedMessages.size - SELECTION_LIMIT + 1)
-                    selectedMessages.removeAll(removed.toSet())
-                    param.extra = TemporarilyRemovedSelections(selectedMessages, removed)
-                    selectedMessageCountOverride.set(selectedMessages.size + removed.size + 1)
+                @Suppress("UNCHECKED_CAST")
+                val selectedMessages =
+                    selectedMessagesField.get(adapter) as CopyOnWriteArraySet<Any>
+                if (message in selectedMessages || selectedMessages.size < SELECTION_LIMIT) {
+                    return@before
                 }
 
-                override fun afterHookedMethod(param: HookParam) {
-                    val state = param.extra as? TemporarilyRemovedSelections ?: return
-                    val remainingAndNew = state.selectedMessages.toList()
-                    state.selectedMessages.clear()
-                    state.selectedMessages.addAll(state.removed)
-                    state.selectedMessages.addAll(remainingAndNew)
-                    selectedMessageCountOverride.remove()
-                }
+                // Let WeChat run its original add and UI refresh path with 99 existing
+                // selections.
+                val removed = selectedMessages.take(selectedMessages.size - SELECTION_LIMIT + 1)
+                selectedMessages.removeAll(removed.toSet())
+                extra = TemporarilyRemovedSelections(selectedMessages, removed)
+                selectedMessageCountOverride.set(selectedMessages.size + removed.size + 1)
             }
 
-        registerUnhook(WeMessageApi.methodToggleMessageSelection.method.hookDirectly(hook))
+            after {
+                val state = extra as? TemporarilyRemovedSelections ?: return@after
+                val remainingAndNew = state.selectedMessages.toList()
+                state.selectedMessages.clear()
+                state.selectedMessages.addAll(state.removed)
+                state.selectedMessages.addAll(remainingAndNew)
+                selectedMessageCountOverride.remove()
+            }
+        }
     }
 }

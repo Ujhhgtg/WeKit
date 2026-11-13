@@ -1114,10 +1114,20 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
         .join("toolchains/llvm/prebuilt")
         .join(host_prebuilt_tag()?)
         .join("bin/llvm-strip");
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let tooling = zygisk_dir(root);
     for abi in resolve_abis(abi_names)? {
         // The package release profile retains symbols; only the packaged copy is stripped.
-        run_cargo(
+        run_cmd(
+            "uv",
             &[
+                "run",
+                "--locked",
+                "--project",
+                &tooling.to_string_lossy(),
+                "--group",
+                "build",
+                &cargo,
                 "build",
                 "--locked",
                 "-p",

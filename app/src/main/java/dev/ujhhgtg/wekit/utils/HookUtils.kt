@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.utils
 
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
+import dev.ujhhgtg.wekit.dex.dsl.DexConstructorDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.environment.MethodAccessFlags
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
@@ -15,13 +17,37 @@ typealias HookHandle = IHookBridge.MemberUnhookHandle
 typealias HookAction = HookParam.() -> Unit
 
 abstract class HookCallback(val priority: Int = 50) : IHookBridge.IMemberHookCallback {
-    protected open fun beforeHookedMethod(param: HookParam) {}
+    override fun beforeHookedMember(param: HookParam) {}
 
-    protected open fun afterHookedMethod(param: HookParam) {}
+    override fun afterHookedMember(param: HookParam) {}
+}
 
-    override fun beforeHookedMember(param: HookParam) = beforeHookedMethod(param)
+@DslMarker annotation class HookDsl
 
-    override fun afterHookedMember(param: HookParam) = afterHookedMethod(param)
+/** Configures one registration whose before/after phases share [HookParam.extra] per invocation. */
+@HookDsl
+class HookBuilder(
+    priority: Int = 50,
+    private val executeAction: (HookParam, HookAction) -> Unit = { param, action -> action(param) },
+) : HookCallback(priority) {
+    private var beforeAction: HookAction? = null
+    private var afterAction: HookAction? = null
+
+    fun before(action: HookAction) {
+        beforeAction = action
+    }
+
+    fun after(action: HookAction) {
+        afterAction = action
+    }
+
+    override fun beforeHookedMember(param: HookParam) {
+        beforeAction?.let { executeAction(param, it) }
+    }
+
+    override fun afterHookedMember(param: HookParam) {
+        afterAction?.let { executeAction(param, it) }
+    }
 }
 
 class OriginalMethodInvoker(
@@ -42,18 +68,8 @@ inline val currentHookBridge: IHookBridge
 fun BaseReflectedMethod.hookBeforeDirectly(priority: Int = 50, action: HookAction) =
     self.hookBeforeDirectly(priority, action)
 
-fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookHandle {
-    MethodAccessFlags.captureBeforeHook(this)
-    return currentHookBridge.hookMethod(
-        this,
-        object : HookCallback(priority) {
-            override fun beforeHookedMethod(param: HookParam) {
-                action(param)
-            }
-        },
-        priority,
-    )
-}
+fun Executable.hookBeforeDirectly(priority: Int = 50, action: HookAction): HookHandle =
+    hookDirectly(priority) { before(action) }
 
 fun BaseReflectedMethod.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
     self.hookAfterDirectly(priority, action)
@@ -61,18 +77,30 @@ fun BaseReflectedMethod.hookAfterDirectly(priority: Int = 50, action: HookAction
 fun ReflectedConstructor<*>.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
     self.hookAfterDirectly(priority, action)
 
-fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle {
-    MethodAccessFlags.captureBeforeHook(this)
-    return currentHookBridge.hookMethod(
-        this,
-        object : HookCallback(priority) {
-            override fun afterHookedMethod(param: HookParam) {
-                action(param)
-            }
-        },
-        priority,
-    )
-}
+fun Executable.hookAfterDirectly(priority: Int = 50, action: HookAction): HookHandle =
+    hookDirectly(priority) { after(action) }
+
+/** Registers both phases together; the caller owns the returned unhook handle. */
+fun Executable.hookDirectly(priority: Int = 50, block: HookBuilder.() -> Unit): HookHandle =
+    hookDirectly(HookBuilder(priority).apply(block))
+
+fun BaseReflectedMethod.hookDirectly(
+    priority: Int = 50,
+    block: HookBuilder.() -> Unit,
+): HookHandle = self.hookDirectly(priority, block)
+
+fun ReflectedConstructor<*>.hookDirectly(
+    priority: Int = 50,
+    block: HookBuilder.() -> Unit,
+): HookHandle = self.hookDirectly(priority, block)
+
+fun DexMethodDelegate.hookDirectly(priority: Int = 50, block: HookBuilder.() -> Unit): HookHandle =
+    method.hookDirectly(priority, block)
+
+fun DexConstructorDelegate.hookDirectly(
+    priority: Int = 50,
+    block: HookBuilder.() -> Unit,
+): HookHandle = constructor.hookDirectly(priority, block)
 
 fun BaseReflectedMethod.hookDirectly(hook: HookCallback): HookHandle = self.hookDirectly(hook)
 

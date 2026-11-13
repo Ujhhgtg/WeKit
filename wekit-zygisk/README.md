@@ -193,10 +193,12 @@ uv run --locked --project wekit-zygisk --group test python crates/wekit-native-c
 Python tooling dependencies are declared in `pyproject.toml` and pinned in
 `uv.lock`: the `test` group provides Unicorn, and the `build` group provides
 CMake and Ninja. uv creates and manages `wekit-zygisk/.venv` automatically.
-To make the pinned build tools available to the native build, run:
+The bootstrap build and install commands run the Zygisk Cargo build through
+this locked build environment, so they require uv. It makes the pinned CMake
+and Ninja available automatically:
 
 ```sh
-uv run --locked --project wekit-zygisk --group build ./x bootstrap build --native-only
+./x bootstrap build --native-only
 ```
 
 The Unicorn suite builds the production Rust emitter's Cargo driver once with

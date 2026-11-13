@@ -126,7 +126,7 @@ object ArtHookBridgeRuntime {
         private var resultValue: Any? = null
         private var throwableValue: Throwable? = null
         var resultSet: Boolean = false
-        // Legacy Xposed gives each callback registration its own extra slot.
+        // IHookBridge gives each invocation and callback registration its own extra slot.
         // IdentityHashMap is intentional: two registrations may wrap the same
         // callback object but must still not share state.
         private val callbackExtras = IdentityHashMap<PrioritizedCallback, Any?>()
