@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.ui.content.contacts
 
 import android.icu.text.Transliterator
-import android.os.Build
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -12,16 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
  * 按首字符缓存后主线程基本只是查表。
  */
 class ContactInitials {
-    private val transliterator: Transliterator? =
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Transliterator.getInstance("Han-Latin; Any-Latin; Latin-ASCII")
-            } else {
-                null
-            }
-        } catch (_: Exception) {
-            null
-        }
+    private val transliterator = Transliterator.getInstance("Han-Latin; Any-Latin; Latin-ASCII")
 
     private val cache = ConcurrentHashMap<Char, String>()
 
@@ -37,7 +27,7 @@ class ContactInitials {
         val initial =
             if (upper in 'A'..'Z') {
                 upper.toString()
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && transliterator != null) {
+            } else {
                 // ICU Transliterator 不是线程安全的, 预热协程与主线程可能同时进来。
                 val pinyin =
                     synchronized(transliterator) {
@@ -45,8 +35,6 @@ class ContactInitials {
                     }
                 val c = pinyin.firstOrNull()?.uppercaseChar() ?: '#'
                 if (c in 'A'..'Z') c.toString() else "#"
-            } else {
-                "#"
             }
         cache[firstChar] = initial
         return initial

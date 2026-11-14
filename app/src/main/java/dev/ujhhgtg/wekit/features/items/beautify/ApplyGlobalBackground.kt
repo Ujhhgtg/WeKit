@@ -361,9 +361,7 @@ object ApplyGlobalBackground : ClickableFeature() {
             val decor = window.decorView as? ViewGroup ?: return
 
             window.statusBarColor = Color.TRANSPARENT
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                window.isStatusBarContrastEnforced = false
-            }
+            window.isStatusBarContrastEnforced = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 window.setDecorFitsSystemWindows(false)
             } else {

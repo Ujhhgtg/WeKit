@@ -405,9 +405,9 @@ object MonetEngine : ClickableFeature() {
     private fun colorSource(state: ThemeState): (String) -> Int? =
         if (state.source == SOURCE_SYSTEM) {
             { name ->
-                HostInfo.application.resources
-                    .getIdentifier(name, "color", "android")
-                    .takeIf { it != 0 }
+                HostInfo.application.resources.getIdentifier(name, "color", "android").takeIf {
+                    it != 0
+                }
             }
         } else {
             seedColors(state.seed)

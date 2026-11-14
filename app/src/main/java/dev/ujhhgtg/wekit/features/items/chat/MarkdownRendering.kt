@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Typeface
 import android.graphics.text.LineBreaker
-import android.os.Build
 import android.text.Html
 import android.text.Layout
 import android.text.SpannableStringBuilder
@@ -262,7 +261,7 @@ object MarkdownRendering : ClickableFeature() {
     private fun isNativeRendererCandidate(msg: Any): Boolean {
         val fields = messageFields
         return fields.type.getInt(msg) == WECHAT_TEXT_MESSAGE_TYPE &&
-            !(fields.content.get(msg) as String).isBlank()
+            (fields.content.get(msg) as String).isNotBlank()
     }
 
     private fun nativeMarkdownContent(msg: Any): String {
@@ -444,11 +443,7 @@ object MarkdownRendering : ClickableFeature() {
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(0f, 1.1f)
             .setIncludePad(true)
-            .apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
-                }
-            }
+            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .build()
 

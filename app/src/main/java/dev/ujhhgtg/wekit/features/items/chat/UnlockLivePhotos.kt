@@ -35,8 +35,8 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.motion_photo.WeKitLivePhotoBackend
-import org.json.JSONObject
 import java.lang.reflect.Modifier
+import org.json.JSONObject
 
 /** Supplies the missing local media adapter while retaining WeChat's validation and remux. */
 object UnlockLivePhotos : ClickableFeature() {

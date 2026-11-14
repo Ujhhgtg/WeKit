@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
-import android.os.Build
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -78,9 +77,8 @@ object ExternalSharingEvolved : ClickableFeature() {
                             putExtra("Intent_Direct_Share", true)
                         },
                     )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                builder.setPerson(contact).setLongLived(true)
-            }
+                    .setPerson(contact)
+                    .setLongLived(true)
             // 提示：如果需要展示真实头像，可以使用 Icon.createWithAdaptiveBitmap() 加载本地域名下的头像文件缓存
             builder.build()
         }

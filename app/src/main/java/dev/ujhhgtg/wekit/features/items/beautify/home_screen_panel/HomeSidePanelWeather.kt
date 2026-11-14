@@ -397,17 +397,13 @@ private const val WEATHER_ENDPOINT = "https://weatherapi.market.xiaomi.com/wtr-v
 private const val WEATHER_SIGN = "zUFJoAR2ZVrDy1vF3D07"
 private const val WEATHER_APP_KEY = "weather20151024"
 
-private val cityQueryTransliterator: Transliterator? by lazy {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        Transliterator.getInstance("Han-Latin; Latin-ASCII")
-    } else {
-        null
-    }
-}
+private val cityQueryTransliterator = Transliterator.getInstance("Han-Latin; Latin-ASCII")
 
 @SuppressLint("NewApi") // guarded by cityQueryTransliterator
 private fun transliterateCityQuery(value: String): String =
-    cityQueryTransliterator?.let { synchronized(it) { it.transliterate(value) } } ?: value
+    synchronized(cityQueryTransliterator) {
+        cityQueryTransliterator.transliterate(value)
+    }
 
 class HomeSidePanelCityMatcher(
     private val cities: List<WeatherCity>,

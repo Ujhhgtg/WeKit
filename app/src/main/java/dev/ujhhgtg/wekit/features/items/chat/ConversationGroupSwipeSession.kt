@@ -137,7 +137,8 @@ class ConversationGroupSwipeSession(
     val defersHomeSidePanel: Boolean
         get() =
             !cancellingHost &&
-                (discardTouchStream || !replayingEvents && deferredEvents.isNotEmpty() ||
+                (discardTouchStream ||
+                    !replayingEvents && deferredEvents.isNotEmpty() ||
                     !immediateAbort &&
                         (phase != Phase.IDLE ||
                             gesture.owner == ConversationGroupSwipeState.Owner.PENDING ||
