@@ -509,7 +509,7 @@
     <string name="feature_custom_message_bubbles_name">Custom message bubble</string>
     <string name="feature_custom_message_bubbles_description">Customize message bubble images and colors in chat</string>
     <string name="feature_disable_home_screen_recents_page_name">Disable home-screen Recent page</string>
-    <string name="feature_disable_home_screen_recents_page_description">Disable pull-down and other ways of opening the home-screen Recent page. Restart WeChat after changing this setting.</string>
+    <string name="feature_disable_home_screen_recents_page_description">Disable pull-down and other ways of opening the home-screen Recent page</string>
     <string name="feature_hide_me_tab_page_items_name">Simplify the Me page</string>
     <string name="feature_hide_me_tab_page_items_description">Streamline some components of my page</string>
     <string name="feature_hide_other_devices_banner_name">Hide other device banners</string>

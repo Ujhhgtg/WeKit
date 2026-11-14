@@ -471,7 +471,7 @@
     <string name="feature_custom_message_bubbles_name">自定義消息氣泡</string>
     <string name="feature_custom_message_bubbles_description">自定義聊天中的消息氣泡圖片和顏色</string>
     <string name="feature_disable_home_screen_recents_page_name">停用主頁「最近」頁</string>
-    <string name="feature_disable_home_screen_recents_page_description">停用下拉及其他開啓主頁「最近」頁的方式，修改後重啓微信生效</string>
+    <string name="feature_disable_home_screen_recents_page_description">停用下拉及其他開啓主頁「最近」頁的方式</string>
     <string name="feature_hide_me_tab_page_items_name">「我」頁面精簡</string>
     <string name="feature_hide_me_tab_page_items_description">精簡我的頁面的部分組件</string>
     <string name="feature_hide_other_devices_banner_name">隱藏其他設備橫幅</string>
