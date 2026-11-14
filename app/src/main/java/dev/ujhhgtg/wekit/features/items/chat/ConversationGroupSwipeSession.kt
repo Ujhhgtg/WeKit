@@ -137,8 +137,7 @@ class ConversationGroupSwipeSession(
     val defersHomeSidePanel: Boolean
         get() =
             !cancellingHost &&
-                (discardTouchStream ||
-                    (!replayingEvents && deferredEvents.isNotEmpty()) ||
+                (discardTouchStream || !replayingEvents && deferredEvents.isNotEmpty() ||
                     !immediateAbort &&
                         (phase != Phase.IDLE ||
                             gesture.owner == ConversationGroupSwipeState.Owner.PENDING ||
@@ -453,7 +452,7 @@ class ConversationGroupSwipeSession(
                         restoreOrigin()
                     } else {
                         phase = Phase.DRAGGING
-                        transition!!.setIncomingReady(true)
+                        if (!transition!!.setIncomingReady(true)) return@restoreScrollPosition
                         publishVisual(progress)
                         pendingSettlement?.let(::settle)
                     }

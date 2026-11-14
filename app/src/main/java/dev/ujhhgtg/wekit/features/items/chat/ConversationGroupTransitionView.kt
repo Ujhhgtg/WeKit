@@ -3,16 +3,16 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Picture
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.graphics.createBitmap
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlin.math.roundToInt
 
 /**
  * A temporary sibling of the native conversation list. The outgoing page is captured once; the
- * incoming page is drawn from the same native list after its new group has finished binding. The
+ * incoming page is captured after the same native list has finished binding its new group. The
  * caller owns gesture arbitration, data readiness, positioning after layout, and removal.
  */
 class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.context) {
@@ -32,20 +32,22 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
 
     private val sourceLocation = IntArray(2)
     private val parentLocation = IntArray(2)
-    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    private var outgoingBitmap: Bitmap? = null
+    private var outgoingPage: PageSnapshot? = null
+    private var incomingPage: PageSnapshot? = null
+    private var pageWidth = 0
+    private var pageHeight = 0
     private var originalAlpha = 1f
     private var direction = 1
     private var progress = 0f
     private var incomingIsReady = false
 
     val isActive: Boolean
-        get() = outgoingBitmap != null
+        get() = outgoingPage != null
 
     val incomingReady: Boolean
         get() = incomingIsReady
 
-    /** Called after restoring the source and releasing the capture when live drawing fails. */
+    /** Called after restoring the source and releasing the captures when drawing fails. */
     var onDrawingFailed: ((Throwable) -> Unit)? = null
 
     init {
@@ -70,27 +72,18 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         }
         if (!alignToSource()) return BeginResult.SourceNotReady
 
-        val bitmap =
+        val page =
             try {
-                createBitmap(sourceView.width, sourceView.height)
+                captureSource(sourceView.alpha)
+            } catch (error: RuntimeException) {
+                return BeginResult.CaptureFailed(error)
             } catch (error: OutOfMemoryError) {
                 return BeginResult.AllocationFailed(error)
-            } catch (error: IllegalArgumentException) {
-                return BeginResult.AllocationFailed(error)
             }
-        try {
-            drawSource(Canvas(bitmap))
-        } catch (error: RuntimeException) {
-            bitmap.recycle()
-            return BeginResult.CaptureFailed(error)
-        } catch (error: OutOfMemoryError) {
-            bitmap.recycle()
-            return BeginResult.CaptureFailed(error)
-        }
-
         originalAlpha = sourceView.alpha
-        bitmapPaint.alpha = (originalAlpha * 255f).roundToInt().coerceIn(0, 255)
-        outgoingBitmap = bitmap
+        outgoingPage = page
+        pageWidth = sourceView.width
+        pageHeight = sourceView.height
         incomingIsReady = false
         direction = 1
         progress = 0f
@@ -101,10 +94,26 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
     }
 
     /** Preparing a group keeps the original frozen page stationary until the real list is ready. */
-    fun setIncomingReady(ready: Boolean) {
-        if (!isActive || incomingReady == ready) return
+    fun setIncomingReady(ready: Boolean): Boolean {
+        if (!isActive) return false
+        if (incomingReady == ready) return true
+        if (ready) {
+            try {
+                incomingPage = captureSource(originalAlpha)
+            } catch (error: RuntimeException) {
+                drawingFailed(error)
+                return false
+            } catch (error: OutOfMemoryError) {
+                drawingFailed(error)
+                return false
+            }
+        } else {
+            incomingPage?.release()
+            incomingPage = null
+        }
         incomingIsReady = ready
         invalidate()
+        return true
     }
 
     /** [direction] is +1 for the next group (pages move left), or -1 for the previous group. */
@@ -127,11 +136,7 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         if (parentView !== sourceView.parent || sourceView.width <= 0 || sourceView.height <= 0) {
             return false
         }
-        val bitmap = outgoingBitmap
-        if (
-            bitmap != null &&
-                (bitmap.width != sourceView.width || bitmap.height != sourceView.height)
-        ) {
+        if (isActive && (pageWidth != sourceView.width || pageHeight != sourceView.height)) {
             // A frozen capture cannot represent a resized source; the controller must cancel it.
             return false
         }
@@ -157,22 +162,22 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val bitmap = outgoingBitmap ?: return
+        val page = outgoingPage ?: return
         if (!incomingReady) {
-            canvas.drawBitmap(bitmap, 0f, 0f, bitmapPaint)
+            page.draw(canvas)
             return
         }
 
-        val pageWidth = bitmap.width.toFloat()
-        val pageHeight = bitmap.height.toFloat()
-        val outgoingX = -direction * progress * pageWidth
-        val incomingX = direction * (1f - progress) * pageWidth
+        val width = pageWidth.toFloat()
+        val height = pageHeight.toFloat()
+        val outgoingX = -direction * progress * width
+        val incomingX = direction * (1f - progress) * width
         val outgoingSave = canvas.save()
         try {
-            canvas.clipRect(0f, 0f, pageWidth, pageHeight)
+            canvas.clipRect(0f, 0f, width, height)
             canvas.translate(outgoingX, 0f)
-            canvas.clipRect(0f, 0f, pageWidth, pageHeight)
-            canvas.drawBitmap(bitmap, 0f, 0f, bitmapPaint)
+            canvas.clipRect(0f, 0f, width, height)
+            page.draw(canvas)
         } finally {
             canvas.restoreToCount(outgoingSave)
         }
@@ -181,13 +186,10 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         val incomingSave = canvas.save()
         var failure: Throwable? = null
         try {
-            canvas.clipRect(0f, 0f, pageWidth, pageHeight)
+            canvas.clipRect(0f, 0f, width, height)
             canvas.translate(incomingX, 0f)
-            canvas.clipRect(0f, 0f, pageWidth, pageHeight)
-            if (bitmapPaint.alpha < 255) {
-                canvas.saveLayerAlpha(0f, 0f, pageWidth, pageHeight, bitmapPaint.alpha)
-            }
-            drawSource(canvas)
+            canvas.clipRect(0f, 0f, width, height)
+            incomingPage!!.draw(canvas)
         } catch (error: RuntimeException) {
             failure = error
         } catch (error: OutOfMemoryError) {
@@ -195,11 +197,13 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         } finally {
             canvas.restoreToCount(incomingSave)
         }
-        failure?.let { error ->
-            finish()
-            WeLogger.e(TAG, "conversation group transition drawing failed", error)
-            onDrawingFailed?.invoke(error)
-        }
+        failure?.let(::drawingFailed)
+    }
+
+    private fun drawingFailed(error: Throwable) {
+        finish()
+        WeLogger.e(TAG, "conversation group transition drawing failed", error)
+        onDrawingFailed?.invoke(error)
     }
 
     private fun drawSource(canvas: Canvas) {
@@ -217,15 +221,31 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
         }
     }
 
+    private fun captureSource(alpha: Float): PageSnapshot {
+        val picture = Picture()
+        val canvas = picture.beginRecording(sourceView.width, sourceView.height)
+        try {
+            drawSource(canvas)
+        } finally {
+            picture.endRecording()
+        }
+        val bitmap = Bitmap.createBitmap(picture)
+        return PageSnapshot(bitmap, alpha)
+    }
+
     /** Restores visibility for both completion and cancellation; the caller restores group data. */
     fun finish() {
-        val bitmap = outgoingBitmap ?: return
-        outgoingBitmap = null
+        val page = outgoingPage ?: return
+        outgoingPage = null
         incomingIsReady = false
         progress = 0f
         visibility = INVISIBLE
         sourceView.alpha = originalAlpha
-        bitmap.recycle()
+        page.release()
+        incomingPage?.release()
+        incomingPage = null
+        pageWidth = 0
+        pageHeight = 0
         invalidate()
     }
 
@@ -239,6 +259,33 @@ class ConversationGroupTransitionView(val sourceView: View) : View(sourceView.co
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean = false
+
+    private class PageSnapshot(private val bitmap: Bitmap, alpha: Float) {
+        private var softwareBitmap: Bitmap? = null
+        private val paint =
+            Paint(Paint.FILTER_BITMAP_FLAG).apply {
+                this.alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
+            }
+
+        fun draw(canvas: Canvas) {
+            val drawableBitmap =
+                if (canvas.isHardwareAccelerated) {
+                    bitmap
+                } else {
+                    softwareBitmap
+                        ?: bitmap.copy(Bitmap.Config.ARGB_8888, false)!!.also {
+                            softwareBitmap = it
+                        }
+                }
+            canvas.drawBitmap(drawableBitmap, 0f, 0f, paint)
+        }
+
+        fun release() {
+            bitmap.recycle()
+            softwareBitmap?.recycle()
+            softwareBitmap = null
+        }
+    }
 
     private companion object {
         const val TAG = "ConversationGroupTransitionView"
