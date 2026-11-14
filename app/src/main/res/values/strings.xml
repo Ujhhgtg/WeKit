@@ -465,10 +465,19 @@
     <string name="batch_manage_moments_select_all">Select all loaded</string>
     <string name="batch_manage_moments_nothing_selected">Select at least one post</string>
     <string name="batch_manage_moments_confirm_title">Delete selected posts?</string>
-    <plurals name="batch_manage_moments_confirm_message"><item quantity="one">Delete the %1$d selected post? Posts that have not been loaded yet are not affected. This cannot be undone.</item><item quantity="other">Delete the %1$d selected posts? Posts that have not been loaded yet are not affected. This cannot be undone.</item></plurals>
+    <plurals name="batch_manage_moments_confirm_message"><item quantity="one">Delete the %1$d selected, loaded post. Older posts loaded later are outside this batch.</item><item quantity="other">Delete the %1$d selected, loaded posts. Older posts loaded later are outside this batch.</item></plurals>
+    <plurals name="batch_manage_moments_delete_count"><item quantity="one">Delete %1$d post</item><item quantity="other">Delete %1$d posts</item></plurals>
+    <string name="batch_manage_moments_delete_warning">This cannot be undone. Deletion exits selection mode and processes posts one at a time.</string>
+    <string name="batch_manage_moments_cancel_title">Finishing the current post</string>
+    <string name="batch_manage_moments_current_post">Processing: %1$s · %2$s</string>
+    <string name="batch_manage_moments_between_posts">Waiting for the next post</string>
+    <string name="batch_manage_moments_wait_current">Waiting for current post</string>
+    <string name="batch_manage_moments_summary_description">The Moments list will refresh when you close the results.</string>
+    <string name="batch_manage_moments_success_short">Succeeded</string>
+    <string name="batch_manage_moments_skipped_count">Not processed: %1$d</string>
+    <string name="batch_manage_moments_type_result">%1$d total · %2$d succeeded</string>
     <string name="batch_manage_moments_progress_title">Deleting Moments</string>
     <string name="batch_manage_moments_progress">Processed %1$d / %2$d</string>
-    <string name="batch_manage_moments_canceling">Stopping after the current post finishes…</string>
     <string name="batch_manage_moments_summary_title">Deletion finished</string>
     <string name="batch_manage_moments_summary_title_canceled">Deletion canceled</string>
     <string name="batch_manage_moments_summary_total">Total</string>
@@ -499,8 +508,8 @@
     <string name="feature_center_profile_card_description">Data card in the center of the "Me" interface</string>
     <string name="feature_custom_message_bubbles_name">Custom message bubble</string>
     <string name="feature_custom_message_bubbles_description">Customize message bubble images and colors in chat</string>
-    <string name="feature_hide_home_screen_swipe_down_page_name">Hide home-screen Recent page</string>
-    <string name="feature_hide_home_screen_swipe_down_page_description">Disable homepage slide-down function</string>
+    <string name="feature_disable_home_screen_recents_page_name">Disable home-screen Recent page</string>
+    <string name="feature_disable_home_screen_recents_page_description">Disable pull-down and other ways of opening the home-screen Recent page. Restart WeChat after changing this setting.</string>
     <string name="feature_hide_me_tab_page_items_name">Simplify the Me page</string>
     <string name="feature_hide_me_tab_page_items_description">Streamline some components of my page</string>
     <string name="feature_hide_other_devices_banner_name">Hide other device banners</string>

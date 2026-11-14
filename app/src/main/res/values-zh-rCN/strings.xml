@@ -429,10 +429,19 @@
     <string name="batch_manage_moments_select_all">全选已加载</string>
     <string name="batch_manage_moments_nothing_selected">请至少选择一条朋友圈</string>
     <string name="batch_manage_moments_confirm_title">删除所选朋友圈？</string>
-    <plurals name="batch_manage_moments_confirm_message"><item quantity="other">确定要删除选中的 %1$d 条朋友圈吗？尚未加载的更早内容不受影响。此操作不可逆！</item></plurals>
+    <plurals name="batch_manage_moments_confirm_message"><item quantity="other">将删除已选中的 %1$d 条已加载朋友圈。向下滚动后加载的更早内容不在本次范围内。</item></plurals>
+    <plurals name="batch_manage_moments_delete_count"><item quantity="other">删除 %1$d 条</item></plurals>
+    <string name="batch_manage_moments_delete_warning">此操作不可撤销。确认后会退出多选模式，并逐条执行删除。</string>
+    <string name="batch_manage_moments_cancel_title">正在收尾</string>
+    <string name="batch_manage_moments_current_post">正在处理：%1$s · %2$s</string>
+    <string name="batch_manage_moments_between_posts">正在等待处理下一条</string>
+    <string name="batch_manage_moments_wait_current">等待当前项完成</string>
+    <string name="batch_manage_moments_summary_description">关闭结果后将刷新朋友圈列表。</string>
+    <string name="batch_manage_moments_success_short">成功</string>
+    <string name="batch_manage_moments_skipped_count">未处理：%1$d 条</string>
+    <string name="batch_manage_moments_type_result">%1$d 条 · %2$d 成功</string>
     <string name="batch_manage_moments_progress_title">正在删除朋友圈</string>
     <string name="batch_manage_moments_progress">已处理 %1$d / %2$d</string>
-    <string name="batch_manage_moments_canceling">正在取消，完成当前这条后停止…</string>
     <string name="batch_manage_moments_summary_title">删除完成</string>
     <string name="batch_manage_moments_summary_title_canceled">删除已取消</string>
     <string name="batch_manage_moments_summary_total">总数</string>
@@ -463,8 +472,8 @@
     <string name="feature_center_profile_card_description">居中「我」界面的资料卡</string>
     <string name="feature_custom_message_bubbles_name">自定义消息气泡</string>
     <string name="feature_custom_message_bubbles_description">自定义聊天中的消息气泡图片和颜色</string>
-    <string name="feature_hide_home_screen_swipe_down_page_name">隐藏主页下滑「最近」页</string>
-    <string name="feature_hide_home_screen_swipe_down_page_description">禁用主页下滑功能</string>
+    <string name="feature_disable_home_screen_recents_page_name">禁用主页「最近」页</string>
+    <string name="feature_disable_home_screen_recents_page_description">禁用下拉及其他打开主页「最近」页的方式，修改后重启微信生效</string>
     <string name="feature_hide_me_tab_page_items_name">「我」页面精简</string>
     <string name="feature_hide_me_tab_page_items_description">精简我的页面的部分组件</string>
     <string name="feature_hide_other_devices_banner_name">隐藏其他设备横幅</string>

@@ -24,19 +24,29 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.children
 import androidx.core.view.isVisible
@@ -62,19 +72,20 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 
 object BatchManageMoments : ClickableFeature(), IResolveDex {
     override val technicalId = "批量管理朋友圈"
@@ -584,7 +595,7 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
             val targets =
                 loadedPosts()
                     .filter { it.isDeletable && it.field_snsId in selected }
-                    .map { Target(it.field_snsId, it.snsId, it.kind) }
+                    .map { Target(it.field_snsId, it.snsId, it.kind, it.field_createTime) }
             if (targets.isEmpty()) {
                 showToast(localizedString(R.string.batch_manage_moments_nothing_selected))
                 return
@@ -632,7 +643,6 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
         private val date =
             TextView(context).apply {
                 textSize = 12f
-                setTextColor(currentTextColor and 0x00FFFFFF or 0x99000000.toInt())
             }
 
         private val checkBox =
@@ -685,6 +695,13 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
                 )
             if (!deletable) return
             val proto = WeMomentsApi.getTimelineProto(post)!!
+            val textColors =
+                resources.getColorStateList(
+                    hostResource("BW_0_Alpha_0_9", "color"),
+                    context.theme,
+                )
+            title.setTextColor(textColors)
+            date.setTextColor(textColors)
             title.text =
                 proto.contentDesc?.takeIf { it.isNotBlank() }
                     ?: proto.contentObj?.title?.takeIf { it.isNotBlank() }
@@ -731,7 +748,12 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
         SUMMARY,
     }
 
-    private class Target(val snsId: Long, val snsIdText: String, val kind: MomentKind) {
+    private class Target(
+        val snsId: Long,
+        val snsIdText: String,
+        val kind: MomentKind,
+        val createTime: Int,
+    ) {
         var outcome by mutableStateOf(Outcome.PENDING)
         var removedLocally = false
     }
@@ -739,6 +761,7 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
     private class DeleteJob(val targets: List<Target>) {
         var phase by mutableStateOf(Phase.CONFIRM)
         var cancelRequested by mutableStateOf(false)
+        var currentTarget by mutableStateOf<Target?>(null)
 
         private val cancelSignal = CompletableDeferred<Unit>()
 
@@ -750,6 +773,7 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
         suspend fun run() {
             for ((index, target) in targets.withIndex()) {
                 if (cancelRequested) break
+                currentTarget = target
                 // A post being deleted always finishes; cancel only stops before the next one.
                 target.outcome =
                     try {
@@ -760,6 +784,7 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
                         WeLogger.e(TAG, "failed to delete Moments post ${target.snsId}", error)
                         Outcome.FAILED
                     }
+                currentTarget = null
                 if (index < targets.lastIndex) {
                     // Space out requests, but wake up immediately on cancel.
                     withTimeoutOrNull(DELETE_INTERVAL) { cancelSignal.await() }
@@ -778,15 +803,30 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
         }
 
         val total = job.targets.size
-        when (job.phase) {
-            Phase.CONFIRM ->
-                AlertDialogContent(
-                    title = { Text(stringResource(R.string.batch_manage_moments_confirm_title)) },
-                    text = {
-                        Column(
-                            Modifier.verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
+        AlertDialogContent(
+            title = {
+                Text(
+                    stringResource(
+                        when (job.phase) {
+                            Phase.CONFIRM -> R.string.batch_manage_moments_confirm_title
+                            Phase.RUNNING ->
+                                if (job.cancelRequested) R.string.batch_manage_moments_cancel_title
+                                else R.string.batch_manage_moments_progress_title
+                            Phase.SUMMARY ->
+                                if (job.cancelRequested)
+                                    R.string.batch_manage_moments_summary_title_canceled
+                                else R.string.batch_manage_moments_summary_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    when (job.phase) {
+                        Phase.CONFIRM -> {
                             Text(
                                 pluralStringResource(
                                     R.plurals.batch_manage_moments_confirm_message,
@@ -794,140 +834,221 @@ object BatchManageMoments : ClickableFeature(), IResolveDex {
                                     total,
                                 ),
                             )
-                            KindStats(job.targets) { it.size.toString() }
+                            TypeGrid(job.targets)
+                            DialogNote(
+                                stringResource(R.string.batch_manage_moments_delete_warning),
+                                warning = true,
+                            )
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClose) { Text(stringResource(R.string.dialog_cancel)) }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            {
+                        Phase.RUNNING -> ProgressContent(job)
+                        Phase.SUMMARY -> SummaryContent(job)
+                    }
+                }
+            },
+            dismissButton =
+                if (job.phase == Phase.CONFIRM) {
+                    {
+                        TextButton(onClose) {
+                            Text(stringResource(R.string.dialog_cancel))
+                        }
+                    }
+                } else null,
+            confirmButton = {
+                when (job.phase) {
+                    Phase.CONFIRM ->
+                        Button(
+                            onClick = {
                                 onStart()
                                 job.phase = Phase.RUNNING
                             },
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError,
+                                ),
                         ) {
-                            Text(stringResource(R.string.action_delete))
-                        }
-                    },
-                )
-
-            Phase.RUNNING -> {
-                val processed = job.targets.count { it.outcome != Outcome.PENDING }
-                AlertDialogContent(
-                    title = {
-                        Text(stringResource(R.string.batch_manage_moments_progress_title))
-                    },
-                    text = {
-                        Column(
-                            Modifier.verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            LinearProgressIndicator(
-                                progress = { processed / total.toFloat() },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
                             Text(
-                                stringResource(
-                                    R.string.batch_manage_moments_progress,
-                                    processed,
+                                pluralStringResource(
+                                    R.plurals.batch_manage_moments_delete_count,
+                                    total,
                                     total,
                                 ),
                             )
-                            StatRow(
-                                stringResource(R.string.batch_manage_moments_summary_success),
-                                job.targets.count { it.outcome == Outcome.SUCCESS }.toString(),
-                            )
-                            StatRow(
-                                stringResource(R.string.batch_manage_moments_summary_failed),
-                                job.targets.count { it.outcome == Outcome.FAILED }.toString(),
-                            )
-                            if (job.cancelRequested) {
-                                Text(stringResource(R.string.batch_manage_moments_canceling))
-                            }
                         }
-                    },
-                    confirmButton = {
-                        TextButton(job::cancel, enabled = !job.cancelRequested) {
-                            Text(stringResource(R.string.dialog_cancel))
-                        }
-                    },
-                )
-            }
-
-            Phase.SUMMARY -> {
-                val succeeded = job.targets.count { it.outcome == Outcome.SUCCESS }
-                val failed = job.targets.count { it.outcome == Outcome.FAILED }
-                val skipped = total - succeeded - failed
-                AlertDialogContent(
-                    title = {
-                        Text(
-                            stringResource(
-                                if (job.cancelRequested) {
-                                    R.string.batch_manage_moments_summary_title_canceled
-                                } else {
-                                    R.string.batch_manage_moments_summary_title
-                                },
-                            ),
-                        )
-                    },
-                    text = {
-                        Column(
-                            Modifier.verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    Phase.RUNNING ->
+                        TextButton(
+                            job::cancel,
+                            enabled = !job.cancelRequested,
                         ) {
-                            Column {
-                                StatRow(
-                                    stringResource(R.string.batch_manage_moments_summary_total),
-                                    total.toString(),
-                                )
-                                StatRow(
-                                    stringResource(R.string.batch_manage_moments_summary_success),
-                                    succeeded.toString(),
-                                )
-                                StatRow(
-                                    stringResource(R.string.batch_manage_moments_summary_failed),
-                                    failed.toString(),
-                                )
-                                if (skipped > 0) {
-                                    StatRow(
-                                        stringResource(
-                                            R.string.batch_manage_moments_summary_skipped,
-                                        ),
-                                        skipped.toString(),
-                                    )
-                                }
-                            }
-                            Text(stringResource(R.string.batch_manage_moments_summary_by_kind))
-                            KindStats(job.targets) { ofKind ->
-                                "${ofKind.count { it.outcome == Outcome.SUCCESS }} / ${ofKind.size}"
-                            }
+                            Text(
+                                stringResource(
+                                    if (job.cancelRequested)
+                                        R.string.batch_manage_moments_wait_current
+                                    else R.string.dialog_cancel,
+                                ),
+                            )
                         }
-                    },
-                    confirmButton = {
-                        TextButton(onClose) { Text(stringResource(R.string.dialog_close)) }
-                    },
-                )
+                    Phase.SUMMARY ->
+                        Button(onClick = onClose) {
+                            Text(stringResource(R.string.dialog_close))
+                        }
+                }
+            },
+        )
+    }
+
+    @Composable
+    private fun TypeGrid(targets: List<Target>) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            MomentKind.entries.chunked(3).forEach { kinds ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    kinds.forEach { kind ->
+                        StatTile(
+                            stringResource(kind.labelRes),
+                            targets.count { it.kind == kind }.toString(),
+                            Modifier.weight(1f),
+                        )
+                    }
+                    repeat(3 - kinds.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }
 
-    /** One row per post type that occurs in [targets]. */
     @Composable
-    private fun KindStats(targets: List<Target>, value: (List<Target>) -> String) {
+    private fun StatTile(
+        label: String,
+        value: String,
+        modifier: Modifier = Modifier,
+        valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Surface(
+            modifier,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        ) {
+            Column(
+                Modifier.padding(horizontal = 10.dp, vertical = 11.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(value, style = MaterialTheme.typography.titleLarge, color = valueColor)
+            }
+        }
+    }
+
+    @Composable
+    private fun DialogNote(text: String, warning: Boolean = false) {
+        val color =
+            if (warning) MaterialTheme.colorScheme.onErrorContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        Surface(
+            Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color =
+                if (warning) MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+        ) {
+            Text(
+                text,
+                Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                color = color,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+
+    @Composable
+    private fun ProgressContent(job: DeleteJob) {
+        val processed = job.targets.count { it.outcome != Outcome.PENDING }
+        val current = job.currentTarget
+        val context = LocalContext.current
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (current == null) stringResource(R.string.batch_manage_moments_between_posts)
+                    else
+                        stringResource(
+                            R.string.batch_manage_moments_current_post,
+                            stringResource(current.kind.labelRes),
+                            DateFormat.getDateFormat(context)
+                                .format(Date(current.createTime * 1000L)),
+                        ),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "$processed / ${job.targets.size}",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { processed / job.targets.size.toFloat() },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+
+    @Composable
+    private fun SummaryContent(job: DeleteJob) {
+        val succeeded = job.targets.count { it.outcome == Outcome.SUCCESS }
+        val failed = job.targets.count { it.outcome == Outcome.FAILED }
+        val skipped = job.targets.size - succeeded - failed
+        Text(stringResource(R.string.batch_manage_moments_summary_description))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatTile(
+                stringResource(R.string.batch_manage_moments_summary_total),
+                job.targets.size.toString(),
+                Modifier.weight(1f),
+            )
+            StatTile(
+                stringResource(R.string.batch_manage_moments_success_short),
+                succeeded.toString(),
+                Modifier.weight(1f),
+                MaterialTheme.colorScheme.primary,
+            )
+            StatTile(
+                stringResource(R.string.batch_manage_moments_summary_failed),
+                failed.toString(),
+                Modifier.weight(1f),
+                MaterialTheme.colorScheme.error,
+            )
+        }
+        if (skipped > 0) Text(stringResource(R.string.batch_manage_moments_skipped_count, skipped))
         Column {
             MomentKind.entries.forEach { kind ->
-                val ofKind = targets.filter { it.kind == kind }
-                if (ofKind.isNotEmpty()) StatRow(stringResource(kind.labelRes), value(ofKind))
+                val targets = job.targets.filter { it.kind == kind }
+                if (targets.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            stringResource(kind.labelRes),
+                            Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            stringResource(
+                                R.string.batch_manage_moments_type_result,
+                                targets.size,
+                                targets.count { it.outcome == Outcome.SUCCESS },
+                            ),
+                            Modifier.weight(1.3f),
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.End,
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
-        }
-    }
-
-    @Composable
-    private fun StatRow(label: String, value: String) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(label, Modifier.weight(1f))
-            Text(value)
         }
     }
 }
