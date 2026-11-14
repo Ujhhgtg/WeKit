@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">WeKit</string>
+    <string name="app_description">WeChat, now with superpowers\nUjhhgtg@github</string>
     <string name="res_inject_success" translatable="false">Resources injection success</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_confirm">Confirm</string>

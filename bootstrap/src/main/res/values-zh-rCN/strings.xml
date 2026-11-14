@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_description">微信增强模块\nUjhhgtg@github</string>
     <string name="dialog_cancel">取消</string>
     <string name="dialog_confirm">确定</string>
     <string name="dialog_close">关闭</string>
