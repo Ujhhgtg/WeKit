@@ -2,9 +2,9 @@
 <project version="4">
   <component name="CidrRootsConfiguration">
     <excludeRoots>
-      <file path="$PROJECT_DIR$/app/src/main/rust" />
-      <file path="$PROJECT_DIR$/app/src/main/rust/wekit-native" />
-      <file path="$PROJECT_DIR$/app/src/main/rust/wekit-native/target" />
+      <file path="$PROJECT_DIR$/crates/wekit-native" />
+      <file path="$PROJECT_DIR$/crates/wekit-native-common" />
+      <file path="$PROJECT_DIR$/target" />
     </excludeRoots>
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />

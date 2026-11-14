@@ -13,9 +13,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
 /** Dependency-prompt dialogs shared by extension-pack consumers. */
 object ExtensionPackDialogs {
-
-    fun requireArchLinux(activity: Activity) = requireInstall(activity, ArchLinuxPack)
-
     /** 弱依赖:建议安装,取消也允许功能继续。 */
     fun suggestInstall(activity: Activity, pack: ExtensionPack) {
         showComposeDialog(activity) {
@@ -63,10 +60,14 @@ private fun PackDialog(
         title = { Text(stringResource(titleRes, name)) },
         text = { Text(stringResource(messageRes, name)) },
         confirmButton = {
-            TextButton(onClick = {
-                onDismiss()
-                onConfirm()
-            }) { Text(stringResource(R.string.extensions_pack_action_install)) }
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onConfirm()
+                },
+            ) {
+                Text(stringResource(R.string.extensions_pack_action_install))
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }

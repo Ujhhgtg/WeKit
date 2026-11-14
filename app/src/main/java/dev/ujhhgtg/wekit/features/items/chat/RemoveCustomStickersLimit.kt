@@ -2,92 +2,71 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
-import java.lang.reflect.Modifier
 
-object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
-
+object RemoveCustomStickersLimit : SwitchFeature() {
     override val technicalId = "解除单个表情数量上限"
     override val nameRes = R.string.feature_remove_custom_stickers_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_remove_custom_stickers_limit_description
 
     private val methodGetCustomEmojiMaxSize by dexMethod {
-        matcher {
-            usingEqStrings("CustomEmojiMaxSize")
-            returnType(int)
-            paramCount(0)
-            modifiers = Modifier.STATIC
-        }
+        returnType = "int"
+        paramCount = 0
+        modifiers = 8
+        usingEqStrings("CustomEmojiMaxSize")
     }
 
     private val methodComputeEmojiStorageState by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
-            returnType(Void.TYPE)
-            paramCount(1)
-        }
+        returnType = "void"
+        paramCount = 1
+        usingEqStrings("MicroMsg.EmojiStorageState", "normal_custom_size")
     }
 
     private val classMmkv by dexClass {
-        matcher {
-            usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        }
+        usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
     }
 
     private val methodGetMmkv by dexMethod {
-        matcher {
-            declaredClass(classMmkv.data.name)
-            usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
-        }
+        declaredClass(classMmkv.data.name)
+        usingEqStrings("MicroMsg.MultiProcessMMKV", "getMMKV name is illegal")
     }
 
     private val classCgiBack by dexClass {
-        matcher {
-            usingEqStrings("CgiBack{errType=")
-        }
+        usingEqStrings("CgiBack{errType=")
     }
 
     private val methodCreateCgiBack by dexMethod {
-        matcher {
-            declaredClass(classCgiBack.data.name)
-            modifiers = Modifier.STATIC
-            paramCount(6)
-            returnType(classCgiBack.data.name)
-        }
+        declaredClass(classCgiBack.data.name)
+        returnType(classCgiBack.data.name)
+        paramCount = 6
+        modifiers = 8
     }
 
     private val methodAddEmojiOnSceneEnd by dexMethod {
-        matcher {
-            usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
-        }
+        usingEqStrings("CgiBackupEmojiOperate onResult: errType=")
     }
 
     private val methodNetSceneBackupEmojiOperateOnGYNetEnd by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.emoji.NetSceneBackupEmojiOperate", "errType:%d, errCode:%d")
-            name = "onGYNetEnd"
-        }
+        name = "onGYNetEnd"
+        usingEqStrings(
+            "MicroMsg.emoji.NetSceneBackupEmojiOperate",
+            "errType:%d, errCode:%d",
+        )
     }
 
     private val methodChattingUiEmoji by dexMethod {
-        matcher {
-            usingEqStrings("addToCustom. over max size.")
-        }
+        usingEqStrings("addToCustom. over max size.")
     }
 
     private val methodConditionallyShowDialog by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("uninstallEmoticon Failed to send net scene: ")
-            }
-            usingEqStrings("custom_full")
+        usingEqStrings("custom_full")
+        declaredClass {
+            usingEqStrings("uninstallEmoticon Failed to send net scene: ")
         }
     }
 
@@ -114,25 +93,37 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         methodCreateCgiBack.hookAfter {
             val res = result ?: return@hookAfter
             @Suppress("UNCHECKED_CAST")
-            (classCgiBack.clazz as Class<Any>).reflekt().fields {
-                type = int
-            }.forEach {
-                if (it.get(res) == -434) {
-                    it.set(res, 0)
+            (classCgiBack.clazz as Class<Any>)
+                .reflekt()
+                .fields {
+                    type = int
                 }
-            }
+                .forEach {
+                    // Bound, so a static int field is read/written like before instead of failing
+                    // arity.
+                    val field = it.of(res)
+                    if (field.get() == -434) {
+                        field.set(0)
+                    }
+                }
         }
 
         methodAddEmojiOnSceneEnd.hookBefore {
             val resp = args[0] ?: return@hookBefore
             @Suppress("UNCHECKED_CAST")
-            (classCgiBack.clazz as Class<Any>).reflekt().fields {
-                type = int
-            }.forEach {
-                if (it.get(resp) == -434) {
-                    it.set(resp, 0)
+            (classCgiBack.clazz as Class<Any>)
+                .reflekt()
+                .fields {
+                    type = int
                 }
-            }
+                .forEach {
+                    // Bound, so a static int field is read/written like before instead of failing
+                    // arity.
+                    val field = it.of(resp)
+                    if (field.get() == -434) {
+                        field.set(0)
+                    }
+                }
         }
 
         methodNetSceneBackupEmojiOperateOnGYNetEnd.hookBefore {
@@ -143,16 +134,17 @@ object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
         }
 
         listOf(
-            methodComputeEmojiStorageState,
-            methodChattingUiEmoji,
-            methodConditionallyShowDialog
-        ).forEach {
-            it.hookBefore {
-                putCustomFullFalseInMmkv()
+                methodComputeEmojiStorageState,
+                methodChattingUiEmoji,
+                methodConditionallyShowDialog,
+            )
+            .forEach {
+                it.hookBefore {
+                    putCustomFullFalseInMmkv()
+                }
+                it.hookAfter {
+                    putCustomFullFalseInMmkv()
+                }
             }
-            it.hookAfter {
-                putCustomFullFalseInMmkv()
-            }
-        }
     }
 }

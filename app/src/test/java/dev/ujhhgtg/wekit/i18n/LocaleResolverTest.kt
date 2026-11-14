@@ -17,7 +17,10 @@ class LocaleResolverTest {
     @Test
     fun manualSelectionIgnoresSystemLocales() {
         val system = listOf(Locale.forLanguageTag("zh-CN"))
-        assertEquals(SupportedLocale.ENGLISH, LocaleResolver.resolve(LanguageSelection.ENGLISH, system))
+        assertEquals(
+            SupportedLocale.ENGLISH,
+            LocaleResolver.resolve(LanguageSelection.ENGLISH, system),
+        )
         assertEquals(
             SupportedLocale.SIMPLIFIED_CHINESE,
             LocaleResolver.resolve(LanguageSelection.SIMPLIFIED_CHINESE, emptyList()),
@@ -58,14 +61,20 @@ class LocaleResolverTest {
         simplified.forEach { tag ->
             assertEquals(
                 SupportedLocale.SIMPLIFIED_CHINESE,
-                LocaleResolver.resolve(LanguageSelection.SYSTEM, listOf(Locale.forLanguageTag(tag))),
+                LocaleResolver.resolve(
+                    LanguageSelection.SYSTEM,
+                    listOf(Locale.forLanguageTag(tag)),
+                ),
                 tag,
             )
         }
         traditional.forEach { tag ->
             assertEquals(
                 SupportedLocale.TRADITIONAL_CHINESE,
-                LocaleResolver.resolve(LanguageSelection.SYSTEM, listOf(Locale.forLanguageTag(tag))),
+                LocaleResolver.resolve(
+                    LanguageSelection.SYSTEM,
+                    listOf(Locale.forLanguageTag(tag)),
+                ),
                 tag,
             )
         }

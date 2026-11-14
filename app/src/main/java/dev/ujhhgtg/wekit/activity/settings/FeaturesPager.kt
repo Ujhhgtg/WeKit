@@ -20,30 +20,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Check_circle
+import com.composables.icons.materialsymbols.outlined.Chevron_right
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Fiber_new
 import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.core.NewFeatures
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.core.featureCategoryComparator
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocaleController
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ExpressiveBackButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import java.text.Collator
 import java.util.Locale
-
 
 /**
  * Current switch state of [item], read straight from MMKV using the feature's own
@@ -53,7 +53,7 @@ import java.util.Locale
 private fun featureChecked(item: BaseFeature): Boolean {
     val revision = FeatureCategoryState.revision
     return remember(item.technicalId, revision) {
-        WePrefs.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
+        KvStore.getBoolOrDef(item.technicalId, (item as? SwitchFeature)?.defaultEnabled == true)
     }
 }
 
@@ -63,29 +63,38 @@ private fun featureChecked(item: BaseFeature): Boolean {
 
 @Composable
 fun FeaturesPager(onOpenCategory: (String) -> Unit) {
-    val context = LocalWeKitLocalizedContext.current
-    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val context = LocalLocalizedContext.current
+    val resolvedLocale = LocaleController.resolvedLocale
     val revision = FeatureCategoryState.revision
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
 
-    val featureNameCollator = remember(resolvedLocale) {
-        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
-    }
-    val searchableItems = remember(resolvedLocale) {
-        FeaturesProvider.ALL_FEATURES
-            .filterIsInstance<SwitchFeature>()
-            .sortedWith { first, second ->
-                featureNameCollator.compare(first.localizedName(context), second.localizedName(context))
-            }
-    }
-    val filteredItems = remember(query, resolvedLocale, revision) {
-        if (!searching) emptyList()
-        else searchableItems.filter {
-            it.localizedName(context).contains(query, ignoreCase = true) ||
-                it.localizedDescription(context).contains(query, ignoreCase = true)
+    val featureNameCollator =
+        remember(resolvedLocale) {
+            Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
         }
-    }
+    val searchableItems =
+        remember(resolvedLocale) {
+            FeaturesProvider.ALL_FEATURES.filterIsInstance<SwitchFeature>().sortedWith {
+                first,
+                second ->
+                featureNameCollator.compare(
+                    first.localizedName(context),
+                    second.localizedName(context),
+                )
+            }
+        }
+    val filteredItems =
+        remember(query, resolvedLocale, revision) {
+            if (!searching) {
+                emptyList()
+            } else {
+                searchableItems.filter {
+                    it.localizedName(context).contains(query, ignoreCase = true) ||
+                        it.localizedDescription(context).contains(query, ignoreCase = true)
+                }
+            }
+        }
 
     // A back press while searching clears the query first (after the IME's own
     // back has dismissed the keyboard) rather than exiting the module settings.
@@ -96,9 +105,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier
-                    .padding(top = 12.dp, start = 16.dp, end = 16.dp)
-                    .fillMaxWidth(),
+                modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp).fillMaxWidth(),
                 label = { Text(stringResource(R.string.features_search_hint)) },
                 singleLine = true,
                 leadingIcon = {
@@ -127,9 +134,7 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
             if (filteredItems.isEmpty()) {
                 item {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 48.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -160,11 +165,13 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         BaseWidget(
                             icon = MaterialSymbols.Outlined.Fiber_new,
                             title = stringResource(featureCategoryTitleRes(NEW_FEATURES_CATEGORY)),
-                            description = stringResource(
-                                R.string.features_new_summary,
-                                NewFeatures.WINDOW_DAYS,
-                                FeatureCategoryState.newItems.size,
-                            ),
+                            description =
+                                pluralStringResource(
+                                    R.plurals.features_new_summary,
+                                    FeatureCategoryState.newItems.size,
+                                    NewFeatures.WINDOW_DAYS,
+                                    FeatureCategoryState.newItems.size,
+                                ),
                             onClick = { onOpenCategory(NEW_FEATURES_CATEGORY) },
                             trailingContent = {
                                 Icon(
@@ -179,8 +186,14 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
                         val enabledCount = FeatureCategoryState.enabledItems().size
                         BaseWidget(
                             icon = MaterialSymbols.Outlined.Check_circle,
-                            title = stringResource(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
-                            description = stringResource(R.string.feature_category_enabled_summary, enabledCount),
+                            title =
+                                stringResource(featureCategoryTitleRes(ENABLED_FEATURES_CATEGORY)),
+                            description =
+                                pluralStringResource(
+                                    R.plurals.feature_category_enabled_summary,
+                                    enabledCount,
+                                    enabledCount,
+                                ),
                             onClick = { onOpenCategory(ENABLED_FEATURES_CATEGORY) },
                             trailingContent = {
                                 Icon(
@@ -227,28 +240,37 @@ fun FeaturesPager(onOpenCategory: (String) -> Unit) {
 
 @Composable
 fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
-    val context = LocalWeKitLocalizedContext.current
-    val resolvedLocale = WeKitLocaleController.resolvedLocale
+    val context = LocalLocalizedContext.current
+    val resolvedLocale = LocaleController.resolvedLocale
     val revision = FeatureCategoryState.revision
-    val featureNameCollator = remember(resolvedLocale) {
-        Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
-    }
-    val items = remember(categoryId, resolvedLocale, revision) {
-        when (categoryId) {
-            NEW_FEATURES_CATEGORY -> FeatureCategoryState.newItems
-            ENABLED_FEATURES_CATEGORY -> FeatureCategoryState.enabledItems()
-            else -> FeaturesProvider.ALL_FEATURES
-                .filter { categoryId in it.categoryIds }
-                .sortedWith(
-                    featureCategoryComparator { first, second ->
-                        featureNameCollator.compare(
-                            first.localizedName(context),
-                            second.localizedName(context),
-                        )
-                    },
-                )
+    val featureNameCollator =
+        remember(resolvedLocale) {
+            Collator.getInstance(Locale.forLanguageTag(resolvedLocale.androidTag))
         }
-    }
+    val items =
+        remember(categoryId, resolvedLocale, revision) {
+            when (categoryId) {
+                NEW_FEATURES_CATEGORY -> {
+                    FeatureCategoryState.newItems
+                }
+
+                ENABLED_FEATURES_CATEGORY -> {
+                    FeatureCategoryState.enabledItems()
+                }
+
+                else -> {
+                    FeaturesProvider.ALL_FEATURES.filter { categoryId in it.categoryIds }
+                        .sortedWith(
+                            featureCategoryComparator { first, second ->
+                                featureNameCollator.compare(
+                                    first.localizedName(context),
+                                    second.localizedName(context),
+                                )
+                            },
+                        )
+                }
+            }
+        }
 
     M3ListScaffold(
         title = stringResource(featureCategoryTitleRes(categoryId)),
@@ -257,9 +279,7 @@ fun CategoryDetailScreen(categoryId: String, onBack: () -> Unit) {
         if (items.isEmpty()) {
             item {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 48.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

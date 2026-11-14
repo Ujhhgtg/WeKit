@@ -4,6 +4,7 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.CancelIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.killHost
@@ -26,10 +27,12 @@ object KillHostProcess : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsPro
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777015, localizedHomeMenuString(R.string.home_menu_force_stop), CancelIcon
+                777015,
+                localizedString(R.string.home_menu_force_stop),
+                CancelIcon,
             ) {
                 killHost()
-            }
+            },
         )
     }
 }

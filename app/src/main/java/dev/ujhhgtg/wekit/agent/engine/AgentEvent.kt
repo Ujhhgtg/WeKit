@@ -18,7 +18,11 @@ sealed interface AgentEvent {
     data class ReasoningDelta(val text: String) : AgentEvent
 
     /** A tool call is about to be evaluated for approval. */
-    data class ToolCallStarted(val callId: String, val toolName: String, val argumentsJson: String) : AgentEvent
+    data class ToolCallStarted(
+        val callId: String,
+        val toolName: String,
+        val argumentsJson: String,
+    ) : AgentEvent
 
     /** A tool call is waiting on human approval (drives the PendingApproval ball state). */
     data class ToolAwaitingApproval(val callId: String, val toolName: String) : AgentEvent
@@ -31,7 +35,9 @@ sealed interface AgentEvent {
         val resultText: String,
     ) : AgentEvent
 
-    /** Token usage reported for the just-completed model request (per round; may arrive each round). */
+    /**
+     * Token usage reported for the just-completed model request (per round; may arrive each round).
+     */
     data class UsageUpdated(val usage: dev.ujhhgtg.wekit.agent.model.LlmUsage) : AgentEvent
 
     /** The turn ended normally: the model returned no further tool calls. */

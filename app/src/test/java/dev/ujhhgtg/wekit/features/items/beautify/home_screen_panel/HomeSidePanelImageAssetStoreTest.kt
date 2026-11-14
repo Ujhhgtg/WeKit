@@ -12,18 +12,20 @@ import org.junit.jupiter.api.io.TempDir
 
 class HomeSidePanelImageAssetStoreTest {
 
-    @TempDir
-    lateinit var tempDir: Path
+    @TempDir lateinit var tempDir: Path
 
     @Test
     fun failedCommitRollsBackPromotedFilesAndKeepsDraft() {
         val store = HomeSidePanelImageAssetStore(tempDir)
         writeFixture(draftAsset(SESSION_ID, NEW_ID), byteArrayOf(1, 2, 3))
-        val prepared = store.prepareCommit(
-            sessionId = SESSION_ID,
-            oldAssetIds = setOf(OLD_ID),
-            newAssetIds = setOf(NEW_ID),
-        ).getOrThrow()
+        val prepared =
+            store
+                .prepareCommit(
+                    sessionId = SESSION_ID,
+                    oldAssetIds = setOf(OLD_ID),
+                    newAssetIds = setOf(NEW_ID),
+                )
+                .getOrThrow()
 
         assertTrue(formalAsset(NEW_ID).exists())
         store.rollbackCommit(prepared)
@@ -38,11 +40,14 @@ class HomeSidePanelImageAssetStoreTest {
         writeFixture(formalAsset(REMOVED_ID), byteArrayOf(1))
         writeFixture(formalAsset(RETAINED_ID), byteArrayOf(2))
         writeFixture(draftAsset(SESSION_ID, ADDED_ID), byteArrayOf(3))
-        val prepared = store.prepareCommit(
-            sessionId = SESSION_ID,
-            oldAssetIds = setOf(REMOVED_ID, RETAINED_ID),
-            newAssetIds = setOf(RETAINED_ID, ADDED_ID),
-        ).getOrThrow()
+        val prepared =
+            store
+                .prepareCommit(
+                    sessionId = SESSION_ID,
+                    oldAssetIds = setOf(REMOVED_ID, RETAINED_ID),
+                    newAssetIds = setOf(RETAINED_ID, ADDED_ID),
+                )
+                .getOrThrow()
 
         store.finalizeCommit(prepared)
 
@@ -56,11 +61,14 @@ class HomeSidePanelImageAssetStoreTest {
     fun retainedReferencePreventsSharedAssetDeletion() {
         val store = HomeSidePanelImageAssetStore(tempDir)
         writeFixture(formalAsset(SHARED_ID), byteArrayOf(1))
-        val prepared = store.prepareCommit(
-            sessionId = SESSION_ID,
-            oldAssetIds = setOf(SHARED_ID),
-            newAssetIds = setOf(SHARED_ID),
-        ).getOrThrow()
+        val prepared =
+            store
+                .prepareCommit(
+                    sessionId = SESSION_ID,
+                    oldAssetIds = setOf(SHARED_ID),
+                    newAssetIds = setOf(SHARED_ID),
+                )
+                .getOrThrow()
 
         store.finalizeCommit(prepared)
 
@@ -89,7 +97,8 @@ class HomeSidePanelImageAssetStoreTest {
 
     private fun draftSession(sessionId: String): Path = tempDir / ".draft" / sessionId
 
-    private fun draftAsset(sessionId: String, assetId: String): Path = draftSession(sessionId) / assetId
+    private fun draftAsset(sessionId: String, assetId: String): Path =
+        draftSession(sessionId) / assetId
 
     private fun writeFixture(path: Path, bytes: ByteArray) {
         path.parent.createDirectories()

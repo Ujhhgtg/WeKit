@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.SystemClock
@@ -27,17 +26,18 @@ import androidx.core.content.FileProvider
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
+import dev.ujhhgtg.wekit.features.api.ui.WeNotificationAvatarApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
@@ -46,34 +46,39 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.OriginalMethodInvoker
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getSystemService
-import dev.ujhhgtg.wekit.utils.collections.LruCache
+import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import dev.ujhhgtg.wekit.utils.strings.replaceEmojis
 import dev.ujhhgtg.wekit.utils.strings.replaceRichContent
+import java.nio.file.Path
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.div
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.div
-import kotlin.io.path.isRegularFile
-import kotlin.time.Duration.Companion.milliseconds
 
-object NotificationsEvolved : ClickableFeature(), IResolveDex {
-
+object NotificationsEvolved : ClickableFeature() {
     override val technicalId = "通知进化"
     override val nameRes = R.string.feature_notifications_evolved_name
     override val categoryIds = listOf(FeatureCategoryIds.NOTIFICATIONS)
@@ -83,33 +88,45 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
-    internal val methodDealNotify by dexMethod {
+    val methodDealNotify by dexMethod {
         searchPackages("com.tencent.mm.booter.notification")
-        matcher {
-            paramCount(6)
-            usingEqStrings("jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s")
-        }
+        paramCount = 6
+        usingEqStrings(
+            "jacks dealNotify, talker:%s, msgtype:%d, tipsFlag:%d, isRevokeMesasge:%B content:%s",
+        )
     }
 
     // com.tencent.mm.storage.ConversationStorage#updateUnreadByTalker(talker) — same declaration
     // as ConversationAggregation.methodConversationStorageUpdateUnreadByTalker. WeChat calls it
     // whenever a conversation's unread state is cleared (chat opened / marked read elsewhere), so
     // the accumulated MessagingStyle history for that talker is stale and should be dropped.
-    // WeChat's notification avatar loader. The declaring class is obfuscated and changes between
-    // host versions, so it is resolved by the stable NotificationAvatar implementation markers.
-    private val methodLoadNotificationAvatar by dexMethod {
-        matcher {
-            paramTypes(
-                "android.content.Context",
-                "java.lang.String",
-                "java.lang.String",
-            )
-            returnType("android.graphics.Bitmap")
-            usingEqStrings("MicroMsg.NotificationAvatar", "wcf://avatar/")
-        }
+    // Locate the wording class only to preserve the host's hidden-content decision.
+    // Sender/body extraction uses the original notification-text path below.
+    private val methodParseNotificationContent by dexMethod {
+        returnType = "java.lang.String"
+        paramCount(13, 14)
+        usingEqStrings(
+            "MicroMsg.Notification.Wording",
+            "context is null",
+            "username is null",
+        )
+    }
+    private val methodHiddenNotificationContent by dexMethod {
+        declaredClass(methodParseNotificationContent.data.declaredClassName)
+        returnType = "void"
+        paramTypes(
+            "android.content.Context",
+            null,
+            "java.lang.String",
+            "int",
+            "int",
+            "int",
+            "boolean",
+            "boolean",
+        )
     }
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_PUSH
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.PUSH)
 
     private enum class ImageNotificationMode {
         DISABLED,
@@ -122,43 +139,44 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         WAIT_FOR_LOAD,
     }
 
-    private var imageNotificationModeName by prefOption(
-        "notifications_evolved_image_mode",
-        ImageNotificationMode.WAIT_THUMBNAIL.name,
-    )
+    private var imageNotificationModeName by
+        prefOption(
+            "notifications_evolved_image_mode",
+            ImageNotificationMode.WAIT_THUMBNAIL.name,
+        )
     private var imageNotificationMode: ImageNotificationMode
-        get() = runCatching { ImageNotificationMode.valueOf(imageNotificationModeName) }
+        get() = runCatching {
+            ImageNotificationMode.valueOf(imageNotificationModeName)
+        }
             .getOrDefault(ImageNotificationMode.WAIT_THUMBNAIL)
         set(value) {
             imageNotificationModeName = value.name
         }
 
-    private var stickerNotificationModeName by prefOption(
-        "notifications_evolved_sticker_mode",
-        StickerNotificationMode.WAIT_FOR_LOAD.name,
-    )
+    private var stickerNotificationModeName by
+        prefOption(
+            "notifications_evolved_sticker_mode",
+            StickerNotificationMode.WAIT_FOR_LOAD.name,
+        )
     private var stickerNotificationMode: StickerNotificationMode
-        get() = runCatching { StickerNotificationMode.valueOf(stickerNotificationModeName) }
+        get() = runCatching {
+            StickerNotificationMode.valueOf(stickerNotificationModeName)
+        }
             .getOrDefault(StickerNotificationMode.WAIT_FOR_LOAD)
         set(value) {
             stickerNotificationModeName = value.name
         }
 
-    private var clearHistoryAfterQuickReply by prefOption(
-        "notifications_evolved_clear_history_after_quick_reply",
-        true,
-    )
+    private var clearHistoryAfterQuickReply by
+        prefOption(
+            "notifications_evolved_clear_history_after_quick_reply",
+            true,
+        )
 
-    private data class MediaAttachment(
-        val mimeType: String,
-        val uri: Uri,
-        val cachePath: Path,
-    )
+    private data class MediaAttachment(val mimeType: String, val uri: Uri, val cachePath: Path)
 
     private data class PendingMediaTask(
         val deadlineElapsedRealtime: Long,
-        val awaitCompletion: Boolean,
-        val startOnAwait: Boolean,
         val deferred: Deferred<MediaAttachment?>,
     )
 
@@ -166,7 +184,6 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         val talker: String,
         val senderWxId: String,
         val rawContent: String,
-        val text: String,
         val timestamp: Long,
         val messageId: Long,
         val capturedAt: Long,
@@ -179,29 +196,32 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         val text: String,
         val timestamp: Long,
         val messageId: Long?,
-        val media: MediaAttachment?,
+        val mediaTask: PendingMediaTask? = null,
     )
 
     private data class NotificationContext(
         val talker: String,
         val rawContent: String,
+        val generation: Any,
+        var hiddenContent: Boolean = false,
     )
 
-    private data class CachedAvatar(val icon: Icon, val expiresAt: Long)
+    private data class NotificationKey(val tag: String?, val id: Int)
+
+    private class PendingNotification(val talker: String, val key: NotificationKey) {
+        lateinit var job: Job
+    }
+
+    private val pendingNotifications = HashMap<NotificationKey, PendingNotification>()
+    private val notificationTalkers = HashMap<NotificationKey, String>()
+    private val conversationGenerations = HashMap<String, Any>()
 
     private val stateLock = Any()
     private val pendingMessages = HashMap<String, ArrayDeque<PendingMessage>>()
-    private val avatarLock = Any()
-    private val avatarCache = LruCache<String, CachedAvatar>(maxLimit = 64)
     private val notificationContext = ThreadLocal<NotificationContext?>()
     private lateinit var mediaScope: CoroutineScope
     private val notificationMediaDir by lazy {
         (KnownPaths.moduleCache / "notification-media").createDirsSafe()
-    }
-    private val notificationAvatarLoader by lazy {
-        methodLoadNotificationAvatar.method.declaringClass.reflekt()
-            .firstConstructor { parameters(Context::class) }
-            .newInstance(HostInfo.application)
     }
 
     // Per-conversation message history rebuilt into MessagingStyle on each notification update.
@@ -213,95 +233,100 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
 
     private const val ACTION_REPLY = "${PackageNames.WECHAT}.ACTION_WEKIT_REPLY"
     private const val ACTION_MARK_READ = "${PackageNames.WECHAT}.ACTION_WEKIT_MARK_READ"
-    private const val ACTION_NOTIFICATION_OPENED = "${PackageNames.WECHAT}.ACTION_WEKIT_NOTIFICATION_OPENED"
-    private const val ACTION_NOTIFICATION_DISMISSED = "${PackageNames.WECHAT}.ACTION_WEKIT_NOTIFICATION_DISMISSED"
+    private const val ACTION_NOTIFICATION_OPENED =
+        "${PackageNames.WECHAT}.ACTION_WEKIT_NOTIFICATION_OPENED"
+    private const val ACTION_NOTIFICATION_DISMISSED =
+        "${PackageNames.WECHAT}.ACTION_WEKIT_NOTIFICATION_DISMISSED"
     private const val MAX_PENDING_MESSAGES = 16
     private const val PENDING_MESSAGE_TTL_MILLIS = 30_000L
-    private const val AVATAR_CACHE_TTL_MILLIS = 5 * 60 * 1000L
     private const val SHORT_MEDIA_WAIT_MILLIS = 1_500L
     private const val STICKER_MEDIA_WAIT_MILLIS = 3_000L
     private const val LARGE_IMAGE_WAIT_MILLIS = 5_000L
     private const val MEDIA_CACHE_MAX_AGE_MILLIS = 7 * 24 * 60 * 60 * 1000L
 
-    // WeChat's original contentIntent per convWxId, stored so we can fire it after clearing history.
+    // WeChat's original contentIntent per convWxId, stored so we can fire it after clearing
+    // history.
     private val pendingContentIntents = HashMap<String, PendingIntent>()
     private var receiverRegistered = false
 
-    private val notificationReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val targetWxId = intent.getStringExtra("extra_target_wxid") ?: return
-            val notificationManager =
-                context.getSystemService<NotificationManager>()
+    private val notificationReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val targetWxId = intent.getStringExtra("extra_target_wxid") ?: return
+                val notificationManager = context.getSystemService<NotificationManager>()
 
-            when (intent.action) {
-                ACTION_REPLY -> {
-                    val results = RemoteInput.getResultsFromIntent(intent) ?: return
-                    val replyContent = results.getCharSequence("key_reply_content")?.toString()
+                when (intent.action) {
+                    ACTION_REPLY -> {
+                        val results = RemoteInput.getResultsFromIntent(intent) ?: return
+                        val replyContent = results.getCharSequence("key_reply_content")?.toString()
 
-                    if (replyContent.isNullOrEmpty())
-                        return
+                        if (replyContent.isNullOrEmpty()) return
 
-                    val preservedHistory = if (clearHistoryAfterQuickReply) {
-                        emptyList()
-                    } else {
-                        synchronized(stateLock) {
-                            messageHistory[targetWxId]?.toList().orEmpty()
+                        val preservedHistory =
+                            if (clearHistoryAfterQuickReply) {
+                                emptyList()
+                            } else {
+                                synchronized(stateLock) {
+                                    messageHistory[targetWxId]?.toList().orEmpty()
+                                }
+                            }
+                        WeLogger.i(TAG, "quick replying '$replyContent' to $targetWxId")
+                        WeMessageApi.sendText(targetWxId, replyContent)
+                        WeConversationApi.markAsRead(targetWxId)
+                        cancelConversationNotifications(notificationManager, targetWxId)
+
+                        // markAsRead clears the accumulated history through the hook below. Restore
+                        // it
+                        // only when configured, then append the quick reply in both modes.
+                        appendHistory(targetWxId, preservedHistory)
+                        appendHistory(
+                            targetWxId,
+                            HistoryEntry(
+                                senderWxId = WeApi.selfWxId,
+                                senderName = null,
+                                text = replyContent,
+                                timestamp = System.currentTimeMillis(),
+                                messageId = null,
+                            ),
+                        )
+                    }
+
+                    ACTION_MARK_READ -> {
+                        WeLogger.i(TAG, "marking chat as read for $targetWxId")
+                        WeConversationApi.markAsRead(targetWxId)
+                        clearConversationState(targetWxId)
+                        removeContentIntent(targetWxId)
+                        cancelConversationNotifications(notificationManager, targetWxId)
+                    }
+
+                    ACTION_NOTIFICATION_OPENED -> {
+                        // Notification was tapped — clear history, then hand off to WeChat's own
+                        // intent.
+                        clearConversationState(targetWxId)
+                        val contentIntent = removeContentIntent(targetWxId) ?: return
+                        try {
+                            contentIntent.send()
+                        } catch (e: PendingIntent.CanceledException) {
+                            WeLogger.w(
+                                TAG,
+                                "original content intent was canceled for $targetWxId",
+                                e,
+                            )
                         }
                     }
-                    WeLogger.i(TAG, "quick replying '$replyContent' to $targetWxId")
-                    WeMessageApi.sendText(targetWxId, replyContent)
-                    WeConversationApi.markAsRead(targetWxId)
-                    notificationManager.cancel(targetWxId.hashCode())
 
-                    // markAsRead clears the accumulated history through the hook below. Restore it
-                    // only when configured, then append the quick reply in both modes.
-                    appendHistory(targetWxId, preservedHistory)
-                    appendHistory(
-                        targetWxId,
-                        HistoryEntry(
-                            senderWxId = WeApi.selfWxId,
-                            senderName = null,
-                            text = replyContent,
-                            timestamp = System.currentTimeMillis(),
-                            messageId = null,
-                            media = null,
-                        ),
-                    )
-                }
-
-                ACTION_MARK_READ -> {
-                    WeLogger.i(TAG, "marking chat as read for $targetWxId")
-                    WeConversationApi.markAsRead(targetWxId)
-                    clearConversationState(targetWxId)
-                    removeContentIntent(targetWxId)
-                    notificationManager.cancel(targetWxId.hashCode())
-                }
-
-                ACTION_NOTIFICATION_OPENED -> {
-                    // Notification was tapped — clear history, then hand off to WeChat's own intent.
-                    clearConversationState(targetWxId)
-                    val contentIntent = removeContentIntent(targetWxId) ?: return
-                    try {
-                        contentIntent.send()
-                    } catch (e: PendingIntent.CanceledException) {
-                        WeLogger.w(TAG, "original content intent was canceled for $targetWxId", e)
+                    ACTION_NOTIFICATION_DISMISSED -> {
+                        // Notification was swiped away — just clear history.
+                        clearConversationState(targetWxId)
+                        removeContentIntent(targetWxId)
                     }
-                }
-
-                ACTION_NOTIFICATION_DISMISSED -> {
-                    // Notification was swiped away — just clear history.
-                    clearConversationState(targetWxId)
-                    removeContentIntent(targetWxId)
                 }
             }
         }
-    }
 
     private val MESSAGE_REGEX = Regex("""^(\[\d+条])?(.+?)?: (.*)$""", RegexOption.DOT_MATCHES_ALL)
 
-    private fun normalizeText(text: String): String = text
-        .replaceRichContent()
-        .replaceEmojis()
+    private fun normalizeText(text: String): String = text.replaceRichContent().replaceEmojis()
 
     private fun normalizeTimestamp(timestamp: Long): Long {
         if (timestamp <= 0L) return System.currentTimeMillis()
@@ -311,80 +336,93 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     private fun cleanupNotificationMediaCache() {
         val cutoff = System.currentTimeMillis() - MEDIA_CACHE_MAX_AGE_MILLIS
         runCatching {
-            Files.list(notificationMediaDir).use { paths ->
-                paths.filter { path ->
-                    path.isRegularFile() && Files.getLastModifiedTime(path).toMillis() < cutoff
-                }.forEach(Path::deleteIfExists)
-            }
-        }.onFailure { WeLogger.w(TAG, "failed to clean notification media cache", it) }
+            notificationMediaDir
+                .listDirectoryEntries()
+                .filter { path ->
+                    path.isRegularFile() && path.getLastModifiedTime().toMillis() < cutoff
+                }
+                .forEach(Path::deleteIfExists)
+        }
+            .onFailure { WeLogger.w(TAG, "failed to clean notification media cache", it) }
     }
 
     private fun toMediaAttachment(media: WeMessageApi.NotificationMediaFile): MediaAttachment {
-        val uri = FileProvider.getUriForFile(
-            HostInfo.application,
-            "${PackageNames.WECHAT}.external.fileprovider",
-            media.path.toFile(),
-        )
+        val uri =
+            FileProvider.getUriForFile(
+                HostInfo.application,
+                "${PackageNames.WECHAT}.external.fileprovider",
+                media.path.toFile(),
+            )
         return MediaAttachment(media.mimeType, uri, media.path)
     }
 
     private fun launchMediaTask(
         waitMillis: Long,
-        awaitCompletion: Boolean,
         startImmediately: Boolean = true,
         prepare: (Long) -> WeMessageApi.NotificationMediaFile?,
     ): PendingMediaTask {
         val deadline = SystemClock.elapsedRealtime() + waitMillis
-        val deferred = mediaScope.async(
-            start = if (startImmediately) CoroutineStart.DEFAULT else CoroutineStart.LAZY,
-        ) {
-            runCatching {
-                val media = prepare(deadline) ?: return@runCatching null
-                if (SystemClock.elapsedRealtime() >= deadline) null else toMediaAttachment(media)
+        val deferred =
+            mediaScope.async(
+                start = if (startImmediately) CoroutineStart.DEFAULT else CoroutineStart.LAZY,
+            ) {
+                runCatching {
+                    val media = prepare(deadline) ?: return@runCatching null
+                    if (SystemClock.elapsedRealtime() >= deadline) {
+                        null
+                    } else {
+                        toMediaAttachment(media)
+                    }
+                }
+                    .onFailure { WeLogger.w(TAG, "failed to prepare notification media", it) }
+                    .getOrNull()
             }
-                .onFailure { WeLogger.w(TAG, "failed to prepare notification media", it) }
-                .getOrNull()
-        }
-        return PendingMediaTask(deadline, awaitCompletion, !startImmediately, deferred)
+        return PendingMediaTask(deadline, deferred)
     }
 
     private fun createMediaTask(message: MessageInfo): PendingMediaTask? {
         return when {
-            message.typeCode == MessageType.IMAGE.code -> when (imageNotificationMode) {
-                ImageNotificationMode.DISABLED -> null
-                ImageNotificationMode.WAIT_THUMBNAIL -> launchMediaTask(
-                    waitMillis = SHORT_MEDIA_WAIT_MILLIS,
-                    awaitCompletion = true,
-                ) { deadline ->
-                    WeMessageApi.materializeNotificationThumbnail(
-                        message,
-                        notificationMediaDir / "image-thumb-v2-${message.serverId}.media",
-                        deadline,
-                    )
-                }
+            message.typeCode == MessageType.IMAGE.code -> {
+                when (imageNotificationMode) {
+                    ImageNotificationMode.DISABLED -> {
+                        null
+                    }
 
-                ImageNotificationMode.WAIT_LARGE -> launchMediaTask(
-                    waitMillis = LARGE_IMAGE_WAIT_MILLIS,
-                    awaitCompletion = true,
-                    startImmediately = false,
-                ) { deadline ->
-                    WeMessageApi.materializeNotificationLargeImage(
-                        message.serverId,
-                        notificationMediaDir / "image-large-${message.serverId}.media",
-                        deadline,
-                    )
+                    ImageNotificationMode.WAIT_THUMBNAIL -> {
+                        launchMediaTask(
+                            waitMillis = SHORT_MEDIA_WAIT_MILLIS,
+                        ) { deadline ->
+                            WeMessageApi.materializeNotificationThumbnail(
+                                message,
+                                notificationMediaDir / "image-thumb-v2-${message.serverId}.media",
+                                deadline,
+                            )
+                        }
+                    }
+
+                    ImageNotificationMode.WAIT_LARGE -> {
+                        launchMediaTask(
+                            waitMillis = LARGE_IMAGE_WAIT_MILLIS,
+                            startImmediately = false,
+                        ) { deadline ->
+                            WeMessageApi.materializeNotificationLargeImage(
+                                message.serverId,
+                                notificationMediaDir / "image-large-${message.serverId}.media",
+                                deadline,
+                            )
+                        }
+                    }
                 }
             }
 
             message.type?.isSticker == true -> {
-                val md5 = message.stickerMd5
-                    ?.lowercase()
-                    ?.takeIf { it.isNotEmpty() && it.all(Char::isLetterOrDigit) }
-                    ?: return null
+                val md5 =
+                    message.stickerMd5?.lowercase()?.takeIf {
+                        it.isNotEmpty() && it.all(Char::isLetterOrDigit)
+                    } ?: return null
                 val wait = stickerNotificationMode == StickerNotificationMode.WAIT_FOR_LOAD
                 launchMediaTask(
                     waitMillis = STICKER_MEDIA_WAIT_MILLIS,
-                    awaitCompletion = true,
                 ) { deadline ->
                     WeMessageApi.materializeNotificationSticker(
                         md5,
@@ -395,33 +433,40 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
             }
 
-            else -> null
+            else -> {
+                null
+            }
         }
     }
 
-    private fun awaitMedia(task: PendingMediaTask?): MediaAttachment? {
+    private suspend fun awaitMedia(task: PendingMediaTask?): MediaAttachment? {
         if (task == null) return null
         val remaining = task.deadlineElapsedRealtime - SystemClock.elapsedRealtime()
-        if (task.startOnAwait && remaining <= 0L) {
+        if (remaining <= 0L && !task.deferred.isCompleted) {
             task.deferred.cancel()
             return null
         }
-        if (task.startOnAwait) task.deferred.start()
-        if (!task.awaitCompletion && !task.deferred.isCompleted) return null
+        task.deferred.start()
 
-        val media = runCatching {
-            runBlocking {
+        return try {
+            val media =
                 if (task.deferred.isCompleted) {
                     task.deferred.await()
+                } else if (remaining > 0L) {
+                    withTimeoutOrNull(remaining.milliseconds) { task.deferred.await() }
                 } else {
-                    if (remaining <= 0L) null
-                    else withTimeoutOrNull(remaining.milliseconds) { task.deferred.await() }
+                    null
                 }
-            }
-        }.onFailure { WeLogger.w(TAG, "failed while awaiting notification media", it) }
-            .getOrNull()
-        if (!task.deferred.isCompleted) task.deferred.cancel()
-        return media
+            if (!task.deferred.isCompleted) task.deferred.cancel()
+            media
+        } catch (error: CancellationException) {
+            // A superseded publisher must stop, but a cancelled media task is a text fallback.
+            currentCoroutineContext().ensureActive()
+            null
+        } catch (error: Exception) {
+            WeLogger.w(TAG, "failed while awaiting notification media", error)
+            null
+        }
     }
 
     private fun enqueueMessage(message: MessageInfo, insertedMessageId: Long) {
@@ -431,20 +476,23 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         if (senderWxId.isEmpty()) return
 
         val now = System.currentTimeMillis()
-        val pending = PendingMessage(
-            talker = message.talker,
-            senderWxId = senderWxId,
-            rawContent = message.content,
-            text = normalizeText(message.humanReadableRepr),
-            timestamp = normalizeTimestamp(message.createTime),
-            messageId = insertedMessageId.takeIf { it > 0L } ?: message.id,
-            capturedAt = now,
-            mediaTask = createMediaTask(message),
-        )
+        val pending =
+            PendingMessage(
+                talker = message.talker,
+                senderWxId = senderWxId,
+                rawContent = message.content,
+                timestamp = normalizeTimestamp(message.createTime),
+                messageId = insertedMessageId.takeIf { it > 0L } ?: message.id,
+                capturedAt = now,
+                mediaTask = createMediaTask(message),
+            )
 
         synchronized(stateLock) {
             val queue = pendingMessages.getOrPut(pending.talker) { ArrayDeque() }
-            while (queue.firstOrNull()?.let { now - it.capturedAt > PENDING_MESSAGE_TTL_MILLIS } == true) {
+            while (
+                queue.firstOrNull()?.let { now - it.capturedAt > PENDING_MESSAGE_TTL_MILLIS } ==
+                    true
+            ) {
                 queue.removeFirst().mediaTask?.deferred?.cancel()
             }
             if (pending.messageId != 0L && queue.any { it.messageId == pending.messageId }) return
@@ -459,7 +507,10 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         val now = System.currentTimeMillis()
         return synchronized(stateLock) {
             val queue = pendingMessages[context.talker] ?: return@synchronized null
-            while (queue.firstOrNull()?.let { now - it.capturedAt > PENDING_MESSAGE_TTL_MILLIS } == true) {
+            while (
+                queue.firstOrNull()?.let { now - it.capturedAt > PENDING_MESSAGE_TTL_MILLIS } ==
+                    true
+            ) {
                 queue.removeFirst().mediaTask?.deferred?.cancel()
             }
             if (queue.isEmpty()) {
@@ -481,30 +532,22 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     }
 
     private fun discardPendingMessage(context: NotificationContext) {
-        val discarded = synchronized(stateLock) {
-            val queue = pendingMessages[context.talker] ?: return
-            val index = queue.indexOfFirst { it.rawContent == context.rawContent }
-            var removed: PendingMessage? = null
-            if (index >= 0) {
-                val entries = queue.toList()
-                removed = entries[index]
-                queue.clear()
-                queue.addAll(entries.filterIndexed { entryIndex, _ -> entryIndex != index })
+        val discarded =
+            synchronized(stateLock) {
+                val queue = pendingMessages[context.talker] ?: return
+                val index = queue.indexOfFirst { it.rawContent == context.rawContent }
+                var removed: PendingMessage? = null
+                if (index >= 0) {
+                    val entries = queue.toList()
+                    removed = entries[index]
+                    queue.clear()
+                    queue.addAll(entries.filterIndexed { entryIndex, _ -> entryIndex != index })
+                }
+                if (queue.isEmpty()) pendingMessages.remove(context.talker)
+                removed
             }
-            if (queue.isEmpty()) pendingMessages.remove(context.talker)
-            removed
-        }
         discarded?.mediaTask?.deferred?.cancel()
     }
-
-    private fun PendingMessage.toHistoryEntry(): HistoryEntry = HistoryEntry(
-        senderWxId = senderWxId,
-        senderName = null,
-        text = text,
-        timestamp = timestamp,
-        messageId = messageId.takeIf { it != 0L },
-        media = awaitMedia(mediaTask),
-    )
 
     private fun appendHistory(talker: String, vararg entries: HistoryEntry) {
         synchronized(stateLock) {
@@ -515,7 +558,9 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                 }
                 history.addLast(entry)
             }
-            while (history.size > MAX_HISTORY) history.removeFirst()
+            while (history.size > MAX_HISTORY) {
+                history.removeFirst().mediaTask?.deferred?.cancel()
+            }
         }
     }
 
@@ -524,11 +569,14 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
     }
 
     private fun clearConversationState(talker: String) {
-        val pending = synchronized(stateLock) {
-            val removed = pendingMessages.remove(talker)
-            messageHistory.remove(talker)
-            removed
-        }
+        val pending =
+            synchronized(stateLock) {
+                conversationGenerations.remove(talker)
+                val removed = pendingMessages.remove(talker)
+                messageHistory.remove(talker)?.forEach { it.mediaTask?.deferred?.cancel() }
+                invalidatePendingNotifications { it.talker == talker }
+                removed
+            }
         pending?.forEach { it.mediaTask?.deferred?.cancel() }
     }
 
@@ -536,47 +584,150 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         synchronized(stateLock) { pendingContentIntents[talker] = intent }
     }
 
-    private fun removeContentIntent(talker: String): PendingIntent? {
-        return synchronized(stateLock) { pendingContentIntents.remove(talker) }
-    }
+    private fun removeContentIntent(talker: String): PendingIntent? =
+        synchronized(stateLock) { pendingContentIntents.remove(talker) }
 
     private fun clearState() {
         synchronized(stateLock) {
+            pendingMessages.values.forEach { queue ->
+                queue.forEach { it.mediaTask?.deferred?.cancel() }
+            }
+            messageHistory.values.forEach { history ->
+                history.forEach { it.mediaTask?.deferred?.cancel() }
+            }
+            invalidatePendingNotifications { true }
+            notificationTalkers.clear()
+            conversationGenerations.clear()
             pendingMessages.clear()
             messageHistory.clear()
             pendingContentIntents.clear()
         }
         notificationContext.remove()
-        synchronized(avatarLock) { avatarCache.clear() }
     }
 
-    private fun loadAvatarIcon(wxId: String): Icon? {
-        if (wxId.isEmpty() || wxId == "system") return null
-
-        val now = System.currentTimeMillis()
-        synchronized(avatarLock) {
-            avatarCache[wxId]?.let { cached ->
-                if (cached.expiresAt > now) return cached.icon
-                avatarCache.remove(wxId)
+    // Call under stateLock. Invalidating the identity also protects against workers that are
+    // inside non-suspending host/bitmap code and cannot observe job cancellation immediately.
+    private fun invalidatePendingNotifications(predicate: (PendingNotification) -> Boolean) {
+        val iterator = pendingNotifications.values.iterator()
+        while (iterator.hasNext()) {
+            val pending = iterator.next()
+            if (predicate(pending)) {
+                iterator.remove()
+                pending.job.cancel()
             }
         }
+    }
 
-        val icon = runCatching {
-            val bitmap = methodLoadNotificationAvatar.method.invoke(
-                notificationAvatarLoader,
-                HostInfo.application,
-                wxId,
-                "",
-            ) as? Bitmap? ?: return@runCatching null
-            Icon.createWithBitmap(bitmap)
-        }.onFailure {
-            WeLogger.w(TAG, "failed to load notification avatar for $wxId", it)
-        }.getOrNull() ?: return null
+    private fun cancelConversationNotifications(manager: NotificationManager, talker: String) {
+        val keys =
+            synchronized(stateLock) {
+                invalidatePendingNotifications { it.talker == talker }
+                notificationTalkers.filterValues { it == talker }.keys.toList()
+            }
+        keys.forEach { manager.cancel(it.tag, it.id) }
+    }
 
-        synchronized(avatarLock) {
-            avatarCache[wxId] = CachedAvatar(icon, now + AVATAR_CACHE_TTL_MILLIS)
+    private fun scheduleNotification(
+        key: NotificationKey,
+        notif: Notification,
+        context: NotificationContext,
+        originalNotify: OriginalMethodInvoker,
+    ) {
+        val notifTitle =
+            notif.extras.getString(Notification.EXTRA_TITLE)
+                ?: localizedString(R.string.notifications_unknown_conversation)
+        val notifText =
+            notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+                ?: error("Host notification has no text")
+        // A direct message identical to its raw content has no host-added prefix.
+        // Preserve literal text such as "time: 12:00", as the old captured-message path did.
+        val match =
+            if (!context.talker.isGroupChatWxId && notifText == context.rawContent) {
+                null
+            } else {
+                MESSAGE_REGEX.find(notifText)
+            }
+        val senderName =
+            if (context.talker.isGroupChatWxId) {
+                match?.groupValues?.get(2)?.takeIf { it.isNotEmpty() } ?: notifTitle
+            } else {
+                notifTitle
+            }
+        val pending = PendingNotification(context.talker, key)
+        synchronized(stateLock) {
+            // Unread clearing may race with dealNotify on a host worker thread.
+            if (conversationGenerations[context.talker] !== context.generation) return
+            val capturedMessage = consumePendingMessage(context)
+            val entry =
+                HistoryEntry(
+                    senderWxId =
+                        capturedMessage?.senderWxId
+                            ?: context.talker.takeUnless { it.isGroupChatWxId },
+                    senderName = senderName,
+                    text = normalizeText(match?.groupValues?.get(3) ?: notifText),
+                    timestamp = capturedMessage?.timestamp ?: System.currentTimeMillis(),
+                    messageId = capturedMessage?.messageId?.takeIf { it != 0L },
+                    mediaTask = capturedMessage?.mediaTask,
+                )
+            invalidatePendingNotifications { it.key == key || it.talker == context.talker }
+            // Append before launching so replacement publishers keep every message in arrival
+            // order. Cancelling a publisher must not cancel media needed by its replacement.
+            appendHistory(context.talker, entry)
+            val history = messageHistory[context.talker]!!.toList()
+            notif.contentIntent?.let { setContentIntent(context.talker, it) }
+            notificationTalkers[key] = context.talker
+            pending.job =
+                mediaScope.launch(start = CoroutineStart.LAZY) {
+                    try {
+                        val enhanced =
+                            try {
+                                enhanceNotification(
+                                    notif.clone(),
+                                    context.talker,
+                                    notifTitle,
+                                    history,
+                                )
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                // A rendering failure must still deliver the original host
+                                // notification.
+                                WeLogger.e(
+                                    TAG,
+                                    "failed to enhance notification for ${context.talker}",
+                                    error,
+                                )
+                                notif
+                            }
+                        // Only the final notify call runs on main. Keep the validity check and
+                        // publication together so read/cancel/replacement cannot revive old work.
+                        withContext(Dispatchers.Main) {
+                            synchronized(stateLock) {
+                                if (pendingNotifications[key] === pending) {
+                                    originalNotify(arrayOf(key.tag, key.id, enhanced))
+                                    pendingNotifications.remove(key)
+                                }
+                            }
+                        }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        WeLogger.e(
+                            TAG,
+                            "failed to publish notification for ${context.talker}",
+                            error,
+                        )
+                    } finally {
+                        synchronized(stateLock) {
+                            if (pendingNotifications[key] === pending) {
+                                pendingNotifications.remove(key)
+                            }
+                        }
+                    }
+                }
+            pendingNotifications[key] = pending
         }
-        return icon
+        pending.job.start()
     }
 
     private fun resolveDisplayName(
@@ -584,32 +735,180 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         entry: HistoryEntry,
         conversationTitle: String,
         selfName: String,
-        fallbackGroupSenderWxId: String?,
-        fallbackGroupSenderName: String?,
     ): String {
         val senderWxId = entry.senderWxId ?: return entry.senderName ?: conversationTitle
         if (senderWxId == WeApi.selfWxId) return selfName
-        if (!talker.isGroupChatWxId) return conversationTitle
-        if (senderWxId == fallbackGroupSenderWxId && !fallbackGroupSenderName.isNullOrEmpty()) {
-            return fallbackGroupSenderName
-        }
         if (!entry.senderName.isNullOrEmpty()) return entry.senderName
+        if (!talker.isGroupChatWxId) return conversationTitle
 
         return runCatching {
-            WeDatabaseApi.getGroupMemberDisplayName(talker, senderWxId)
-        }.getOrDefault("").ifEmpty {
-            runCatching { WeDatabaseApi.getDisplayName(senderWxId) }
-                .getOrDefault(senderWxId)
-        }.ifEmpty { senderWxId }
+                WeDatabaseApi.getGroupMemberDisplayName(talker, senderWxId)
+            }
+            .getOrDefault("")
+            .ifEmpty {
+                runCatching { WeDatabaseApi.getDisplayName(senderWxId) }.getOrDefault(senderWxId)
+            }
+            .ifEmpty { senderWxId }
     }
 
-    private fun buildPerson(name: String, wxId: String?): Person {
-        return Person.Builder().setName(name).apply {
-            if (!wxId.isNullOrEmpty()) {
-                setKey(wxId)
-                loadAvatarIcon(wxId)?.let(::setIcon)
+    private fun buildPerson(name: String, wxId: String?): Person =
+        Person.Builder()
+            .setName(name)
+            .apply {
+                if (!wxId.isNullOrEmpty()) {
+                    setKey(wxId)
+                    WeNotificationAvatarApi.loadIcon(wxId)?.let(::setIcon)
+                }
             }
-        }.build()
+            .build()
+
+    private suspend fun enhanceNotification(
+        notif: Notification,
+        convWxId: String,
+        notifTitle: String,
+        history: List<HistoryEntry>,
+    ): Notification {
+        // Start lazy large-image downloads as soon as a notification is accepted, before
+        // avatar/name work or waiting for another history entry consumes their deadline.
+        history.forEach { entry ->
+            entry.mediaTask?.let { task ->
+                if (SystemClock.elapsedRealtime() < task.deadlineElapsedRealtime) {
+                    task.deferred.start()
+                }
+            }
+        }
+        val context = HostInfo.application
+        val builder = Notification.Builder.recoverBuilder(context, notif)
+        val selfName = localizedString(R.string.notifications_self)
+        val selfPerson = buildPerson(selfName, WeApi.selfWxId)
+        val messagingStyle = Notification.MessagingStyle(selfPerson)
+
+        if (convWxId.isGroupChatWxId) {
+            messagingStyle.isGroupConversation = true
+            messagingStyle.conversationTitle = notifTitle
+        }
+
+        for (entry in history) {
+            val person =
+                if (entry.senderWxId == WeApi.selfWxId) {
+                    selfPerson
+                } else {
+                    buildPerson(
+                        resolveDisplayName(
+                            talker = convWxId,
+                            entry = entry,
+                            conversationTitle = notifTitle,
+                            selfName = selfName,
+                        ),
+                        entry.senderWxId,
+                    )
+                }
+            val message =
+                Notification.MessagingStyle.Message(
+                    entry.text,
+                    entry.timestamp,
+                    person,
+                )
+            awaitMedia(entry.mediaTask)?.let { media ->
+                message.setData(media.mimeType, media.uri)
+            }
+            messagingStyle.addMessage(message)
+        }
+
+        builder.style = messagingStyle
+        val conversationIcon = WeNotificationAvatarApi.loadIcon(convWxId)
+        if (conversationIcon != null) {
+            builder.setLargeIcon(conversationIcon)
+        } else if (!convWxId.isGroupChatWxId) {
+            builder.setLargeIcon(null as Icon?)
+        }
+
+        // 2.5. Wrap WeChat's contentIntent so tapping the notification clears
+        //      history before handing off to WeChat's own chat-open flow.
+        //      Also attach a deleteIntent to catch swipe-dismiss.
+        val originalContentIntent = notif.contentIntent
+        if (originalContentIntent != null) {
+            val openIntent =
+                Intent(ACTION_NOTIFICATION_OPENED).apply {
+                    setPackage(PackageNames.WECHAT)
+                    putExtra("extra_target_wxid", convWxId)
+                }
+            builder.setContentIntent(
+                PendingIntent.getBroadcast(
+                    context,
+                    convWxId.hashCode(),
+                    openIntent,
+                    PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            )
+        }
+        val dismissIntent =
+            Intent(ACTION_NOTIFICATION_DISMISSED).apply {
+                setPackage(PackageNames.WECHAT)
+                putExtra("extra_target_wxid", convWxId)
+            }
+        builder.setDeleteIntent(
+            PendingIntent.getBroadcast(
+                context,
+                convWxId.hashCode(),
+                dismissIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        )
+
+        // 3. Quick Reply Action
+        val remoteInput =
+            RemoteInput.Builder("key_reply_content")
+                .setLabel(localizedString(R.string.notifications_reply_hint))
+                .build()
+
+        val replyIntent =
+            Intent(ACTION_REPLY).apply {
+                setPackage(PackageNames.WECHAT)
+                putExtra("extra_target_wxid", convWxId)
+            }
+        val replyPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                convWxId.hashCode(),
+                replyIntent,
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+
+        val replyAction =
+            Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_menu_send),
+                    localizedString(R.string.notifications_action_reply),
+                    replyPendingIntent,
+                )
+                .addRemoteInput(remoteInput)
+                .build()
+
+        // 4. Mark as Read Action
+        val readIntent =
+            Intent(ACTION_MARK_READ).apply {
+                setPackage(PackageNames.WECHAT)
+                putExtra("extra_target_wxid", convWxId)
+            }
+        val readPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                convWxId.hashCode(),
+                readIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val readAction =
+            Notification.Action.Builder(
+                    Icon.createWithResource(context, android.R.drawable.ic_menu_view),
+                    localizedString(R.string.notifications_action_mark_read),
+                    readPendingIntent,
+                )
+                .build()
+
+        // Apply actions directly to the builder
+        builder.addAction(replyAction)
+        builder.addAction(readAction)
+        return builder.build()
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -628,20 +927,23 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                                 title = stringResource(R.string.notifications_image_behavior),
                                 description = null,
                                 value = imageMode,
-                                options = listOf(
-                                    DropdownOption(
-                                        ImageNotificationMode.DISABLED,
-                                        stringResource(R.string.notifications_image_disabled),
+                                options =
+                                    listOf(
+                                        DropdownOption(
+                                            ImageNotificationMode.DISABLED,
+                                            stringResource(R.string.notifications_image_disabled),
+                                        ),
+                                        DropdownOption(
+                                            ImageNotificationMode.WAIT_THUMBNAIL,
+                                            stringResource(
+                                                R.string.notifications_image_wait_thumbnail,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            ImageNotificationMode.WAIT_LARGE,
+                                            stringResource(R.string.notifications_image_wait_large),
+                                        ),
                                     ),
-                                    DropdownOption(
-                                        ImageNotificationMode.WAIT_THUMBNAIL,
-                                        stringResource(R.string.notifications_image_wait_thumbnail),
-                                    ),
-                                    DropdownOption(
-                                        ImageNotificationMode.WAIT_LARGE,
-                                        stringResource(R.string.notifications_image_wait_large),
-                                    ),
-                                ),
                                 onValueChange = {
                                     imageMode = it
                                     imageNotificationMode = it
@@ -654,16 +956,21 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                                 title = stringResource(R.string.notifications_sticker_behavior),
                                 description = null,
                                 value = stickerMode,
-                                options = listOf(
-                                    DropdownOption(
-                                        StickerNotificationMode.LOADED_ONLY,
-                                        stringResource(R.string.notifications_sticker_loaded_only),
+                                options =
+                                    listOf(
+                                        DropdownOption(
+                                            StickerNotificationMode.LOADED_ONLY,
+                                            stringResource(
+                                                R.string.notifications_sticker_loaded_only,
+                                            ),
+                                        ),
+                                        DropdownOption(
+                                            StickerNotificationMode.WAIT_FOR_LOAD,
+                                            stringResource(
+                                                R.string.notifications_sticker_wait_load,
+                                            ),
+                                        ),
                                     ),
-                                    DropdownOption(
-                                        StickerNotificationMode.WAIT_FOR_LOAD,
-                                        stringResource(R.string.notifications_sticker_wait_load),
-                                    ),
-                                ),
                                 onValueChange = {
                                     stickerMode = it
                                     stickerNotificationMode = it
@@ -673,9 +980,10 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
                         item(key = "clear_history_after_quick_reply") {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(
-                                    R.string.notifications_clear_history_after_quick_reply,
-                                ),
+                                title =
+                                    stringResource(
+                                        R.string.notifications_clear_history_after_quick_reply,
+                                    ),
                                 checked = clearHistory,
                                 onCheckedChange = {
                                     clearHistory = it
@@ -692,6 +1000,14 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
         }
     }
 
+    override val declaredErrors
+        get() =
+            if (CustomNotifications.isEnabled) {
+                listOf(R.string.custom_notify_conflict)
+            } else {
+                emptyList()
+            }
+
     override fun onEnable() {
         clearState()
         mediaScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -703,19 +1019,28 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             enqueueMessage(MessageInfo(args[0]!!), insertedMessageId)
         }
 
-        // x.d -> m0.a -> e0.b -> Notification.Builder.build() all run synchronously on this
-        // thread, so the raw dealNotify content identifies the message consumed by build().
+        // x.d -> m0.a -> e0.b -> NotificationItem -> NotificationManager.notify() runs
+        // synchronously on the main thread in the host. Capture its context until publication;
+        // the notify hook below takes a snapshot and returns before any media wait or rendering.
         methodDealNotify.hookBefore {
-            notificationContext.set(
-                NotificationContext(
-                    talker = args[1] as String,
-                    rawContent = args[2] as String,
+            val talker = args[1] as String
+            synchronized(stateLock) {
+                notificationContext.set(
+                    NotificationContext(
+                        talker = talker,
+                        rawContent = args[2] as String,
+                        generation = conversationGenerations.getOrPut(talker) { Any() },
+                    ),
                 )
-            )
+            }
         }
         methodDealNotify.hookAfter {
             notificationContext.get()?.let(::discardPendingMessage)
             notificationContext.remove()
+        }
+
+        methodHiddenNotificationContent.hookBefore {
+            notificationContext.get()?.hiddenContent = true
         }
 
         // WeChat calls ConversationStorage.updateUnreadByTalker(talker) when a conversation's
@@ -725,186 +1050,78 @@ object NotificationsEvolved : ClickableFeature(), IResolveDex {
             clearConversationState(args[0] as String)
         }
 
-        Notification.Builder::class.reflekt()
-            .firstMethod { name = "build" }
+        NotificationManager::class.reflekt()
+            .firstMethod {
+                name = "notify"
+                parameters(String::class, Int::class, Notification::class)
+            }
             .hookBefore {
-                val context = HostInfo.application
-                val notifyContext = notificationContext.get() ?: return@hookBefore
-
-                val builder = thisObject as Notification.Builder
-                val notif = builder.reflekt().firstField { type = Notification::class }
-                    .get() as Notification
-                val channelId = notif.channelId
-
-                if (channelId != "message_channel_new_id") {
+                val key = NotificationKey(args[0] as String?, args[1] as Int)
+                val notif = args[2] as Notification
+                val notifyContext = notificationContext.get()
+                if (notifyContext == null || notif.channelId != "message_channel_new_id") {
+                    synchronized(stateLock) {
+                        invalidatePendingNotifications { it.key == key }
+                        notificationTalkers.remove(key)
+                    }
                     return@hookBefore
                 }
                 notificationContext.remove()
-
-                val notifTitle = notif.extras.getString(Notification.EXTRA_TITLE)
-                    ?: localizedNotificationString(R.string.notifications_unknown_conversation)
-                val notifText =
-                    notif.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-                        ?: localizedNotificationString(R.string.notifications_unknown_content)
-
-                val match = MESSAGE_REGEX.find(notifText)
-                val fallbackGroupSenderName = match?.groupValues?.get(2)?.takeIf { it.isNotEmpty() }
-                val fallbackSenderName = if (notifyContext.talker.isGroupChatWxId) {
-                    fallbackGroupSenderName ?: notifTitle
-                } else {
-                    notifTitle
-                }
-                val fallbackText = if (match == null) {
-                    WeLogger.w(
-                        TAG,
-                        "failed to match message regex, using raw sender name & text content"
-                    )
-                    notifText
-                } else {
-                    match.groupValues[3]
-                }
-
-                val convWxId = notifyContext.talker
-                val capturedMessage = consumePendingMessage(notifyContext)
-                val capturedEntries = capturedMessage?.let { listOf(it.toHistoryEntry()) }.orEmpty()
-                val entries = capturedEntries.ifEmpty {
-                    listOf(
-                        HistoryEntry(
-                            senderWxId = convWxId.takeUnless { it.isGroupChatWxId },
-                            senderName = fallbackSenderName,
-                            text = normalizeText(fallbackText),
-                            timestamp = System.currentTimeMillis(),
-                            messageId = null,
-                            media = null,
-                        )
-                    )
-                }
-                appendHistory(convWxId, entries)
-
-                WeLogger.i(TAG, "enhancing notification for $notifTitle ($convWxId)")
-
-                val selfName = localizedNotificationString(R.string.notifications_self)
-                val selfPerson = buildPerson(selfName, WeApi.selfWxId)
-                val messagingStyle = Notification.MessagingStyle(selfPerson)
-
-                if (convWxId.isGroupChatWxId) {
-                    messagingStyle.isGroupConversation = true
-                    messagingStyle.conversationTitle = notifTitle
-                }
-
-                val history = synchronized(stateLock) {
-                    messageHistory[convWxId]?.toList().orEmpty()
-                }
-                val currentSenderWxId = capturedMessage?.senderWxId
-
-                for (entry in history) {
-                    val person = if (entry.senderWxId == WeApi.selfWxId) {
-                        selfPerson
-                    } else {
-                        buildPerson(
-                            resolveDisplayName(
-                                talker = convWxId,
-                                entry = entry,
-                                conversationTitle = notifTitle,
-                                selfName = selfName,
-                                fallbackGroupSenderWxId = currentSenderWxId,
-                                fallbackGroupSenderName = fallbackGroupSenderName,
-                            ),
-                            entry.senderWxId,
-                        )
+                if (
+                    notifyContext.hiddenContent ||
+                        notif.extras.getCharSequence(Notification.EXTRA_TEXT).isNullOrEmpty()
+                ) {
+                    // Keep the host's summary/empty notification and its privacy decision.
+                    // Returning here lets the original notify run, unlike returning from
+                    // scheduleNotification after its caller has already swallowed notify.
+                    clearConversationState(notifyContext.talker)
+                    synchronized(stateLock) {
+                        invalidatePendingNotifications { it.key == key }
+                        notificationTalkers[key] = notifyContext.talker
                     }
-                    val message = Notification.MessagingStyle.Message(
-                        entry.text,
-                        entry.timestamp,
-                        person,
-                    )
-                    entry.media?.let { media -> message.setData(media.mimeType, media.uri) }
-                    messagingStyle.addMessage(message)
+                    return@hookBefore
                 }
-
-                builder.style = messagingStyle
-                val conversationIcon = loadAvatarIcon(convWxId)
-                if (conversationIcon != null) {
-                    builder.setLargeIcon(conversationIcon)
-                } else if (!convWxId.isGroupChatWxId) {
-                    builder.setLargeIcon(null as Icon?)
-                }
-
-                // 2.5. Wrap WeChat's contentIntent so tapping the notification clears
-                //      history before handing off to WeChat's own chat-open flow.
-                //      Also attach a deleteIntent to catch swipe-dismiss.
-                val originalContentIntent = notif.contentIntent
-                if (originalContentIntent != null) {
-                    setContentIntent(convWxId, originalContentIntent)
-                    val openIntent = Intent(ACTION_NOTIFICATION_OPENED).apply {
-                        setPackage(PackageNames.WECHAT)
-                        putExtra("extra_target_wxid", convWxId)
-                    }
-                    builder.setContentIntent(
-                        PendingIntent.getBroadcast(
-                            context, convWxId.hashCode(), openIntent,
-                            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                        )
-                    )
-                }
-                val dismissIntent = Intent(ACTION_NOTIFICATION_DISMISSED).apply {
-                    setPackage(PackageNames.WECHAT)
-                    putExtra("extra_target_wxid", convWxId)
-                }
-                builder.setDeleteIntent(
-                    PendingIntent.getBroadcast(
-                        context, convWxId.hashCode(), dismissIntent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                )
-
-                // 3. Quick Reply Action
-                val remoteInput = RemoteInput.Builder("key_reply_content")
-                    .setLabel(localizedNotificationString(R.string.notifications_reply_hint))
-                    .build()
-
-                val replyIntent = Intent(ACTION_REPLY).apply {
-                    setPackage(PackageNames.WECHAT)
-                    putExtra("extra_target_wxid", convWxId)
-                }
-                val replyPendingIntent = PendingIntent.getBroadcast(
-                    context, convWxId.hashCode(), replyIntent,
-                    PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-
-                val replyAction = Notification.Action.Builder(
-                    Icon.createWithResource(context, android.R.drawable.ic_menu_send),
-                    localizedNotificationString(R.string.notifications_action_reply), replyPendingIntent
-                ).addRemoteInput(remoteInput).build()
-
-                // 4. Mark as Read Action
-                val readIntent = Intent(ACTION_MARK_READ).apply {
-                    setPackage(PackageNames.WECHAT)
-                    putExtra("extra_target_wxid", convWxId)
-                }
-                val readPendingIntent = PendingIntent.getBroadcast(
-                    context, convWxId.hashCode(), readIntent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-                val readAction = Notification.Action.Builder(
-                    Icon.createWithResource(context, android.R.drawable.ic_menu_view),
-                    localizedNotificationString(R.string.notifications_action_mark_read), readPendingIntent
-                ).build()
-
-                // Apply actions directly to the builder
-                builder.addAction(replyAction)
-                builder.addAction(readAction)
+                val originalNotify = captureOriginalMethod()
+                scheduleNotification(key, notif.clone(), notifyContext, originalNotify)
+                result = null
             }
 
-        val filter = IntentFilter().apply {
-            addAction(ACTION_REPLY)
-            addAction(ACTION_MARK_READ)
-            addAction(ACTION_NOTIFICATION_OPENED)
-            addAction(ACTION_NOTIFICATION_DISMISSED)
-        }
+        NotificationManager::class.reflekt()
+            .firstMethod {
+                name = "cancel"
+                parameters(String::class, Int::class)
+            }
+            .hookBefore {
+                val key = NotificationKey(args[0] as String?, args[1] as Int)
+                synchronized(stateLock) {
+                    invalidatePendingNotifications { it.key == key }
+                    notificationTalkers.remove(key)
+                }
+            }
+        NotificationManager::class.reflekt()
+            .firstMethod {
+                name = "cancelAll"
+                parameters()
+            }
+            .hookBefore {
+                synchronized(stateLock) {
+                    invalidatePendingNotifications { true }
+                    notificationTalkers.clear()
+                }
+            }
+
+        val filter =
+            IntentFilter().apply {
+                addAction(ACTION_REPLY)
+                addAction(ACTION_MARK_READ)
+                addAction(ACTION_NOTIFICATION_OPENED)
+                addAction(ACTION_NOTIFICATION_DISMISSED)
+            }
         ContextCompat.registerReceiver(
-            HostInfo.application, notificationReceiver, filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            HostInfo.application,
+            notificationReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         receiverRegistered = true
     }

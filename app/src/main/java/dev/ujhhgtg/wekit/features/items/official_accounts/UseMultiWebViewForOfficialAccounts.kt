@@ -8,12 +8,14 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-object UseMultiWebViewForOfficialAccounts : SwitchFeature(), WeStartActivityApi.IStartActivityListener {
+object UseMultiWebViewForOfficialAccounts :
+    SwitchFeature(), WeStartActivityApi.IStartActivityListener {
 
     override val technicalId = "允许公众号网页多开"
     override val nameRes = R.string.feature_use_multi_web_view_for_official_accounts_name
     override val categoryIds = listOf(FeatureCategoryIds.OFFICIAL_ACCOUNTS)
-    override val descriptionRes = R.string.feature_use_multi_web_view_for_official_accounts_description
+    override val descriptionRes =
+        R.string.feature_use_multi_web_view_for_official_accounts_description
 
     private const val tag = "UseMultiWebViewForOfficialAccounts"
 

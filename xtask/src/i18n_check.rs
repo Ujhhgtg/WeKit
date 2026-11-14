@@ -388,7 +388,7 @@ mod tests {
     use super::{check_repository, parse_catalog, validate_pair};
     use std::{
         fs,
-        path::PathBuf,
+        path::{Path, PathBuf},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -718,7 +718,7 @@ mod tests {
         root
     }
 
-    fn write_catalog(root: &PathBuf, directory: &str, xml: &str) {
+    fn write_catalog(root: &Path, directory: &str, xml: &str) {
         let path = root.join("app/src/main/res").join(directory);
         fs::create_dir_all(&path).unwrap();
         fs::write(path.join("strings.xml"), xml).unwrap();

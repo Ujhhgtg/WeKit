@@ -1,20 +1,20 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package dev.ujhhgtg.wekit.activity.settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween as animTween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,15 +33,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,10 +49,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,13 +69,16 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete_sweep
 import com.composables.icons.materialsymbols.outlined.Expand_more
@@ -85,7 +90,7 @@ import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
@@ -99,21 +104,28 @@ import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import dev.ujhhgtg.wekit.utils.fs.copyTo
+import java.io.RandomAccessFile
 import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.name
+import kotlin.io.path.readBytes
 import kotlin.io.path.readText
-import androidx.compose.animation.core.tween as animTween
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val LOGS_TAG = "SettingsActivity"
 
 /** Which log kind a page is showing. */
-private enum class LogKind { RUN, CRASH }
+private enum class LogKind {
+    RUN,
+    CRASH,
+}
 
 private data class LogRefreshRequest(
     val generation: Int,
@@ -125,7 +137,9 @@ private data class LogRefreshRequest(
 //  Parsed models
 // ---------------------------------------------------------------------------
 
-/** One run-log entry: a header line plus any continuation (stack-trace) lines folded into [message]. */
+/**
+ * One run-log entry: a header line plus any continuation (stack-trace) lines folded into [message].
+ */
 private data class RunLogEntry(
     val time: String?,
     val level: Char?,
@@ -145,9 +159,10 @@ private data class CrashSection(
 //   $TAG  = BuildConfig.TAG (the module tag), $tag = caller tag
 // e.g. "2026-07-05 14:30:22.123 E/WeKit AggregateChats: something failed"
 // Groups: 1=date 2=time(+ms) 3=level 4=moduleTag 5=callerTag 6=message
-private val RUN_LOG_REGEX = Regex(
-    """^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) ([VDIWEAF])/(\S+)\s+([^:]*): (.*)$""",
-)
+private val RUN_LOG_REGEX =
+    Regex(
+        """^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) ([VDIWEAF])/(\S+)\s+([^:]*): (.*)$""",
+    )
 
 /**
  * Parses raw run-log lines into [RunLogEntry] cards. A line matching [RUN_LOG_REGEX] starts a new
@@ -156,7 +171,8 @@ private val RUN_LOG_REGEX = Regex(
  */
 private fun parseRunLog(text: String): List<RunLogEntry> {
     val out = ArrayList<RunLogEntry>()
-    for (line in text.lineSequence()) {
+    val body = if (text.endsWith('\n')) text.dropLast(1) else text
+    for (line in body.lineSequence()) {
         if (line.isEmpty() && out.isEmpty()) continue
         val m = RUN_LOG_REGEX.matchEntire(line)
         when {
@@ -174,7 +190,11 @@ private fun parseRunLog(text: String): List<RunLogEntry> {
 
             out.isNotEmpty() -> {
                 val prev = out.removeAt(out.size - 1)
-                out.add(prev.copy(message = if (prev.message.isEmpty()) line else prev.message + "\n" + line))
+                out.add(
+                    prev.copy(
+                        message = if (prev.message.isEmpty()) line else prev.message + "\n" + line,
+                    ),
+                )
             }
 
             else -> out.add(RunLogEntry(time = null, level = null, tag = null, message = line))
@@ -197,7 +217,8 @@ private fun parseCrashLog(text: String): List<CrashSection> {
     val preamble = StringBuilder()
     // Collect anything before the first fenced title as a preamble card.
     while (i < lines.size && !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)) {
-        preamble.appendLine(lines[i]); i++
+        preamble.appendLine(lines[i])
+        i++
     }
     val pre = preamble.toString().trim()
     if (pre.isNotEmpty()) out.add(CrashSection(title = "", body = pre))
@@ -208,8 +229,12 @@ private fun parseCrashLog(text: String): List<CrashSection> {
             val title = lines[i + 1].trim()
             i += 3
             val body = StringBuilder()
-            while (i < lines.size && !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)) {
-                body.appendLine(lines[i]); i++
+            while (
+                i < lines.size &&
+                    !(lines[i] == fence && i + 2 < lines.size && lines[i + 2] == fence)
+            ) {
+                body.appendLine(lines[i])
+                i++
             }
             out.add(CrashSection(title = title, body = body.toString().trim()))
         } else {
@@ -226,9 +251,10 @@ private fun parseCrashLog(text: String): List<CrashSection> {
 /**
  * Shares a log file as a text/plain attachment. Uses WeChat's built-in FileProvider authority
  * (`<host>.external.fileprovider`, whose paths cover external + root storage) since this activity
- * runs inside the host process. Falls back to sharing the file's text inline if the provider throws.
+ * runs inside the host process. Falls back to sharing the file's text inline if the provider
+ * throws.
  */
-private fun shareLogFile(context: Context, localizedContext: Context, file: Path) {
+private fun shareLogFile(context: Context, file: Path) {
     val f = file.toFile()
     val authority = "${HostInfo.packageName}.external.fileprovider"
     val sendIntent = runCatching {
@@ -239,19 +265,21 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
             putExtra(Intent.EXTRA_SUBJECT, f.name)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    }.getOrElse {
-        WeLogger.w(LOGS_TAG, "FileProvider share failed, falling back to inline text", it)
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, f.name)
-            putExtra(Intent.EXTRA_TEXT, runCatching { file.readText() }.getOrDefault(""))
-        }
     }
-    val chooser = Intent.createChooser(
-        sendIntent,
-        localizedContext.getString(R.string.logs_share_chooser),
-    )
-        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        .getOrElse {
+            WeLogger.w(LOGS_TAG, "FileProvider share failed, falling back to inline text", it)
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, f.name)
+                putExtra(Intent.EXTRA_TEXT, runCatching { file.readText() }.getOrDefault(""))
+            }
+        }
+    val chooser =
+        Intent.createChooser(
+                sendIntent,
+                localizedString(R.string.logs_share_chooser),
+            )
+            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
     runCatching { context.startActivity(chooser) }
         .onFailure { WeLogger.e(LOGS_TAG, "failed to launch share chooser", it) }
 }
@@ -260,28 +288,32 @@ private fun shareLogFile(context: Context, localizedContext: Context, file: Path
  * Opens the system document creator so the user can save a copy of [file] wherever they choose,
  * mirroring the config-export flow in SettingsActivity.
  */
-private fun saveLogFile(context: Context, localizedContext: () -> Context, file: Path) {
+private fun saveLogFile(context: Context, file: Path) {
     TransparentActivity.launch(context) {
-        val launcher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument("text/plain"),
-        ) { uri ->
-            if (uri == null) {
-                finish(); return@registerForActivityResult
-            }
-            lifecycleScope.launch(Dispatchers.IO) {
-                runCatching {
-                    contentResolver.openOutputStream(uri, "w")!!.use { out ->
-                        file.toFile().inputStream().use { it.copyTo(out) }
-                    }
-                }.onFailure {
-                    WeLogger.e(LOGS_TAG, "failed to save log", it)
-                    showToastSuspend(localizedContext().getString(R.string.logs_save_failed))
-                }.onSuccess {
-                    showToastSuspend(localizedContext().getString(R.string.logs_save_success))
+        val launcher =
+            registerForActivityResult(
+                ActivityResultContracts.CreateDocument("text/plain"),
+            ) { uri ->
+                if (uri == null) {
+                    finish()
+                    return@registerForActivityResult
                 }
-                withContext(Dispatchers.Main) { finish() }
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openOutputStream(uri, "w")!!.use { out ->
+                            file.copyTo(out)
+                        }
+                    }
+                        .onFailure {
+                            WeLogger.e(LOGS_TAG, "failed to save log", it)
+                            showToastSuspend(localizedString(R.string.logs_save_failed))
+                        }
+                        .onSuccess {
+                            showToastSuspend(localizedString(R.string.logs_save_success))
+                        }
+                    withContext(Dispatchers.Main) { finish() }
+                }
             }
-        }
         launcher.launch(file.name)
     }
 }
@@ -299,7 +331,6 @@ private val LOG_TABS = listOf(LogKind.RUN, LogKind.CRASH)
 @Composable
 fun LogsPager() {
     val context = LocalComponentActivity.current
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val scope = rememberCoroutineScope()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -329,49 +360,58 @@ fun LogsPager() {
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             // The blur layer spans the app bar and the tab row beneath it, mirroring the old
             // miuix TopAppBar bottomContent arrangement.
-            Column(modifier = Modifier.m3AppBarBlur(barBackdrop)) {
+            Column(modifier = Modifier.m3AppBarBlur(barBackdrop, progressive = false)) {
                 TopAppBar(
                     title = { Text(stringResource(R.string.nav_logs)) },
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = barBackdrop.m3AppBarColor(),
-                        scrolledContainerColor = barBackdrop.m3AppBarColor(),
-                    ),
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = barBackdrop.m3AppBarColor(),
+                            scrolledContainerColor = barBackdrop.m3AppBarColor(),
+                        ),
                     actions = {
-                        IconButton(onClick = {
-                            currentFile?.let { shareLogFile(context, localizedContext, it) }
-                                ?: scope.launch {
-                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_share))
-                                }
-                        }) {
+                        IconButton(
+                            onClick = {
+                                currentFile?.let { shareLogFile(context, it) }
+                                    ?: scope.launch {
+                                        showToastSuspend(
+                                            localizedString(R.string.logs_nothing_to_share),
+                                        )
+                                    }
+                            },
+                        ) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Share,
                                 contentDescription = stringResource(R.string.logs_share),
                             )
                         }
-                        IconButton(onClick = {
-                            currentFile?.let { saveLogFile(context, { localizedContext }, it) }
-                                ?: scope.launch {
-                                    showToastSuspend(localizedContext.getString(R.string.logs_nothing_to_save))
-                                }
-                        }) {
+                        IconButton(
+                            onClick = {
+                                currentFile?.let { saveLogFile(context, it) }
+                                    ?: scope.launch {
+                                        showToastSuspend(
+                                            localizedString(R.string.logs_nothing_to_save),
+                                        )
+                                    }
+                            },
+                        ) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.Save,
                                 contentDescription = stringResource(R.string.logs_save),
                             )
                         }
-                        // Overflow menu anchored to the icon, matching the Settings-page dropdown style.
+                        // Overflow menu anchored to the icon, matching the Settings-page dropdown
+                        // style.
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
                                 imageVector = MaterialSymbols.Outlined.More_vert,
-                                contentDescription = stringResource(R.string.accessibility_overflow_menu),
+                                contentDescription =
+                                    stringResource(R.string.accessibility_overflow_menu),
                             )
                         }
                         DropdownMenu(
@@ -394,10 +434,13 @@ fun LogsPager() {
                                     scope.launch {
                                         withContext(Dispatchers.IO) {
                                             when (kind) {
-                                                LogKind.RUN -> WeLogger.allLogFiles
-                                                    .forEach { runCatching { it.toFile().delete() } }
+                                                LogKind.RUN ->
+                                                    WeLogger.allLogFiles.forEach {
+                                                        runCatching { it.toFile().delete() }
+                                                    }
 
-                                                LogKind.CRASH -> CrashLogsManager.deleteAllCrashLogs()
+                                                LogKind.CRASH ->
+                                                    CrashLogsManager.deleteAllCrashLogs()
                                             }
                                         }
                                         requestRefresh(kind, fromPull = false)
@@ -408,11 +451,9 @@ fun LogsPager() {
                     },
                 )
                 Box(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 ) {
-                    TabRow(
+                    PrimaryTabRow(
                         selectedTabIndex = selectedTab,
                         containerColor = Color.Transparent,
                     ) {
@@ -427,8 +468,8 @@ fun LogsPager() {
                                     Text(
                                         stringResource(
                                             if (tabKind == LogKind.RUN) R.string.logs_tab_runtime
-                                            else R.string.logs_tab_crash
-                                        )
+                                            else R.string.logs_tab_crash,
+                                        ),
                                     )
                                 },
                             )
@@ -449,11 +490,13 @@ fun LogsPager() {
             val request = refreshRequests[k]
             LogTabContent(
                 kind = k,
+                live = k == kind,
                 listState = if (k == LogKind.RUN) runListState else crashListState,
                 backdropLayer = Modifier.m3BackdropLayer(barBackdrop),
                 innerPadding = innerPadding,
                 refreshRequest = request,
-                isPullRefreshing = activePullRequests[k] == request && request?.ownsPullIndicator == true,
+                isPullRefreshing =
+                    activePullRequests[k] == request && request?.ownsPullIndicator == true,
                 onRefreshRequested = { requestRefresh(k, fromPull = true) },
                 onRefreshFinished = { completedRequest ->
                     if (activePullRequests[k] == completedRequest) activePullRequests.remove(k)
@@ -467,8 +510,9 @@ fun LogsPager() {
 @Composable
 private fun LogTabContent(
     kind: LogKind,
+    live: Boolean,
     listState: LazyListState,
-    backdropLayer: Modifier,
+    @SuppressLint("ModifierParameter") backdropLayer: Modifier,
     innerPadding: PaddingValues,
     refreshRequest: LogRefreshRequest?,
     isPullRefreshing: Boolean,
@@ -476,7 +520,6 @@ private fun LogTabContent(
     onRefreshFinished: (LogRefreshRequest) -> Unit,
     onCurrentFileChange: (Path?) -> Unit,
 ) {
-    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val pullToRefreshState = rememberPullToRefreshState()
     // Files available for this tab, newest first.
     var files by remember(kind) { mutableStateOf<List<Path>>(emptyList()) }
@@ -491,22 +534,29 @@ private fun LogTabContent(
     var handledRefreshGeneration by remember(kind) { mutableIntStateOf(0) }
     val operationToken = remember(kind, refreshRequest?.generation, fileReadGeneration) { Any() }
     val currentOperationToken by rememberUpdatedState(operationToken)
+    var tailOffset by remember(kind) { mutableLongStateOf(0L) }
+    var followTick by remember(kind) { mutableIntStateOf(0) }
+    val lifecycle = LocalComponentActivity.current.lifecycle
 
     // One cancellation-keyed lifecycle owns listing, selection normalization, reading, and parsing.
     LaunchedEffect(kind, refreshRequest?.generation, fileReadGeneration) {
-        val shouldRelist = !listed || refreshRequest != null && refreshRequest.generation != handledRefreshGeneration
+        val shouldRelist =
+            !listed ||
+                refreshRequest != null && refreshRequest.generation != handledRefreshGeneration
         var completedSuccessfully = false
         loading = true
         try {
             if (shouldRelist) {
-                val result = withContext(Dispatchers.IO) {
-                    when (kind) {
-                        LogKind.RUN -> WeLogger.allLogFiles
-                        LogKind.CRASH -> CrashLogsManager.allCrashLogs
+                val result =
+                    withContext(Dispatchers.IO) {
+                        when (kind) {
+                            LogKind.RUN -> WeLogger.allLogFiles
+                            LogKind.CRASH -> CrashLogsManager.allCrashLogs
+                        }
                     }
-                }
                 files = result
-                val normalizedIndex = if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
+                val normalizedIndex =
+                    if (result.isEmpty()) 0 else selectedIndex.coerceIn(result.indices)
                 if (selectedIndex != normalizedIndex) selectedIndex = normalizedIndex
                 listed = true
                 refreshRequest?.let { handledRefreshGeneration = it.generation }
@@ -518,10 +568,17 @@ private fun LogTabContent(
                 runEntries = emptyList()
                 crashSections = emptyList()
             } else {
-                val text = withContext(Dispatchers.IO) { readLog(localizedContext, selectedFile) }
                 when (kind) {
-                    LogKind.RUN -> runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
-                    LogKind.CRASH -> crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
+                    LogKind.RUN -> {
+                        val (text, consumed) =
+                            withContext(Dispatchers.IO) { readRunLog(selectedFile) }
+                        tailOffset = consumed
+                        runEntries = withContext(Dispatchers.Default) { parseRunLog(text) }
+                    }
+                    LogKind.CRASH -> {
+                        val text = withContext(Dispatchers.IO) { readLog(selectedFile) }
+                        crashSections = withContext(Dispatchers.Default) { parseCrashLog(text) }
+                    }
                 }
             }
             completedSuccessfully = true
@@ -535,6 +592,42 @@ private fun LogTabContent(
         }
     }
 
+    // Live tail: only for the newest (current-day) run log, only while visible and STARTED.
+    LaunchedEffect(kind, live, selectedIndex, fileReadGeneration, refreshRequest?.generation) {
+        if (kind != LogKind.RUN || !live || selectedIndex != 0) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(LIVE_POLL_INTERVAL)
+                if (loading || !listed) continue
+                val result =
+                    withContext(Dispatchers.IO) { pollTail(files.firstOrNull(), tailOffset) }
+                when (result) {
+                    TailResult.Unchanged -> Unit
+                    TailResult.Reload -> fileReadGeneration++
+                    TailResult.Relist -> {
+                        listed = false // forces the main effect to relist
+                        fileReadGeneration++
+                    }
+                    is TailResult.Appended -> {
+                        val added = withContext(Dispatchers.Default) { parseRunLog(result.text) }
+                        val info = listState.layoutInfo
+                        val wasAtBottom =
+                            info.visibleItemsInfo.lastOrNull()?.index ?: 0 >=
+                                info.totalItemsCount - 2
+                        runEntries = appendRunEntries(runEntries, added)
+                        tailOffset = result.newOffset
+                        if (wasAtBottom) followTick++
+                    }
+                }
+            }
+        }
+    }
+
+    // Runs after the new items are composed, so the target index exists.
+    LaunchedEffect(followTick) {
+        if (followTick > 0) listState.scrollToItem(runEntries.size + 1) // +1 = bottom-inset spacer
+    }
+
     PullToRefreshBox(
         isRefreshing = isPullRefreshing,
         onRefresh = onRefreshRequested,
@@ -542,9 +635,9 @@ private fun LogTabContent(
         state = pullToRefreshState,
         indicator = {
             PullToRefreshDefaults.LoadingIndicator(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = innerPadding.calculateTopPadding()),
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding()),
                 state = pullToRefreshState,
                 isRefreshing = isPullRefreshing,
                 color = MaterialTheme.colorScheme.primary,
@@ -554,9 +647,7 @@ private fun LogTabContent(
     ) {
         LazyColumn(
             state = listState,
-            modifier = backdropLayer
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
+            modifier = backdropLayer.fillMaxSize().padding(horizontal = 12.dp),
             contentPadding = innerPadding,
         ) {
             item(key = "picker") {
@@ -573,55 +664,68 @@ private fun LogTabContent(
             }
 
             if (files.isEmpty()) {
-                // Only announce "no logs" once listing has finished, so it doesn't flash under the spinner.
+                // Only announce "no logs" once listing has finished, so it doesn't flash under the
+                // spinner.
                 if (listed) {
                     item(key = "empty-files") {
                         LogsEmpty(
                             stringResource(
-                                if (kind == LogKind.RUN) R.string.logs_no_runtime else R.string.logs_no_crash
+                                if (kind == LogKind.RUN) R.string.logs_no_runtime
+                                else R.string.logs_no_crash,
                             ),
                             modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
-            } else when (kind) {
-                LogKind.RUN -> {
-                    if (runEntries.isEmpty() && !loading) {
-                        item(key = "empty-run") {
-                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+            } else
+                when (kind) {
+                    LogKind.RUN -> {
+                        if (runEntries.isEmpty() && !loading) {
+                            item(key = "empty-run") {
+                                LogsEmpty(
+                                    stringResource(R.string.logs_file_empty),
+                                    Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        items(runEntries.size, key = { "run-$it" }) { i ->
+                            RunLogCard(
+                                runEntries[i],
+                                Modifier.padding(
+                                    top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap,
+                                ),
+                            )
                         }
                     }
-                    items(runEntries.size, key = { "run-$it" }) { i ->
-                        RunLogCard(
-                            runEntries[i],
-                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
-                        )
-                    }
-                }
 
-                LogKind.CRASH -> {
-                    if (crashSections.isEmpty() && !loading) {
-                        item(key = "empty-crash") {
-                            LogsEmpty(stringResource(R.string.logs_file_empty), Modifier.padding(top = 8.dp))
+                    LogKind.CRASH -> {
+                        if (crashSections.isEmpty() && !loading) {
+                            item(key = "empty-crash") {
+                                LogsEmpty(
+                                    stringResource(R.string.logs_file_empty),
+                                    Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        items(crashSections.size, key = { "crash-$it" }) { i ->
+                            CrashSectionCard(
+                                crashSections[i],
+                                Modifier.padding(
+                                    top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap,
+                                ),
+                            )
                         }
                     }
-                    items(crashSections.size, key = { "crash-$it" }) { i ->
-                        CrashSectionCard(
-                            crashSections[i],
-                            Modifier.padding(top = if (i == 0) 8.dp else ListItemDefaults.SegmentedGap),
-                        )
-                    }
                 }
-            }
 
             item(key = "bottom-inset") { Spacer(Modifier.height(LOGS_CONTENT_BOTTOM_INSET)) }
         }
 
         LogScrollButtons(
             listState = listState,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = LOGS_BOTTOM_BAR_INSET),
+            modifier =
+                Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = LOGS_BOTTOM_BAR_INSET),
         )
     }
 }
@@ -689,9 +793,75 @@ private fun LogScrollButtons(
 }
 
 /** Reads the full log file (modern devices handle multi-MB logs fine). */
-private fun readLog(context: Context, file: Path): String =
-    runCatching { file.readText() }
-        .getOrElse { context.getString(R.string.logs_read_failed, it.message.orEmpty()) }
+private fun readLog(file: Path): String = runCatching {
+    file.readText()
+}
+    .getOrElse { localizedString(R.string.logs_read_failed, it.message.orEmpty()) }
+
+private val LIVE_POLL_INTERVAL = 500L.milliseconds
+
+/**
+ * Reads a run log, returning the text up to the last complete line and the byte offset consumed.
+ */
+private fun readRunLog(file: Path): Pair<String, Long> = runCatching {
+    val bytes = file.readBytes()
+    val end = bytes.lastIndexOf('\n'.code.toByte()) + 1
+    String(bytes, 0, end, Charsets.UTF_8) to end.toLong()
+}
+    .getOrElse { localizedString(R.string.logs_read_failed, it.message.orEmpty()) to 0L }
+
+private sealed interface TailResult {
+    data object Unchanged : TailResult
+
+    data object Reload : TailResult // file shrank / was replaced
+
+    data object Relist : TailResult // newest file on disk is not the one shown
+
+    class Appended(val text: String, val newOffset: Long) : TailResult
+}
+
+private fun pollTail(current: Path?, offset: Long): TailResult {
+    val newest = WeLogger.allLogFiles.firstOrNull()
+    if (newest?.name != current?.name) return TailResult.Relist
+    if (current == null) return TailResult.Unchanged
+    val file = current.toFile()
+    val size = file.length()
+    if (size < offset) return TailResult.Reload
+    if (size == offset) return TailResult.Unchanged
+    val bytes =
+        runCatching {
+            RandomAccessFile(file, "r").use { raf ->
+                raf.seek(offset)
+                ByteArray((size - offset).toInt()).also(raf::readFully)
+            }
+        }
+            .getOrNull() ?: return TailResult.Unchanged
+    val end = bytes.lastIndexOf('\n'.code.toByte()) + 1 // only whole lines
+    if (end == 0) return TailResult.Unchanged
+    return TailResult.Appended(String(bytes, 0, end, Charsets.UTF_8), offset + end)
+}
+
+/** Appends freshly parsed entries; leading continuation lines fold into the last existing card. */
+private fun appendRunEntries(old: List<RunLogEntry>, added: List<RunLogEntry>): List<RunLogEntry> {
+    if (added.isEmpty()) return old
+    val out = ArrayList<RunLogEntry>(old.size + added.size)
+    out.addAll(old)
+    for (e in added) {
+        if (e.time == null && out.isNotEmpty()) {
+            val prev = out.removeAt(out.lastIndex)
+            out.add(
+                prev.copy(
+                    message =
+                        if (prev.message.isEmpty()) e.message else prev.message + "\n" + e.message,
+                ),
+            )
+        } else {
+            out.add(e)
+        }
+    }
+    return out
+}
+
 // ---------------------------------------------------------------------------
 //  File selector + cards + empty state
 // ---------------------------------------------------------------------------
@@ -705,23 +875,26 @@ private fun FileSelector(
     modifier: Modifier = Modifier,
 ) {
     if (files.isEmpty()) return
-    fun displayDate(file: Path): String = when (kind) {
-        LogKind.RUN -> formatEpoch(file.getLastModifiedTime().toMillis(), "yyyy/MM/dd")
-        LogKind.CRASH -> formatEpoch(file.getLastModifiedTime().toMillis(), true)
-    }
-    val labels = remember(kind, files) {
-        files.map {
-            "${displayDate(it)}  ·  " +
-                formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
+    fun displayDate(file: Path): String =
+        when (kind) {
+            LogKind.RUN -> formatEpoch(file.getLastModifiedTime().toMillis(), "yyyy/MM/dd")
+            LogKind.CRASH -> formatEpoch(file.getLastModifiedTime().toMillis(), true)
         }
-    }
+    val labels =
+        remember(kind, files) {
+            files.map {
+                "${displayDate(it)}  ·  " +
+                    formatBytesSize(runCatching { it.fileSize() }.getOrDefault(0))
+            }
+        }
     Box(modifier.fillMaxWidth()) {
         DropDownMenuWidget(
             iconPlaceholder = false,
             title = stringResource(R.string.logs_select_file),
-            description = files.getOrNull(selectedIndex)?.let {
-                displayDate(it)
-            },
+            description =
+                files.getOrNull(selectedIndex)?.let {
+                    displayDate(it)
+                },
             value = selectedIndex,
             options = labels.mapIndexed { index, label -> DropdownOption(index, label) },
             onValueChange = onSelected,
@@ -743,65 +916,159 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
     val head = remember(lines) { lines.take(RUN_LOG_COLLAPSE_LINES).joinToString("\n") }
     val rest = remember(lines) { lines.drop(RUN_LOG_COLLAPSE_LINES).joinToString("\n") }
     var expanded by remember(entry) { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = animTween(250),
-        label = "chevron",
-    )
+    val chevronRotation by
+        animateFloatAsState(
+            targetValue = if (expanded) 180f else 0f,
+            animationSpec = animTween(250),
+            label = "chevron",
+        )
 
     BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                entry.level?.let { level ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(levelColor(level))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(level.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        // Miuix log cards use natural font metrics; Material 3 would inherit bodyLarge's 24sp line
+        // height and 0.5sp tracking here (each 12sp message line would be 24dp tall).
+        CompositionLocalProvider(LocalTextStyle provides TextStyle.Default) {
+            Column(Modifier.padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    entry.level?.let { level ->
+                        Box(
+                            modifier =
+                                Modifier.clip(RoundedCornerShape(4.dp))
+                                    .background(levelColor(level))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                level.toString(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        entry.tag?.let {
+                            Text(
+                                text = it,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        entry.time?.let {
+                            Text(
+                                it,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (isLong) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.Outlined.Expand_more,
+                                contentDescription =
+                                    stringResource(
+                                        if (expanded) R.string.logs_collapse
+                                        else R.string.logs_expand,
+                                    ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp).rotate(chevronRotation),
+                            )
+                        }
+                    }
                 }
-                Column(Modifier.weight(1f)) {
-                    entry.tag?.let {
-                        Text(
-                            text = it,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    entry.time?.let {
-                        Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (isLong) {
-                    IconButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbols.Outlined.Expand_more,
-                            contentDescription = stringResource(
-                                if (expanded) R.string.logs_collapse else R.string.logs_expand
-                            ),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(20.dp)
-                                .rotate(chevronRotation),
-                        )
+                if (entry.message.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    SelectionContainer {
+                        Column {
+                            Text(
+                                text = if (isLong) head else entry.message,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (isLong) {
+                                AnimatedVisibility(
+                                    visible = expanded,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut(),
+                                ) {
+                                    Text(
+                                        text = rest,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-            if (entry.message.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifier) {
+    val lines = remember(section.body) { section.body.split("\n") }
+    val isLong = lines.size > CRASH_SECTION_COLLAPSE_LINES
+    val head = remember(lines) { lines.take(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
+    val rest = remember(lines) { lines.drop(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
+    var expanded by rememberSaveable(section.title, section.body) { mutableStateOf(false) }
+    val chevronRotation by
+        animateFloatAsState(
+            targetValue = if (expanded) 180f else 0f,
+            animationSpec = animTween(250),
+            label = "crashChevron",
+        )
+
+    BaseItemContainer(modifier = modifier.fillMaxWidth()) {
+        // See RunLogCard: keep Miuix-like natural line metrics instead of M3 bodyLarge.
+        CompositionLocalProvider(LocalTextStyle provides TextStyle.Default) {
+            Column(Modifier.padding(14.dp)) {
+                if (section.title.isNotEmpty() || isLong) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (section.title.isNotEmpty()) {
+                            Text(
+                                text = section.title,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                        if (isLong) {
+                            IconButton(
+                                onClick = { expanded = !expanded },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    imageVector = MaterialSymbols.Outlined.Expand_more,
+                                    contentDescription =
+                                        stringResource(
+                                            if (expanded) R.string.logs_collapse
+                                            else R.string.logs_expand,
+                                        ),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp).rotate(chevronRotation),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 SelectionContainer {
                     Column {
                         Text(
-                            text = if (isLong) head else entry.message,
+                            text = if (isLong) head else section.body,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -828,87 +1095,9 @@ private fun RunLogCard(entry: RunLogEntry, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CrashSectionCard(section: CrashSection, modifier: Modifier = Modifier) {
-    val lines = remember(section.body) { section.body.split("\n") }
-    val isLong = lines.size > CRASH_SECTION_COLLAPSE_LINES
-    val head = remember(lines) { lines.take(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
-    val rest = remember(lines) { lines.drop(CRASH_SECTION_COLLAPSE_LINES).joinToString("\n") }
-    var expanded by rememberSaveable(section.title, section.body) { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = animTween(250),
-        label = "crashChevron",
-    )
-
-    BaseItemContainer(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
-            if (section.title.isNotEmpty() || isLong) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (section.title.isNotEmpty()) {
-                        Text(
-                            text = section.title,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                    if (isLong) {
-                        IconButton(
-                            onClick = { expanded = !expanded },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                imageVector = MaterialSymbols.Outlined.Expand_more,
-                                contentDescription = stringResource(
-                                    if (expanded) R.string.logs_collapse else R.string.logs_expand
-                                ),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .rotate(chevronRotation),
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-            SelectionContainer {
-                Column {
-                    Text(
-                        text = if (isLong) head else section.body,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (isLong) {
-                        AnimatedVisibility(
-                            visible = expanded,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
-                        ) {
-                            Text(
-                                text = rest,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun LogsEmpty(text: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 64.dp),
+        modifier = modifier.fillMaxWidth().padding(top = 64.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -916,11 +1105,14 @@ private fun LogsEmpty(text: String, modifier: Modifier = Modifier) {
 }
 
 /** Log-level chip background color, matching the run-log level chars WeLogger emits. */
-private fun levelColor(level: Char): Color = when (level) {
-    'E', 'F', 'A' -> Color(0xFFD32F2F)
-    'W' -> Color(0xFFF57C00)
-    'I' -> Color(0xFF388E3C)
-    'D' -> Color(0xFF1976D2)
-    'V' -> Color(0xFF757575)
-    else -> Color(0xFF9E9E9E)
-}
+private fun levelColor(level: Char): Color =
+    when (level) {
+        'E',
+        'F',
+        'A' -> Color(0xFFD32F2F)
+        'W' -> Color(0xFFF57C00)
+        'I' -> Color(0xFF388E3C)
+        'D' -> Color(0xFF1976D2)
+        'V' -> Color(0xFF757575)
+        else -> Color(0xFF9E9E9E)
+    }

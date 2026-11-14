@@ -37,13 +37,13 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -57,14 +57,12 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.captureOriginalMethod
 import dev.ujhhgtg.wekit.utils.invokeOriginalMethod
 import dev.ujhhgtg.wekit.utils.reflection.int
-import org.luckypray.dexkit.query.enums.MatchType
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-object EmojiGameControl : ClickableFeature(), IResolveDex {
-
+object EmojiGameControl : ClickableFeature() {
     override val technicalId = "表情游戏控制"
     override val nameRes = R.string.feature_emoji_game_control_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -72,27 +70,24 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
     private const val MD5_MORRA = "9bd1281af3a31710a45b84d736363691"
     private const val MD5_DICE = "08f223fa83f1ca34e143d1e580252c7c"
-    internal val GAME_EMOJI_MD5S = setOf(MD5_MORRA, MD5_DICE)
+    val GAME_EMOJI_MD5S = setOf(MD5_MORRA, MD5_DICE)
     private const val GRAVITY_EARTH = 9.81f
     private const val MOTION_THRESHOLD = 2.0f
     private const val TAG = "EmojiGameControl"
 
     private val methodRandom by dexMethod {
         searchPackages("com.tencent.mm.sdk.platformtools")
-        matcher {
-            returnType(Int::class.java)
-            paramTypes(Int::class.java, Int::class.java)
-            invokeMethods {
-                add { name = "currentTimeMillis" }
-                add { name = "nextInt" }
-                matchType = MatchType.Contains
-            }
+        returnType = "int"
+        paramTypes("int", "int")
+        invokeMethod {
+            name = "currentTimeMillis"
+        }
+        invokeMethod {
+            name = "nextInt"
         }
     }
     private val methodPanelClick by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.EmojiPanelClickListener")
-        }
+        usingEqStrings("MicroMsg.EmojiPanelClickListener")
     }
 
     private var valMorra = 0
@@ -107,8 +102,12 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     }
 
     private enum class DiceFace(val chineseName: String) {
-        ONE("1"), TWO("2"), THREE("3"),
-        FOUR("4"), FIVE("5"), SIX("6")
+        ONE("1"),
+        TWO("2"),
+        THREE("3"),
+        FOUR("4"),
+        FIVE("5"),
+        SIX("6"),
     }
 
     // --- Sensor infrastructure ---
@@ -118,22 +117,27 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     private var keepAliveTask: Runnable? = null
     private var keepAliveHandler: Handler? = null
 
-    private val accelListener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                System.arraycopy(event.values, 0, latestAccel, 0, 3)
+    private val accelListener =
+        object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                    System.arraycopy(event.values, 0, latestAccel, 0, 3)
+                }
             }
-        }
 
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
 
     private fun ensureSensorAlive(delayMs: Long) {
         if (sensorManager == null) {
             sensorManager = HostInfo.application.getSystemService<SensorManager>()
             val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             if (accel != null) {
-                sensorManager?.registerListener(accelListener, accel, SensorManager.SENSOR_DELAY_NORMAL)
+                sensorManager?.registerListener(
+                    accelListener,
+                    accel,
+                    SensorManager.SENSOR_DELAY_NORMAL,
+                )
             } else {
                 WeLogger.w(TAG, "accelerometer not available")
             }
@@ -163,14 +167,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         // No sensor data yet — fall back to random
         if (ax == 0f && ay == 0f && az == 0f) {
             WeLogger.w(TAG, "no sensor data, using random")
-            showToast(localizedChatString(R.string.chat_emoji_game_no_sensor))
+            showToast(localizedString(R.string.chat_emoji_game_no_sensor))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
         // Accelerating significantly — motion fallback
         if (isInMotion(ax, ay, az)) {
             WeLogger.w(TAG, "accelerating signaficantly")
-            showToast(localizedChatString(R.string.chat_emoji_game_motion_fallback))
+            showToast(localizedString(R.string.chat_emoji_game_motion_fallback))
             return Random.nextInt(if (isDice) 6 else 3)
         }
 
@@ -179,23 +183,31 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         return if (isDice) {
             // device nearly vertical (gravity off z-axis)
             if (abs(az) < 5.0f) {
-                5  // vertical → 6
+                5 // vertical → 6
             } else if (pitch < -30f) {
-                3  // forward → 4
+                3 // forward → 4
             } else if (pitch > 30f) {
-                4  // backward → 5
+                4 // backward → 5
             } else {
                 when {
-                    roll < -25f -> 2  // left → 1
-                    roll <= 25f -> 1  // center → 2
-                    else -> 0         // right → 3
+                    roll < -25f -> 2
+
+                    // left → 1
+                    roll <= 25f -> 1
+
+                    // center → 2
+                    else -> 0 // right → 3
                 }
             }
         } else {
             when {
-                roll < -25f -> 2   // left → STONE
-                roll <= 25f -> 0   // center → SCISSORS
-                else -> 1          // right → PAPER
+                roll < -25f -> 2
+
+                // left → STONE
+                roll <= 25f -> 0
+
+                // center → SCISSORS
+                else -> 1 // right → PAPER
             }
         }
     }
@@ -204,18 +216,20 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         methodRandom.hookAfter {
             val type = args[0] as Int
             // Arg 0 determines type: 2 is Morra, 5 is Dice
-            result = when (type) {
-                2 -> valMorra
-                5 -> valDice
-                else -> result
-            }
+            result =
+                when (type) {
+                    2 -> valMorra
+                    5 -> valDice
+                    else -> result
+                }
         }
 
         // Start accelerometer when entering a conversation (first time: 20s)
         ChatFooter::class.reflekt()
             .firstMethod {
                 name = "setUserName"
-            }.hookAfter {
+            }
+            .hookAfter {
                 val conv = args[0] as? String
                 if (!conv.isNullOrEmpty()) {
                     ensureSensorAlive(20000L)
@@ -225,16 +239,22 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         methodPanelClick.hookBefore {
             val obj = args[3] ?: return@hookBefore
 
-            val infoType = obj.reflekt().firstField {
-                type = int
-                modifiers(Modifiers.FINAL)
-            }.get() as Int
+            val infoType =
+                obj.reflekt()
+                    .firstField {
+                        type = int
+                        modifiers(Modifiers.FINAL)
+                    }
+                    .get() as Int
 
             if (infoType != 0) return@hookBefore
 
-            val emojiInfo = obj.reflekt().firstFieldOrNull {
-                type = IEmojiInfo::class
-            }?.get() as? IEmojiInfo? ?: return@hookBefore
+            val emojiInfo =
+                obj.reflekt()
+                    .firstFieldOrNull {
+                        type = IEmojiInfo::class
+                    }
+                    ?.get() as? IEmojiInfo? ?: return@hookBefore
 
             val emojiMd5 = emojiInfo.md5
             val isDice = emojiMd5 == MD5_DICE
@@ -242,7 +262,8 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
             if (!isDice && !isMorra) return@hookBefore
 
-            val activity = ((args[0] as View).context as ContextThemeWrapper).baseContext as Activity
+            val activity =
+                ((args[0] as View).context as ContextThemeWrapper).baseContext as Activity
 
             if (stealthMode) {
                 result = null
@@ -252,12 +273,20 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 val value = mapToValue(ax, ay, az, isDice)
                 if (isDice) valDice = value else valMorra = value
 
-                val name = if (isDice) DiceFace.entries[value].chineseName
-                else activity.localizedChatString(MorraType.entries[value].nameRes)
+                val name =
+                    if (isDice) {
+                        DiceFace.entries[value].chineseName
+                    } else {
+                        activity.localizedString(MorraType.entries[value].nameRes)
+                    }
                 showToast(
                     activity,
-                    activity.localizedChatString(
-                        if (isDice) R.string.chat_emoji_game_dice_result else R.string.chat_emoji_game_morra_result,
+                    activity.localizedString(
+                        if (isDice) {
+                            R.string.chat_emoji_game_dice_result
+                        } else {
+                            R.string.chat_emoji_game_morra_result
+                        },
                         name,
                     ),
                 )
@@ -316,35 +345,44 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         } else {
                             val values = parseMultipleInput(inputText, isDice)
                             if (values.isEmpty()) {
-                                showToast(activity, activity.localizedChatString(R.string.chat_emoji_game_invalid_input))
+                                showToast(
+                                    activity,
+                                    activity.localizedString(
+                                        R.string.chat_emoji_game_invalid_input,
+                                    ),
+                                )
                                 return@EmojiGameDialogContent
                             }
                             sendMultiple(originalMethod, values, isDice, activity)
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send", e)
-                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
+                        showToast(activity, activity.localizedString(R.string.chat_send_failed))
                     }
                 },
                 onRandom = { isSingle ->
                     try {
                         if (isSingle) {
-                            if (isDice) valDice = Random.nextInt(0, 6)
-                            else valMorra = Random.nextInt(0, 3)
+                            if (isDice) {
+                                valDice = Random.nextInt(0, 6)
+                            } else {
+                                valMorra = Random.nextInt(0, 3)
+                            }
                             originalMethod()
                         } else {
                             val count = if (isDice) Random.nextInt(3, 10) else Random.nextInt(3, 8)
-                            val values = List(count) {
-                                if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
-                            }
+                            val values =
+                                List(count) {
+                                    if (isDice) Random.nextInt(0, 6) else Random.nextInt(0, 3)
+                                }
                             sendMultiple(originalMethod, values, isDice, activity)
                         }
                     } catch (e: Throwable) {
                         WeLogger.e(TAG, "failed to send random", e)
-                        showToast(activity, activity.localizedChatString(R.string.chat_send_failed))
+                        showToast(activity, activity.localizedString(R.string.chat_send_failed))
                     }
                 },
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
             )
         }
     }
@@ -354,7 +392,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         isDice: Boolean,
         onSend: (isSingle: Boolean, inputText: String) -> Unit,
         onRandom: (isSingle: Boolean) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         var isSingleMode by remember { mutableStateOf(true) }
         var inputText by remember { mutableStateOf("") }
@@ -362,8 +400,12 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         // first item selected by default
         var selectedIndex by remember { mutableIntStateOf(0) }
 
-        val options = if (isDice) DiceFace.entries.map { it.chineseName }
-        else MorraType.entries.map { stringResource(it.nameRes) }
+        val options =
+            if (isDice) {
+                DiceFace.entries.map { it.chineseName }
+            } else {
+                MorraType.entries.map { stringResource(it.nameRes) }
+            }
 
         // keep valMorra / valDice in sync
         LaunchedEffect(selectedIndex, isSingleMode) {
@@ -373,28 +415,39 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         }
 
         AlertDialogContent(
-            title = { Text(stringResource(if (isDice) R.string.chat_emoji_game_select_dice else R.string.chat_emoji_game_select_morra)) },
+            title = {
+                Text(
+                    stringResource(
+                        if (isDice) {
+                            R.string.chat_emoji_game_select_dice
+                        } else {
+                            R.string.chat_emoji_game_select_morra
+                        },
+                    ),
+                )
+            },
             text = {
                 DefaultColumn {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             stringResource(R.string.chat_emoji_game_send_mode),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         listOf(
-                            stringResource(R.string.chat_emoji_game_single) to true,
-                            stringResource(R.string.chat_emoji_game_multiple) to false,
-                        ).forEach { (label, single) ->
-                            FilterChip(
-                                selected = isSingleMode == single,
-                                onClick = { isSingleMode = single },
-                                label = { Text(label) }
+                                stringResource(R.string.chat_emoji_game_single) to true,
+                                stringResource(R.string.chat_emoji_game_multiple) to false,
                             )
-                        }
+                            .forEach { (label, single) ->
+                                FilterChip(
+                                    selected = isSingleMode == single,
+                                    onClick = { isSingleMode = single },
+                                    label = { Text(label) },
+                                )
+                            }
                     }
 
                     HorizontalDivider()
@@ -404,7 +457,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             options.forEachIndexed { index, label ->
                                 FilledTonalButton(
@@ -413,13 +466,14 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                                         onSend(true, "")
                                         onDismiss()
                                     },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                    modifier = Modifier.weight(1f)
+                                    contentPadding =
+                                        PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
                                     Text(
                                         label,
                                         maxLines = 1,
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
                             }
@@ -429,29 +483,48 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = { inputText = it.filter { c -> c.isDigit() } },
-                            placeholder = { Text(stringResource(if (isDice) R.string.chat_emoji_game_dice_input else R.string.chat_emoji_game_morra_input)) },
+                            placeholder = {
+                                Text(
+                                    stringResource(
+                                        if (isDice) {
+                                            R.string.chat_emoji_game_dice_input
+                                        } else {
+                                            R.string.chat_emoji_game_morra_input
+                                        },
+                                    ),
+                                )
+                            },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
             },
             dismissButton = {
+                TextButton(
+                    onClick = {
+                        onRandom(isSingleMode)
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.chat_emoji_game_random))
+                }
                 TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                TextButton(onClick = {
-                    onRandom(isSingleMode)
-                    onDismiss()
-                }) { Text(stringResource(R.string.chat_emoji_game_random)) }
             },
             confirmButton = {
                 // In single mode the option buttons send directly; only show confirm in multimode
                 if (!isSingleMode) {
-                    Button(onClick = {
-                        onSend(false, inputText)
-                        onDismiss()
-                    }) { Text(stringResource(R.string.chat_emoji_game_send)) }
+                    TextButton(
+                        onClick = {
+                            onSend(false, inputText)
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.chat_emoji_game_send))
+                    }
                 }
-            })
+            },
+        )
     }
 
     private fun parseMultipleInput(input: String, isDice: Boolean): List<Int> {
@@ -459,10 +532,11 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
         val maxValue = if (isDice) 6 else 3
 
-        return input.asSequence()
+        return input
+            .asSequence()
             .mapNotNull { it.digitToIntOrNull() }
             .filter { it in 1..maxValue }
-            .map { it - 1 }  // Convert to 0-based index
+            .map { it - 1 } // Convert to 0-based index
             .toList()
     }
 
@@ -470,7 +544,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
         originalMethod: OriginalMethodInvoker,
         values: List<Int>,
         isDice: Boolean,
-        activity: Activity
+        activity: Activity,
     ) {
         Thread {
             values.forEachIndexed { index, value ->
@@ -490,14 +564,28 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "failed to send at index $index", e)
                     activity.runOnUiThread {
-                        showToast(activity, activity.localizedChatString(R.string.chat_emoji_game_send_index_failed, index + 1))
+                        showToast(
+                            activity,
+                            activity.localizedString(
+                                R.string.chat_emoji_game_send_index_failed,
+                                index + 1,
+                            ),
+                        )
                     }
                 }
             }
 
             activity.runOnUiThread {
-                showToast(activity, activity.localizedChatQuantity(R.plurals.chat_emoji_game_sent_count, values.size, values.size))
+                showToast(
+                    activity,
+                    activity.localizedQuantity(
+                        R.plurals.chat_emoji_game_sent_count,
+                        values.size,
+                        values.size,
+                    ),
+                )
             }
-        }.start()
+        }
+            .start()
     }
 }

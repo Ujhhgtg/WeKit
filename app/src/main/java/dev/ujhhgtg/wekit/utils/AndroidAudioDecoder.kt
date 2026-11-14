@@ -4,22 +4,23 @@ import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import java.io.File
-import java.io.FileOutputStream
+import java.nio.file.Path
+import kotlin.io.path.outputStream
 
 object AndroidAudioDecoder {
-    data class DecodedPcm(
-        val sampleRate: Int,
-        val channelCount: Int,
-    )
+    data class DecodedPcm(val sampleRate: Int, val channelCount: Int)
 
-    fun decodeToPcm16(sourcePath: String, destination: File): DecodedPcm {
+    fun decodeToPcm16(sourcePath: String, destination: Path): DecodedPcm {
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(sourcePath)
-            val trackIndex = (0 until extractor.trackCount).first {
-                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-            }
+            val trackIndex =
+                (0 until extractor.trackCount).first {
+                    extractor
+                        .getTrackFormat(it)
+                        .getString(MediaFormat.KEY_MIME)
+                        ?.startsWith("audio/") == true
+                }
             extractor.selectTrack(trackIndex)
             val sourceFormat = extractor.getTrackFormat(trackIndex)
             val mime = requireNotNull(sourceFormat.getString(MediaFormat.KEY_MIME))
@@ -40,7 +41,7 @@ object AndroidAudioDecoder {
     private fun decode(
         codec: MediaCodec,
         extractor: MediaExtractor,
-        destination: File,
+        destination: Path,
     ): DecodedPcm {
         val bufferInfo = MediaCodec.BufferInfo()
         var inputEnded = false
@@ -48,7 +49,7 @@ object AndroidAudioDecoder {
         var decodedPcm: DecodedPcm? = null
         var wroteOutput = false
 
-        FileOutputStream(destination).use { output ->
+        destination.outputStream().use { output ->
             while (!outputEnded) {
                 if (!inputEnded) {
                     val inputIndex = codec.dequeueInputBuffer(CODEC_TIMEOUT_US)
@@ -79,29 +80,35 @@ object AndroidAudioDecoder {
 
                 when (val outputIndex = codec.dequeueOutputBuffer(bufferInfo, CODEC_TIMEOUT_US)) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        decodedPcm = readPcmFormat(
-                            codec.outputFormat,
-                            decodedPcm.takeIf { wroteOutput },
-                        )
+                        decodedPcm =
+                            readPcmFormat(
+                                codec.outputFormat,
+                                decodedPcm.takeIf { wroteOutput },
+                            )
                     }
 
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        Unit
+                    }
 
-                    else -> if (outputIndex >= 0) {
-                        if (decodedPcm == null) {
-                            decodedPcm = readPcmFormat(codec.outputFormat, null)
+                    else -> {
+                        if (outputIndex >= 0) {
+                            if (decodedPcm == null) {
+                                decodedPcm = readPcmFormat(codec.outputFormat, null)
+                            }
+                            if (bufferInfo.size > 0) {
+                                val outputBuffer = codec.getOutputBuffer(outputIndex)!!
+                                outputBuffer.position(bufferInfo.offset)
+                                outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                                val bytes = ByteArray(bufferInfo.size)
+                                outputBuffer.get(bytes)
+                                output.write(bytes)
+                                wroteOutput = true
+                            }
+                            outputEnded =
+                                bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+                            codec.releaseOutputBuffer(outputIndex, false)
                         }
-                        if (bufferInfo.size > 0) {
-                            val outputBuffer = codec.getOutputBuffer(outputIndex)!!
-                            outputBuffer.position(bufferInfo.offset)
-                            outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
-                            val bytes = ByteArray(bufferInfo.size)
-                            outputBuffer.get(bytes)
-                            output.write(bytes)
-                            wroteOutput = true
-                        }
-                        outputEnded = bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                        codec.releaseOutputBuffer(outputIndex, false)
                     }
                 }
             }
@@ -111,18 +118,20 @@ object AndroidAudioDecoder {
     }
 
     private fun readPcmFormat(format: MediaFormat, previous: DecodedPcm?): DecodedPcm {
-        val encoding = if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
-            format.getInteger(MediaFormat.KEY_PCM_ENCODING)
-        } else {
-            AudioFormat.ENCODING_PCM_16BIT
-        }
+        val encoding =
+            if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                format.getInteger(MediaFormat.KEY_PCM_ENCODING)
+            } else {
+                AudioFormat.ENCODING_PCM_16BIT
+            }
         require(encoding == AudioFormat.ENCODING_PCM_16BIT) {
             "Unsupported decoder PCM encoding: $encoding"
         }
-        val current = DecodedPcm(
-            sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
-            channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
-        )
+        val current =
+            DecodedPcm(
+                sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
+                channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
+            )
         require(previous == null || previous == current) {
             "Audio output format changed from $previous to $current"
         }

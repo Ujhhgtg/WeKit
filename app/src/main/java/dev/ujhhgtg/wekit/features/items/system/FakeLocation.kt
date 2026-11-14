@@ -14,52 +14,51 @@ import androidx.core.view.children
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.i18n.LocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.OsmLocationPicker
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
-import org.osmdroid.util.GeoPoint
 import java.util.Collections
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 import java.util.WeakHashMap
+import java.util.concurrent.ConcurrentHashMap
+import org.osmdroid.util.GeoPoint
 
-object FakeLocation : ClickableFeature(), IResolveDex {
-
+object FakeLocation : ClickableFeature() {
     override val technicalId = "虚拟定位"
     override val nameRes = R.string.feature_fake_location_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_fake_location_description
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     private val methodListener by dexMethod {
-        matcher {
-            name = "onLocationChanged"
-            usingEqStrings("MicroMsg.SLocationListener")
-        }
+        name = "onLocationChanged"
+        usingEqStrings("MicroMsg.SLocationListener")
     }
     private val methodListenerWgs84 by dexMethod {
-        matcher {
-            name = "onLocationChanged"
-            usingEqStrings("MicroMsg.SLocationListenerWgs84")
-        }
+        name = "onLocationChanged"
+        usingEqStrings("MicroMsg.SLocationListenerWgs84")
     }
     private val methodDefaultManager by dexMethod {
-        matcher {
-            name = "onLocationChanged"
-            usingEqStrings("MicroMsg.DefaultTencentLocationManager", "[mlocationListener]error:%d, reason:%s")
-        }
+        name = "onLocationChanged"
+        usingEqStrings(
+            "MicroMsg.DefaultTencentLocationManager",
+            "[mlocationListener]error:%d, reason:%s",
+        )
     }
 
     private const val KEY_LAT = "fake_lat"
@@ -76,13 +75,12 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private val hookedLocationClasses = ConcurrentHashMap.newKeySet<Class<*>>()
     private val hookedAppGridLongClickClasses = ConcurrentHashMap.newKeySet<Class<*>>()
     private val locationItemViews = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
-    private val locationIntentRegex = Regex("""lat ([-+]?[0-9]*\.?[0-9]+);lng ([-+]?[0-9]*\.?[0-9]+);""")
+    private val locationIntentRegex =
+        Regex("""lat ([-+]?[0-9]*\.?[0-9]+);lng ([-+]?[0-9]*\.?[0-9]+);""")
 
-    @Volatile
-    private var pendingWeChatPicker = false
+    @Volatile private var pendingWeChatPicker = false
 
-    @Volatile
-    private var wechatPickerHooked = false
+    @Volatile private var wechatPickerHooked = false
 
     override fun onEnable() {
         listOf(methodListener, methodListenerWgs84, methodDefaultManager).forEach {
@@ -92,12 +90,19 @@ object FakeLocation : ClickableFeature(), IResolveDex {
             }
         }
 
+        // Mini Apps use the same Tencent location callbacks in their own process. The
+        // chat attachment panel, however, belongs exclusively to the main process.
+        if (!TargetProcesses.isInMain) return
+
         WeChatInputBarMenuApi.methodAppGridGetView.hookAfter {
             val itemView = result as View
             val isLocationItem = isLocationItem(itemView)
             synchronized(locationItemViews) {
-                if (isLocationItem) locationItemViews.add(itemView)
-                else locationItemViews.remove(itemView)
+                if (isLocationItem) {
+                    locationItemViews.add(itemView)
+                } else {
+                    locationItemViews.remove(itemView)
+                }
             }
             if (isLocationItem) {
                 val appGrid = args[2] as AdapterView<*>
@@ -127,7 +132,8 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                         item {
                             BaseWidget(
                                 title = stringResource(R.string.system_fake_location_wechat),
-                                description = stringResource(R.string.system_fake_location_wechat_summary),
+                                description =
+                                    stringResource(R.string.system_fake_location_wechat_summary),
                                 onClick = {
                                     onDismiss()
                                     launchWechatLocationPicker()
@@ -137,7 +143,8 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                         item {
                             BaseWidget(
                                 title = stringResource(R.string.system_fake_location_osm),
-                                description = stringResource(R.string.system_fake_location_osm_summary),
+                                description =
+                                    stringResource(R.string.system_fake_location_osm_summary),
                                 onClick = {
                                     onDismiss()
                                     showOsmLocationPicker(context)
@@ -150,7 +157,7 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                     TextButton(onDismiss) {
                         Text(stringResource(R.string.dialog_cancel))
                     }
-                }
+                },
             )
         }
     }
@@ -163,45 +170,57 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                 if (view is android.view.ViewGroup) view.children.forEach(::collectVisibleIcons)
             }
             collectVisibleIcons(itemView)
-        }.any { drawable ->
-            runCatching {
-                val resourceId = drawable.reflekt()
-                    .firstField { type = Int::class; superclass() }
-                    .get() as Int
-                itemView.resources.getResourceEntryName(resourceId) == "panel_icon_location"
-            }.getOrDefault(false)
         }
+            .any { drawable ->
+                runCatching {
+                        val resourceId =
+                            drawable
+                                .reflekt()
+                                .firstField {
+                                    type = Int::class
+                                    superclass()
+                                }
+                                .get() as Int
+                        itemView.resources.getResourceEntryName(resourceId) == "panel_icon_location"
+                    }
+                    .getOrDefault(false)
+            }
     }
 
     private fun hookAppGridLongClick(listener: AdapterView.OnItemLongClickListener) {
         val listenerClass = listener.javaClass
         if (!hookedAppGridLongClickClasses.add(listenerClass)) return
 
-        listenerClass.reflekt().firstMethod {
-            name = "onItemLongClick"
-            parameters(AdapterView::class, View::class, Int::class, Long::class)
-        }.hookBefore {
-            val itemView = args[1] as View
-            val isLocationItem = synchronized(locationItemViews) { itemView in locationItemViews }
-            if (!isLocationItem) return@hookBefore
+        listenerClass
+            .reflekt()
+            .firstMethod {
+                name = "onItemLongClick"
+                parameters(AdapterView::class, View::class, Int::class, Long::class)
+            }
+            .hookBefore {
+                val itemView = args[1] as View
+                val isLocationItem =
+                    synchronized(locationItemViews) { itemView in locationItemViews }
+                if (!isLocationItem) return@hookBefore
 
-            showLocationPicker((args[0] as AdapterView<*>).context)
-            result = true
-        }
+                showLocationPicker((args[0] as AdapterView<*>).context)
+                result = true
+            }
     }
 
     private fun showOsmLocationPicker(context: Context) {
         showComposeDialog(context) {
             OsmLocationPicker(
-                initialLocation = GeoPoint(
-                    latitude.toDouble(),
-                    longitude.toDouble(),
-                ),
+                initialLocation =
+                    GeoPoint(
+                        latitude.toDouble(),
+                        longitude.toDouble(),
+                    ),
                 onLocationSelected = {
                     onDismiss()
                     saveLocation(it.latitude.toFloat(), it.longitude.toFloat())
                 },
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
             )
         }
     }
@@ -210,14 +229,14 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun launchWechatLocationPicker() {
         val activity = getTopMostActivity()
         if (activity == null) {
-            showToast(localizedSystemString(R.string.system_fake_location_no_activity))
+            showToast(localizedString(R.string.system_fake_location_no_activity))
             return
         }
 
         val redirectUiClass = "${activity.packageName}.plugin.location.ui.RedirectUI".toClass()
 
         if (!ensureWeChatPickerHooked(redirectUiClass)) {
-            showToast(localizedSystemString(R.string.system_fake_location_listener_failed))
+            showToast(localizedString(R.string.system_fake_location_listener_failed))
             return
         }
 
@@ -227,13 +246,19 @@ object FakeLocation : ClickableFeature(), IResolveDex {
                 Intent(activity, redirectUiClass).apply {
                     putExtra("map_view_type", 8)
                 },
-                WECHAT_LOCATION_REQUEST_CODE
+                WECHAT_LOCATION_REQUEST_CODE,
             )
-        }.onFailure {
-            pendingWeChatPicker = false
-            WeLogger.e(TAG, "failed to launch native location picker", it)
-            showToast(localizedSystemString(R.string.system_fake_location_launch_failed, it.message.orEmpty()))
         }
+            .onFailure {
+                pendingWeChatPicker = false
+                WeLogger.e(TAG, "failed to launch native location picker", it)
+                showToast(
+                    localizedString(
+                        R.string.system_fake_location_launch_failed,
+                        it.message.orEmpty(),
+                    ),
+                )
+            }
     }
 
     private fun hookTencentLocation(tencentLocation: Any?) {
@@ -260,14 +285,20 @@ object FakeLocation : ClickableFeature(), IResolveDex {
         return synchronized(this) {
             if (wechatPickerHooked) return@synchronized true
 
-            val onActivityResult = runCatching {
-                redirectUiClass.reflekt().firstMethod {
-                    name = "onActivityResult"
-                    parameters(Int::class, Int::class, Intent::class)
-                }.self
-            }.onFailure {
-                WeLogger.e(TAG, "failed to find native location picker result handler", it)
-            }.getOrNull() ?: return@synchronized false
+            val onActivityResult =
+                runCatching {
+                    redirectUiClass
+                        .reflekt()
+                        .firstMethod {
+                            name = "onActivityResult"
+                            parameters(Int::class, Int::class, Intent::class)
+                        }
+                        .self
+                }
+                    .onFailure {
+                        WeLogger.e(TAG, "failed to find native location picker result handler", it)
+                    }
+                    .getOrNull() ?: return@synchronized false
 
             onActivityResult.hookAfter {
                 handleWechatLocationPickerResult(args)
@@ -288,16 +319,16 @@ object FakeLocation : ClickableFeature(), IResolveDex {
 
         val intent = args.getOrNull(2) as? Intent ?: return
         val locationIntent = intent.getParcelableExtra<Parcelable>("KLocationIntent") ?: return
-        val locationData = locationIntent.reflekt()
-            .firstMethod { returnType = String::class }
-            .invoke() as? String ?: return
+        val locationData =
+            locationIntent.reflekt().firstMethod { returnType = String::class }.invoke() as? String
+                ?: return
 
         val match = locationIntentRegex.find(locationData)
         val latitude = match?.groupValues?.getOrNull(1)?.toFloatOrNull()
         val longitude = match?.groupValues?.getOrNull(2)?.toFloatOrNull()
         if (latitude == null || longitude == null) {
             WeLogger.w(TAG, "failed to parse native location result: $locationData")
-            showToast(localizedSystemString(R.string.system_fake_location_parse_failed))
+            showToast(localizedString(R.string.system_fake_location_parse_failed))
             return
         }
 
@@ -307,13 +338,13 @@ object FakeLocation : ClickableFeature(), IResolveDex {
     private fun saveLocation(latitude: Float, longitude: Float) {
         this.latitude = latitude
         this.longitude = longitude
-        val locale = Locale.forLanguageTag(WeKitLocaleController.resolvedLocale.androidTag)
+        val locale = Locale.forLanguageTag(LocaleController.resolvedLocale.androidTag)
         showToast(
-            localizedSystemString(
+            localizedString(
                 R.string.system_fake_location_selected,
                 String.format(locale, "%.4f", latitude),
                 String.format(locale, "%.4f", longitude),
-            )
+            ),
         )
     }
 }

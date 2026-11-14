@@ -10,10 +10,11 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
@@ -23,7 +24,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object BatchHideConversations : ClickableFeature() {
-
     override val technicalId = "批量隐藏对话"
     override val nameRes = R.string.feature_batch_hide_conversations_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -36,19 +36,23 @@ object BatchHideConversations : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_hide_conversations_select),
+                title = context.localizedString(R.string.batch_hide_conversations_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
+                        showToast(
+                            context.localizedString(
+                                R.string.batch_select_at_least_one_conversation,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     confirmAndHide(context, selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -66,13 +70,19 @@ object BatchHideConversations : ClickableFeature() {
                         ),
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    Button(onClick = {
-                        onDismiss()
-                        hideConversations(wxIds)
-                    }) { Text(stringResource(R.string.batch_hide_conversations_action)) }
-                }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            hideConversations(wxIds)
+                        },
+                    ) {
+                        Text(stringResource(R.string.batch_hide_conversations_action))
+                    }
+                },
             )
         }
     }
@@ -90,7 +100,7 @@ object BatchHideConversations : ClickableFeature() {
                 }
             }
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     R.plurals.batch_hide_conversations_done,
                     wxIds.size,
                     removed,

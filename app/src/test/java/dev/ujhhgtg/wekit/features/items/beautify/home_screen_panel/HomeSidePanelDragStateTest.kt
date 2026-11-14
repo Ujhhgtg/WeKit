@@ -67,10 +67,11 @@ class HomeSidePanelDragStateTest {
     fun horizontalActionTargetUsesThePointersRowBeforeItsXCenter() {
         val state = horizontalTwoRowState()
         state.begin(
-            payload = HomeSidePanelDragPayload.NewAction(
-                "target",
-                HomeSidePanelActionKind.SCAN,
-            ),
+            payload =
+                HomeSidePanelDragPayload.NewAction(
+                    "target",
+                    HomeSidePanelActionKind.SCAN,
+                ),
             pointerId = 2L,
             rootPosition = RootDragPosition(120f, 150f),
         )
@@ -85,10 +86,11 @@ class HomeSidePanelDragStateTest {
     fun horizontalActionTargetChoosesNearestRowBetweenRowsAndAtEdges() {
         val state = horizontalTwoRowState()
         state.begin(
-            payload = HomeSidePanelDragPayload.NewAction(
-                "target",
-                HomeSidePanelActionKind.SCAN,
-            ),
+            payload =
+                HomeSidePanelDragPayload.NewAction(
+                    "target",
+                    HomeSidePanelActionKind.SCAN,
+                ),
             pointerId = 3L,
             rootPosition = RootDragPosition(120f, 85f),
         )
@@ -110,26 +112,30 @@ class HomeSidePanelDragStateTest {
 
     @Test
     fun existingSourcesUseOneNormalizedVisualInsertionGap() {
-        val cards = listOf(
-            DateTimeCardConfig("first"),
-            DateTimeCardConfig("dragged"),
-            DateTimeCardConfig("last"),
-        )
-        val cardSnapshot = dragSnapshot(
-            payload = HomeSidePanelDragPayload.ExistingCard("dragged"),
-            target = HomeSidePanelDragTarget.Card(3),
-        )
+        val cards =
+            listOf(
+                DateTimeCardConfig("first"),
+                DateTimeCardConfig("dragged"),
+                DateTimeCardConfig("last"),
+            )
+        val cardSnapshot =
+            dragSnapshot(
+                payload = HomeSidePanelDragPayload.ExistingCard("dragged"),
+                target = HomeSidePanelDragTarget.Card(3),
+            )
         assertEquals(2, cardSnapshot.visualCardInsertionIndex(cards))
 
-        val actions = listOf(
-            HomeSidePanelActionConfig("first", HomeSidePanelActionKind.SCAN),
-            HomeSidePanelActionConfig("dragged", HomeSidePanelActionKind.WALLET),
-            HomeSidePanelActionConfig("last", HomeSidePanelActionKind.FAVORITES),
-        )
-        val actionSnapshot = dragSnapshot(
-            payload = HomeSidePanelDragPayload.ExistingAction("card", "dragged"),
-            target = HomeSidePanelDragTarget.Action("card", 3),
-        )
+        val actions =
+            listOf(
+                HomeSidePanelActionConfig("first", HomeSidePanelActionKind.SCAN),
+                HomeSidePanelActionConfig("dragged", HomeSidePanelActionKind.WALLET),
+                HomeSidePanelActionConfig("last", HomeSidePanelActionKind.FAVORITES),
+            )
+        val actionSnapshot =
+            dragSnapshot(
+                payload = HomeSidePanelDragPayload.ExistingAction("card", "dragged"),
+                target = HomeSidePanelDragTarget.Action("card", 3),
+            )
         assertEquals(2, actionSnapshot.visualActionInsertionIndex("card", actions))
         assertNull(actionSnapshot.visualActionInsertionIndex("other", actions))
     }
@@ -277,10 +283,11 @@ class HomeSidePanelDragStateTest {
     @Test
     fun newIdIsAllocatedOnlyWhenSuccessfulCommitIsApplied() {
         val ids = CountingIds()
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(cards = emptyList<HomeSidePanelCardConfig>()),
-            ids,
-        )
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(cards = emptyList<HomeSidePanelCardConfig>()),
+                ids,
+            )
         val state = HomeSidePanelDragState()
         state.registerViewport(RootDragBounds(0f, 0f, 300f, 600f))
         state.begin(
@@ -331,10 +338,11 @@ class HomeSidePanelDragStateTest {
             bounds = RootDragBounds(0f, 120f, 80f, 220f),
         )
         state.begin(
-            payload = HomeSidePanelDragPayload.NewAction(
-                "target",
-                HomeSidePanelActionKind.SCAN,
-            ),
+            payload =
+                HomeSidePanelDragPayload.NewAction(
+                    "target",
+                    HomeSidePanelActionKind.SCAN,
+                ),
             pointerId = 11L,
             rootPosition = RootDragPosition(100f, 50f),
         )
@@ -447,12 +455,13 @@ class HomeSidePanelDragStateTest {
                     cardId = "target",
                     actionId = "action-$index",
                     index = index,
-                    bounds = RootDragBounds(
-                        left = column * 100f,
-                        top = row * 100f,
-                        right = column * 100f + 80f,
-                        bottom = row * 100f + 80f,
-                    ),
+                    bounds =
+                        RootDragBounds(
+                            left = column * 100f,
+                            top = row * 100f,
+                            right = column * 100f + 80f,
+                            bottom = row * 100f + 80f,
+                        ),
                 )
             }
             state.registerActionTerminalBounds(
@@ -462,10 +471,11 @@ class HomeSidePanelDragStateTest {
             )
 
             state.begin(
-                payload = HomeSidePanelDragPayload.NewAction(
-                    "target",
-                    HomeSidePanelActionKind.SCAN,
-                ),
+                payload =
+                    HomeSidePanelDragPayload.NewAction(
+                        "target",
+                        HomeSidePanelActionKind.SCAN,
+                    ),
                 pointerId = 30L + actionCount,
                 rootPosition = RootDragPosition(290f, addTop + 40f),
             )
@@ -495,29 +505,31 @@ class HomeSidePanelDragStateTest {
                 bounds = RootDragBounds(0f, -40f, 300f, 240f),
             )
             listOf(
-                RootDragBounds(0f, 0f, 80f, 80f),
-                RootDragBounds(90f, 0f, 170f, 80f),
-                RootDragBounds(180f, 0f, 260f, 80f),
-                RootDragBounds(0f, 100f, 80f, 180f),
-                RootDragBounds(90f, 100f, 170f, 180f),
-                RootDragBounds(180f, 100f, 260f, 180f),
-            ).forEachIndexed { index, bounds ->
-                registerActionBounds("target", "action-$index", index, bounds)
-            }
+                    RootDragBounds(0f, 0f, 80f, 80f),
+                    RootDragBounds(90f, 0f, 170f, 80f),
+                    RootDragBounds(180f, 0f, 260f, 80f),
+                    RootDragBounds(0f, 100f, 80f, 180f),
+                    RootDragBounds(90f, 100f, 170f, 180f),
+                    RootDragBounds(180f, 100f, 260f, 180f),
+                )
+                .forEachIndexed { index, bounds ->
+                    registerActionBounds("target", "action-$index", index, bounds)
+                }
         }
 
     private fun dragSnapshot(
         payload: HomeSidePanelDragPayload,
         target: HomeSidePanelDragTarget,
-    ) = HomeSidePanelDragSnapshot(
-        payload = payload,
-        pointerId = 1L,
-        rootPosition = RootDragPosition(0f, 0f),
-        anchor = RootDragPosition(0f, 0f),
-        sourceBounds = RootDragBounds(0f, 0f, 100f, 100f),
-        target = target,
-        targetBounds = null,
-        startToken = 1L,
-        targetChangeToken = 0L,
-    )
+    ) =
+        HomeSidePanelDragSnapshot(
+            payload = payload,
+            pointerId = 1L,
+            rootPosition = RootDragPosition(0f, 0f),
+            anchor = RootDragPosition(0f, 0f),
+            sourceBounds = RootDragBounds(0f, 0f, 100f, 100f),
+            target = target,
+            targetBounds = null,
+            startToken = 1L,
+            targetChangeToken = 0L,
+        )
 }

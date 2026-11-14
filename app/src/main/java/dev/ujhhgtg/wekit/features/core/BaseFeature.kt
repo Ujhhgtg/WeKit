@@ -4,33 +4,39 @@ package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
 import androidx.annotation.StringRes
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.DexConstructorDelegate
-import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
+import dev.ujhhgtg.wekit.dex.cache.DexItemState
+import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexConstructorDelegate
+import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
+import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dex.resolution.ResolutionCoordinator
 import dev.ujhhgtg.wekit.utils.HookAction
+import dev.ujhhgtg.wekit.utils.HookBuilder
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.HookParam
+import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.hookAfterDirectly
-import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
-import org.luckypray.dexkit.DexKitBridge
+import dev.ujhhgtg.wekit.utils.hookDirectly
 import java.lang.reflect.Executable
 import kotlin.reflect.KClass
 
 abstract class BaseFeature {
-
     abstract val technicalId: String
 
-    @get:StringRes
-    abstract val nameRes: Int
+    @get:StringRes abstract val nameRes: Int
 
     abstract val categoryIds: List<String>
 
-    @get:StringRes
-    open val descriptionRes: Int? = null
+    /** Processes where this feature may be enabled. Defaults to the main process only. */
+    open val targetProcesses: Set<TargetProcess> = setOf(TargetProcess.MAIN)
+
+    @get:StringRes open val descriptionRes: Int? = null
 
     val technicalPath: String
         get() = categoryIds.joinToString(",") + "/" + technicalId
@@ -39,6 +45,24 @@ abstract class BaseFeature {
 
     fun localizedDescription(context: Context): String =
         descriptionRes?.let(context::getString).orEmpty()
+
+    /**
+     * Restrictions this feature declares itself (e.g. an unsupported host build or an enabled
+     * conflicting feature), as string resources. Evaluated on every read; each one becomes a
+     * [FeatureError.Declared].
+     */
+    open val declaredErrors: List<Int>
+        get() = emptyList()
+
+    /**
+     * Persisted Dex state for the current host; set by [FeaturesLoader]. Always valid for non-Dex
+     * features.
+     */
+    var dexState: DexItemState = DexItemState.Valid
+
+    /** Every reason this feature must not start or be enabled; empty when it may. */
+    val errors: List<FeatureError>
+        get() = FeatureError.of(this)
 
     open fun startup() {
         error("You shouldn't inherit BaseFeature")
@@ -49,17 +73,18 @@ abstract class BaseFeature {
         private set
 
     fun enable() {
-        if (isActive) return
+        if (TargetProcesses.currentType !in targetProcesses || isActive) return
 
         runCatching {
             isActive = true
             onEnable()
-        }.onFailure { e ->
-            WeLogger.e(TAG, "failed to enable feature $technicalPath", e)
-            // ensure transaction is fully discarded
-            unhookAll()
-            isActive = false
         }
+            .onFailure { e ->
+                WeLogger.e(TAG, "failed to enable feature $technicalPath", e)
+                // ensure transaction is fully discarded
+                unhookAll()
+                isActive = false
+            }
     }
 
     fun disable() {
@@ -69,10 +94,11 @@ abstract class BaseFeature {
             isActive = false
             unhookAll()
             onDisable()
-        }.onFailure { e ->
-            WeLogger.e(TAG, "failed to disable feature $technicalPath", e)
-            isActive = true
         }
+            .onFailure { e ->
+                WeLogger.e(TAG, "failed to disable feature $technicalPath", e)
+                isActive = true
+            }
     }
 
     open fun onEnable() {}
@@ -80,120 +106,139 @@ abstract class BaseFeature {
     open fun onDisable() {}
 
     private val _dexDelegates = mutableListOf<BaseDexDelegate>()
-    val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
-    internal fun registerDexDelegate(d: BaseDexDelegate) {
-        d.owner = this
-        _dexDelegates += d
+    val dexDelegates: List<BaseDexDelegate>
+        get() = _dexDelegates
+
+    val hasDexDelegates: Boolean
+        get() = _dexDelegates.isNotEmpty()
+
+    fun registerDexDelegate(delegate: BaseDexDelegate) {
+        delegate.owner = this
+        _dexDelegates += delegate
+        dexState = DexItemState.NeedsResolution
     }
 
-    internal fun resolveInlineDex(dexKit: DexKitBridge) {
-        dexDelegates.forEach { it.findInline(dexKit) }
+    fun collectDescriptors(): Map<String, String?> = dexDelegates.associate { delegate ->
+        check(delegate.isSettled) {
+            "Dex delegate ${delegate.key} is not resolved: ${delegate.state}"
+        }
+        delegate.key to delegate.getDescriptorString()
     }
 
-    internal val unhooks = mutableListOf<HookHandle>()
-    internal fun registerUnhook(u: HookHandle) {
+    fun loadFromCache(cache: Map<String, String?>): Set<String> {
+        val missingKeys = mutableSetOf<String>()
+        for (delegate in dexDelegates) {
+            if (delegate.key in cache) {
+                delegate.restore(cache[delegate.key])
+            } else {
+                missingKeys += delegate.key
+            }
+        }
+        return missingKeys
+    }
+
+    fun resolveAllDex(
+        host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
+        coordinator: ResolutionCoordinator<BaseFeature> =
+            DexResolutionContext.newCoordinator(listOf(this)),
+        dexSql: DexSqlBridge? = null,
+    ) =
+        DexResolutionContext.withResolutionContext(host, coordinator, dexSql) {
+            DexResolutionContext.resolve(this)
+        }
+
+    val unhooks = mutableListOf<HookHandle>()
+
+    fun registerUnhook(u: HookHandle) {
         unhooks += u
     }
 
-    internal fun unhookAll() {
+    fun unhookAll() {
         unhooks.forEach { it.unhook() }
         unhooks.clear()
     }
 
+    /** Registers one paired callback with feature-owned teardown and error reporting. */
+    fun Executable.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        registerUnhook(hookDirectly(HookBuilder(priority, ::executeHookAction).apply(block)))
+
+    fun BaseReflectedMethod.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        self.hook(priority, block)
+
+    fun ReflectedConstructor<*>.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        self.hook(priority, block)
+
+    fun DexMethodDelegate.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        method.hook(priority, block)
+
+    fun DexConstructorDelegate.hook(priority: Int = 50, block: HookBuilder.() -> Unit) =
+        constructor.hook(priority, block)
+
     // --- hookBefore ---
 
-    internal fun Executable.hookBefore(
-        priority: Int = 50,
-        action: HookAction
-    ) = registerUnhook(
-        hookBeforeDirectly(priority) {
-            executeHookAction(this, action)
-        }
-    )
+    fun Executable.hookBefore(priority: Int = 50, action: HookAction) =
+        hook(priority) { before(action) }
 
     @JvmName("hookBefore2")
-    internal fun BaseReflectedMethod.hookBefore(
-        priority: Int = 50,
-        action: HookAction
-    ) = self.hookBefore(priority, action)
+    fun BaseReflectedMethod.hookBefore(priority: Int = 50, action: HookAction) =
+        self.hookBefore(priority, action)
 
     @JvmName("hookBefore3")
-    internal fun ReflectedConstructor<*>.hookBefore(
-        priority: Int = 50,
-        action: HookAction
-    ) = this.self.hookBefore(priority, action)
+    fun ReflectedConstructor<*>.hookBefore(priority: Int = 50, action: HookAction) =
+        this.self.hookBefore(priority, action)
 
-    internal fun Class<*>.hookBeforeOnCreate(
-        action: HookAction
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
+    fun Class<*>.hookBeforeOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    internal fun Class<*>.hookAfterOnCreate(
-        action: HookAction
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
+    fun Class<*>.hookAfterOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
-    internal fun KClass<*>.hookBeforeOnCreate(
-        action: HookAction
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
+    fun KClass<*>.hookBeforeOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookBefore(50, action)
 
-    internal fun KClass<*>.hookAfterOnCreate(
-        action: HookAction
-    ) = this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
+    fun KClass<*>.hookAfterOnCreate(action: HookAction) =
+        this.reflekt().firstMethod { name = "onCreate" }.hookAfter(50, action)
 
     // --- end hookBefore ---
 
     // --- hookAfter ---
 
-    internal fun Executable.hookAfter(
-        priority: Int = 50,
-        action: HookAction
-    ) = registerUnhook(
-        hookAfterDirectly(priority) {
-            executeHookAction(this, action)
-        }
-    )
+    fun Executable.hookAfter(priority: Int = 50, action: HookAction) =
+        hook(priority) { after(action) }
 
     @JvmName("hookAfter2")
-    internal fun BaseReflectedMethod.hookAfter(
-        priority: Int = 50,
-        action: HookAction
-    ) = self.hookAfter(priority, action)
+    fun BaseReflectedMethod.hookAfter(priority: Int = 50, action: HookAction) =
+        self.hookAfter(priority, action)
 
     @JvmName("hookAfter3")
-    internal fun ReflectedConstructor<*>.hookAfter(
-        priority: Int = 50,
-        action: HookAction
-    ) = this.self.hookAfter(priority, action)
+    fun ReflectedConstructor<*>.hookAfter(priority: Int = 50, action: HookAction) =
+        this.self.hookAfter(priority, action)
 
     // --- end hookAfter ---
 
     // --- dex delegate ---
 
-    internal fun DexMethodDelegate.hookBefore(
-        priority: Int = 50,
-        action: HookAction
-    ) = method.hookBefore(priority, action)
+    fun DexMethodDelegate.hookBefore(priority: Int = 50, action: HookAction) =
+        method.hookBefore(priority, action)
 
-    internal fun DexMethodDelegate.hookAfter(
-        priority: Int = 50,
-        action: HookAction
-    ) = method.hookAfter(priority, action)
+    fun DexMethodDelegate.hookAfter(priority: Int = 50, action: HookAction) =
+        method.hookAfter(priority, action)
 
-    internal fun DexConstructorDelegate.hookBefore(
-        priority: Int = 50,
-        action: HookAction
-    ) = constructor.hookBefore(priority, action)
+    fun DexConstructorDelegate.hookBefore(priority: Int = 50, action: HookAction) =
+        constructor.hookBefore(priority, action)
 
-    internal fun DexConstructorDelegate.hookAfter(
-        priority: Int = 50,
-        action: HookAction
-    ) = constructor.hookAfter(priority, action)
+    fun DexConstructorDelegate.hookAfter(priority: Int = 50, action: HookAction) =
+        constructor.hookAfter(priority, action)
 
     // --- end dex delegate ---
 
-    internal fun executeHookAction(param: HookParam, action: HookAction) {
+    fun executeHookAction(param: HookParam, action: HookAction) {
         runCatching {
             action(param)
-        }.onFailure { e -> WeLogger.e("executeHookAction", "failed to execute hook of $technicalId", e) }
+        }
+            .onFailure { e ->
+                WeLogger.e("executeHookAction", "failed to execute hook of $technicalId", e)
+            }
     }
 
     companion object {

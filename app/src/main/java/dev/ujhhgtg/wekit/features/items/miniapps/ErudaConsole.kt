@@ -9,12 +9,11 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
 object ErudaConsole : SwitchFeature() {
-
     override val technicalId = "Eruda 调试面板"
     override val nameRes = R.string.feature_eruda_console_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
@@ -23,12 +22,10 @@ object ErudaConsole : SwitchFeature() {
     private val erudaScript by lazy {
         val resources = HostInfo.application.resources
         ResourcesInjector.injectModuleRes(resources)
-        resources.openRawResource(R.raw.eruda)
-            .bufferedReader()
-            .use { it.readText() }
+        resources.openRawResource(R.raw.eruda).bufferedReader().use { it.readText() }
     }
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
         WeWebViewApi.xwebOnPageFinished.hookAfter {
@@ -55,14 +52,17 @@ object ErudaConsole : SwitchFeature() {
                 }
 
                 else -> {
-                    webView.reflekt().firstMethod {
-                        name = "evaluateJavascript"
-                        parameters(BString, ValueCallback::class)
-                        superclass()
-                    }.apply {
-                        invoke(erudaScript, null)
-                        invoke("eruda.init();", null)
-                    }
+                    webView
+                        .reflekt()
+                        .firstMethod {
+                            name = "evaluateJavascript"
+                            parameters(BString, ValueCallback::class)
+                            superclass()
+                        }
+                        .apply {
+                            invoke(erudaScript, null)
+                            invoke("eruda.init();", null)
+                        }
                 }
             }
             WeLogger.i(TAG, "injected eruda")

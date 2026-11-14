@@ -1,19 +1,17 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.view.View
 import android.widget.ImageButton
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.features.items.chat_input_bar_menu.InputBarMenu
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 
-object ChatFooterHooks : ApiFeature(), IResolveDex {
-
+object ChatFooterHooks : ApiFeature() {
     override val technicalId = "聊天输入栏钩子"
     override val nameRes = R.string.feature_chat_footer_hooks_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -21,18 +19,20 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
 
     private val methodInitSmileyBtn by dexMethod {
         searchPackages("com.tencent.mm.pluginsdk.ui.chat")
-        matcher {
-            usingEqStrings("initSmileyBtn")
-        }
+        usingEqStrings("initSmileyBtn")
     }
 
     override fun onEnable() {
         methodInitSmileyBtn.hookAfter {
             val chatFooter = thisObject as ChatFooter
             val searchedView = chatFooter.findViewByChildIndexes(0)!!
-            val imgButtons = searchedView.findViewsWhich { view ->
-                view.javaClass.simpleName == "WeImageButton"
-            }.map { it as ImageButton }.toList()
+            val imgButtons =
+                searchedView
+                    .findViewsWhich { view ->
+                        view.javaClass.simpleName == "WeImageButton"
+                    }
+                    .map { it as ImageButton }
+                    .toList()
 
             if (VoicePanel.isEnabled) {
                 val voiceBtn = imgButtons.first()
@@ -50,13 +50,19 @@ object ChatFooterHooks : ApiFeature(), IResolveDex {
                 }
             }
 
-            val menuBtn = imgButtons.last()
-            val sendBtn = WeChatInputBarMenuApi.findSendButton(chatFooter)
+            if (InputBarMenu.isEnabled) {
+                val menuBtn = imgButtons.last()
+                val sendBtn = WeChatInputBarMenuApi.findSendButton(chatFooter)
 
-            listOf(menuBtn, sendBtn).forEach {
-                it.setOnLongClickListener { view ->
-                    WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
-                    true
+                listOf(menuBtn, sendBtn).forEach {
+                    it.setOnLongClickListener { view ->
+                        if (InputBarMenu.isEnabled) {
+                            WeChatInputBarMenuApi.showMenu(view.context, chatFooter)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 }
             }
         }

@@ -11,19 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 
 @Composable
-fun BaseItemContainer(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
+fun BaseItemContainer(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     // Read the dynamic shape from the SegmentedColumn environment
     val baseShape = LocalSegmentedItemShape.current
     val backgroundColor = MaterialTheme.colorScheme.surfaceBright
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(baseShape)
-            .background(backgroundColor),
+        modifier = modifier.fillMaxWidth().clip(baseShape).background(backgroundColor),
     ) {
         content()
     }

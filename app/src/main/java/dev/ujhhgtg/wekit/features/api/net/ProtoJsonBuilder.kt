@@ -1,15 +1,12 @@
 package dev.ujhhgtg.wekit.features.api.net
 
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import org.json.JSONArray
+import org.json.JSONObject
 
-/**
- * 通用 JSON -> Protobuf 字节流转换器
- */
+/** 通用 JSON -> Protobuf 字节流转换器 */
 object ProtoJsonBuilder {
-
     private const val WIRETYPE_VAR_INT = 0
     private const val WIRETYPE_LENGTH_DELIMITED = 2
 
@@ -27,10 +24,22 @@ object ProtoJsonBuilder {
 
     private fun writeTagData(os: ByteArrayOutputStream, tag: Int, value: Any?) {
         when (value) {
-            is Int -> writeVarintTag(os, tag, value.toLong())
-            is Long -> writeVarintTag(os, tag, value)
-            is Boolean -> writeVarintTag(os, tag, if (value) 1L else 0L)
-            is String -> writeStringTag(os, tag, value)
+            is Int -> {
+                writeVarintTag(os, tag, value.toLong())
+            }
+
+            is Long -> {
+                writeVarintTag(os, tag, value)
+            }
+
+            is Boolean -> {
+                writeVarintTag(os, tag, if (value) 1L else 0L)
+            }
+
+            is String -> {
+                writeStringTag(os, tag, value)
+            }
+
             is JSONObject -> {
                 val nestedBytes = makeBytes(value)
                 writeLengthDelimitedTag(os, tag, nestedBytes)
@@ -41,8 +50,11 @@ object ProtoJsonBuilder {
                     writeTagData(os, tag, value.get(i))
                 }
             }
+
             // 兼容部分数字可能被识别为 String 的情况
-            else -> if (value != null) writeStringTag(os, tag, value.toString())
+            else -> {
+                if (value != null) writeStringTag(os, tag, value.toString())
+            }
         }
     }
 

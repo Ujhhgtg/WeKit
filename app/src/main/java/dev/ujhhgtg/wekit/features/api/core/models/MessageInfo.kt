@@ -19,7 +19,6 @@ import dev.ujhhgtg.wekit.utils.strings.stripWxId
 import java.nio.ByteBuffer
 
 class MessageInfo(val instance: Any) {
-
     val typeCode by lazy { getFieldByName<Int>(instance, "field_type") }
     val type by lazy { MessageType.fromCode(typeCode) }
 
@@ -27,6 +26,7 @@ class MessageInfo(val instance: Any) {
     val serverId by lazy { getFieldByName<Long>(instance, "field_msgSvrId") }
     val isSend by lazy { getFieldByName<Int>(instance, "field_isSend") }
     val createTime by lazy { getFieldByName<Long>(instance, "field_createTime") }
+
     // field_talker / field_content 均由 `cursor.getString()` 或 `contentValues.getAsString()` 填充,
     // 微信在缺失时会留 null, 故此处降级为空串而非抛 NPE
     val talker by lazy { getFieldByName<String?>(instance, "field_talker").orEmpty() }
@@ -71,6 +71,7 @@ class MessageInfo(val instance: Any) {
             ?: XmlUtils.extractXmlAttr(content, "md5").takeIf { it.isNotBlank() }
             ?: XmlUtils.extractXmlTag(content, "md5").takeIf { it.isNotBlank() }
     }
+
     /** 微信在没有该列 (或 ContentValues 中无 `lvbuffer` 键) 时会留 null, 因此必须可空 */
     val lvBuffer by lazy { getFieldByName<ByteArray?>(instance, "field_lvbuffer") }
     val talkerId by lazy { getFieldByName<Int>(instance, "field_talkerId") }
@@ -107,30 +108,40 @@ class MessageInfo(val instance: Any) {
 
     val mentionedUsers: List<String> by lazy {
         if (msgSource.isEmpty()) return@lazy emptyList()
-        val xml = try {
-            NativeXmlParser.toXmlObject(msgSource)
-        } catch (_: Exception) {
-            return@lazy emptyList()
-        }
-        val atUserListStr = xml.getByPath("msgsource.atuserlist")?.asString ?: return@lazy emptyList()
+        val xml =
+            try {
+                NativeXmlParser.toXmlObject(msgSource)
+            } catch (_: Exception) {
+                return@lazy emptyList()
+            }
+        val atUserListStr =
+            xml.getByPath("msgsource.atuserlist")?.asString ?: return@lazy emptyList()
         atUserListStr.split(",").filter { it.isNotEmpty() }
     }
 
-    val isAtMe get() = mentionedUsers.contains(WeApi.selfWxId)
+    val isAtMe
+        get() = mentionedUsers.contains(WeApi.selfWxId)
 
-    val isAnnounceAll get() = mentionedUsers.contains("announcement@all")
+    val isAnnounceAll
+        get() = mentionedUsers.contains("announcement@all")
 
     val isNotifyAll: Boolean
         get() {
-            if (mentionedUsers.contains("notify@all") || mentionedUsers.contains("announcement@all")) {
+            if (
+                mentionedUsers.contains("notify@all") || mentionedUsers.contains("announcement@all")
+            ) {
                 val contentText = actualContent
                 return contentText.contains("@所有人") || contentText.contains("@ all people")
             }
             return false
         }
 
-    val isInGroupChat get() = talker.isGroupChatWxId
-    val isOfficialAccount get() = talker.startsWith("gh_")
+    val isInGroupChat
+        get() = talker.isGroupChatWxId
+
+    val isOfficialAccount
+        get() = talker.startsWith("gh_")
+
     val sender by lazy {
         @Suppress("DEPRECATION")
         if (typeCode == MessageType.SYSTEM.code) {
@@ -153,45 +164,40 @@ class MessageInfo(val instance: Any) {
         return@lazy content.split(':')[0]
     }
 
-    val isSelfSender get() = isSend != 0
+    val isSelfSender
+        get() = isSend != 0
 
     inline fun toPatMessage(): PatMessage? {
-        if (typeCode != MessageType.PAT.code)
-            return null
+        if (typeCode != MessageType.PAT.code) return null
 
         return PatMessage(content)
     }
 
     fun toQuoteMessage(): QuoteMessage? {
-        if (typeCode != MessageType.QUOTE.code)
-            return null
+        if (typeCode != MessageType.QUOTE.code) return null
 
         return QuoteMessage(content)
     }
 
     fun toTransferMessage(): TransferMessage? {
-        if (type != MessageType.TRANSFER)
-            return null
+        if (type != MessageType.TRANSFER) return null
 
         return TransferMessage(content)
     }
 
     fun toFileMessage(): FileMessage? {
-        if (type != MessageType.FILE)
-            return null
+        if (type != MessageType.FILE) return null
 
         return FileMessage(content)
     }
 
     fun toImageMessage(): ImageMessage? {
-        if (type != MessageType.IMAGE)
-            return null
+        if (type != MessageType.IMAGE) return null
 
         return ImageMessage(content)
     }
 
     class FileMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
@@ -209,14 +215,15 @@ class MessageInfo(val instance: Any) {
         val appMsgType by lazy { xml.getByPath("msg.appmsg.type")?.asInt }
 
         /** 对方是否仍在上传 (气泡显示"对方上传中")。 */
-        val isSenderUploading get() = appMsgType == 74 || appMsgType == 131
+        val isSenderUploading
+            get() = appMsgType == 74 || appMsgType == 131
 
         /** 文件是否已就绪、可下载。 */
-        val isDownloadable get() = appMsgType == 6 || appMsgType == 130
+        val isDownloadable
+            get() = appMsgType == 6 || appMsgType == 130
     }
 
     class ImageMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val md5 by lazy { xml.getByPath("msg.img.md5")!!.asString }
@@ -227,7 +234,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class PatMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val createTime by lazy { recordObj["createTime"]!!.asLong }
@@ -258,7 +264,6 @@ class MessageInfo(val instance: Any) {
     }
 
     class TransferMessage(xmlStr: String) {
-
         private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
         val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
@@ -267,10 +272,18 @@ class MessageInfo(val instance: Any) {
         // 'transcationid' is WeChat's typo
         val transactionId by lazy { xml.getByPath("msg.appmsg.wcpayinfo.transcationid")!!.asString }
         val transferId by lazy { xml.getByPath("msg.appmsg.wcpayinfo.transferid")!!.asString }
-        val beginTransferTime by lazy { xml.getByPath("msg.appmsg.wcpayinfo.begintransfertime")!!.asString.toLong() }
-        val payerUsername by lazy { xml.getByPath("msg.appmsg.wcpayinfo.payer_username")!!.asString }
-        val receiverUsername by lazy { xml.getByPath("msg.appmsg.wcpayinfo.receiver_username")!!.asString }
-        val invalidTime by lazy { xml.getByPath("msg.appmsg.wcpayinfo.invalidtime")!!.asString.toInt() }
+        val beginTransferTime by lazy {
+            xml.getByPath("msg.appmsg.wcpayinfo.begintransfertime")!!.asString.toLong()
+        }
+        val payerUsername by lazy {
+            xml.getByPath("msg.appmsg.wcpayinfo.payer_username")!!.asString
+        }
+        val receiverUsername by lazy {
+            xml.getByPath("msg.appmsg.wcpayinfo.receiver_username")!!.asString
+        }
+        val invalidTime by lazy {
+            xml.getByPath("msg.appmsg.wcpayinfo.invalidtime")!!.asString.toInt()
+        }
         val feedesc by lazy { xml.getByPath("msg.appmsg.wcpayinfo.feedesc")!!.asString }
         val totalFee by lazy {
             xml.getByPath("msg.appmsg.wcpayinfo.total_fee")?.asString?.toLongOrNull() ?: 0L
@@ -285,13 +298,12 @@ class MessageInfo(val instance: Any) {
 
     companion object {
         @Suppress("UNCHECKED_CAST")
-        private inline fun <T> getFieldByName(instance: Any, name: String): T {
-            return instance.reflekt().getField(name, true) as T
-        }
+        private inline fun <T> getFieldByName(instance: Any, name: String): T =
+            instance.reflekt().getField(name, true) as T
 
         /**
-         * Safely extracts tag content directly from raw XML strings.
-         * Bypasses JSON type coercion overhead and prevents 32-digit string truncation.
+         * Safely extracts tag content directly from raw XML strings. Bypasses JSON type coercion
+         * overhead and prevents 32-digit string truncation.
          */
         private fun extractXmlTag(xml: String, tag: String): String? {
             val startTag = "<$tag>"
@@ -300,23 +312,24 @@ class MessageInfo(val instance: Any) {
 
             val content = xml.substringAfter(startTag).substringBefore(endTag)
             return if (content.startsWith("<![CDATA[")) {
-                content.substringAfter("<![CDATA[").substringBefore("]]>")
-            } else {
-                content
-            }.trim()
+                    content.substringAfter("<![CDATA[").substringBefore("]]>")
+                } else {
+                    content
+                }
+                .trim()
         }
 
-        private fun String.cleanupXml(): String {
-            return "<msg>" + substringAfter("<msg>")
-                .substringBeforeLast("</msg>")
-                .replace("\r", "")
-                .replace("\n", "")
-                .replace("\t", "")
-                .replace("<?xml version=\"1.0\"?>", "") + "</msg>"
-        }
+        private fun String.cleanupXml(): String =
+            "<msg>" +
+                substringAfter("<msg>")
+                    .substringBeforeLast("</msg>")
+                    .replace("\r", "")
+                    .replace("\n", "")
+                    .replace("\t", "")
+                    .replace("<?xml version=\"1.0\"?>", "") +
+                "</msg>"
 
-        fun fromContentValues(contentValues: ContentValues): MessageInfo {
-            return MessageInfo(WeMessageApi.convertMsgInfoInstanceFromContentValues(contentValues))
-        }
+        fun fromContentValues(contentValues: ContentValues): MessageInfo =
+            MessageInfo(WeMessageApi.convertMsgInfoInstanceFromContentValues(contentValues))
     }
 }

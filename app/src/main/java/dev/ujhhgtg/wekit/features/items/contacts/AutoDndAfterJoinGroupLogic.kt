@@ -16,12 +16,10 @@ fun dedupKey(state: WeChatroomSyncState): String =
     state.memberVersion?.let { "${state.roomId}:$it" }
         ?: "${state.roomId}:${state.memberIds.normalizedMemberHash()}"
 
-private fun String.isChatroomId(): Boolean =
-    endsWith("@chatroom") || endsWith("@im.chatroom")
+private fun String.isChatroomId(): Boolean = endsWith("@chatroom") || endsWith("@im.chatroom")
 
 private fun Set<String>.normalizedMemberHash(): String =
-    MessageDigest
-        .getInstance("SHA-256")
+    MessageDigest.getInstance("SHA-256")
         .digest(
             asSequence()
                 .map(String::trim)
@@ -29,4 +27,5 @@ private fun Set<String>.normalizedMemberHash(): String =
                 .sorted()
                 .joinToString("\u0000")
                 .toByteArray(),
-        ).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        )
+        .joinToString("") { "%02x".format(it.toInt() and 0xff) }

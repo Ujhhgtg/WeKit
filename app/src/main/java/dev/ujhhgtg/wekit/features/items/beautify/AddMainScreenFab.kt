@@ -16,7 +16,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -90,43 +89,41 @@ import com.composables.icons.materialsymbols.outlinedfilled.Restart_alt
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Update
 import com.composables.icons.materialsymbols.outlinedfilled.Wallet
-import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.conversation.BaseConversationUI
-import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
-import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.ReorderableList
+import dev.ujhhgtg.wekit.ui.utils.removeSelf
 import dev.ujhhgtg.wekit.ui.utils.rootView
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.killHost
 import dev.ujhhgtg.wekit.utils.restartHost
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 object AddMainScreenFab : ClickableFeature() {
-
     override val technicalId = "主屏幕添加 FAB"
     override val nameRes = R.string.feature_add_main_screen_fab_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -151,8 +148,6 @@ object AddMainScreenFab : ClickableFeature() {
     /** 展开的菜单与主 FAB 之间的距离 */
     private val MENU_GAP = 16.dp
 
-    private val SAVE_GREEN = Color(0xFF07C160)
-
     private var expanded by mutableStateOf(false)
 
     private var editMode by mutableStateOf(false)
@@ -165,7 +160,7 @@ object AddMainScreenFab : ClickableFeature() {
     private var offsetBeforeEdit = 0f to 0f
     private val hostViews = WeakHashMap<Activity, WeakReference<ComposeView>>()
 
-    internal fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
+    fun hostViewFor(activity: Activity): ComposeView? = hostViews[activity]?.get()
 
     private class FabMenuEntry(
         val name: String,
@@ -180,7 +175,7 @@ object AddMainScreenFab : ClickableFeature() {
         MARK_ALL_READ,
         MODULE_SETTINGS,
         RESTART_HOST,
-        FORCE_STOP
+        FORCE_STOP,
     }
 
     @Serializable
@@ -232,114 +227,163 @@ object AddMainScreenFab : ClickableFeature() {
     }
 
     // 预设 Activity 映射
-    private val presets = listOf(
-        FabPreset(BuiltInFabLabel.SCAN, "Qr_code_scanner", "com.tencent.mm.plugin.scanner.ui.BaseScanUI"),
-        FabPreset(BuiltInFabLabel.MOMENTS, "Camera", "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI"),
-        FabPreset(BuiltInFabLabel.WALLET, "Wallet", "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"),
-        FabPreset(BuiltInFabLabel.CHANNELS, "Movie", "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI"),
-        FabPreset(BuiltInFabLabel.SETTINGS, "Settings", "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"),
-        FabPreset(BuiltInFabLabel.FAVORITES, "Favorite", "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI"),
-    )
+    private val presets =
+        listOf(
+            FabPreset(
+                BuiltInFabLabel.SCAN,
+                "Qr_code_scanner",
+                "com.tencent.mm.plugin.scanner.ui.BaseScanUI",
+            ),
+            FabPreset(
+                BuiltInFabLabel.MOMENTS,
+                "Camera",
+                "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI",
+            ),
+            FabPreset(
+                BuiltInFabLabel.WALLET,
+                "Wallet",
+                "com.tencent.mm.plugin.mall.ui.MallIndexUIv2",
+            ),
+            FabPreset(
+                BuiltInFabLabel.CHANNELS,
+                "Movie",
+                "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI",
+            ),
+            FabPreset(
+                BuiltInFabLabel.SETTINGS,
+                "Settings",
+                "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI",
+            ),
+            FabPreset(
+                BuiltInFabLabel.FAVORITES,
+                "Favorite",
+                "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI",
+            ),
+        )
 
     // 默认配置列表
-    private val defaultList = listOf(
-        FabItemConfig("1", FabType.START_ACTIVITY, iconName = "Qr_code_scanner", targetActivity = "com.tencent.mm.plugin.scanner.ui.BaseScanUI", builtInLabel = BuiltInFabLabel.SCAN),
-        FabItemConfig("2", FabType.START_ACTIVITY, iconName = "Camera", targetActivity = "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI", builtInLabel = BuiltInFabLabel.MOMENTS),
-        FabItemConfig("3", FabType.START_ACTIVITY, iconName = "Wallet", targetActivity = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2", builtInLabel = BuiltInFabLabel.WALLET),
-        FabItemConfig("4", FabType.START_ACTIVITY, iconName = "Movie", targetActivity = "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI", builtInLabel = BuiltInFabLabel.CHANNELS),
-        FabItemConfig("5", FabType.START_ACTIVITY, iconName = "Settings", targetActivity = "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI", builtInLabel = BuiltInFabLabel.SETTINGS),
-        FabItemConfig("6", FabType.MODULE_SETTINGS, iconName = "Extension", builtInLabel = BuiltInFabLabel.MODULE_SETTINGS),
-        FabItemConfig("9", FabType.RESTART_HOST, iconName = "Update", builtInLabel = BuiltInFabLabel.RESTART_WECHAT),
-        FabItemConfig("7", FabType.FORCE_STOP, iconName = "Cancel", builtInLabel = BuiltInFabLabel.FORCE_STOP),
-        FabItemConfig("8", FabType.MARK_ALL_READ, iconName = "Mark_chat_read", builtInLabel = BuiltInFabLabel.MARK_ALL_READ),
-    )
+    private val defaultList =
+        listOf(
+            FabItemConfig(
+                "1",
+                FabType.START_ACTIVITY,
+                iconName = "Qr_code_scanner",
+                targetActivity = "com.tencent.mm.plugin.scanner.ui.BaseScanUI",
+                builtInLabel = BuiltInFabLabel.SCAN,
+            ),
+            FabItemConfig(
+                "2",
+                FabType.START_ACTIVITY,
+                iconName = "Camera",
+                targetActivity = "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI",
+                builtInLabel = BuiltInFabLabel.MOMENTS,
+            ),
+            FabItemConfig(
+                "3",
+                FabType.START_ACTIVITY,
+                iconName = "Wallet",
+                targetActivity = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2",
+                builtInLabel = BuiltInFabLabel.WALLET,
+            ),
+            FabItemConfig(
+                "4",
+                FabType.START_ACTIVITY,
+                iconName = "Movie",
+                targetActivity = "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI",
+                builtInLabel = BuiltInFabLabel.CHANNELS,
+            ),
+            FabItemConfig(
+                "5",
+                FabType.START_ACTIVITY,
+                iconName = "Settings",
+                targetActivity = "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI",
+                builtInLabel = BuiltInFabLabel.SETTINGS,
+            ),
+            FabItemConfig(
+                "6",
+                FabType.MODULE_SETTINGS,
+                iconName = "Extension",
+                builtInLabel = BuiltInFabLabel.MODULE_SETTINGS,
+            ),
+            FabItemConfig(
+                "9",
+                FabType.RESTART_HOST,
+                iconName = "Update",
+                builtInLabel = BuiltInFabLabel.RESTART_WECHAT,
+            ),
+            FabItemConfig(
+                "7",
+                FabType.FORCE_STOP,
+                iconName = "Cancel",
+                builtInLabel = BuiltInFabLabel.FORCE_STOP,
+            ),
+            FabItemConfig(
+                "8",
+                FabType.MARK_ALL_READ,
+                iconName = "Mark_chat_read",
+                builtInLabel = BuiltInFabLabel.MARK_ALL_READ,
+            ),
+        )
 
     @StringRes
-    private fun labelRes(label: BuiltInFabLabel): Int = when (label) {
-        BuiltInFabLabel.SCAN -> R.string.fab_default_scan
-        BuiltInFabLabel.MOMENTS -> R.string.fab_default_moments
-        BuiltInFabLabel.WALLET -> R.string.fab_default_wallet
-        BuiltInFabLabel.CHANNELS -> R.string.fab_default_channels
-        BuiltInFabLabel.SETTINGS -> R.string.fab_default_settings
-        BuiltInFabLabel.FAVORITES -> R.string.fab_default_favorites
-        BuiltInFabLabel.MODULE_SETTINGS -> R.string.fab_default_module_settings
-        BuiltInFabLabel.RESTART_WECHAT -> R.string.fab_default_restart_wechat
-        BuiltInFabLabel.FORCE_STOP -> R.string.fab_default_force_stop
-        BuiltInFabLabel.MARK_ALL_READ -> R.string.fab_default_mark_all_read
-    }
+    private fun labelRes(label: BuiltInFabLabel): Int =
+        when (label) {
+            BuiltInFabLabel.SCAN -> R.string.fab_default_scan
+            BuiltInFabLabel.MOMENTS -> R.string.fab_default_moments
+            BuiltInFabLabel.WALLET -> R.string.fab_default_wallet
+            BuiltInFabLabel.CHANNELS -> R.string.fab_default_channels
+            BuiltInFabLabel.SETTINGS -> R.string.fab_default_settings
+            BuiltInFabLabel.FAVORITES -> R.string.fab_default_favorites
+            BuiltInFabLabel.MODULE_SETTINGS -> R.string.fab_default_module_settings
+            BuiltInFabLabel.RESTART_WECHAT -> R.string.fab_default_restart_wechat
+            BuiltInFabLabel.FORCE_STOP -> R.string.fab_default_force_stop
+            BuiltInFabLabel.MARK_ALL_READ -> R.string.fab_default_mark_all_read
+        }
 
     private fun localizedName(context: Context, item: FabItemConfig): String =
         item.name.ifBlank { item.builtInLabel?.let { context.getString(labelRes(it)) }.orEmpty() }
 
-    private fun builtInLabelFor(type: FabType): BuiltInFabLabel? = when (type) {
-        FabType.START_ACTIVITY -> null
-        FabType.MARK_ALL_READ -> BuiltInFabLabel.MARK_ALL_READ
-        FabType.MODULE_SETTINGS -> BuiltInFabLabel.MODULE_SETTINGS
-        FabType.RESTART_HOST -> BuiltInFabLabel.RESTART_WECHAT
-        FabType.FORCE_STOP -> BuiltInFabLabel.FORCE_STOP
-    }
+    private fun builtInLabelFor(type: FabType): BuiltInFabLabel? =
+        when (type) {
+            FabType.START_ACTIVITY -> null
+            FabType.MARK_ALL_READ -> BuiltInFabLabel.MARK_ALL_READ
+            FabType.MODULE_SETTINGS -> BuiltInFabLabel.MODULE_SETTINGS
+            FabType.RESTART_HOST -> BuiltInFabLabel.RESTART_WECHAT
+            FabType.FORCE_STOP -> BuiltInFabLabel.FORCE_STOP
+        }
 
     @StringRes
-    private fun iconLabelRes(iconName: String): Int = when (iconName) {
-        "Qr_code_scanner" -> R.string.fab_icon_qr_scanner
-        "Camera" -> R.string.fab_icon_camera
-        "Wallet" -> R.string.fab_icon_wallet
-        "Movie" -> R.string.fab_icon_video
-        "Settings" -> R.string.fab_icon_settings
-        "Extension" -> R.string.fab_icon_extension
-        "Cancel" -> R.string.fab_icon_cancel
-        "Update" -> R.string.fab_icon_update
-        "Bookmark" -> R.string.fab_icon_bookmark
-        "Favorite" -> R.string.fab_icon_favorite
-        "Mark_chat_read" -> R.string.fab_icon_mark_as_read
-        "Check_circle" -> R.string.fab_icon_check_circle
-        else -> error("unsupported FAB icon: $iconName")
-    }
+    private fun iconLabelRes(iconName: String): Int =
+        when (iconName) {
+            "Qr_code_scanner" -> R.string.fab_icon_qr_scanner
+            "Camera" -> R.string.fab_icon_camera
+            "Wallet" -> R.string.fab_icon_wallet
+            "Movie" -> R.string.fab_icon_video
+            "Settings" -> R.string.fab_icon_settings
+            "Extension" -> R.string.fab_icon_extension
+            "Cancel" -> R.string.fab_icon_cancel
+            "Update" -> R.string.fab_icon_update
+            "Bookmark" -> R.string.fab_icon_bookmark
+            "Favorite" -> R.string.fab_icon_favorite
+            "Mark_chat_read" -> R.string.fab_icon_mark_as_read
+            "Check_circle" -> R.string.fab_icon_check_circle
+            else -> error("unsupported FAB icon: $iconName")
+        }
 
     private fun loadConfig(): List<FabItemConfig> {
-        val jsonStr = WePrefs.getString(KEY_FAB_CONFIG) ?: return defaultList
+        val jsonStr = KvStore.getString(KEY_FAB_CONFIG) ?: return defaultList
         return try {
-            Json.decodeFromString<List<FabItemConfig>>(jsonStr).map(::migrateLegacyBuiltInLabel)
+            Json.decodeFromString<List<FabItemConfig>>(jsonStr)
         } catch (e: Exception) {
             WeLogger.e(TAG, "解析依赖失败，还原默认配置", e)
             defaultList
         }
     }
 
-    private fun migrateLegacyBuiltInLabel(item: FabItemConfig): FabItemConfig {
-        if (item.builtInLabel != null) return item
-        val label = when (item.type) {
-            FabType.START_ACTIVITY if item.name == "扫一扫" &&
-                    item.targetActivity == "com.tencent.mm.plugin.scanner.ui.BaseScanUI" -> BuiltInFabLabel.SCAN
-
-            FabType.START_ACTIVITY if item.name == "朋友圈" &&
-                    item.targetActivity == "com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI" -> BuiltInFabLabel.MOMENTS
-
-            FabType.START_ACTIVITY if item.name == "钱包" &&
-                    item.targetActivity == "com.tencent.mm.plugin.mall.ui.MallIndexUIv2" -> BuiltInFabLabel.WALLET
-
-            FabType.START_ACTIVITY if item.name == "视频号" &&
-                    item.targetActivity == "com.tencent.mm.plugin.finder.ui.FinderHomeAffinityUI" -> BuiltInFabLabel.CHANNELS
-
-            FabType.START_ACTIVITY if item.name == "设置" &&
-                    item.targetActivity == "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI" -> BuiltInFabLabel.SETTINGS
-
-            FabType.START_ACTIVITY if item.name == "收藏夹" &&
-                    item.targetActivity == "com.tencent.mm.plugin.fav.ui.FavoriteIndexUI" -> BuiltInFabLabel.FAVORITES
-
-            FabType.MODULE_SETTINGS if item.name == "模块设置" -> BuiltInFabLabel.MODULE_SETTINGS
-            FabType.RESTART_HOST if item.name == "重启微信" -> BuiltInFabLabel.RESTART_WECHAT
-            FabType.FORCE_STOP if item.name == "强行停止" -> BuiltInFabLabel.FORCE_STOP
-            FabType.MARK_ALL_READ if item.name == "清空未读" -> BuiltInFabLabel.MARK_ALL_READ
-            else -> null
-        }
-        return if (label == null) item else item.copy(name = "", builtInLabel = label)
-    }
-
     private fun saveConfig(list: List<FabItemConfig>) {
         try {
             val jsonStr = Json.encodeToString(list)
-            WePrefs.putString(KEY_FAB_CONFIG, jsonStr)
+            KvStore.putString(KEY_FAB_CONFIG, jsonStr)
         } catch (e: Exception) {
             WeLogger.e(TAG, "保存配置失败", e)
         }
@@ -350,8 +394,8 @@ object AddMainScreenFab : ClickableFeature() {
         if (itemCount <= 0) 0.dp else 40.dp * itemCount + 12.dp * (itemCount - 1) + 16.dp
 
     private fun loadOffset() {
-        offsetXDp = WePrefs.getFloatOrDef(KEY_FAB_OFFSET_X, 0f)
-        offsetYDp = WePrefs.getFloatOrDef(KEY_FAB_OFFSET_Y, 0f)
+        offsetXDp = KvStore.getFloatOrDef(KEY_FAB_OFFSET_X, 0f)
+        offsetYDp = KvStore.getFloatOrDef(KEY_FAB_OFFSET_Y, 0f)
     }
 
     /**
@@ -367,15 +411,18 @@ object AddMainScreenFab : ClickableFeature() {
         expanded = true
 
         runCatching {
-            activity.startActivity(Intent().apply {
-                setClassName(HostInfo.packageName, "com.tencent.mm.ui.LauncherUI")
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
+            activity.startActivity(
+                Intent().apply {
+                    setClassName(HostInfo.packageName, "com.tencent.mm.ui.LauncherUI")
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                )
-            })
-        }.onFailure { WeLogger.e(TAG, "无法返回微信主界面", it) }
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                    )
+                },
+            )
+        }
+            .onFailure { WeLogger.e(TAG, "无法返回微信主界面", it) }
 
         activity.finish()
         showToast(localizedContext.getString(R.string.fab_edit_position_hint))
@@ -383,8 +430,8 @@ object AddMainScreenFab : ClickableFeature() {
 
     private fun exitEditMode(save: Boolean, localizedContext: Context) {
         if (save) {
-            WePrefs.putFloat(KEY_FAB_OFFSET_X, offsetXDp)
-            WePrefs.putFloat(KEY_FAB_OFFSET_Y, offsetYDp)
+            KvStore.putFloat(KEY_FAB_OFFSET_X, offsetXDp)
+            KvStore.putFloat(KEY_FAB_OFFSET_Y, offsetYDp)
             showToast(localizedContext.getString(R.string.fab_position_saved))
         } else {
             offsetXDp = offsetBeforeEdit.first
@@ -403,46 +450,76 @@ object AddMainScreenFab : ClickableFeature() {
     }
 
     override fun onEnable() {
-        WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            val activity = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.ui.MMFragmentActivity"
+        WeMainActivityBeautifyApi.addListener(
+            this,
+            object : WeMainActivityBeautifyApi.Listener {
+                override fun onTabsCreated(home: WeMainActivityBeautifyApi.Home) {
+                    attachFab(home)
                 }
-                .get()!! as Activity
 
-            // 编辑过程中被重建（例如旋转屏幕）时不要覆盖尚未保存的位置
-            if (!editMode) loadOffset()
+                override fun onBeforeChatting(activity: Activity) {
+                    if (!editMode) expanded = false
+                }
 
-            val configList = loadConfig()
+                override fun onDestroy(activity: Activity) {
+                    removeHost(activity)
+                }
+            },
+        )
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
+            if (!editMode) expanded = false
+        }
+    }
 
-            val lifecycleOwner = LifecycleOwnerProvider.lifecycleOwner
-            val root = activity.rootView
+    private fun attachFab(home: WeMainActivityBeautifyApi.Home) {
+        val activity = home.activity
+        removeHost(activity)
+        // 编辑过程中被重建（例如旋转屏幕）时不要覆盖尚未保存的位置
+        if (!editMode) loadOffset()
 
-            val hostView = ComposeView(activity).apply {
-                    setLifecycleOwner(lifecycleOwner)
+        val configList = loadConfig()
 
-                    setContent {
-                        InjectedUiTheme {
-                            val localizedContext = LocalWeKitLocalizedContext.current
-                            val menuItems = configList.map { item ->
-                                val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
-                                val action: () -> Unit = when (item.type) {
+        val lifecycleOwner = home.lifecycleOwner
+        val root = activity.rootView
+
+        val hostView =
+            ComposeView(activity).apply {
+                setLifecycleOwner(lifecycleOwner)
+
+                setContent {
+                    InjectedUiTheme {
+                        val localizedContext = LocalLocalizedContext.current
+                        val menuItems = configList.map { item ->
+                            val icon = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add
+                            val action: () -> Unit =
+                                when (item.type) {
                                     FabType.START_ACTIVITY -> {
-                                        { item.targetActivity?.let { startActivityByName(activity, it) } }
+                                        {
+                                            item.targetActivity?.let {
+                                                startActivityByName(activity, it)
+                                            }
+                                        }
                                     }
 
                                     FabType.MARK_ALL_READ -> {
                                         {
                                             WeConversationApi.markAllAsRead()
-                                            showToast(localizedContext.getString(R.string.fab_all_marked_read))
+                                            showToast(
+                                                localizedContext.getString(
+                                                    R.string.fab_all_marked_read,
+                                                ),
+                                            )
                                         }
                                     }
 
                                     FabType.MODULE_SETTINGS -> {
                                         {
-                                            activity.startActivity(Intent(activity, SettingsActivity::class.java).apply {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            })
+                                            activity.startActivity(
+                                                Intent(activity, SettingsActivity::class.java)
+                                                    .apply {
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    },
+                                            )
                                         }
                                     }
 
@@ -454,43 +531,79 @@ object AddMainScreenFab : ClickableFeature() {
                                         { killHost() }
                                     }
                                 }
-                                FabMenuEntry(localizedName(localizedContext, item), icon, onClick = action)
-                            }
-                            val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
-                            val activeColor = MaterialTheme.colorScheme.primary
-                            val errorColor = MaterialTheme.colorScheme.error
-                            val layoutDirection = LocalLayoutDirection.current
+                            FabMenuEntry(
+                                localizedName(localizedContext, item),
+                                icon,
+                                onClick = action,
+                            )
+                        }
+                        // Follow the Monet engine's palette when applied, WeChat's neutrals
+                        // otherwise.
+                        val monet = MonetEngine.surfaceColors(isSystemInDarkTheme())
+                        val backgroundColor =
+                            monet?.surfaceHigh?.let(::Color)
+                                ?: if (isSystemInDarkTheme()) {
+                                    Color(0xFF191919)
+                                } else {
+                                    Color(0xFFF7F7F7)
+                                }
+                        val activeColor =
+                            monet?.primary?.let(::Color) ?: Color(ThemeSettings.DEFAULT_SEED_COLOR)
+                        val errorColor = MaterialTheme.colorScheme.error
+                        val layoutDirection = LocalLayoutDirection.current
 
-                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                val insets = WindowInsets.safeDrawing.asPaddingValues()
-                                val marginStart = insets.calculateStartPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginEnd = insets.calculateEndPadding(layoutDirection).coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginTop = insets.calculateTopPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
-                                val marginBottom = insets.calculateBottomPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            val insets = WindowInsets.safeDrawing.asPaddingValues()
+                            val marginStart =
+                                insets
+                                    .calculateStartPadding(layoutDirection)
+                                    .coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginEnd =
+                                insets
+                                    .calculateEndPadding(layoutDirection)
+                                    .coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginTop =
+                                insets.calculateTopPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
+                            val marginBottom =
+                                insets.calculateBottomPadding().coerceAtLeast(MIN_SCREEN_MARGIN)
 
-                                // 默认锚点：右下角，上移以避开微信底部标签栏
-                                val defaultLeft = maxWidth - EDGE_PADDING - FAB_SIZE
-                                val defaultTop = maxHeight - TAB_BAR_INSET - EDGE_PADDING - FAB_SIZE
+                            // 默认锚点：右下角，上移以避开微信底部标签栏
+                            val defaultLeft = maxWidth - EDGE_PADDING - FAB_SIZE
+                            val defaultTop = maxHeight - TAB_BAR_INSET - EDGE_PADDING - FAB_SIZE
 
-                                // 允许的偏移范围，保证 FAB 始终完整地留在屏幕内
-                                val minDx = (marginStart - defaultLeft).value
-                                val maxDx = (maxWidth - FAB_SIZE - marginEnd - defaultLeft).value.coerceAtLeast(minDx)
-                                val minDy = (marginTop - defaultTop).value
-                                val maxDy = (maxHeight - FAB_SIZE - marginBottom - defaultTop).value.coerceAtLeast(minDy)
+                            // 允许的偏移范围，保证 FAB 始终完整地留在屏幕内
+                            val minDx = (marginStart - defaultLeft).value
+                            val maxDx =
+                                (maxWidth - FAB_SIZE - marginEnd - defaultLeft)
+                                    .value
+                                    .coerceAtLeast(minDx)
+                            val minDy = (marginTop - defaultTop).value
+                            val maxDy =
+                                (maxHeight - FAB_SIZE - marginBottom - defaultTop)
+                                    .value
+                                    .coerceAtLeast(minDy)
 
-                                val fabLeft = defaultLeft + offsetXDp.coerceIn(minDx, maxDx).dp
-                                val fabTop = defaultTop + offsetYDp.coerceIn(minDy, maxDy).dp
+                            val fabLeft = defaultLeft + offsetXDp.coerceIn(minDx, maxDx).dp
+                            val fabTop = defaultTop + offsetYDp.coerceIn(minDy, maxDy).dp
 
-                                // FAB 靠近哪一侧，菜单就往哪一侧贴
-                                val onRight = fabLeft + FAB_SIZE / 2 >= maxWidth / 2
+                            // FAB 靠近哪一侧，菜单就往哪一侧贴
+                            val onRight = fabLeft + FAB_SIZE / 2 >= maxWidth / 2
 
-                                val entries = if (editMode) {
+                            val entries =
+                                if (editMode) {
                                     listOf(
-                                        FabMenuEntry(stringResource(R.string.fab_reset_position), MaterialSymbols.OutlinedFilled.Restart_alt) {
+                                        FabMenuEntry(
+                                            stringResource(R.string.fab_reset_position),
+                                            MaterialSymbols.OutlinedFilled.Restart_alt,
+                                        ) {
                                             offsetXDp = 0f
                                             offsetYDp = 0f
                                         },
-                                        FabMenuEntry(stringResource(R.string.dialog_cancel), MaterialSymbols.OutlinedFilled.Close, destructive = true) {
+                                        FabMenuEntry(
+                                            stringResource(R.string.dialog_cancel),
+                                            MaterialSymbols.OutlinedFilled.Close,
+                                            destructive = true,
+                                        ) {
                                             exitEditMode(save = false, localizedContext)
                                         },
                                     )
@@ -498,75 +611,95 @@ object AddMainScreenFab : ClickableFeature() {
                                     menuItems
                                 }
 
-                                // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
-                                // 上方放得下就向上展开（默认行为），放不下再考虑向下。
-                                val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
-                                val roomBelow = maxHeight - fabTop - FAB_SIZE
-                                val expandDown = when {
+                            // 展开方向始终按真实菜单的高度计算，这样编辑模式下预览到的方向就是最终效果。
+                            // 上方放得下就向上展开（默认行为），放不下再考虑向下。
+                            val menuHeight = menuHeightOf(maxOf(menuItems.size, entries.size))
+                            val roomBelow = maxHeight - fabTop - FAB_SIZE
+                            val expandDown =
+                                when {
                                     menuHeight <= fabTop -> false
                                     menuHeight <= roomBelow -> true
                                     else -> roomBelow > fabTop
                                 }
 
-                                // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
-                                // 若改用 if/else 交换两者的顺序，翻转方向会重建 FAB 节点并中断正在进行的拖动。
-                                FabMenu(
-                                    modifier = Modifier
-                                        .align(
+                            // 菜单与 FAB 都只有一个固定的调用点，展开方向只改变修饰符参数。
+                            // 若改用 if/else 交换两者的顺序，翻转方向会重建 FAB 节点并中断正在进行的拖动。
+                            FabMenu(
+                                modifier =
+                                    Modifier.align(
                                             when {
                                                 expandDown && onRight -> Alignment.TopEnd
                                                 expandDown -> Alignment.TopStart
                                                 onRight -> Alignment.BottomEnd
                                                 else -> Alignment.BottomStart
-                                            }
+                                            },
                                         )
                                         // 只固定 FAB 紧贴的那条竖边，避免菜单标签的宽度把菜单推走
                                         .padding(
                                             start = if (onRight) 0.dp else fabLeft,
-                                            end = if (onRight) (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(0.dp) else 0.dp,
-                                            top = if (expandDown) fabTop + FAB_SIZE + MENU_GAP else 0.dp,
-                                            bottom = if (expandDown) 0.dp else (maxHeight - fabTop + MENU_GAP).coerceAtLeast(0.dp),
+                                            end =
+                                                if (onRight) {
+                                                    (maxWidth - fabLeft - FAB_SIZE).coerceAtLeast(
+                                                        0.dp,
+                                                    )
+                                                } else {
+                                                    0.dp
+                                                },
+                                            top =
+                                                if (expandDown) {
+                                                    fabTop + FAB_SIZE + MENU_GAP
+                                                } else {
+                                                    0.dp
+                                                },
+                                            bottom =
+                                                if (expandDown) {
+                                                    0.dp
+                                                } else {
+                                                    (maxHeight - fabTop + MENU_GAP).coerceAtLeast(
+                                                        0.dp,
+                                                    )
+                                                },
                                         ),
-                                    entries = entries,
-                                    visible = expanded || editMode,
-                                    onRight = onRight,
-                                    expandDown = expandDown,
-                                    backgroundColor = backgroundColor,
-                                    activeColor = activeColor,
-                                    errorColor = errorColor,
-                                )
+                                entries = entries,
+                                visible = expanded || editMode,
+                                onRight = onRight,
+                                expandDown = expandDown,
+                                backgroundColor = backgroundColor,
+                                activeColor = activeColor,
+                                errorColor = errorColor,
+                            )
 
-                                MainFab(
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .offset { IntOffset(fabLeft.roundToPx(), fabTop.roundToPx()) },
-                                    backgroundColor = backgroundColor,
-                                    activeColor = activeColor,
-                                    minDx = minDx,
-                                    maxDx = maxDx,
-                                    minDy = minDy,
-                                    maxDy = maxDy,
-                                    localizedContext = localizedContext,
-                                )
-                            }
+                            MainFab(
+                                modifier =
+                                    Modifier.align(Alignment.TopStart).offset {
+                                        IntOffset(fabLeft.roundToPx(), fabTop.roundToPx())
+                                    },
+                                backgroundColor = backgroundColor,
+                                activeColor = activeColor,
+                                minDx = minDx,
+                                maxDx = maxDx,
+                                minDy = minDy,
+                                maxDy = maxDy,
+                                localizedContext = localizedContext,
+                            )
                         }
                     }
                 }
-            root.addView(hostView)
-            hostViews[activity] = WeakReference(hostView)
-        }
+            }
+        root.addView(hostView)
+        hostViews[activity] = WeakReference(hostView)
+    }
 
-        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
-            if (!editMode) expanded = false
-        }
-
-        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
-            if (!editMode) expanded = false
-        }
+    private fun removeHost(activity: Activity) {
+        val view = hostViews.remove(activity)?.get() ?: return
+        view.disposeComposition()
+        view.removeSelf()
     }
 
     override fun onDisable() {
         super.onDisable()
+        WeMainActivityBeautifyApi.removeListener(this)
+        hostViews.keys.toList().forEach(::removeHost)
         editMode = false
         expanded = false
     }
@@ -585,7 +718,7 @@ object AddMainScreenFab : ClickableFeature() {
         Column(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = if (onRight) Alignment.End else Alignment.Start
+            horizontalAlignment = if (onRight) Alignment.End else Alignment.Start,
         ) {
             entries.forEachIndexed { index, entry ->
                 // 靠近 FAB 的项先出现、最后消失；向下展开时列表顺序相对 FAB 是反的
@@ -596,22 +729,46 @@ object AddMainScreenFab : ClickableFeature() {
 
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(
-                        animationSpec = tween(durationMillis = 160, delayMillis = nearDelay, easing = EaseOut)
-                    ) + slideInVertically(
-                        animationSpec = tween(durationMillis = 180, delayMillis = nearDelay, easing = EaseOutCubic),
-                        initialOffsetY = slideOffset
-                    ),
-                    exit = fadeOut(
-                        animationSpec = tween(durationMillis = 100, delayMillis = farDelay, easing = EaseIn)
-                    ) + slideOutVertically(
-                        animationSpec = tween(durationMillis = 100, delayMillis = farDelay, easing = EaseInCubic),
-                        targetOffsetY = slideOffset
-                    )
+                    enter =
+                        fadeIn(
+                            animationSpec =
+                                tween(
+                                    durationMillis = 160,
+                                    delayMillis = nearDelay,
+                                    easing = EaseOut,
+                                ),
+                        ) +
+                            slideInVertically(
+                                animationSpec =
+                                    tween(
+                                        durationMillis = 180,
+                                        delayMillis = nearDelay,
+                                        easing = EaseOutCubic,
+                                    ),
+                                initialOffsetY = slideOffset,
+                            ),
+                    exit =
+                        fadeOut(
+                            animationSpec =
+                                tween(
+                                    durationMillis = 100,
+                                    delayMillis = farDelay,
+                                    easing = EaseIn,
+                                ),
+                        ) +
+                            slideOutVertically(
+                                animationSpec =
+                                    tween(
+                                        durationMillis = 100,
+                                        delayMillis = farDelay,
+                                        easing = EaseInCubic,
+                                    ),
+                                targetOffsetY = slideOffset,
+                            ),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         // FAB 靠左时标签放到按钮右边，否则会被挤出屏幕
                         if (onRight) {
@@ -633,14 +790,14 @@ object AddMainScreenFab : ClickableFeature() {
             shape = MaterialTheme.shapes.large,
             color = backgroundColor,
             tonalElevation = 2.dp,
-            shadowElevation = 2.dp
+            shadowElevation = 2.dp,
         ) {
             Text(
                 text = name,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 color = tint,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             )
         }
     }
@@ -655,7 +812,7 @@ object AddMainScreenFab : ClickableFeature() {
             },
             containerColor = backgroundColor,
             shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(2.dp)
+            elevation = FloatingActionButtonDefaults.elevation(2.dp),
         ) {
             Icon(entry.icon, contentDescription = entry.name, tint = tint)
         }
@@ -676,31 +833,33 @@ object AddMainScreenFab : ClickableFeature() {
 
         FloatingActionButton(
             onClick = {
-                if (editing) exitEditMode(save = true, localizedContext)
-                else expanded = !expanded
+                if (editing) exitEditMode(save = true, localizedContext) else expanded = !expanded
             },
             containerColor = backgroundColor,
             shape = CircleShape,
             // 拖动会消费触摸事件并取消点击，因此拖动与点击保存可以共存
-            modifier = modifier.then(
-                if (editing) {
-                    Modifier.pointerInput(minDx, maxDx, minDy, maxDy) {
-                        detectDragGestures { change, amount ->
-                            change.consume()
-                            offsetXDp = (offsetXDp + amount.x.toDp().value).coerceIn(minDx, maxDx)
-                            offsetYDp = (offsetYDp + amount.y.toDp().value).coerceIn(minDy, maxDy)
+            modifier =
+                modifier.then(
+                    if (editing) {
+                        Modifier.pointerInput(minDx, maxDx, minDy, maxDy) {
+                            detectDragGestures { change, amount ->
+                                change.consume()
+                                offsetXDp =
+                                    (offsetXDp + amount.x.toDp().value).coerceIn(minDx, maxDx)
+                                offsetYDp =
+                                    (offsetYDp + amount.y.toDp().value).coerceIn(minDy, maxDy)
+                            }
                         }
-                    }
-                } else {
-                    Modifier
-                }
-            )
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             if (editing) {
                 Icon(
                     MaterialSymbols.OutlinedFilled.Check,
                     contentDescription = stringResource(R.string.fab_save_position_description),
-                    tint = SAVE_GREEN
+                    tint = activeColor,
                 )
             } else {
                 val rotation by animateFloatAsState(if (expanded) 45f else 0f)
@@ -708,7 +867,7 @@ object AddMainScreenFab : ClickableFeature() {
                     MaterialSymbols.OutlinedFilled.Add,
                     contentDescription = null,
                     tint = activeColor,
-                    modifier = Modifier.rotate(rotation)
+                    modifier = Modifier.rotate(rotation),
                 )
             }
         }
@@ -727,7 +886,8 @@ object AddMainScreenFab : ClickableFeature() {
             var newBuiltInLabel by remember { mutableStateOf<BuiltInFabLabel?>(null) }
 
             val hasType = { type: FabType -> existingItems.any { it.type == type } }
-            val canAdd = (newName.isNotBlank() || newBuiltInLabel != null) &&
+            val canAdd =
+                (newName.isNotBlank() || newBuiltInLabel != null) &&
                     (newType != FabType.START_ACTIVITY || newActivity.isNotBlank())
 
             AlertDialogContent(
@@ -736,34 +896,40 @@ object AddMainScreenFab : ClickableFeature() {
                     DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
                         Text(
                             stringResource(R.string.fab_add_shortcut_message),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             stringResource(R.string.fab_action_type),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 12.dp)
+                            modifier = Modifier.padding(top = 12.dp),
                         )
 
-                        val typeOptions = listOf(
-                            FabType.START_ACTIVITY to R.string.fab_type_start_activity,
-                            FabType.MARK_ALL_READ to R.string.fab_default_mark_all_read,
-                            FabType.MODULE_SETTINGS to R.string.fab_default_module_settings,
-                            FabType.RESTART_HOST to R.string.fab_default_restart_wechat,
-                            FabType.FORCE_STOP to R.string.fab_default_force_stop,
-                        )
+                        val typeOptions =
+                            listOf(
+                                FabType.START_ACTIVITY to R.string.fab_type_start_activity,
+                                FabType.MARK_ALL_READ to R.string.fab_default_mark_all_read,
+                                FabType.MODULE_SETTINGS to R.string.fab_default_module_settings,
+                                FabType.RESTART_HOST to R.string.fab_default_restart_wechat,
+                                FabType.FORCE_STOP to R.string.fab_default_force_stop,
+                            )
                         SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
                             typeOptions.forEach { (type, labelRes) ->
                                 item(key = type) {
                                     val label = stringResource(labelRes)
-                                    val unavailable = type != FabType.START_ACTIVITY && hasType(type)
+                                    val unavailable =
+                                        type != FabType.START_ACTIVITY && hasType(type)
                                     RadioButtonWidget(
                                         iconPlaceholder = false,
-                                        title = if (unavailable) {
-                                            stringResource(R.string.fab_type_already_added, label)
-                                        } else {
-                                            label
-                                        },
+                                        title =
+                                            if (unavailable) {
+                                                stringResource(
+                                                    R.string.fab_type_already_added,
+                                                    label,
+                                                )
+                                            } else {
+                                                label
+                                            },
                                         selected = newType == type,
                                         enabled = !unavailable,
                                         onSelect = {
@@ -779,13 +945,12 @@ object AddMainScreenFab : ClickableFeature() {
                             value = newName,
                             onValueChange = { newName = it },
                             label = { Text(stringResource(R.string.fab_button_name)) },
-                            placeholder = newBuiltInLabel?.let { builtInLabel ->
-                                { Text(stringResource(labelRes(builtInLabel))) }
-                            },
+                            placeholder =
+                                newBuiltInLabel?.let { builtInLabel ->
+                                    { Text(stringResource(labelRes(builtInLabel))) }
+                                },
                             singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         )
 
                         if (newType == FabType.START_ACTIVITY) {
@@ -794,33 +959,33 @@ object AddMainScreenFab : ClickableFeature() {
                                 onValueChange = { newActivity = it },
                                 label = { Text(stringResource(R.string.fab_activity_class_name)) },
                                 singleLine = true,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                             )
                             Text(
                                 stringResource(R.string.fab_presets),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 12.dp)
+                                modifier = Modifier.padding(top = 12.dp),
                             )
                             presets.forEach { preset ->
                                 val presetName = stringResource(labelRes(preset.label))
                                 Text(
-                                    text = stringResource(
-                                        R.string.fab_preset_entry,
-                                        presetName,
-                                        preset.activityClassName,
-                                    ),
+                                    text =
+                                        stringResource(
+                                            R.string.fab_preset_entry,
+                                            presetName,
+                                            preset.activityClassName,
+                                        ),
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            newActivity = preset.activityClassName
-                                            newIconName = preset.iconName
-                                            newBuiltInLabel = if (newName.isBlank()) preset.label else null
-                                        }
-                                        .padding(vertical = 6.dp),
+                                    modifier =
+                                        Modifier.fillMaxWidth()
+                                            .clickable {
+                                                newActivity = preset.activityClassName
+                                                newIconName = preset.iconName
+                                                newBuiltInLabel =
+                                                    if (newName.isBlank()) preset.label else null
+                                            }
+                                            .padding(vertical = 6.dp),
                                 )
                             }
                         }
@@ -829,41 +994,43 @@ object AddMainScreenFab : ClickableFeature() {
                             stringResource(R.string.fab_icon),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 12.dp)
+                            modifier = Modifier.padding(top = 12.dp),
                         )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(vertical = 4.dp),
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             iconPool.forEach { (iconName, icon) ->
                                 val selected = newIconName == iconName
                                 Surface(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clickable { newIconName = iconName },
+                                    modifier =
+                                        Modifier.size(44.dp).clickable { newIconName = iconName },
                                     shape = CircleShape,
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHighest
-                                    },
+                                    color =
+                                        if (selected) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainerHighest
+                                        },
                                     tonalElevation = if (selected) 2.dp else 0.dp,
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = icon,
-                                            contentDescription = stringResource(
-                                                R.string.fab_select_icon_description,
-                                                stringResource(iconLabelRes(iconName)),
-                                            ),
-                                            tint = if (selected) {
-                                                MaterialTheme.colorScheme.onSecondaryContainer
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string.fab_select_icon_description,
+                                                    stringResource(iconLabelRes(iconName)),
+                                                ),
+                                            tint =
+                                                if (selected) {
+                                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
                                         )
                                     }
                                 }
@@ -871,7 +1038,9 @@ object AddMainScreenFab : ClickableFeature() {
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -882,30 +1051,39 @@ object AddMainScreenFab : ClickableFeature() {
                                     type = newType,
                                     name = newName.trim(),
                                     iconName = newIconName,
-                                    targetActivity = if (newType == FabType.START_ACTIVITY) newActivity.trim() else null,
+                                    targetActivity =
+                                        if (newType == FabType.START_ACTIVITY) {
+                                            newActivity.trim()
+                                        } else {
+                                            null
+                                        },
                                     builtInLabel = newBuiltInLabel,
-                                )
+                                ),
                             )
                             onDismiss()
                         },
                         enabled = canAdd,
-                    ) { Text(stringResource(R.string.action_add)) }
+                    ) {
+                        Text(stringResource(R.string.action_add))
+                    }
                 },
             )
         }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
-            val localizedContext = LocalWeKitLocalizedContext.current
+            val localizedContext = LocalLocalizedContext.current
             var currentItems by remember { mutableStateOf(loadConfig()) }
 
             fun moveItem(from: Int, to: Int) {
-                if (from == to || from !in currentItems.indices || to !in currentItems.indices) return
-                val updated = currentItems.toMutableList().apply {
-                    add(to, removeAt(from))
+                if (from == to || from !in currentItems.indices || to !in currentItems.indices) {
+                    return
                 }
+                val updated =
+                    currentItems.toMutableList().apply {
+                        add(to, removeAt(from))
+                    }
                 currentItems = updated
                 saveConfig(updated)
             }
@@ -920,7 +1098,10 @@ object AddMainScreenFab : ClickableFeature() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.fab_shortcuts_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.fab_shortcuts_title),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
                                 Text(
                                     stringResource(R.string.fab_reorder_immediate_hint),
                                     style = MaterialTheme.typography.bodySmall,
@@ -934,7 +1115,7 @@ object AddMainScreenFab : ClickableFeature() {
                                         currentItems = updated
                                         saveConfig(updated)
                                     }
-                                }
+                                },
                             ) {
                                 Icon(MaterialSymbols.OutlinedFilled.Add, contentDescription = null)
                                 Text(stringResource(R.string.action_add))
@@ -942,14 +1123,14 @@ object AddMainScreenFab : ClickableFeature() {
                         }
 
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .clickable {
-                                    onDismiss()
-                                    enterEditMode(context, localizedContext)
-                                }
-                                .padding(vertical = 8.dp),
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        onDismiss()
+                                        enterEditMode(context, localizedContext)
+                                    }
+                                    .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -958,11 +1139,12 @@ object AddMainScreenFab : ClickableFeature() {
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                             Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 12.dp)
+                                modifier = Modifier.weight(1f).padding(start = 12.dp),
                             ) {
-                                Text(stringResource(R.string.fab_adjust_position), fontWeight = FontWeight.Medium)
+                                Text(
+                                    stringResource(R.string.fab_adjust_position),
+                                    fontWeight = FontWeight.Medium,
+                                )
                                 Text(
                                     stringResource(R.string.fab_adjust_position_summary),
                                     style = MaterialTheme.typography.bodySmall,
@@ -982,79 +1164,100 @@ object AddMainScreenFab : ClickableFeature() {
                                 items = currentItems,
                                 itemKey = { it.id },
                                 onMove = { from, to -> moveItem(from, to) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 420.dp)
-                                    .padding(top = 8.dp),
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .heightIn(max = 420.dp)
+                                        .padding(top = 8.dp),
                             ) { item, dragHandleModifier ->
-                                    val description = when (item.type) {
-                                        FabType.START_ACTIVITY -> item.targetActivity
-                                            ?: stringResource(R.string.fab_type_start_activity)
-                                        FabType.MARK_ALL_READ -> stringResource(R.string.fab_description_mark_all_read)
-                                        FabType.MODULE_SETTINGS -> stringResource(R.string.fab_description_open_module_settings)
-                                        FabType.RESTART_HOST -> stringResource(R.string.fab_description_restart_wechat)
-                                        FabType.FORCE_STOP -> stringResource(R.string.fab_description_stop_wechat)
+                                val description =
+                                    when (item.type) {
+                                        FabType.START_ACTIVITY -> {
+                                            item.targetActivity
+                                                ?: stringResource(R.string.fab_type_start_activity)
+                                        }
+
+                                        FabType.MARK_ALL_READ -> {
+                                            stringResource(R.string.fab_description_mark_all_read)
+                                        }
+
+                                        FabType.MODULE_SETTINGS -> {
+                                            stringResource(
+                                                R.string.fab_description_open_module_settings,
+                                            )
+                                        }
+
+                                        FabType.RESTART_HOST -> {
+                                            stringResource(R.string.fab_description_restart_wechat)
+                                        }
+
+                                        FabType.FORCE_STOP -> {
+                                            stringResource(R.string.fab_description_stop_wechat)
+                                        }
                                     }
-                                    val itemName = localizedName(localizedContext, item)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 3.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                val itemName = localizedName(localizedContext, item)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(48.dp).then(dragHandleModifier),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .then(dragHandleModifier),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Icon(
-                                                imageVector = MaterialSymbols.Outlined.Drag_handle,
-                                                contentDescription = stringResource(R.string.fab_drag_to_reorder_description),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
                                         Icon(
-                                            imageVector = iconPool[item.iconName] ?: MaterialSymbols.OutlinedFilled.Add,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .padding(end = 4.dp),
+                                            imageVector = MaterialSymbols.Outlined.Drag_handle,
+                                            contentDescription =
+                                                stringResource(
+                                                    R.string.fab_drag_to_reorder_description,
+                                                ),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
-                                        Column(modifier = Modifier
-                                            .weight(1f)
-                                            .padding(start = 8.dp)) {
-                                            Text(itemName, fontWeight = FontWeight.Medium)
-                                            Text(
-                                                description,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                val updated = currentItems.filterNot { it.id == item.id }
-                                                currentItems = updated
-                                                saveConfig(updated)
-                                            },
-                                        ) {
-                                            Icon(
-                                                imageVector = MaterialSymbols.Outlined.Delete,
-                                                contentDescription = stringResource(
+                                    }
+                                    Icon(
+                                        imageVector =
+                                            iconPool[item.iconName]
+                                                ?: MaterialSymbols.OutlinedFilled.Add,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(28.dp).padding(end = 4.dp),
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                                    ) {
+                                        Text(itemName, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val updated = currentItems.filterNot {
+                                                it.id == item.id
+                                            }
+                                            currentItems = updated
+                                            saveConfig(updated)
+                                        },
+                                    ) {
+                                        Icon(
+                                            imageVector = MaterialSymbols.Outlined.Delete,
+                                            contentDescription =
+                                                stringResource(
                                                     R.string.fab_delete_description,
                                                     itemName,
                                                 ),
-                                                tint = MaterialTheme.colorScheme.error,
-                                            )
-                                        }
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
                                     }
                                 }
+                            }
                         }
                     }
                 },
-                confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_done)) } },
+                confirmButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.action_done)) }
+                },
             )
         }
     }

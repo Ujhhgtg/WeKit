@@ -5,38 +5,42 @@ import java.util.Calendar
 /**
  * A minimal standard 5-field cron evaluator (minute hour day-of-month month day-of-week) in the
  * device's local timezone. Supports the star wildcard, single values, a-b ranges, step syntax
- * (slash-n), and comma lists of those. Day-of-week is 0..6 (Sunday=0), with 7 also accepted as Sunday.
+ * (slash-n), and comma lists of those. Day-of-week is 0..6 (Sunday=0), with 7 also accepted as
+ * Sunday.
  *
- * This is intentionally tiny (no seconds field, no macro shortcuts, no L/W/hash specifiers): triggers
- * only need "next fire at or after now". Returns null on an unparseable expression so the scheduler
- * can disable a malformed trigger rather than crash.
+ * This is intentionally tiny (no seconds field, no macro shortcuts, no L/W/hash specifiers):
+ * triggers only need "next fire at or after now". Returns null on an unparseable expression so the
+ * scheduler can disable a malformed trigger rather than crash.
  */
 object CronSchedule {
-
-    /** [isStar] is true only when the field spec was literally "*", which drives cron's dom/dow rule. */
+    /**
+     * [isStar] is true only when the field spec was literally "*", which drives cron's dom/dow
+     * rule.
+     */
     private data class Field(val allowed: BooleanArray, val isStar: Boolean)
 
     private class Parsed(
         val minute: Field,
         val hour: Field,
         val dom: Field,
-        val month: Field,     // 1..12 stored at index 1..12 (index 0 unused)
-        val dow: Field,       // 0..6, Sunday = 0
+        val month: Field, // 1..12 stored at index 1..12 (index 0 unused)
+        val dow: Field, // 0..6, Sunday = 0
     )
 
     /**
-     * Computes the next fire time strictly after [afterMillis], or null if the expression is invalid
-     * or no match is found within a one-shot 4-year search window.
+     * Computes the next fire time strictly after [afterMillis], or null if the expression is
+     * invalid or no match is found within a one-shot 4-year search window.
      */
     fun nextAfter(cronExpr: String, afterMillis: Long): Long? {
         val parsed = parse(cronExpr) ?: return null
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = afterMillis
-            // Advance to the start of the next whole minute (cron granularity is 1 minute).
-            add(Calendar.MINUTE, 1)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
+        val cal =
+            Calendar.getInstance().apply {
+                timeInMillis = afterMillis
+                // Advance to the start of the next whole minute (cron granularity is 1 minute).
+                add(Calendar.MINUTE, 1)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
         // 4 years of minutes is a safe upper bound (covers Feb-29-only expressions).
         val limit = cal.timeInMillis + 4L * 366 * 24 * 60 * 60 * 1000
         while (cal.timeInMillis <= limit) {
@@ -50,8 +54,8 @@ object CronSchedule {
         val minute = cal.get(Calendar.MINUTE)
         val hour = cal.get(Calendar.HOUR_OF_DAY)
         val dom = cal.get(Calendar.DAY_OF_MONTH)
-        val month = cal.get(Calendar.MONTH) + 1                 // Calendar months are 0-based
-        val dow = (cal.get(Calendar.DAY_OF_WEEK) - 1)           // Calendar: Sunday=1 -> 0
+        val month = cal.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+        val dow = (cal.get(Calendar.DAY_OF_WEEK) - 1) // Calendar: Sunday=1 -> 0
 
         if (!p.minute.allowed[minute]) return false
         if (!p.hour.allowed[hour]) return false
@@ -117,20 +121,24 @@ object CronSchedule {
             step = token.substring(slash + 1).toIntOrNull()?.takeIf { it > 0 } ?: return false
             rangePart = token.substring(0, slash)
         }
-        val (lo, hi) = when {
-            rangePart == "*" -> min to max
-            rangePart.contains('-') -> {
-                val (a, b) = rangePart.split('-', limit = 2)
-                val ai = a.toIntOrNull() ?: return false
-                val bi = b.toIntOrNull() ?: return false
-                ai to bi
-            }
+        val (lo, hi) =
+            when {
+                rangePart == "*" -> {
+                    min to max
+                }
 
-            else -> {
-                val v = rangePart.toIntOrNull() ?: return false
-                v to v
+                rangePart.contains('-') -> {
+                    val (a, b) = rangePart.split('-', limit = 2)
+                    val ai = a.toIntOrNull() ?: return false
+                    val bi = b.toIntOrNull() ?: return false
+                    ai to bi
+                }
+
+                else -> {
+                    val v = rangePart.toIntOrNull() ?: return false
+                    v to v
+                }
             }
-        }
         if (lo < min || hi > max || lo > hi) return false
         var v = lo
         while (v <= hi) {

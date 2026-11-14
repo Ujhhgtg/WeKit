@@ -1,17 +1,13 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.int
 
-object WeGroupApi : ApiFeature(), IResolveDex {
-
+object WeGroupApi : ApiFeature() {
     override val technicalId = "群聊管理服务"
     override val nameRes = R.string.feature_we_group_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -21,43 +17,23 @@ object WeGroupApi : ApiFeature(), IResolveDex {
 
     // ul.m(String chatRoomName, List<String> members, String sceneNote, Object historyInfo)
     private val ctorAddMember by dexConstructor {
-        matcher {
-            usingEqStrings("MicroMsg.NetSceneAddChatRoomMember")
-            paramCount(4)
-            paramTypes(
-                BString,
-                List::class.java,
-                BString,
-                Any::class.java
-            )
-        }
+        paramCount = 4
+        paramTypes("java.lang.String", "java.util.List", "java.lang.String", "java.lang.Object")
+        usingEqStrings("MicroMsg.NetSceneAddChatRoomMember")
     }
 
     // ul.p(String chatRoomName, List<String> members, int scene)
     private val ctorDelMember by dexConstructor {
-        matcher {
-            usingEqStrings("/cgi-bin/micromsg-bin/delchatroommember")
-            paramCount(3)
-            paramTypes(
-                BString,
-                List::class.java,
-                int
-            )
-        }
+        paramCount = 3
+        paramTypes("java.lang.String", "java.util.List", "int")
+        usingEqStrings("/cgi-bin/micromsg-bin/delchatroommember")
     }
 
     // ul.x(String chatRoomName, List<String> members, int scene, Object historyInfo)
     private val ctorInviteMember by dexConstructor {
-        matcher {
-            usingEqStrings("MicroMsg.NetSceneInviteChatRoomMember")
-            paramCount(4)
-            paramTypes(
-                BString,
-                List::class.java,
-                int,
-                Any::class.java
-            )
-        }
+        paramCount = 4
+        paramTypes("java.lang.String", "java.util.List", "int", "java.lang.Object")
+        usingEqStrings("MicroMsg.NetSceneInviteChatRoomMember")
     }
 
     fun addMember(groupId: String, memberWxId: String) {

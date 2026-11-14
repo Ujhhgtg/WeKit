@@ -14,21 +14,19 @@ fun <T : Any> createProxyBuilder(
     constructorArgs: Array<Class<*>>,
     handler: InvocationHandler,
     interfaces: Array<Class<*>>,
-): ProxyBuilder<T> {
-    return ProxyBuilder.forClass(baseClass)
+): ProxyBuilder<T> =
+    ProxyBuilder.forClass(baseClass)
         .dexCache((KnownPaths.codeCacheDir / "generated_proxy_classes").createDirsSafe().toFile())
         .parentClassLoader(classLoader)
         .constructorArgTypes(*constructorArgs)
         .implementing(*interfaces)
         .handler(handler)
-}
 
-fun ProxyBuilder<*>.buildClass(handler: InvocationHandler): Class<*> {
-    return this.buildProxyClass()
-        .also {
-            // if generating a proxy class with buildProxyClass(), instances do not automatically have a handler set
-            it.reflekt().firstConstructor().hookAfterDirectly {
-                ProxyBuilder.setInvocationHandler(thisObject, handler)
-            }
+fun ProxyBuilder<*>.buildClass(handler: InvocationHandler): Class<*> =
+    this.buildProxyClass().also {
+        // if generating a proxy class with buildProxyClass(), instances do not automatically have a
+        // handler set
+        it.reflekt().firstConstructor().hookAfterDirectly {
+            ProxyBuilder.setInvocationHandler(thisObject, handler)
         }
-}
+    }

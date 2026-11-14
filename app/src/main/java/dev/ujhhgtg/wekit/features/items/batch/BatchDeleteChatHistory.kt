@@ -10,10 +10,11 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -24,7 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object BatchDeleteChatHistory : ClickableFeature() {
-
     override val technicalId = "批量删除聊天记录"
     override val nameRes = R.string.feature_batch_delete_chat_history_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -39,19 +39,23 @@ object BatchDeleteChatHistory : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_delete_history_select),
+                title = context.localizedString(R.string.batch_delete_history_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
+                        showToast(
+                            context.localizedString(
+                                R.string.batch_select_at_least_one_conversation,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     confirmAndDelete(context, selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -69,13 +73,19 @@ object BatchDeleteChatHistory : ClickableFeature() {
                         ),
                     )
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
                 confirmButton = {
-                    Button(onClick = {
-                        onDismiss()
-                        deleteChatHistory(wxIds)
-                    }) { Text(stringResource(R.string.action_delete)) }
-                }
+                    TextButton(
+                        onClick = {
+                            onDismiss()
+                            deleteChatHistory(wxIds)
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_delete))
+                    }
+                },
             )
         }
     }
@@ -83,7 +93,7 @@ object BatchDeleteChatHistory : ClickableFeature() {
     private fun deleteChatHistory(wxIds: Set<String>) {
         CoroutineScope(Dispatchers.IO).launch {
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     R.plurals.batch_delete_history_progress,
                     wxIds.size,
                     wxIds.size,
@@ -91,12 +101,14 @@ object BatchDeleteChatHistory : ClickableFeature() {
             )
 
             // Wipe the message rows first so a mid-way failure doesn't leave an empty conversation.
-            val messagesDeleted = deleteMessageRows(wxIds) {
-                WeLogger.e(TAG, "failed to delete messages", it)
-            }
+            val messagesDeleted =
+                deleteMessageRows(wxIds) {
+                    WeLogger.e(TAG, "failed to delete messages", it)
+                }
 
             // Delete the conversations the way WeChat's "删除该聊天" does (after confirm): remove the
-            // rconversation row + sync the deletion to the server, not just hide the row. This is the
+            // rconversation row + sync the deletion to the server, not just hide the row. This is
+            // the
             // fix for the old behavior, which called deleteConversation (the "不显示该聊天" hide path).
             // It notifies list observers synchronously on the calling thread, so it must run on the
             // main thread (see WeConversationApi.reloadConversations).
@@ -105,7 +117,7 @@ object BatchDeleteChatHistory : ClickableFeature() {
             }
 
             showToastSuspend(
-                localizedBatchQuantity(
+                localizedQuantity(
                     R.plurals.batch_delete_history_done,
                     wxIds.size,
                     wxIds.size,

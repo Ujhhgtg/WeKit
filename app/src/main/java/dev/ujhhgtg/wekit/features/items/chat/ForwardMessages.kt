@@ -11,7 +11,9 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -23,9 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-object ForwardMessages : SwitchFeature(),
-    WeChatMessageContextMenuApi.IMenuItemsProvider {
-
+object ForwardMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
     override val technicalId = "转发消息"
     override val nameRes = R.string.feature_forward_messages_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -41,30 +41,30 @@ object ForwardMessages : SwitchFeature(),
         WeChatMessageContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777010,
-                localizedChatString(R.string.chat_forward_menu),
+                localizedString(R.string.chat_forward_menu),
                 ForwardIcon,
                 MaterialSymbols.Outlined.Forward,
                 isSupported = { true },
                 // forward every selected message to every chosen contact
-                multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
-                    isSupported = { true },
-                    onClick = { view, _, msgInfos ->
-                        showForwardDialog(view) { selectedWxIds ->
-                            forwardMessages(msgInfos, selectedWxIds)
-                        }
-                    }
-                )
+                multiSelect =
+                    WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
+                        isSupported = { true },
+                        onClick = { view, _, msgInfos ->
+                            showForwardDialog(view) { selectedWxIds ->
+                                forwardMessages(msgInfos, selectedWxIds)
+                            }
+                        },
+                    ),
             ) { view, _, msgInfo ->
                 showForwardDialog(view) { selectedWxIds ->
                     forwardMessages(listOf(msgInfo), selectedWxIds)
                 }
-            }
+            },
         )
-    }
 
     // shows the contacts picker once; invokes onConfirm with the chosen wxIds (non-empty)
     private fun showForwardDialog(view: android.view.View, onConfirm: (Set<String>) -> Unit) {
@@ -74,19 +74,21 @@ object ForwardMessages : SwitchFeature(),
             withContext(Dispatchers.Main) {
                 showComposeDialog(view.context) {
                     ContactsSelector(
-                        title = localizedChatString(R.string.chat_forward_select_recipients),
+                        title = localizedString(R.string.chat_forward_select_recipients),
                         contacts = contacts,
                         initialSelectedWxIds = emptySet(),
                         onDismiss = onDismiss,
                         onConfirm = { selectedWxIds ->
                             if (selectedWxIds.isEmpty()) {
-                                showToast(localizedChatString(R.string.chat_forward_select_at_least_one))
+                                showToast(
+                                    localizedString(R.string.chat_forward_select_at_least_one),
+                                )
                                 return@ContactsSelector
                             }
 
                             onDismiss()
                             onConfirm(selectedWxIds)
-                        }
+                        },
                     )
                 }
             }
@@ -97,7 +99,7 @@ object ForwardMessages : SwitchFeature(),
         CoroutineScope(Dispatchers.IO).launch {
             val total = msgInfos.size * wxIds.size
             showToastSuspend(
-                localizedChatQuantity(
+                localizedQuantity(
                     R.plurals.chat_forwarding_messages,
                     msgInfos.size,
                     msgInfos.size,
@@ -113,33 +115,73 @@ object ForwardMessages : SwitchFeature(),
             }
 
             showToastSuspend(
-                if (success == total) localizedChatQuantity(R.plurals.chat_forwarded_to_recipients, wxIds.size, wxIds.size)
-                else localizedChatQuantity(R.plurals.chat_forwarded_partial_messages, total, success, total)
+                if (success == total) {
+                    localizedQuantity(
+                        R.plurals.chat_forwarded_to_recipients,
+                        wxIds.size,
+                        wxIds.size,
+                    )
+                } else {
+                    localizedQuantity(
+                        R.plurals.chat_forwarded_partial_messages,
+                        total,
+                        success,
+                        total,
+                    )
+                },
             )
         }
     }
 
     @Suppress("DEPRECATION")
-    private fun sendTo(toUser: String, msgInfo: MessageInfo): Boolean {
-        return runCatching {
-            when (msgInfo.type) {
-                MessageType.TEXT -> WeMessageApi.sendText(toUser, msgInfo.actualContent)
-                MessageType.IMAGE -> forwardImage(toUser, msgInfo)
-                MessageType.VOICE -> forwardVoice(toUser, msgInfo)
-                MessageType.VIDEO, MessageType.MICRO_VIDEO -> forwardVideo(toUser, msgInfo)
-                MessageType.STICKER, MessageType.SO_GOU_EMOJI -> forwardEmoji(toUser, msgInfo)
-                MessageType.APP -> WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
-                MessageType.QUOTE -> WeMessageApi.sendText(toUser, msgInfo.quoteMsgActualContent!!)
-                else -> {
-                    showToast(localizedChatString(R.string.chat_forward_untested_type_warning))
-                    WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
-                }
+    private suspend fun sendTo(toUser: String, msgInfo: MessageInfo): Boolean = runCatching {
+        when (msgInfo.type) {
+            MessageType.TEXT -> {
+                WeMessageApi.sendText(toUser, msgInfo.actualContent)
             }
-        }.getOrElse {
-            WeLogger.e(TAG, "failed to forward message to $toUser: type=${msgInfo.typeCode}", it)
-            false
+
+            MessageType.IMAGE -> {
+                forwardImage(toUser, msgInfo)
+            }
+
+            MessageType.VOICE -> {
+                forwardVoice(toUser, msgInfo)
+            }
+
+            MessageType.VIDEO,
+            MessageType.MICRO_VIDEO -> {
+                forwardVideo(toUser, msgInfo)
+            }
+
+            MessageType.STICKER,
+            MessageType.SO_GOU_EMOJI -> {
+                forwardEmoji(toUser, msgInfo)
+            }
+
+            MessageType.APP -> {
+                WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
+            }
+
+            MessageType.QUOTE -> {
+                WeMessageApi.sendText(toUser, msgInfo.quoteMsgActualContent!!)
+            }
+
+            else -> {
+                showToastSuspend(
+                    localizedString(R.string.chat_forward_untested_type_warning),
+                )
+                WeMessageApi.sendXmlAppMsg(toUser, msgInfo.actualContent)
+            }
         }
     }
+        .getOrElse {
+            WeLogger.e(
+                TAG,
+                "failed to forward message to $toUser: type=${msgInfo.typeCode}",
+                it,
+            )
+            false
+        }
 
     private fun forwardImage(toUser: String, msgInfo: MessageInfo): Boolean {
         val md5 = WeServiceApi.getImageMd5FromMsgInfo(msgInfo)

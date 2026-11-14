@@ -1,0 +1,1 @@
+{"name":"wekit-remote-bot-deployment","private":true,"type":"module","scripts":{"build":"node ../build.mjs bot"}}

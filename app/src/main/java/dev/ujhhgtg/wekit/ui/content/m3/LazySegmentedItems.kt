@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -16,7 +15,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun <T> LazyListScope.lazySegmentedItems(
     items: List<T>,
     key: (T) -> Any,
@@ -28,26 +26,28 @@ fun <T> LazyListScope.lazySegmentedItems(
     ) { index, item ->
         val targetTop = if (index == 0) CornerRadius else ConnectionRadius
         val targetBottom = if (index == items.lastIndex) CornerRadius else ConnectionRadius
-        val top by animateDpAsState(
-            targetValue = targetTop,
-            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-            label = "segmentedTopRadius",
-        )
-        val bottom by animateDpAsState(
-            targetValue = targetBottom,
-            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-            label = "segmentedBottomRadius",
-        )
-        val shape = RoundedCornerShape(
-            topStart = top,
-            topEnd = top,
-            bottomStart = bottom,
-            bottomEnd = bottom,
-        )
+        val top by
+            animateDpAsState(
+                targetValue = targetTop,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "segmentedTopRadius",
+            )
+        val bottom by
+            animateDpAsState(
+                targetValue = targetBottom,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "segmentedBottomRadius",
+            )
+        val shape =
+            RoundedCornerShape(
+                topStart = top,
+                topEnd = top,
+                bottomStart = bottom,
+                bottomEnd = bottom,
+            )
 
         Box(
-            Modifier
-                .animateItem()
+            Modifier.animateItem()
                 .padding(top = if (index == 0) 0.dp else ListItemDefaults.SegmentedGap),
         ) {
             CompositionLocalProvider(LocalSegmentedItemShape provides shape) {

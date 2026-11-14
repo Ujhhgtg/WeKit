@@ -13,14 +13,13 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 object OpenConversation : ClickableFeature() {
-
     override val technicalId = "跳转对话"
     override val nameRes = R.string.feature_open_conversation_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -42,32 +41,55 @@ fun showOpenConversationDialog(context: Context) {
                 TextField(
                     value = wxId,
                     onValueChange = { wxId = it },
-                    label = { Text(stringResource(R.string.contacts_wechat_id)) })
+                    label = { Text(stringResource(R.string.contacts_wechat_id)) },
+                )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@TextButton
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
-                }) { Text(stringResource(R.string.contacts_open_homepage)) }
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_chat))
+                }
 
-                TextButton(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@TextButton
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.SETTINGS)
-                }) { Text(stringResource(R.string.contacts_open_settings)) }
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.SETTINGS)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_settings))
+                }
 
-                Button(onClick = {
-                    if (wxId.isBlank()) {
-                        showToast(context, context.localizedContactsString(R.string.contacts_wechat_id_empty))
-                        return@Button
-                    }
-                    WeApi.openContact(context, wxId, WeApi.OpenContactDestination.CONVERSATION)
-                }) { Text(stringResource(R.string.contacts_open_chat)) }
-            })
+                TextButton(
+                    onClick = {
+                        if (wxId.isBlank()) {
+                            showToast(
+                                context,
+                                context.localizedString(R.string.contacts_wechat_id_empty),
+                            )
+                            return@TextButton
+                        }
+                        WeApi.openContact(context, wxId, WeApi.OpenContactDestination.HOMEPAGE)
+                    },
+                ) {
+                    Text(stringResource(R.string.contacts_open_homepage))
+                }
+            },
+        )
     }
 }

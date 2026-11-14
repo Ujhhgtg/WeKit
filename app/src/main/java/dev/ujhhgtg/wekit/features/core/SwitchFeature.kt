@@ -1,13 +1,13 @@
 package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
-
-    /** Optional order override within each concrete settings category. Lower values appear first. */
+    /**
+     * Optional order override within each concrete settings category. Lower values appear first.
+     */
     open val displayOrder: Int? = null
 
     /**
@@ -18,31 +18,29 @@ abstract class SwitchFeature : BaseFeature() {
      */
     open val defaultEnabled: Boolean = false
 
-    /** Whether this feature should load in the current process. Defaults to the main process only. */
-    protected open val shouldLoadInCurrentProcess: Boolean
-        get() = TargetProcesses.isInMain
-
     /** Whether the feature should be active at startup, given the cached preference. */
     protected open val shouldEnableOnStartup: Boolean
         get() = _isEnabled
 
-    internal fun loadPersistedState() {
-        _isEnabled = WePrefs.getBoolOrDef(technicalId, defaultEnabled)
+    fun loadPersistedState() {
+        _isEnabled = KvStore.getBoolOrDef(technicalId, defaultEnabled)
     }
 
     final override fun startup() {
-        if (!shouldLoadInCurrentProcess) return
         if (shouldEnableOnStartup) enable()
     }
 
     /** Cached user preference (desired state). Distinct from [isActive], the runtime truth. */
-    @Suppress("PropertyName")
-    protected var _isEnabled = false
+    @Suppress("PropertyName") protected var _isEnabled = false
 
     var isEnabled
         get() = _isEnabled
         set(value) {
             if (_isEnabled == value) return
+            if (value && errors.isNotEmpty()) {
+                WeLogger.w("SwitchFeature", "refusing to enable $technicalPath: $errors")
+                return
+            }
             _isEnabled = value
             if (value) {
                 WeLogger.i("SwitchFeature", "enabling $technicalPath...")
@@ -62,7 +60,11 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     fun applyToggle(newState: Boolean) {
-        WePrefs.putBool(technicalId, newState)
+        if (newState && errors.isNotEmpty()) {
+            WeLogger.w("SwitchFeature", "refusing to enable $technicalPath: $errors")
+            return
+        }
+        KvStore.putBool(technicalId, newState)
         isEnabled = newState
         toggleCompletionCallback?.run()
     }

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "id", "name", "version", "entry", "processes"],
+  "properties": {
+    "schema": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "entry": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+      "default": "main"
+    },
+    "minWeKitVersionCode": { "type": "integer", "minimum": 0 },
+    "processes": { "const": ["main"] }
+  },
+  "additionalProperties": false
+}

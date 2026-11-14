@@ -10,65 +10,27 @@ class HomeSidePanelLayoutTest {
 
     private class SequenceIds : HomeSidePanelIdGenerator {
         private var next = 0
+
         override fun nextId(): String = "id-" + next++
     }
 
     @Test
-    fun migrationPreservesSettingsAndDefaultOrder() {
-        val layout = defaultHomeSidePanelLayout(
-            LegacyHomeSidePanelSnapshot(
-                weatherCity = DEFAULT_WEATHER_CITY.copy(
-                    city = "上海",
-                    cityNum = "101020100",
-                ),
-                hideWalletBalance = true,
-                hitokotoSettings = HitokotoSettings(
-                    categories = setOf("a"),
-                    showAuthor = false,
-                ),
-            ),
-            SequenceIds(),
-        )
-
-        assertEquals(
-            listOf(
-                HomeSidePanelCardType.DATE_TIME,
-                HomeSidePanelCardType.WEATHER,
-                HomeSidePanelCardType.WALLET,
-                HomeSidePanelCardType.VERTICAL_ACTIONS,
-                HomeSidePanelCardType.HITOKOTO,
-            ),
-            layout.cards.map { it.type },
-        )
-        assertEquals("101020100", (layout.cards[1] as WeatherCardConfig).city.cityNum)
-        assertTrue((layout.cards[2] as WalletCardConfig).hideBalanceByDefault)
-        assertEquals(
-            listOf(
-                HomeSidePanelActionKind.ADD_FRIEND,
-                HomeSidePanelActionKind.MOMENTS,
-                HomeSidePanelActionKind.CHANNELS,
-                HomeSidePanelActionKind.MARK_ALL_READ,
-                HomeSidePanelActionKind.WEKIT_SETTINGS,
-            ),
-            (layout.cards[3] as VerticalActionsCardConfig).actions.map { it.kind },
-        )
-    }
-
-    @Test
     fun codecRoundTripsDuplicateKindsWithUniqueIds() {
-        val layout = HomeSidePanelLayout(
-            cards = listOf(
-                WeatherCardConfig("weather-1", DEFAULT_WEATHER_CITY),
-                WeatherCardConfig("weather-2", DEFAULT_WEATHER_CITY),
-                HorizontalActionsCardConfig(
-                    "actions",
+        val layout =
+            HomeSidePanelLayout(
+                cards =
                     listOf(
-                        HomeSidePanelActionConfig("scan-1", HomeSidePanelActionKind.SCAN),
-                        HomeSidePanelActionConfig("scan-2", HomeSidePanelActionKind.SCAN),
+                        WeatherCardConfig("weather-1", DEFAULT_WEATHER_CITY),
+                        WeatherCardConfig("weather-2", DEFAULT_WEATHER_CITY),
+                        HorizontalActionsCardConfig(
+                            "actions",
+                            listOf(
+                                HomeSidePanelActionConfig("scan-1", HomeSidePanelActionKind.SCAN),
+                                HomeSidePanelActionConfig("scan-2", HomeSidePanelActionKind.SCAN),
+                            ),
+                        ),
                     ),
-                ),
-            ),
-        )
+            )
 
         assertEquals(
             layout,
@@ -78,23 +40,26 @@ class HomeSidePanelLayoutTest {
 
     @Test
     fun dateTimeLunarSettingDefaultsOffAndRoundTripsWhenEnabled() {
-        val legacyRaw = """
+        val legacyRaw =
+            """
             {
               "version": 1,
               "cards": [
                 {"cardType": "date_time", "id": "legacy-date"}
               ]
             }
-        """.trimIndent()
+            """
+                .trimIndent()
 
         assertFalse(
             (HomeSidePanelLayoutCodec.decode(legacyRaw).cards.single() as DateTimeCardConfig)
                 .showLunarCalendar,
         )
 
-        val enabled = HomeSidePanelLayout(
-            cards = listOf(DateTimeCardConfig("date", showLunarCalendar = true)),
-        )
+        val enabled =
+            HomeSidePanelLayout(
+                cards = listOf(DateTimeCardConfig("date", showLunarCalendar = true)),
+            )
         assertEquals(
             enabled,
             HomeSidePanelLayoutCodec.decode(HomeSidePanelLayoutCodec.encode(enabled)),
@@ -103,19 +68,20 @@ class HomeSidePanelLayoutTest {
 
     @Test
     fun invalidRawIsPreservedAndDuplicateIdsFail() {
-        val fallback = HomeSidePanelLayoutCodec.load(
-            "{not-json",
-            LegacyHomeSidePanelSnapshot.defaults(),
-            SequenceIds(),
-        ) as HomeSidePanelLayoutLoad.Fallback
+        val fallback =
+            HomeSidePanelLayoutCodec.load(
+                "{not-json",
+                SequenceIds(),
+            ) as HomeSidePanelLayoutLoad.Fallback
         assertEquals("{not-json", fallback.invalidRaw)
         assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
             validateHomeSidePanelLayout(
                 HomeSidePanelLayout(
-                    cards = listOf(
-                        DateTimeCardConfig("same"),
-                        WalletCardConfig("same"),
-                    ),
+                    cards =
+                        listOf(
+                            DateTimeCardConfig("same"),
+                            WalletCardConfig("same"),
+                        ),
                 ),
             )
         }
@@ -138,27 +104,32 @@ class HomeSidePanelLayoutTest {
         assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
             validateHomeSidePanelLayout(
                 HomeSidePanelLayout(
-                    cards = listOf(
-                        HorizontalActionsCardConfig(
-                            "actions",
-                            listOf(HomeSidePanelActionConfig("", HomeSidePanelActionKind.SCAN)),
+                    cards =
+                        listOf(
+                            HorizontalActionsCardConfig(
+                                "actions",
+                                listOf(HomeSidePanelActionConfig("", HomeSidePanelActionKind.SCAN)),
+                            ),
                         ),
-                    ),
                 ),
             )
         }
         assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
             validateHomeSidePanelLayout(
                 HomeSidePanelLayout(
-                    cards = listOf(
-                        HorizontalActionsCardConfig(
-                            "actions",
-                            listOf(
-                                HomeSidePanelActionConfig("same", HomeSidePanelActionKind.SCAN),
-                                HomeSidePanelActionConfig("same", HomeSidePanelActionKind.WALLET),
+                    cards =
+                        listOf(
+                            HorizontalActionsCardConfig(
+                                "actions",
+                                listOf(
+                                    HomeSidePanelActionConfig("same", HomeSidePanelActionKind.SCAN),
+                                    HomeSidePanelActionConfig(
+                                        "same",
+                                        HomeSidePanelActionKind.WALLET,
+                                    ),
+                                ),
                             ),
                         ),
-                    ),
                 ),
             )
         }
@@ -169,12 +140,13 @@ class HomeSidePanelLayoutTest {
         assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
             validateHomeSidePanelLayout(
                 HomeSidePanelLayout(
-                    cards = listOf(
-                        HitokotoCardConfig(
-                            "hitokoto",
-                            HitokotoSettings(categories = emptySet()),
+                    cards =
+                        listOf(
+                            HitokotoCardConfig(
+                                "hitokoto",
+                                HitokotoSettings(categories = emptySet()),
+                            ),
                         ),
-                    ),
                 ),
             )
         }
@@ -187,18 +159,19 @@ class HomeSidePanelLayoutTest {
         assertThrows(InvalidHomeSidePanelLayoutException::class.java) {
             HomeSidePanelLayoutCodec.decode(raw)
         }
-        val fallback = HomeSidePanelLayoutCodec.load(
-            raw,
-            LegacyHomeSidePanelSnapshot.defaults(),
-            SequenceIds(),
-        ) as HomeSidePanelLayoutLoad.Fallback
+        val fallback =
+            HomeSidePanelLayoutCodec.load(
+                raw,
+                SequenceIds(),
+            ) as HomeSidePanelLayoutLoad.Fallback
 
         assertEquals(raw, fallback.invalidRaw)
     }
 
     @Test
     fun legacyRedundantTypeCannotOverrideTheSealedCardSubtype() {
-        val raw = """
+        val raw =
+            """
             {
               "version": 1,
               "cards": [
@@ -218,7 +191,8 @@ class HomeSidePanelLayoutTest {
                 }
               ]
             }
-        """.trimIndent()
+            """
+                .trimIndent()
 
         val decoded = HomeSidePanelLayoutCodec.decode(raw)
         val card = decoded.cards.single()
@@ -232,7 +206,8 @@ class HomeSidePanelLayoutTest {
 
     @Test
     fun discriminatorAndPayloadShapeMismatchBecomesFallback() {
-        val raw = """
+        val raw =
+            """
             {
               "version": 1,
               "cards": [
@@ -244,13 +219,14 @@ class HomeSidePanelLayoutTest {
                 }
               ]
             }
-        """.trimIndent()
+            """
+                .trimIndent()
 
-        val loaded = HomeSidePanelLayoutCodec.load(
-            raw = raw,
-            legacy = LegacyHomeSidePanelSnapshot.defaults(),
-            idGenerator = SequenceIds(),
-        )
+        val loaded =
+            HomeSidePanelLayoutCodec.load(
+                raw = raw,
+                idGenerator = SequenceIds(),
+            )
 
         assertTrue(loaded is HomeSidePanelLayoutLoad.Fallback)
         assertEquals(raw, (loaded as HomeSidePanelLayoutLoad.Fallback).invalidRaw)

@@ -1,0 +1,2 @@
+-keep class dev.ujhhgtg.wekit.loader.startup.PayloadEntryImpl { public <init>(); public void start(dev.ujhhgtg.wekit.loader.api.PayloadEnvironment); }
+-keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }

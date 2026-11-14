@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ExtensionPackStateTest {
-
     private val manifest = { version: String ->
         PackManifest("script-deps", version, "a".repeat(64), 0L)
     }
@@ -39,14 +38,6 @@ class ExtensionPackStateTest {
         assertEquals(
             UpdateAvailable("0123456789ab", "6b3b3087a5e2"),
             classifyPackState(manifest("0123456789ab"), entry("6b3b3087a5e2")),
-        )
-    }
-
-    @Test
-    fun `legacy date-prefixed version is not an update when content matches`() {
-        assertEquals(
-            Installed("20260818-6b3b3087a5e2"),
-            classifyPackState(manifest("20260818-6b3b3087a5e2"), entry("6b3b3087a5e2")),
         )
     }
 }

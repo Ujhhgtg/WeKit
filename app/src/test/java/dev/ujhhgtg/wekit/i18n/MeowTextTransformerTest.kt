@@ -6,14 +6,15 @@ import org.junit.jupiter.api.Test
 class MeowTextTransformerTest {
     @Test
     fun insertsMeowBeforeTrailingPunctuation() {
-        val cases = mapOf(
-            "加载中..." to "加载中喵...",
-            "确定。" to "确定喵。",
-            "完成？！" to "完成喵？！",
-            "“完成！”" to "“完成喵！”",
-            "..." to "喵...",
-            "没有标点" to "没有标点喵",
-        )
+        val cases =
+            mapOf(
+                "加载中..." to "加载中喵...",
+                "确定。" to "确定喵。",
+                "完成？！" to "完成喵？！",
+                "“完成！”" to "“完成喵！”",
+                "..." to "喵...",
+                "没有标点" to "没有标点喵",
+            )
 
         cases.forEach { (source, expected) ->
             assertEquals(expected, MeowTextTransformer.transform(source), source)
@@ -22,11 +23,12 @@ class MeowTextTransformerTest {
 
     @Test
     fun insertsPanguSpaceBetweenAsciiLettersOrDigitsAndMeow() {
-        val cases = mapOf(
-            "处理数量: 3" to "处理数量: 3 喵",
-            "GitHub" to "GitHub 喵",
-            "GitHub..." to "GitHub 喵...",
-        )
+        val cases =
+            mapOf(
+                "处理数量: 3" to "处理数量: 3 喵",
+                "GitHub" to "GitHub 喵",
+                "GitHub..." to "GitHub 喵...",
+            )
 
         cases.forEach { (source, expected) ->
             assertEquals(expected, MeowTextTransformer.transform(source), source)
@@ -35,11 +37,12 @@ class MeowTextTransformerTest {
 
     @Test
     fun keepsTrailingPunctuationAndItsLeadingSpaceAfterMeow() {
-        val cases = mapOf(
-            "（一段文本）" to "（一段文本喵）",
-            "一段文本（）" to "一段文本喵（）",
-            "一段文本 ()" to "一段文本喵 ()",
-        )
+        val cases =
+            mapOf(
+                "（一段文本）" to "（一段文本喵）",
+                "一段文本（）" to "一段文本喵（）",
+                "一段文本 ()" to "一段文本喵 ()",
+            )
 
         cases.forEach { (source, expected) ->
             assertEquals(expected, MeowTextTransformer.transform(source), source)

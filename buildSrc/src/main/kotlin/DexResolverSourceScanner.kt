@@ -1,6 +1,13 @@
 import java.io.File
 
-internal enum class ResolveBlockKind { CUSTOM, INLINE_CLASS, INLINE_FIELD, INLINE_METHOD, INLINE_CONSTRUCTOR }
+internal enum class ResolveBlockKind {
+    INLINE_SQL,
+    INLINE_QUERY_CLASS,
+    INLINE_QUERY_FIELD,
+    INLINE_QUERY_METHOD,
+    INLINE_QUERY_CONSTRUCTOR,
+    GROUP,
+}
 
 internal data class ResolveSourceBlock(
     val kind: ResolveBlockKind,
@@ -11,6 +18,11 @@ internal data class ResolveSourceBlock(
 internal data class DexResolverSource(
     val file: File,
     val qualifiedClassName: String,
+    /**
+     * 从类体直接成员提取的 `technicalId` 字符串字面量；缺失或非字面量时为 null，
+     * 由 [GenerateMethodHashesTask] 负责校验并大声失败。
+     */
+    val technicalId: String?,
     val blocks: List<ResolveSourceBlock>,
     internal val sourceLinesByBlock: Map<ResolveSourceBlock, IntArray> = emptyMap(),
 )
@@ -35,7 +47,7 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
     val packageName = clean.findCode(Regex("""package\s+([\w.]+)"""))?.groupValues?.get(1)
     val classRegex = Regex("""\b(?:class|object)\s+(\w+)\b""")
     val declarations = clean.findAllCode(classRegex)
-    val resolveDexDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
+    val resolverDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
         val braceIndex = clean.indexOfCode('{', match.range.first)
         val closingBraceIndex = clean.indexOfCode('}', match.range.first)
         val nextDeclarationIndex = declarations.getOrNull(index + 1)?.range?.first ?: clean.length
@@ -48,12 +60,21 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         }
 
         val signature = clean.substring(match.range.first, braceIndex)
-        if (signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)) match else null
+        if (!signature.contains(":") || !FEATURE_BASE.containsMatchIn(signature)) {
+            return@firstNotNullOfOrNull null
+        }
+        val bodyEnd = clean.findBlockEnd(braceIndex)
+        val depth = clean.braceDepthAt(braceIndex + 1)
+        val hasDelegates = clean.findAllCode(DELEGATE_DECLARATION).any {
+            it.range.first > braceIndex && it.range.first < bodyEnd &&
+                clean.braceDepthAt(it.range.first) == depth
+        }
+        match.takeIf { hasDelegates }
     } ?: return null
 
-    val className = resolveDexDeclaration.groupValues[1]
+    val className = resolverDeclaration.groupValues[1]
     val fullClassName = if (packageName != null) "$packageName.$className" else className
-    val classBodyStart = clean.indexOfCode('{', resolveDexDeclaration.range.last)
+    val classBodyStart = clean.indexOfCode('{', resolverDeclaration.range.last)
     val classBodyEnd = if (classBodyStart == -1) -1 else clean.findBlockEnd(classBodyStart)
     val classBodyDepth = if (classBodyStart == -1) -1 else clean.braceDepthAt(classBodyStart + 1)
     fun isDirectMember(match: MatchResult): Boolean =
@@ -69,32 +90,70 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         sourceLinesByBlock[block] = IntArray(end - start + 1) { clean.sourceLineAt(start + it) }
     }
 
-    val resolveDexMatch = clean.findAllCode(Regex("""override\s+fun\s+resolveDex\s*\(""")).firstOrNull(::isDirectMember)
-    if (resolveDexMatch != null) {
-        val start = clean.indexOfCode('{', resolveDexMatch.range.last)
-        val end = if (start == -1) -1 else clean.findBlockEnd(start)
-        if (end != -1) {
-            addBlock(ResolveBlockKind.CUSTOM, start, end)
-        }
-    }
+    val technicalId = clean.findAllCode(TECHNICAL_ID)
+        .firstOrNull(::isDirectMember)
+        ?.groupValues?.get(1)
+        ?.unescapeKotlinLiteral()
 
     val separatorRegex = Regex("""\b(val|fun|private|public|internal|class|object|override)\b""")
-    clean.findAllCode(INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
+    clean.findAllCode(GROUP_DECLARATION).filter(::isDirectMember).forEach { match ->
+        val open = clean.indexOfCode('(', match.range.last)
+        val end = if (open == -1) -1 else clean.findParenthesisEnd(open)
+        if (end != -1 && end < classBodyEnd) {
+            addBlock(ResolveBlockKind.GROUP, match.range.first, end)
+        }
+    }
+    clean.findAllCode(SQL_INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
+        val openParenthesis = clean.indexOfCode('(', match.range.last)
+        val end = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
+        val firstArgument = if (openParenthesis == -1) null else clean.firstCodeIndex(openParenthesis + 1, end)
+        if (
+            firstArgument != null &&
+            end < classBodyEnd &&
+            (clean.text[firstArgument] == '"' || clean.matchesAt(SQL_DSL_CALL, firstArgument))
+        ) {
+            addBlock(ResolveBlockKind.INLINE_SQL, match.range.first, end)
+        }
+    }
+    clean.findAllCode(INLINE_QUERY_DELEGATE).filter(::isDirectMember).forEach { match ->
         val startScan = match.range.last + 1
         val nextOpenBrace = clean.indexOfCode('{', startScan)
         if (nextOpenBrace != -1 && !clean.containsCodeMatch(separatorRegex, startScan, nextOpenBrace)) {
             val end = clean.findBlockEnd(nextOpenBrace)
             if (end != -1 && end < classBodyEnd) {
-                addBlock(match.groupValues[1].toResolveBlockKind(), nextOpenBrace, end)
+                addBlock(match.groupValues[1].toQueryResolveBlockKind(), nextOpenBrace, end)
             }
         }
     }
-
-    if (blocks.isEmpty()) {
-        error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any inline dex blocks.")
+    // Unified matcher-block delegates: `by dexX { ... }` / `by dexX(allowFailure = ...) { ... }`.
+    clean.findAllCode(UNIFIED_DELEGATE).filter(::isDirectMember).forEach { match ->
+        var index = match.range.last + 1
+        while (index < clean.length && clean.text[index].isWhitespace()) index++
+        if (index < clean.length && clean.text[index] == '(') {
+            val close = clean.findParenthesisEnd(index)
+            if (close == -1) return@forEach
+            val args = clean.substring(index + 1, close).trim()
+            // Legacy SQL delegates and eager spec delegates are handled above; only the
+            // allowFailure-only argument list belongs to the unified matcher-block form.
+            if (args.isNotEmpty() && !args.startsWith("allowFailure")) return@forEach
+            index = close + 1
+            while (index < clean.length && clean.text[index].isWhitespace()) index++
+        }
+        if (index < clean.length && clean.text[index] == '{') {
+            val end = clean.findBlockEnd(index)
+            if (end != -1 && end < classBodyEnd) {
+                val start = if (match.groups["receiver"] != null || match.groups["computed"] != null) {
+                    match.range.first
+                } else {
+                    index
+                }
+                addBlock(match.groups["kind"]!!.value.toQueryResolveBlockKind(), start, end)
+            }
+        }
     }
+    check(blocks.isNotEmpty()) { "Class $fullClassName has no supported Dex delegate declarations." }
 
-    return DexResolverSource(file, fullClassName, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
+    return DexResolverSource(file, fullClassName, technicalId, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
 }
 
 internal fun findDesktopIncompatibleAccesses(source: DexResolverSource): List<DesktopResolverViolation> =
@@ -113,17 +172,60 @@ internal fun findDesktopIncompatibleAccesses(source: DexResolverSource): List<De
             }
     }
 
-private fun String.toResolveBlockKind(): ResolveBlockKind = when (this) {
-    "Class" -> ResolveBlockKind.INLINE_CLASS
-    "Field" -> ResolveBlockKind.INLINE_FIELD
-    "Method" -> ResolveBlockKind.INLINE_METHOD
-    "Constructor" -> ResolveBlockKind.INLINE_CONSTRUCTOR
-    else -> error("Unsupported dex resolver delegate kind: $this")
+private fun String.toQueryResolveBlockKind(): ResolveBlockKind = when (this) {
+    "Class" -> ResolveBlockKind.INLINE_QUERY_CLASS
+    "Field" -> ResolveBlockKind.INLINE_QUERY_FIELD
+    "Method" -> ResolveBlockKind.INLINE_QUERY_METHOD
+    "Constructor" -> ResolveBlockKind.INLINE_QUERY_CONSTRUCTOR
+    else -> error("Unsupported dex query resolver delegate kind: $this")
 }
 
-private val INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
+private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\s*\(""")
+private val SQL_DSL_CALL =
+    Regex("""(?:sql|methodSpec|classSpec|fieldSpec)(?:Method|Class|Field|Constructor)?\b""")
+private val INLINE_QUERY_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)Query\b""")
+private val UNIFIED_DELEGATE =
+    Regex("""\bby\s+(?<receiver>[\w.]+\s*\.\s*)?dex(?<kind>Class|Field|Method|Constructor)(?<computed>From)?\b""")
+private val GROUP_DECLARATION = Regex("""\bval\s+\w+(?:\s*:\s*[\w.]+)?\s*=\s*dexGroup\s*(?=\()""")
+private val FEATURE_BASE = Regex("""\b(?:Base|Api|Switch|Clickable)Feature\s*\(""")
+private val DELEGATE_DECLARATION =
+    Regex("""\bby\s+(?:[\w.]+\s*\.\s*)?dex(?:Class|Field|Method|Constructor)(?:From|Query)?\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
+private val TECHNICAL_ID = Regex("""\btechnicalId\s*=\s*"((?:[^"\\\n]|\\.)*)"""")
+
+private fun String.unescapeKotlinLiteral(): String {
+    val literal = this
+    val result = StringBuilder(literal.length)
+    var i = 0
+    while (i < literal.length) {
+        val char = literal[i]
+        if (char != '\\' || i + 1 >= literal.length) {
+            result.append(char)
+            i++
+            continue
+        }
+        when (val next = literal[i + 1]) {
+            'n' -> result.append('\n')
+            't' -> result.append('\t')
+            'r' -> result.append('\r')
+            'b' -> result.append('\b')
+            'u' -> {
+                val hex = literal.substring(i + 2, (i + 6).coerceAtMost(literal.length))
+                val codePoint = hex.toIntOrNull(16)
+                if (hex.length == 4 && codePoint != null) {
+                    result.append(codePoint.toChar())
+                    i += 4
+                } else {
+                    result.append('u')
+                }
+            }
+            else -> result.append(next)
+        }
+        i += 2
+    }
+    return result.toString()
+}
 
 private class ScannedSource(
     val text: String,
@@ -152,6 +254,29 @@ private class ScannedSource(
             }
         }
         return -1
+    }
+
+    fun findParenthesisEnd(openParenthesisIndex: Int): Int {
+        var depth = 0
+        for (i in openParenthesisIndex until text.length) {
+            if (!codeMask[i]) continue
+            when (text[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) return i
+            }
+        }
+        return -1
+    }
+
+    fun matchesAt(regex: Regex, index: Int): Boolean =
+        regex.find(text, index)?.range?.first == index
+
+    fun firstCodeIndex(startIndex: Int, endIndex: Int): Int? {
+        val end = endIndex.takeIf { it >= 0 } ?: text.length
+        for (i in startIndex.coerceAtLeast(0) until end) {
+            if (!text[i].isWhitespace()) return i
+        }
+        return null
     }
 
     fun braceDepthAt(index: Int): Int {

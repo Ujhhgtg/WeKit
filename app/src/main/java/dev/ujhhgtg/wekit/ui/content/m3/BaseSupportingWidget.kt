@@ -2,7 +2,9 @@
 // Copyright (C) 2026 InstallerX Revived contributors
 package dev.ujhhgtg.wekit.ui.content.m3
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -41,19 +42,14 @@ fun BaseSupportingWidget(
     iconPlaceholder: Boolean = false,
     onClick: (() -> Unit)? = null,
     enabled: Boolean = true,
-    supportingContent: @Composable () -> Unit
+    supportingContent: @Composable () -> Unit,
 ) {
-    val shape = LocalSegmentedItemShape.current
-    val backgroundColor = MaterialTheme.colorScheme.surfaceBright
-
     val body: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (iconPlaceholder) Spacer(modifier = Modifier.size(24.dp))
 
@@ -61,13 +57,13 @@ fun BaseSupportingWidget(
                     Text(
                         text = title,
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     if (description != null) {
                         Text(
                             text = description,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
@@ -79,21 +75,15 @@ fun BaseSupportingWidget(
         }
     }
 
-    if (onClick != null) {
-        Surface(
-            onClick = onClick,
-            enabled = enabled,
-            modifier = modifier.fillMaxWidth(),
-            color = backgroundColor,
-            shape = shape,
-            content = body
-        )
-    } else {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            color = backgroundColor,
-            shape = shape,
-            content = body
-        )
+    BaseItemContainer(modifier = modifier) {
+        if (onClick == null) {
+            body()
+        } else {
+            Box(
+                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+            ) {
+                body()
+            }
+        }
     }
 }

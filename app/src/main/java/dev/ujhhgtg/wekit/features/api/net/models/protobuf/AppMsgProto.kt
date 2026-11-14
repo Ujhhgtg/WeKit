@@ -12,8 +12,7 @@ interface IAppMsgProto
 /** Request body for `/cgi-bin/micromsg-bin/sendappmsg` (CGI 222). */
 @Serializable
 data class SendAppMsgReqProto(
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(1) val baseRequest: ByteArray? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(1) val baseRequest: ByteArray? = null,
     @ProtoNumber(2) val msg: AppMsgItemProto = AppMsgItemProto(),
     @ProtoNumber(3) val commentUrl: String = "",
     @ProtoNumber(4) val reqTime: Int = 0,
@@ -25,9 +24,8 @@ data class SendAppMsgReqProto(
     @ProtoNumber(10) val crc32: Int = 0,
     @ProtoNumber(11) val msgForwardType: Int = 0,
     @ProtoNumber(12) val directShare: Int = 0,
-    @ProtoNumber(13) val sendMsgTicket: String = ""
+    @ProtoNumber(13) val sendMsgTicket: String = "",
 ) : IAppMsgProto {
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -80,7 +78,8 @@ data class AppMsgItemProto(
     @ProtoNumber(7) val createTime: Int = 0,
     @ProtoNumber(8) val clientMsgId: String = "",
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(9) val thumb: SKBuiltinBufferProto? = null,
+    @ProtoNumber(9)
+    val thumb: SKBuiltinBufferProto? = null,
     @ProtoNumber(10) val source: Int = 0,
     @ProtoNumber(11) val remindId: Int = 0,
     @ProtoNumber(12) val msgSource: String = "",
@@ -88,7 +87,7 @@ data class AppMsgItemProto(
     @ProtoNumber(14) val shareUrlOpen: String = "",
     @ProtoNumber(15) val jsAppId: String = "",
     @ProtoNumber(16) val tokenValid: Int = 0,
-    @ProtoNumber(17) val packageName: String = ""
+    @ProtoNumber(17) val packageName: String = "",
 ) : IAppMsgProto {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

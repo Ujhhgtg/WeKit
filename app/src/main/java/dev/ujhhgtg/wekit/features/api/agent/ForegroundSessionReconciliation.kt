@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.agent
 
-internal suspend fun <S, M> reconcileForegroundSession(
+suspend fun <S, M> reconcileForegroundSession(
     currentSessionId: suspend () -> String?,
     loadState: suspend (String) -> S?,
     applyStateIfCurrent: suspend (String, S) -> Boolean,

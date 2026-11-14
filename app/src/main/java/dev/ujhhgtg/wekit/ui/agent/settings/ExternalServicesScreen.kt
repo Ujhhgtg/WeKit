@@ -20,14 +20,16 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.net.ExternalServiceId
 import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
+import dev.ujhhgtg.wekit.ui.content.m3.SETTINGS_CONTENT_BOTTOM_INSET
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import kotlinx.coroutines.launch
 
 /**
- * External Services settings screen — lets the user configure API keys for network tools:
- * Exa Search and Brave Search. Saving a key immediately makes the corresponding tool visible to
- * the model (via [BuiltinToolProvider.exaKeyPresent] / [BuiltinToolProvider.braveKeyPresent]).
+ * External Services settings screen — lets the user configure API keys for network tools: Exa
+ * Search and Brave Search. Saving a key immediately makes the corresponding tool visible to the
+ * model (via [BuiltinToolProvider.exaKeyPresent] / [BuiltinToolProvider.braveKeyPresent]).
  */
 @Composable
 fun ExternalServicesScreen(onBack: () -> Unit) {
@@ -52,7 +54,10 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
         }
     }
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_external_services_title), onBack = onBack) {
+    SettingsScaffold(
+        title = stringResource(R.string.agent_external_services_title),
+        onBack = onBack,
+    ) {
         if (!loaded) {
             item {
                 Box(
@@ -62,7 +67,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
-            return@AgentSettingsScaffold
+            return@SettingsScaffold
         }
 
         item {
@@ -73,7 +78,11 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                         value = exaKey,
                         onValueChange = { value ->
                             exaKey = value
-                            commitKey(ExternalServiceId.EXA, { BuiltinToolProvider.exaKeyPresent = it }, value)
+                            commitKey(
+                                ExternalServiceId.EXA,
+                                { BuiltinToolProvider.exaKeyPresent = it },
+                                value,
+                            )
                         },
                         dialogTitle = stringResource(R.string.external_service_api_key),
                         confirmLabel = stringResource(R.string.dialog_confirm),
@@ -88,7 +97,7 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
         item {
             SegmentedColumn(
                 title = stringResource(R.string.external_service_brave_name),
-                modifier = Modifier.padding(bottom = AGENT_CONTENT_BOTTOM_INSET),
+                modifier = Modifier.padding(bottom = SETTINGS_CONTENT_BOTTOM_INSET),
             ) {
                 item {
                     TextFieldDialogWidget(
@@ -96,7 +105,11 @@ fun ExternalServicesScreen(onBack: () -> Unit) {
                         value = braveKey,
                         onValueChange = { value ->
                             braveKey = value
-                            commitKey(ExternalServiceId.BRAVE, { BuiltinToolProvider.braveKeyPresent = it }, value)
+                            commitKey(
+                                ExternalServiceId.BRAVE,
+                                { BuiltinToolProvider.braveKeyPresent = it },
+                                value,
+                            )
                         },
                         dialogTitle = stringResource(R.string.external_service_api_key),
                         confirmLabel = stringResource(R.string.dialog_confirm),

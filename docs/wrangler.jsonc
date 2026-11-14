@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "wekit-docs",
+  "compatibility_date": "2026-09-05",
+  "assets": {
+    "directory": "./.vitepress/dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "docs.wekit.ujhhgtg.dev", "custom_domain": true }
+  ]
+}

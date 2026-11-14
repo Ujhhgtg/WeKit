@@ -6,7 +6,9 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
+import dev.ujhhgtg.wekit.i18n.localizedString
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -16,7 +18,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object BatchMarkAsRead : ClickableFeature() {
-
     override val technicalId = "批量标为已读"
     override val nameRes = R.string.feature_batch_mark_as_read_name
     override val categoryIds = listOf(FeatureCategoryIds.BATCH)
@@ -31,19 +32,23 @@ object BatchMarkAsRead : ClickableFeature() {
 
         showComposeDialog(context) {
             ContactsSelector(
-                title = context.localizedBatchString(R.string.batch_mark_read_select),
+                title = context.localizedString(R.string.batch_mark_read_select),
                 contacts = contacts,
                 initialSelectedWxIds = emptySet(),
                 onDismiss = onDismiss,
                 onConfirm = { selectedWxIds ->
                     if (selectedWxIds.isEmpty()) {
-                        showToast(context.localizedBatchString(R.string.batch_select_at_least_one_conversation))
+                        showToast(
+                            context.localizedString(
+                                R.string.batch_select_at_least_one_conversation,
+                            ),
+                        )
                         return@ContactsSelector
                     }
 
                     onDismiss()
                     markAsRead(selectedWxIds)
-                }
+                },
             )
         }
     }
@@ -57,7 +62,7 @@ object BatchMarkAsRead : ClickableFeature() {
             }
             WeConversationApi.reloadConversations()
             showToastSuspend(
-                localizedBatchQuantity(R.plurals.batch_mark_read_done, wxIds.size, wxIds.size),
+                localizedQuantity(R.plurals.batch_mark_read_done, wxIds.size, wxIds.size),
             )
         }
     }

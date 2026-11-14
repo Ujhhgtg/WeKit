@@ -4,6 +4,7 @@ import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -11,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
 import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 
 object NativeCrashInterceptor : SwitchFeature() {
-
     override val technicalId = "崩溃拦截 (Native)"
     override val nameRes = R.string.feature_native_crash_interceptor_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -37,14 +37,15 @@ object NativeCrashInterceptor : SwitchFeature() {
             if (CrashLogsManager.hasPendingNativeCrash()) {
                 WeLogger.i(
                     TAG,
-                    "pending native crash detected, will show dialog when Activity is ready"
+                    "pending native crash detected, will show dialog when Activity is ready",
                 )
-                showToast(localizedDebugString(R.string.debug_native_crash_preparing_report))
+                showToast(localizedString(R.string.debug_native_crash_preparing_report))
                 CrashInterceptorUtils.startActivityPolling(TAG) {
                     showPendingNativeCrashDialog()
                 }
             }
-        }.onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to check for pending crash", it) }
     }
 
     private fun showPendingNativeCrashDialog() {
@@ -58,9 +59,10 @@ object NativeCrashInterceptor : SwitchFeature() {
                 titleSummaryRes = R.string.debug_native_crash_detected,
                 titleDetailRes = R.string.debug_native_crash_details,
                 clearPendingFlag = CrashLogsManager::clearPendingNativeCrashFlag,
-                extractSummary = ::extractCrashSummary
+                extractSummary = ::extractCrashSummary,
             )
-        }.onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to show pending crash dialog", it) }
     }
 
     private fun extractCrashSummary(crashInfo: String): String {
@@ -94,7 +96,7 @@ object NativeCrashInterceptor : SwitchFeature() {
 
                 line.contains("Stack Trace") -> {
                     foundStackTrace = true
-                    summary.append(localizedDebugString(R.string.debug_crash_stack_preview)).append("\n")
+                    summary.append(localizedString(R.string.debug_crash_stack_preview)).append("\n")
                 }
 
                 foundStackTrace -> {
@@ -109,10 +111,10 @@ object NativeCrashInterceptor : SwitchFeature() {
         }
 
         if (summary.isEmpty()) {
-            return localizedDebugString(R.string.debug_crash_summary_parse_failed)
+            return localizedString(R.string.debug_crash_summary_parse_failed)
         }
 
-        summary.append("\n").append(localizedDebugString(R.string.debug_crash_view_full_log_hint))
+        summary.append("\n").append(localizedString(R.string.debug_crash_view_full_log_hint))
         return summary.toString()
     }
 

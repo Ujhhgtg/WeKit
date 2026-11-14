@@ -30,24 +30,21 @@ import java.io.File
 import java.nio.file.Path
 
 object CrashInterceptorUtils {
-
-    fun isMainProcess(appContext: Context): Boolean {
-        return runCatching {
-            getProcessName() == appContext.packageName
-        }.getOrDefault(false)
+    fun isMainProcess(appContext: Context): Boolean = runCatching {
+        getProcessName() == appContext.packageName
     }
+        .getOrDefault(false)
 
-    fun getProcessName(): String {
-        return try {
+    fun getProcessName(): String =
+        try {
             File("/proc/${Process.myPid()}/cmdline").readText().trim('\u0000')
         } catch (_: Throwable) {
             ""
         }
-    }
 
     /**
-     * Polls until a live launcher Activity is available, then invokes [onReady].
-     * Gives up after [maxRetries] * 500ms + initial [initialDelayMs].
+     * Polls until a live launcher Activity is available, then invokes [onReady]. Gives up after
+     * [maxRetries] * 500ms + initial [initialDelayMs].
      */
     fun startActivityPolling(
         tag: String,
@@ -58,26 +55,27 @@ object CrashInterceptorUtils {
         val handler = Handler(Looper.getMainLooper())
         var retryCount = 0
 
-        val runnable = object : Runnable {
-            override fun run() {
-                try {
-                    val activity = LauncherUI.getInstance()
-                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
-                        WeLogger.i(tag, "activity is ready")
-                        onReady(activity)
-                        return
+        val runnable =
+            object : Runnable {
+                override fun run() {
+                    try {
+                        val activity = LauncherUI.getInstance()
+                        if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                            WeLogger.i(tag, "activity is ready")
+                            onReady(activity)
+                            return
+                        }
+                        retryCount++
+                        if (retryCount < maxRetries) {
+                            handler.postDelayed(this, 500)
+                        } else {
+                            WeLogger.w(tag, "max retries reached, giving up on showing dialog")
+                        }
+                    } catch (e: Throwable) {
+                        WeLogger.e(tag, "error in activity polling", e)
                     }
-                    retryCount++
-                    if (retryCount < maxRetries) {
-                        handler.postDelayed(this, 500)
-                    } else {
-                        WeLogger.w(tag, "max retries reached, giving up on showing dialog")
-                    }
-                } catch (e: Throwable) {
-                    WeLogger.e(tag, "error in activity polling", e)
                 }
             }
-        }
 
         handler.postDelayed(runnable, initialDelayMs)
     }
@@ -87,16 +85,16 @@ object CrashInterceptorUtils {
         crashInfo: String,
         overflowNotice: String,
         maxLength: Int = 15 * 1024,
-    ): String {
-        return if (crashInfo.length > maxLength) {
+    ): String =
+        if (crashInfo.length > maxLength) {
             crashInfo.take(maxLength) +
-                    "\n\n=============================\n" +
-                    overflowNotice + "\n" +
-                    "============================="
+                "\n\n=============================\n" +
+                overflowNotice +
+                "\n" +
+                "============================="
         } else {
             crashInfo
         }
-    }
 
     fun showPendingCrashDialog(
         activity: Activity,
@@ -104,7 +102,7 @@ object CrashInterceptorUtils {
         @StringRes titleSummaryRes: Int,
         @StringRes titleDetailRes: Int,
         clearPendingFlag: () -> Unit,
-        extractSummary: (String) -> String
+        extractSummary: (String) -> String,
     ) {
         val crashInfo = CrashLogsManager.readCrashLog(crashLogFile) ?: return
 
@@ -113,9 +111,10 @@ object CrashInterceptorUtils {
 
             if (showDetail) {
                 val overflowNotice = stringResource(R.string.debug_crash_log_truncated_notice)
-                val displayInfo = remember(crashInfo, overflowNotice) {
-                    buildDisplayCrashInfo(crashInfo, overflowNotice)
-                }
+                val displayInfo =
+                    remember(crashInfo, overflowNotice) {
+                        buildDisplayCrashInfo(crashInfo, overflowNotice)
+                    }
                 AlertDialogContent(
                     title = { Text(stringResource(titleDetailRes)) },
                     text = {
@@ -123,26 +122,34 @@ object CrashInterceptorUtils {
                             Text(
                                 displayInfo,
                                 fontFamily = FontFamily.Monospace,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
+                                modifier =
+                                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                             )
                         }
                     },
                     confirmButton = {
-                        TextButton(onClick = {
-                            val fullCrashInfo = CrashLogsManager.readFullCrashLog(crashLogFile) ?: crashInfo
-                            copyToClipboard(activity, fullCrashInfo)
-                            onDismiss()
-                            clearPendingFlag()
-                        }) { Text(stringResource(R.string.debug_crash_copy_full_log)) }
+                        TextButton(
+                            onClick = {
+                                val fullCrashInfo =
+                                    CrashLogsManager.readFullCrashLog(crashLogFile) ?: crashInfo
+                                copyToClipboard(activity, fullCrashInfo)
+                                onDismiss()
+                                clearPendingFlag()
+                            },
+                        ) {
+                            Text(stringResource(R.string.debug_crash_copy_full_log))
+                        }
                     },
                     dismissButton = {
-                        TextButton(onClick = {
-                            onDismiss()
-                            clearPendingFlag()
-                        }) { Text(stringResource(R.string.action_close)) }
-                    }
+                        TextButton(
+                            onClick = {
+                                onDismiss()
+                                clearPendingFlag()
+                            },
+                        ) {
+                            Text(stringResource(R.string.action_close))
+                        }
+                    },
                 )
             } else {
                 AlertDialogContent(
@@ -151,9 +158,7 @@ object CrashInterceptorUtils {
                         Text(
                             extractSummary(crashInfo),
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                         )
                     },
                     confirmButton = {
@@ -162,11 +167,15 @@ object CrashInterceptorUtils {
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = {
-                            onDismiss()
-                            clearPendingFlag()
-                        }) { Text(stringResource(R.string.debug_crash_ignore)) }
-                    }
+                        TextButton(
+                            onClick = {
+                                onDismiss()
+                                clearPendingFlag()
+                            },
+                        ) {
+                            Text(stringResource(R.string.debug_crash_ignore))
+                        }
+                    },
                 )
             }
         }

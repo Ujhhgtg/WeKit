@@ -25,7 +25,7 @@ fun Button(
     border: BorderStroke? = null,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     interactionSource: MutableInteractionSource? = null,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) {
     androidx.compose.material3.Button(
         onClick = onClick,
@@ -37,7 +37,7 @@ fun Button(
         border = border,
         contentPadding = contentPadding,
         interactionSource = interactionSource,
-        content = content
+        content = content,
     )
 }
 
@@ -52,7 +52,7 @@ fun TextButton(
     border: BorderStroke? = null,
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
     interactionSource: MutableInteractionSource? = null,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) {
     androidx.compose.material3.TextButton(
         onClick = onClick,
@@ -64,7 +64,7 @@ fun TextButton(
         border = border,
         contentPadding = contentPadding,
         interactionSource = interactionSource,
-        content = content
+        content = content,
     )
 }
 
@@ -76,7 +76,7 @@ fun IconButton(
     shapes: IconButtonShapes = IconButtonDefaults.shapes(),
     colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
     interactionSource: MutableInteractionSource? = null,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     androidx.compose.material3.IconButton(
         onClick = onClick,
@@ -85,7 +85,7 @@ fun IconButton(
         shapes = shapes,
         colors = colors,
         interactionSource = interactionSource,
-        content = content
+        content = content,
     )
 }
 
@@ -97,7 +97,7 @@ fun FilledIconButton(
     shapes: IconButtonShapes = IconButtonDefaults.shapes(),
     colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
     interactionSource: MutableInteractionSource? = null,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     androidx.compose.material3.FilledIconButton(
         onClick = onClick,
@@ -106,6 +106,6 @@ fun FilledIconButton(
         shapes = shapes,
         colors = colors,
         interactionSource = interactionSource,
-        content = content
+        content = content,
     )
 }

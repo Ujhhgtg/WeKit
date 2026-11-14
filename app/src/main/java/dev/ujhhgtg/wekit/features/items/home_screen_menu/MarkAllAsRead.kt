@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.MarkChatReadIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -27,11 +28,13 @@ object MarkAllAsRead : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvi
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777012, localizedHomeMenuString(R.string.home_menu_mark_all_read), MarkChatReadIcon
+                777012,
+                localizedString(R.string.home_menu_mark_all_read),
+                MarkChatReadIcon,
             ) {
                 WeConversationApi.markAllAsRead()
-                showToast(localizedHomeMenuString(R.string.home_menu_all_marked_read))
-            }
+                showToast(localizedString(R.string.home_menu_all_marked_read))
+            },
         )
     }
 }

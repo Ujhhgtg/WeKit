@@ -9,14 +9,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -25,11 +25,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterceptor {
-
     override val technicalId = "修改转账显示余额"
     override val nameRes = R.string.feature_modify_transfer_wallet_balance_display_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
-    override val descriptionRes = R.string.feature_modify_transfer_wallet_balance_display_description
+    override val descriptionRes =
+        R.string.feature_modify_transfer_wallet_balance_display_description
 
     private const val TAG = "ModifyTransferWalletBalanceDisplay"
 
@@ -67,8 +67,8 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
             keysList.add(keysIterator.next())
         }
 
-        val customCft = WePrefs.getStringOrDef(KEY_CFT_BALANCE, null)
-        val customLqt = WePrefs.getStringOrDef(KEY_LQT_BALANCE, null)
+        val customCft = KvStore.getStringOrDef(KEY_CFT_BALANCE, null)
+        val customLqt = KvStore.getStringOrDef(KEY_LQT_BALANCE, null)
 
         for (key in keysList) {
             val value = obj.opt(key) ?: continue
@@ -88,16 +88,17 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
                     handleField3(obj)
                 }
 
-                if (value == "CFT" && customCft != null)
+                if (value == "CFT" && customCft != null) {
                     updateBalanceText(
                         obj,
-                        localizedPaymentString(R.string.payment_transfer_wallet_balance, customCft),
+                        localizedString(R.string.payment_transfer_wallet_balance, customCft),
                     )
-                else if (value == "LQT" && customLqt != null)
+                } else if (value == "LQT" && customLqt != null) {
                     updateBalanceText(
                         obj,
-                        localizedPaymentString(R.string.payment_transfer_wealth_balance, customLqt),
+                        localizedString(R.string.payment_transfer_wealth_balance, customLqt),
                     )
+                }
             }
 
             if (value is JSONObject) {
@@ -132,7 +133,8 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
             subField1.put("3", newText)
             val field11 = item.optJSONObject("11")
             field11?.optJSONObject("1")?.put("3", newText.replace(Regex("\\(.*?\\)"), ""))
-        }.onFailure { WeLogger.e(TAG, "failed when updating balance text", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed when updating balance text", it) }
     }
 
     override fun onDisable() {
@@ -143,44 +145,64 @@ object ModifyTransferWalletBalanceDisplay : ClickableFeature(), IWePacketInterce
         showComposeDialog(context) {
             var cftInput by remember {
                 mutableStateOf(
-                    WePrefs.getStringOrDef(KEY_CFT_BALANCE, null) ?: ""
+                    KvStore.getStringOrDef(KEY_CFT_BALANCE, null) ?: "",
                 )
             }
             var lqtInput by remember {
                 mutableStateOf(
-                    WePrefs.getStringOrDef(KEY_LQT_BALANCE, null) ?: ""
+                    KvStore.getStringOrDef(KEY_LQT_BALANCE, null) ?: "",
                 )
             }
 
             AlertDialogContent(
-                title = { Text(stringResource(R.string.feature_modify_transfer_wallet_balance_display_name)) },
+                title = {
+                    Text(
+                        stringResource(
+                            R.string.feature_modify_transfer_wallet_balance_display_name,
+                        ),
+                    )
+                },
                 text = {
                     DefaultColumn {
                         TextField(
                             value = cftInput,
                             onValueChange = { cftInput = it },
-                            label = { Text(stringResource(R.string.payment_wallet_balance_optional)) })
+                            label = {
+                                Text(stringResource(R.string.payment_wallet_balance_optional))
+                            },
+                        )
                         TextField(
                             value = lqtInput,
                             onValueChange = { lqtInput = it },
-                            label = { Text(stringResource(R.string.payment_wealth_balance_optional)) })
+                            label = {
+                                Text(stringResource(R.string.payment_wealth_balance_optional))
+                            },
+                        )
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        if (!cftInput.isBlank())
-                            WePrefs.putString(KEY_CFT_BALANCE, cftInput)
-                        else
-                            WePrefs.remove(KEY_CFT_BALANCE)
+                    TextButton(
+                        onClick = {
+                            if (!cftInput.isBlank()) {
+                                KvStore.putString(KEY_CFT_BALANCE, cftInput)
+                            } else {
+                                KvStore.remove(KEY_CFT_BALANCE)
+                            }
 
-                        if (!lqtInput.isBlank())
-                            WePrefs.putString(KEY_LQT_BALANCE, lqtInput)
-                        else
-                            WePrefs.remove(KEY_LQT_BALANCE)
-                        onDismiss()
-                    }) { Text(stringResource(R.string.dialog_confirm)) }
+                            if (!lqtInput.isBlank()) {
+                                KvStore.putString(KEY_LQT_BALANCE, lqtInput)
+                            } else {
+                                KvStore.remove(KEY_LQT_BALANCE)
+                            }
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.dialog_confirm))
+                    }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                },
             )
         }
     }

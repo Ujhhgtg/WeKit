@@ -7,7 +7,13 @@ import dev.ujhhgtg.wekit.features.core.AgentToolParam
 import kotlinx.coroutines.currentCoroutineContext
 
 object WeAgentExecToolBindings {
-    @AgentTool(name = "exec", description = "Run a bounded non-interactive shell command in the active Linux environment and return its output and exit metadata.", sideEffect = true, group = AgentTool.BUILTIN_FS)
+    @AgentTool(
+        name = "exec",
+        description =
+            "Run a bounded non-interactive shell command in the active Linux environment and return its output and exit metadata.",
+        sideEffect = true,
+        group = AgentTool.BUILTIN_FS,
+    )
     suspend fun exec(
         @AgentToolParam("Shell command source") command: String,
         @AgentToolParam("Positive timeout in milliseconds") timeout_ms: Long?,
@@ -16,24 +22,35 @@ object WeAgentExecToolBindings {
         val session = coroutineContext[AgentSessionContext] ?: error("no active agent session")
         val environment = session.environment ?: error("no active Linux environment context")
         val artifact = WeAgentService.linuxEnvironmentManager.ensureBridge(environment.id)
-            ?: error("invoke_tool is unavailable in ${environment.displayName}")
-        val result = WeAgentService.toolBridgeServer.withOneShot(
-            owner = session.sessionId,
-            environmentId = environment.id,
-            parentToolCallId = coroutineContext[ToolExecutionContext]?.callId,
-            visibility = session.toolVisibility,
-            context = coroutineContext,
-        ) { endpoint ->
+
+        suspend fun execute(extraEnvironment: Map<String, String> = emptyMap()) =
             WeAgentService.linuxEnvironmentManager.exec(
                 environment.id,
                 command,
                 timeout_ms ?: 60_000L,
-                environment.environmentVariables + endpoint.environment() + mapOf(
-                    "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
-                    "PATH" to "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
-                ),
+                environment.environmentVariables + extraEnvironment,
             )
-        }
+        val result =
+            if (artifact == null) {
+                execute()
+            } else {
+                WeAgentService.toolBridgeServer.withOneShot(
+                    owner = session.sessionId,
+                    environmentId = environment.id,
+                    parentToolCallId = coroutineContext[ToolExecutionContext]?.callId,
+                    visibility = session.toolVisibility,
+                    context = coroutineContext,
+                ) { endpoint ->
+                    execute(
+                        endpoint.environment() +
+                            mapOf(
+                                "WEAGENT_INVOKE_TOOL" to artifact.executablePath,
+                                "PATH" to
+                                    "${artifact.binDirectory}:${System.getenv("PATH").orEmpty()}",
+                            ),
+                    )
+                }
+            }
         return buildString {
             append("exit_code=").append(result.exitCode).append('\n')
             append("timed_out=").append(result.timedOut).append('\n')

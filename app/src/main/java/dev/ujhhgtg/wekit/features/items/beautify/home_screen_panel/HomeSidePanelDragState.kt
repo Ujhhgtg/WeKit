@@ -4,12 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-internal data class DragItemBounds(
+data class DragItemBounds(
     val start: Float,
     val end: Float,
 )
 
-internal fun insertionIndex(
+fun insertionIndex(
     position: Float,
     bounds: List<DragItemBounds>,
 ): Int {
@@ -17,53 +17,59 @@ internal fun insertionIndex(
     return if (before >= 0) before else bounds.size
 }
 
-internal enum class HomeSidePanelPointerLifecycleDecision {
+enum class HomeSidePanelPointerLifecycleDecision {
     Continue,
     Finish,
     Cancel,
 }
 
-internal fun homeSidePanelPointerLifecycleDecision(
+fun homeSidePanelPointerLifecycleDecision(
     previousPressed: Boolean,
     pressed: Boolean,
     consumedAtInitialPass: Boolean,
-): HomeSidePanelPointerLifecycleDecision = when {
-    !previousPressed || pressed -> HomeSidePanelPointerLifecycleDecision.Continue
-    consumedAtInitialPass -> HomeSidePanelPointerLifecycleDecision.Cancel
-    else -> HomeSidePanelPointerLifecycleDecision.Finish
-}
+): HomeSidePanelPointerLifecycleDecision =
+    when {
+        !previousPressed || pressed -> HomeSidePanelPointerLifecycleDecision.Continue
+        consumedAtInitialPass -> HomeSidePanelPointerLifecycleDecision.Cancel
+        else -> HomeSidePanelPointerLifecycleDecision.Finish
+    }
 
-internal fun normalizedMoveDestination(
+fun normalizedMoveDestination(
     sourceIndex: Int,
     insertionIndex: Int,
 ): Int = if (insertionIndex > sourceIndex) insertionIndex - 1 else insertionIndex
 
-internal data class RootDragPosition(
+data class RootDragPosition(
     val x: Float,
     val y: Float,
 )
 
-internal data class RootDragBounds(
+data class RootDragBounds(
     val left: Float,
     val top: Float,
     val right: Float,
     val bottom: Float,
 ) {
-    val width: Float get() = right - left
-    val height: Float get() = bottom - top
+    val width: Float
+        get() = right - left
+
+    val height: Float
+        get() = bottom - top
 
     fun contains(position: RootDragPosition): Boolean =
         position.x in left..right && position.y in top..bottom
 }
 
-internal enum class HomeSidePanelDragAxis {
+enum class HomeSidePanelDragAxis {
     Horizontal,
     Vertical,
 }
 
-internal sealed interface HomeSidePanelDragPayload {
+sealed interface HomeSidePanelDragPayload {
     data class ExistingCard(val cardId: String) : HomeSidePanelDragPayload
+
     data class NewCard(val type: HomeSidePanelCardType) : HomeSidePanelDragPayload
+
     data class ExistingAction(
         val cardId: String,
         val actionId: String,
@@ -75,33 +81,36 @@ internal sealed interface HomeSidePanelDragPayload {
     ) : HomeSidePanelDragPayload
 }
 
-internal sealed interface HomeSidePanelExistingDragSource {
+sealed interface HomeSidePanelExistingDragSource {
     data object CardBackground : HomeSidePanelExistingDragSource
+
     data object VirtualAdd : HomeSidePanelExistingDragSource
+
     data class Action(val actionId: String) : HomeSidePanelExistingDragSource
 }
 
-internal fun homeSidePanelExistingDragPayload(
+fun homeSidePanelExistingDragPayload(
     cardId: String,
     source: HomeSidePanelExistingDragSource,
-): HomeSidePanelDragPayload = when (source) {
-    HomeSidePanelExistingDragSource.CardBackground,
-    HomeSidePanelExistingDragSource.VirtualAdd,
-    -> HomeSidePanelDragPayload.ExistingCard(cardId)
+): HomeSidePanelDragPayload =
+    when (source) {
+        HomeSidePanelExistingDragSource.CardBackground,
+        HomeSidePanelExistingDragSource.VirtualAdd -> HomeSidePanelDragPayload.ExistingCard(cardId)
 
-    is HomeSidePanelExistingDragSource.Action ->
-        HomeSidePanelDragPayload.ExistingAction(cardId, source.actionId)
-}
+        is HomeSidePanelExistingDragSource.Action ->
+            HomeSidePanelDragPayload.ExistingAction(cardId, source.actionId)
+    }
 
-internal sealed interface HomeSidePanelDragTarget {
+sealed interface HomeSidePanelDragTarget {
     data class Card(val insertionIndex: Int) : HomeSidePanelDragTarget
+
     data class Action(
         val cardId: String,
         val insertionIndex: Int,
     ) : HomeSidePanelDragTarget
 }
 
-internal sealed interface HomeSidePanelDragCommit {
+sealed interface HomeSidePanelDragCommit {
     data class MoveCard(
         val cardId: String,
         val insertionIndex: Int,
@@ -125,44 +134,50 @@ internal sealed interface HomeSidePanelDragCommit {
     ) : HomeSidePanelDragCommit
 }
 
-internal fun HomeSidePanelEditSession.applyHomeSidePanelDragCommit(
+fun HomeSidePanelEditSession.applyHomeSidePanelDragCommit(
     commit: HomeSidePanelDragCommit,
-): String? = when (commit) {
-    is HomeSidePanelDragCommit.MoveCard -> {
-        val source = draft.cards.indexOfFirst { it.id == commit.cardId }
-        require(source >= 0) { "Card '${commit.cardId}' does not exist in the draft layout" }
-        moveCard(source, normalizedMoveDestination(source, commit.insertionIndex))
-        null
-    }
+): String? =
+    when (commit) {
+        is HomeSidePanelDragCommit.MoveCard -> {
+            val source = draft.cards.indexOfFirst { it.id == commit.cardId }
+            require(source >= 0) { "Card '${commit.cardId}' does not exist in the draft layout" }
+            moveCard(source, normalizedMoveDestination(source, commit.insertionIndex))
+            null
+        }
 
-    is HomeSidePanelDragCommit.InsertCard -> addCard(commit.type, commit.insertionIndex)
-    is HomeSidePanelDragCommit.MoveAction -> {
-        val card = draft.cards.firstOrNull { it.id == commit.cardId }
-            ?: throw IllegalArgumentException("Card '${commit.cardId}' does not exist in the draft layout")
-        val actions = when (card) {
-            is HorizontalActionsCardConfig -> card.actions
-            is VerticalActionsCardConfig -> card.actions
-            else -> throw IllegalArgumentException(
-                "Card '${commit.cardId}' is ${card.type}; expected an action card",
+        is HomeSidePanelDragCommit.InsertCard -> addCard(commit.type, commit.insertionIndex)
+        is HomeSidePanelDragCommit.MoveAction -> {
+            val card =
+                draft.cards.firstOrNull { it.id == commit.cardId }
+                    ?: throw IllegalArgumentException(
+                        "Card '${commit.cardId}' does not exist in the draft layout",
+                    )
+            val actions =
+                when (card) {
+                    is HorizontalActionsCardConfig -> card.actions
+                    is VerticalActionsCardConfig -> card.actions
+                    else ->
+                        throw IllegalArgumentException(
+                            "Card '${commit.cardId}' is ${card.type}; expected an action card",
+                        )
+                }
+            val source = actions.indexOfFirst { it.id == commit.actionId }
+            require(source >= 0) {
+                "Action '${commit.actionId}' does not exist in card '${commit.cardId}'"
+            }
+            moveAction(
+                cardId = commit.cardId,
+                fromIndex = source,
+                toIndex = normalizedMoveDestination(source, commit.insertionIndex),
             )
+            null
         }
-        val source = actions.indexOfFirst { it.id == commit.actionId }
-        require(source >= 0) {
-            "Action '${commit.actionId}' does not exist in card '${commit.cardId}'"
-        }
-        moveAction(
-            cardId = commit.cardId,
-            fromIndex = source,
-            toIndex = normalizedMoveDestination(source, commit.insertionIndex),
-        )
-        null
+
+        is HomeSidePanelDragCommit.InsertAction ->
+            addAction(commit.cardId, commit.kind, commit.insertionIndex)
     }
 
-    is HomeSidePanelDragCommit.InsertAction ->
-        addAction(commit.cardId, commit.kind, commit.insertionIndex)
-}
-
-internal data class HomeSidePanelDragSnapshot(
+data class HomeSidePanelDragSnapshot(
     val payload: HomeSidePanelDragPayload,
     val pointerId: Long,
     val rootPosition: RootDragPosition,
@@ -174,7 +189,7 @@ internal data class HomeSidePanelDragSnapshot(
     val targetChangeToken: Long,
 )
 
-internal fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
+fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
     cards: List<HomeSidePanelCardConfig>,
 ): Int? {
     val insertionIndex = (target as? HomeSidePanelDragTarget.Card)?.insertionIndex ?: return null
@@ -189,12 +204,11 @@ internal fun HomeSidePanelDragSnapshot.visualCardInsertionIndex(
         }
 
         is HomeSidePanelDragPayload.ExistingAction,
-        is HomeSidePanelDragPayload.NewAction,
-        -> null
+        is HomeSidePanelDragPayload.NewAction -> null
     }
 }
 
-internal fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
+fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
     cardId: String,
     actions: List<HomeSidePanelActionConfig>,
 ): Int? {
@@ -215,12 +229,11 @@ internal fun HomeSidePanelDragSnapshot.visualActionInsertionIndex(
         }
 
         is HomeSidePanelDragPayload.ExistingCard,
-        is HomeSidePanelDragPayload.NewCard,
-        -> null
+        is HomeSidePanelDragPayload.NewCard -> null
     }
 }
 
-internal class HomeSidePanelDragState(
+class HomeSidePanelDragState(
     private val onDragActiveChanged: (Boolean) -> Unit = {},
 ) {
     private data class RegisteredBounds(
@@ -239,10 +252,10 @@ internal class HomeSidePanelDragState(
         var top: Float,
         var bottom: Float,
     ) {
-        val centerY: Float get() = (top + bottom) / 2f
+        val centerY: Float
+            get() = (top + bottom) / 2f
 
-        fun overlaps(bounds: RootDragBounds): Boolean =
-            bounds.top < bottom && bounds.bottom > top
+        fun overlaps(bounds: RootDragBounds): Boolean = bounds.top < bottom && bounds.bottom > top
 
         fun add(item: RegisteredBounds) {
             items += item
@@ -363,26 +376,28 @@ internal class HomeSidePanelDragState(
         }
 
         val registeredSource = sourceBoundsFor(payload) ?: sourceBounds
-        val adjustedAnchor = if (registeredSource != sourceBounds) {
-            RootDragPosition(
-                x = rootPosition.x - registeredSource.left,
-                y = rootPosition.y - registeredSource.top,
-            )
-        } else {
-            anchor
-        }
+        val adjustedAnchor =
+            if (registeredSource != sourceBounds) {
+                RootDragPosition(
+                    x = rootPosition.x - registeredSource.left,
+                    y = rootPosition.y - registeredSource.top,
+                )
+            } else {
+                anchor
+            }
         val target = targetFor(payload, rootPosition)
-        snapshot = HomeSidePanelDragSnapshot(
-            payload = payload,
-            pointerId = pointerId,
-            rootPosition = rootPosition,
-            anchor = adjustedAnchor,
-            sourceBounds = registeredSource,
-            target = target,
-            targetBounds = targetBoundsFor(payload, target, registeredSource),
-            startToken = active?.startToken ?: ++nextStartToken,
-            targetChangeToken = active?.targetChangeToken ?: 0L,
-        )
+        snapshot =
+            HomeSidePanelDragSnapshot(
+                payload = payload,
+                pointerId = pointerId,
+                rootPosition = rootPosition,
+                anchor = adjustedAnchor,
+                sourceBounds = registeredSource,
+                target = target,
+                targetBounds = targetBoundsFor(payload, target, registeredSource),
+                startToken = active?.startToken ?: ++nextStartToken,
+                targetChangeToken = active?.targetChangeToken ?: 0L,
+            )
         if (active == null) onDragActiveChanged(true)
         return active == null
     }
@@ -390,7 +405,10 @@ internal class HomeSidePanelDragState(
     fun updateRootPosition(x: Float, y: Float) {
         val active = snapshot ?: return
         val position = RootDragPosition(x, y)
-        updateSnapshotTarget(active.copy(rootPosition = position), targetFor(active.payload, position))
+        updateSnapshotTarget(
+            active.copy(rootPosition = position),
+            targetFor(active.payload, position),
+        )
     }
 
     // Bounds registration is deliberately passive. Recomputing from onGloballyPositioned would
@@ -449,60 +467,64 @@ internal class HomeSidePanelDragState(
         active: HomeSidePanelDragSnapshot,
         target: HomeSidePanelDragTarget?,
     ) {
-        snapshot = active.copy(
-            target = target,
-            targetBounds = targetBoundsFor(active.payload, target, active.sourceBounds),
-            targetChangeToken = if (target != null && target != active.target) {
-                active.targetChangeToken + 1
-            } else {
-                active.targetChangeToken
-            },
-        )
+        snapshot =
+            active.copy(
+                target = target,
+                targetBounds = targetBoundsFor(active.payload, target, active.sourceBounds),
+                targetChangeToken =
+                    if (target != null && target != active.target) {
+                        active.targetChangeToken + 1
+                    } else {
+                        active.targetChangeToken
+                    },
+            )
     }
 
     private fun targetFor(
         payload: HomeSidePanelDragPayload,
         position: RootDragPosition,
-    ): HomeSidePanelDragTarget? = when (payload) {
-        is HomeSidePanelDragPayload.ExistingCard,
-        is HomeSidePanelDragPayload.NewCard,
-        -> cardInsertionTarget(position)
+    ): HomeSidePanelDragTarget? =
+        when (payload) {
+            is HomeSidePanelDragPayload.ExistingCard,
+            is HomeSidePanelDragPayload.NewCard -> cardInsertionTarget(position)
 
-        is HomeSidePanelDragPayload.ExistingAction ->
-            actionInsertionTarget(payload.cardId, position)
+            is HomeSidePanelDragPayload.ExistingAction ->
+                actionInsertionTarget(payload.cardId, position)
 
-        is HomeSidePanelDragPayload.NewAction ->
-            actionInsertionTarget(payload.cardId, position)
-    }
+            is HomeSidePanelDragPayload.NewAction -> actionInsertionTarget(payload.cardId, position)
+        }
 
     private fun targetBoundsFor(
         payload: HomeSidePanelDragPayload,
         target: HomeSidePanelDragTarget?,
         sourceBounds: RootDragBounds,
-    ): RootDragBounds? = when {
-        payload is HomeSidePanelDragPayload.ExistingCard ||
-            payload is HomeSidePanelDragPayload.ExistingAction -> null
+    ): RootDragBounds? =
+        when {
+            payload is HomeSidePanelDragPayload.ExistingCard ||
+                payload is HomeSidePanelDragPayload.ExistingAction -> null
 
-        target is HomeSidePanelDragTarget.Card -> {
-            val ordered = cardBounds.values.sortedBy(RegisteredBounds::index)
-            ordered.getOrNull(target.insertionIndex)?.bounds ?: ordered.lastOrNull()?.bounds
-        }
-
-        target is HomeSidePanelDragTarget.Action -> {
-            val ordered = registeredActionTargets(target.cardId)
-            ordered.firstOrNull { it.index >= target.insertionIndex }?.bounds
-                ?: ordered.lastOrNull()?.bounds ?: run {
-                val container = actionContainers[target.cardId] ?: return null
-                val width = when (container.axis) {
-                    HomeSidePanelDragAxis.Horizontal -> container.bounds.width / 3f
-                    HomeSidePanelDragAxis.Vertical -> container.bounds.width
-                }
-                RootDragBounds(0f, 0f, width, sourceBounds.height)
+            target is HomeSidePanelDragTarget.Card -> {
+                val ordered = cardBounds.values.sortedBy(RegisteredBounds::index)
+                ordered.getOrNull(target.insertionIndex)?.bounds ?: ordered.lastOrNull()?.bounds
             }
-        }
 
-        else -> null
-    }
+            target is HomeSidePanelDragTarget.Action -> {
+                val ordered = registeredActionTargets(target.cardId)
+                ordered.firstOrNull { it.index >= target.insertionIndex }?.bounds
+                    ?: ordered.lastOrNull()?.bounds
+                    ?: run {
+                        val container = actionContainers[target.cardId] ?: return null
+                        val width =
+                            when (container.axis) {
+                                HomeSidePanelDragAxis.Horizontal -> container.bounds.width / 3f
+                                HomeSidePanelDragAxis.Vertical -> container.bounds.width
+                            }
+                        RootDragBounds(0f, 0f, width, sourceBounds.height)
+                    }
+            }
+
+            else -> null
+        }
 
     private fun cardInsertionTarget(position: RootDragPosition): HomeSidePanelDragTarget.Card? {
         val viewport = viewportBounds ?: return null
@@ -524,39 +546,48 @@ internal class HomeSidePanelDragState(
         if (!container.bounds.contains(position)) return null
         val ordered = registeredActionTargets(cardId)
         val terminalIndex = actionTerminalBounds[cardId]?.index
-        val insertion = if (ordered.isEmpty()) {
-            0
-        } else {
-            when (container.axis) {
-                HomeSidePanelDragAxis.Horizontal ->
-                    horizontalModelInsertionIndex(position, ordered)
+        val insertion =
+            if (ordered.isEmpty()) {
+                    0
+                } else {
+                    when (container.axis) {
+                        HomeSidePanelDragAxis.Horizontal ->
+                            horizontalModelInsertionIndex(position, ordered)
 
-                HomeSidePanelDragAxis.Vertical ->
-                    modelInsertionIndex(position.y, ordered, HomeSidePanelDragAxis.Vertical)
-            }
-        }.let { index -> terminalIndex?.let(index::coerceAtMost) ?: index }
+                        HomeSidePanelDragAxis.Vertical ->
+                            modelInsertionIndex(position.y, ordered, HomeSidePanelDragAxis.Vertical)
+                    }
+                }
+                .let { index -> terminalIndex?.let(index::coerceAtMost) ?: index }
         return HomeSidePanelDragTarget.Action(cardId, insertion)
     }
 
     private fun registeredActionTargets(cardId: String): List<RegisteredBounds> = buildList {
         addAll(actionBounds[cardId].orEmpty().values)
         actionTerminalBounds[cardId]?.let(::add)
-    }.sortedBy(RegisteredBounds::index)
+    }
+        .sortedBy(RegisteredBounds::index)
 
     private fun modelInsertionIndex(
         position: Float,
         ordered: List<RegisteredBounds>,
         axis: HomeSidePanelDragAxis,
     ): Int {
-        val localIndex = insertionIndex(
-            position = position,
-            bounds = ordered.map { registered ->
-                val bounds = registered.bounds
-                val start = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.left else bounds.top
-                val end = if (axis == HomeSidePanelDragAxis.Horizontal) bounds.right else bounds.bottom
-                DragItemBounds(start, end)
-            },
-        )
+        val localIndex =
+            insertionIndex(
+                position = position,
+                bounds =
+                    ordered.map { registered ->
+                        val bounds = registered.bounds
+                        val start =
+                            if (axis == HomeSidePanelDragAxis.Horizontal) bounds.left
+                            else bounds.top
+                        val end =
+                            if (axis == HomeSidePanelDragAxis.Horizontal) bounds.right
+                            else bounds.bottom
+                        DragItemBounds(start, end)
+                    },
+            )
         return ordered.getOrNull(localIndex)?.index ?: (ordered.last().index + 1)
     }
 
@@ -570,34 +601,36 @@ internal class HomeSidePanelDragState(
             if (row != null && row.overlaps(item.bounds)) {
                 row.add(item)
             } else {
-                rows += HorizontalRow(
-                    items = mutableListOf(item),
-                    top = item.bounds.top,
-                    bottom = item.bounds.bottom,
-                )
+                rows +=
+                    HorizontalRow(
+                        items = mutableListOf(item),
+                        top = item.bounds.top,
+                        bottom = item.bounds.bottom,
+                    )
             }
         }
-        val row = rows
-            .filter { position.y in it.top..it.bottom }
-            .minByOrNull { kotlin.math.abs(position.y - it.centerY) }
-            ?: rows.minBy { kotlin.math.abs(position.y - it.centerY) }
+        val row =
+            rows
+                .filter { position.y in it.top..it.bottom }
+                .minByOrNull { kotlin.math.abs(position.y - it.centerY) }
+                ?: rows.minBy { kotlin.math.abs(position.y - it.centerY) }
         return modelInsertionIndex(position.x, row.items, HomeSidePanelDragAxis.Horizontal)
     }
 
-    private fun sourceBoundsFor(payload: HomeSidePanelDragPayload): RootDragBounds? = when (payload) {
-        is HomeSidePanelDragPayload.ExistingCard -> cardBounds[payload.cardId]?.sourceBounds
-        is HomeSidePanelDragPayload.ExistingAction ->
-            actionBounds[payload.cardId]?.get(payload.actionId)?.sourceBounds
-        is HomeSidePanelDragPayload.NewCard,
-        is HomeSidePanelDragPayload.NewAction,
-        -> null
-    }
+    private fun sourceBoundsFor(payload: HomeSidePanelDragPayload): RootDragBounds? =
+        when (payload) {
+            is HomeSidePanelDragPayload.ExistingCard -> cardBounds[payload.cardId]?.sourceBounds
+            is HomeSidePanelDragPayload.ExistingAction ->
+                actionBounds[payload.cardId]?.get(payload.actionId)?.sourceBounds
+            is HomeSidePanelDragPayload.NewCard,
+            is HomeSidePanelDragPayload.NewAction -> null
+        }
 
-    private fun payloadPriority(payload: HomeSidePanelDragPayload): Int = when (payload) {
-        is HomeSidePanelDragPayload.ExistingAction -> 2
-        is HomeSidePanelDragPayload.ExistingCard -> 1
-        is HomeSidePanelDragPayload.NewCard,
-        is HomeSidePanelDragPayload.NewAction,
-        -> 3
-    }
+    private fun payloadPriority(payload: HomeSidePanelDragPayload): Int =
+        when (payload) {
+            is HomeSidePanelDragPayload.ExistingAction -> 2
+            is HomeSidePanelDragPayload.ExistingCard -> 1
+            is HomeSidePanelDragPayload.NewCard,
+            is HomeSidePanelDragPayload.NewAction -> 3
+        }
 }

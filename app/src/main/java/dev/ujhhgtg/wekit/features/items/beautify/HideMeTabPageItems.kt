@@ -14,12 +14,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.isGone
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -29,24 +28,20 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.Collections
 import java.util.WeakHashMap
 
-
-object HideMeTabPageItems : ClickableFeature(), IResolveDex {
-
+object HideMeTabPageItems : ClickableFeature() {
     override val technicalId = "「我」页面精简"
     override val nameRes = R.string.feature_hide_me_tab_page_items_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_hide_me_tab_page_items_description
 
-    private var hideMoments by WePrefs.prefOption("hide_me_moments", false)
-    private var hideFinder by WePrefs.prefOption("hide_me_finder", false)
-    private var hideCards by WePrefs.prefOption("hide_me_cards", false)
-    private var hideEmoji by WePrefs.prefOption("hide_me_emoji", false)
+    private var hideMoments by KvStore.prefOption("hide_me_moments", false)
+    private var hideFinder by KvStore.prefOption("hide_me_finder", false)
+    private var hideCards by KvStore.prefOption("hide_me_cards", false)
+    private var hideEmoji by KvStore.prefOption("hide_me_emoji", false)
 
     private val methodOnViewCreated by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.MoreTabUI"
-            name = "onViewCreated"
-        }
+        declaredClass = "com.tencent.mm.ui.MoreTabUI"
+        name = "onViewCreated"
     }
 
     override fun onEnable() {
@@ -57,9 +52,10 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
         }
     }
 
-    private val installedRoots = Collections.synchronizedSet(
-        Collections.newSetFromMap(WeakHashMap<ViewGroup, Boolean>()),
-    )
+    private val installedRoots =
+        Collections.synchronizedSet(
+            Collections.newSetFromMap(WeakHashMap<ViewGroup, Boolean>()),
+        )
 
     private fun installLayoutListener(root: ViewGroup) {
         if (!installedRoots.add(root)) return
@@ -72,9 +68,13 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
     private fun applyEntryRules(root: ViewGroup) {
         val targets = selectedTargets
         if (targets.isEmpty()) return
-        root.findViewsWhich { it is TextView && it.text?.toString()?.trim().orEmpty() in targets }.forEach {
-            hideContainerFor(it)
-        }
+        root
+            .findViewsWhich {
+                it is TextView && it.text?.toString()?.trim().orEmpty() in targets
+            }
+            .forEach {
+                hideContainerFor(it)
+            }
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -103,7 +103,8 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.beautify_me_page_hide_works),
-                                description = stringResource(R.string.beautify_me_page_hide_works_summary),
+                                description =
+                                    stringResource(R.string.beautify_me_page_hide_works_summary),
                                 checked = hideFinderInput,
                                 onCheckedChange = {
                                     hideFinderInput = it
@@ -115,7 +116,8 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
                             SwitchWidget(
                                 iconPlaceholder = false,
                                 title = stringResource(R.string.beautify_me_page_hide_cards),
-                                description = stringResource(R.string.beautify_me_page_hide_cards_summary),
+                                description =
+                                    stringResource(R.string.beautify_me_page_hide_cards_summary),
                                 checked = hideCardsInput,
                                 onCheckedChange = {
                                     hideCardsInput = it
@@ -189,7 +191,12 @@ object HideMeTabPageItems : ClickableFeature(), IResolveDex {
         while (true) {
             val parent = current.parent
             if (parent !is ViewGroup) return null
-            if (parent is ListView || parent.javaClass.name == "androidx.recyclerview.widget.RecyclerView") return current
+            if (
+                parent is ListView ||
+                    parent.javaClass.name == "androidx.recyclerview.widget.RecyclerView"
+            ) {
+                return current
+            }
             current = parent
         }
     }

@@ -12,10 +12,13 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
-import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.nio.file.Path
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -31,11 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.nio.file.Path
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
-internal data class HomeSidePanelUiState(
+data class HomeSidePanelUiState(
     val profile: HomeSidePanelProfile,
     val formalLayout: HomeSidePanelLayout,
     val renderedLayout: HomeSidePanelLayout,
@@ -48,7 +48,7 @@ internal data class HomeSidePanelUiState(
     val imageImportingCardIds: Set<String> = emptySet(),
 )
 
-internal class HomeSidePanelState(
+class HomeSidePanelState(
     private val activity: Activity,
     private val profile: HomeSidePanelProfileLoader,
     private val weather: HomeSidePanelWeather,
@@ -82,37 +82,42 @@ internal class HomeSidePanelState(
     private val imageImports = linkedMapOf<String, ActiveImageImport>()
     private var statusSyncJob: Job? = null
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    private val _addCandidates = MutableSharedFlow<HomeSidePanelAddCandidate>(extraBufferCapacity = 8)
+    private val _addCandidates =
+        MutableSharedFlow<HomeSidePanelAddCandidate>(extraBufferCapacity = 8)
     private val _weatherSettings = MutableStateFlow<Map<String, WeatherSettingsUiState>>(emptyMap())
-    private val actionExecutor = HomeSidePanelActionExecutor(
-        activity = activity,
-        scope = scope,
-        closePanel = closePanel,
-        publishMessage = ::publishMessage,
-    )
+    private val actionExecutor =
+        HomeSidePanelActionExecutor(
+            activity = activity,
+            scope = scope,
+            closePanel = closePanel,
+            publishMessage = ::publishMessage,
+        )
     private val emptyLayout = HomeSidePanelLayout(cards = emptyList())
-    private val _uiState = MutableStateFlow(
-        HomeSidePanelUiState(
-            profile = HomeSidePanelProfile(
-                wxId = "",
-                nickname = "",
-                avatarUrl = "",
-                status = HomeSidePanelStatusUiState.Loading,
+    private val _uiState =
+        MutableStateFlow(
+            HomeSidePanelUiState(
+                profile =
+                    HomeSidePanelProfile(
+                        wxId = "",
+                        nickname = "",
+                        avatarUrl = "",
+                        status = HomeSidePanelStatusUiState.Loading,
+                    ),
+                formalLayout = emptyLayout,
+                renderedLayout = emptyLayout,
+                runtimeStates = emptyMap(),
+                route = HomeSidePanelRoute.Home,
+                editing = false,
+                initialized = false,
+                showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
+                hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
+                imageImportingCardIds = emptySet(),
             ),
-            formalLayout = emptyLayout,
-            renderedLayout = emptyLayout,
-            runtimeStates = emptyMap(),
-            route = HomeSidePanelRoute.Home,
-            editing = false,
-            initialized = false,
-            showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
-            hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
-            imageImportingCardIds = emptySet(),
-        ),
-    )
+        )
 
     val uiState: StateFlow<HomeSidePanelUiState> = _uiState.asStateFlow()
-    val weatherSettings: StateFlow<Map<String, WeatherSettingsUiState>> = _weatherSettings.asStateFlow()
+    val weatherSettings: StateFlow<Map<String, WeatherSettingsUiState>> =
+        _weatherSettings.asStateFlow()
     val messages: SharedFlow<String> = _messages.asSharedFlow()
     val addCandidates: SharedFlow<HomeSidePanelAddCandidate> = _addCandidates.asSharedFlow()
 
@@ -143,6 +148,7 @@ internal class HomeSidePanelState(
 
     fun onPanelOpened() {
         runtimeStore.resetWallets(renderedNamespace())
+        runtimeStore.refreshWallets(renderedNamespace())
         scheduleIdentitySync(
             waitForChange = false,
             maxAttempts = PANEL_OPEN_STATUS_SYNC_ATTEMPTS,
@@ -180,10 +186,11 @@ internal class HomeSidePanelState(
             return
         }
         val formal = _uiState.value.formalLayout
-        val active = ActiveEditing(
-            sessionId = idGenerator.nextId(),
-            editor = HomeSidePanelEditSession(formal, idGenerator),
-        )
+        val active =
+            ActiveEditing(
+                sessionId = idGenerator.nextId(),
+                editor = HomeSidePanelEditSession(formal, idGenerator),
+            )
         editing = active
         _uiState.update { it.copy(initialized = false) }
         runtimeStore.reconcileDraft(active.sessionId, old = null, new = active.editor.draft)
@@ -226,23 +233,27 @@ internal class HomeSidePanelState(
         check(_uiState.value.imageImportingCardIds.isEmpty()) {
             "Side panel image imports must finish before saving"
         }
-        val prepared = imageAssets.prepareCommit(
-            sessionId = active.sessionId,
-            oldAssetIds = _uiState.value.formalLayout.imageAssetIds(),
-            newAssetIds = active.editor.draft.imageAssetIds(),
-        ).getOrElse { failure ->
-            WeLogger.w(TAG, "failed to prepare side panel image assets", failure)
-            publishMessage(beautifyText(R.string.home_side_panel_save_failed))
-            return
-        }
-        val result = commitHomeSidePanelEdit(
-            editor = active.editor,
-            persist = layoutStore::save,
-            promote = {
-                _uiState.update { state -> state.copy(initialized = false) }
-                runtimeStore.promoteDraft(active.sessionId, it)
-            },
-        )
+        val prepared =
+            imageAssets
+                .prepareCommit(
+                    sessionId = active.sessionId,
+                    oldAssetIds = _uiState.value.formalLayout.imageAssetIds(),
+                    newAssetIds = active.editor.draft.imageAssetIds(),
+                )
+                .getOrElse { failure ->
+                    WeLogger.w(TAG, "failed to prepare side panel image assets", failure)
+                    publishMessage(beautifyText(R.string.home_side_panel_save_failed))
+                    return
+                }
+        val result =
+            commitHomeSidePanelEdit(
+                editor = active.editor,
+                persist = layoutStore::save,
+                promote = {
+                    _uiState.update { state -> state.copy(initialized = false) }
+                    runtimeStore.promoteDraft(active.sessionId, it)
+                },
+            )
         if (result is HomeSidePanelEditCommit.Retained) {
             imageAssets.rollbackCommit(prepared)
             WeLogger.w(TAG, "failed to save side panel layout", result.failure)
@@ -254,9 +265,10 @@ internal class HomeSidePanelState(
             WeLogger.w(TAG, "layout saved; recovering failed runtime promotion", failure)
             runtimeStore.recoverCommittedLayout(active.sessionId, result.layout)
         }
-        runCatching { imageAssets.finalizeCommit(prepared) }.onFailure { failure ->
-            WeLogger.w(TAG, "layout saved; failed to clean side panel image assets", failure)
-        }
+        runCatching { imageAssets.finalizeCommit(prepared) }
+            .onFailure { failure ->
+                WeLogger.w(TAG, "layout saved; failed to clean side panel image assets", failure)
+            }
 
         editing = null
         pendingLocationCardId = null
@@ -324,73 +336,104 @@ internal class HomeSidePanelState(
         refreshImageImportingCards()
         runCatching {
             TransparentActivity.launch(activity) {
-                val launcher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-                    finish()
-                    val request = imageImports[token] ?: return@registerForActivityResult
-                    if (uri == null) {
-                        completeImageImport(token)
-                        return@registerForActivityResult
-                    }
-                    val job = scope.launch {
-                        try {
-                            val result = imageAssets.importDraft(request.sessionId) {
-                                activity.contentResolver.openInputStream(uri)
-                                    ?: throw IllegalStateException("Failed to open selected image")
-                            }
-                            val current = editing
-                            val currentCardExists = current?.sessionId == request.sessionId &&
-                                current.editor.draft.cards.any {
-                                    it.id == request.cardId && it is ImageCardConfig
-                                }
-                            if (currentCardExists) {
-                                when (result) {
-                                    is HomeSidePanelImageImportResult.Success -> mutateImageDraft {
-                                        updateImage(request.cardId) {
-                                            it.copy(
-                                                imageAssetId = result.assetId,
-                                                imageWidthPx = result.widthPx,
-                                                imageHeightPx = result.heightPx,
+                val launcher =
+                    registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                        finish()
+                        val request = imageImports[token] ?: return@registerForActivityResult
+                        if (uri == null) {
+                            completeImageImport(token)
+                            return@registerForActivityResult
+                        }
+                        val job = scope.launch {
+                            try {
+                                val result =
+                                    imageAssets.importDraft(request.sessionId) {
+                                        activity.contentResolver.openInputStream(uri)
+                                            ?: throw IllegalStateException(
+                                                "Failed to open selected image",
+                                            )
+                                    }
+                                val current = editing
+                                val currentCardExists =
+                                    current?.sessionId == request.sessionId &&
+                                        current.editor.draft.cards.any {
+                                            it.id == request.cardId && it is ImageCardConfig
+                                        }
+                                if (currentCardExists) {
+                                    when (result) {
+                                        is HomeSidePanelImageImportResult.Success ->
+                                            mutateImageDraft {
+                                                updateImage(request.cardId) {
+                                                    it.copy(
+                                                        imageAssetId = result.assetId,
+                                                        imageWidthPx = result.widthPx,
+                                                        imageHeightPx = result.heightPx,
+                                                    )
+                                                }
+                                            }
+
+                                        HomeSidePanelImageImportResult.TooLarge ->
+                                            publishMessage(
+                                                beautifyText(
+                                                    R.string.home_side_panel_image_too_large,
+                                                ),
+                                            )
+
+                                        HomeSidePanelImageImportResult.TooManyPixels ->
+                                            publishMessage(
+                                                beautifyText(
+                                                    R.string
+                                                        .home_side_panel_image_dimensions_too_large,
+                                                ),
+                                            )
+
+                                        HomeSidePanelImageImportResult.UnsupportedAspectRatio ->
+                                            publishMessage(
+                                                beautifyText(
+                                                    R.string
+                                                        .home_side_panel_image_aspect_ratio_unsupported,
+                                                ),
+                                            )
+
+                                        HomeSidePanelImageImportResult.InvalidImage ->
+                                            publishMessage(
+                                                beautifyText(
+                                                    R.string.home_side_panel_image_invalid,
+                                                ),
+                                            )
+
+                                        is HomeSidePanelImageImportResult.Failure -> {
+                                            WeLogger.w(
+                                                TAG,
+                                                "failed to import side panel image",
+                                                result.error,
+                                            )
+                                            publishMessage(
+                                                beautifyText(
+                                                    R.string.home_side_panel_image_import_failed,
+                                                ),
                                             )
                                         }
                                     }
-
-                                    HomeSidePanelImageImportResult.TooLarge -> publishMessage(
-                                        beautifyText(R.string.home_side_panel_image_too_large),
-                                    )
-
-                                    HomeSidePanelImageImportResult.TooManyPixels -> publishMessage(
-                                        beautifyText(R.string.home_side_panel_image_dimensions_too_large),
-                                    )
-
-                                    HomeSidePanelImageImportResult.UnsupportedAspectRatio -> publishMessage(
-                                        beautifyText(R.string.home_side_panel_image_aspect_ratio_unsupported),
-                                    )
-
-                                    HomeSidePanelImageImportResult.InvalidImage -> publishMessage(
-                                        beautifyText(R.string.home_side_panel_image_invalid),
-                                    )
-
-                                    is HomeSidePanelImageImportResult.Failure -> {
-                                        WeLogger.w(TAG, "failed to import side panel image", result.error)
-                                        publishMessage(beautifyText(R.string.home_side_panel_image_import_failed))
-                                    }
+                                } else if (result is HomeSidePanelImageImportResult.Success) {
+                                    imageAssets.deleteDraftAsset(request.sessionId, result.assetId)
                                 }
-                            } else if (result is HomeSidePanelImageImportResult.Success) {
-                                imageAssets.deleteDraftAsset(request.sessionId, result.assetId)
+                            } finally {
+                                completeImageImport(token)
                             }
-                        } finally {
-                            completeImageImport(token)
                         }
+                        request.job = job
                     }
-                    request.job = job
-                }
-                launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                launcher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
             }
-        }.onFailure { failure ->
-            completeImageImport(token)
-            WeLogger.w(TAG, "failed to open side panel image picker", failure)
-            publishMessage(beautifyText(R.string.home_side_panel_image_import_failed))
         }
+            .onFailure { failure ->
+                completeImageImport(token)
+                WeLogger.w(TAG, "failed to open side panel image picker", failure)
+                publishMessage(beautifyText(R.string.home_side_panel_image_import_failed))
+            }
     }
 
     fun updateImageScaleMode(cardId: String, mode: HomeSidePanelImageScaleMode) {
@@ -449,7 +492,8 @@ internal class HomeSidePanelState(
     fun openWeatherSettings(cardId: String) {
         val card = requireDraftWeatherCard(cardId)
         _weatherSettings.update { current ->
-            current + (cardId to (current[cardId] ?: WeatherSettingsUiState(selectedCity = card.city)))
+            current +
+                (cardId to (current[cardId] ?: WeatherSettingsUiState(selectedCity = card.city)))
         }
         setRoute(HomeSidePanelRoute.WeatherSettings(cardId))
     }
@@ -483,10 +527,11 @@ internal class HomeSidePanelState(
         setWeatherSettingsProgress(cardId, true)
         replaceWeatherActionJob(cardId) {
             when (val resolution = location.resolve(activity)) {
-                LocationResolution.NeedPermission -> activity.requestPermissions(
-                    arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                    HOME_SIDE_PANEL_LOCATION_REQUEST_CODE,
-                )
+                LocationResolution.NeedPermission ->
+                    activity.requestPermissions(
+                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                        HOME_SIDE_PANEL_LOCATION_REQUEST_CODE,
+                    )
 
                 else -> applyLocationResolution(cardId, resolution)
             }
@@ -544,46 +589,47 @@ internal class HomeSidePanelState(
             is HomeSidePanelRoute.WalletSettings,
             is HomeSidePanelRoute.HitokotoSettings,
             HomeSidePanelRoute.AddCard,
-            is HomeSidePanelRoute.AddAction,
-            -> {
+            is HomeSidePanelRoute.AddAction -> {
                 requireEditing()
                 setRoute(HomeSidePanelRoute.EditHome)
             }
 
             HomeSidePanelRoute.Home,
-            HomeSidePanelRoute.EditHome,
-            -> error("Route ${_uiState.value.route} is not a secondary settings route")
+            HomeSidePanelRoute.EditHome ->
+                error("Route ${_uiState.value.route} is not a secondary settings route")
         }
     }
 
-    fun consumeSettingsBack(): Boolean = when (_uiState.value.route) {
-        HomeSidePanelRoute.Home -> false
-        HomeSidePanelRoute.PanelSettings -> {
-            setRoute(HomeSidePanelRoute.Home)
-            true
-        }
+    fun consumeSettingsBack(): Boolean =
+        when (_uiState.value.route) {
+            HomeSidePanelRoute.Home -> false
+            HomeSidePanelRoute.PanelSettings -> {
+                setRoute(HomeSidePanelRoute.Home)
+                true
+            }
 
-        HomeSidePanelRoute.EditHome -> {
-            discardEditing()
-            true
-        }
+            HomeSidePanelRoute.EditHome -> {
+                discardEditing()
+                true
+            }
 
-        is HomeSidePanelRoute.DateTimeSettings,
-        is HomeSidePanelRoute.WeatherSettings,
-        is HomeSidePanelRoute.WalletSettings,
-        is HomeSidePanelRoute.HitokotoSettings,
-        HomeSidePanelRoute.AddCard,
-        is HomeSidePanelRoute.AddAction,
-        -> {
-            requireEditing()
-            setRoute(HomeSidePanelRoute.EditHome)
-            true
+            is HomeSidePanelRoute.DateTimeSettings,
+            is HomeSidePanelRoute.WeatherSettings,
+            is HomeSidePanelRoute.WalletSettings,
+            is HomeSidePanelRoute.HitokotoSettings,
+            HomeSidePanelRoute.AddCard,
+            is HomeSidePanelRoute.AddAction -> {
+                requireEditing()
+                setRoute(HomeSidePanelRoute.EditHome)
+                true
+            }
         }
-    }
 
     fun refreshWeather(cardId: String) {
         val card = renderedCard(cardId)
-        require(card is WeatherCardConfig) { "Card '$cardId' is ${card.type}; expected Weather card" }
+        require(card is WeatherCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Weather card"
+        }
         runtimeStore.refreshWeather(renderedNamespace(), card)
     }
 
@@ -595,7 +641,9 @@ internal class HomeSidePanelState(
 
     fun refreshHitokoto(cardId: String) {
         val card = renderedCard(cardId)
-        require(card is HitokotoCardConfig) { "Card '$cardId' is ${card.type}; expected Hitokoto card" }
+        require(card is HitokotoCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Hitokoto card"
+        }
         runtimeStore.refreshHitokoto(renderedNamespace(), card)
     }
 
@@ -704,9 +752,10 @@ internal class HomeSidePanelState(
     }
 
     private fun cancelImageImports(sessionId: String, cardId: String? = null) {
-        val matching = imageImports.values.filter {
-            it.sessionId == sessionId && (cardId == null || it.cardId == cardId)
-        }
+        val matching =
+            imageImports.values.filter {
+                it.sessionId == sessionId && (cardId == null || it.cardId == cardId)
+            }
         matching.forEach { request ->
             imageImports.remove(request.token)
             request.job?.cancel()
@@ -720,9 +769,12 @@ internal class HomeSidePanelState(
 
     private fun refreshImageImportingCards() {
         val sessionId = editing?.sessionId
-        val cardIds = if (sessionId == null) emptySet() else imageImports.values
-            .filter { it.sessionId == sessionId }
-            .mapTo(linkedSetOf(), ActiveImageImport::cardId)
+        val cardIds =
+            if (sessionId == null) emptySet()
+            else
+                imageImports.values
+                    .filter { it.sessionId == sessionId }
+                    .mapTo(linkedSetOf(), ActiveImageImport::cardId)
         _uiState.update { it.copy(imageImportingCardIds = cardIds) }
     }
 
@@ -734,11 +786,13 @@ internal class HomeSidePanelState(
     ) {
         _weatherSettings.update { current ->
             val state = weatherSettingsFor(cardId)
-            current + (cardId to state.copy(
-                selectedCity = selectedCity ?: state.selectedCity,
-                searchResults = searchResults ?: state.searchResults,
-                actionInProgress = actionInProgress ?: state.actionInProgress,
-            ))
+            current +
+                (cardId to
+                    state.copy(
+                        selectedCity = selectedCity ?: state.selectedCity,
+                        searchResults = searchResults ?: state.searchResults,
+                        actionInProgress = actionInProgress ?: state.actionInProgress,
+                    ))
         }
     }
 
@@ -766,13 +820,16 @@ internal class HomeSidePanelState(
         return result
     }
 
-    private fun requireEditing(): ActiveEditing = checkNotNull(editing) {
-        "No HomeSidePanel edit session is active"
-    }
+    private fun requireEditing(): ActiveEditing =
+        checkNotNull(editing) {
+            "No HomeSidePanel edit session is active"
+        }
 
     private fun requireDraftWeatherCard(cardId: String): WeatherCardConfig {
         val card = requireDraftCard(cardId)
-        require(card is WeatherCardConfig) { "Card '$cardId' is ${card.type}; expected Weather card" }
+        require(card is WeatherCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Weather card"
+        }
         return card
     }
 
@@ -792,7 +849,9 @@ internal class HomeSidePanelState(
 
     private fun requireDraftHitokotoCard(cardId: String): HitokotoCardConfig {
         val card = requireDraftCard(cardId)
-        require(card is HitokotoCardConfig) { "Card '$cardId' is ${card.type}; expected Hitokoto card" }
+        require(card is HitokotoCardConfig) {
+            "Card '$cardId' is ${card.type}; expected Hitokoto card"
+        }
         return card
     }
 
@@ -816,29 +875,33 @@ internal class HomeSidePanelState(
 
     private fun renderedCard(cardId: String): HomeSidePanelCardConfig =
         _uiState.value.renderedLayout.cards.firstOrNull { it.id == cardId }
-            ?: throw IllegalArgumentException("Card '$cardId' does not exist in the rendered layout")
+            ?: throw IllegalArgumentException(
+                "Card '$cardId' does not exist in the rendered layout",
+            )
 
-    private fun renderedNamespace(): HomeSidePanelRuntimeNamespace = editing?.let {
-        HomeSidePanelRuntimeNamespace.Draft(it.sessionId)
-    } ?: HomeSidePanelRuntimeNamespace.Live
+    private fun renderedNamespace(): HomeSidePanelRuntimeNamespace =
+        editing?.let {
+            HomeSidePanelRuntimeNamespace.Draft(it.sessionId)
+        } ?: HomeSidePanelRuntimeNamespace.Live
 
     private fun setRoute(route: HomeSidePanelRoute) {
         _uiState.update { it.copy(route = route) }
     }
 
     private suspend fun loadIdentity() {
-        val loadedProfile = try {
-            profile.loadIdentity()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Throwable) {
-            HomeSidePanelProfile(
-                wxId = "",
-                nickname = "",
-                avatarUrl = "",
-                status = HomeSidePanelStatusUiState.Error,
-            )
-        }
+        val loadedProfile =
+            try {
+                profile.loadIdentity()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                HomeSidePanelProfile(
+                    wxId = "",
+                    nickname = "",
+                    avatarUrl = "",
+                    status = HomeSidePanelStatusUiState.Error,
+                )
+            }
         _uiState.update { it.copy(profile = loadedProfile) }
     }
 
@@ -892,28 +955,30 @@ internal class HomeSidePanelState(
         status: HomeSidePanelStatusUiState,
         baseline: StatusFingerprint?,
         waitForChange: Boolean,
-    ): Boolean = isSettledStatus(status) &&
-        (!waitForChange || statusFingerprint(status) != baseline)
+    ): Boolean =
+        isSettledStatus(status) && (!waitForChange || statusFingerprint(status) != baseline)
 
-    private fun isSettledStatus(status: HomeSidePanelStatusUiState): Boolean = when (status) {
-        HomeSidePanelStatusUiState.Loading -> false
-        is HomeSidePanelStatusUiState.Ready -> status.status.description.isNotBlank()
-        HomeSidePanelStatusUiState.NoStatus,
-        HomeSidePanelStatusUiState.Error,
-        -> true
-    }
+    private fun isSettledStatus(status: HomeSidePanelStatusUiState): Boolean =
+        when (status) {
+            HomeSidePanelStatusUiState.Loading -> false
+            is HomeSidePanelStatusUiState.Ready -> status.status.description.isNotBlank()
+            HomeSidePanelStatusUiState.NoStatus,
+            HomeSidePanelStatusUiState.Error -> true
+        }
 
-    private fun statusFingerprint(status: HomeSidePanelStatusUiState): StatusFingerprint = when (status) {
-        HomeSidePanelStatusUiState.Loading -> StatusFingerprint.Loading
-        HomeSidePanelStatusUiState.NoStatus -> StatusFingerprint.NoStatus
-        HomeSidePanelStatusUiState.Error -> StatusFingerprint.Error
-        is HomeSidePanelStatusUiState.Ready -> StatusFingerprint.Ready(
-            statusId = status.status.statusId,
-            description = status.status.description,
-            iconId = status.status.iconId,
-            userText = status.status.userText,
-        )
-    }
+    private fun statusFingerprint(status: HomeSidePanelStatusUiState): StatusFingerprint =
+        when (status) {
+            HomeSidePanelStatusUiState.Loading -> StatusFingerprint.Loading
+            HomeSidePanelStatusUiState.NoStatus -> StatusFingerprint.NoStatus
+            HomeSidePanelStatusUiState.Error -> StatusFingerprint.Error
+            is HomeSidePanelStatusUiState.Ready ->
+                StatusFingerprint.Ready(
+                    statusId = status.status.statusId,
+                    description = status.status.description,
+                    iconId = status.status.iconId,
+                    userText = status.status.userText,
+                )
+        }
 
     private fun publishMessage(message: String) {
         _messages.tryEmit(message)
@@ -924,10 +989,15 @@ internal class HomeSidePanelState(
     }
 
     private fun openPersonalProfileActivity() {
-        val opened = startExplicit(PERSONAL_PROFILE_NEW_CLASS) {
-            putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
-        } || startExplicit(PERSONAL_PROFILE_LEGACY_CLASS)
-        if (!opened) showToast(activity, localizedBeautifyString(R.string.home_side_panel_open_profile_failed))
+        val opened =
+            startExplicit(PERSONAL_PROFILE_NEW_CLASS) {
+                putExtra("key_config_item", "SettingGroup_Main_PersonalInfo")
+            } || startExplicit(PERSONAL_PROFILE_LEGACY_CLASS)
+        if (!opened)
+            showToast(
+                activity,
+                localizedString(R.string.home_side_panel_open_profile_failed),
+            )
     }
 
     private fun openStatusDestination() {
@@ -953,7 +1023,11 @@ internal class HomeSidePanelState(
         val opened = STATUS_EDITOR_CLASSES.any { className ->
             startExplicit(className) { putExtra("KEY_IS_ENTER", true) }
         }
-        if (!opened) showToast(activity, localizedBeautifyString(R.string.home_side_panel_open_status_failed))
+        if (!opened)
+            showToast(
+                activity,
+                localizedString(R.string.home_side_panel_open_status_failed),
+            )
         return opened
     }
 
@@ -974,10 +1048,11 @@ internal class HomeSidePanelState(
             "com.tencent.mm.plugin.setting.ui.setting_new.CommonSettingsUI"
         const val PERSONAL_PROFILE_LEGACY_CLASS =
             "com.tencent.mm.plugin.setting.ui.setting.SettingsPersonalInfoUI"
-        val STATUS_EDITOR_CLASSES = listOf(
-            "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivityV2",
-            "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivity",
-        )
+        val STATUS_EDITOR_CLASSES =
+            listOf(
+                "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivityV2",
+                "com.tencent.mm.plugin.textstatus.ui.TextStatusDoWhatActivity",
+            )
         const val STATUS_SYNC_INTERVAL_MS = 350L
         const val INITIAL_STATUS_SYNC_ATTEMPTS = 24
         const val PANEL_OPEN_STATUS_SYNC_ATTEMPTS = 8
@@ -988,8 +1063,11 @@ internal class HomeSidePanelState(
 
     private sealed interface StatusFingerprint {
         data object Loading : StatusFingerprint
+
         data object NoStatus : StatusFingerprint
+
         data object Error : StatusFingerprint
+
         data class Ready(
             val statusId: String,
             val description: String,
@@ -999,4 +1077,4 @@ internal class HomeSidePanelState(
     }
 }
 
-internal const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B
+const val HOME_SIDE_PANEL_LOCATION_REQUEST_CODE = 0x574B

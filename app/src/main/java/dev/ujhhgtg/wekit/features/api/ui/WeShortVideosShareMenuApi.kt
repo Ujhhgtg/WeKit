@@ -4,16 +4,14 @@ import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
-import org.json.JSONObject
 import java.util.LinkedList
+import org.json.JSONObject
 
-object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
-
+object WeShortVideosShareMenuApi : ApiFeature() {
     override val technicalId = "视频号分享菜单扩展"
     override val nameRes = R.string.feature_we_short_videos_share_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -25,8 +23,9 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
     data class MenuItem(
         val id: Int,
-        val text: String, val drawable: Drawable,
-        val onClick: (HookParam, Int, List<JSONObject>) -> Unit
+        val text: String,
+        val drawable: Drawable,
+        val onClick: (HookParam, Int, List<JSONObject>) -> Unit,
     )
 
     private val menuItems = mutableMapOf<IMenuItemsProvider, List<MenuItem>>()
@@ -41,47 +40,34 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
     private val methodCreateMenu1 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            name = "onCreateMMMenu"
-            usingEqStrings("pos is error ")
-        }
+        name = "onCreateMMMenu"
+        usingEqStrings("pos is error ")
     }
     private val methodOnSelectMenuItem1 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            name = "onMMMenuItemSelected"
-            usingEqStrings("[getMoreMenuItemSelectedListener] feed ")
-        }
+        name = "onMMMenuItemSelected"
+        usingEqStrings("[getMoreMenuItemSelectedListener] feed ")
     }
     private val methodCreateMenu2 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            usingEqStrings("feed", "menu", "sheet", "holder", "KEY_FINDER_SELF_FLAG")
-        }
+        usingEqStrings("feed", "menu", "sheet", "holder", "KEY_FINDER_SELF_FLAG")
     }
     private val methodOnSelectMenuItem2 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            declaredClass {
-                usingEqStrings("Finder.FinderLoaderFeedUIContract.Presenter")
-            }
-
-            usingEqStrings("getMoreMenuItemSelectedListener feed ")
+        usingEqStrings("getMoreMenuItemSelectedListener feed ")
+        declaredClass {
+            usingEqStrings("Finder.FinderLoaderFeedUIContract.Presenter")
         }
     }
     private val methodCreateMenu3 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            name = "onCreateMMMenu"
-            usingEqStrings("getCreateSecondMoreMenuListener: username=")
-        }
+        name = "onCreateMMMenu"
+        usingEqStrings("getCreateSecondMoreMenuListener: username=")
     }
     private val methodOnSelectMenuItem3 by dexMethod {
         searchPackages("com.tencent.mm.plugin.finder.feed")
-        matcher {
-            name = "onMMMenuItemSelected"
-            usingEqStrings("button_speedplay", "ref_eid")
-        }
+        name = "onMMMenuItemSelected"
+        usingEqStrings("button_speedplay", "ref_eid")
     }
 
     override fun onEnable() {
@@ -92,11 +78,13 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
         methodOnSelectMenuItem1.hookBefore {
             val menuItem = args[0] as android.view.MenuItem
-            val baseFinderFeed = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
-                }
-                .get()!!
+            val baseFinderFeed =
+                thisObject!!
+                    .reflekt()
+                    .firstField {
+                        type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
+                    }
+                    .get()!!
             handleOnSelectMenuItem(this, menuItem, baseFinderFeed)
         }
 
@@ -118,20 +106,21 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
 
         methodOnSelectMenuItem3.hookBefore {
             val menuItem = args[0] as android.view.MenuItem
-            val baseFinderFeed = thisObject!!.reflekt()
-                .firstField {
-                    type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
-                }
-                .get()!!
+            val baseFinderFeed =
+                thisObject!!
+                    .reflekt()
+                    .firstField {
+                        type = "com.tencent.mm.plugin.finder.model.BaseFinderFeed"
+                    }
+                    .get()!!
             handleOnSelectMenuItem(this, menuItem, baseFinderFeed)
         }
     }
 
-    private fun handleCreateMenu(
-        menu: ContextMenu
-    ) {
+    private fun handleCreateMenu(menu: ContextMenu) {
         for (item in menuItems.values.flatten()) {
-            menu.reflekt()
+            menu
+                .reflekt()
                 .firstMethod {
                     parameters(Int::class, CharSequence::class, Drawable::class)
                 }
@@ -142,31 +131,41 @@ object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
     private fun handleOnSelectMenuItem(
         param: HookParam,
         menuItem: android.view.MenuItem,
-        baseFinderFeed: Any
+        baseFinderFeed: Any,
     ) {
         val itemId = menuItem.itemId
-        val finderItem = baseFinderFeed.reflekt()
-            .firstField {
-                name = "feedObject"
-                superclass()
-            }
-            .get()!!
-        val mediaType = finderItem.reflekt()
-            .firstMethod {
-                name = "getMediaType"
-            }
-            .invoke()!! as Int
-        val mediaList = finderItem.reflekt()
-            .firstMethod {
-                name = "getMediaList"
-            }
-            .invoke() as LinkedList<*>
+        val finderItem =
+            baseFinderFeed
+                .reflekt()
+                .firstField {
+                    name = "feedObject"
+                    superclass()
+                }
+                .get()!!
+        val mediaType =
+            finderItem
+                .reflekt()
+                .firstMethod {
+                    name = "getMediaType"
+                }
+                .invoke()!!
+                as Int
+        val mediaList =
+            finderItem
+                .reflekt()
+                .firstMethod {
+                    name = "getMediaList"
+                }
+                .invoke() as LinkedList<*>
         val mediaJsonList = mediaList.map { media ->
-            media.reflekt()
+            media
+                .reflekt()
                 .firstMethod {
                     name = "toJSON"
                     superclass()
-                }.invoke()!! as JSONObject
+                }
+                .invoke()!!
+                as JSONObject
         }
 
         for (item in menuItems.values.flatten()) {

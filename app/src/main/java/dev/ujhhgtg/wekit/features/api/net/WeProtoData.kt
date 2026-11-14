@@ -4,27 +4,27 @@ import com.google.protobuf.CodedInputStream
 import com.google.protobuf.CodedOutputStream
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hexToBytes
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
+import org.json.JSONArray
+import org.json.JSONObject
 
 @Suppress("unused")
 class WeProtoData private constructor() {
-
     private val fields = mutableListOf<Field>()
     var packetPrefix: ByteArray = ByteArray(0)
         private set
 
-    private enum class LenView { AUTO, SUB, UTF8, HEX }
+    private enum class LenView {
+        AUTO,
+        SUB,
+        UTF8,
+        HEX,
+    }
 
-    private data class Field(
-        val fieldNumber: Int,
-        val wireType: Int,
-        var value: Any,
-    )
+    private data class Field(val fieldNumber: Int, val wireType: Int, var value: Any)
 
     private class LenValue(raw: ByteArray?) {
         var raw: ByteArray = raw ?: ByteArray(0)
@@ -59,15 +59,22 @@ class WeProtoData private constructor() {
                 for (key in json.keys()) {
                     val fieldNumber = key.toInt()
                     when (val value = json.get(key)) {
-                        is JSONObject -> data.fields.add(data.subMessageField(fieldNumber, value))
-                        is JSONArray -> repeat(value.length()) {
-                            data.addJsonValueAsField(
-                                fieldNumber,
-                                value.get(it)
-                            )
+                        is JSONObject -> {
+                            data.fields.add(data.subMessageField(fieldNumber, value))
                         }
 
-                        else -> data.addJsonValueAsField(fieldNumber, value)
+                        is JSONArray -> {
+                            repeat(value.length()) {
+                                data.addJsonValueAsField(
+                                    fieldNumber,
+                                    value.get(it),
+                                )
+                            }
+                        }
+
+                        else -> {
+                            data.addJsonValueAsField(fieldNumber, value)
+                        }
                     }
                 }
             }
@@ -77,12 +84,13 @@ class WeProtoData private constructor() {
         fun hasPacketPrefix(b: ByteArray?) =
             b != null && b.size >= 4 && (b[0].toInt() and 0xFF) == 0
 
-        fun getUnpPackage(b: ByteArray?): ByteArray? = when {
-            b == null -> null
-            b.size < 4 -> b
-            (b[0].toInt() and 0xFF) == 0 -> b.copyOfRange(4, b.size)
-            else -> b
-        }
+        fun getUnpPackage(b: ByteArray?): ByteArray? =
+            when {
+                b == null -> null
+                b.size < 4 -> b
+                (b[0].toInt() and 0xFF) == 0 -> b.copyOfRange(4, b.size)
+                else -> b
+            }
 
         fun bytesToHex(bytes: ByteArray?): String {
             if (bytes == null || bytes.isEmpty()) return ""
@@ -97,7 +105,8 @@ class WeProtoData private constructor() {
             return runCatching {
                 val s = String(b, StandardCharsets.UTF_8)
                 s.takeIf { s.toByteArray(StandardCharsets.UTF_8).contentEquals(b) }
-            }.getOrNull()
+            }
+                .getOrNull()
         }
 
         private fun tryParseSubMessageStrong(bytes: ByteArray?): WeProtoData? {
@@ -108,7 +117,8 @@ class WeProtoData private constructor() {
                 if (sub.fields.isEmpty()) return null
                 val re = sub.toMessageBytes()
                 sub.takeIf { re.contentEquals(bytes) }
-            }.getOrNull()
+            }
+                .getOrNull()
         }
 
         private fun analyzeLenValue(lv: LenValue) {
@@ -131,12 +141,16 @@ class WeProtoData private constructor() {
     }
 
     private fun ensureSubParsedStrong(lv: LenValue): WeProtoData? {
-        lv.subMessage?.let { return it }
+        lv.subMessage?.let {
+            return it
+        }
         return tryParseSubMessageStrong(lv.raw)?.also { lv.subMessage = it }
     }
 
     private fun ensureUtf8Decoded(lv: LenValue): String? {
-        lv.utf8?.let { return it }
+        lv.utf8?.let {
+            return it
+        }
         return tryDecodeUtf8Roundtrip(lv.raw)?.also { lv.utf8 = it }
     }
 
@@ -157,17 +171,27 @@ class WeProtoData private constructor() {
             if (tag == 0) break
             val fieldNumber = tag ushr 3
             val wireType = tag and 7
-            if (wireType == 4 || wireType == 3 || wireType > 5) throw IOException("Unexpected wireType: $wireType")
+            if (wireType == 4 || wireType == 3 || wireType > 5) {
+                throw IOException("Unexpected wireType: $wireType")
+            }
             when (wireType) {
-                0 -> fields.add(Field(fieldNumber, wireType, input.readInt64()))
-                1 -> fields.add(Field(fieldNumber, wireType, input.readFixed64()))
+                0 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readInt64()))
+                }
+
+                1 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readFixed64()))
+                }
+
                 2 -> {
                     val lv = LenValue(input.readByteArray())
                     analyzeLenValue(lv)
                     fields.add(Field(fieldNumber, wireType, lv))
                 }
 
-                5 -> fields.add(Field(fieldNumber, wireType, input.readFixed32()))
+                5 -> {
+                    fields.add(Field(fieldNumber, wireType, input.readFixed32()))
+                }
             }
         }
     }
@@ -182,7 +206,11 @@ class WeProtoData private constructor() {
             } else {
                 val existing = obj.get(k)
                 val arr =
-                    existing as? JSONArray ?: JSONArray().also { it.put(existing); obj.put(k, it) }
+                    existing as? JSONArray
+                        ?: JSONArray().also {
+                            it.put(existing)
+                            obj.put(k, it)
+                        }
                 arr.put(jsonVal)
             }
         }
@@ -193,7 +221,8 @@ class WeProtoData private constructor() {
         if (f.wireType != 2) return f.value
         val lv = f.value as LenValue
         return when (lv.view) {
-            LenView.AUTO, LenView.SUB -> {
+            LenView.AUTO,
+            LenView.SUB -> {
                 ensureSubParsedStrong(lv)?.also { lv.view = LenView.SUB }?.toJsonObject()
                     ?: ensureUtf8Decoded(lv)?.also { lv.view = LenView.UTF8 }
                     ?: ("hex->" + bytesToHex(lv.raw)).also { lv.view = LenView.HEX }
@@ -205,15 +234,16 @@ class WeProtoData private constructor() {
                     ?: ("hex->" + bytesToHex(lv.raw))
             }
 
-            LenView.HEX -> "hex->" + bytesToHex(lv.raw)
+            LenView.HEX -> {
+                "hex->" + bytesToHex(lv.raw)
+            }
         }
     }
 
     /**
      * 将当前字段序列化为 protobuf 消息字节。
      *
-     * **序列化失败时抛出 [IOException], 而不是返回空数组。**
-     * 空数组会被 `parseFrom()` 解析成"所有字段都是默认值"的空包, 从而把真实的请求/响应整个抹掉;
+     * **序列化失败时抛出 [IOException], 而不是返回空数组。** 空数组会被 `parseFrom()` 解析成"所有字段都是默认值"的空包, 从而把真实的请求/响应整个抹掉;
      * 因此调用方必须捕获异常并放弃本次篡改、沿用原始数据包。
      */
     @Throws(IOException::class)
@@ -225,13 +255,20 @@ class WeProtoData private constructor() {
                 when (f.wireType) {
                     0 -> {
                         val v = f.value as Long
-                        if (v >= 0) out.writeUInt64(
-                            f.fieldNumber,
-                            v
-                        ) else out.writeInt64(f.fieldNumber, v)
+                        if (v >= 0) {
+                            out.writeUInt64(
+                                f.fieldNumber,
+                                v,
+                            )
+                        } else {
+                            out.writeInt64(f.fieldNumber, v)
+                        }
                     }
 
-                    1 -> out.writeFixed64(f.fieldNumber, f.value as Long)
+                    1 -> {
+                        out.writeFixed64(f.fieldNumber, f.value as Long)
+                    }
+
                     2 -> {
                         val lv = f.value as LenValue
                         if (lv.subMessage != null) {
@@ -244,22 +281,23 @@ class WeProtoData private constructor() {
                         out.writeByteArray(f.fieldNumber, lv.raw)
                     }
 
-                    5 -> out.writeFixed32(f.fieldNumber, f.value as Int)
+                    5 -> {
+                        out.writeFixed32(f.fieldNumber, f.value as Int)
+                    }
                 }
             }
             out.flush()
             bos.toByteArray()
-        }.getOrElse {
-            // 子消息序列化失败时已经记过日志, 直接向上传递避免重复包装
-            if (it is IOException) throw it
-            WeLogger.e(TAG, "toMessageBytes failed", it)
-            throw IOException("failed to serialize WeProtoData", it)
         }
+            .getOrElse {
+                // 子消息序列化失败时已经记过日志, 直接向上传递避免重复包装
+                if (it is IOException) throw it
+                WeLogger.e(TAG, "toMessageBytes failed", it)
+                throw IOException("failed to serialize WeProtoData", it)
+            }
     }
 
-    /**
-     * 与 [toMessageBytes] 相同的失败契约: 失败时抛出 [IOException], 调用方应放弃篡改。
-     */
+    /** 与 [toMessageBytes] 相同的失败契约: 失败时抛出 [IOException], 调用方应放弃篡改。 */
     @Throws(IOException::class)
     fun toPacketBytes(): ByteArray {
         val body = toMessageBytes()
@@ -288,16 +326,15 @@ class WeProtoData private constructor() {
     }
 
     /**
-     * 只有目标字段的 wire type 与写入的值类型一致时才赋值。
-     * 否则 [toMessageBytes] 里的 `f.value as Long` / `as Int` 会抛 ClassCastException,
-     * 进而毁掉整个数据包, 所以这里直接拒绝并记录日志。
+     * 只有目标字段的 wire type 与写入的值类型一致时才赋值。 否则 [toMessageBytes] 里的 `f.value as Long` / `as Int` 会抛
+     * ClassCastException, 进而毁掉整个数据包, 所以这里直接拒绝并记录日志。
      */
     private fun setScalarField(idx: Int, expectedWireType: Int, value: Any): Boolean {
         val f = fields[idx]
         if (f.wireType != expectedWireType) {
             WeLogger.w(
                 TAG,
-                "refusing to set field ${f.fieldNumber}: wire type is ${f.wireType}, expected $expectedWireType"
+                "refusing to set field ${f.fieldNumber}: wire type is ${f.wireType}, expected $expectedWireType",
             )
             return false
         }
@@ -382,16 +419,18 @@ class WeProtoData private constructor() {
                     changed += subChanged
                 }
             }
-            ensureUtf8Decoded(lv)?.takeIf { it.contains(needle) }?.let { s ->
-                val ns = s.replace(needle, replacement)
-                if (ns != s) {
-                    lv.utf8 = ns
-                    lv.raw = ns.toByteArray(StandardCharsets.UTF_8)
-                    lv.subMessage = null
-                    lv.view = LenView.UTF8
-                    changed++
+            ensureUtf8Decoded(lv)
+                ?.takeIf { it.contains(needle) }
+                ?.let { s ->
+                    val ns = s.replace(needle, replacement)
+                    if (ns != s) {
+                        lv.utf8 = ns
+                        lv.raw = ns.toByteArray(StandardCharsets.UTF_8)
+                        lv.subMessage = null
+                        lv.view = LenView.UTF8
+                        changed++
+                    }
                 }
-            }
         }
         return changed
     }
@@ -417,7 +456,12 @@ class WeProtoData private constructor() {
                 }
             }
             ensureUtf8Decoded(lv)?.let { s ->
-                val cnt = pattern.matcher(s).let { m -> var c = 0; while (m.find()) c++; c }
+                val cnt =
+                    pattern.matcher(s).let { m ->
+                        var c = 0
+                        while (m.find()) c++
+                        c
+                    }
                 if (cnt > 0) {
                     val ns = pattern.matcher(s).replaceAll(replacement)
                     lv.utf8 = ns
@@ -433,30 +477,47 @@ class WeProtoData private constructor() {
 
     private fun subMessageField(fieldNumber: Int, obj: JSONObject): Field {
         val sub = fromJsonObject(obj)
-        val lv = LenValue(sub.toMessageBytes()).also { it.subMessage = sub; it.view = LenView.SUB }
+        val lv =
+            LenValue(sub.toMessageBytes()).also {
+                it.subMessage = sub
+                it.view = LenView.SUB
+            }
         return Field(fieldNumber, 2, lv)
     }
 
     private fun addJsonValueAsField(fieldNumber: Int, value: Any?) {
         runCatching {
             when (value) {
-                is JSONObject -> fields.add(subMessageField(fieldNumber, value))
-                is Number -> fields.add(Field(fieldNumber, 0, value.toLong()))
+                is JSONObject -> {
+                    fields.add(subMessageField(fieldNumber, value))
+                }
+
+                is Number -> {
+                    fields.add(Field(fieldNumber, 0, value.toLong()))
+                }
+
                 is String -> {
-                    val lv = if (value.startsWith("hex->")) {
-                        LenValue(hexToBytes(stripNonHex(value.substring(5)))).also {
-                            it.view = LenView.HEX
+                    val lv =
+                        if (value.startsWith("hex->")) {
+                            LenValue(hexToBytes(stripNonHex(value.substring(5)))).also {
+                                it.view = LenView.HEX
+                            }
+                        } else {
+                            LenValue(value.toByteArray(StandardCharsets.UTF_8)).also {
+                                it.utf8 = value
+                                it.view = LenView.UTF8
+                            }
                         }
-                    } else {
-                        LenValue(value.toByteArray(StandardCharsets.UTF_8)).also {
-                            it.utf8 = value; it.view = LenView.UTF8
-                        }
-                    }
                     fields.add(Field(fieldNumber, 2, lv))
                 }
 
-                null -> Unit
-                else -> WeLogger.w("WeProtoData", "fromJSON Unknown type: ${value.javaClass.name}")
+                null -> {
+                    Unit
+                }
+
+                else -> {
+                    WeLogger.w("WeProtoData", "fromJSON Unknown type: ${value.javaClass.name}")
+                }
             }
         }
     }
@@ -503,59 +564,68 @@ class WeProtoData private constructor() {
 
     private fun applyOne(field: Field, value: Any, deleteMissing: Boolean): Int {
         return runCatching {
-            when (field.wireType) {
-                0, 1 -> {
-                    field.value = when (value) {
-                        is Number -> value.toLong()
-                        is String -> value.toLong()
-                        else -> return@runCatching 0
-                    }
-                    1
-                }
-
-                5 -> {
-                    field.value = when (value) {
-                        is Number -> value.toInt()
-                        is String -> value.toInt()
-                        else -> return@runCatching 0
-                    }
-                    1
-                }
-
-                2 -> {
-                    val lv = field.value as LenValue
-                    when (value) {
-                        is JSONObject -> {
-                            val sub = ensureSubParsedStrong(lv) ?: WeProtoData()
-                            val c = sub.applyViewJson(value, deleteMissing)
-                            lv.subMessage = sub
-                            lv.raw = sub.toMessageBytes()
-                            lv.utf8 = null
-                            lv.view = LenView.SUB
-                            maxOf(1, c)
-                        }
-
-                        is String -> {
-                            if (value.startsWith("hex->")) {
-                                lv.raw = hexToBytes(stripNonHex(value.substring(5))) ?: ByteArray(0)
-                                lv.utf8 = null
-                                lv.subMessage = null
-                                lv.view = LenView.HEX
-                            } else {
-                                lv.utf8 = value
-                                lv.raw = value.toByteArray(StandardCharsets.UTF_8)
-                                lv.subMessage = null
-                                lv.view = LenView.UTF8
+                when (field.wireType) {
+                    0,
+                    1 -> {
+                        field.value =
+                            when (value) {
+                                is Number -> value.toLong()
+                                is String -> value.toLong()
+                                else -> return@runCatching 0
                             }
-                            1
-                        }
+                        1
+                    }
 
-                        else -> 0
+                    5 -> {
+                        field.value =
+                            when (value) {
+                                is Number -> value.toInt()
+                                is String -> value.toInt()
+                                else -> return@runCatching 0
+                            }
+                        1
+                    }
+
+                    2 -> {
+                        val lv = field.value as LenValue
+                        when (value) {
+                            is JSONObject -> {
+                                val sub = ensureSubParsedStrong(lv) ?: WeProtoData()
+                                val c = sub.applyViewJson(value, deleteMissing)
+                                lv.subMessage = sub
+                                lv.raw = sub.toMessageBytes()
+                                lv.utf8 = null
+                                lv.view = LenView.SUB
+                                maxOf(1, c)
+                            }
+
+                            is String -> {
+                                if (value.startsWith("hex->")) {
+                                    lv.raw =
+                                        hexToBytes(stripNonHex(value.substring(5))) ?: ByteArray(0)
+                                    lv.utf8 = null
+                                    lv.subMessage = null
+                                    lv.view = LenView.HEX
+                                } else {
+                                    lv.utf8 = value
+                                    lv.raw = value.toByteArray(StandardCharsets.UTF_8)
+                                    lv.subMessage = null
+                                    lv.view = LenView.UTF8
+                                }
+                                1
+                            }
+
+                            else -> {
+                                0
+                            }
+                        }
+                    }
+
+                    else -> {
+                        0
                     }
                 }
-
-                else -> 0
             }
-        }.getOrDefault(0)
+            .getOrDefault(0)
     }
 }

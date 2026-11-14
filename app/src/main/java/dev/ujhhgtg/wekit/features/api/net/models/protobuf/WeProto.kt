@@ -11,20 +11,21 @@ import kotlinx.serialization.protobuf.ProtoBuf
 /**
  * Shared protobuf codec for WeChat CGI request/response bodies.
  *
- * WeChat writes zero-valued scalar fields explicitly on the wire, so [encodeDefaults] is on to
- * stay byte-compatible with the native client. Keeping every `encodeToByteArray`/`decodeFromByteArray`
- * behind this object confines the experimental serialization opt-in to one place; call sites stay clean.
+ * WeChat writes zero-valued scalar fields explicitly on the wire, so [encodeDefaults] is on to stay
+ * byte-compatible with the native client. Keeping every `encodeToByteArray`/`decodeFromByteArray`
+ * behind this object confines the experimental serialization opt-in to one place; call sites stay
+ * clean.
  */
 object WeProto {
-
     val protoBuf = ProtoBuf
     val protoBufWithDefaults = ProtoBuf {
         encodeDefaults = true
     }
 
     @Deprecated(
-        message = "You might want encodeWithDefaults() instead. Use encode() when you are absolutely sure.",
-        level = DeprecationLevel.WARNING
+        message =
+            "You might want encodeWithDefaults() instead. Use encode() when you are absolutely sure.",
+        level = DeprecationLevel.WARNING,
     )
     inline fun <reified T : Any> encode(value: T): ByteArray {
         val processed = WePacketSigner.preprocess(value)

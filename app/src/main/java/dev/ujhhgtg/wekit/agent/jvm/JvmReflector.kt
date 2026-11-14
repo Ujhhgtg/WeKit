@@ -14,20 +14,20 @@ import java.lang.reflect.Modifier
  * [JvmValueBridge] (token grammar) and the tool bindings (model-facing wrappers).
  */
 object JvmReflector {
-
     /** A resolved call target: either a static context (instance == null) or an instance. */
     data class Target(val clazz: Class<*>, val instance: Any?)
 
     /**
      * Resolves a target token:
-     *  - `ref:#N` / `#N` → the held instance and its runtime class (instance operations)
-     *  - anything else   → a fully-qualified class name (static operations / the Class itself)
+     * - `ref:#N` / `#N` → the held instance and its runtime class (instance operations)
+     * - anything else → a fully-qualified class name (static operations / the Class itself)
      */
     fun resolveTarget(token: String): Target {
         val t = token.trim()
         if (t.startsWith("ref:") || t.startsWith("#")) {
-            val obj = JvmValueBridge.parseValue(if (t.startsWith("#")) "ref:$t" else t)
-                ?: throw JvmBridgeException("Target handle resolved to null")
+            val obj =
+                JvmValueBridge.parseValue(if (t.startsWith("#")) "ref:$t" else t)
+                    ?: throw JvmBridgeException("Target handle resolved to null")
             return Target(obj.javaClass, obj)
         }
         return Target(JvmValueBridge.resolveClass(t), null)
@@ -42,8 +42,9 @@ object JvmReflector {
         val sb = StringBuilder()
         sb.append("Class: ${clazz.name}\n")
         clazz.superclass?.let { sb.append("Superclass: ${it.name}\n") }
-        if (clazz.interfaces.isNotEmpty())
+        if (clazz.interfaces.isNotEmpty()) {
             sb.append("Interfaces: ${clazz.interfaces.joinToString { it.name }}\n")
+        }
 
         if (want == "all" || want == "fields") {
             val fields = if (declaredOnly) clazz.declaredFields.toList() else allFields(clazz)
@@ -114,7 +115,11 @@ object JvmReflector {
     private fun findField(clazz: Class<*>, name: String): Field {
         var c: Class<*>? = clazz
         while (c != null) {
-            c.declaredFields.firstOrNull { it.name == name }?.let { return it.makeAccessible() }
+            c.declaredFields
+                .firstOrNull { it.name == name }
+                ?.let {
+                    return it.makeAccessible()
+                }
             c = c.superclass
         }
         throw JvmBridgeException("No field '$name' on ${clazz.name} (or its superclasses)")
@@ -124,25 +129,34 @@ object JvmReflector {
     // Method / constructor invocation with overload resolution
     // -------------------------------------------------------------------------------------------
 
-    fun invokeMethod(target: Target, name: String, args: Array<Any?>, paramTypes: List<String>?): Any? {
+    fun invokeMethod(
+        target: Target,
+        name: String,
+        args: Array<Any?>,
+        paramTypes: List<String>?,
+    ): Any? {
         val candidates = allMethods(target.clazz).filter { it.name == name }
-        if (candidates.isEmpty()) throw JvmBridgeException("No method '$name' on ${target.clazz.name}")
-        val method = selectOverload(candidates, args, paramTypes) { it.parameterTypes }
-            ?: throw JvmBridgeException(
-                "No overload of '$name' matches ${args.size} arg(s). Candidates:\n" +
-                        candidates.joinToString("\n") { "  " + describeMethod(it) }
-            )
+        if (candidates.isEmpty()) {
+            throw JvmBridgeException("No method '$name' on ${target.clazz.name}")
+        }
+        val method =
+            selectOverload(candidates, args, paramTypes) { it.parameterTypes }
+                ?: throw JvmBridgeException(
+                    "No overload of '$name' matches ${args.size} arg(s). Candidates:\n" +
+                        candidates.joinToString("\n") { "  " + describeMethod(it) },
+                )
         method.makeAccessible()
         return method.invoke(target.instance, *coerce(args, method.parameterTypes))
     }
 
     fun newInstance(clazz: Class<*>, args: Array<Any?>, paramTypes: List<String>?): Any {
         val candidates = clazz.declaredConstructors.toList()
-        val ctor = selectOverload(candidates, args, paramTypes) { it.parameterTypes }
-            ?: throw JvmBridgeException(
-                "No constructor of ${clazz.name} matches ${args.size} arg(s). Candidates:\n" +
-                        candidates.joinToString("\n") { "  " + describeConstructor(it) }
-            )
+        val ctor =
+            selectOverload(candidates, args, paramTypes) { it.parameterTypes }
+                ?: throw JvmBridgeException(
+                    "No constructor of ${clazz.name} matches ${args.size} arg(s). Candidates:\n" +
+                        candidates.joinToString("\n") { "  " + describeConstructor(it) },
+                )
         ctor.makeAccessible()
         return ctor.newInstance(*coerce(args, ctor.parameterTypes))
     }
@@ -179,36 +193,44 @@ object JvmReflector {
         return true
     }
 
-    /** Widening/coercion for numeric primitives so `int:1` can feed a `long`/`double` param, etc. */
+    /**
+     * Widening/coercion for numeric primitives so `int:1` can feed a `long`/`double` param, etc.
+     */
     private fun coerce(args: Array<Any?>, types: Array<Class<*>>): Array<Any?> {
         val out = arrayOfNulls<Any?>(args.size)
         for (i in args.indices) {
             val a = args[i]
             val t = types[i]
-            out[i] = if (a is Number && (t.isPrimitive || Number::class.java.isAssignableFrom(boxed(t)))) {
-                when (boxed(t)) {
-                    java.lang.Integer::class.java -> a.toInt()
-                    java.lang.Long::class.java -> a.toLong()
-                    java.lang.Double::class.java -> a.toDouble()
-                    java.lang.Float::class.java -> a.toFloat()
-                    java.lang.Short::class.java -> a.toShort()
-                    java.lang.Byte::class.java -> a.toByte()
-                    else -> a
+            out[i] =
+                if (
+                    a is Number && (t.isPrimitive || Number::class.java.isAssignableFrom(boxed(t)))
+                ) {
+                    when (boxed(t)) {
+                        java.lang.Integer::class.java -> a.toInt()
+                        java.lang.Long::class.java -> a.toLong()
+                        java.lang.Double::class.java -> a.toDouble()
+                        java.lang.Float::class.java -> a.toFloat()
+                        java.lang.Short::class.java -> a.toShort()
+                        java.lang.Byte::class.java -> a.toByte()
+                        else -> a
+                    }
+                } else {
+                    a
                 }
-            } else a
         }
         return out
     }
 
-    private fun boxed(c: Class<*>): Class<*> = when (c) {
-        Integer.TYPE -> java.lang.Integer::class.java
-        java.lang.Long.TYPE -> java.lang.Long::class.java
-        java.lang.Double.TYPE -> java.lang.Double::class.java
-        java.lang.Float.TYPE -> java.lang.Float::class.java
-        java.lang.Short.TYPE -> java.lang.Short::class.java
-        java.lang.Byte.TYPE -> java.lang.Byte::class.java
-        Character.TYPE -> Character::class.java
-        java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
-        else -> c
-    }
+    private fun boxed(c: Class<*>): Class<*> =
+        when (c) {
+            Integer.TYPE -> java.lang.Integer::class.java
+            java.lang.Long.TYPE -> java.lang.Long::class.java
+            java.lang.Double.TYPE -> java.lang.Double::class.java
+            java.lang.Float.TYPE -> java.lang.Float::class.java
+            java.lang.Short.TYPE -> java.lang.Short::class.java
+            java.lang.Byte.TYPE -> java.lang.Byte::class.java
+            Character.TYPE -> Character::class.java
+            java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+            else -> c
+        }
 }

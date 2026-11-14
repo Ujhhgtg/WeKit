@@ -1,8 +1,8 @@
-//! Desktop DexKit resolver orchestration.
+//! Desktop DexSQL resolver orchestration.
 //!
-//! The Rust command owns APK discovery, the pinned Linux DexKit build, and one
-//! Gradle/JVM worker per APK. The worker itself lives in the app's JVM test
-//! source set so it executes the production Kotlin resolver code.
+//! The Rust command owns APK discovery and one Gradle/JVM worker per APK. The
+//! worker itself lives in the app's JVM test source set so it executes the
+//! production Kotlin resolver code.
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
@@ -19,12 +19,39 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::workspace_root;
 
-const DEXKIT_REPOSITORY: &str = "https://github.com/LuckyPray/DexKit.git";
-const DEXKIT_REVISION: &str = "ffa6c51c38fe3ecfddb18d8949c30c48dbfbfd6a";
+pub mod diff;
+
+/// Engine name and version reported by the worker environment.
+///
+/// The engine now ships inside the `dev.ujhhgtg:dexsql` artifact, whose version is pinned in the
+/// Gradle version catalog; read it from there instead of duplicating it in source.
+fn engine_identity(root: &Path) -> (String, String) {
+    #[derive(Deserialize)]
+    struct Catalog {
+        versions: Versions,
+    }
+
+    #[derive(Deserialize)]
+    struct Versions {
+        dexsql: Option<String>,
+    }
+
+    let unknown = "unknown".to_string();
+    let Ok(text) = fs::read_to_string(root.join("gradle/libs.versions.toml")) else {
+        return ("dexsql".to_string(), unknown);
+    };
+    let version = toml::from_str::<Catalog>(&text)
+        .ok()
+        .and_then(|catalog| catalog.versions.dexsql)
+        .filter(|version| !version.trim().is_empty())
+        .unwrap_or(unknown);
+    (version.clone(), version)
+}
 
 #[derive(Args, Debug)]
 pub struct DexTestArgs {
-    /// APK path. Repeat to test multiple versions; without this option ~/coding/wechat_*.apk is used.
+    /// APK path, or a split bundle (.apks/.xapk/.apkm) whose base.apk is extracted and tested.
+    /// Repeat to test multiple versions; without this option ~/coding/wechat_*.{apk,apks,xapk,apkm} is used.
     #[arg(long = "apk", value_name = "APK")]
     pub apks: Vec<PathBuf>,
 
@@ -36,6 +63,10 @@ pub struct DexTestArgs {
     #[arg(long, value_name = "FEATURES", value_parser = parse_feature_filter)]
     pub features: Option<String>,
 
+    /// Use the shared Android batch scheduler with this many workers (omit for per-feature runs).
+    #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
+    pub workers: Option<u16>,
+
     /// Print every successful delegate and descriptor.
     #[arg(long)]
     pub verbose: bool,
@@ -45,14 +76,6 @@ pub struct DexTestArgs {
 pub struct ApkIdentity {
     pub path: PathBuf,
     pub sha256: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct DexKitNative {
-    pub version: String,
-    pub revision: String,
-    pub library_path: PathBuf,
-    pub architecture: String,
 }
 
 #[derive(Clone, Debug)]
@@ -77,7 +100,6 @@ struct DelegateReport {
     key: String,
     status: String,
     descriptor: Option<String>,
-    is_placeholder: bool,
     message: Option<String>,
     exception_type: Option<String>,
     stack_trace: Option<String>,
@@ -89,6 +111,8 @@ struct DelegateReport {
 struct FeatureReport {
     class_name: String,
     display_name: String,
+    #[serde(default)]
+    technical_id: Option<String>,
     method_hash: String,
     outcome: String,
     elapsed_millis: i64,
@@ -109,8 +133,8 @@ struct Counts {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Environment {
-    dex_kit_version: String,
-    dex_kit_revision: String,
+    engine_version: String,
+    engine_revision: String,
     architecture: String,
     jvm_version: String,
 }
@@ -175,11 +199,12 @@ struct SummaryReport {
 
 pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let root = workspace_root();
+    let (engine_version, engine_revision) = engine_identity(&root);
     let started = now_rfc3339();
     let apks = if args.apks.is_empty() {
         discover_apks()?
             .into_iter()
-            .map(|path| canonical_apk(path))
+            .map(canonical_apk)
             .collect::<Result<Vec<_>>>()?
     } else {
         normalize_explicit_apks(&args.apks)?
@@ -189,6 +214,10 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             "no WeChat APKs found; pass --apk /absolute/path/to/wechat.apk or place files under ~/coding/wechat_*.apk"
         )
     }
+    let apks = apks
+        .into_iter()
+        .map(|path| resolve_bundle(&root, path))
+        .collect::<Result<Vec<_>>>()?;
 
     let output_root = args
         .output_dir
@@ -201,7 +230,6 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         })
         .unwrap_or_else(|| root.join("dex-test-results"));
     let run_dir = create_run_dir(&output_root)?;
-    let native = ensure_linux_dexkit(&root)?;
     let identities = apks
         .iter()
         .map(|path| ApkIdentity {
@@ -212,10 +240,9 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
     let report_names = report_file_names(&identities);
 
     println!(
-        "dex-test: {} APK(s), native {} ({})",
+        "dex-test: {} APK(s), engine dexsql {}",
         apks.len(),
-        native.version,
-        native.library_path.display()
+        engine_version,
     );
     let mut reports = Vec::with_capacity(apks.len());
     for (index, apk) in apks.iter().enumerate() {
@@ -223,7 +250,7 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
         let metadata = match read_apk_metadata(&root, apk) {
             Ok(metadata) => metadata,
             Err(error) => {
-                let report = infrastructure_report(apk, &native, &error);
+                let report = infrastructure_report(apk, &error, &engine_revision);
                 write_json_atomic(&report_path, &report)?;
                 render_apk(&report, &report_path, args.verbose);
                 reports.push((report, report_path));
@@ -240,18 +267,19 @@ pub fn task_dex_test(args: DexTestArgs) -> Result<()> {
             &root,
             apk,
             &metadata,
-            &native,
             &report_path,
             args.features.as_deref(),
+            args.workers,
+            &engine_revision,
         );
         let report = match (status, read_report(&report_path)) {
             (_, Ok(report)) => report,
             (Ok(status), Err(error)) => infrastructure_report(
                 apk,
-                &native,
                 &anyhow::anyhow!("worker exited {status}; report unavailable: {error}"),
+                &engine_revision,
             ),
-            (Err(error), _) => infrastructure_report(apk, &native, &error),
+            (Err(error), _) => infrastructure_report(apk, &error, &engine_revision),
         };
         if !matches!(report.outcome, ApkOutcome::InfrastructureFailure)
             && report.apk_sha256.is_empty()
@@ -308,11 +336,57 @@ fn discover_apks() -> Result<Vec<PathBuf>> {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("wechat_") && name.ends_with(".apk"))
+                .is_some_and(|name| name.starts_with("wechat_") && is_apk_or_bundle(name))
         })
         .collect::<Vec<_>>();
     files.sort_by(|a, b| natural_cmp(&a.to_string_lossy(), &b.to_string_lossy()));
     Ok(files)
+}
+
+const BUNDLE_EXTENSIONS: [&str; 3] = [".apks", ".xapk", ".apkm"];
+
+fn is_bundle(name: &str) -> bool {
+    BUNDLE_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
+}
+
+fn is_apk_or_bundle(name: &str) -> bool {
+    name.ends_with(".apk") || is_bundle(name)
+}
+
+/// Split bundles keep all dex code in the base APK, so extract it (cached by bundle hash)
+/// and test that; plain APKs are returned unchanged.
+fn resolve_bundle(root: &Path, path: PathBuf) -> Result<PathBuf> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("non-utf8 APK path")?
+        .to_owned();
+    let Some(ext) = BUNDLE_EXTENSIONS.iter().find(|ext| name.ends_with(*ext)) else {
+        return Ok(path);
+    };
+    let stem = &name[..name.len() - ext.len()];
+    let hash = sha256_file(&path)?;
+    let dir = root
+        .join("target/dex-test-bundles")
+        .join(format!("{stem}-{}", &hash[..8]));
+    let dest = dir.join(format!("{stem}.apk"));
+    if dest.is_file() {
+        return Ok(dest);
+    }
+    let mut archive = zip::ZipArchive::new(fs::File::open(&path)?)
+        .with_context(|| format!("{} is not a zip bundle", path.display()))?;
+    let entry_name = ["base.apk", "com.tencent.mm.apk"]
+        .into_iter()
+        .find(|candidate| archive.by_name(candidate).is_ok())
+        .with_context(|| format!("no base APK found in bundle {}", path.display()))?;
+    fs::create_dir_all(&dir)?;
+    let partial = dir.join(format!("{stem}.apk.part"));
+    let mut entry = archive.by_name(entry_name)?;
+    std::io::copy(&mut entry, &mut fs::File::create(&partial)?)
+        .with_context(|| format!("extract {entry_name} from {}", path.display()))?;
+    fs::rename(&partial, &dest)?;
+    println!("dex-test: extracted {entry_name} from {}", path.display());
+    Ok(dest)
 }
 
 fn canonical_apk(path: PathBuf) -> Result<PathBuf> {
@@ -414,135 +488,6 @@ pub fn report_file_names(identities: &[ApkIdentity]) -> Vec<String> {
         .collect()
 }
 
-fn ensure_linux_dexkit(root: &Path) -> Result<DexKitNative> {
-    if env::consts::OS != "linux" {
-        bail!(
-            "dex-test currently supports Linux only (detected {})",
-            env::consts::OS
-        )
-    }
-    let architecture = match env::consts::ARCH {
-        "x86_64" => "x86_64",
-        "aarch64" => "aarch64",
-        other => bail!("unsupported Linux architecture for DexKit native build: {other}"),
-    }
-    .to_string();
-    let versions = fs::read_to_string(root.join("gradle/libs.versions.toml"))?;
-    let catalog: crate::GradleVersionCatalog = toml::from_str(&versions)?;
-    let version = catalog
-        .versions
-        .dexkit
-        .context("versions.dexkit is missing")?;
-    let cache_root = root.join(".wekit/dex-test");
-    let source_dir = cache_root.join("source").join(format!("DexKit-{version}"));
-    if source_dir.exists() {
-        validate_dexkit_source(&source_dir, &version)?;
-    } else {
-        fs::create_dir_all(source_dir.parent().unwrap())?;
-        let temp = source_dir.with_extension(format!("tmp-{}", std::process::id()));
-        if temp.exists() {
-            bail!("stale DexKit temporary checkout exists: {}", temp.display());
-        }
-        run_command(
-            Command::new("git")
-                .args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    "--branch",
-                    &version,
-                    DEXKIT_REPOSITORY,
-                ])
-                .arg(&temp),
-            "clone DexKit",
-        )?;
-        validate_dexkit_source(&temp, &version)?;
-        fs::rename(&temp, &source_dir)?;
-    }
-    let build_dir = cache_root
-        .join("native")
-        .join(&version)
-        .join(&architecture)
-        .join("cmake");
-    fs::create_dir_all(&build_dir)?;
-    let source_cpp = source_dir.join("dexkit/src/main/cpp");
-    run_command(
-        Command::new("cmake").args([
-            "-S",
-            source_cpp.to_str().context("non-utf8 DexKit source path")?,
-            "-B",
-            build_dir.to_str().context("non-utf8 DexKit build path")?,
-            "-G",
-            "Ninja",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG",
-            "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG",
-            "-DDEXKIT_ENABLE_INTERNAL_METRICS=OFF",
-            "-DDEXKIT_ENABLE_INTERNAL_METRICS_API=OFF",
-        ]),
-        "configure DexKit with CMake",
-    )?;
-    run_command(
-        Command::new("cmake").args([
-            "--build",
-            build_dir.to_str().context("non-utf8 DexKit build path")?,
-            "--target",
-            "dexkit",
-        ]),
-        "build DexKit native library",
-    )?;
-    let library_path = find_named_file(&build_dir, "libdexkit.so")
-        .context("DexKit build did not produce libdexkit.so")?;
-    Ok(DexKitNative {
-        version,
-        revision: DEXKIT_REVISION.to_string(),
-        library_path,
-        architecture,
-    })
-}
-
-fn validate_dexkit_source(source: &Path, version: &str) -> Result<()> {
-    let head = command_output(
-        Command::new("git").args(["-C", source.to_str().unwrap(), "rev-parse", "HEAD"]),
-        "read DexKit revision",
-    )?;
-    if head.trim() != DEXKIT_REVISION {
-        bail!(
-            "cached DexKit {version} revision is {}, expected {DEXKIT_REVISION}; remove only {} and retry",
-            head.trim(),
-            source.display()
-        )
-    }
-    let tag = command_output(
-        Command::new("git").args([
-            "-C",
-            source.to_str().unwrap(),
-            "describe",
-            "--tags",
-            "--exact-match",
-        ]),
-        "read DexKit tag",
-    )?;
-    if tag.trim() != version {
-        bail!(
-            "cached DexKit checkout tag is {}, expected {version}",
-            tag.trim()
-        )
-    }
-    Ok(())
-}
-
-fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
-    walkdir::WalkDir::new(root)
-        .into_iter()
-        .filter_map(Result::ok)
-        .map(|entry| entry.into_path())
-        .find(|path| {
-            path.file_name().and_then(|value| value.to_str()) == Some(name) && path.is_file()
-        })
-        .and_then(|path| fs::canonicalize(path).ok())
-}
-
 fn read_apk_metadata(_root: &Path, apk: &Path) -> Result<ApkMetadata> {
     let analyzer = find_apkanalyzer()
         .context("cannot find apkanalyzer under ANDROID_HOME/ANDROID_SDK_ROOT")?;
@@ -628,20 +573,17 @@ fn run_worker(
     root: &Path,
     apk: &Path,
     metadata: &ApkMetadata,
-    native: &DexKitNative,
     report: &Path,
     features: Option<&str>,
+    workers: Option<u16>,
+    engine_revision: &str,
 ) -> Result<i32> {
     let gradle = root.join("gradlew");
     let mut properties = vec![
         ("wekit.dexTest.apk", apk.to_string_lossy().to_string()),
-        (
-            "wekit.dexTest.nativeLibrary",
-            native.library_path.to_string_lossy().to_string(),
-        ),
         ("wekit.dexTest.report", report.to_string_lossy().to_string()),
-        ("wekit.dexTest.dexKitVersion", native.version.clone()),
-        ("wekit.dexTest.dexKitRevision", native.revision.clone()),
+        ("wekit.dexTest.engineVersion", "dexsql".to_string()),
+        ("wekit.dexTest.engineRevision", engine_revision.to_string()),
         (
             "wekit.dexTest.versionCode",
             metadata.version_code.to_string(),
@@ -656,10 +598,13 @@ fn run_worker(
     if let Some(features) = features {
         properties.push(("wekit.dexTest.features", features.to_string()));
     }
+    if let Some(workers) = workers {
+        properties.push(("wekit.dexTest.workers", workers.to_string()));
+    }
     let mut command = Command::new(&gradle);
     command
         .current_dir(root)
-        .args([":app:testStandardDebugUnitTest", "-PdexTestWorker=true"]);
+        .args([":app:testDebugUnitTest", "-PdexTestWorker=true"]);
     for (key, value) in properties {
         command.arg(format!("-P{key}={value}"));
     }
@@ -676,9 +621,9 @@ fn read_report(path: &Path) -> Result<ApkReport> {
     serde_json::from_str(&text).with_context(|| format!("parse worker report {}", path.display()))
 }
 
-fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Error) -> ApkReport {
+fn infrastructure_report(apk: &Path, error: &anyhow::Error, engine_revision: &str) -> ApkReport {
     ApkReport {
-        schema_version: 1,
+        schema_version: 3,
         worker_pid: 0,
         apk_path: apk.to_string_lossy().to_string(),
         file_name: apk
@@ -701,9 +646,9 @@ fn infrastructure_report(apk: &Path, native: &DexKitNative, error: &anyhow::Erro
         is_google_play: false,
         dex_count: 0,
         environment: Environment {
-            dex_kit_version: native.version.clone(),
-            dex_kit_revision: native.revision.clone(),
-            architecture: native.architecture.clone(),
+            engine_version: "dexsql".to_string(),
+            engine_revision: engine_revision.to_string(),
+            architecture: env::consts::ARCH.to_string(),
             jvm_version: String::new(),
         },
         started_at: now_rfc3339(),
@@ -872,18 +817,8 @@ fn command_output(command: &mut Command, description: &str) -> Result<String> {
             String::from_utf8_lossy(&output.stderr).trim()
         );
     }
-    Ok(String::from_utf8(output.stdout)
-        .with_context(|| format!("{description} produced non-UTF-8 output"))?)
-}
-
-fn run_command(command: &mut Command, description: &str) -> Result<()> {
-    let status = command
-        .status()
-        .with_context(|| format!("{description}: spawn failed"))?;
-    if !status.success() {
-        bail!("{description} failed with {status}; reproduce command: {command:?}");
-    }
-    Ok(())
+    String::from_utf8(output.stdout)
+        .with_context(|| format!("{description} produced non-UTF-8 output"))
 }
 
 fn sha256_file(path: &Path) -> Result<String> {

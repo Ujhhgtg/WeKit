@@ -4,10 +4,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
@@ -15,31 +13,28 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlama
-import dev.ujhhgtg.wekit.agent.model.local.LocalLlamaSync
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsActionRow
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsEmptyState
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsListActionButton
+import dev.ujhhgtg.wekit.ui.content.m3.SettingsScaffold
 
 /**
  * Lists model providers; opens each for editing; adds a new one via the detail screen's creation
  * mode (§5.1/§5.2).
  */
 @Composable
-fun ModelProvidersScreen(
-    onBack: () -> Unit,
-    onOpenProvider: (String) -> Unit,
-) {
-    LaunchedEffect(Unit) { LocalLlamaSync.schedule() }
+fun ModelProvidersScreen(onBack: () -> Unit, onOpenProvider: (String) -> Unit) {
     val providers by WeAgentRepository.observeModelProviders().collectAsState(initial = emptyList())
-    val models by WeAgentRepository.observeModels().collectAsState(initial = emptyList())
-    val ordered = remember(providers) {
-        providers.sortedBy { if (it.id == LocalLlama.PROVIDER_ID) 0 else 1 }
-    }
 
-    AgentSettingsScaffold(title = stringResource(R.string.agent_model_providers_title), onBack = onBack) {
+    SettingsScaffold(
+        title = stringResource(R.string.agent_model_providers_title),
+        onBack = onBack,
+    ) {
         if (providers.isEmpty()) {
             item {
-                AgentEmptyState(
+                SettingsEmptyState(
                     title = stringResource(R.string.agent_empty_providers_title),
                     message = stringResource(R.string.agent_empty_providers_message),
                     actionLabel = stringResource(R.string.agent_add_provider),
@@ -47,38 +42,33 @@ fun ModelProvidersScreen(
                 )
             }
         }
-        items(ordered, key = { it.id }) { p ->
+        items(providers, key = { it.id }) { p ->
             SegmentedColumn {
                 item {
-                    if (p.id == LocalLlama.PROVIDER_ID) {
-                        val localModels = models.count { it.providerId == LocalLlama.PROVIDER_ID }
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = stringResource(R.string.local_llm_provider_name),
-                            description = "[${stringResource(R.string.local_llm_builtin_badge)}] " +
-                                    if (localModels == 0) {
-                                        stringResource(R.string.local_llm_no_packs)
-                                    } else {
-                                        stringResource(R.string.local_llm_models_count, localModels)
-                                    },
-                            onClick = { onOpenProvider(p.id) },
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        )
-                    } else {
-                        BaseWidget(
-                            iconPlaceholder = false,
-                            title = p.name.ifBlank { p.baseUrl },
-                            description = stringResource(R.string.agent_provider_summary, p.type.label(), p.baseUrl),
-                            onClick = { onOpenProvider(p.id) },
-                            trailingContent = { Icon(MaterialSymbols.Outlined.Chevron_right, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        )
-                    }
+                    BaseWidget(
+                        iconPlaceholder = false,
+                        title = p.name.ifBlank { p.baseUrl },
+                        description =
+                            stringResource(
+                                R.string.agent_provider_summary,
+                                p.type.label(),
+                                p.baseUrl,
+                            ),
+                        onClick = { onOpenProvider(p.id) },
+                        trailingContent = {
+                            Icon(
+                                MaterialSymbols.Outlined.Chevron_right,
+                                null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
                 }
             }
         }
         item {
-            AgentActionRow {
-                AgentListActionButton(
+            SettingsActionRow {
+                SettingsListActionButton(
                     label = stringResource(R.string.agent_add_provider),
                     icon = MaterialSymbols.Outlined.Add,
                     onClick = { onOpenProvider("") },
@@ -89,11 +79,27 @@ fun ModelProvidersScreen(
 }
 
 @Composable
-fun ModelProviderType.label(): String = stringResource(when (this) {
-    ModelProviderType.OPENAI_CHAT_COMPLETION -> R.string.agent_provider_type_openai_chat_completion
-    ModelProviderType.OPENAI_RESPONSES -> R.string.agent_provider_type_openai_responses
-    ModelProviderType.ANTHROPIC_MESSAGES -> R.string.agent_provider_type_anthropic_messages
-    ModelProviderType.GEMINI_GENERATE_CONTENT -> R.string.agent_provider_type_gemini_generate_content
-    ModelProviderType.GEMINI_INTERACTIONS -> R.string.agent_provider_type_gemini_interactions
-    ModelProviderType.LOCAL_LLAMA -> R.string.agent_provider_type_local_llama
-})
+fun ModelProviderType.label(): String =
+    stringResource(
+        when (this) {
+            ModelProviderType.OPENAI_CHAT_COMPLETION -> {
+                R.string.agent_provider_type_openai_chat_completion
+            }
+
+            ModelProviderType.OPENAI_RESPONSES -> {
+                R.string.agent_provider_type_openai_responses
+            }
+
+            ModelProviderType.ANTHROPIC_MESSAGES -> {
+                R.string.agent_provider_type_anthropic_messages
+            }
+
+            ModelProviderType.GEMINI_GENERATE_CONTENT -> {
+                R.string.agent_provider_type_gemini_generate_content
+            }
+
+            ModelProviderType.GEMINI_INTERACTIONS -> {
+                R.string.agent_provider_type_gemini_interactions
+            }
+        },
+    )

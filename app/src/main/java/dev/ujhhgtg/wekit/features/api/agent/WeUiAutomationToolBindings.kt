@@ -18,33 +18,33 @@ import kotlin.coroutines.coroutineContext
  * all action tools are `sideEffect = true` (MANUAL_APPROVAL).
  *
  * ## Perception
- *  - `ui-dump-tree`    — structured indented view-tree dump with handles, bounds, flags, and text.
- *  - `ui-find-views`   — query views by text / id / class substring.
- *  - `ui-describe-view`— full attribute listing for a single view handle.
- *  - `ui-screenshot`   — capture the current screen (or a view subtree) as a PNG; stages the image
- *                        in [UiImageSink] for injection into the next model request.
+ * - `ui-dump-tree` — structured indented view-tree dump with handles, bounds, flags, and text.
+ * - `ui-find-views` — query views by text / id / class substring.
+ * - `ui-describe-view`— full attribute listing for a single view handle.
+ * - `ui-screenshot` — capture the current screen (or a view subtree) as a PNG; stages the image in
+ *   [UiImageSink] for injection into the next model request.
  *
  * ## Actions (all main-thread, all MANUAL_APPROVAL by default)
- *  - `ui-click-view`      — `View.performClick` on a handle.
- *  - `ui-long-click-view` — `View.performLongClick` on a handle.
- *  - `ui-set-text`        — set text on a TextView/EditText handle.
- *  - `ui-input-text`      — set text on the currently-focused view.
- *  - `ui-tap`             — DOWN+UP at absolute screen coords.
- *  - `ui-multi-tap`       — repeated taps (连点 / double-tap).
- *  - `ui-long-press`      — held DOWN for N ms then UP.
- *  - `ui-swipe`           — smooth swipe between two screen points.
- *  - `ui-touch-down`      — start a held gesture (ACTION_DOWN).
- *  - `ui-touch-move`      — continue a held gesture (ACTION_MOVE).
- *  - `ui-touch-up`        — release a held gesture (ACTION_UP).
- *  - `ui-press-key`       — send a KeyEvent to the top activity.
+ * - `ui-click-view` — `View.performClick` on a handle.
+ * - `ui-long-click-view` — `View.performLongClick` on a handle.
+ * - `ui-set-text` — set text on a TextView/EditText handle.
+ * - `ui-input-text` — set text on the currently-focused view.
+ * - `ui-tap` — DOWN+UP at absolute screen coords.
+ * - `ui-multi-tap` — repeated taps (连点 / double-tap).
+ * - `ui-long-press` — held DOWN for N ms then UP.
+ * - `ui-swipe` — smooth swipe between two screen points.
+ * - `ui-touch-down` — start a held gesture (ACTION_DOWN).
+ * - `ui-touch-move` — continue a held gesture (ACTION_MOVE).
+ * - `ui-touch-up` — release a held gesture (ACTION_UP).
+ * - `ui-press-key` — send a KeyEvent to the top activity.
  */
 object WeUiAutomationToolBindings {
-
     // ------------------------------------------------------------------ perception (read-only)
 
     @AgentTool(
         name = "ui-dump-tree",
-        description = "Dump the current WeChat window's view hierarchy as an indented text tree. " +
+        description =
+            "Dump the current WeChat window's view hierarchy as an indented text tree. " +
                 "Each node is stored as a handle (#N) with its class, resource-id, on-screen bounds " +
                 "(screen pixels), visibility, interaction flags, and text / content-description. Use " +
                 "the returned handles with other ui-* or jvm-* tools. " +
@@ -57,7 +57,8 @@ object WeUiAutomationToolBindings {
         group = BUILTIN_UI,
     )
     fun uiDumpTree(
-        @AgentToolParam("Handle to Activity/Window/View root; null = current top activity") windowRef: String?,
+        @AgentToolParam("Handle to Activity/Window/View root; null = current top activity")
+        windowRef: String?,
         @AgentToolParam("Max recursion depth (0 = unlimited)") maxDepth: Int?,
         @AgentToolParam("Only show clickable/focusable/editable views") onlyInteractive: Boolean?,
         @AgentToolParam("Include INVISIBLE and GONE nodes") includeInvisible: Boolean?,
@@ -75,7 +76,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-find-views",
-        description = "Search the view tree for nodes matching all given filters " +
+        description =
+            "Search the view tree for nodes matching all given filters " +
                 "(substring match, case-insensitive). All filters are optional — if none given, " +
                 "every view is listed. Returns handles and brief summaries. " +
                 "`text` matches a view's text or content-description. " +
@@ -105,45 +107,50 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-describe-view",
-        description = "Return a full attribute description (class, id, bounds, visibility, flags, " +
+        description =
+            "Return a full attribute description (class, id, bounds, visibility, flags, " +
                 "text, tag, child-count) for a single view. `ref` is a #N handle from ui-dump-tree or " +
                 "ui-find-views.",
         sideEffect = false,
         group = BUILTIN_UI,
     )
-    fun uiDescribeView(
-        @AgentToolParam("Handle #N of the view to describe") ref: String,
-    ): String = guard {
-        JvmValueBridge.onMain {
-            UiAutomator.describeView(UiAutomator.resolveView(ref))
+    fun uiDescribeView(@AgentToolParam("Handle #N of the view to describe") ref: String): String =
+        guard {
+            JvmValueBridge.onMain {
+                UiAutomator.describeView(UiAutomator.resolveView(ref))
+            }
         }
-    }
 
     @AgentTool(
         name = "ui-screenshot",
-        description = "Capture the current WeChat screen (or a view subtree) as a PNG image and " +
+        description =
+            "Capture the current WeChat screen (or a view subtree) as a PNG image and " +
                 "inject it into the conversation so you can see it. " +
                 "Only works when the current session's model has 'supportsVision' enabled. " +
                 "`viewRef` (optional): a #N handle to capture just that view's subtree; " +
                 "null = whole window. " +
                 "`maxDimension` (optional): max width or height in pixels after downscaling (default 1024). " +
                 "Returns a short acknowledgement; the actual image is delivered as a separate message.",
-        sideEffect = false,   // read-only from WeChat's perspective; gated separately by ToolVisibility.visionTools
+        sideEffect = false, // read-only from WeChat's perspective; gated separately by
+        // ToolVisibility.visionTools
         group = BUILTIN_UI,
     )
     suspend fun uiScreenshot(
         @AgentToolParam("Handle #N to capture a subtree; null = whole window") viewRef: String?,
         @AgentToolParam("Max width/height after downscaling (default 1024)") maxDimension: Int?,
     ): String {
-        val sink = coroutineContext[UiImageSink]
-            ?: return "Error: UiImageSink not installed — this tool must be called from the agent engine."
+        val sink =
+            coroutineContext[UiImageSink]
+                ?: return "Error: UiImageSink not installed — this tool must be called from the agent engine."
         return guard {
             val maxDim = (maxDimension ?: 1024).coerceAtLeast(128)
             val bitmap = JvmValueBridge.onMain {
-                val target = if (!viewRef.isNullOrBlank())
-                    UiAutomator.resolveView(viewRef)
-                else
-                    UiAutomator.resolveDecor(null)
+                val target =
+                    if (!viewRef.isNullOrBlank()) {
+                        UiAutomator.resolveView(viewRef)
+                    } else {
+                        UiAutomator.resolveDecor(null)
+                    }
                 UiAutomator.screenshot(target, maxDim)
             }
             val base64 = bitmapToBase64Png(bitmap)
@@ -156,14 +163,13 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-click-view",
-        description = "Call View.performClick() on a view handle. Triggers click listeners just " +
+        description =
+            "Call View.performClick() on a view handle. Triggers click listeners just " +
                 "as a real finger tap would. `ref` is a #N handle from ui-dump-tree / ui-find-views.",
         sideEffect = true,
         group = BUILTIN_UI,
     )
-    fun uiClickView(
-        @AgentToolParam("Handle #N of the view to click") ref: String,
-    ): String = guard {
+    fun uiClickView(@AgentToolParam("Handle #N of the view to click") ref: String): String = guard {
         JvmValueBridge.onMain { UiAutomator.clickView(UiAutomator.resolveView(ref)) }
         "Clicked $ref."
     }
@@ -183,7 +189,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-set-text",
-        description = "Set text on a TextView or EditText view handle. Replaces all existing " +
+        description =
+            "Set text on a TextView or EditText view handle. Replaces all existing " +
                 "content and moves the cursor to the end, triggering TextWatcher callbacks.",
         sideEffect = true,
         group = BUILTIN_UI,
@@ -198,29 +205,34 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-input-text",
-        description = "Set text on whichever view currently has focus in the top activity " +
+        description =
+            "Set text on whichever view currently has focus in the top activity " +
                 "(typically the chat input bar). Equivalent to ui-set-text on the focused view.",
         sideEffect = true,
         group = BUILTIN_UI,
     )
-    fun uiInputText(
-        @AgentToolParam("Text to type into the focused view") text: String,
-    ): String = guard {
-        JvmValueBridge.onMain {
-            val act = dev.ujhhgtg.wekit.utils.android.getTopMostActivity()
-                ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No top-most activity")
-            val focused = act.currentFocus
-                ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No focused view")
-            UiAutomator.setText(focused, text)
+    fun uiInputText(@AgentToolParam("Text to type into the focused view") text: String): String =
+        guard {
+            JvmValueBridge.onMain {
+                val act =
+                    dev.ujhhgtg.wekit.utils.android.getTopMostActivity()
+                        ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException(
+                            "No top-most activity",
+                        )
+                val focused =
+                    act.currentFocus
+                        ?: throw dev.ujhhgtg.wekit.agent.jvm.JvmBridgeException("No focused view")
+                UiAutomator.setText(focused, text)
+            }
+            "Text set on focused view."
         }
-        "Text set on focused view."
-    }
 
     // ------------------------------------------------------------------ coordinate actions
 
     @AgentTool(
         name = "ui-tap",
-        description = "Synthesise a DOWN+UP tap at absolute screen coordinates (pixels). " +
+        description =
+            "Synthesise a DOWN+UP tap at absolute screen coordinates (pixels). " +
                 "Use ui-dump-tree to discover bounds first. `windowRef` optionally scopes the " +
                 "dispatch to a specific window handle.",
         sideEffect = true,
@@ -240,7 +252,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-multi-tap",
-        description = "Tap the same screen coordinate multiple times (连点 / double-tap). " +
+        description =
+            "Tap the same screen coordinate multiple times (连点 / double-tap). " +
                 "`count` is the number of taps; `intervalMs` is the pause between taps (default 80ms).",
         sideEffect = true,
         group = BUILTIN_UI,
@@ -262,7 +275,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-long-press",
-        description = "Hold a press at screen coordinates for `durationMs` ms then release. " +
+        description =
+            "Hold a press at screen coordinates for `durationMs` ms then release. " +
                 "Default duration is 600ms (threshold for long-press context menus).",
         sideEffect = true,
         group = BUILTIN_UI,
@@ -283,7 +297,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-swipe",
-        description = "Swipe from (x1, y1) to (x2, y2) over `durationMs` ms. Emits smooth " +
+        description =
+            "Swipe from (x1, y1) to (x2, y2) over `durationMs` ms. Emits smooth " +
                 "MOVE events (`steps`, default ≈60fps) so velocity-based gestures work correctly. " +
                 "Use for scrolling lists, pulling drawers, or dismissing cards.",
         sideEffect = true,
@@ -295,7 +310,8 @@ object WeUiAutomationToolBindings {
         @AgentToolParam("End screen X (pixels)") x2: Double,
         @AgentToolParam("End screen Y (pixels)") y2: Double,
         @AgentToolParam("Swipe duration in ms (default 300)") durationMs: Long?,
-        @AgentToolParam("Number of intermediate MOVE events (default max(10, durationMs/16))") steps: Int?,
+        @AgentToolParam("Number of intermediate MOVE events (default max(10, durationMs/16))")
+        steps: Int?,
         @AgentToolParam("Handle to target window; null = top activity") windowRef: String?,
     ): String = guard {
         val dur = (durationMs ?: 300L).coerceAtLeast(20L)
@@ -309,7 +325,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-touch-down",
-        description = "Start a held touch gesture (ACTION_DOWN) at screen coordinates. " +
+        description =
+            "Start a held touch gesture (ACTION_DOWN) at screen coordinates. " +
                 "Follow with ui-touch-move and ui-touch-up to compose multi-step gestures. " +
                 "Any previously-active gesture is cancelled first.",
         sideEffect = true,
@@ -329,7 +346,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-touch-move",
-        description = "Move a held touch gesture to screen coordinates (ACTION_MOVE). " +
+        description =
+            "Move a held touch gesture to screen coordinates (ACTION_MOVE). " +
                 "Must follow ui-touch-down.",
         sideEffect = true,
         group = BUILTIN_UI,
@@ -343,7 +361,8 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-touch-up",
-        description = "Release a held touch gesture (ACTION_UP) at screen coordinates. " +
+        description =
+            "Release a held touch gesture (ACTION_UP) at screen coordinates. " +
                 "Must follow ui-touch-down. Coordinates may differ from the last move.",
         sideEffect = true,
         group = BUILTIN_UI,
@@ -357,14 +376,16 @@ object WeUiAutomationToolBindings {
 
     @AgentTool(
         name = "ui-press-key",
-        description = "Send a KEY_DOWN + KEY_UP event to the top WeChat activity. Common key " +
+        description =
+            "Send a KEY_DOWN + KEY_UP event to the top WeChat activity. Common key " +
                 "codes: BACK=4, ENTER=66, DEL=67, HOME=3, VOLUME_UP=24, VOLUME_DOWN=25. Pass the " +
                 "integer key code from android.view.KeyEvent.",
         sideEffect = true,
         group = BUILTIN_UI,
     )
     fun uiPressKey(
-        @AgentToolParam("Android KeyEvent key code integer (e.g. 66 for ENTER, 4 for BACK)") keyCode: Int,
+        @AgentToolParam("Android KeyEvent key code integer (e.g. 66 for ENTER, 4 for BACK)")
+        keyCode: Int,
     ): String = guard {
         JvmValueBridge.onMain { UiAutomator.pressKey(keyCode) }
         "Key $keyCode dispatched."
@@ -378,9 +399,10 @@ object WeUiAutomationToolBindings {
         return Base64.getEncoder().encodeToString(out.toByteArray())
     }
 
-    private inline fun guard(block: () -> String): String = try {
-        block()
-    } catch (e: Throwable) {
-        "Error: ${e.javaClass.simpleName}: ${e.message}"
-    }
+    private inline fun guard(block: () -> String): String =
+        try {
+            block()
+        } catch (e: Throwable) {
+            "Error: ${e.javaClass.simpleName}: ${e.message}"
+        }
 }

@@ -3,6 +3,7 @@
 package dev.ujhhgtg.wekit.ui.utils
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.ListItem as MaterialListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemElevation
@@ -10,11 +11,8 @@ import androidx.compose.material3.ListItemShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.ListItem as MaterialListItem
 
-/**
- * Compatibility wrapper around [MaterialListItem].
- */
+/** Compatibility wrapper around [MaterialListItem]. */
 @Composable
 inline fun ListItem(
     modifier: Modifier = Modifier,
@@ -42,6 +40,6 @@ inline fun ListItem(
         colors = colors,
         elevation = elevation,
         contentPadding = contentPadding,
-        content = content
+        content = content,
     )
 }

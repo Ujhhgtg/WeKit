@@ -17,16 +17,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -35,7 +34,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ModifyFriendsCount : ClickableFeature() {
-
     override val technicalId = "修改好友数量"
     override val nameRes = R.string.feature_modify_friends_count_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -49,12 +47,18 @@ object ModifyFriendsCount : ClickableFeature() {
 
     override fun onEnable() {
         TextView::class.reflekt()
-            .firstMethod { name = "setText"; parameterCount = 1 }.hookBefore {
+            .firstMethod {
+                name = "setText"
+                parameterCount = 1
+            }
+            .hookBefore {
                 val text = args[0] as? CharSequence ?: return@hookBefore
                 if (!FRIEND_COUNT_REGEX.containsMatchIn(text)) return@hookBefore
                 val view = thisObject as TextView
                 val activity = view.context.findActivity() ?: return@hookBefore
-                if (!activity.javaClass.name.startsWith("com.tencent.mm.ui.contact")) return@hookBefore
+                if (!activity.javaClass.name.startsWith("com.tencent.mm.ui.contact")) {
+                    return@hookBefore
+                }
 
                 if (count == HIDE) {
                     view.visibility = View.GONE
@@ -68,7 +72,9 @@ object ModifyFriendsCount : ClickableFeature() {
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var hide by remember { mutableStateOf(count == HIDE) }
-            var displayCount by remember { mutableStateOf(if (count == HIDE) "0" else count.toString()) }
+            var displayCount by remember {
+                mutableStateOf(if (count == HIDE) "0" else count.toString())
+            }
 
             AlertDialogContent(
                 title = { Text(stringResource(R.string.feature_modify_friends_count_name)) },
@@ -93,22 +99,28 @@ object ModifyFriendsCount : ClickableFeature() {
                                         displayCount = it.filter(Char::isDigit).take(7)
                                     },
                                     enabled = !hide,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                 )
                             }
                         }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        count = if (hide) HIDE else displayCount.toIntOrNull() ?: 0
-                        WeLogger.i(TAG, "friend count display set to ${if (hide) "hidden" else count}")
-                        onDismiss()
-                    }) { Text(stringResource(R.string.action_save)) }
+                    TextButton(
+                        onClick = {
+                            count = if (hide) HIDE else displayCount.toIntOrNull() ?: 0
+                            WeLogger.i(
+                                TAG,
+                                "friend count display set to ${if (hide) "hidden" else count}",
+                            )
+                            onDismiss()
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }

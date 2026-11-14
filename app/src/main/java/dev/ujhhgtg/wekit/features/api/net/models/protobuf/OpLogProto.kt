@@ -10,13 +10,12 @@ import kotlinx.serialization.protobuf.ProtoNumber
 /**
  * Protobuf models for the `/cgi-bin/micromsg-bin/oplog` CGI (funcId 681).
  *
- * WeChat funnels many "settings mutation" operations (delete contact, block contact,
- * set nickname, ...) through a single oplog request. Each request carries a list of
- * [OperationProto]s; every operation wraps a command id plus the serialized bytes of a
- * command-specific payload proto.
+ * WeChat funnels many "settings mutation" operations (delete contact, block contact, set nickname,
+ * ...) through a single oplog request. Each request carries a list of [OperationProto]s; every
+ * operation wraps a command id plus the serialized bytes of a command-specific payload proto.
  *
- * Mirrors the decompiled classes: `h25` (request), `c50` (list), `b50` (operation) and
- * `cu5` (buffer wrapper).
+ * Mirrors the decompiled classes: `h25` (request), `c50` (list), `b50` (operation) and `cu5`
+ * (buffer wrapper).
  */
 
 /** `h25` - the oplog request body. */
@@ -33,7 +32,8 @@ data class OpLogReqProto(
 data class OpLogRespProto(
     @ProtoNumber(1) val ret: Int = 0,
 ) {
-    val isSuccess: Boolean get() = ret == 0
+    val isSuccess: Boolean
+        get() = ret == 0
 
     companion object {
         fun decode(bytes: ByteArray): OpLogRespProto = WeProto.decode(bytes)
@@ -54,7 +54,9 @@ data class OperationProto(
     @ProtoNumber(2) val opBuf: OpBufProto,
 )
 
-/** `du5` / `SKBuiltinString_t` - a username / string wrapper reused across many command payloads. */
+/**
+ * `du5` / `SKBuiltinString_t` - a username / string wrapper reused across many command payloads.
+ */
 @Serializable
 data class UserNameProto(
     @ProtoNumber(1) val userName: String = "",
@@ -105,11 +107,11 @@ data class ModProfileProto(
     @ProtoNumber(13) val signature: String = "",
     @ProtoNumber(14) val personalCard: Int = 1,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(15) val disturbSetting: DisturbSettingProto? = null,
+    @ProtoNumber(15)
+    val disturbSetting: DisturbSettingProto? = null,
     @ProtoNumber(16) val pluginFlag: Int = 0,
     @ProtoNumber(17) val verifyFlag: Int = 0,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(18) val verifyInfo: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(18) val verifyInfo: String? = null,
     @ProtoNumber(19) val point: Int = 0,
     @ProtoNumber(20) val experience: Int = 0,
     @ProtoNumber(21) val level: Int = 0,
@@ -117,22 +119,18 @@ data class ModProfileProto(
     @ProtoNumber(23) val levelHighExp: Int = 0,
     @ProtoNumber(24) val weibo: String = "",
     @ProtoNumber(25) val pluginSwitch: Int = 0,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(26) val gmailList: GmailListProto? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(26) val gmailList: GmailListProto? = null,
     @ProtoNumber(27) val alias: String = "",
     @ProtoNumber(28) val weiboNickname: String = "",
     @ProtoNumber(29) val weiboFlag: Int = 0,
     @ProtoNumber(30) val faceBookFlag: Int = 0,
     @ProtoNumber(31) val fbUserId: Long = 0L,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(32) val fbUserName: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(32) val fbUserName: String? = null,
     @ProtoNumber(33) val albumStyle: Int = 0,
     @ProtoNumber(34) val albumFlag: Int = 0,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(35) val albumBgImgId: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(35) val albumBgImgId: String? = null,
     @ProtoNumber(36) val txNewsCategory: Int = 0,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(37) val fbToken: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) @ProtoNumber(37) val fbToken: String? = null,
     @ProtoNumber(38) val country: String = "",
 )
 
@@ -141,10 +139,12 @@ data class ModProfileProto(
 data class DisturbSettingProto(
     @ProtoNumber(1) val nightSetting: Int = 0,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(2) val nightTime: DisturbTimeProto? = null,
+    @ProtoNumber(2)
+    val nightTime: DisturbTimeProto? = null,
     @ProtoNumber(3) val allDaySetting: Int = 0,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    @ProtoNumber(4) val allDayTime: DisturbTimeProto? = null,
+    @ProtoNumber(4)
+    val allDayTime: DisturbTimeProto? = null,
 )
 
 /** `ef0` - begin/end time for disturb settings. */
@@ -170,9 +170,9 @@ data class GmailInfoProto(
 )
 
 /**
- * Helpers for assembling `/cgi-bin/micromsg-bin/oplog` (cgi 681) request bodies from typed
- * command payloads. WeChat writes zero-valued scalar fields explicitly, so [protoBuf] mirrors that
- * to stay byte-compatible with the native client.
+ * Helpers for assembling `/cgi-bin/micromsg-bin/oplog` (cgi 681) request bodies from typed command
+ * payloads. WeChat writes zero-valued scalar fields explicitly, so [protoBuf] mirrors that to stay
+ * byte-compatible with the native client.
  */
 object OpLog {
 
@@ -195,9 +195,9 @@ object OpLog {
     /**
      * Wrap already-serialized payload [bytes] as an [OperationProto].
      *
-     * Use this when the payload proto is built by the host itself (e.g. the modContact `tn4`
-     * proto assembled by WeChat's own `ContactStorageLogic.toModContactOplog`), so its exact
-     * byte layout is reproduced rather than re-encoded from a partial model.
+     * Use this when the payload proto is built by the host itself (e.g. the modContact `tn4` proto
+     * assembled by WeChat's own `ContactStorageLogic.toModContactOplog`), so its exact byte layout
+     * is reproduced rather than re-encoded from a partial model.
      */
     fun operationRaw(cmdId: Int, bytes: ByteArray): OperationProto =
         OperationProto(cmdId, OpBufProto.fromBytes(bytes))
@@ -205,7 +205,9 @@ object OpLog {
     /** Build the full oplog request bytes for a set of [operations]. */
     @Suppress("DEPRECATION")
     fun encodeRequest(operations: List<OperationProto>): ByteArray =
-        WeProto.encode(OpLogReqProto(OpLogListProto(count = operations.size, operations = operations)))
+        WeProto.encode(
+            OpLogReqProto(OpLogListProto(count = operations.size, operations = operations)),
+        )
 
     /** Convenience: build oplog request bytes for a single typed command payload. */
     inline fun <reified T : Any> encodeSingle(cmdId: Int, payload: T): ByteArray =

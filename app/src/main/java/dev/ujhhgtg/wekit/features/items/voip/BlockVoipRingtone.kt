@@ -11,19 +11,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-object BlockVoipRingtone : ClickableFeature(), IResolveDex {
-
+object BlockVoipRingtone : ClickableFeature() {
     override val technicalId = "屏蔽铃声"
     override val nameRes = R.string.feature_block_voip_ringtone_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)
@@ -33,9 +31,7 @@ object BlockVoipRingtone : ClickableFeature(), IResolveDex {
     private var disableInCall by prefOption("voip_disable_ringtone_in_call", false)
 
     private val methodPlaySound by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.BaseSceneSetting", "playSound Failed Throwable t = ")
-        }
+        usingEqStrings("MicroMsg.BaseSceneSetting", "playSound Failed Throwable t = ")
     }
 
     override fun onEnable() {

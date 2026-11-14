@@ -9,7 +9,10 @@ import androidx.compose.ui.graphics.Shape
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
@@ -32,11 +35,31 @@ fun LayerBackdrop?.m3AppBarColor(): Color =
 fun Modifier.m3AppBarBlur(
     backdrop: LayerBackdrop?,
     enabled: Boolean = true,
+    progressive: Boolean = true,
     blurRadius: Float = 25f,
     blendAlpha: Float = 0.8f,
     shape: Shape = RectangleShape,
 ): Modifier {
     if (!enabled || backdrop == null) return this
+    if (progressive && isRuntimeShaderSupported()) {
+        return then(
+            Modifier.progressiveTextureBlur(
+                backdrop = backdrop,
+                shape = shape,
+                gradient = ProgressiveBlur.Top.copy(curve = 2.2f),
+                blurRadius = 10f,
+                colors =
+                    BlurColors(
+                        blendColors =
+                            listOf(
+                                BlendColorEntry(
+                                    color = MaterialTheme.colorScheme.surfaceContainer.copy(0.3f),
+                                ),
+                            ),
+                    ),
+            ),
+        )
+    }
     val blendColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = blendAlpha)
     return then(
         Modifier.textureBlur(

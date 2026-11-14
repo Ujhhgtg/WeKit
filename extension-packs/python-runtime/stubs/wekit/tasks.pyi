@@ -1,0 +1,9 @@
+from collections.abc import Awaitable, Callable
+from .runtime import PluginContext, TaskHandle
+
+def main(ctx: PluginContext, callback: Callable[[], object]) -> TaskHandle: ...
+async def main_async(ctx: PluginContext, callback: Callable[[], object]) -> object: ...
+def spawn(
+    ctx: PluginContext,
+    callback: Awaitable[object] | Callable[[], object],
+) -> TaskHandle: ...

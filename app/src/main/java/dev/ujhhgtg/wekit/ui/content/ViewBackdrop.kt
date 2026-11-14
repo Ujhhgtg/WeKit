@@ -47,10 +47,7 @@ import top.yukonga.miuix.kmp.blur.Backdrop
  * which draw blank behind the bar; that is an accepted limitation of View.draw().
  */
 @Composable
-fun rememberViewBackdrop(
-    sourceView: View,
-    lifecycleOwner: LifecycleOwner,
-): ViewBackdrop {
+fun rememberViewBackdrop(sourceView: View, lifecycleOwner: LifecycleOwner): ViewBackdrop {
     val graphicsLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
@@ -59,14 +56,17 @@ fun rememberViewBackdrop(
     backdrop.updateEnvironment(sourceView, density, layoutDirection)
 
     // Ask the glass to re-capture whenever WeChat's own content is about to redraw — a scroll, a
-    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpGeneration` writes
-    // a snapshot state that `drawBackdrop` reads, which is what actually forces the backdrop draw node
+    // tab switch (setCurrentItem scrolls the pager), an incoming message, etc. `bumpGeneration`
+    // writes
+    // a snapshot state that `drawBackdrop` reads, which is what actually forces the backdrop draw
+    // node
     // to re-run its layer recording; a plain View.invalidate() only recomposites the cached render
     // nodes and would NOT re-run the capture, so a settled static tab froze on its last frame.
     //
     // The `isDirty` gate is what keeps this from looping at 60fps: our own re-capture dirties the
     // overlay ComposeView, not `sourceView`, so `sourceView.isDirty` is true only when WeChat's
-    // content genuinely needs to redraw. When WeChat is idle nothing dirties the source, we skip the
+    // content genuinely needs to redraw. When WeChat is idle nothing dirties the source, we skip
+    // the
     // bump, and the glass costs nothing.
     DisposableEffect(sourceView, lifecycleOwner) {
         val observer = sourceView.viewTreeObserver
@@ -76,27 +76,46 @@ fun rememberViewBackdrop(
             }
             true
         }
-        val layoutListener = View.OnLayoutChangeListener { _, left, top, right, bottom,
-            oldLeft, oldTop, oldRight, oldBottom ->
-            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
-                backdrop.bumpGeneration()
+        val layoutListener =
+            View.OnLayoutChangeListener {
+                _,
+                left,
+                top,
+                right,
+                bottom,
+                oldLeft,
+                oldTop,
+                oldRight,
+                oldBottom ->
+                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
+                    backdrop.bumpGeneration()
+                }
             }
-        }
-        val attachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) = backdrop.onSourceAttached()
+        val attachListener =
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) = backdrop.onSourceAttached()
 
-            override fun onViewDetachedFromWindow(v: View) = backdrop.invalidateSource()
-        }
+                override fun onViewDetachedFromWindow(v: View) = backdrop.invalidateSource()
+            }
         val lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START,
-                Lifecycle.Event.ON_RESUME -> backdrop.startLifecycle()
-                Lifecycle.Event.ON_STOP -> backdrop.prepareLifecycle(false)
+                Lifecycle.Event.ON_RESUME -> {
+                    backdrop.startLifecycle()
+                }
+
+                Lifecycle.Event.ON_STOP -> {
+                    backdrop.prepareLifecycle(false)
+                }
+
                 Lifecycle.Event.ON_DESTROY -> {
                     backdrop.prepareLifecycle(false)
                     backdrop.invalidateSource()
                 }
-                else -> Unit
+
+                else -> {
+                    Unit
+                }
             }
         }
         backdrop.prepareLifecycle(
@@ -108,7 +127,9 @@ fun rememberViewBackdrop(
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
         onDispose {
             (if (observer.isAlive) observer else sourceView.viewTreeObserver)
-                .removeOnPreDrawListener(listener)
+                .removeOnPreDrawListener(
+                    listener,
+                )
             sourceView.removeOnLayoutChangeListener(layoutListener)
             sourceView.removeOnAttachStateChangeListener(attachListener)
             lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
@@ -120,13 +141,10 @@ fun rememberViewBackdrop(
 }
 
 @Stable
-class ViewBackdrop internal constructor(
-    private val graphicsLayer: GraphicsLayer
-) : Backdrop {
-
-    internal var sourceView: View? = null
-    internal var density: Density = Density(1f)
-    internal var layoutDirection: LayoutDirection = LayoutDirection.Ltr
+class ViewBackdrop(private val graphicsLayer: GraphicsLayer) : Backdrop {
+    var sourceView: View? = null
+    var density: Density = Density(1f)
+    var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     // Bumped whenever the source content redraws. Read inside drawBackdrop so the draw phase
     // subscribes to it: a change re-runs the backdrop draw node's layer recording (and thus our
@@ -148,14 +166,11 @@ class ViewBackdrop internal constructor(
     // (mirrors LayerBackdrop). At downscaleFactor == 1 these stay 0.
     override var offsetResidualX: Float = 0f
         private set
+
     override var offsetResidualY: Float = 0f
         private set
 
-    internal fun updateEnvironment(
-        view: View,
-        density: Density,
-        layoutDirection: LayoutDirection,
-    ) {
+    fun updateEnvironment(view: View, density: Density, layoutDirection: LayoutDirection) {
         if (sourceView !== view) {
             captureState.invalidate()
             sourceIdentity = ViewBackdropCaptureIdentity(view)
@@ -167,15 +182,15 @@ class ViewBackdrop internal constructor(
         this.layoutDirection = layoutDirection
     }
 
-    internal fun bumpGeneration() {
+    fun bumpGeneration() {
         generation++
     }
 
-    internal fun onSourceAttached() {
+    fun onSourceAttached() {
         bumpGeneration()
     }
 
-    internal fun invalidateSource() {
+    fun invalidateSource() {
         captureState.invalidate()
         offsetResidualX = 0f
         offsetResidualY = 0f
@@ -183,23 +198,23 @@ class ViewBackdrop internal constructor(
         generation++
     }
 
-    internal fun prepareLifecycle(started: Boolean) {
+    fun prepareLifecycle(started: Boolean) {
         lifecycleStarted = started
     }
 
-    internal fun startLifecycle() {
+    fun startLifecycle() {
         lifecycleStarted = true
         bumpGeneration()
     }
 
     private fun currentCaptureKey(view: View): ViewBackdropCaptureKey? {
         if (!lifecycleStarted || !view.isAttachedToWindow) return null
-        val windowIdentity = windowIdentityState.update(view.windowToken) {
-            captureState.invalidate()
-            offsetResidualX = 0f
-            offsetResidualY = 0f
-        }
-            ?: return null
+        val windowIdentity =
+            windowIdentityState.update(view.windowToken) {
+                captureState.invalidate()
+                offsetResidualX = 0f
+                offsetResidualY = 0f
+            } ?: return null
         return ViewBackdropCaptureKey(
             source = sourceIdentity!!,
             window = windowIdentity,
@@ -218,7 +233,7 @@ class ViewBackdrop internal constructor(
      * Records the current pixels of [sourceView] into the backing layer. Returns true if a capture
      * was performed (so the caller can repaint), false if the view isn't ready yet.
      */
-    internal fun recordSource(): Boolean {
+    fun recordSource(): Boolean {
         val view = sourceView ?: return false
         val width = view.width
         val height = view.height
@@ -231,8 +246,10 @@ class ViewBackdrop internal constructor(
                 // view. WeChat's WxViewPager selects the visible tab by scrolling itself
                 // (scrollTo(clientWidth * position, 0)) — pages are laid out side by side and only
                 // the pager's own scrollX chooses which one shows. That scroll offset is applied by
-                // the *parent's* draw traversal, NOT by the public View.draw(canvas) we call here, so
-                // without this translate every page draws at its raw layout x and only page 0 (home)
+                // the *parent's* draw traversal, NOT by the public View.draw(canvas) we call here,
+                // so
+                // without this translate every page draws at its raw layout x and only page 0
+                // (home)
                 // fits in the layer. This is why the glass was stuck on the home tab.
                 nativeCanvas.withTranslation(-view.scrollX.toFloat(), -view.scrollY.toFloat()) {
                     view.draw(nativeCanvas)
@@ -272,8 +289,11 @@ class ViewBackdrop internal constructor(
                     captureInProgress = false
                 }
             }
+
             ViewBackdropCaptureDecision.REUSE,
-            ViewBackdropCaptureDecision.SKIP -> Unit
+            ViewBackdropCaptureDecision.SKIP -> {
+                Unit
+            }
         }
         if (!captureState.canDrawFor(key)) return noCapture()
 
@@ -286,8 +306,10 @@ class ViewBackdrop internal constructor(
         val offsetY = barInWindow.y - viewLocation[1]
 
         if (downscaleFactor > 1) {
-            // Alignment happens in downscaled space; round to an even pixel (matching LayerBackdrop's
-            // even-snap for stable box-filter sampling) and report the leftover as a residual so the
+            // Alignment happens in downscaled space; round to an even pixel (matching
+            // LayerBackdrop's
+            // even-snap for stable box-filter sampling) and report the leftover as a residual so
+            // the
             // node's upscale pass restores sub-pixel-correct placement.
             val inv = 1f / downscaleFactor
             val scaledX = offsetX * inv
@@ -310,6 +332,7 @@ class ViewBackdrop internal constructor(
         }
     }
 
+    @Suppress("UnusedReceiverParameter")
     private fun DrawScope.noCapture() {
         offsetResidualX = 0f
         offsetResidualY = 0f

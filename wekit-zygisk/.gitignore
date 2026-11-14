@@ -8,5 +8,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Historical build outputs may still exist locally; no longer produced.
 /output
 /release
+
+# uv-managed Python tooling environment.
+/.venv/

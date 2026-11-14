@@ -7,7 +7,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object EnhanceQuery : SwitchFeature(), WeDatabaseListenerApi.IQueryListener {
-
     override val technicalId = "朋友圈查询增强"
     override val nameRes = R.string.feature_enhance_query_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -40,9 +39,9 @@ object EnhanceQuery : SwitchFeature(), WeDatabaseListenerApi.IQueryListener {
         var newSql = sql
 
         if (sql.contains("WHERE SnsInfo.userName=", false)) {
-            newSql = sql
-                .replace(SOURCE_TYPE_FILTER, SOURCE_TYPE_FILTER_ENHANCED)
-                .replace("(snsId >= ", "(1=1 or snsId >= ")
+            newSql =
+                sql.replace(SOURCE_TYPE_FILTER, SOURCE_TYPE_FILTER_ENHANCED)
+                    .replace("(snsId >= ", "(1=1 or snsId >= ")
         }
 
         return newSql.replace("(sourceType & 2 != 0 )", "(1=1)")

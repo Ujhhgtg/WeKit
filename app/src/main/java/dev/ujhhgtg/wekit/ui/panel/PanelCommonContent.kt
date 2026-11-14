@@ -24,12 +24,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,14 +59,16 @@ import com.composables.icons.materialsymbols.outlined.Send
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.roundToLong
 
 @Composable
-internal fun panelListItemColors(): ListItemColors = ListItemDefaults.colors(
-    containerColor = Color.Transparent,
-)
+fun panelListItemColors(): ListItemColors =
+    ListItemDefaults.colors(
+        containerColor = Color.Transparent,
+    )
 
 @Composable
 fun <T> PanelPackChips(
@@ -77,9 +79,7 @@ fun <T> PanelPackChips(
     onSelect: (T) -> Unit,
 ) {
     LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
+        modifier = Modifier.fillMaxWidth().height(52.dp),
         contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -96,10 +96,7 @@ fun <T> PanelPackChips(
     HorizontalDivider()
 }
 
-internal fun <T> panelItemsWithStableKeys(
-    items: List<T>,
-    key: (T) -> String,
-): List<Pair<String, T>> {
+fun <T> panelItemsWithStableKeys(items: List<T>, key: (T) -> String): List<Pair<String, T>> {
     val occurrences = mutableMapOf<String, Int>()
     return items.map { item ->
         val base = key(item)
@@ -110,10 +107,7 @@ internal fun <T> panelItemsWithStableKeys(
 }
 
 @Composable
-fun PanelAutoCloseSetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelAutoCloseSetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_auto_close)) },
@@ -127,10 +121,7 @@ fun PanelAutoCloseSetting(
 }
 
 @Composable
-fun PanelActionWrapSetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelActionWrapSetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_wrap_actions)) },
@@ -145,14 +136,13 @@ fun PanelActionWrapSetting(
 }
 
 @Composable
-fun PanelNavigationMemorySetting(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+fun PanelNavigationMemorySetting(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_remember_navigation)) },
-        supportingContent = { Text(stringResource(R.string.panel_setting_remember_navigation_summary)) },
+        supportingContent = {
+            Text(stringResource(R.string.panel_setting_remember_navigation_summary))
+        },
         trailingContent = {
             Switch(
                 checked = checked,
@@ -163,33 +153,29 @@ fun PanelNavigationMemorySetting(
 }
 
 @Composable
-fun PanelHistorySetting(
-    value: Long,
-    onValueChange: (Long) -> Unit,
-    onCustomValue: () -> Unit,
-) {
+fun PanelHistorySetting(value: Long, onValueChange: (Long) -> Unit, onCustomValue: () -> Unit) {
+    val sliderState = remember {
+        SliderState(value = panelHistoryToSlider(value), trackRange = 0f..1f)
+    }
+    sliderState.value = panelHistoryToSlider(value)
+
     ListItem(
         modifier = Modifier.clickable(onClick = onCustomValue),
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_setting_max_history)) },
-        supportingContent = { Text(stringResource(R.string.panel_setting_custom_number_summary, value)) },
+        supportingContent = {
+            Text(stringResource(R.string.panel_setting_custom_number_summary, value))
+        },
     )
     Slider(
-        value = panelHistoryToSlider(value),
+        state = sliderState,
         onValueChange = { onValueChange(panelSliderToHistory(it)) },
-        valueRange = 0f..1f,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
 }
 
 @Composable
-fun PanelConcurrencySetting(
-    title: String,
-    value: Int,
-    onClick: () -> Unit,
-) {
+fun PanelConcurrencySetting(title: String, value: Int, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
@@ -212,16 +198,17 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
 }
 
 @Composable
-fun PanelTelegramBotTokenSetting(
-    configured: Boolean,
-    onClick: () -> Unit,
-) {
+fun PanelTelegramBotTokenSetting(configured: Boolean, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = panelListItemColors(),
         content = { Text(stringResource(R.string.panel_telegram_bot_token)) },
         supportingContent = {
-            Text(stringResource(if (configured) R.string.panel_value_set else R.string.panel_value_not_set))
+            Text(
+                stringResource(
+                    if (configured) R.string.panel_value_set else R.string.panel_value_not_set,
+                ),
+            )
         },
     )
 }
@@ -236,7 +223,10 @@ fun PanelTelegramBotTokenPrompt(
     val normalized = input.trim()
     val valid = normalized.isBlank() || PanelSettings.isValidTelegramBotToken(normalized)
     PanelFullOverlay(onDismiss = onDismiss) {
-        Text(stringResource(R.string.panel_telegram_bot_token), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.panel_telegram_bot_token),
+            style = MaterialTheme.typography.titleMedium,
+        )
         Text(
             stringResource(R.string.panel_telegram_bot_token_summary),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -246,7 +236,12 @@ fun PanelTelegramBotTokenPrompt(
             value = input,
             onValueChange = { input = it },
             label = { Text(stringResource(R.string.panel_telegram_bot_token_label)) },
-            supportingText = if (valid) null else ({ Text(stringResource(R.string.panel_telegram_bot_token_invalid)) }),
+            supportingText =
+                if (valid) {
+                    null
+                } else {
+                    ({ Text(stringResource(R.string.panel_telegram_bot_token_invalid)) })
+                },
             isError = !valid,
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -273,9 +268,7 @@ fun <T> PanelDropdownSetting(
     val selectedLabel = options.firstOrNull { it.first == selected }?.second.orEmpty()
     Box(Modifier.fillMaxWidth()) {
         ListItem(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true },
+            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
             colors = panelListItemColors(),
             content = { Text(title) },
             supportingContent = { Text(selectedLabel) },
@@ -288,9 +281,14 @@ fun <T> PanelDropdownSetting(
             options.forEach { (value, label) ->
                 DropdownMenuItem(
                     text = { Text(label) },
-                    trailingIcon = if (value == selected) ({
-                        Icon(MaterialSymbols.Outlined.Check, null)
-                    }) else null,
+                    trailingIcon =
+                        if (value == selected) {
+                            ({
+                                Icon(MaterialSymbols.Outlined.Check, null)
+                            })
+                        } else {
+                            null
+                        },
                     onClick = {
                         expanded = false
                         onSelected(value)
@@ -302,15 +300,15 @@ fun <T> PanelDropdownSetting(
 }
 
 @Composable
-fun PanelFunBoxApiClientIdPrompt(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+fun PanelFunBoxApiClientIdPrompt(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var input by remember { mutableStateOf(PanelSettings.effectiveFunBoxApiClientWxId) }
     val normalized = input.trim()
     val valid = PanelSettings.isValidFunBoxApiClientWxId(normalized)
     PanelFullOverlay(onDismiss = onDismiss) {
-        Text(stringResource(R.string.panel_funbox_client_id), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.panel_funbox_client_id),
+            style = MaterialTheme.typography.titleMedium,
+        )
         Text(
             stringResource(R.string.panel_funbox_client_id_summary),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -320,16 +318,23 @@ fun PanelFunBoxApiClientIdPrompt(
             value = input,
             onValueChange = { input = it },
             label = { Text(stringResource(R.string.panel_wechat_id)) },
-            supportingText = if (valid) null else ({ Text(stringResource(R.string.panel_wechat_id_invalid)) }),
+            supportingText =
+                if (valid) null else ({ Text(stringResource(R.string.panel_wechat_id_invalid)) }),
             isError = !valid,
             singleLine = true,
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { input = WeApi.selfWxId }) {
-                        Icon(MaterialSymbols.Outlined.Person, stringResource(R.string.panel_wechat_id_use_current))
+                        Icon(
+                            MaterialSymbols.Outlined.Person,
+                            stringResource(R.string.panel_wechat_id_use_current),
+                        )
                     }
                     IconButton(onClick = { input = PanelSettings.randomFunBoxApiClientWxId() }) {
-                        Icon(MaterialSymbols.Outlined.Autorenew, stringResource(R.string.panel_wechat_id_generate))
+                        Icon(
+                            MaterialSymbols.Outlined.Autorenew,
+                            stringResource(R.string.panel_wechat_id_generate),
+                        )
                     }
                 }
             },
@@ -420,48 +425,69 @@ fun PanelSearchField(
         singleLine = true,
         label = { Text(label) },
         leadingIcon = { Icon(MaterialSymbols.Outlined.Search, null) },
-        trailingIcon = when {
-            extraTrailingIcon != null || onSearch != null -> ({
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    extraTrailingIcon?.invoke()
-                    if (onSearch != null) {
-                        IconButton(onClick = onSearch, enabled = enabled && value.isNotBlank()) {
-                            Icon(MaterialSymbols.Outlined.Send, stringResource(R.string.search_hint))
+        trailingIcon =
+            when {
+                extraTrailingIcon != null || onSearch != null -> ({
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            extraTrailingIcon?.invoke()
+                            if (onSearch != null) {
+                                IconButton(
+                                    onClick = onSearch,
+                                    enabled = enabled && value.isNotBlank(),
+                                ) {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Send,
+                                        stringResource(R.string.search_hint),
+                                    )
+                                }
+                            } else if (value.isNotEmpty()) {
+                                IconButton(onClick = { onValueChange("") }) {
+                                    Icon(
+                                        MaterialSymbols.Outlined.Close,
+                                        stringResource(R.string.panel_search_clear),
+                                    )
+                                }
+                            }
                         }
-                    } else if (value.isNotEmpty()) {
+                    })
+
+                value.isNotEmpty() -> ({
                         IconButton(onClick = { onValueChange("") }) {
-                            Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.panel_search_clear))
+                            Icon(
+                                MaterialSymbols.Outlined.Close,
+                                stringResource(R.string.panel_search_clear),
+                            )
                         }
-                    }
-                }
-            })
+                    })
 
-            value.isNotEmpty() -> ({
-                IconButton(onClick = { onValueChange("") }) {
-                    Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.panel_search_clear))
-                }
-            })
-
-            else -> null
-        },
-        keyboardOptions = KeyboardOptions(imeAction = if (onSearch == null) ImeAction.Done else ImeAction.Search),
+                else -> null
+            },
+        keyboardOptions =
+            KeyboardOptions(imeAction = if (onSearch == null) ImeAction.Done else ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { if (enabled) onSearch?.invoke() }),
     )
 }
 
 @Composable
-fun RecentModeTitle(
-    mostUsed: Boolean,
-    onModeChange: (Boolean) -> Unit,
-) {
-    val recentColor by animateColorAsState(
-        if (!mostUsed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-        label = "recent-title-color",
-    )
-    val mostColor by animateColorAsState(
-        if (mostUsed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-        label = "most-used-title-color",
-    )
+fun RecentModeTitle(mostUsed: Boolean, onModeChange: (Boolean) -> Unit) {
+    val recentColor by
+        animateColorAsState(
+            if (!mostUsed) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            label = "recent-title-color",
+        )
+    val mostColor by
+        animateColorAsState(
+            if (mostUsed) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            label = "most-used-title-color",
+        )
     val recentSize by animateFloatAsState(if (!mostUsed) 16f else 14f, label = "recent-title-size")
     val mostSize by animateFloatAsState(if (mostUsed) 16f else 14f, label = "most-used-title-size")
     Row(
@@ -473,9 +499,7 @@ fun RecentModeTitle(
             color = recentColor,
             fontSize = recentSize.sp,
             fontWeight = if (!mostUsed) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier
-                .clickable { onModeChange(false) }
-                .padding(vertical = 8.dp),
+            modifier = Modifier.clickable { onModeChange(false) }.padding(vertical = 8.dp),
         )
         Text(" / ", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
@@ -483,9 +507,7 @@ fun RecentModeTitle(
             color = mostColor,
             fontSize = mostSize.sp,
             fontWeight = if (mostUsed) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier
-                .clickable { onModeChange(true) }
-                .padding(vertical = 8.dp),
+            modifier = Modifier.clickable { onModeChange(true) }.padding(vertical = 8.dp),
         )
     }
 }
@@ -494,9 +516,10 @@ fun RecentModeTitle(
 fun SendCountBadge(count: Long, modifier: Modifier = Modifier) {
     if (count <= 0) return
     Box(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.primary, CircleShape)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+        modifier =
+            modifier
+                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -508,11 +531,12 @@ fun SendCountBadge(count: Long, modifier: Modifier = Modifier) {
     }
 }
 
-private fun panelHistoryToSlider(value: Long): Float = when {
-    value <= 1L -> 0f
-    value >= PANEL_HISTORY_SLIDER_MAX -> 1f
-    else -> (ln(value.toDouble()) / ln(PANEL_HISTORY_SLIDER_MAX.toDouble())).toFloat()
-}
+private fun panelHistoryToSlider(value: Long): Float =
+    when {
+        value <= 1L -> 0f
+        value >= PANEL_HISTORY_SLIDER_MAX -> 1f
+        else -> (ln(value.toDouble()) / ln(PANEL_HISTORY_SLIDER_MAX.toDouble())).toFloat()
+    }
 
 private fun panelSliderToHistory(value: Float): Long =
     exp(value.coerceIn(0f, 1f) * ln(PANEL_HISTORY_SLIDER_MAX.toDouble()))

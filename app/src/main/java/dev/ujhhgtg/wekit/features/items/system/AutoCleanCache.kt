@@ -4,11 +4,17 @@ import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.formatEpoch
+import java.nio.file.Path
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,15 +22,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.deleteRecursively
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.time.Duration.Companion.milliseconds
 
 object AutoCleanCache : ClickableFeature() {
-
     override val technicalId = "清理缓存垃圾"
     override val nameRes = R.string.feature_auto_clean_cache_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -76,7 +75,6 @@ object AutoCleanCache : ClickableFeature() {
         }
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun performClean(): Long {
         var totalDeletedBytes = 0L
         cleanPaths.forEach { path ->
@@ -111,15 +109,22 @@ object AutoCleanCache : ClickableFeature() {
             val sizeText = formatBytesSize(deletedSize)
 
             val timeText =
-                if (isEnabled) context.localizedSystemString(
-                    R.string.system_auto_clean_next,
-                    formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL)
-                )
-                else ""
+                if (isEnabled) {
+                    context.localizedString(
+                        R.string.system_auto_clean_next,
+                        formatEpoch(System.currentTimeMillis() + CLEAN_INTERVAL),
+                    )
+                } else {
+                    ""
+                }
 
             showToastSuspend(
                 context,
-                context.localizedSystemString(R.string.system_auto_clean_complete, sizeText, timeText)
+                context.localizedString(
+                    R.string.system_auto_clean_complete,
+                    sizeText,
+                    timeText,
+                ),
             )
 
             if (isEnabled) startCleaningJob()

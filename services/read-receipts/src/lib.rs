@@ -1,25 +1,16 @@
 use axum::{
-    Extension, Json, Router,
+    Json, Router,
     extract::{ConnectInfo, DefaultBodyLimit, Path, Query, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use chrono::Utc;
-use libsql::{Builder, Connection, Database};
+use libsql::{Connection, Database};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{
-    collections::HashMap,
-    fmt,
-    future::Future,
-    net::{IpAddr, SocketAddr},
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
-use subtle::ConstantTimeEq;
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tracing::{error, info, warn};
 
 const TRACKING_PIXEL: &[u8] = &[
@@ -34,162 +25,17 @@ const MAX_CONTENT_BYTES: usize = 16 * 1024;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
 const MAX_REQUEST_BODY_BYTES: usize = 20 * 1024;
 const MAX_QUERY_BYTES: usize = 1024;
-const RATE_WINDOW: Duration = Duration::from_secs(60);
-const REGISTER_RATE_LIMIT: u32 = 30;
-const COUNT_RATE_LIMIT: u32 = 120;
-const CONNECTOR_AUTHENTICATOR_BYTES: usize = 32;
-const ORIGIN_AUTHENTICATOR_HEADER: &str = "x-wekit-origin-authenticator";
-const ORIGIN_READER_IP_HEADER: &str = "x-wekit-reader-ip";
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RouteProfile {
-    Standalone,
-    Embedded,
-}
-
-#[derive(Clone, Debug)]
-pub struct ServerConfig {
-    pub database_path: PathBuf,
-    pub bind_addr: IpAddr,
-    pub bind_port: u16,
-    pub route_profile: RouteProfile,
-    pub connector_authenticator: Option<ConnectorAuthenticator>,
-}
-
-impl ServerConfig {
-    pub fn with_connector_authenticator(mut self, value: &str) -> Result<Self, &'static str> {
-        self.connector_authenticator = Some(ConnectorAuthenticator::parse(value)?);
-        Ok(self)
-    }
-}
-
-#[derive(Clone)]
-pub struct ConnectorAuthenticator([u8; CONNECTOR_AUTHENTICATOR_BYTES]);
-
-impl ConnectorAuthenticator {
-    pub fn parse(value: &str) -> Result<Self, &'static str> {
-        let bytes = value.as_bytes();
-        if bytes.len() != CONNECTOR_AUTHENTICATOR_BYTES
-            || !bytes
-                .iter()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/'))
-        {
-            return Err("invalid connector authenticator");
-        }
-        let mut authenticator = [0_u8; CONNECTOR_AUTHENTICATOR_BYTES];
-        authenticator.copy_from_slice(bytes);
-        Ok(Self(authenticator))
-    }
-
-    fn matches(&self, candidate: &[u8]) -> bool {
-        candidate.len() == self.0.len() && self.0.ct_eq(candidate).into()
-    }
-}
-
-impl PartialEq for ConnectorAuthenticator {
-    fn eq(&self, other: &Self) -> bool {
-        self.matches(&other.0)
-    }
-}
-
-impl Eq for ConnectorAuthenticator {}
-
-impl fmt::Debug for ConnectorAuthenticator {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ConnectorAuthenticator([redacted])")
-    }
-}
-
-impl Drop for ConnectorAuthenticator {
-    fn drop(&mut self) {
-        self.0.fill(0);
-    }
-}
-
-#[derive(Debug)]
-pub enum ServerError {
-    Database(libsql::Error),
-    Io(std::io::Error),
-    Task(tokio::task::JoinError),
-}
-
-impl fmt::Display for ServerError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Database(error) => write!(formatter, "database error: {error}"),
-            Self::Io(error) => write!(formatter, "I/O error: {error}"),
-            Self::Task(error) => write!(formatter, "server task error: {error}"),
-        }
-    }
-}
-
-impl std::error::Error for ServerError {}
-
-impl From<libsql::Error> for ServerError {
-    fn from(error: libsql::Error) -> Self {
-        Self::Database(error)
-    }
-}
-
-impl From<std::io::Error> for ServerError {
-    fn from(error: std::io::Error) -> Self {
-        Self::Io(error)
-    }
-}
-
-impl From<tokio::task::JoinError> for ServerError {
-    fn from(error: tokio::task::JoinError) -> Self {
-        Self::Task(error)
-    }
-}
-
-pub struct ServerHandle {
-    local_addr: SocketAddr,
-    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
-    task: tokio::task::JoinHandle<Result<(), ServerError>>,
-}
-
-pub type BoundServer = ServerHandle;
-
-impl ServerHandle {
-    pub fn local_addr(&self) -> SocketAddr {
-        self.local_addr
-    }
-
-    pub async fn shutdown(mut self) -> Result<(), ServerError> {
-        if let Some(shutdown) = self.shutdown.take() {
-            let _ = shutdown.send(());
-        }
-        self.task.await?
-    }
-}
-
 pub struct AppState {
     db: Connection,
-    rate_limits: Mutex<HashMap<(RateRoute, IpAddr), RateWindow>>,
 }
 
 impl AppState {
     pub fn new(db: Connection) -> Self {
-        Self {
-            db,
-            rate_limits: Mutex::new(HashMap::new()),
-        }
+        Self { db }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum RateRoute {
-    Register,
-    Count,
-}
-
-struct RateWindow {
-    started_at: Instant,
-    requests: u32,
-}
-
-pub async fn initialize_database(database: &Database) -> Result<(), ServerError> {
+pub async fn initialize_database(database: &Database) -> Result<(), libsql::Error> {
     let connection = database.connect()?;
     connection
         .execute(
@@ -214,43 +60,6 @@ pub async fn initialize_database(database: &Database) -> Result<(), ServerError>
         )
         .await?;
     Ok(())
-}
-
-pub async fn open_database(config: &ServerConfig) -> Result<Database, ServerError> {
-    let database = Builder::new_local(&config.database_path).build().await?;
-    initialize_database(&database).await?;
-    Ok(database)
-}
-
-pub async fn bind_and_serve(
-    config: ServerConfig,
-    shutdown: impl Future<Output = ()> + Send + 'static,
-) -> Result<BoundServer, ServerError> {
-    let database = open_database(&config).await?;
-    let state = Arc::new(AppState::new(database.connect()?));
-    let router = build_router(&config, state);
-    let listener = tokio::net::TcpListener::bind((config.bind_addr, config.bind_port)).await?;
-    let local_addr = listener.local_addr()?;
-    let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel();
-    let task = tokio::spawn(async move {
-        axum::serve(
-            listener,
-            router.into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .with_graceful_shutdown(async move {
-            tokio::select! {
-                _ = shutdown => {}
-                _ = shutdown_receiver => {}
-            }
-        })
-        .await
-        .map_err(ServerError::Io)
-    });
-    Ok(ServerHandle {
-        local_addr,
-        shutdown: Some(shutdown_sender),
-        task,
-    })
 }
 
 /// Computes the deterministic ID shared by the WeKit client and server.
@@ -306,32 +115,21 @@ struct ReadRecord {
     timestamp: String,
 }
 
-pub fn build_router(config: &ServerConfig, state: Arc<AppState>) -> Router {
-    let router = Router::new()
+pub fn build_router(state: Arc<AppState>) -> Router {
+    Router::new()
         .route("/register", post(register_message))
         .route("/pixel", get(serve_tracking_pixel))
-        .route("/count", get(read_count));
-    let router = match config.route_profile {
-        RouteProfile::Standalone => router
-            .route("/", get(serve_index))
-            .route("/messages", get(list_messages).delete(delete_all_messages))
-            .route(
-                "/messages/{wx_id}",
-                get(list_messages_for_sender).delete(delete_messages_for_sender),
-            )
-            .route("/reads/{id}", get(list_reads_for_message)),
-        RouteProfile::Embedded => router.route("/health", get(health)),
-    };
-    router
+        .route("/count", get(read_count))
+        .route("/", get(serve_index))
+        .route("/messages", get(list_messages).delete(delete_all_messages))
+        .route(
+            "/messages/{wx_id}",
+            get(list_messages_for_sender).delete(delete_messages_for_sender),
+        )
+        .route("/reads/{id}", get(list_reads_for_message))
         .layer(middleware::from_fn(limit_query_string))
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
-        .layer(Extension(config.connector_authenticator.clone()))
-        .layer(Extension(config.route_profile))
         .with_state(state)
-}
-
-async fn health() -> StatusCode {
-    StatusCode::NO_CONTENT
 }
 
 async fn limit_query_string(request: axum::extract::Request, next: Next) -> Response {
@@ -355,17 +153,8 @@ async fn serve_index() -> impl IntoResponse {
 
 async fn register_message(
     State(state): State<Arc<AppState>>,
-    Extension(route_profile): Extension<RouteProfile>,
-    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
     Json(request): Json<RegisterRequest>,
 ) -> Result<Json<RegisterResponse>, (StatusCode, String)> {
-    enforce_rate_limit(
-        &state,
-        route_profile,
-        RateRoute::Register,
-        remote_addr.ip(),
-        REGISTER_RATE_LIMIT,
-    )?;
     if request.wx_id.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "wxId must not be empty".to_owned()));
     }
@@ -401,26 +190,14 @@ async fn register_message(
 
 async fn serve_tracking_pixel(
     State(state): State<Arc<AppState>>,
-    Extension(route_profile): Extension<RouteProfile>,
-    Extension(connector_authenticator): Extension<Option<ConnectorAuthenticator>>,
     Query(params): Query<ReadParams>,
     ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
 ) -> impl IntoResponse {
-    let client_ip = trusted_connector_reader_ip(&headers, connector_authenticator.as_ref())
-        .unwrap_or_else(|| remote_addr.ip())
-        .to_string();
+    let client_ip = remote_addr.ip().to_string();
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     match (&params.wx_id, &params.id) {
         (Some(wx_id), Some(id)) => {
-            let should_log = match route_profile {
-                RouteProfile::Standalone => valid_standalone_read_params(wx_id, id),
-                RouteProfile::Embedded => {
-                    valid_embedded_read_params(wx_id, id)
-                        && message_exists(&state.db, wx_id, id).await
-                }
-            };
-            if should_log {
+            if valid_read_params(wx_id, id) {
                 info!("/pixel request\nid = {id}, wxId = {wx_id}, client_ip = {client_ip}");
                 if state
                     .db
@@ -447,52 +224,10 @@ async fn serve_tracking_pixel(
         .unwrap()
 }
 
-fn trusted_connector_reader_ip(
-    headers: &HeaderMap,
-    expected_authenticator: Option<&ConnectorAuthenticator>,
-) -> Option<IpAddr> {
-    let expected_authenticator = expected_authenticator?;
-    let supplied_authenticator = headers.get(ORIGIN_AUTHENTICATOR_HEADER)?.as_bytes();
-    if !expected_authenticator.matches(supplied_authenticator) {
-        return None;
-    }
-    headers
-        .get(ORIGIN_READER_IP_HEADER)?
-        .to_str()
-        .ok()?
-        .parse()
-        .ok()
-}
-
-async fn message_exists(connection: &Connection, wx_id: &str, id: &str) -> bool {
-    let result = connection
-        .query(
-            "SELECT 1 FROM messages WHERE id = ?1 AND wx_id = ?2 LIMIT 1",
-            libsql::params![id, wx_id],
-        )
-        .await;
-    match result {
-        Ok(mut rows) => matches!(rows.next().await, Ok(Some(_))),
-        Err(_) => {
-            error!("failed to validate pixel message");
-            false
-        }
-    }
-}
-
 async fn read_count(
     State(state): State<Arc<AppState>>,
-    Extension(route_profile): Extension<RouteProfile>,
-    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
     Query(params): Query<ReadParams>,
 ) -> Result<Json<CountResponse>, (StatusCode, String)> {
-    enforce_rate_limit(
-        &state,
-        route_profile,
-        RateRoute::Count,
-        remote_addr.ip(),
-        COUNT_RATE_LIMIT,
-    )?;
     let (wx_id, id) = match (params.wx_id, params.id) {
         (Some(wx_id), Some(id)) => (wx_id, id),
         _ => {
@@ -502,9 +237,7 @@ async fn read_count(
             ));
         }
     };
-    if !valid_standalone_read_params(&wx_id, &id)
-        || (route_profile == RouteProfile::Embedded && !valid_message_id(&id))
-    {
+    if !valid_read_params(&wx_id, &id) {
         return Err((StatusCode::BAD_REQUEST, "invalid query fields".to_owned()));
     }
     let mut rows = state
@@ -529,54 +262,12 @@ async fn read_count(
     Ok(Json(CountResponse { count }))
 }
 
-fn valid_message_id(id: &str) -> bool {
-    id.len() == 64
-        && id
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
 fn valid_wx_id(wx_id: &str) -> bool {
     !wx_id.is_empty() && wx_id.len() <= MAX_WX_ID_BYTES
 }
 
-fn valid_standalone_read_params(wx_id: &str, id: &str) -> bool {
+fn valid_read_params(wx_id: &str, id: &str) -> bool {
     valid_wx_id(wx_id) && !id.is_empty() && id.len() <= MAX_MESSAGE_ID_BYTES
-}
-
-fn valid_embedded_read_params(wx_id: &str, id: &str) -> bool {
-    valid_standalone_read_params(wx_id, id) && valid_message_id(id)
-}
-
-fn enforce_rate_limit(
-    state: &AppState,
-    route_profile: RouteProfile,
-    route: RateRoute,
-    peer_ip: IpAddr,
-    limit: u32,
-) -> Result<(), (StatusCode, String)> {
-    if route_profile == RouteProfile::Standalone {
-        return Ok(());
-    }
-    let now = Instant::now();
-    let mut limits = state.rate_limits.lock().unwrap();
-    limits.retain(|_, window| now.duration_since(window.started_at) < RATE_WINDOW);
-    let window = limits.entry((route, peer_ip)).or_insert(RateWindow {
-        started_at: now,
-        requests: 0,
-    });
-    if now.duration_since(window.started_at) >= RATE_WINDOW {
-        window.started_at = now;
-        window.requests = 0;
-    }
-    if window.requests >= limit {
-        return Err((
-            StatusCode::TOO_MANY_REQUESTS,
-            "rate limit exceeded".to_owned(),
-        ));
-    }
-    window.requests += 1;
-    Ok(())
 }
 
 async fn list_messages(

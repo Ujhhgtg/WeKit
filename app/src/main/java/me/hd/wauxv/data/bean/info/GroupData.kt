@@ -14,9 +14,11 @@ data class GroupData(
     var owner: String = "",
     var notice: String = "",
     var noticeEditor: String = "",
-    var noticeTime: Long = 0
+    var noticeTime: Long = 0,
 ) {
-    constructor(roomId: String) : this(
+    constructor(
+        roomId: String,
+    ) : this(
         roomId = roomId,
         memberIds = emptyList(),
         memberNames = emptyList(),
@@ -26,7 +28,7 @@ data class GroupData(
         owner = "",
         notice = "",
         noticeEditor = "",
-        noticeTime = 0L
+        noticeTime = 0L,
     ) {
         try {
             val members = WeDatabaseApi.getGroupMembers(roomId)
@@ -37,10 +39,11 @@ data class GroupData(
 
             try {
                 val db = WeDatabaseApi.db
-                val cursor = db.rawQuery(
-                    "SELECT roomowner, chatroomnotice, chatroomnoticePublishTime, chatroomnoticeEditor FROM chatroom WHERE chatroomname = ?",
-                    arrayOf(roomId)
-                )
+                val cursor =
+                    db.rawQuery(
+                        "SELECT roomowner, chatroomnotice, chatroomnoticePublishTime, chatroomnoticeEditor FROM chatroom WHERE chatroomname = ?",
+                        arrayOf(roomId),
+                    )
                 cursor?.use {
                     if (it.moveToFirst()) {
                         this.owner = it.getString(0) ?: ""

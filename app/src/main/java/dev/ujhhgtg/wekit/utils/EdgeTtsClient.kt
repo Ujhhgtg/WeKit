@@ -11,10 +11,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.nio.file.Path
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -22,13 +19,15 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
 import kotlin.io.path.outputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * 逆向自开源项目 edge-tts (https://github.com/rany2/edge-tts) 的免费云端 TTS:
- * 直接连接 Microsoft Edge 内置语音合成用的 WebSocket 接口,不需要 API Key,
- * 服务端直接吐出 mp3 音频流。
+ * 逆向自开源项目 edge-tts (https://github.com/rany2/edge-tts) 的免费云端 TTS: 直接连接 Microsoft Edge 内置语音合成用的
+ * WebSocket 接口,不需要 API Key, 服务端直接吐出 mp3 音频流。
  *
- * 协议细节参考了原库的 drm.py (Sec-MS-GEC 生成算法) 和 communicate.py (消息格式)。
+ * 协议细节参考了原库的 drm.py 和 communicate.py (消息格式)。`Sec-MS-GEC` 使用的是 v2 token (原库 >= 7.3.0), 生成算法见
+ * [EdgeTtsDrm]; 与之配套的 `Sec-MS-GEC-Version` 必须带 `2-` 方案前缀, 旧版 v1 token + `1-` 前缀会被服务端以 403 拒绝。
  *
  * 已实现的健壮性处理:
  * - 长文本按 4096 字节分片、多轮请求后把音频顺序拼接;
@@ -37,7 +36,6 @@ import kotlin.io.path.outputStream
  * 未实现 (用不到): WordBoundary/SentenceBoundary 字幕时间戳元数据解析 (已在 speech.config 中禁用)。
  */
 object EdgeTtsClient : AutoCloseable {
-
     private const val TAG = "EdgeTTS"
     private const val TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 
@@ -45,36 +43,29 @@ object EdgeTtsClient : AutoCloseable {
     // 需要和 Edge 浏览器版本保持接近, edge-tts 原库会跟着 Chromium 版本定期更新, 过期太久可能导致服务端返回 403
     private const val CHROMIUM_FULL_VERSION = "150.0.4078.48"
 
-    private const val WSS_URL = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1"
+    private const val WSS_URL =
+        "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1"
     private const val ORIGIN = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold"
 
     // 用来读取服务器时间 (Date 头) 以校正时钟偏差; 任意响应 (含 4xx) 都会带 Date 头。
     private const val VOICE_LIST_URL =
         "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list" +
-                "?trustedclienttoken=$TRUSTED_CLIENT_TOKEN"
-
-    // Windows 文件时间纪元 (1601-01-01) 相对 Unix 纪元 (1970-01-01) 的秒数偏移
-    private const val WIN_EPOCH_SECONDS = 11_644_473_600L
+            "?trustedclienttoken=$TRUSTED_CLIENT_TOKEN"
 
     // 单次请求 SSML 文本内容的最大字节数 (原库常量), 超过则分片。
     private const val MAX_CHUNK_BYTES = 4096
 
-    // 本地时钟相对服务器的偏差 (秒), 由 403 处理逻辑累加校正。原库 DRM.clock_skew_seconds。
-    @Volatile
-    private var clockSkewSeconds: Double = 0.0
-
-    private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" +
+    private val USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" +
             " (KHTML, like Gecko) Chrome/${CHROMIUM_FULL_VERSION.substringBefore('.')}.0.0.0" +
             " Safari/537.36 Edg/${CHROMIUM_FULL_VERSION.substringBefore('.')}.0.0.0"
 
-    private val httpClient = HttpClient(CIO) {
-        install(WebSockets)
-    }
+    private val httpClient =
+        HttpClient(CIO) {
+            install(WebSockets)
+        }
 
-    /**
-     * 文本 -> mp3。长文本会按 4096 字节切成多段, 逐段建立 WebSocket 请求,
-     * 把每段收到的音频二进制帧顺序写入同一个文件, 拼起来就是完整 mp3。
-     */
+    /** 文本 -> mp3。长文本会按 4096 字节切成多段, 逐段建立 WebSocket 请求, 把每段收到的音频二进制帧顺序写入同一个文件, 拼起来就是完整 mp3。 */
     suspend fun synthesizeToMp3(
         text: String,
         outputMp3: Path,
@@ -89,7 +80,10 @@ object EdgeTtsClient : AutoCloseable {
             // 顺序必须是"转义后再分片", 这样分片逻辑才能避免切断 &amp; 这类实体。
             val escaped = escapeXml(removeIncompatibleCharacters(text))
             val chunks = splitByByteLength(escaped.toByteArray(Charsets.UTF_8), MAX_CHUNK_BYTES)
-            WeLogger.d(TAG, "synthesis prepared chunks=${chunks.size} thread=${Thread.currentThread().name}")
+            WeLogger.d(
+                TAG,
+                "synthesis prepared chunks=${chunks.size} thread=${Thread.currentThread().name}",
+            )
 
             var audioReceived = false
             outputMp3.outputStream().use { output ->
@@ -105,13 +99,14 @@ object EdgeTtsClient : AutoCloseable {
             WeLogger.i(TAG, "synthesis completed chunks=${chunks.size}")
             outputMp3
         }
-    }.onFailure { error ->
-        WeLogger.e(TAG, "synthesis failed", error)
     }
+        .onFailure { error ->
+            WeLogger.e(TAG, "synthesis failed", error)
+        }
 
     /**
-     * 合成单个分片。返回是否收到过音频数据。
-     * 若首次握手因 403 失败, 会按服务器 Date 头校正时钟偏差后重试一次 (对齐原库 handle_client_response_error)。
+     * 合成单个分片。返回是否收到过音频数据。 若首次握手因 403 失败, 会按服务器 Date 头校正时钟偏差后重试一次 (对齐原库
+     * handle_client_response_error)。
      */
     private suspend fun synthesizeChunk(
         chunkText: String,
@@ -120,19 +115,22 @@ object EdgeTtsClient : AutoCloseable {
         volume: String,
         pitch: String,
         output: java.io.OutputStream,
-    ): Boolean {
-        return try {
+    ): Boolean =
+        try {
             streamChunk(chunkText, voice, rate, volume, pitch, output)
         } catch (e: WebSocketException) {
             // Ktor 在握手响应非 101 时抛 WebSocketException, message 形如
             // "Handshake exception, expected status code 101 but was 403"。
             // 这里只对 403 做时钟校正重试, 其它情况原样抛出。
             if (!e.isHandshake403()) throw e
-            WeLogger.w(TAG, "WebSocket handshake returned 403; correcting clock skew and retrying", e)
+            WeLogger.w(
+                TAG,
+                "WebSocket handshake returned 403; correcting clock skew and retrying",
+                e,
+            )
             correctClockSkewFromServer()
             streamChunk(chunkText, voice, rate, volume, pitch, output)
         }
-    }
 
     /** 建立一次 WebSocket 连接, 发送配置 + SSML, 把音频帧写入 output。返回是否收到音频。 */
     private suspend fun streamChunk(
@@ -145,11 +143,13 @@ object EdgeTtsClient : AutoCloseable {
     ): Boolean {
         val requestId = UUID.randomUUID().toString().replace("-", "")
         val connectionId = UUID.randomUUID().toString().replace("-", "")
-        val url = WSS_URL +
+        val url =
+            WSS_URL +
                 "?TrustedClientToken=$TRUSTED_CLIENT_TOKEN" +
                 "&ConnectionId=$connectionId" +
-                "&Sec-MS-GEC=${generateSecMsGec()}" +
-                "&Sec-MS-GEC-Version=1-$CHROMIUM_FULL_VERSION"
+                "&Sec-MS-GEC=${EdgeTtsDrm.generateSecMsGec(TRUSTED_CLIENT_TOKEN)}" +
+                // v2 token 必须配 2- 方案前缀; 旧的 1- 方案服务端会直接回 403。
+                "&Sec-MS-GEC-Version=2-$CHROMIUM_FULL_VERSION"
 
         var audioReceived = false
         httpClient.webSocket(
@@ -180,13 +180,17 @@ object EdgeTtsClient : AutoCloseable {
                         val headerLength =
                             data[0].toInt() and 0xFF shl 8 or (data[1].toInt() and 0xFF)
                         // 帧被截断/损坏时长度字段会越界, 直接跳过, 否则 String(...) 会抛越界异常。
-                        if (headerLength !in 0..(data.size - 2)) {
-                            WeLogger.w(TAG, "skipping malformed binary frame: headerLength=$headerLength size=${data.size}")
+                        if (headerLength !in 0..data.size - 2) {
+                            WeLogger.w(
+                                TAG,
+                                "skipping malformed binary frame: headerLength=$headerLength size=${data.size}",
+                            )
                             continue
                         }
-                        val headers = parseHeaderBlock(
-                            String(data, 2, headerLength, Charsets.UTF_8),
-                        )
+                        val headers =
+                            parseHeaderBlock(
+                                String(data, 2, headerLength, Charsets.UTF_8),
+                            )
                         if (headers["Path"] == "audio") {
                             val audioStart = 2 + headerLength
                             if (audioStart < data.size) {
@@ -196,53 +200,47 @@ object EdgeTtsClient : AutoCloseable {
                         }
                     }
 
-                    else -> Unit
+                    else -> {
+                        Unit
+                    }
                 }
             }
         }
         return audioReceived
     }
 
-    private fun WebSocketException.isHandshake403(): Boolean =
-        message?.contains("was 403") == true
+    private fun WebSocketException.isHandshake403(): Boolean = message?.contains("was 403") == true
 
     /**
-     * 复刻 edge-tts 的 drm.py: 拿一个普通 HTTPS 请求的响应 Date 头当作服务器时间,
-     * 累加校正本地时钟偏差 clockSkewSeconds。之后 generateSecMsGec 会带上这个偏差。
-     * 与原库不同: Ktor 的 WebSocketException 不携带握手响应头, 所以这里单独发一个请求取 Date。
+     * 复刻 edge-tts 的 drm.py: 拿一个普通 HTTPS 请求的响应 Date 头当作服务器时间, 累加校正本地时钟偏差。之后
+     * [EdgeTtsDrm.generateSecMsGec] 会带上这个偏差。 与原库不同: Ktor 的 WebSocketException 不携带握手响应头,
+     * 所以这里单独发一个请求取 Date。
      */
     private suspend fun correctClockSkewFromServer() {
-        val response: HttpResponse = httpClient.head(VOICE_LIST_URL) {
-            header(HttpHeaders.UserAgent, USER_AGENT)
-        }
-        val serverDate = response.headers[HttpHeaders.Date]
-            ?: throw IllegalStateException("服务器响应缺少 Date 头, 无法校正时钟偏差")
-        val serverEpochSeconds = parseRfc1123Date(serverDate)
-            ?: throw IllegalStateException("无法解析服务器 Date 头: $serverDate")
-        val clientEpochSeconds = System.currentTimeMillis() / 1000.0 + clockSkewSeconds
-        clockSkewSeconds += serverEpochSeconds - clientEpochSeconds
+        val response: HttpResponse =
+            httpClient.head(VOICE_LIST_URL) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
+        val serverDate =
+            response.headers[HttpHeaders.Date]
+                ?: throw IllegalStateException("服务器响应缺少 Date 头, 无法校正时钟偏差")
+        val serverEpochSeconds =
+            parseRfc1123Date(serverDate)
+                ?: throw IllegalStateException("无法解析服务器 Date 头: $serverDate")
+        val clientEpochSeconds = EdgeTtsDrm.getUnixTimestamp()
+        EdgeTtsDrm.adjustClockSkewSeconds(serverEpochSeconds - clientEpochSeconds)
         WeLogger.i(TAG, "clock skew corrected")
     }
 
     /** 解析 RFC 1123 (RFC 2616) 日期字符串为 Unix 秒。例: "Wed, 21 Oct 2015 07:28:00 GMT"。 */
-    private fun parseRfc1123Date(date: String): Double? = try {
-        val sdf = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("GMT")
-        sdf.parse(date)?.time?.div(1000.0)
-    } catch (_: java.text.ParseException) {
-        null
-    }
-
-    /** 复刻 edge-tts 的 drm.py: DRM.generate_sec_ms_gec(), 带时钟偏差校正。 */
-    private fun generateSecMsGec(): String {
-        // 秒级 Unix 时间 + 时钟偏差, 再切到 Windows 文件时间纪元。
-        var ticks = (System.currentTimeMillis() / 1000.0 + clockSkewSeconds).toLong() + WIN_EPOCH_SECONDS
-        ticks -= ticks % 300 // 向下取整到最近的 5 分钟
-        val windowsTicks = ticks * 10_000_000L // 秒 -> 100ns (Windows 文件时间单位)
-        val toHash = "$windowsTicks$TRUSTED_CLIENT_TOKEN"
-        val digest = MessageDigest.getInstance("SHA-256").digest(toHash.toByteArray(Charsets.US_ASCII))
-        return digest.joinToString("") { "%02X".format(it) }
-    }
+    private fun parseRfc1123Date(date: String): Double? =
+        try {
+            val sdf = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US)
+            sdf.timeZone = TimeZone.getTimeZone("GMT")
+            sdf.parse(date)?.time?.div(1000.0)
+        } catch (_: java.text.ParseException) {
+            null
+        }
 
     private fun generateMuid(): String {
         val bytes = ByteArray(16)
@@ -252,9 +250,9 @@ object EdgeTtsClient : AutoCloseable {
 
     private fun buildSpeechConfigMessage(): String =
         "X-Timestamp:${jsDateString()}\r\n" +
-                "Content-Type:application/json; charset=utf-8\r\n" +
-                "Path:speech.config\r\n\r\n" +
-                """{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}"""
+            "Content-Type:application/json; charset=utf-8\r\n" +
+            "Path:speech.config\r\n\r\n" +
+            """{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}"""
 
     /** 注意: chunkText 已在调用方完成 XML 转义, 这里不再重复转义。 */
     private fun buildSsmlMessage(
@@ -265,15 +263,16 @@ object EdgeTtsClient : AutoCloseable {
         pitch: String,
         chunkText: String,
     ): String {
-        val ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-CN'>" +
+        val ssml =
+            "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-CN'>" +
                 "<voice name='$voice'><prosody pitch='$pitch' rate='$rate' volume='$volume'>" +
                 chunkText +
                 "</prosody></voice></speak>"
         return "X-RequestId:$requestId\r\n" +
-                "Content-Type:application/ssml+xml\r\n" +
-                "X-Timestamp:${jsDateString()}Z\r\n" +
-                "Path:ssml\r\n\r\n" +
-                ssml
+            "Content-Type:application/ssml+xml\r\n" +
+            "X-Timestamp:${jsDateString()}Z\r\n" +
+            "Path:ssml\r\n\r\n" +
+            ssml
     }
 
     private fun jsDateString(): String {
@@ -286,8 +285,8 @@ object EdgeTtsClient : AutoCloseable {
         text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     /**
-     * 复刻 edge-tts 的 remove_incompatible_characters: 服务端不接受部分控制字符
-     * (最典型的是垂直制表符, 常见于 OCR 出来的 PDF), 统一替换成空格。
+     * 复刻 edge-tts 的 remove_incompatible_characters: 服务端不接受部分控制字符 (最典型的是垂直制表符, 常见于 OCR 出来的 PDF),
+     * 统一替换成空格。
      */
     private fun removeIncompatibleCharacters(text: String): String =
         buildString(text.length) {
@@ -298,11 +297,10 @@ object EdgeTtsClient : AutoCloseable {
         }
 
     /**
-     * 复刻 edge-tts 的 split_text_by_byte_length: 把 UTF-8 字节按不超过 byteLength 分片,
-     * 优先在换行/空格处断开, 否则退到合法的 UTF-8 边界, 并避免切断 &amp; 这类 XML 实体。
+     * 复刻 edge-tts 的 split_text_by_byte_length: 把 UTF-8 字节按不超过 byteLength 分片, 优先在换行/空格处断开, 否则退到合法的
+     * UTF-8 边界, 并避免切断 &amp; 这类 XML 实体。
      *
-     * 修正了原库的一处逻辑错误: 当限长内既无换行也无空格时 (中文长文本的常见情形),
-     * 原库把整段 text 传给 UTF-8 边界查找, 导致返回整段长度而永远不分片; 这里改为只在
+     * 修正了原库的一处逻辑错误: 当限长内既无换行也无空格时 (中文长文本的常见情形), 原库把整段 text 传给 UTF-8 边界查找, 导致返回整段长度而永远不分片; 这里改为只在
      * text[0, byteLength] 范围内查找边界。
      */
     private fun splitByByteLength(text: ByteArray, byteLength: Int): List<ByteArray> {
@@ -356,13 +354,14 @@ object EdgeTtsClient : AutoCloseable {
         var i = 0
         while (i < len) {
             val b = text[i].toInt() and 0xFF
-            val seqLen = when {
-                b and 0x80 == 0x00 -> 1
-                b and 0xE0 == 0xC0 -> 2
-                b and 0xF0 == 0xE0 -> 3
-                b and 0xF8 == 0xF0 -> 4
-                else -> return false
-            }
+            val seqLen =
+                when {
+                    b and 0x80 == 0x00 -> 1
+                    b and 0xE0 == 0xC0 -> 2
+                    b and 0xF0 == 0xE0 -> 3
+                    b and 0xF8 == 0xF0 -> 4
+                    else -> return false
+                }
             if (i + seqLen > len) return false
             for (j in 1 until seqLen) {
                 if (text[i + j].toInt() and 0xC0 != 0x80) return false
@@ -395,8 +394,11 @@ object EdgeTtsClient : AutoCloseable {
         return -1
     }
 
-    private fun isAsciiWhitespace(b: Byte): Boolean = b == ' '.code.toByte() ||
-            b == '\t'.code.toByte() || b == '\n'.code.toByte() || b == '\r'.code.toByte()
+    private fun isAsciiWhitespace(b: Byte): Boolean =
+        b == ' '.code.toByte() ||
+            b == '\t'.code.toByte() ||
+            b == '\n'.code.toByte() ||
+            b == '\r'.code.toByte()
 
     /** 去掉两端 ASCII 空白 (空格/制表符/换行/回车), 对齐原库 bytes.strip()。 */
     private fun ByteArray.trimAscii(): ByteArray {
@@ -415,7 +417,8 @@ object EdgeTtsClient : AutoCloseable {
     }
 
     private fun parseHeaderBlock(block: String): Map<String, String> =
-        block.lineSequence()
+        block
+            .lineSequence()
             .mapNotNull { line ->
                 val idx = line.indexOf(':')
                 if (idx <= 0) null else line.substring(0, idx) to line.substring(idx + 1)

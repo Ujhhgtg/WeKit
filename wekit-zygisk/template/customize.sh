@@ -1,151 +1,89 @@
 # shellcheck disable=SC2034
 SKIPUNZIP=1
 
-# Ask root managers that implement the hot-install protocol to activate this
-# update immediately. Managers that do not recognize it ignore the request.
-export MODULE_HOT_INSTALL_REQUEST=true
+# Request hot installation only when the active native loader can be reused.
+# Keep native updates staged until reboot, including repeated installs this boot.
+export MODULE_HOT_INSTALL_REQUEST=false
 
-DEBUG=@DEBUG@
-SONAME=@SONAME@
-SUPPORTED_ABIS="@SUPPORTED_ABIS@"
-
-if [ "$BOOTMODE" ] && [ "$KSU" ]; then
-  ui_print "- Installing from KernelSU app"
-  ui_print "- KernelSU version: $KSU_KERNEL_VER_CODE (kernel) + $KSU_VER_CODE (ksud)"
-elif [ "$BOOTMODE" ] && [ "$MAGISK_VER_CODE" ]; then
-  ui_print "- Installing from Magisk app"
+if [ "$BOOTMODE" = true ] && [ -n "$KSU" ]; then
+  ui_print "- 正在通过 KernelSU 应用安装 / Installing from KernelSU app"
+elif [ "$BOOTMODE" = true ] && [ -n "$APATCH" ]; then
+  ui_print "- 正在通过 APatch 应用安装 / Installing from APatch app"
+elif [ "$BOOTMODE" = true ] && [ -n "$MAGISK_VER_CODE" ]; then
+  ui_print "- 正在通过 Magisk 应用安装 / Installing from Magisk app"
 else
-  ui_print "*********************************************************"
-  ui_print "! Install from recovery is not supported"
-  ui_print "! Please install from KernelSU or Magisk app"
-  abort    "*********************************************************"
+  abort "! 请通过 Root 管理器应用安装，不支持 Recovery / Install from a root manager app; recovery is not supported"
 fi
 
-VERSION=$(grep_prop version "${TMPDIR}/module.prop")
-ui_print "- Installing $SONAME $VERSION"
+[ "$ARCH" = arm64 ] || abort "! 不支持的平台 / Unsupported platform: $ARCH"
+ui_print "- 正在检查 WeKit 二合一 APK / Checking WeKit dual-format APK"
+unzip -t "$ZIPFILE" >/dev/null 2>&1 || abort "! WeKit APK 已损坏 / Corrupt WeKit APK"
+unzip -l "$ZIPFILE" > "$TMPDIR/wekit-apk-entries" || abort "! 无法列出 WeKit APK 内容 / Cannot list WeKit APK"
 
-# check architecture
-support=false
-for abi in $SUPPORTED_ABIS
+# Use a fixed list so Android resources and DEX are never unpacked here.
+for entry in module.prop customize.sh uninstall.sh sepolicy.rule config.sh action.sh \
+  webroot/index.html webroot/css/app.css webroot/js/bridge.js \
+  webroot/js/app.js webroot/js/kernelsu.js \
+  META-INF/com/google/android/update-binary META-INF/com/google/android/updater-script \
+  AndroidManifest.xml classes.dex resources.arsc \
+  lib/arm64-v8a/libwekit_loader.so \
+  lib/arm64-v8a/libandroidx.graphics.path.so lib/arm64-v8a/libwekit_zygisk.so
 do
-  if [ "$ARCH" == "$abi" ]; then
-    support=true
-  fi
+  # BusyBox unzip may return success when a requested name matches no entry.
+  # All required names are fixed and contain no whitespace.
+  awk -v entry="$entry" '$NF == entry { count++ } END { exit count != 1 }' \
+    "$TMPDIR/wekit-apk-entries" || abort "! APK 条目缺失或重复 / Missing or duplicate APK entry: $entry"
 done
-if [ "$support" == "false" ]; then
-  abort "! Unsupported platform: $ARCH"
+rm -f "$TMPDIR/wekit-apk-entries"
+
+ui_print "- 正在解压模块文件 / Extracting module files"
+for entry in module.prop uninstall.sh sepolicy.rule config.sh action.sh \
+  webroot/index.html webroot/css/app.css webroot/js/bridge.js \
+  webroot/js/app.js webroot/js/kernelsu.js
+do
+  unzip -o "$ZIPFILE" "$entry" -d "$MODPATH" >/dev/null || abort "! 无法解压 $entry / Cannot extract $entry"
+done
+mkdir -p "$MODPATH/zygisk" || abort "! 无法创建 Zygisk 目录 / Cannot create Zygisk directory"
+unzip -p "$ZIPFILE" lib/arm64-v8a/libwekit_zygisk.so > "$TMPDIR/wekit-zygisk.so" ||
+  abort "! 无法解压 Zygisk 原生库 / Cannot extract Zygisk library"
+
+# Compare bytes with the active module, never a previous modules_update candidate.
+# Do this before publishing the new library in case MODPATH is the active path.
+ACTIVE_MODULE_DIR=/data/adb/modules/wekit_zygisk
+if [ ! -f "$ACTIVE_MODULE_DIR/zygisk/arm64-v8a.so" ]; then
+  NATIVE_UPDATE=first_install
+elif [ -e "$ACTIVE_MODULE_DIR/disable" ] || [ -e "$ACTIVE_MODULE_DIR/remove" ]; then
+  NATIVE_UPDATE=inactive
+elif cmp -s "$TMPDIR/wekit-zygisk.so" "$ACTIVE_MODULE_DIR/zygisk/arm64-v8a.so"; then
+  NATIVE_UPDATE=unchanged
 else
-  ui_print "- Device platform: $ARCH"
+  case $? in
+    1) NATIVE_UPDATE=changed ;;
+    *) NATIVE_UPDATE=unknown ;;
+  esac
 fi
+mv -f "$TMPDIR/wekit-zygisk.so" "$MODPATH/zygisk/arm64-v8a.so" ||
+  abort "! 无法写入 Zygisk 原生库 / Cannot publish Zygisk library"
 
-ui_print "- Extracting verify.sh"
-unzip -o "$ZIPFILE" 'verify.sh' -d "$TMPDIR" >&2
-if [ ! -f "$TMPDIR/verify.sh" ]; then
-  ui_print "*********************************************************"
-  ui_print "! Unable to extract verify.sh!"
-  ui_print "! This zip may be corrupted, please try downloading again"
-  abort    "*********************************************************"
-fi
-. "$TMPDIR/verify.sh"
-extract "$ZIPFILE" 'customize.sh'  "$TMPDIR/.vunzip"
-extract "$ZIPFILE" 'verify.sh'     "$TMPDIR/.vunzip"
-extract "$ZIPFILE" 'sepolicy.rule' "$TMPDIR"
+ui_print "- 正在保存原始 WeKit APK / Storing the original WeKit APK"
+cp "$ZIPFILE" "$MODPATH/module.apk.tmp" || abort "! 无法复制 WeKit APK / Cannot copy WeKit APK"
+mv -f "$MODPATH/module.apk.tmp" "$MODPATH/module.apk" || abort "! 无法写入 WeKit APK / Cannot publish WeKit APK"
+# Only remove obsolete files in the installation candidate, never in the active module.
+rm -rf "$MODPATH/payload"
+rm -f "$MODPATH/post-fs-data.sh" "$MODPATH/service.sh" "$MODPATH/verify.sh"
 
-ui_print "- Extracting module files"
-extract "$ZIPFILE" 'module.prop'     "$MODPATH"
-extract "$ZIPFILE" 'post-fs-data.sh' "$MODPATH"
-extract "$ZIPFILE" 'service.sh'      "$MODPATH"
-extract "$ZIPFILE" 'config.sh'       "$MODPATH"
-extract "$ZIPFILE" 'action.sh'       "$MODPATH"
-extract "$ZIPFILE" 'uninstall.sh'    "$MODPATH"
-extract "$ZIPFILE" 'webroot/index.html'       "$MODPATH"
-extract "$ZIPFILE" 'webroot/css/app.css'      "$MODPATH"
-extract "$ZIPFILE" 'webroot/js/bridge.js'     "$MODPATH"
-extract "$ZIPFILE" 'webroot/js/app.js'        "$MODPATH"
-extract "$ZIPFILE" 'webroot/js/kernelsu.js'   "$MODPATH"
-mv "$TMPDIR/sepolicy.rule" "$MODPATH"
-
-mkdir "$MODPATH/zygisk"
-
-ui_print "- Extracting arm64 libraries"
-extract "$ZIPFILE" "lib/arm64-v8a/lib$SONAME.so" "$MODPATH/zygisk" true
-mv "$MODPATH/zygisk/lib$SONAME.so" "$MODPATH/zygisk/arm64-v8a.so"
-
-# Extract each APK, then derive the DEX payload required by the
-# InMemoryDexClassLoader bootstrap. Keeping DEX only inside the APK avoids
-# storing the same bytes twice in the module ZIP.
-extract_payload_dex() {
-  payload_apk=$1
-  installed_payload_dir=$2
-
-  # A hot update may replace an APK with fewer DEX files. Remove all derived
-  # files first so a stale classesN.dex cannot remain loadable.
-  rm -f "$installed_payload_dir"/classes*.dex "$installed_payload_dir/dex.list"
-  unzip -o "$payload_apk" 'classes*.dex' -d "$installed_payload_dir" >&2 ||
-    abort "! Unable to extract DEX payload from $payload_apk"
-
-  dex_max=0
-  for dex_path in "$installed_payload_dir"/classes*.dex
-  do
-    [ -f "$dex_path" ] || continue
-    dex_name=${dex_path##*/}
-    case "$dex_name" in
-      classes.dex)
-        dex_number=1
-        ;;
-      classes[0-9]*.dex)
-        dex_number=${dex_name#classes}
-        dex_number=${dex_number%.dex}
-        case "$dex_number" in
-          ''|*[!0-9]*|0*|1) abort "! Invalid DEX payload entry: $dex_name" ;;
-        esac
-        ;;
-      *)
-        abort "! Invalid DEX payload entry: $dex_name"
-        ;;
-    esac
-    if [ "$dex_number" -gt "$dex_max" ]; then
-      dex_max=$dex_number
-    fi
-  done
-
-  [ "$dex_max" -ge 1 ] || abort "! APK does not contain classes.dex: $payload_apk"
-  : > "$installed_payload_dir/dex.list" ||
-    abort "! Unable to create DEX list for $payload_apk"
-  dex_number=1
-  while [ "$dex_number" -le "$dex_max" ]
-  do
-    if [ "$dex_number" -eq 1 ]; then
-      dex_name=classes.dex
-    else
-      dex_name="classes$dex_number.dex"
-    fi
-    [ -f "$installed_payload_dir/$dex_name" ] ||
-      abort "! APK has a non-contiguous classes*.dex sequence: $payload_apk"
-    printf '%s\n' "$dex_name" >> "$installed_payload_dir/dex.list" ||
-      abort "! Unable to write DEX list for $payload_apk"
-    dex_number=$((dex_number + 1))
-  done
-}
-
-ui_print "- Extracting WeKit payload"
-mkdir -p "$MODPATH/payload"
-extract "$ZIPFILE" "payload/wekit.apk" "$MODPATH"
-extract_payload_dex "$MODPATH/payload/wekit.apk" "$MODPATH/payload"
-ui_print "  WeKit payload installed to $MODPATH/payload"
-
-ui_print "- Setting permissions"
+# SKIPUNZIP=1 skips the installer's default relabel of $MODPATH. Without this,
+# the directory can keep the root manager app's MLS categories, and Zygisk then
+# cannot pass its fd to zygote (get_module_dir fails).
+set_perm "$MODPATH" 0 0 0755
 set_perm_recursive "$MODPATH/zygisk" 0 0 0755 0644
-set_perm_recursive "$MODPATH/payload" 0 0 0755 0644
+set_perm "$MODPATH/module.apk" 0 0 0644
 set_perm "$MODPATH/module.prop" 0 0 0644
-set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
-set_perm "$MODPATH/service.sh" 0 0 0755
+set_perm "$MODPATH/sepolicy.rule" 0 0 0644
 set_perm "$MODPATH/config.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
-
-# KernelSU assigns the WebUI directory's mode and SELinux context itself.
-# Do not include $MODPATH/webroot in a recursive set_perm call.
+# KernelSU owns the WebUI permissions and SELinux context.
 
 OLD_MODULE_DIR=/data/adb/modules/wekit
 OLD_TARGETS_FILE=/data/adb/wekit/injection-targets.tsv
@@ -154,40 +92,63 @@ NEW_TARGETS_FILE=$NEW_STATE_DIR/injection-targets.tsv
 
 if [ -f "$OLD_TARGETS_FILE" ] || [ -d "$OLD_MODULE_DIR" ]; then
   ui_print "*********************************************************"
-  ui_print "- Migrating from old module ID"
+  ui_print "- 正在从旧模块 ID 迁移 / Migrating from old module ID"
 
   if [ -f "$OLD_TARGETS_FILE" ]; then
     if [ -e "$NEW_TARGETS_FILE" ]; then
-      ui_print "- Keeping existing injection targets"
+      ui_print "- 保留现有注入目标 / Keeping existing injection targets"
     else
       migration_file=$NEW_STATE_DIR/.injection-targets.migrate.$$
       umask 077
       mkdir -p "$NEW_STATE_DIR" ||
-        abort "! Unable to create state directory: $NEW_STATE_DIR"
+        abort "! 无法创建状态目录 / Unable to create state directory: $NEW_STATE_DIR"
       chmod 700 "$NEW_STATE_DIR" ||
-        abort "! Unable to set permissions on: $NEW_STATE_DIR"
+        abort "! 无法设置目录权限 / Unable to set permissions on: $NEW_STATE_DIR"
       cp "$OLD_TARGETS_FILE" "$migration_file" || {
         rm -f "$migration_file"
-        abort "! Unable to copy injection targets"
+        abort "! 无法复制注入目标 / Unable to copy injection targets"
       }
       chmod 600 "$migration_file" || {
         rm -f "$migration_file"
-        abort "! Unable to set permissions on migrated injection targets"
+        abort "! 无法设置已迁移注入目标的权限 / Unable to set permissions on migrated injection targets"
       }
       mv -f "$migration_file" "$NEW_TARGETS_FILE" || {
         rm -f "$migration_file"
-        abort "! Unable to publish migrated injection targets"
+        abort "! 无法写入已迁移的注入目标 / Unable to publish migrated injection targets"
       }
-      ui_print "- Migrated injection targets"
+      ui_print "- 已迁移注入目标 / Migrated injection targets"
     fi
   else
-    ui_print "- No injection targets to migrate"
+    ui_print "- 没有需要迁移的注入目标 / No injection targets to migrate"
   fi
 
   if [ -d "$OLD_MODULE_DIR" ]; then
     touch "$OLD_MODULE_DIR/disable" ||
-      abort "! Unable to disable old module"
-    ui_print "- Old module disabled"
+      abort "! 无法停用旧模块 / Unable to disable old module"
+    ui_print "- 已停用旧模块 / Old module disabled"
   fi
   ui_print "*********************************************************"
 fi
+
+ui_print "*********************************************************"
+case "$NATIVE_UPDATE" in
+  unchanged)
+    export MODULE_HOT_INSTALL_REQUEST=true
+    ui_print "- Zygisk 原生库未变，本次 APK 更新无须重启设备。 / Zygisk native library unchanged; no device reboot is needed for the APK update."
+    ui_print "- 更新激活后，请完全结束微信的所有进程并重新启动微信。 / After activation, fully stop all WeChat processes and restart WeChat."
+    ui_print "- 若 Root 管理器仍将更新保留为待重启状态，请按其要求重启设备。 / If your root manager keeps this update pending, reboot as it requires."
+    ;;
+  changed)
+    ui_print "! Zygisk 原生库已更新，请重启设备以加载新版本。 / Zygisk native library updated; reboot your device to load it."
+    ;;
+  first_install)
+    ui_print "! 首次安装：请重启设备以加载 Zygisk 原生库。 / First installation: reboot your device to load the Zygisk native library."
+    ;;
+  inactive)
+    ui_print "! 已安装的模块已停用或待移除，请启用模块并重启设备。 / The installed module is disabled or pending removal; enable it and reboot your device."
+    ;;
+  unknown)
+    ui_print "! 无法比较 Zygisk 原生库，请重启设备以加载更新。 / Cannot compare Zygisk native libraries; reboot your device to load the update."
+    ;;
+esac
+ui_print "*********************************************************"

@@ -20,18 +20,19 @@ class ViewBackdropCaptureStateTest {
         density: Float = 3f,
         fontScale: Float = 1f,
         layoutDirection: Int = 0,
-    ) = ViewBackdropCaptureKey(
-        source = ViewBackdropCaptureIdentity(source),
-        window = ViewBackdropCaptureIdentity(window),
-        generation = generation,
-        width = width,
-        height = height,
-        scrollX = scrollX,
-        scrollY = scrollY,
-        density = density,
-        fontScale = fontScale,
-        layoutDirection = layoutDirection,
-    )
+    ) =
+        ViewBackdropCaptureKey(
+            source = ViewBackdropCaptureIdentity(source),
+            window = ViewBackdropCaptureIdentity(window),
+            generation = generation,
+            width = width,
+            height = height,
+            scrollX = scrollX,
+            scrollY = scrollY,
+            density = density,
+            fontScale = fontScale,
+            layoutDirection = layoutDirection,
+        )
 
     @Test
     fun firstKeyCapturesAndSameKeyConsumersReuse() {
@@ -57,18 +58,19 @@ class ViewBackdropCaptureStateTest {
     @Test
     fun everyCaptureKeyDimensionTriggersOneNewCapture() {
         val base = key()
-        val changed = listOf(
-            key(generation = 2),
-            key(width = 1200),
-            key(height = 2400),
-            key(scrollX = 1080),
-            key(scrollY = 20),
-            key(density = 2.75f),
-            key(fontScale = 1.1f),
-            key(layoutDirection = 1),
-            key(source = Any()),
-            key(window = Any()),
-        )
+        val changed =
+            listOf(
+                key(generation = 2),
+                key(width = 1200),
+                key(height = 2400),
+                key(scrollX = 1080),
+                key(scrollY = 20),
+                key(density = 2.75f),
+                key(fontScale = 1.1f),
+                key(layoutDirection = 1),
+                key(source = Any()),
+                key(window = Any()),
+            )
 
         changed.forEach { next ->
             val state = ViewBackdropCaptureState()

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">WeKit</string>
+    <string name="app_description">WeChat, now with superpowers\nUjhhgtg@github</string>
+    <string name="res_inject_success" translatable="false">Resources injection success</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_confirm">Confirm</string>
+    <string name="dialog_close">Close</string>
+    <string name="accessibility_overflow_menu">More options</string>
+    <string name="brand_github" translatable="false">GitHub</string>
+    <string name="brand_telegram" translatable="false">Telegram</string>
+    <string name="module_app_sticker_import_invalid_caller">This action can only be started from the WeKit panel inside WeChat.</string>
+    <string name="manager_launch_opening_title">Opening framework manager…</string>
+    <string name="manager_launch_failed_title">Unable to open manager</string>
+    <string name="manager_launch_invalid_caller">This action can only be started from the WeKit panel inside WeChat.</string>
+    <string name="manager_launch_root_required">Root access is required to open the LSPosed or Vector manager.</string>
+    <string name="manager_launch_failed_message">Both supported manager launch methods failed.</string>
+    <string name="module_app_activation_active">Activated</string>
+    <string name="module_app_activation_inactive">Not activated</string>
+    <string name="module_app_activation_framework_details">%1$s %2$s (%3$d), API %4$d</string>
+    <string name="module_app_activation_xposed_not_detected">No Xposed framework was detected. Make sure the module is enabled in the manager and WeChat is selected.</string>
+    <string name="module_app_version_summary" translatable="false">%1$s (%2$d)</string>
+    <string name="module_app_set_host_package_title">Set host package name</string>
+    <string name="module_app_repair_loading_title">Repair module loading</string>
+    <string name="module_app_clear_data_title">Clear module data</string>
+    <string name="module_app_hide_launcher_icon">Hide launcher icon</string>
+    <string name="module_app_show_launcher_icon">Show launcher icon</string>
+    <string name="module_app_about_title">About</string>
+    <string name="module_app_build_info_title">Build information</string>
+    <string name="module_app_build_commit_hash_label">Build commit hash</string>
+    <string name="module_app_build_commit_time_label">Build commit time</string>
+    <string name="module_app_force_start_wechat_failed">Unable to launch WeChat (package: %1$s)</string>
+    <string name="module_app_open_wechat_title">Open WeChat</string>
+    <string name="module_app_open_wechat_summary">Force-stop and launch WeChat</string>
+    <string name="module_app_open_wechat_failed">Unable to open WeChat (package: %1$s)</string>
+    <string name="module_app_open_settings_title">Open module settings</string>
+    <string name="module_app_open_settings_summary">Open the module settings inside WeChat</string>
+    <string name="module_app_host_package_explanation">Controls the target WeChat package used by the three shortcuts on this screen. This is intended for installations cloned by changing the package name instead of using multiple users.</string>
+    <string name="module_app_host_package_label">Host package name (default: %1$s)</string>
+    <string name="module_app_repair_loading_message">This operation attempts to repair module loading broken by a WeChat hot update. Restart WeChat afterward.\nThe following paths will be cleared and recursively set to permission 000 to prevent WeChat from reading or writing them again. Verify them before continuing:\n%1$s</string>
+    <string name="module_app_repair_loading_success">Operation succeeded!</string>
+    <string name="module_app_clear_data_message">This operation deletes all module data (database, feature configuration, scripts, extension packs, logs and caches) to recover from repeated WeChat crashes caused by some features. Restart WeChat afterward.\nVerify the following files before deleting them:\n%1$s</string>
+    <string name="module_app_clear_data_success">Deleted successfully!</string>
+    <string name="module_app_root_required_title">Root access not granted</string>
+    <string name="module_app_root_required_message">Grant root access to perform this operation.</string>
+    <string name="module_app_operation_failed_title">Operation failed</string>
+    <string name="module_app_about_description">%1$s is a free and open-source Xposed module for WeChat.</string>
+    <string name="module_app_about_version">Version: %1$s</string>
+    <string name="module_app_about_version_code">Version code: %1$d</string>
+    <string name="module_app_about_authors">Authors: Ujhhgtg@github, cwuom@github</string>
+    <string name="feature_decompile_bean_shell_snapshot_name">Decompile BeanShell snapshot</string>
+    <string name="noncompose_bsh_saved">Saved to %1$s</string>
+    <string name="noncompose_bsh_empty_result">Error: the decompiled result is empty.</string>
+    <string name="noncompose_bsh_error">Error: %1$s</string>
+    <string name="noncompose_bsh_selection_cancelled">File selection cancelled.</string>
+    <string name="telegram_root_permission_required">Grant root access to the WeKit module app.</string>
+    <string name="telegram_database_scan_failed">Failed to scan Telegram databases: %1$s</string>
+    <string name="telegram_root_command_failed">The root command failed</string>
+    <string name="telegram_database_not_found">No cache4.db was found. Make sure Telegram is signed in and has been opened at least once.</string>
+    <string name="telegram_database_app_unrecognized">Found cache4.db files (%1$d), but their apps were not recognized as Telegram: %2$s</string>
+    <string name="telegram_database_path_unavailable">The Telegram database path is unavailable</string>
+    <string name="telegram_database_temp_directory_failed">Could not create the temporary database directory</string>
+    <string name="telegram_database_copy_failed">Failed to copy the Telegram database</string>
+    <string name="telegram_instance_scan_failed">Failed to scan Telegram instances</string>
+    <string name="telegram_no_importable_sticker_sets">The selected instance has no sticker sets to import</string>
+    <string name="telegram_database_parse_failed">Failed to parse the Telegram database</string>
+    <string name="telegram_choose_instance">Choose a Telegram instance</string>
+    <string name="telegram_parsing_database">Parsing database…</string>
+    <string name="telegram_retry">Retry</string>
+    <string name="telegram_current_account">Current account</string>
+</resources>

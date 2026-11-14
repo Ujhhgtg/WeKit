@@ -2,11 +2,12 @@ package dev.ujhhgtg.wekit.features.items.shortvideos
 
 import android.net.Uri
 import android.util.Base64
-import dev.ujhhgtg.wekit.R
 import androidx.core.net.toUri
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.ui.utils.LinkIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -15,10 +16,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.formatBytesSize
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import dev.ujhhgtg.wekit.utils.fs.copyFrom
 import java.math.BigInteger
 import java.net.URL
 import java.nio.file.Path
@@ -27,10 +25,12 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-object DownloadMedia : SwitchFeature(),
-    WeShortVideosShareMenuApi.IMenuItemsProvider {
-
+object DownloadMedia : SwitchFeature(), WeShortVideosShareMenuApi.IMenuItemsProvider {
     override val technicalId = "下载媒体"
     override val nameRes = R.string.feature_download_media_name
     override val categoryIds = listOf(FeatureCategoryIds.CHANNELS)
@@ -53,8 +53,8 @@ object DownloadMedia : SwitchFeature(),
         return listOf(
             WeShortVideosShareMenuApi.MenuItem(
                 777004,
-                localizedShortVideoString(R.string.shortvideos_copy_link),
-                LinkIcon
+                localizedString(R.string.shortvideos_copy_link),
+                LinkIcon,
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
                     val imageUrls = mediaList.map { json ->
@@ -62,7 +62,7 @@ object DownloadMedia : SwitchFeature(),
                     }
 
                     copyToClipboard(imageUrls.joinToString("\n"))
-                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
+                    showToast(localizedString(R.string.copied_to_clipboard))
                     return@MenuItem
                 }
 
@@ -73,37 +73,45 @@ object DownloadMedia : SwitchFeature(),
 
                     val duration = json.getInt("videoDuration")
                     val size = json.getInt("fileSize")
-                    val displayDuration = "%02d:%02d:%02d".format(
-                        Locale.CHINA,
-                        duration / 3600, duration % 3600 / 60, duration % 60
-                    )
+                    val displayDuration =
+                        "%02d:%02d:%02d"
+                            .format(
+                                Locale.CHINA,
+                                duration / 3600,
+                                duration % 3600 / 60,
+                                duration % 60,
+                            )
                     val displaySize = formatBytesSize(size.toLong())
-                    clipItems += localizedShortVideoString(R.string.shortvideos_duration) to displayDuration
-                    clipItems += localizedShortVideoString(R.string.shortvideos_size) to displaySize
+                    clipItems += localizedString(R.string.shortvideos_duration) to displayDuration
+                    clipItems += localizedString(R.string.shortvideos_size) to displaySize
 
                     val cdnInfo = json.optJSONObject("media_cdn_info")
                     if (cdnInfo == null || !cdnInfo.has("pcdn_url")) {
                         val url = json.getString("url")
                         val urlToken = json.getString("url_token")
                         val decodeKey = json.getString("decodeKey")
-                        clipItems += localizedShortVideoString(R.string.shortvideos_protected_link) to url + urlToken
-                        clipItems += localizedShortVideoString(R.string.shortvideos_key) to decodeKey
+                        clipItems +=
+                            localizedString(R.string.shortvideos_protected_link) to url + urlToken
+                        clipItems += localizedString(R.string.shortvideos_key) to decodeKey
                     } else {
-                        clipItems += localizedShortVideoString(R.string.shortvideos_link) to json.getString("pcdn_url")
+                        clipItems +=
+                            localizedString(R.string.shortvideos_link) to json.getString("pcdn_url")
                     }
 
-                    copyToClipboard(clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" })
-                    showToast(localizedShortVideoString(R.string.copied_to_clipboard))
+                    copyToClipboard(
+                        clipItems.joinToString("\n") { pair -> "${pair.first}: ${pair.second}" },
+                    )
+                    showToast(localizedString(R.string.copied_to_clipboard))
 
                     return@MenuItem
                 }
 
-                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
+                showToast(localizedString(R.string.shortvideos_unknown_media_type))
             },
             WeShortVideosShareMenuApi.MenuItem(
                 777007,
-                localizedShortVideoString(R.string.action_download),
-                DownloadIcon
+                localizedString(R.string.action_download),
+                DownloadIcon,
             ) { _, mediaType, mediaList ->
                 if (mediaType == 2) {
                     val imageUrls = mediaList.map { json ->
@@ -141,79 +149,112 @@ object DownloadMedia : SwitchFeature(),
                     return@MenuItem
                 }
 
-                showToast(localizedShortVideoString(R.string.shortvideos_unknown_media_type))
-            }
+                showToast(localizedString(R.string.shortvideos_unknown_media_type))
+            },
         )
     }
 
-    private suspend fun downloadImages(imageUrls: List<String>) = withContext(Dispatchers.IO) {
-        imageUrls.forEachIndexed { index, fullUrl ->
-            val fileName = "image_${System.currentTimeMillis()}.png"
+    private suspend fun downloadImages(imageUrls: List<String>) =
+        withContext(Dispatchers.IO) {
+            imageUrls.forEachIndexed { index, fullUrl ->
+                val fileName = "image_${System.currentTimeMillis()}.png"
 
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_download_started, index + 1))
+                showToastSuspend(
+                    localizedString(
+                        R.string.shortvideos_image_download_started,
+                        index + 1,
+                    ),
+                )
 
-            runCatching {
-                downloadFile(fullUrl, KnownPaths.downloads / fileName)
-            }.onFailure {
-                WeLogger.e(TAG, "failed to download ${index + 1}th image", it)
-                showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_download_reported_success, index + 1))
-            }.onSuccess {
-                showToastSuspend(localizedShortVideoString(R.string.shortvideos_image_downloaded_to, fileName))
+                runCatching {
+                    downloadFile(fullUrl, KnownPaths.downloads / fileName)
+                }
+                    .onFailure {
+                        WeLogger.e(TAG, "failed to download ${index + 1}th image", it)
+                        showToastSuspend(
+                            localizedString(
+                                R.string.shortvideos_image_download_reported_success,
+                                index + 1,
+                            ),
+                        )
+                    }
+                    .onSuccess {
+                        showToastSuspend(
+                            localizedString(
+                                R.string.shortvideos_image_downloaded_to,
+                                fileName,
+                            ),
+                        )
+                    }
             }
         }
-    }
 
-    private suspend fun downloadAndDecryptVideo(
-        decodeKey: String,
-        url: String,
-        urlToken: String
-    ) = withContext(Dispatchers.IO) {
-        showToastSuspend(localizedShortVideoString(R.string.shortvideos_downloading_video))
+    private suspend fun downloadAndDecryptVideo(decodeKey: String, url: String, urlToken: String) =
+        withContext(Dispatchers.IO) {
+            showToastSuspend(localizedString(R.string.shortvideos_downloading_video))
 
-        val baseDir = KnownPaths.downloads
-        val fileName = "video_${System.currentTimeMillis()}.mp4"
-        val tempFilePath = baseDir / "${fileName}.tmp"
-        val finalFilePath = baseDir / fileName
+            val baseDir = KnownPaths.downloads
+            val fileName = "video_${System.currentTimeMillis()}.mp4"
+            val tempFilePath = baseDir / "$fileName.tmp"
+            val finalFilePath = baseDir / fileName
 
-        val fullUrl = preferCompatibleVideoFormat(url + urlToken)
+            val fullUrl = preferCompatibleVideoFormat(url + urlToken)
 
-        runCatching {
-            downloadFile(fullUrl, tempFilePath)
+            runCatching {
+                downloadFile(fullUrl, tempFilePath)
 
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_decrypting_video))
-            val key = BigInteger(decodeKey)
-            decryptFile(tempFilePath, finalFilePath, key)
+                showToastSuspend(localizedString(R.string.shortvideos_decrypting_video))
+                val key = BigInteger(decodeKey)
+                decryptFile(tempFilePath, finalFilePath, key)
 
-            tempFilePath.deleteIfExists()
-        }.onFailure {
-            WeLogger.e(TAG, "failed to download video", it)
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_failed))
-        }.onSuccess {
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_downloaded_to, fileName))
+                tempFilePath.deleteIfExists()
+            }
+                .onFailure {
+                    WeLogger.e(TAG, "failed to download video", it)
+                    showToastSuspend(
+                        localizedString(R.string.shortvideos_video_download_failed),
+                    )
+                }
+                .onSuccess {
+                    showToastSuspend(
+                        localizedString(
+                            R.string.shortvideos_video_downloaded_to,
+                            fileName,
+                        ),
+                    )
+                }
         }
-    }
 
-    private suspend fun downloadPcdnVideo(
-        url: String
-    ) = withContext(Dispatchers.IO) {
-        showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_started))
+    private suspend fun downloadPcdnVideo(url: String) =
+        withContext(Dispatchers.IO) {
+            showToastSuspend(localizedString(R.string.shortvideos_video_download_started))
 
-        val fileName = "video_${System.currentTimeMillis()}.mp4"
-        runCatching {
-            downloadFile(url, KnownPaths.downloads / fileName)
-        }.onFailure {
-            WeLogger.e(TAG, "failed to download video", it)
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_download_failed))
-        }.onSuccess {
-            showToastSuspend(localizedShortVideoString(R.string.shortvideos_video_downloaded_to, fileName))
+            val fileName = "video_${System.currentTimeMillis()}.mp4"
+            runCatching {
+                downloadFile(url, KnownPaths.downloads / fileName)
+            }
+                .onFailure {
+                    WeLogger.e(TAG, "failed to download video", it)
+                    showToastSuspend(
+                        localizedString(R.string.shortvideos_video_download_failed),
+                    )
+                }
+                .onSuccess {
+                    showToastSuspend(
+                        localizedString(
+                            R.string.shortvideos_video_downloaded_to,
+                            fileName,
+                        ),
+                    )
+                }
         }
-    }
 
-    private suspend fun downloadFile(url: String, targetPath: Path) = withContext(Dispatchers.IO) {
-        URL(url).openStream().use { input ->
-            targetPath.outputStream().use { input.copyTo(it) }
+    private suspend fun downloadFile(url: String, targetPath: Path) =
+        withContext(Dispatchers.IO) {
+            URL(url).openStream().use { input ->
+                targetPath.copyFrom(input)
+            }
         }
-    }
 
     private fun decryptFile(originalPath: Path, newPath: Path, bigIntDecodeKey: BigInteger) {
         originalPath.inputStream().use { fileInputStream ->
@@ -221,11 +262,12 @@ object DownloadMedia : SwitchFeature(),
                 val encryptedPrefix = ByteArray(ENCRYPTED_PREFIX_SIZE)
                 var prefixSize = 0
                 while (prefixSize < encryptedPrefix.size) {
-                    val bytesRead = fileInputStream.read(
-                        encryptedPrefix,
-                        prefixSize,
-                        encryptedPrefix.size - prefixSize
-                    )
+                    val bytesRead =
+                        fileInputStream.read(
+                            encryptedPrefix,
+                            prefixSize,
+                            encryptedPrefix.size - prefixSize,
+                        )
                     if (bytesRead == -1) break
                     prefixSize += bytesRead
                 }
@@ -238,49 +280,51 @@ object DownloadMedia : SwitchFeature(),
     }
 
     /**
-     * Finder CDN URLs carry the requested codec as field 1 of the basedata protobuf.
-     * H.266 is not supported by most external players, so request the H.265 variant.
+     * Finder CDN URLs carry the requested codec as field 1 of the basedata protobuf. H.266 is not
+     * supported by most external players, so request the H.265 variant.
      */
     private fun preferCompatibleVideoFormat(url: String): String {
         return runCatching {
             val uri = url.toUri()
             val baseData = uri.getQueryParameter("basedata") ?: return url
-            val decoded = Base64.decode(
-                baseData,
-                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-            )
+            val decoded =
+                Base64.decode(
+                    baseData,
+                    Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+                )
 
             if (
                 decoded.size < 2 ||
-                decoded[0] != 0x08.toByte() ||
-                decoded[1].toInt() != VIDEO_FORMAT_H266
+                    decoded[0] != 0x08.toByte() ||
+                    decoded[1].toInt() != VIDEO_FORMAT_H266
             ) {
                 return url
             }
 
             decoded[1] = VIDEO_FORMAT_H265.toByte()
-            val replacement = Base64.encodeToString(
-                decoded,
-                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-            )
+            val replacement =
+                Base64.encodeToString(
+                    decoded,
+                    Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+                )
             val encodedQuery = uri.encodedQuery ?: return url
             val oldParameter = "basedata=${Uri.encode(baseData)}"
             val newParameter = "basedata=${Uri.encode(replacement)}"
             val newQuery = encodedQuery.replaceFirst(oldParameter, newParameter)
 
-            if (newQuery == encodedQuery) url else uri.buildUpon()
-                .encodedQuery(newQuery)
-                .build()
-                .toString()
-        }.getOrElse {
-            WeLogger.w(TAG, "failed to request a compatible Finder video format", it)
-            url
+            if (newQuery == encodedQuery) {
+                url
+            } else {
+                uri.buildUpon().encodedQuery(newQuery).build().toString()
+            }
         }
+            .getOrElse {
+                WeLogger.w(TAG, "failed to request a compatible Finder video format", it)
+                url
+            }
     }
 
-    /**
-     * Core decryption logic.
-     */
+    /** Core decryption logic. */
     private fun decryptBuffer(buffer: ByteArray, key: BigInteger) {
         // Constraint from decompiled code: if buffer is smaller than 128KB, do nothing.
         if (buffer.isEmpty() || buffer.size < 128 * 1024) {
@@ -325,9 +369,7 @@ object DownloadMedia : SwitchFeature(),
         }
     }
 
-    /**
-     * Handles the cryptographic state and key scheduling.
-     */
+    /** Handles the cryptographic state and key scheduling. */
     private class CryptoState(bigInteger: BigInteger) {
         // Mask: 0xffffffffffffffff
         private val mask = BigInteger("ffffffffffffffff", 16)
@@ -384,9 +426,7 @@ object DownloadMedia : SwitchFeature(),
             updateState()
         }
 
-        /**
-         * Mixes the state array 'b'.
-         */
+        /** Mixes the state array 'b'. */
         private fun mix(state: Array<BigInteger>) {
             // 0 -= 4
             state[0] = state[0].subtract(state[4]).and(mask)
@@ -446,9 +486,7 @@ object DownloadMedia : SwitchFeature(),
             state[6] = state[6].add(state[7]).and(mask)
         }
 
-        /**
-         * Updates the internal keystream state.
-         */
+        /** Updates the internal keystream state. */
         fun updateState() {
             // e[2]++
             e[2] = e[2].add(BigInteger.ONE).and(mask)

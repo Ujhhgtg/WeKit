@@ -15,13 +15,16 @@ class DexTestWorkerConfigTest {
         assertEquals("8.0.69", config.versionName)
         assertFalse(config.isGooglePlay)
         assertNull(config.featureSelectors)
+        assertEquals("dexsql", config.engineVersion)
+        assertEquals("revision", config.engineRevision)
     }
 
     @Test
     fun parsesFeatureSelectors() {
-        val properties = properties().apply {
-            setProperty("wekit.dexTest.features", "AntiReadReceipts, AntiSecMsg")
-        }
+        val properties =
+            properties().apply {
+                setProperty("wekit.dexTest.features", "AntiReadReceipts, AntiSecMsg")
+            }
 
         assertEquals(
             listOf("AntiReadReceipts", "AntiSecMsg"),
@@ -31,25 +34,27 @@ class DexTestWorkerConfigTest {
 
     @Test
     fun rejectsInvalidBooleanAndNumber() {
-        val booleanProperties = properties().apply { setProperty("wekit.dexTest.isGooglePlay", "maybe") }
+        val booleanProperties =
+            properties().apply { setProperty("wekit.dexTest.isGooglePlay", "maybe") }
         assertThrows(IllegalStateException::class.java) {
             DexTestWorkerConfig.fromSystemProperties(booleanProperties)
         }
-        val numberProperties = properties().apply { setProperty("wekit.dexTest.versionCode", "not-a-number") }
+        val numberProperties =
+            properties().apply { setProperty("wekit.dexTest.versionCode", "not-a-number") }
         assertThrows(IllegalStateException::class.java) {
             DexTestWorkerConfig.fromSystemProperties(numberProperties)
         }
     }
 
-    private fun properties() = Properties().apply {
-        setProperty("wekit.dexTest.apk", "/tmp/wechat.apk")
-        setProperty("wekit.dexTest.nativeLibrary", "/tmp/libdexkit.so")
-        setProperty("wekit.dexTest.report", "/tmp/report.json")
-        setProperty("wekit.dexTest.dexKitVersion", "2.2.0")
-        setProperty("wekit.dexTest.dexKitRevision", "revision")
-        setProperty("wekit.dexTest.versionCode", "3040")
-        setProperty("wekit.dexTest.versionName", "8.0.69")
-        setProperty("wekit.dexTest.buildTag", "Android_Wechat_RELEASE")
-        setProperty("wekit.dexTest.isGooglePlay", "false")
-    }
+    private fun properties() =
+        Properties().apply {
+            setProperty("wekit.dexTest.apk", "/tmp/wechat.apk")
+            setProperty("wekit.dexTest.report", "/tmp/report.json")
+            setProperty("wekit.dexTest.engineVersion", "dexsql")
+            setProperty("wekit.dexTest.engineRevision", "revision")
+            setProperty("wekit.dexTest.versionCode", "3040")
+            setProperty("wekit.dexTest.versionName", "8.0.69")
+            setProperty("wekit.dexTest.buildTag", "Android_Wechat_RELEASE")
+            setProperty("wekit.dexTest.isGooglePlay", "false")
+        }
 }

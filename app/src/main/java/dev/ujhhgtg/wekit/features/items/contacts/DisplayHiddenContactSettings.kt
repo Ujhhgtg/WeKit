@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
 object DisplayHiddenContactSettings : SwitchFeature() {
-
     override val technicalId = "显示隐藏朋友设置项"
     override val nameRes = R.string.feature_display_hidden_contact_settings_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -18,16 +17,24 @@ object DisplayHiddenContactSettings : SwitchFeature() {
         ProfileSettingUI::class.reflekt()
             .firstMethod {
                 name = "initView"
-            }.hookAfter {
-                val prefScreen = thisObject!!.reflekt()
-                    .firstMethod {
-                        name = "getPreferenceScreen"
-                        superclass()
-                    }.invoke()!!
-                val hiddenSet = prefScreen.reflekt()
-                    .firstField {
-                        type = HashSet::class
-                    }.get()!! as HashSet<*>
+            }
+            .hookAfter {
+                val prefScreen =
+                    thisObject!!
+                        .reflekt()
+                        .firstMethod {
+                            name = "getPreferenceScreen"
+                            superclass()
+                        }
+                        .invoke()!!
+                val hiddenSet =
+                    prefScreen
+                        .reflekt()
+                        .firstField {
+                            type = HashSet::class
+                        }
+                        .get()!!
+                        as HashSet<*>
                 hiddenSet.clear()
                 (prefScreen as BaseAdapter).notifyDataSetChanged()
             }

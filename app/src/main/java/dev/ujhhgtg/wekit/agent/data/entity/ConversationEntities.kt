@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.agent.data.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
 import java.time.Instant
 
 // ---------------------------------------------------------------------------
@@ -19,11 +19,19 @@ data class SessionEntity(
     val linuxEnvironmentId: String?,
     val lastEffectiveLinuxEnvironmentId: String?,
     /**
-     * Bound model id, or null for "默认" — meaning follow [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved
-     * at turn time (like [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply
-     * to existing sessions instead of snapshotting the model at creation.
+     * Bound model id, or null for "默认" — meaning follow
+     * [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultModelId] resolved at turn time (like
+     * [systemPromptId]/[linuxEnvironmentId]). Null lets changing the global default apply to
+     * existing sessions instead of snapshotting the model at creation.
      */
     val modelId: String?,
+    /**
+     * Session-level tool permission (§3.1), or null for "默认" — meaning follow
+     * [dev.ujhhgtg.wekit.agent.data.WeAgentSettings.defaultPermissionLevel] resolved at call time.
+     * Null lets changing the global default apply to existing sessions instead of snapshotting the
+     * level at creation.
+     */
+    val permissionLevel: PermissionLevel? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     /**
@@ -43,7 +51,12 @@ data class SessionEntity(
     val contextWindow: Int? = null,
 )
 
-enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }
+enum class MessageRole {
+    USER,
+    ASSISTANT,
+    TOOL,
+    SYSTEM,
+}
 
 @Entity(
     tableName = "messages",
@@ -70,7 +83,13 @@ data class MessageEntity(
     val reasoningSignature: String? = null,
 )
 
-enum class ApprovalStatus { AUTO_ALLOWED, USER_APPROVED, USER_REJECTED, AI_APPROVED, AI_REJECTED }
+enum class ApprovalStatus {
+    AUTO_ALLOWED,
+    USER_APPROVED,
+    USER_REJECTED,
+    AI_APPROVED,
+    AI_REJECTED,
+}
 
 @Entity(
     tableName = "tool_calls",
@@ -116,10 +135,13 @@ data class BridgeToolAuditEntity(
 )
 
 // ---------------------------------------------------------------------------
-// Tool providers & permissions (§10)
+// Tool providers (§10)
 // ---------------------------------------------------------------------------
 
-enum class McpTransport { STREAMABLE_HTTP, SSE }
+enum class McpTransport {
+    STREAMABLE_HTTP,
+    SSE,
+}
 
 @Entity(tableName = "providers")
 data class ProviderEntity(
@@ -130,11 +152,4 @@ data class ProviderEntity(
     val endpointUrl: String?,
     val headersJson: String?,
     val enabled: Boolean,
-)
-
-@Entity(tableName = "tool_permissions", primaryKeys = ["providerId", "toolName"])
-data class ToolPermissionEntity(
-    val providerId: String,
-    val toolName: String,
-    val mode: ToolMode,
 )

@@ -1,14 +1,13 @@
 package dev.ujhhgtg.wekit.extensions
 
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.security.MessageDigest
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import kotlin.io.path.moveTo
+import kotlinx.serialization.json.Json
 
 /** Shared file plumbing for extension packs: hashing, verification, atomic publish. */
 object PackFs {
-
     private val json = Json { ignoreUnknownKeys = true }
     private const val MANIFEST_NAME = "manifest.json"
 
@@ -32,12 +31,13 @@ object PackFs {
         dst.parentFile?.mkdirs()
         if (dst.exists()) dst.delete()
         if (!tmp.renameTo(dst)) {
-            Files.move(tmp.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            tmp.toPath().moveTo(dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
     fun writeManifest(dir: File, manifest: PackManifest) {
-        dir.resolve(MANIFEST_NAME).writeText(json.encodeToString(PackManifest.serializer(), manifest))
+        dir.resolve(MANIFEST_NAME)
+            .writeText(json.encodeToString(PackManifest.serializer(), manifest))
     }
 
     fun readManifest(dir: File): PackManifest? {

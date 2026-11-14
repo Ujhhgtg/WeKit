@@ -1,0 +1,83 @@
+package dev.ujhhgtg.wekit.dex.resolution
+
+import dev.ujhhgtg.dexsql.DexSqlBridge
+import dev.ujhhgtg.wekit.features.core.BaseFeature
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+
+sealed interface DexResolutionEvent {
+    val item: BaseFeature
+
+    data class Start(override val item: BaseFeature) : DexResolutionEvent
+
+    data class Finished(
+        override val item: BaseFeature,
+        val error: Exception?,
+        val elapsedMillis: Long,
+    ) : DexResolutionEvent
+}
+
+/** Shared by Android and desktop validation. The caller owns the bridge until this returns. */
+suspend fun resolveDexBatch(
+    items: List<BaseFeature>,
+    host: DexHostMetadata,
+    workerCount: Int = 4,
+    dexSql: DexSqlBridge? = null,
+    onEvent: suspend (DexResolutionEvent) -> Unit,
+) = coroutineScope {
+    require(workerCount > 0)
+    val roots = items.distinct()
+    if (roots.isEmpty()) return@coroutineScope
+    val batchContext = coroutineContext
+    val coordinator = DexResolutionContext.newCoordinator(roots) { batchContext.ensureActive() }
+    val next = AtomicInteger()
+    val workers = minOf(workerCount, roots.size)
+    val events = Channel<DexResolutionEvent>(workers * 2)
+    launch {
+        try {
+            coroutineScope {
+                repeat(workers) {
+                    launch(Dispatchers.IO) {
+                        while (true) {
+                            ensureActive()
+                            val index = next.getAndIncrement()
+                            if (index >= roots.size) break
+                            val item = roots[index]
+                            events.send(DexResolutionEvent.Start(item))
+                            val started = TimeSource.Monotonic.markNow()
+                            val error =
+                                try {
+                                    item.resolveAllDex(host, coordinator, dexSql)
+                                    null
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Exception) {
+                                    error
+                                }
+                            ensureActive()
+                            events.send(
+                                DexResolutionEvent.Finished(
+                                    item,
+                                    error,
+                                    started.elapsedNow().inWholeMilliseconds,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        } finally {
+            events.close()
+        }
+    }
+    for (event in events) {
+        ensureActive()
+        onEvent(event)
+    }
+}

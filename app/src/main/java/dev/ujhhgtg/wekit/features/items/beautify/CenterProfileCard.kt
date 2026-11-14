@@ -33,17 +33,16 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.SelfProfileField
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
 import dev.ujhhgtg.wekit.ui.content.m3.BaseSupportingWidget
@@ -56,8 +55,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
-object CenterProfileCard : ClickableFeature(), IResolveDex {
-
+object CenterProfileCard : ClickableFeature() {
     override val technicalId = "资料卡居中"
     override val nameRes = R.string.feature_center_profile_card_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE)
@@ -91,25 +89,27 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
     private const val KEY_ALIAS_TEXT = "account_info_center_alias_text"
     private const val KEY_SIGNATURE_TEXT = "account_info_center_signature_text"
 
-    private var avatarTopMarginPref by WePrefs.prefOption(KEY_AVATAR_TOP_MARGIN, DEFAULT_AVATAR_TOP_MARGIN_DP)
-    private var avatarSizePref by WePrefs.prefOption(KEY_AVATAR_SIZE, DEFAULT_AVATAR_SIZE_DP)
-    private var nameTopMarginPref by WePrefs.prefOption(KEY_NAME_TOP_MARGIN, DEFAULT_NAME_TOP_MARGIN_DP)
-    private var aliasTopMarginPref by WePrefs.prefOption(KEY_ALIAS_TOP_MARGIN, DEFAULT_ALIAS_TOP_MARGIN_DP)
-    private var signatureTopMarginPref by WePrefs.prefOption(KEY_SIGNATURE_TOP_MARGIN, DEFAULT_SIGNATURE_TOP_MARGIN_DP)
-    private var lightBgPref by WePrefs.prefOption(KEY_LIGHT_BG, DEFAULT_LIGHT_BG)
-    private var darkBgPref by WePrefs.prefOption(KEY_DARK_BG, DEFAULT_DARK_BG)
-    private var showNamePref by WePrefs.prefOption(KEY_SHOW_NAME, true)
-    private var showAliasPref by WePrefs.prefOption(KEY_SHOW_ALIAS, true)
-    private var showSignaturePref by WePrefs.prefOption(KEY_SHOW_SIGNATURE, true)
-    private var nameTextPref by WePrefs.prefOption(KEY_NAME_TEXT, "")
-    private var aliasTextPref by WePrefs.prefOption(KEY_ALIAS_TEXT, "")
-    private var signatureTextPref by WePrefs.prefOption(KEY_SIGNATURE_TEXT, "")
+    private var avatarTopMarginPref by
+        KvStore.prefOption(KEY_AVATAR_TOP_MARGIN, DEFAULT_AVATAR_TOP_MARGIN_DP)
+    private var avatarSizePref by KvStore.prefOption(KEY_AVATAR_SIZE, DEFAULT_AVATAR_SIZE_DP)
+    private var nameTopMarginPref by
+        KvStore.prefOption(KEY_NAME_TOP_MARGIN, DEFAULT_NAME_TOP_MARGIN_DP)
+    private var aliasTopMarginPref by
+        KvStore.prefOption(KEY_ALIAS_TOP_MARGIN, DEFAULT_ALIAS_TOP_MARGIN_DP)
+    private var signatureTopMarginPref by
+        KvStore.prefOption(KEY_SIGNATURE_TOP_MARGIN, DEFAULT_SIGNATURE_TOP_MARGIN_DP)
+    private var lightBgPref by KvStore.prefOption(KEY_LIGHT_BG, DEFAULT_LIGHT_BG)
+    private var darkBgPref by KvStore.prefOption(KEY_DARK_BG, DEFAULT_DARK_BG)
+    private var showNamePref by KvStore.prefOption(KEY_SHOW_NAME, true)
+    private var showAliasPref by KvStore.prefOption(KEY_SHOW_ALIAS, true)
+    private var showSignaturePref by KvStore.prefOption(KEY_SHOW_SIGNATURE, true)
+    private var nameTextPref by KvStore.prefOption(KEY_NAME_TEXT, "")
+    private var aliasTextPref by KvStore.prefOption(KEY_ALIAS_TEXT, "")
+    private var signatureTextPref by KvStore.prefOption(KEY_SIGNATURE_TEXT, "")
 
     private val methodBindAccountInfo by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.pluginsdk.ui.preference.AccountInfoPreference"
-            paramTypes(View::class.java)
-        }
+        declaredClass = "com.tencent.mm.pluginsdk.ui.preference.AccountInfoPreference"
+        paramTypes("android.view.View")
     }
 
     override fun onEnable() {
@@ -157,9 +157,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 title = { Text(stringResource(R.string.beautify_profile_card_title)) },
                 text = {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                     ) {
                         SegmentedColumn(
                             title = stringResource(R.string.beautify_profile_card_visibility),
@@ -168,7 +166,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 SwitchWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.beautify_profile_card_show_nickname),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_show_nickname,
+                                        ),
                                     checked = showName,
                                     onCheckedChange = { showName = it },
                                 )
@@ -176,7 +177,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 SwitchWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.beautify_profile_card_show_wechat_id),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_show_wechat_id,
+                                        ),
                                     checked = showAlias,
                                     onCheckedChange = { showAlias = it },
                                 )
@@ -184,7 +188,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 SwitchWidget(
                                     iconPlaceholder = false,
-                                    title = stringResource(R.string.beautify_profile_card_show_signature),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_show_signature,
+                                        ),
                                     checked = showSignature,
                                     onCheckedChange = { showSignature = it },
                                 )
@@ -192,28 +199,47 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         }
 
                         SegmentedColumn(
-                            title = stringResource(R.string.beautify_profile_card_text_replacements),
+                            title =
+                                stringResource(R.string.beautify_profile_card_text_replacements),
                             contentPadding = PaddingValues(0.dp),
                         ) {
                             item {
                                 BaseSupportingWidget(
-                                    title = stringResource(R.string.beautify_profile_card_custom_nickname),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_custom_nickname,
+                                        ),
                                 ) {
-                                    InlineTextField(value = nameText, onValueChange = { nameText = it })
+                                    InlineTextField(
+                                        value = nameText,
+                                        onValueChange = { nameText = it },
+                                    )
                                 }
                             }
                             item {
                                 BaseSupportingWidget(
-                                    title = stringResource(R.string.beautify_profile_card_custom_wechat_id),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_custom_wechat_id,
+                                        ),
                                 ) {
-                                    InlineTextField(value = aliasText, onValueChange = { aliasText = it })
+                                    InlineTextField(
+                                        value = aliasText,
+                                        onValueChange = { aliasText = it },
+                                    )
                                 }
                             }
                             item {
                                 BaseSupportingWidget(
-                                    title = stringResource(R.string.beautify_profile_card_custom_signature),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_custom_signature,
+                                        ),
                                 ) {
-                                    InlineTextField(value = signatureText, onValueChange = { signatureText = it })
+                                    InlineTextField(
+                                        value = signatureText,
+                                        onValueChange = { signatureText = it },
+                                    )
                                 }
                             }
                         }
@@ -225,7 +251,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.beautify_profile_card_avatar_top_margin),
+                                        title =
+                                            stringResource(
+                                                R.string.beautify_profile_card_avatar_top_margin,
+                                            ),
                                         value = avatarTopMargin,
                                         startInt = MIN_LAYOUT_DP,
                                         endInt = MAX_LAYOUT_DP,
@@ -241,7 +270,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.beautify_profile_card_avatar_size),
+                                        title =
+                                            stringResource(
+                                                R.string.beautify_profile_card_avatar_size,
+                                            ),
                                         value = avatarSize,
                                         startInt = MIN_LAYOUT_DP,
                                         endInt = MAX_LAYOUT_DP,
@@ -257,7 +289,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.beautify_profile_card_nickname_top_margin),
+                                        title =
+                                            stringResource(
+                                                R.string.beautify_profile_card_nickname_top_margin,
+                                            ),
                                         value = nameTopMargin,
                                         startInt = MIN_LAYOUT_DP,
                                         endInt = MAX_LAYOUT_DP,
@@ -273,7 +308,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.beautify_profile_card_wechat_id_top_margin),
+                                        title =
+                                            stringResource(
+                                                R.string.beautify_profile_card_wechat_id_top_margin,
+                                            ),
                                         value = aliasTopMargin,
                                         startInt = MIN_LAYOUT_DP,
                                         endInt = MAX_LAYOUT_DP,
@@ -289,7 +327,10 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                             item {
                                 BaseItemContainer {
                                     IntNumberPickerWidget(
-                                        title = stringResource(R.string.beautify_profile_card_signature_top_margin),
+                                        title =
+                                            stringResource(
+                                                R.string.beautify_profile_card_signature_top_margin,
+                                            ),
                                         value = signatureTopMargin,
                                         startInt = MIN_LAYOUT_DP,
                                         endInt = MAX_LAYOUT_DP,
@@ -305,19 +346,26 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                         }
 
                         SegmentedColumn(
-                            title = stringResource(R.string.beautify_profile_card_background_colors),
+                            title =
+                                stringResource(R.string.beautify_profile_card_background_colors),
                             contentPadding = PaddingValues(0.dp),
                         ) {
                             item {
                                 ColorPickerWidget(
-                                    title = stringResource(R.string.beautify_profile_card_light_background),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_light_background,
+                                        ),
                                     value = lightBg,
                                     onValueChange = { lightBg = it },
                                 )
                             }
                             item {
                                 ColorPickerWidget(
-                                    title = stringResource(R.string.beautify_profile_card_dark_background),
+                                    title =
+                                        stringResource(
+                                            R.string.beautify_profile_card_dark_background,
+                                        ),
                                     value = darkBg,
                                     onValueChange = { darkBg = it },
                                 )
@@ -329,22 +377,26 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                     TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        if (avatarTopMarginChanged) avatarTopMarginPref = avatarTopMargin
-                        if (avatarSizeChanged) avatarSizePref = avatarSize.coerceAtLeast(1)
-                        if (nameTopMarginChanged) nameTopMarginPref = nameTopMargin
-                        if (aliasTopMarginChanged) aliasTopMarginPref = aliasTopMargin
-                        if (signatureTopMarginChanged) signatureTopMarginPref = signatureTopMargin
-                        lightBgPref = lightBg.takeIfValidColor(DEFAULT_LIGHT_BG)
-                        darkBgPref = darkBg.takeIfValidColor(DEFAULT_DARK_BG)
-                        showNamePref = showName
-                        showAliasPref = showAlias
-                        showSignaturePref = showSignature
-                        nameTextPref = nameText.trim()
-                        aliasTextPref = aliasText.trim()
-                        signatureTextPref = signatureText.trim()
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        onClick = {
+                            if (avatarTopMarginChanged) avatarTopMarginPref = avatarTopMargin
+                            if (avatarSizeChanged) avatarSizePref = avatarSize.coerceAtLeast(1)
+                            if (nameTopMarginChanged) nameTopMarginPref = nameTopMargin
+                            if (aliasTopMarginChanged) aliasTopMarginPref = aliasTopMargin
+                            if (signatureTopMarginChanged) {
+                                signatureTopMarginPref = signatureTopMargin
+                            }
+                            lightBgPref = lightBg.takeIfValidColor(DEFAULT_LIGHT_BG)
+                            darkBgPref = darkBg.takeIfValidColor(DEFAULT_DARK_BG)
+                            showNamePref = showName
+                            showAliasPref = showAlias
+                            showSignaturePref = showSignature
+                            nameTextPref = nameText.trim()
+                            aliasTextPref = aliasText.trim()
+                            signatureTextPref = signatureText.trim()
+                            onDismiss()
+                        },
+                    ) {
                         Text(stringResource(R.string.action_save))
                     }
                 },
@@ -359,9 +411,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         )
     }
 
@@ -386,37 +436,49 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         }
 
         val context = root.context
-        val card = RelativeLayout(context).apply {
-            tag = CENTER_CARD_TAG
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            )
-            setPadding(dp(context, 20), dp(context, 12), dp(context, 20), dp(context, 12))
-            setBackgroundColor(parseColor(if (context.isDarkMode) darkBgPref else lightBgPref, Color.TRANSPARENT))
-            setOnClickListener { openPersonalInfoSettings(context) }
-        }
+        val card =
+            RelativeLayout(context).apply {
+                tag = CENTER_CARD_TAG
+                layoutParams =
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    )
+                setPadding(dp(context, 20), dp(context, 12), dp(context, 20), dp(context, 12))
+                setBackgroundColor(
+                    parseColor(
+                        if (context.isDarkMode) darkBgPref else lightBgPref,
+                        Color.TRANSPARENT,
+                    ),
+                )
+                setOnClickListener { openPersonalInfoSettings(context) }
+            }
 
         val avatarFrameId = View.generateViewId()
         val nameId = View.generateViewId()
         val aliasId = View.generateViewId()
 
-        val avatarFrame = FrameLayout(context).apply {
-            id = avatarFrameId
-            layoutParams = RelativeLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                addRule(RelativeLayout.CENTER_HORIZONTAL)
-                topMargin = dp(context, avatarTopMarginPref)
+        val avatarFrame =
+            FrameLayout(context).apply {
+                id = avatarFrameId
+                layoutParams =
+                    RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        )
+                        .apply {
+                            addRule(RelativeLayout.CENTER_HORIZONTAL)
+                            topMargin = dp(context, avatarTopMarginPref)
+                        }
             }
-        }
         val avatarPx = dp(context, avatarSizePref)
-        avatarFrame.addView(ImageView(context).apply {
-            layoutParams = FrameLayout.LayoutParams(avatarPx, avatarPx)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            setImageDrawable(source.avatarDrawable ?: Color.TRANSPARENT.toDrawable())
-        })
+        avatarFrame.addView(
+            ImageView(context).apply {
+                layoutParams = FrameLayout.LayoutParams(avatarPx, avatarPx)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setImageDrawable(source.avatarDrawable ?: Color.TRANSPARENT.toDrawable())
+            },
+        )
 
         card.addView(avatarFrame)
         card.addView(
@@ -430,7 +492,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 visible = showNamePref && source.name.isNotBlank(),
                 maxLines = 1,
                 style = Typeface.BOLD,
-            )
+            ),
         )
         card.addView(
             newTextView(
@@ -443,7 +505,7 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 visible = showAliasPref && source.customWxId.isNotBlank(),
                 maxLines = Int.MAX_VALUE,
                 style = Typeface.NORMAL,
-            )
+            ),
         )
         card.addView(
             newTextView(
@@ -456,31 +518,49 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
                 visible = showSignaturePref && source.signature.isNotBlank(),
                 maxLines = Int.MAX_VALUE,
                 style = Typeface.NORMAL,
-            )
+            ),
         )
 
         root.addView(card)
     }
 
     private fun collectSource(root: ViewGroup): AccountInfoSource {
-        val avatarImage = root.findViewsWhich { view ->
-            view is ImageView && view.isVisible && view.drawable != null
-        }.map { it as ImageView }.maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
+        val avatarImage =
+            root
+                .findViewsWhich { view ->
+                    view is ImageView && view.isVisible && view.drawable != null
+                }
+                .map { it as ImageView }
+                .maxByOrNull { it.visibleArea() } ?: error("failed to find avatar image view")
 
         val self = WeDatabaseApi.getFriend(WeApi.selfWxId)
 
         val name = nameTextPref.ifBlank { self?.nickname ?: "" }
-        val customWxId = if (aliasTextPref.isNotBlank()) {
-            root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, aliasTextPref)
-        } else {
-            val alias = WeApi.selfCustomWxId
-            if (alias.isNotBlank()) root.context.localizedBeautifyString(R.string.beautify_profile_card_wechat_id_value, alias) else ""
-        }
+        val customWxId =
+            if (aliasTextPref.isNotBlank()) {
+                root.context.localizedString(
+                    R.string.beautify_profile_card_wechat_id_value,
+                    aliasTextPref,
+                )
+            } else {
+                val alias = WeApi.selfCustomWxId
+                if (alias.isNotBlank()) {
+                    root.context.localizedString(
+                        R.string.beautify_profile_card_wechat_id_value,
+                        alias,
+                    )
+                } else {
+                    ""
+                }
+            }
         val signature = signatureTextPref.ifBlank {
             WeDatabaseApi.getSelfProfileField(
-                SelfProfileField.SIGNATURE,
-                root.context.localizedBeautifyString(R.string.beautify_profile_card_signature_unavailable),
-            ).toString()
+                    SelfProfileField.SIGNATURE,
+                    root.context.localizedString(
+                        R.string.beautify_profile_card_signature_unavailable,
+                    ),
+                )
+                .toString()
         }
 
         return AccountInfoSource(
@@ -501,35 +581,45 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         visible: Boolean,
         maxLines: Int,
         style: Int,
-    ): TextView = TextView(context).apply {
-        this.id = id
-        layoutParams = RelativeLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            addRule(RelativeLayout.CENTER_HORIZONTAL)
-            addRule(RelativeLayout.BELOW, anchorId)
-            topMargin = dp(context, topMarginDp)
+    ): TextView =
+        TextView(context).apply {
+            this.id = id
+            layoutParams =
+                RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    )
+                    .apply {
+                        addRule(RelativeLayout.CENTER_HORIZONTAL)
+                        addRule(RelativeLayout.BELOW, anchorId)
+                        topMargin = dp(context, topMarginDp)
+                    }
+            gravity = Gravity.CENTER
+            textSize = textSizeSp
+            setText(text)
+            this.maxLines = maxLines
+            setTypeface(typeface, style)
+            isVisible = visible
+            if (context.isDarkMode) {
+                setTextColor(Color.WHITE)
+            } else {
+                setTextColor(Color.BLACK)
+            }
         }
-        gravity = Gravity.CENTER
-        textSize = textSizeSp
-        setText(text)
-        this.maxLines = maxLines
-        setTypeface(typeface, style)
-        isVisible = visible
-        if (context.isDarkMode) {
-            setTextColor(Color.WHITE)
-        } else {
-            setTextColor(Color.BLACK)
-        }
-    }
 
     private fun openPersonalInfoSettings(context: Context) {
         runCatching {
-            context.startActivity(Intent().setClassName(context, "com.tencent.mm.plugin.setting.ui.setting.SettingsPersonalInfoUI"))
-        }.onFailure {
-            WeLogger.e(TAG, "failed to open personal info settings", it)
+            context.startActivity(
+                Intent()
+                    .setClassName(
+                        context,
+                        "com.tencent.mm.plugin.setting.ui.setting.SettingsPersonalInfoUI",
+                    ),
+            )
         }
+            .onFailure {
+                WeLogger.e(TAG, "failed to open personal info settings", it)
+            }
     }
 
     private fun View.visibleArea(): Int {
@@ -538,13 +628,13 @@ object CenterProfileCard : ClickableFeature(), IResolveDex {
         return width * height
     }
 
-    private fun dp(context: Context, value: Int): Int {
-        return (value * context.resources.displayMetrics.density + 0.5f).toInt()
-    }
+    private fun dp(context: Context, value: Int): Int =
+        (value * context.resources.displayMetrics.density + 0.5f).toInt()
 
-    private fun parseColor(value: String, fallback: Int): Int {
-        return runCatching { value.toColorInt() }.getOrDefault(fallback)
+    private fun parseColor(value: String, fallback: Int): Int = runCatching {
+        value.toColorInt()
     }
+        .getOrDefault(fallback)
 
     private fun String.takeIfValidColor(defaultValue: String): String {
         val normalized = trim()

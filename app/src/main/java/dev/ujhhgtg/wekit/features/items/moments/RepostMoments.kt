@@ -1,11 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import android.content.Context
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.SendIcon
 import dev.ujhhgtg.wekit.ui.utils.ShareIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "转发 & 一键转发"
     override val nameRes = R.string.feature_repost_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)
@@ -32,11 +31,11 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         WeMomentsContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeMomentsContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeMomentsContextMenuApi.MenuItem> =
+        listOf(
             WeMomentsContextMenuApi.MenuItem(
                 777013,
-                localizedMomentsString(R.string.moments_repost_menu),
+                localizedString(R.string.moments_repost_menu),
                 ShareIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -48,7 +47,7 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             },
             WeMomentsContextMenuApi.MenuItem(
                 777014,
-                localizedMomentsString(R.string.moments_quick_repost_menu),
+                localizedString(R.string.moments_quick_repost_menu),
                 SendIcon,
                 { _, _ -> true },
             ) { moment ->
@@ -57,9 +56,8 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "quick forward failed", e)
                 }
-            }
+            },
         )
-    }
 
     private fun repostMoment(context: WeMomentsContextMenuApi.MomentsContext) {
         val activity = context.activity
@@ -68,49 +66,95 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             WeLogger.w(
                 TAG,
                 "failed to resolve Moments content: activity=${activity.javaClass.name}, " +
-                        "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
+                    "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}",
             )
-            showToast(activity, activity.localizedMomentsString(R.string.moments_repost_parse_failed))
+            showToast(
+                activity,
+                activity.localizedString(R.string.moments_repost_parse_failed),
+            )
             return
         }
         val contentText = data.contentText
 
         when (data.type) {
-            1, 54 -> { // 图片 / 实况
+            1,
+            54 -> { // 图片 / 实况
                 if (data.hasLivePhoto) {
                     editLivePhotoRepost(context, data)
                     return
                 }
 
-                showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_images))
+                showToast(
+                    activity,
+                    activity.localizedString(R.string.moments_repost_preparing_images),
+                )
                 CoroutineScope(Dispatchers.Main).launch {
-                    val tempPaths = WeMomentsApi.ensureImagePathsForEditor(activity, data.mediaList, data.nativeMediaList)
+                    val tempPaths =
+                        WeMomentsApi.ensureImagePathsForEditor(
+                            activity,
+                            data.mediaList,
+                            data.nativeMediaList,
+                        )
                     if (tempPaths == null) {
-                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_image_download_failed))
+                        showToastSuspend(
+                            activity,
+                            activity.localizedString(
+                                R.string.moments_repost_image_download_failed,
+                            ),
+                        )
                         return@launch
                     }
                     WeMomentsApi.postImagesInUi(activity, tempPaths, contentText)
                 }
             }
 
-            15, 5 -> { // 视频
-                showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_video))
+            15,
+            5 -> { // 视频
+                showToast(
+                    activity,
+                    activity.localizedString(R.string.moments_repost_preparing_video),
+                )
                 CoroutineScope(Dispatchers.Main).launch {
                     val video = WeMomentsApi.ensureVideoPaths(activity, data)
                     if (video == null) {
-                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_download_failed))
+                        showToastSuspend(
+                            activity,
+                            activity.localizedString(
+                                R.string.moments_repost_video_download_failed,
+                            ),
+                        )
                         return@launch
                     }
 
-                    WeLogger.i(TAG, "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}")
+                    WeLogger.i(
+                        TAG,
+                        "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}",
+                    )
                     val albumVideoPath = WeMomentsApi.saveVideo(activity, video.videoPath)
                     if (albumVideoPath == null) {
-                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_save_failed))
+                        showToastSuspend(
+                            activity,
+                            activity.localizedString(
+                                R.string.moments_repost_video_save_failed,
+                            ),
+                        )
                         return@launch
                     }
                     WeLogger.i(TAG, "dispatch video album result: video=$albumVideoPath")
-                    if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, albumVideoPath, context.source)) {
-                        showToastSuspend(activity, activity.localizedMomentsString(R.string.moments_repost_video_select_failed))
+                    if (
+                        !WeMomentsApi.openMomentVideoEditorFromAlbumResult(
+                            activity,
+                            contentText,
+                            albumVideoPath,
+                            context.source,
+                        )
+                    ) {
+                        showToastSuspend(
+                            activity,
+                            activity.localizedString(
+                                R.string.moments_repost_video_select_failed,
+                            ),
+                        )
                     }
                 }
             }
@@ -119,7 +163,10 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                 WeLogger.i(TAG, "reposting card type ${data.type}")
                 if (!WeMomentsApi.openCardEditor(activity, data)) {
                     WeLogger.i(TAG, "card type ${data.type} not editor-capable")
-                    showToast(activity, activity.localizedMomentsString(R.string.moments_repost_card_unsupported))
+                    showToast(
+                        activity,
+                        activity.localizedString(R.string.moments_repost_card_unsupported),
+                    )
                 }
             }
 
@@ -132,21 +179,24 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
 
     private fun editLivePhotoRepost(
         context: WeMomentsContextMenuApi.MomentsContext,
-        data: WeMomentsApi.MomentContent
+        data: WeMomentsApi.MomentContent,
     ) {
         val activity = context.activity
-        showToast(activity, activity.localizedMomentsString(R.string.moments_repost_preparing_live_photo))
+        showToast(
+            activity,
+            activity.localizedString(R.string.moments_repost_preparing_live_photo),
+        )
         CoroutineScope(Dispatchers.Main).launch {
-            val result = WeMomentsApi.openMomentLivePhotoEditorFromAlbumResult(
-                activity = activity,
-                text = data.contentText,
-                content = data,
-                source = context.source
-            )
+            val result =
+                WeMomentsApi.openMomentLivePhotoEditorFromAlbumResult(
+                    activity = activity,
+                    text = data.contentText,
+                    content = data,
+                )
             if (!result.success) {
                 showToastSuspend(
                     activity,
-                    activity.localizedRepostResult(result),
+                    result.messageRes?.let { activity.localizedString(it) } ?: result.message,
                 )
             }
         }
@@ -159,23 +209,26 @@ object RepostMoments : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
             WeLogger.w(
                 TAG,
                 "failed to resolve Moments content for quick repost: activity=${activity.javaClass.name}, " +
-                        "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}"
+                    "snsInfo=${context.snsInfo?.javaClass?.name}, timeline=${context.timelineObject?.javaClass?.name}",
             )
-            showToast(activity, activity.localizedMomentsString(R.string.moments_repost_parse_failed))
+            showToast(
+                activity,
+                activity.localizedString(R.string.moments_repost_parse_failed),
+            )
             return
         }
 
-        showToast(activity, activity.localizedMomentsString(R.string.moments_quick_repost_preparing))
+        showToast(
+            activity,
+            activity.localizedString(R.string.moments_quick_repost_preparing),
+        )
 
         CoroutineScope(Dispatchers.Main).launch {
             val result = WeMomentsApi.quickRepostEnsuringCached(data)
             showToastSuspend(
                 activity,
-                activity.localizedRepostResult(result),
+                result.messageRes?.let { activity.localizedString(it) } ?: result.message,
             )
         }
     }
-
-    private fun Context.localizedRepostResult(result: WeMomentsApi.ActionResult): String =
-        result.messageRes?.let(::localizedMomentsString) ?: result.message
 }

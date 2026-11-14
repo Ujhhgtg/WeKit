@@ -1,55 +1,40 @@
 package dev.ujhhgtg.wekit.features.items.system
 
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.BuildConfig
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import java.lang.reflect.Field
+import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import kotlin.io.path.div
 
-object PreventModuleDataDeletion : SwitchFeature(), IResolveDex {
-
+object PreventModuleDataDeletion : SwitchFeature() {
     override val technicalId = "阻止微信清理模块数据"
     override val nameRes = R.string.feature_prevent_module_data_deletion_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_prevent_module_data_deletion_description
 
-    private val methodNativeFileSystemEntryDelete by dexMethod {
-        matcher {
-            declaredClass {
-                usingEqStrings("VFS.NativeFileSystem", "Base directory exists but is not a directory, delete and proceed.Base path: ")
-            }
-
-            paramTypes(String::class.java)
-            returnType = "boolean"
-
-            invokeMethods {
-                add {
-                    declaredClass = "java.io.File"
-                    name = "delete"
-                }
-            }
-        }
+    // WeChat's VFS canonicalizes base paths (/data/user/0 -> /data/data), so compare canonically
+    private val protectedRoots by lazy {
+        listOf(
+                KnownPaths.moduleRoot,
+                KnownPaths.downloads,
+                KnownPaths.internalStorage /
+                    "Android" /
+                    "data" /
+                    HostInfo.packageName /
+                    "Layout Inspect",
+            )
+            .map { it.toFile().canonicalPath }
     }
-    private lateinit var basePathField: Field
 
     override fun onEnable() {
-        methodNativeFileSystemEntryDelete.hookBefore {
+        WeVfsApi.methodNativeEntryDelete.hookBefore {
             val relPath = args[0] as String
-            if (!::basePathField.isInitialized) {
-                basePathField = thisObject!!.reflekt()
-                    .firstField {
-                        type = String::class
-                        modifiers(Modifiers.FINAL)
-                    }.self
-            }
-            val basePath = basePathField.get(thisObject) as String
+            val basePath = WeVfsApi.fieldNativeEntryBasePath.field.get(thisObject) as String
 
-            val path = "$basePath/$relPath"
-            if (path.contains(BuildConfig.TAG) || path.contains("Layout Inspect")) {
+            val path = if (relPath.isEmpty()) basePath else "$basePath/$relPath"
+            if (protectedRoots.any { path == it || path.startsWith("$it/") }) {
                 result = true
             }
         }

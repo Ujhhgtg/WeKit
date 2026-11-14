@@ -2,37 +2,43 @@ package dev.ujhhgtg.wekit.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.ujhhgtg.wekit.utils.fs.asPath
+import dev.ujhhgtg.wekit.utils.strings.md5Hex
 import java.nio.file.Path
-import java.security.MessageDigest
-import java.util.Locale
 import kotlin.io.path.div
+import kotlin.io.path.isDirectory
 
 object RuntimeConfig {
-
     lateinit var mmPrefs: SharedPreferences
 
     val loggedInWxId: String
         get() = mmPrefs.getString("login_weixin_username", "") ?: ""
 
+    /**
+     * The current account's WeChat data directory (`<dataDir>/MicroMsg/<md5("mm"+uin)>/`).
+     *
+     * Host versions differ in which uin width is hashed into the directory name: up to 8.0.78 the
+     * truncated 32-bit uin is used, 8.0.79 uses the full 64-bit uin. Both candidate names are
+     * probed on disk so no host-version check is needed.
+     */
     val userDataDir: Path
         get() {
             val context = HostInfo.application
             val prefs = context.getSharedPreferences("system_config_prefs", Context.MODE_PRIVATE)
-            val defaultUin = prefs.getInt("default_uin", 0)
+            val uin =
+                if (prefs.contains("default_uin64")) {
+                    prefs.getLong("default_uin64", 0L)
+                } else {
+                    prefs.getInt("default_uin", 0).toLong()
+                }
 
-            val seedString = "mm$defaultUin"
-
-            val md5FolderHash = calculateMd5(seedString).lowercase(Locale.ROOT)
-
-            val targetDir = context.dataDir.toPath() / "MicroMsg" / md5FolderHash
-
-            return targetDir
+            val microMsg = context.filesDir.asPath.parent / "MicroMsg"
+            val longUinDir = microMsg / md5Hex("mm$uin")
+            val intUinDir = microMsg / md5Hex("mm${uin.toInt()}")
+            return when {
+                longUinDir.isDirectory() -> longUinDir
+                intUinDir.isDirectory() -> intUinDir
+                else -> longUinDir
+            }
         }
-
-    private fun calculateMd5(input: String): String {
-        val digestBytes = MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8))
-        return digestBytes.joinToString("") { byte ->
-            "%02X".format(byte)
-        }
-    }
 }

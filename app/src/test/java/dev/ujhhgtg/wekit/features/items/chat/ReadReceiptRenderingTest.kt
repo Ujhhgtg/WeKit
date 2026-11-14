@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ReadReceiptRenderingTest {
-
     @Test
     fun `replaces placeholder in active template with localized read text`() {
         assertEquals(

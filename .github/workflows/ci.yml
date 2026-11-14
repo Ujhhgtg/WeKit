@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - dev
     paths-ignore:
       - '**/*.txt'
       - '.editorconfig'
@@ -13,7 +12,6 @@ on:
   pull_request:
     branches:
       - master
-      - dev
     paths-ignore:
       - '**/*.txt'
       - '.editorconfig'
@@ -22,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_extensions:
-        description: Build and publish all extension packs, including the large Arch rootfs
+        description: Build and publish all extension packs
         type: boolean
         default: false
 
@@ -32,14 +30,19 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A newer push/PR update to the same ref cancels this job's still-running older build. Release
+    # jobs are not in this group, so an upload already in progress is never cut off; those of the
+    # cancelled run skip because they require build to succeed.
+    concurrency:
+      group: ${{ github.workflow }}-build-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     if: |
-      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'workflow_dispatch' && github.repository == 'Ujhhgtg/WeKit-Dev') ||
       (
         !startsWith(github.event.head_commit.message, '[skip ci]') && 
         (
-          github.ref == 'refs/heads/master' ||
-          github.ref == 'refs/heads/dev' ||
-          github.event_name == 'pull_request'
+          github.event_name == 'pull_request' ||
+          (github.repository == 'Ujhhgtg/WeKit-Dev' && github.ref == 'refs/heads/master')
         )
       )
     steps:
@@ -49,11 +52,21 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Free disk space for build and caches
+        # Cache uploads need space for a temporary archive after the APK build.
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo apt-get clean
+          df -h /
+
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
+          # Keep a single owner for Gradle dependency and wrapper caches.
           cache: gradle
 
       - name: Grant execute permission
@@ -62,6 +75,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2026-09-13
           targets: aarch64-linux-android
 
       - name: Install Android NDK
@@ -74,20 +88,27 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
-      - name: Prepare PRoot cache key
-        id: proot_cache_inputs
+      - name: Provision pinned O-MVLL toolchain
         run: |
-          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache PRoot build
-        uses: actions/cache@v6
-        with:
-          path: target/proot-static
-          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
-          restore-keys: |
-            proot-${{ runner.os }}-${{ runner.arch }}-
+          set -euo pipefail
+          omvll_version="1.9.1"
+          omvll_url="https://github.com/open-obfuscator/o-mvll/releases/download/1.9.1/omvll_v1-9-1_linux_2026-07-06T09_44_15.tar.gz"
+          omvll_sha256="f1f8f88812e173ea44d74372502c4a09600810de3254dbae1f82599bfc339aa0"
+          omvll_archive="$RUNNER_TEMP/omvll-${omvll_version}.tar.gz"
+          curl --fail --location --retry 3 --output "$omvll_archive" "$omvll_url"
+          echo "$omvll_sha256  $omvll_archive" | sha256sum --check --status
+          omvll_dir="$RUNNER_TEMP/omvll-${omvll_version}"
+          mkdir -p "$omvll_dir"
+          tar -xzf "$omvll_archive" -C "$omvll_dir"
+          test -f "$omvll_dir/omvll-ndk.so"
+          test -d "$omvll_dir/Python-3.10.7/Lib"
+          {
+            echo "WEKIT_OMVLL_PLUGIN=$omvll_dir/omvll-ndk.so"
+            echo "WEKIT_OMVLL_CONFIG=$GITHUB_WORKSPACE/bootstrap/src/main/cpp/omvll_config.py"
+            echo "WEKIT_OMVLL_PYTHONPATH=$omvll_dir/Python-3.10.7/Lib"
+            echo "WEKIT_OMVLL_NDK=$ANDROID_HOME/ndk/29.0.14206865"
+          } >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865"
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -95,29 +116,26 @@ jobs:
           cache-on-failure: true
           workspaces: . -> target
 
-      - name: Cache Gradle build cache
-        uses: actions/cache@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/configuration-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          version: "0.12.8"
+          python-version: "3.12"
+          enable-cache: false
 
       - name: Install system dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y gcc-multilib
+          uv sync --locked --managed-python --project wekit-zygisk --all-groups
+          echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Validate i18n catalogs
+      - name: Validate build tools, native core, DEX reader, and i18n catalogs
         run: |
-          cargo test -p xtask i18n_check
+          cargo test -p xtask --bin xtask
+          cargo test -p wekit-native-common --lib
+          cargo test -p wekit-zygisk --lib
+          uv run --no-sync --project wekit-zygisk python crates/wekit-native-common/tests/arm64_relocation.py
           ./x i18n-check
-
-      - name: Build native library
-        run: |
-          cargo xtask configure
-          cargo xtask build --native-only
 
       - name: Decode keystore
         if: github.event_name != 'pull_request'
@@ -132,51 +150,37 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./x bootstrap build
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./x bootstrap build
 
-      - name: Collect APKs
+      - name: Verify and collect Release APK and mapping
         run: |
           set -euo pipefail
-          mkdir -p dist/apk
-
-          expected_abis=arm64-v8a
-          for flavor in standard legacy; do
-            apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
-            test -f "$apk"
-
-            actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
-            if [ "$actual_abis" != "$expected_abis" ]; then
-              echo "::error file=$apk::Expected arm64-v8a-only APK, got: $actual_abis"
-              exit 1
-            fi
-
-            cp -v "$apk" dist/apk/
-          done
+          apk="bootstrap/build/outputs/apk/release/bootstrap-release.apk"
+          verify_args=(--check-installer)
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            verify_args+=(--allow-nonproduction-signer)
+          fi
+          uv run --no-sync --project wekit-zygisk python .github/scripts/verify-dual-apk.py "${verify_args[@]}" "$apk"
+          WEKIT_TEST_APK="$GITHUB_WORKSPACE/$apk" cargo test -p wekit-zygisk --lib apk::tests::reads_built_apk -- --ignored
+          mkdir -p dist/apk dist/mapping
+          cp -v "$apk" dist/apk/app-release.apk
+          cp -v bootstrap/build/outputs/mapping/release/mapping.txt dist/mapping/mapping-release.txt
 
           echo "Collected APKs:"
           ls -1 dist/apk
 
-      - name: Collect mappings
-        run: |
-          # One mapping.txt per flavor; rename per flavor to avoid collisions.
-          mkdir -p dist/mapping
-          for m in app/build/outputs/mapping/*/mapping.txt; do
-            flavorDir=$(basename "$(dirname "$m")")   # e.g. standardRelease
-            cp -v "$m" "dist/mapping/mapping-${flavorDir}.txt"
-          done
-          ls -1 dist/mapping || echo "(no mappings — unsigned PR build without minify?)"
-
-      - name: Upload Release APKs
+      - name: Upload Release APK
         uses: actions/upload-artifact@v7
         with:
           name: wekit-apk
-          path: dist/apk/*.apk
+          path: dist/apk/app-release.apk
+          if-no-files-found: error
 
       - name: Upload Release Obfuscation Mapping
         uses: actions/upload-artifact@v7
@@ -184,58 +188,21 @@ jobs:
           name: wekit-mapping
           path: dist/mapping/*.txt
 
-  build_zygisk:
-    needs: build
-    runs-on: ubuntu-latest
-    if: ${{ needs.build.result == 'success' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: aarch64-linux-android
-
-      - name: Install Android NDK
+      - name: Free build intermediates before saving caches
+        if: always()
+        # APKs and mappings have already been collected into dist/ and uploaded.
+        # Keep the Gradle and Rust caches for their post-job save steps.
         run: |
-          NDK_VERSION=$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
-          MIN_SDK=$(sed -n 's/^minSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
-          NDK_BIN="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
-          test -x "$NDK_BIN/llvm-strip"
-
-      - name: Download Release APK artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: wekit-apk
-          path: artifacts
-
-      - name: Build Zygisk module
-        run: |
-          ./x zygisk build --apk-release --release --skip-apk-build \
-            --apk artifacts/app-standard-release.apk
-
-      - name: Upload Zygisk module
-        uses: actions/upload-artifact@v7
-        with:
-          name: wekit-zygisk
-          path: wekit-zygisk/release/*.zip
-          if-no-files-found: error
+          df -h /
+          rm -rf bootstrap/build
+          df -h /
 
   dex-test:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-dex-test-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    if: github.event_name == 'pull_request' || github.repository == 'Ujhhgtg/WeKit-Dev'
     outputs:
       reports-available: ${{ steps.report-check.outputs.available }}
     steps:
@@ -254,6 +221,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2026-09-13
 
       - name: Install system dependencies
         run: |
@@ -374,7 +343,7 @@ jobs:
   release-dex-test:
     needs: dex-test
     runs-on: ubuntu-latest
-    if: ${{ always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && needs.dex-test.outputs.reports-available == 'true' }}
+    if: ${{ always() && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.dex-test.result != 'cancelled' && needs.dex-test.outputs.reports-available == 'true' }}
     permissions:
       contents: write
     steps:
@@ -385,6 +354,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2026-09-13
 
       - name: Download Dex resolution reports
         uses: actions/download-artifact@v8
@@ -408,19 +379,19 @@ jobs:
             echo "No host passed; leaving the Dex-Test Release unchanged."
           fi
 
-      - name: Create or update Dex Test Release
+      - name: Create or update Dex Test release
         if: steps.stage.outputs.has-assets == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          if gh release view Dex-Test >/dev/null 2>&1; then
-            gh release edit Dex-Test \
+          if gh release view Dex-Test --repo Ujhhgtg/WeKit >/dev/null 2>&1; then
+            gh release edit Dex-Test --repo Ujhhgtg/WeKit \
               --title "Dex Test" \
               --prerelease \
               --notes-file dist/dex-test-release/release-notes.md
           else
             gh release create Dex-Test \
-              --target "${{ github.sha }}" \
+              --repo Ujhhgtg/WeKit \
               --title "Dex Test" \
               --prerelease \
               --notes-file dist/dex-test-release/release-notes.md
@@ -430,16 +401,47 @@ jobs:
           while IFS= read -r asset; do
             [[ -n "$asset" ]] && upload+=("dist/dex-test-release/$asset")
           done < dist/dex-test-release/assets.txt
-          gh release upload Dex-Test "${upload[@]}" --clobber
+          gh release upload Dex-Test --repo Ujhhgtg/WeKit "${upload[@]}" --clobber
+
+  extensions-changes:
+    runs-on: ubuntu-latest
+    if: github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push'
+    outputs:
+      changed: ${{ steps.filter.outputs.extensions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect extension pack input changes
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            extensions:
+              - 'extension-packs/**'
+              - 'extensions/**'
+              - 'libs/python-runtime-api/**'
+              - 'crates/**'
+              - 'xtask/**'
+              - 'buildSrc/**'
+              - 'gradle/**'
+              - 'settings.gradle.kts'
+              - 'app/build.gradle.kts'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
 
   build-extensions:
+    needs: extensions-changes
     runs-on: ubuntu-latest
-    # This dedicated publishing job is the only path that downloads the Arch rootfs.
-    if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')) || (github.event_name == 'workflow_dispatch' && inputs.publish_extensions) }}
+    if: ${{ always() && ((github.event_name == 'workflow_dispatch' && inputs.publish_extensions) || needs.extensions-changes.outputs.changed == 'true' || needs.extensions-changes.result == 'failure') }}
+    concurrency:
+      group: extensions-release
+      cancel-in-progress: false
     permissions:
       contents: write
-      id-token: write
-      attestations: write
 
     steps:
       - name: Checkout
@@ -458,19 +460,38 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2026-09-13
           targets: aarch64-linux-android
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
         with:
-          go-version-file: app/src/main/go/wekit-cloudflared/go.mod
-          cache: true
-          cache-dependency-path: app/src/main/go/wekit-cloudflared/go.sum
+          version: "0.12.8"
+          python-version: "3.12"
+          enable-cache: false
 
       - name: Install system dependencies
-        # glslc compiles the llama.cpp Vulkan shaders for the llama-native pack.
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-multilib glslc
+          sudo apt-get update && sudo apt-get install -y gcc-multilib
+          uv sync --locked --managed-python --project wekit-zygisk --group build
+          echo "$GITHUB_WORKSPACE/wekit-zygisk/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Free disk space and report
+        # This job is much heavier than a plain APK build (Chaquopy
+        # runtime, native packs), and the hosted runner has died
+        # silently mid-"Build packs"; keep as much headroom as possible.
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "$AGENT_TOOLSDIRECTORY/Python" || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          sudo apt-get clean
+          # Headroom against OOM during native compile bursts.
+          sudo fallocate -l 6G /mnt/swapfile || true
+          sudo chmod 600 /mnt/swapfile || true
+          sudo mkswap /mnt/swapfile >/dev/null 2>&1 || true
+          sudo swapon /mnt/swapfile || true
+          df -h /
 
       - name: Grant execute permission
         run: chmod +x gradlew
@@ -485,78 +506,49 @@ jobs:
           test -x "$NDK_BIN/aarch64-linux-android$MIN_SDK-clang"
           test -x "$NDK_BIN/llvm-strip"
 
-      - name: Prepare PRoot cache key
-        id: proot_cache_inputs
-        run: |
-          echo "commit=$(git -C third_party/proot-static rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "ndk=$(sed -n 's/^ndk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-          echo "min_sdk=$(sed -n 's/^minSdk = \"\(.*\)\"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache PRoot build
-        uses: actions/cache@v6
-        with:
-          path: target/proot-static
-          key: proot-${{ runner.os }}-${{ runner.arch }}-${{ steps.proot_cache_inputs.outputs.commit }}-${{ steps.proot_cache_inputs.outputs.ndk }}-${{ steps.proot_cache_inputs.outputs.min_sdk }}-${{ hashFiles('patches/proot/android-ptrace-events.patch', 'third_party/proot-static/tools/build-static-aarch64.sh') }}
-          restore-keys: |
-            proot-${{ runner.os }}-${{ runner.arch }}-
-
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
           workspaces: . -> target
 
-      - name: Build packs
-        env:
-          WEKIT_ARCH_ROOTFS: ${{ runner.temp }}/arch-pack/ArchLinuxARM-aarch64-rootfs.tar.gz
+      - name: Build native library
+        id: native_build
         run: |
-          SOURCE=extensions/archlinux-arm64-sources.json
-          ROOTFS_URL=$(jq -r '.rootfs.url' "$SOURCE")
-          ROOTFS_MD5=$(jq -r '.rootfs.md5' "$SOURCE")
-          ROOTFS_SHA256=$(jq -er '.rootfs.sha256 | select(test("^[0-9A-Fa-f]{64}$"))' "$SOURCE")
-          ROOTFS_SIGNATURE_URL=$(jq -r '.rootfs.signature_url' "$SOURCE")
-          SIGNING_FINGERPRINT=$(jq -r '.rootfs.signing_fingerprint' "$SOURCE")
-          mkdir -p "$RUNNER_TEMP/arch-pack"
-          curl --fail --location --retry 3 \
-            "$ROOTFS_URL" \
-            -o "$WEKIT_ARCH_ROOTFS"
-          printf '%s  %s\n' "$ROOTFS_SHA256" "$WEKIT_ARCH_ROOTFS" | sha256sum --check --strict
-          printf '%s  %s\n' "$ROOTFS_MD5" "$WEKIT_ARCH_ROOTFS" | md5sum --check --strict
-          curl --fail --location --retry 3 \
-            "$ROOTFS_SIGNATURE_URL" \
-            -o "$WEKIT_ARCH_ROOTFS.sig"
-          curl --fail --location --retry 3 \
-            "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$SIGNING_FINGERPRINT" \
-            -o "$RUNNER_TEMP/arch-pack/signing-key.asc"
-          test "$(gpg --show-keys --with-colons "$RUNNER_TEMP/arch-pack/signing-key.asc" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$SIGNING_FINGERPRINT"
-          gpg --batch --import "$RUNNER_TEMP/arch-pack/signing-key.asc"
-          gpg --batch --verify "$WEKIT_ARCH_ROOTFS.sig" "$WEKIT_ARCH_ROOTFS"
-          cargo xtask configure
-          cargo xtask build --native-only --abi arm64-v8a
-          cargo xtask extensions pack
+          cargo xtask payload build --native-only --abi arm64-v8a
+
+      - name: Pack extensions
+        run: cargo xtask extensions pack
 
       - name: Skip if assets already published
         id: published
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          skip=true
-          for f in dist/extensions/script-deps-*.dex dist/extensions/cloudflared-*.zip dist/extensions/archlinux-arm64-*.zip dist/extensions/llama-native-*.zip dist/extensions/monet-generator-*.zip dist/extensions/manifest.json; do
-            name=$(basename "$f")
-            if ! gh release view Extensions --json assets -q '.assets[].name' | grep -qx "$name"; then
-              skip=false
-            fi
-          done
+          current_assets=$(
+            for f in dist/extensions/*; do
+              printf '%s\tsha256:%s\n' "$(basename "$f")" "$(sha256sum "$f" | cut -d' ' -f1)"
+            done | sort
+          )
+          published_assets=$(
+            gh api "repos/Ujhhgtg/WeKit/releases/tags/Extensions" \
+              --jq '.assets[] | [.name, .digest] | @tsv' 2>/dev/null | sort || true
+          )
+          if [[ "$current_assets" == "$published_assets" ]]; then
+            skip=true
+          else
+            skip=false
+          fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
       - name: Create Extensions release if missing
         if: steps.published.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          if ! gh release view Extensions >/dev/null 2>&1; then
+          if ! gh release view Extensions --repo Ujhhgtg/WeKit >/dev/null 2>&1; then
             gh release create Extensions \
-              --target "${{ github.sha }}" \
+              --repo Ujhhgtg/WeKit \
               --title "Extensions" \
               --prerelease \
               --notes "扩展包资产。manifest.json 为最新版本索引, 本体按索引下载并校验 SHA-256。"
@@ -565,33 +557,47 @@ jobs:
       - name: Upload pack assets
         if: steps.published.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          gh release upload Extensions \
-            dist/extensions/script-deps-*.dex \
-            dist/extensions/cloudflared-*.zip \
-            dist/extensions/archlinux-arm64-*.zip \
-            dist/extensions/llama-native-*.zip \
-            dist/extensions/monet-generator-*.zip \
-            dist/extensions/manifest.json \
+          shopt -s nullglob
+          pack_assets=()
+          for asset in dist/extensions/*; do
+            [[ "$asset" == dist/extensions/manifest.json ]] || pack_assets+=("$asset")
+          done
+          (( ${#pack_assets[@]} > 0 ))
+          gh release upload Extensions --repo Ujhhgtg/WeKit \
+            "${pack_assets[@]}" \
             --clobber
+          gh release upload Extensions --repo Ujhhgtg/WeKit dist/extensions/manifest.json --clobber
 
-      - name: Attest build provenance
+      - name: Remove stale pack assets
         if: steps.published.outputs.skip == 'false'
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: |
-            dist/extensions/script-deps-*.dex
-            dist/extensions/cloudflared-*.zip
-            dist/extensions/archlinux-arm64-*.zip
-            dist/extensions/llama-native-*.zip
-            dist/extensions/monet-generator-*.zip
-            dist/extensions/manifest.json
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          shopt -s nullglob
+          current_files=(dist/extensions/*)
+          (( ${#current_files[@]} > 0 ))
+          published_assets=$(gh release view Extensions --repo Ujhhgtg/WeKit --json assets --jq '.assets[].name')
+
+          while IFS= read -r published_asset; do
+            [[ -z "$published_asset" ]] && continue
+            keep=false
+            for current_file in "${current_files[@]}"; do
+              if [[ "$published_asset" == "$(basename "$current_file")" ]]; then
+                keep=true
+                break
+              fi
+            done
+            if [[ "$keep" == false ]]; then
+              gh release delete-asset Extensions --repo Ujhhgtg/WeKit "$published_asset" --yes
+            fi
+          done <<< "$published_assets"
 
   release-ci:
-    needs: [build, build_zygisk]
+    needs: build
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && needs.build.result == 'success' && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     permissions:
       contents: write
 
@@ -608,19 +614,12 @@ jobs:
           name: wekit-apk
           path: artifacts
 
-      - name: Download Zygisk artifact
-        if: ${{ needs.build_zygisk.result == 'success' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: wekit-zygisk
-          path: artifacts
-
       - name: Delete existing CI release (if exists)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          gh release delete CI --yes || true
-          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/CI || true
+          gh release delete CI --repo Ujhhgtg/WeKit --yes || true
+          gh api -X DELETE repos/Ujhhgtg/WeKit/git/refs/tags/CI || true
 
       - name: Generate update.json
         run: |
@@ -638,117 +637,66 @@ jobs:
           echo "Generated update.json:"
           cat artifacts/update.json
 
-      - name: Create CI release and upload artifacts
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: CI
-          name: CI
-          body: |
-            本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新
-            
-            提交 SHA: `${{ github.sha }}`
+      - name: Create CI release on WeKit and upload artifacts
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          {
+            echo "本 Release 始终包含最新的 CI 构建产物, 便于未登录 GitHub 的用户下载模块或模块内置更新器更新"
+            echo ""
+            echo "提交 SHA: \`${COMMIT_SHA}\`"
+            echo ""
+            echo "提交消息:"
+            echo '```'
+            echo "${COMMIT_MESSAGE}"
+            echo '```'
+          } > "$RUNNER_TEMP/ci-notes.md"
 
-            提交消息:
-            ```
-            ${{ github.event.head_commit.message || '手动构建' }}
-            ```
-          files: |
+          gh release create CI \
+            --repo Ujhhgtg/WeKit \
+            --title "CI" \
+            --notes-file "$RUNNER_TEMP/ci-notes.md" \
             artifacts/*
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  upload-telegram:
-    needs: [build, build_zygisk]
+  release-ci-xposed-repo:
+    needs: build
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/master' }}
-    services:
-      telegram-bot-api:
-        image: aiogram/telegram-bot-api:latest
-        env:
-          TELEGRAM_API_ID: "21724"
-          TELEGRAM_API_HASH: "3e0cb5efcd52300aec5994fdfc5bdc16"
-          TELEGRAM_STATISTICS: 1
-        ports:
-          - 8081:8081
+    if: ${{ always() && needs.build.result == 'success' && github.repository == 'Ujhhgtg/WeKit-Dev' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    concurrency:
+      group: release-ci-xposed-repo-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
       - name: Download APK artifact
         uses: actions/download-artifact@v8
         with:
           name: wekit-apk
           path: artifacts
 
-      - name: Download Zygisk artifact
-        if: ${{ needs.build_zygisk.result == 'success' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: wekit-zygisk
-          path: artifacts
-
-      - name: Wait for Telegram API
-        run: |
-          until curl -s http://localhost:8081 > /dev/null; do
-          echo "Waiting for Telegram API server..."
-          sleep 1
-          done
-
-      - name: Send build artifacts via Telegram API
+      - name: Publish APK to Xposed Modules Repository
         env:
-          BOT_TOKEN:         ${{ secrets.TELEGRAM_TOKEN }}
-          CHAT_ID:           ${{ secrets.TELEGRAM_CHAT_ID }}
-          MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}
-          SHA:               ${{ github.sha }}
-          COMMIT_AUTHOR:     ${{ github.event.head_commit.author.name || github.actor }}
-          COMMIT_MESSAGE:    ${{ github.event.head_commit.message || 'Manual Build' }}
-          REPO:              ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.XPOSED_REPO_TOKEN }}
+          BUILD_COMMIT: ${{ github.sha }}
         run: |
-          caption="🎉 *检测到新的 GitHub 推送！*
-          *Commit SHA:* \`${SHA}\`
-          \`\`\`
-          ${COMMIT_MESSAGE}
-          \`\`\`
-          *提交者* \`${COMMIT_AUTHOR}\`
-          [查看详情](https://github.com/${REPO}/commit/${SHA})"
-          
-          shopt -s nullglob
-          artifacts=(artifacts/*.apk artifacts/*.zip)
-          
-          echo "${artifacts[@]}"
-          
-          if [ ${#artifacts[@]} -eq 0 ]; then
-            echo "No build artifacts found"
-            exit 1
-          elif [ ${#artifacts[@]} -eq 1 ]; then
-            # Single APK — use sendDocument (supports caption)
-            curl -s -X POST "http://localhost:8081/bot${BOT_TOKEN}/sendDocument" \
-              -F chat_id="${CHAT_ID}" \
-              -F document=@"${artifacts[0]}" \
-              -F caption="${caption}" \
-              -F parse_mode=Markdown
-          else
-            media_json="["
-            form_args=()
-            for i in "${!artifacts[@]}"; do
-              artifact="${artifacts[$i]}"
-              name="artifact${i}"
-              form_args+=(-F "${name}=@${artifact}")
-          
-              if [ $i -gt 0 ]; then media_json+=","; fi
-          
-              if [ $i -eq $(( ${#artifacts[@]} - 1 )) ]; then
-                media_json+="{\"type\":\"document\",\"media\":\"attach://${name}\",\"caption\":\"${caption}\",\"parse_mode\":\"Markdown\"}"
-              else
-                media_json+="{\"type\":\"document\",\"media\":\"attach://${name}\"}"
-              fi
-            done
-            media_json+="]"
-          
-            echo $media_json
-          
-            curl -s -X POST "http://localhost:8081/bot${BOT_TOKEN}/sendMediaGroup" \
-              -F chat_id="${CHAT_ID}" \
-              -F message_thread_id="${MESSAGE_THREAD_ID}" \
-              -F media="${media_json}" \
-              "${form_args[@]}"
-          fi
+          set -euo pipefail
+          python3 -B .github/scripts/test-publish-xposed-release.py
+          git log -1 --format=%B > "$RUNNER_TEMP/xposed-release-notes.md"
+          python3 .github/scripts/publish-xposed-release.py \
+            artifacts/app-release.apk \
+            --commit "$BUILD_COMMIT" \
+            --notes-file "$RUNNER_TEMP/xposed-release-notes.md"

@@ -33,16 +33,13 @@ enum class MomentsContentType(val typeId: Int, @StringRes val nameRes: Int) {
 
         /**
          * 解析整型 ID 为对应的枚举实例
+         *
          * @param id 数据库中的 type 值
          * @return 匹配成功返回枚举，否则返回 null
          */
-        fun fromId(id: Int): MomentsContentType? =
-            entries.firstOrNull { it.typeId == id }
+        fun fromId(id: Int): MomentsContentType? = entries.firstOrNull { it.typeId == id }
 
-        /**
-         * 获取全量类型 ID 集合
-         * 用于快速判断某个 type 是否属于朋友圈已知内容范畴
-         */
+        /** 获取全量类型 ID 集合 用于快速判断某个 type 是否属于朋友圈已知内容范畴 */
         val allTypeIds: Set<Int>
             get() = validTypeSet
     }

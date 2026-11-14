@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object RemoveMomentsAds : SwitchFeature() {
-
     override val technicalId = "拦截朋友圈广告"
     override val nameRes = R.string.feature_remove_moments_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

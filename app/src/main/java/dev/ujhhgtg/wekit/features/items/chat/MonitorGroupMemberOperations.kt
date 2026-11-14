@@ -6,8 +6,7 @@ import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -16,14 +15,13 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ChatRoomDataProto
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
-object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
-
+object MonitorGroupMemberOperations : SwitchFeature(), WeDatabaseListenerApi.IUpdateListener {
     override val technicalId = "群成员行为监控"
     override val nameRes = R.string.feature_monitor_group_member_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -33,11 +31,18 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         WeDatabaseListenerApi.addListener(this)
 
         methodHandleSpanClick.hookBefore {
-            val url = args[1]!!.reflekt().firstField {
-                type = BString
-                modifiers(Modifiers.FINAL)
-            }.get()!! as String
-            if (!url.startsWith("weixin://weixinhongbao/wekit/chatroom_userinfo/")) return@hookBefore
+            val url =
+                args[1]!!
+                    .reflekt()
+                    .firstField {
+                        type = BString
+                        modifiers(Modifiers.FINAL)
+                    }
+                    .get()!!
+                    as String
+            if (!url.startsWith("weixin://weixinhongbao/wekit/chatroom_userinfo/")) {
+                return@hookBefore
+            }
 
             val wxId = url.substringAfterLast('/')
             val context = (args[0] as View).context
@@ -51,14 +56,21 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
     }
 
     private val methodHandleSpanClick by dexMethod {
-        matcher {
-            declaredClass = $$"com.tencent.mm.app.plugin.URISpanHandlerSet$LuckyMoneyUriSpanHandler"
-            usingEqStrings("MicroMsg.URISpanHandlerSet", "LuckyMoneyUriSpanHandler handleSpanClick() clickCallback == null")
-        }
+        declaredClass = "com.tencent.mm.app.plugin.URISpanHandlerSet\$LuckyMoneyUriSpanHandler"
+        usingEqStrings(
+            "MicroMsg.URISpanHandlerSet",
+            "LuckyMoneyUriSpanHandler handleSpanClick() clickCallback == null",
+        )
     }
 
     @SuppressLint("Range")
-    override fun onUpdate(table: String, values: ContentValues, whereClause: String?, whereArgs: Array<String>?, conflictAlgorithm: Int) {
+    override fun onUpdate(
+        table: String,
+        values: ContentValues,
+        whereClause: String?,
+        whereArgs: Array<String>?,
+        conflictAlgorithm: Int,
+    ) {
         if (table != "chatroom") return
 
         val group = values.getAsString("chatroomname") ?: return
@@ -66,10 +78,11 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         val newRawMembers = values.getAsString("memberlist")
         val newRoomData = values.getAsByteArray("roomdata")
 
-        val cursor = WeDatabaseApi.rawQuery(
-            "SELECT memberlist,memberCount,roomdata FROM chatroom WHERE chatroomname = ?",
-            arrayOf(group)
-        )
+        val cursor =
+            WeDatabaseApi.rawQuery(
+                "SELECT memberlist,memberCount,roomdata FROM chatroom WHERE chatroomname = ?",
+                arrayOf(group),
+            )
 
         runCatching {
             cursor.use { cursor ->
@@ -85,12 +98,17 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
                 val origDisplayNames = parseRoomData(origRoomData)
 
                 handleMemberLeave(
-                    group, origMembers, origDisplayNames, newRawMembers, newMemberCount,
-                    cursor.getInt(cursor.getColumnIndex("memberCount"))
+                    group,
+                    origMembers,
+                    origDisplayNames,
+                    newRawMembers,
+                    newMemberCount,
+                    cursor.getInt(cursor.getColumnIndex("memberCount")),
                 )
                 handleDisplayNameChange(group, origDisplayNames, newRoomData)
             }
-        }.onFailure { WeLogger.e(TAG, "failed to handle group member operations", it) }
+        }
+            .onFailure { WeLogger.e(TAG, "failed to handle group member operations", it) }
     }
 
     private fun handleMemberLeave(
@@ -99,7 +117,7 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         origDisplayNames: Map<String, String>,
         newRawMembers: String?,
         newMemberCount: Int?,
-        origMemberCount: Int
+        origMemberCount: Int,
     ) {
         if (newRawMembers == null || newMemberCount == null) return
         if (origMemberCount == 0 || newMemberCount >= origMemberCount) return
@@ -108,22 +126,28 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         val leavers = origMembers - newMembers
 
         leavers.forEach { wxId ->
-            val displayName = (origDisplayNames[wxId] ?: "").ifEmpty { WeDatabaseApi.getDisplayName(wxId) }
+            val displayName =
+                (origDisplayNames[wxId] ?: "").ifEmpty { WeDatabaseApi.getDisplayName(wxId) }
             val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
-            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_left)}"""
+            val content =
+                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedString(R.string.chat_group_member_left)}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,
                 talker = group,
                 content = content,
-                currentTime = System.currentTimeMillis()
+                currentTime = System.currentTimeMillis(),
             )
         }
     }
 
-    private fun handleDisplayNameChange(group: String, origDisplayNames: Map<String, String>, newRoomData: ByteArray?) {
+    private fun handleDisplayNameChange(
+        group: String,
+        origDisplayNames: Map<String, String>,
+        newRoomData: ByteArray?,
+    ) {
         if (newRoomData == null) return // 本次更新未改动 roomdata
 
         val newDisplayNames = parseRoomData(newRoomData)
@@ -136,28 +160,38 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
             val displayName = WeDatabaseApi.getDisplayName(wxId)
             val displayString = if (displayName.isNotEmpty()) "$displayName ($wxId)" else wxId
 
-            val oldShow = oldName.ifEmpty { localizedChatString(R.string.chat_group_member_no_nickname) }
-            val newShow = newName.ifEmpty { localizedChatString(R.string.chat_group_member_no_nickname) }
+            val oldShow = oldName.ifEmpty {
+                localizedString(R.string.chat_group_member_no_nickname)
+            }
+            val newShow = newName.ifEmpty {
+                localizedString(R.string.chat_group_member_no_nickname)
+            }
 
             val href = "weixin://weixinhongbao/wekit/chatroom_userinfo/$wxId"
-            val content = """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedChatString(R.string.chat_group_member_nickname_changed, oldShow, newShow)}"""
+            val content =
+                """<_wc_custom_link_ color="#28C445" href="$href">$displayString</_wc_custom_link_> ${localizedString(
+                    R.string.chat_group_member_nickname_changed,
+                    oldShow,
+                    newShow,
+                )}"""
 
             WeMessageApi.createSimpleMsgInfoAndInsert(
                 type = MessageType.SYSTEM.code,
                 talker = group,
                 content = content,
-                currentTime = System.currentTimeMillis()
+                currentTime = System.currentTimeMillis(),
             )
         }
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     private fun parseRoomData(blob: ByteArray?): Map<String, String> {
         if (blob == null || blob.isEmpty()) return emptyMap()
         return runCatching {
-            ProtoBuf.decodeFromByteArray<ChatRoomDataProto>(blob)
-                .members.associate { it.wxId to it.displayName }
-        }.getOrElse { emptyMap() }
+            ProtoBuf.decodeFromByteArray<ChatRoomDataProto>(blob).members.associate {
+                it.wxId to it.displayName
+            }
+        }
+            .getOrElse { emptyMap() }
     }
 
     private const val TAG = "MonitorGroupMemberOperations"

@@ -7,54 +7,46 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 /**
- * Registers the file-picker and save-file launchers that drive the
- * "decompile BeanShell snapshot" flow and returns the launcher that opens the
- * input file picker. Launch it with a MIME filter such as all-types to start.
+ * Registers the file-picker and save-file launchers that drive the "decompile BeanShell snapshot"
+ * flow and returns the launcher that opens the input file picker. Launch it with a MIME filter such
+ * as all-types to start.
  *
- * Must be called before the host activity reaches the STARTED state, i.e.
- * during property init or `onCreate`.
+ * Must be called before the host activity reaches the STARTED state, i.e. during property init or
+ * `onCreate`.
  *
- * @param onFinished invoked at every terminal point of the flow (selection
- * cancelled, decompile error, save done or cancelled). Defaults to a no-op;
- * a transient host such as [dev.ujhhgtg.wekit.activity.TransparentActivity]
- * can pass `{ finish() }` to dismiss itself once the flow ends.
+ * @param onFinished invoked at every terminal point of the flow (selection cancelled, decompile
+ *   error, save done or cancelled). Defaults to a no-op; a transient host such as
+ *   [dev.ujhhgtg.wekit.activity.TransparentActivity] can pass `{ finish() }` to dismiss itself once
+ *   the flow ends.
  */
 fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
-    onFinished: () -> Unit = {}
+    onFinished: () -> Unit = {},
 ): ActivityResultLauncher<String> {
     var pendingResult: String? = null
 
-    fun localizedContext() = LocalizedContextFactory.create(
-        this,
-        WeKitLocaleController.resolvedLocale,
-        LocaleResourceMode.ModuleApp,
-    )
-
-    val saveFileLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val text = pendingResult
-            if (text != null) {
-                contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(text.toByteArray())
-                    val context = localizedContext()
-                    showToast(context, context.getString(R.string.noncompose_bsh_saved, uri))
+    val saveFileLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.CreateDocument("text/plain"),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                val text = pendingResult
+                if (text != null) {
+                    contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(text.toByteArray())
+                        showToast(localizedString(R.string.noncompose_bsh_saved, uri))
+                    }
                 }
+                pendingResult = null
             }
-            pendingResult = null
+            onFinished()
         }
-        onFinished()
-    }
 
     return registerForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri != null) {
             try {
@@ -64,8 +56,7 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                     val result = BshSnapshotDecompiler.decompileStream(inputStream).trim()
                     Log.i(BuildConfig.TAG, "decompiled successfully (${result.length} chars)")
                     if (result.isEmpty()) {
-                        val context = localizedContext()
-                        showToast(context, context.getString(R.string.noncompose_bsh_empty_result))
+                        showToast(localizedString(R.string.noncompose_bsh_empty_result))
                         onFinished()
                         return@use
                     }
@@ -75,10 +66,8 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                 }
             } catch (ex: Exception) {
                 Log.e(BuildConfig.TAG, "exception thrown", ex)
-                val context = localizedContext()
                 showToast(
-                    context,
-                    context.getString(
+                    localizedString(
                         R.string.noncompose_bsh_error,
                         ex.message ?: ex.javaClass.simpleName,
                     ),
@@ -86,8 +75,7 @@ fun ComponentActivity.registerBshSnapshotDecompileLaunchers(
                 onFinished()
             }
         } else {
-            val context = localizedContext()
-            showToast(context, context.getString(R.string.noncompose_bsh_selection_cancelled))
+            showToast(localizedString(R.string.noncompose_bsh_selection_cancelled))
             onFinished()
         }
     }

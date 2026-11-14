@@ -18,17 +18,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class SignerPreprocessTest {
-
     @Test
     fun testNewSendMsgPreprocess() {
-        val item = NewSendMsgItemProto(
-            toUser = UserNameProto("12345@chatroom"),
-            content = "@Test Hello"
-        )
-        val req = NewSendMsgReqProto(
-            count = 1,
-            items = listOf(item)
-        )
+        val item =
+            NewSendMsgItemProto(
+                toUser = UserNameProto("12345@chatroom"),
+                content = "@Test Hello",
+            )
+        val req =
+            NewSendMsgReqProto(
+                count = 1,
+                items = listOf(item),
+            )
 
         val bytes = WeProto.encode(req)
         assertTrue(bytes.isNotEmpty(), "Encoded bytes should not be empty")
@@ -37,14 +38,19 @@ class SignerPreprocessTest {
         assertNotEquals(0, decoded.createTime, "createTime should be auto-populated")
         assertNotEquals(0, decoded.clientMsgId, "clientMsgId should be auto-populated")
         assertNotEquals(0, decoded.items[0].createTime, "item createTime should be auto-populated")
-        assertNotEquals(0, decoded.items[0].clientMsgId, "item clientMsgId should be auto-populated")
+        assertNotEquals(
+            0,
+            decoded.items[0].clientMsgId,
+            "item clientMsgId should be auto-populated",
+        )
     }
 
     @Test
     fun testAppMsgPreprocess() {
-        val req = SendAppMsgReqProto(
-            msg = AppMsgItemProto(toUserName = "receiver_user", content = "<appmsg></appmsg>")
-        )
+        val req =
+            SendAppMsgReqProto(
+                msg = AppMsgItemProto(toUserName = "receiver_user", content = "<appmsg></appmsg>"),
+            )
 
         val bytes = WeProto.encode(req)
         assertTrue(bytes.isNotEmpty(), "Encoded bytes should not be empty")
@@ -58,30 +64,35 @@ class SignerPreprocessTest {
 
     @Test
     fun testEmojiPreprocess() {
-        val req = SendEmojiReqProto(
-            emojiList = listOf(EmojiItemProto(md5 = "dummy_md5"))
-        )
+        val req =
+            SendEmojiReqProto(
+                emojiList = listOf(EmojiItemProto(md5 = "dummy_md5")),
+            )
 
         val bytes = WeProto.encode(req)
         assertTrue(bytes.isNotEmpty(), "Encoded bytes should not be empty")
 
         val decoded = WeProto.decode<SendEmojiReqProto>(bytes)
         assertNotEquals(0, decoded.count, "count should be auto-populated")
-        assertTrue(decoded.emojiList[0].clientMsgId.isNotEmpty(), "clientMsgId should be auto-populated")
+        assertTrue(
+            decoded.emojiList[0].clientMsgId.isNotEmpty(),
+            "clientMsgId should be auto-populated",
+        )
         assertEquals(
             SKBuiltinBufferProto(length = 0),
             decoded.emojiList[0].emojiBuffer,
-            "emojiBuffer should retain WeChat's required empty cu5 wrapper"
+            "emojiBuffer should retain WeChat's required empty cu5 wrapper",
         )
     }
 
     @Test
     fun testSendPatPreprocess() {
-        val req = SendPatReqProto(
-            fromUser = "wxid_sender",
-            chatUserName = "group@chatroom",
-            pattedUser = "patted_user",
-        )
+        val req =
+            SendPatReqProto(
+                fromUser = "wxid_sender",
+                chatUserName = "group@chatroom",
+                pattedUser = "patted_user",
+            )
 
         val bytes = WeProto.encode(req)
         assertTrue(bytes.isNotEmpty(), "Encoded bytes should not be empty")

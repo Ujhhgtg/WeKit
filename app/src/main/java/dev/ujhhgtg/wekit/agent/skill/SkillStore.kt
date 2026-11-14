@@ -5,16 +5,17 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.File
 
 /**
- * Owns the on-disk Skills library and implements the standard "Agent Skills" file convention (§ new).
+ * Owns the on-disk Skills library and implements the standard "Agent Skills" file convention (§
+ * new).
  *
  * Layout — every skill is a directory holding a `SKILL.md`, plus any bundled resource files:
  * ```
- * KnownPaths.moduleData/agent/skills/<skill_name>/SKILL.md
+ * KnownPaths.moduleRoot/agent/skills/<skill_name>/SKILL.md
  *                                    <skill_name>/<any bundled files…>
  * ```
  *
- * `SKILL.md` starts with YAML frontmatter carrying at least `name` and `description`, followed by the
- * Markdown body (the actual instructions):
+ * `SKILL.md` starts with YAML frontmatter carrying at least `name` and `description`, followed by
+ * the Markdown body (the actual instructions):
  * ```
  * ---
  * name: pdf-forms
@@ -24,16 +25,15 @@ import java.io.File
  * …
  * ```
  *
- * Skills follow the **dynamic-discovery** model: only each enabled skill's `name` + `description` is
- * advertised (injected into the system prompt as a catalog); the model must call the `load_skill`
- * tool to pull a skill's full body on demand. This mirrors the progressive-disclosure design of the
- * skills spec and this project's `discover_tools` philosophy.
+ * Skills follow the **dynamic-discovery** model: only each enabled skill's `name` + `description`
+ * is advertised (injected into the system prompt as a catalog); the model must call the
+ * `load_skill` tool to pull a skill's full body on demand. This mirrors the progressive-disclosure
+ * design of the skills spec and this project's `discover_tools` philosophy.
  *
- * Enabled-state is a per-skill `.disabled` marker file inside the skill directory (present = off), so
- * the whole library — content and state — lives in the filesystem with no database coupling.
+ * Enabled-state is a per-skill `.disabled` marker file inside the skill directory (present = off),
+ * so the whole library — content and state — lives in the filesystem with no database coupling.
  */
 object SkillStore {
-
     private const val TAG = "SkillStore"
     const val SKILL_FILE = "SKILL.md"
     private const val DISABLED_MARKER = ".disabled"
@@ -42,7 +42,7 @@ object SkillStore {
     private val ILLEGAL_CHARS = Regex("""[/\\:*?"<>|]""")
 
     private val skillsRoot: File by lazy {
-        File(File(KnownPaths.moduleData.toFile(), "agent"), "skills").apply { mkdirs() }
+        File(File(KnownPaths.moduleRoot.toFile(), "agent"), "skills").apply { mkdirs() }
     }
 
     /** A parsed skill: identity from frontmatter, [body] is the Markdown after the frontmatter. */
@@ -57,24 +57,34 @@ object SkillStore {
 
     sealed interface NameValidation {
         object Ok : NameValidation
+
         data class Invalid(val reason: String) : NameValidation
     }
 
     fun validateName(name: String): NameValidation {
         val t = name.trim()
         return when {
-            t.isEmpty() -> NameValidation.Invalid("名称不能为空")
-            t == "." || t == ".." -> NameValidation.Invalid("名称不能为 '.' 或 '..'")
-            ILLEGAL_CHARS.containsMatchIn(t) -> NameValidation.Invalid("名称不能包含 / \\ : * ? \" < > | 等字符")
-            else -> NameValidation.Ok
+            t.isEmpty() -> {
+                NameValidation.Invalid("名称不能为空")
+            }
+
+            t == "." || t == ".." -> {
+                NameValidation.Invalid("名称不能为 '.' 或 '..'")
+            }
+
+            ILLEGAL_CHARS.containsMatchIn(t) -> {
+                NameValidation.Invalid("名称不能包含 / \\ : * ? \" < > | 等字符")
+            }
+
+            else -> {
+                NameValidation.Ok
+            }
         }
     }
 
     /** Lists all skills (enabled and disabled), sorted by directory name. */
     fun list(): List<Skill> =
-        skillsRoot.listFiles { f -> f.isDirectory }
-            ?.sortedBy { it.name }
-            ?.mapNotNull { parse(it) }
+        skillsRoot.listFiles { f -> f.isDirectory }?.sortedBy { it.name }?.mapNotNull { parse(it) }
             ?: emptyList()
 
     /** Only enabled skills — the catalog advertised to the model. */
@@ -87,8 +97,9 @@ object SkillStore {
     }
 
     /**
-     * Creates or overwrites a skill. [dirName] is the folder (and the frontmatter `name`); [body] is
-     * the Markdown instructions. Returns the validated directory name, or null if the name is invalid.
+     * Creates or overwrites a skill. [dirName] is the folder (and the frontmatter `name`); [body]
+     * is the Markdown instructions. Returns the validated directory name, or null if the name is
+     * invalid.
      */
     fun save(dirName: String, description: String, body: String): String? {
         if (validateName(dirName) != NameValidation.Ok) return null
@@ -101,13 +112,18 @@ object SkillStore {
             append("---\n\n")
             append(body.trim()).append('\n')
         }
-        return runCatching { File(dir, SKILL_FILE).writeText(md); name }
+        return runCatching {
+            File(dir, SKILL_FILE).writeText(md)
+            name
+        }
             .onFailure { WeLogger.e(TAG, "failed to save skill $name", it) }
             .getOrNull()
     }
 
-    fun delete(dirName: String): Boolean =
-        runCatching { File(skillsRoot, dirName.trim()).deleteRecursively() }.getOrDefault(false)
+    fun delete(dirName: String): Boolean = runCatching {
+        File(skillsRoot, dirName.trim()).deleteRecursively()
+    }
+        .getOrDefault(false)
 
     fun setEnabled(dirName: String, enabled: Boolean) {
         val dir = File(skillsRoot, dirName.trim())
@@ -118,8 +134,8 @@ object SkillStore {
     }
 
     /**
-     * Reads a bundled resource file's text from within a skill dir (for the model to fetch referenced
-     * files). Path traversal outside the skill dir is rejected.
+     * Reads a bundled resource file's text from within a skill dir (for the model to fetch
+     * referenced files). Path traversal outside the skill dir is rejected.
      */
     fun readResource(dirName: String, relativePath: String): Result<String> = runCatching {
         val dir = File(skillsRoot, dirName.trim()).canonicalFile
@@ -141,8 +157,10 @@ object SkillStore {
         // Fall back to the directory name / first heading when frontmatter is missing a field.
         val name = front["name"]?.takeIf { it.isNotBlank() } ?: dir.name
         val description = front["description"].orEmpty()
-        val resources = dir.listFiles { f -> f.isFile && f.name != SKILL_FILE && f.name != DISABLED_MARKER }
-            ?.map { it.name }?.sorted() ?: emptyList()
+        val resources =
+            dir.listFiles { f -> f.isFile && f.name != SKILL_FILE && f.name != DISABLED_MARKER }
+                ?.map { it.name }
+                ?.sorted() ?: emptyList()
         return Skill(
             name = name,
             description = description,
@@ -161,13 +179,19 @@ object SkillStore {
         val frontBlock = text.substring(3, end).trim('\n')
         val bodyStart = text.indexOf('\n', end + 1)
         val body = if (bodyStart < 0) "" else text.substring(bodyStart + 1)
-        val fields = frontBlock.lineSequence()
-            .mapNotNull { line ->
-                val idx = line.indexOf(':')
-                if (idx <= 0) null
-                else line.substring(0, idx).trim() to line.substring(idx + 1).trim().trim('"', '\'')
-            }
-            .toMap()
+        val fields =
+            frontBlock
+                .lineSequence()
+                .mapNotNull { line ->
+                    val idx = line.indexOf(':')
+                    if (idx <= 0) {
+                        null
+                    } else {
+                        line.substring(0, idx).trim() to
+                            line.substring(idx + 1).trim().trim('"', '\'')
+                    }
+                }
+                .toMap()
         return fields to body
     }
 }

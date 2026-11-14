@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.ui.panel
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
-import android.os.Build
 import android.view.Gravity
 import android.view.Window
 import android.view.WindowManager
@@ -35,7 +34,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -63,7 +61,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -76,6 +73,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -95,8 +93,8 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -112,16 +110,14 @@ import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiText
-import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 
-data class PanelRailItem<T>(
-    val destination: T,
-    val icon: ImageVector,
-    val label: String,
-)
+data class PanelRailItem<T>(val destination: T, val icon: ImageVector, val label: String)
 
 data class PanelAction(
     val icon: ImageVector,
@@ -156,22 +152,33 @@ private fun PanelHeaderAction(
     AnimatedContent(
         targetState = action,
         contentKey = { it?.icon },
-        contentAlignment = if (edge == Alignment.Start) Alignment.CenterStart else Alignment.CenterEnd,
+        contentAlignment =
+            if (edge == Alignment.Start) Alignment.CenterStart else Alignment.CenterEnd,
         transitionSpec = {
-            val enter = fadeIn(tween(if (isBackAction) 155 else 180, delayMillis = 30)) +
-                    scaleIn(tween(enterDuration, easing = FastOutSlowInEasing), initialScale = 0.78f) +
+            val enter =
+                fadeIn(tween(if (isBackAction) 155 else 180, delayMillis = 30)) +
+                    scaleIn(
+                        tween(enterDuration, easing = FastOutSlowInEasing),
+                        initialScale = 0.78f,
+                    ) +
                     slideInHorizontally(tween(enterDuration, easing = FastOutSlowInEasing)) {
                         direction * it / 3
                     }
-            val exit = fadeOut(tween(if (isBackAction) 130 else 150)) +
-                    scaleOut(tween(exitDuration, easing = FastOutSlowInEasing), targetScale = 0.78f) +
+            val exit =
+                fadeOut(tween(if (isBackAction) 130 else 150)) +
+                    scaleOut(
+                        tween(exitDuration, easing = FastOutSlowInEasing),
+                        targetScale = 0.78f,
+                    ) +
                     slideOutHorizontally(tween(exitDuration, easing = FastOutSlowInEasing)) {
                         direction * it / 3
                     }
             (enter togetherWith exit).using(
                 SizeTransform(
                     clip = false,
-                    sizeAnimationSpec = { _, _ -> tween(sizeDuration, easing = FastOutSlowInEasing) },
+                    sizeAnimationSpec = { _, _ ->
+                        tween(sizeDuration, easing = FastOutSlowInEasing)
+                    },
                 ),
             )
         },
@@ -187,24 +194,24 @@ private fun PanelHeaderAction(
     }
 }
 
-internal data class PanelImportOption<T>(
+data class PanelImportOption<T>(
     val mode: T,
     val title: String,
     val description: String,
     val icon: ImageVector,
 )
 
-class PanelDialogScope internal constructor(private val dialog: Dialog) {
+class PanelDialogScope(private val dialog: Dialog) {
     private var implicitDismissBlockCount = 0
 
-    internal val canDismissImplicitly: Boolean
+    val canDismissImplicitly: Boolean
         get() = implicitDismissBlockCount == 0
 
-    internal fun blockImplicitDismiss() {
+    fun blockImplicitDismiss() {
         implicitDismissBlockCount++
     }
 
-    internal fun unblockImplicitDismiss() {
+    fun unblockImplicitDismiss() {
         implicitDismissBlockCount = (implicitDismissBlockCount - 1).coerceAtLeast(0)
     }
 
@@ -219,11 +226,12 @@ fun showPanelDialog(
     onDismiss: () -> Unit = {},
     content: @Composable PanelDialogScope.() -> Unit,
 ) {
-    val wrapped = CommonContextWrapper(context)
+    ResourcesInjector.injectModuleRes(context.resources)
+
     // ComponentDialog supplies both back-dispatcher owners required by the current
     // activity-compose BackHandler implementation. A plain Dialog has neither owner
     // in an injected WeChat window and crashes as soon as BackHandler enters composition.
-    val dialog = ComponentDialog(wrapped, android.R.style.Theme_Translucent_NoTitleBar)
+    val dialog = ComponentDialog(context, android.R.style.Theme_Translucent_NoTitleBar)
     val scope = PanelDialogScope(dialog)
 
     dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -232,56 +240,54 @@ fun showPanelDialog(
         addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
         clearFlags(
             WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
+                WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
         )
         WindowCompat.setDecorFitsSystemWindows(this, false)
         statusBarColor = Color.TRANSPARENT
         navigationBarColor = Color.TRANSPARENT
         navigationBarDividerColor = Color.TRANSPARENT
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            isStatusBarContrastEnforced = false
-            isNavigationBarContrastEnforced = false
-        }
+        isStatusBarContrastEnforced = false
+        isNavigationBarContrastEnforced = false
         WindowInsetsControllerCompat(this, decorView).apply {
-            isAppearanceLightStatusBars = !wrapped.isDarkMode
-            isAppearanceLightNavigationBars = !wrapped.isDarkMode
+            isAppearanceLightStatusBars = !context.isDarkMode
+            isAppearanceLightNavigationBars = !context.isDarkMode
         }
         addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         setDimAmount(0.3f)
         setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
-                    WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN,
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN,
         )
         attributes = attributes.apply { gravity = Gravity.BOTTOM }
     }
     dialog.setCancelable(true)
     dialog.setContentView(
-        ComposeView(wrapped).apply {
+        ComposeView(context).apply {
             setContent {
                 CompositionLocalProvider(LocalPanelDialogScope provides scope) {
                     InjectedUiTheme {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .imePadding()
-                                .clickable(
-                                    indication = null,
-                                    interactionSource = null,
-                                    onClick = {
-                                        if (scope.canDismissImplicitly) scope.dismiss()
-                                    },
-                                ),
-                            contentAlignment = Alignment.BottomCenter,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(0.65f)
+                            modifier =
+                                Modifier.fillMaxSize()
+                                    .imePadding()
                                     .clickable(
                                         indication = null,
                                         interactionSource = null,
-                                        onClick = {},
+                                        onClick = {
+                                            if (scope.canDismissImplicitly) scope.dismiss()
+                                        },
                                     ),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .fillMaxHeight(0.65f)
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = null,
+                                            onClick = {},
+                                        ),
                             ) {
                                 scope.content()
                             }
@@ -302,13 +308,16 @@ fun showPanelDialog(
 }
 
 @Composable
-internal fun <T> PanelImportModePrompt(
+fun <T> PanelImportModePrompt(
     options: List<PanelImportOption<T>>,
     onDismiss: () -> Unit,
     onSelect: (T) -> Unit,
 ) {
     PanelFullOverlay(onDismiss) {
-        Text(stringResource(R.string.panel_import_mode_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.panel_import_mode_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
         options.forEach { option ->
             ListItem(
                 modifier = Modifier.clickable { onSelect(option.mode) },
@@ -336,7 +345,9 @@ fun <T> PanelShell(
     content: @Composable () -> Unit,
 ) {
     fun PanelAction.isHeaderAction(): Boolean =
-        headerStart || icon == MaterialSymbols.Outlined.Arrow_back || icon == MaterialSymbols.Outlined.Refresh
+        headerStart ||
+            icon == MaterialSymbols.Outlined.Arrow_back ||
+            icon == MaterialSymbols.Outlined.Refresh
 
     val backAction = actions.firstOrNull {
         it.headerStart || it.icon == MaterialSymbols.Outlined.Arrow_back
@@ -344,18 +355,20 @@ fun <T> PanelShell(
     val refreshAction = actions.firstOrNull { it.icon == MaterialSymbols.Outlined.Refresh }
     val stripActions = actions.filterNot { it.isHeaderAction() }
     val stripActionSearch = actionSearch?.let { search ->
-        if (search.actionIndex == Int.MAX_VALUE) search
-        else {
+        if (search.actionIndex == Int.MAX_VALUE) {
+            search
+        } else {
             val originalIndex = search.actionIndex.coerceIn(0, actions.size)
             val removedBeforeSearch = actions.take(originalIndex).count { it.isHeaderAction() }
             search.copy(actionIndex = (originalIndex - removedBeforeSearch).coerceAtLeast(0))
         }
     }
-    val titleStartPadding by animateDpAsState(
-        targetValue = if (backAction == null) 12.dp else 48.dp,
-        animationSpec = tween(225, easing = FastOutSlowInEasing),
-        label = "panel-title-start-padding",
-    )
+    val titleStartPadding by
+        animateDpAsState(
+            targetValue = if (backAction == null) 12.dp else 48.dp,
+            animationSpec = tween(225, easing = FastOutSlowInEasing),
+            label = "panel-title-start-padding",
+        )
 
     fun closeActionSearch() {
         actionSearch?.onValueChange?.invoke("")
@@ -366,13 +379,14 @@ fun <T> PanelShell(
     }
     val railListState = rememberLazyListState()
     val selectedRailIndex = railItems.indexOfFirst { it.destination == selected }
-    val selectedRailOffset by remember(railListState, selectedRailIndex) {
-        derivedStateOf {
-            railListState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == selectedRailIndex }
-                ?.offset
+    val selectedRailOffset by
+        remember(railListState, selectedRailIndex) {
+            derivedStateOf {
+                railListState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == selectedRailIndex }
+                    ?.offset
+            }
         }
-    }
     val indicatorOffset = remember { Animatable(0f) }
     var indicatorPositioned by remember { mutableStateOf(false) }
     LaunchedEffect(selectedRailOffset, railListState.isScrollInProgress) {
@@ -395,22 +409,22 @@ fun <T> PanelShell(
         tonalElevation = 3.dp,
     ) {
         Row(
-            Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
+            Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
             Box(
-                modifier = Modifier
-                    .width(64.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)),
+                modifier =
+                    Modifier.width(64.dp)
+                        .fillMaxHeight()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
+                        ),
             ) {
                 if (selectedRailOffset != null) {
                     Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .graphicsLayer { translationY = indicatorOffset.value }
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                        modifier =
+                            Modifier.size(64.dp)
+                                .graphicsLayer { translationY = indicatorOffset.value }
+                                .background(MaterialTheme.colorScheme.secondaryContainer),
                     )
                 }
                 LazyColumn(
@@ -421,9 +435,8 @@ fun <T> PanelShell(
                     items(railItems) { item ->
                         val isSelected = item.destination == selected
                         Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clickable {
+                            modifier =
+                                Modifier.size(64.dp).clickable {
                                     if (actionSearch?.expanded == true) closeActionSearch()
                                     onSelect(item.destination)
                                 },
@@ -432,8 +445,12 @@ fun <T> PanelShell(
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
-                                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint =
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 modifier = Modifier.size(28.dp),
                             )
                         }
@@ -443,21 +460,16 @@ fun <T> PanelShell(
 
             Column(Modifier.fillMaxSize()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = titleStartPadding, end = 100.dp),
+                        modifier =
+                            Modifier.fillMaxSize().padding(start = titleStartPadding, end = 100.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (titleContent == null) {
                             Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
                                 contentAlignment = Alignment.CenterStart,
                             ) {
                                 AnimatedContent(
@@ -465,14 +477,20 @@ fun <T> PanelShell(
                                     modifier = Modifier.fillMaxWidth(),
                                     contentAlignment = Alignment.CenterStart,
                                     transitionSpec = {
-                                        val enter = fadeIn(tween(180, delayMillis = 50)) +
+                                        val enter =
+                                            fadeIn(tween(180, delayMillis = 50)) +
                                                 slideInVertically(
                                                     tween(220, easing = FastOutSlowInEasing),
-                                                ) { it / 4 }
-                                        val exit = fadeOut(tween(130)) +
+                                                ) {
+                                                    it / 4
+                                                }
+                                        val exit =
+                                            fadeOut(tween(130)) +
                                                 slideOutVertically(
                                                     tween(180, easing = FastOutSlowInEasing),
-                                                ) { -it / 4 }
+                                                ) {
+                                                    -it / 4
+                                                }
                                         (enter togetherWith exit).using(SizeTransform(clip = false))
                                     },
                                     label = "panel-title",
@@ -493,25 +511,24 @@ fun <T> PanelShell(
                     }
 
                     Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .align(Alignment.CenterStart),
+                        modifier = Modifier.size(48.dp).align(Alignment.CenterStart),
                         contentAlignment = Alignment.CenterStart,
                     ) {
                         PanelHeaderAction(backAction, Alignment.Start, "panel-header-back")
                     }
 
                     Row(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 4.dp),
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(48.dp), contentAlignment = Alignment.CenterEnd) {
                             PanelHeaderAction(refreshAction, Alignment.End, "panel-header-refresh")
                         }
                         IconButton(onClick = onDismiss) {
-                            Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.dialog_close))
+                            Icon(
+                                MaterialSymbols.Outlined.Close,
+                                stringResource(R.string.dialog_close),
+                            )
                         }
                     }
                 }
@@ -526,7 +543,6 @@ fun <T> PanelShell(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelActionStrip(
     actions: List<PanelAction>,
@@ -536,26 +552,25 @@ private fun PanelActionStrip(
     val density = LocalDensity.current
     var stripPosition by remember { mutableStateOf(Offset.Zero) }
     var searchCenterInWindow by remember { mutableStateOf<Offset?>(null) }
-    var stripWidthPx by remember { mutableStateOf(1f) }
-    val originFraction = searchCenterInWindow
-        ?.let { ((it.x - stripPosition.x) / stripWidthPx).coerceIn(0f, 1f) }
-        ?: 0.5f
-    val originYOffsetPx = searchCenterInWindow
-        ?.let {
+    var stripWidthPx by remember { mutableFloatStateOf(1f) }
+    val originFraction =
+        searchCenterInWindow?.let { ((it.x - stripPosition.x) / stripWidthPx).coerceIn(0f, 1f) }
+            ?: 0.5f
+    val originYOffsetPx =
+        searchCenterInWindow?.let {
             val firstRowCenter = with(density) { 24.dp.toPx() }
             (it.y - stripPosition.y - firstRowCenter).coerceAtLeast(0f)
-        }
-        ?: 0f
-    val progress by animateFloatAsState(
-        targetValue = if (search?.expanded == true) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "panel-action-search",
-    )
+        } ?: 0f
+    val progress by
+        animateFloatAsState(
+            targetValue = if (search?.expanded == true) 1f else 0f,
+            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+            label = "panel-action-search",
+        )
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onGloballyPositioned { coordinates ->
+        modifier =
+            Modifier.fillMaxWidth().onGloballyPositioned { coordinates ->
                 stripPosition = coordinates.positionInWindow()
                 stripWidthPx = coordinates.size.width.toFloat().coerceAtLeast(1f)
             },
@@ -566,11 +581,12 @@ private fun PanelActionStrip(
         AnimatedContent(
             targetState = search?.expanded == true,
             transitionSpec = {
-                val contentTransition = if (targetState) {
-                    EnterTransition.None togetherWith fadeOut(tween(220))
-                } else {
-                    fadeIn(tween(220)) togetherWith ExitTransition.None
-                }
+                val contentTransition =
+                    if (targetState) {
+                        EnterTransition.None togetherWith fadeOut(tween(220))
+                    } else {
+                        fadeIn(tween(220)) togetherWith ExitTransition.None
+                    }
                 contentTransition.using(
                     SizeTransform(clip = true, sizeAnimationSpec = { _, _ -> tween(320) }),
                 )
@@ -587,10 +603,11 @@ private fun PanelActionStrip(
                     search = search,
                     onSearchPositioned = { coordinates ->
                         val position = coordinates.positionInWindow()
-                        searchCenterInWindow = Offset(
-                            position.x + coordinates.size.width / 2f,
-                            position.y + coordinates.size.height / 2f,
-                        )
+                        searchCenterInWindow =
+                            Offset(
+                                position.x + coordinates.size.width / 2f,
+                                position.y + coordinates.size.height / 2f,
+                            )
                     },
                 )
             }
@@ -606,7 +623,6 @@ private fun PanelActionStrip(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelActionItems(
     actions: List<PanelAction>,
@@ -617,27 +633,27 @@ private fun PanelActionItems(
     val searchIndex = search?.actionIndex?.coerceIn(0, actions.size)
     val content: @Composable () -> Unit = {
         for (index in 0..actions.size) {
-            search?.takeIf { index == searchIndex }?.let {
-                PanelActionSearchButton(it, onSearchPositioned)
-            }
+            search
+                ?.takeIf { index == searchIndex }
+                ?.let {
+                    PanelActionSearchButton(it, onSearchPositioned)
+                }
             if (index < actions.size) PanelActionItem(actions[index])
         }
     }
     if (wrapActions) {
         FlowRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
         ) {
             content()
         }
     } else {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 4.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .height(48.dp)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             content()
@@ -651,9 +667,7 @@ private fun PanelActionSearchButton(
     onPositioned: (androidx.compose.ui.layout.LayoutCoordinates) -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .height(48.dp)
-            .onGloballyPositioned(onPositioned),
+        modifier = Modifier.height(48.dp).onGloballyPositioned(onPositioned),
         contentAlignment = Alignment.Center,
     ) {
         IconButton(onClick = { search.onExpandedChange(true) }) {
@@ -674,7 +688,7 @@ private fun PanelActionSearchField(
     val density = LocalDensity.current
     LaunchedEffect(search.expanded) {
         if (search.expanded) {
-            delay(120)
+            delay(120.milliseconds)
             focusRequester.requestFocus()
             keyboard?.show()
         } else {
@@ -682,20 +696,19 @@ private fun PanelActionSearchField(
         }
     }
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
     ) {
         val widthPx = with(density) { maxWidth.toPx() }
-        val iconStartPx = (originFraction * widthPx - with(density) { 24.dp.toPx() }).coerceAtLeast(0f)
+        val iconStartPx =
+            (originFraction * widthPx - with(density) { 24.dp.toPx() }).coerceAtLeast(0f)
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = progress.coerceAtLeast(0.01f)
-                    transformOrigin = TransformOrigin(originFraction, 0.5f)
-                }
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f)),
+            modifier =
+                Modifier.fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = progress.coerceAtLeast(0.01f)
+                        transformOrigin = TransformOrigin(originFraction, 0.5f)
+                    }
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f)),
         )
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -706,29 +719,38 @@ private fun PanelActionSearchField(
                     search.onValueChange("")
                     search.onExpandedChange(false)
                 },
-                modifier = Modifier.graphicsLayer {
-                    translationX = iconStartPx * (1f - progress)
-                    translationY = originYOffsetPx * (1f - progress)
-                },
+                modifier =
+                    Modifier.graphicsLayer {
+                        translationX = iconStartPx * (1f - progress)
+                        translationY = originYOffsetPx * (1f - progress)
+                    },
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = progress)),
+                    modifier =
+                        Modifier.size(40.dp)
+                            .clip(CircleShape)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = progress),
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(MaterialSymbols.Outlined.Search, stringResource(R.string.panel_search_close))
+                    Icon(
+                        MaterialSymbols.Outlined.Search,
+                        stringResource(R.string.panel_search_close),
+                    )
                 }
             }
             BasicTextField(
                 value = search.value,
                 onValueChange = search.onValueChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester)
-                    .graphicsLayer { alpha = ((progress - 0.25f) / 0.75f).coerceIn(0f, 1f) },
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                modifier =
+                    Modifier.weight(1f).focusRequester(focusRequester).graphicsLayer {
+                        alpha = ((progress - 0.25f) / 0.75f).coerceIn(0f, 1f)
+                    },
+                textStyle =
+                    MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -768,15 +790,15 @@ private fun PanelActionItem(action: PanelAction) {
                     LocalContentColor provides MaterialTheme.colorScheme.primary,
                 ) {
                     Row(
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 64.dp, minHeight = 40.dp)
-                            .clip(CircleShape)
-                            .combinedClickable(
-                                enabled = action.enabled,
-                                onClick = action.onClick,
-                                onLongClick = action.onLongClick,
-                            )
-                            .padding(horizontal = 12.dp),
+                        modifier =
+                            Modifier.defaultMinSize(minWidth = 64.dp, minHeight = 40.dp)
+                                .clip(CircleShape)
+                                .combinedClickable(
+                                    enabled = action.enabled,
+                                    onClick = action.onClick,
+                                    onLongClick = action.onLongClick,
+                                )
+                                .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(action.icon, action.label, Modifier.size(20.dp))
@@ -803,41 +825,45 @@ fun <T> PanelStateContent(
     content: @Composable (T) -> Unit,
 ) {
     when (state) {
-        PanelUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+        PanelUiState.Loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         }
 
-        is PanelUiState.Content -> content(state.value)
-        is PanelUiState.Empty -> PanelMessage(state.message)
-        is PanelUiState.Error -> PanelMessage(state.message, onRetry)
+        is PanelUiState.Content -> {
+            content(state.value)
+        }
+
+        is PanelUiState.Empty -> {
+            PanelMessage(state.message)
+        }
+
+        is PanelUiState.Error -> {
+            PanelMessage(state.message, onRetry)
+        }
     }
 }
 
 @Composable
 private fun PanelMessage(message: PanelUiText, onRetry: (() -> Unit)? = null) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Text(message.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onRetry != null) TextButton(onClick = onRetry) { Text(stringResource(R.string.panel_action_retry)) }
+        if (onRetry != null) {
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.panel_action_retry)) }
+        }
     }
 }
 
 @Composable
-fun PanelEmptyAction(
-    message: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
+fun PanelEmptyAction(message: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -873,7 +899,10 @@ fun PanelTextPrompt(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f))
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-            TextButton(onClick = { onConfirm(value.trim()) }, enabled = allowBlank || value.isNotBlank()) {
+            TextButton(
+                onClick = { onConfirm(value.trim()) },
+                enabled = allowBlank || value.isNotBlank(),
+            ) {
                 Text(resolvedConfirmText)
             }
         }
@@ -892,12 +921,13 @@ fun PanelNumberPrompt(
 ) {
     var value by remember(initialValue) { mutableStateOf(initialValue.toString()) }
     val parsed = value.toLongOrNull()
-    val error = when {
-        value.isBlank() || parsed == null -> stringResource(R.string.panel_number_invalid)
-        parsed < minValue -> stringResource(R.string.panel_number_below_min, minValue)
-        parsed > maxValue -> stringResource(R.string.panel_number_above_max, maxValue)
-        else -> null
-    }
+    val error =
+        when {
+            value.isBlank() || parsed == null -> stringResource(R.string.panel_number_invalid)
+            parsed < minValue -> stringResource(R.string.panel_number_below_min, minValue)
+            parsed > maxValue -> stringResource(R.string.panel_number_above_max, maxValue)
+            else -> null
+        }
     PanelOverlay(onDismiss = onDismiss) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
@@ -977,20 +1007,22 @@ fun PanelFullOverlay(
         if (allowImplicitDismiss) onDismiss()
     }
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.38f))
-            .clickable(
-                indication = null,
-                interactionSource = null,
-                onClick = { if (allowImplicitDismiss) onDismiss() },
-            ),
+        modifier =
+            Modifier.fillMaxSize()
+                .background(
+                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.38f),
+                )
+                .clickable(
+                    indication = null,
+                    interactionSource = null,
+                    onClick = { if (allowImplicitDismiss) onDismiss() },
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.82f)
-                .clickable(indication = null, interactionSource = null, onClick = {}),
+            modifier =
+                Modifier.fillMaxWidth(0.82f)
+                    .clickable(indication = null, interactionSource = null, onClick = {}),
             shape = RoundedCornerShape(8.dp),
             tonalElevation = 6.dp,
         ) {
@@ -1010,24 +1042,22 @@ fun PanelPageOverlay(
 ) {
     BackHandler(onBack = onBack)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.38f))
-            .clickable(indication = null, interactionSource = null, onClick = onDismiss),
+        modifier =
+            Modifier.fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.38f))
+                .clickable(indication = null, interactionSource = null, onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp)
-                .clickable(indication = null, interactionSource = null, onClick = {}),
+            modifier =
+                Modifier.fillMaxSize()
+                    .padding(8.dp)
+                    .clickable(indication = null, interactionSource = null, onClick = {}),
             shape = RoundedCornerShape(8.dp),
             tonalElevation = 6.dp,
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
+                modifier = Modifier.fillMaxSize().padding(12.dp),
                 content = content,
             )
         }
@@ -1035,14 +1065,13 @@ fun PanelPageOverlay(
 }
 
 @Composable
-private fun PanelOverlay(
-    onDismiss: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-) = PanelFullOverlay(onDismiss, content = content)
+private fun PanelOverlay(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) =
+    PanelFullOverlay(onDismiss, content = content)
 
 @Composable
-internal fun PanelUiText.resolve(): String = when (this) {
-    is PanelUiText.Raw -> value
-    is PanelUiText.Resource -> stringResource(id, *args.toTypedArray())
-    is PanelUiText.Quantity -> pluralStringResource(id, quantity, *args.toTypedArray())
-}
+fun PanelUiText.resolve(): String =
+    when (this) {
+        is PanelUiText.Raw -> value
+        is PanelUiText.Resource -> stringResource(id, *args.toTypedArray())
+        is PanelUiText.Quantity -> pluralStringResource(id, quantity, *args.toTypedArray())
+    }

@@ -10,12 +10,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -24,26 +24,22 @@ import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
-import org.luckypray.dexkit.DexKitBridge
 
-object RoundAvatars : ClickableFeature(), IResolveDex {
-
+object RoundAvatars : ClickableFeature() {
     override val technicalId = "圆角头像"
     override val nameRes = R.string.feature_round_avatars_name
-    override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY)
+    override val categoryIds =
+        listOf(FeatureCategoryIds.CONTACTS_GROUPS, FeatureCategoryIds.BEAUTIFY)
     override val descriptionRes = R.string.feature_round_avatars_description
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
     private val ctorAvatarCreate by dexConstructor {
-        matcher {
-            usingEqStrings("workerScope", "username")
-        }
+        usingEqStrings("workerScope", "username")
     }
-    private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float
-        get() = WePrefs.getFloatOrDef(KEY_ROUND_AVATAR, 0.5f).coerceIn(0.1f, 0.5f)
+        get() = KvStore.getFloatOrDef(KEY_ROUND_AVATAR, 0.5f).coerceIn(0.1f, 0.5f)
 
     override fun onEnable() {
         CustomLocalFriendAvatars.methodConversationAvatar.hookBefore {
@@ -54,7 +50,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
             setFloatArg(2, radiusFactor)
         }
 
-        if (!methodAvatarModify.isPlaceholder) {
+        if (methodAvatarModify.isFound) {
             methodAvatarModify.hookBefore {
                 setFloatArg(3, radiusFactor)
             }
@@ -67,23 +63,17 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
         notifyCustomContactAvatarChanged()
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val modifyMethods = dexKit.findMethod {
-            matcher {
-                usingEqStrings("workerScope", "username")
-            }
-        }.filter { it.methodName != "<init>" }
+    private val methodAvatarModify by
+        dexMethodFrom(allowFailure = true) {
+            val modifyMethods =
+                DexResolutionContext.findMethods {
+                        usingEqString("workerScope")
+                        usingEqString("username")
+                    }
+                    .filter { it.name != "<init>" }
 
-        val modifyMethod = modifyMethods.singleOrNull()
-        if (modifyMethod == null) {
-            methodAvatarModify.setPlaceholderDescriptor(
-                expectedFailure = true,
-                reason = "avatar modify method is absent in this host variant",
-            )
-        } else {
-            methodAvatarModify.setDescriptor(modifyMethod)
+            modifyMethods.singleOrNull()
         }
-    }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
@@ -104,7 +94,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
                                     valueSuffix = "%",
                                     onValueChange = {
                                         percent = it
-                                        WePrefs.putFloat(KEY_ROUND_AVATAR, it / 100f)
+                                        KvStore.putFloat(KEY_ROUND_AVATAR, it / 100f)
                                         notifyCustomContactAvatarChanged()
                                     },
                                 )

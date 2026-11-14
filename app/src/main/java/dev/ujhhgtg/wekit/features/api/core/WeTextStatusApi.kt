@@ -2,29 +2,30 @@ package dev.ujhhgtg.wekit.features.api.core
 
 import android.content.Context
 import android.widget.ImageView
+import dev.ujhhgtg.dexsql.meta.DexMethodInfo
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import kotlinx.serialization.ExperimentalSerializationApi
+import java.lang.reflect.Modifier
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.MethodData
-import java.lang.reflect.Modifier
 
 sealed interface TextStatusResult {
     data class Ready(val status: TextStatus) : TextStatusResult
+
     data object NoStatus : TextStatusResult
+
     data class Error(val cause: Throwable) : TextStatusResult
 }
 
@@ -43,8 +44,7 @@ data class TextStatusEmoji(
     val attachedText: String?,
 )
 
-object WeTextStatusApi : ApiFeature(), IResolveDex {
-
+object WeTextStatusApi : ApiFeature() {
     override val technicalId = "微信状态服务"
     override val nameRes = R.string.feature_we_text_status_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -52,162 +52,181 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeTextStatusApi"
 
-    private val classTextStatusService by dexClass()
+    private val classTextStatusService by dexClassFrom {
+        methodTextStatusStorageAccessor.data.declaredClass!!
+    }
     private val classTextStatusRecord by dexClass {
-        matcher {
-            addFieldForName("field_UserName")
-            addFieldForName("field_StatusID")
-            addFieldForName("field_IconID")
-            addFieldForName("field_Description")
-            addFieldForName("field_ExpireTime")
-            addFieldForName("field_EmojiInfo")
+        field {
+            name = "field_UserName"
+        }
+        field {
+            name = "field_StatusID"
+        }
+        field {
+            name = "field_IconID"
+        }
+        field {
+            name = "field_Description"
+        }
+        field {
+            name = "field_ExpireTime"
+        }
+        field {
+            name = "field_EmojiInfo"
         }
     }
-    private val methodTextStatusStorageAccessor by dexMethod()
     private val methodLatestStatusByUsername by dexMethod {
-        matcher {
-            paramTypes(String::class.java)
-            usingEqStrings(
-                "MicroMsg.TextStatus.StatusInfoAffStorage",
-                "getLatestStatusByUserName: failed",
-            )
-        }
+        paramTypes("java.lang.String")
+        usingEqStrings(
+            "MicroMsg.TextStatus.StatusInfoAffStorage",
+            "getLatestStatusByUserName: failed",
+        )
     }
     private val methodTextStatusTopicInfo by dexMethod {
-        matcher {
-            usingEqStrings(
-                "Super calls with default arguments not supported in this target, function: getTopicInfo",
-            )
-        }
+        usingEqStrings(
+            "Super calls with default arguments not supported in this target, function: getTopicInfo",
+        )
     }
     private val methodSetTextStatusIcon by dexMethod {
-        matcher {
-            usingEqStrings(
-                "Super calls with default arguments not supported in this target, function: setIcon",
-            )
-        }
+        usingEqStrings(
+            "Super calls with default arguments not supported in this target, function: setIcon",
+        )
     }
-    private val methodTextStatusIconHelperAccessor by dexMethod()
-    private val methodTextStatusDescription by dexMethod()
-    private val methodCurrentStatusActions by dexMethod()
 
     private val serviceInstance by lazy {
         val serviceClass = classTextStatusService.clazz
-        serviceClass.reflekt().firstField {
-            type = serviceClass
-            modifiers(Modifiers.STATIC)
-        }.getStatic()!!
+        serviceClass
+            .reflekt()
+            .firstField {
+                type = serviceClass
+                modifiers(Modifiers.STATIC)
+            }
+            .get()!!
     }
 
     private val textStatusIconHelper by lazy {
         methodTextStatusIconHelperAccessor.method.invoke(null)!!
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
+    private val methodTextStatusStorageAccessor by dexMethodFrom {
         val latestStatusMethod = methodLatestStatusByUsername.data
-        val storageInterface = latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
-            candidate.methods.any { method ->
-                method.methodName == latestStatusMethod.methodName &&
-                    method.paramTypeNames == latestStatusMethod.paramTypeNames &&
-                    method.returnTypeName == latestStatusMethod.returnTypeName
+        val storageInterface =
+            latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
+                candidate.methods.any { method ->
+                    method.name == latestStatusMethod.name &&
+                        method.paramTypeNames == latestStatusMethod.paramTypeNames &&
+                        method.returnTypeName == latestStatusMethod.returnTypeName
+                }
             }
-        }
-        val storageAccessor = dexKit.findMethod {
-            matcher {
-                paramTypes()
-                returnType(storageInterface.name)
+        DexResolutionContext.findMethods {
+                paramTypes = emptyList<Any?>()
+                returnType = storageInterface.name
             }
-        }.single { candidate ->
-            candidate.declaredClass!!.fields.any { field ->
-                field.typeName == candidate.declaredClassName &&
-                    Modifier.isStatic(field.modifiers)
+            .single { candidate ->
+                candidate.declaredClass!!.fields.any { field ->
+                    field.typeName == candidate.declaredClassName &&
+                        Modifier.isStatic(field.modifiers)
+                }
             }
-        }
-
-        val topicInfoMethod = methodTextStatusTopicInfo.data
+    }
+    private val methodTextStatusIconHelperAccessor by dexMethodFrom {
         val setIconMethod = methodSetTextStatusIcon.data
         val iconHelperType = setIconMethod.paramTypeNames.first()
-        val iconHelperAccessor = dexKit.findMethod {
-            matcher {
-                paramTypes()
-                returnType(iconHelperType)
-                modifiers(Modifier.STATIC)
+        DexResolutionContext.findMethods {
+                paramTypes = emptyList<Any?>()
+                returnType = iconHelperType
+                modifiers = Modifier.STATIC
             }
-        }.single()
-        val statusDescriptionMethod = dexKit.findMethod {
-            matcher {
-                declaredClass(iconHelperType)
-                paramTypes(topicInfoMethod.returnTypeName)
-                returnType(String::class.java)
+            .single()
+    }
+    private val methodTextStatusDescription by dexMethodFrom {
+        DexResolutionContext.findMethods {
+                declaredClass = methodSetTextStatusIcon.data.paramTypeNames.first()
+                paramTypes(methodTextStatusTopicInfo.data.returnTypeName)
+                returnType = String::class.java.name
             }
-        }.single()
-        val statusType = latestStatusMethod.returnTypeName
-        val currentStatusActionsMethod = dexKit.findMethod {
-            matcher {
+            .single()
+    }
+    private val methodCurrentStatusActions by dexMethodFrom {
+        val statusType = methodLatestStatusByUsername.data.returnTypeName
+        DexResolutionContext.findMethods {
                 paramTypes(Context::class.java.name, statusType)
-                returnType(Void.TYPE)
-                usingEqStrings(
-                    "MicroMsg.MMSubMenuHelper",
-                    "show, menu empty",
-                )
+                returnType = Void.TYPE.name
+                usingEqString("MicroMsg.MMSubMenuHelper")
+                usingEqString("show, menu empty")
             }
-        }.single { candidate ->
-            candidate.usesFieldThroughDirectInvoke("field_UserName")
-        }
-
-        classTextStatusService.setDescriptor(storageAccessor.declaredClass!!)
-        methodTextStatusStorageAccessor.setDescriptor(storageAccessor)
-        methodTextStatusIconHelperAccessor.setDescriptor(iconHelperAccessor)
-        methodTextStatusDescription.setDescriptor(statusDescriptionMethod)
-        methodCurrentStatusActions.setDescriptor(currentStatusActionsMethod)
+            .single { candidate ->
+                candidate.usesFieldThroughDirectInvoke("field_UserName")
+            }
     }
 
     fun read(wxId: String): TextStatusResult = runCatching {
         val current = readCurrentStatus(wxId) ?: return TextStatusResult.NoStatus
-        val topicInfo = methodTextStatusTopicInfo.method.invoke(
-            null,
-            current.hostObject,
-            false,
-            1,
-            null,
-        )!!
+        val topicInfo =
+            methodTextStatusTopicInfo.method.invoke(
+                null,
+                current.hostObject,
+                false,
+                1,
+                null,
+            )!!
         TextStatusResult.Ready(
-            TextStatus(
-                statusId = current.statusId,
-                description = methodTextStatusDescription.method.invoke(
-                    textStatusIconHelper,
-                    topicInfo,
-                ) as String,
-                userText = (current.record.reflekt().getField("field_Description", true) as String?).orEmpty(),
-                iconId = (current.record.reflekt().getField("field_IconID", true) as String?).orEmpty(),
-                attachedEmoji = parseEmojiInfo(
-                    current.record.reflekt().getField("field_EmojiInfo", true) as ByteArray?,
+                TextStatus(
+                    statusId = current.statusId,
+                    description =
+                        methodTextStatusDescription.method.invoke(
+                            textStatusIconHelper,
+                            topicInfo,
+                        ) as String,
+                    userText =
+                        (current.record.reflekt().getField("field_Description", true) as String?)
+                            .orEmpty(),
+                    iconId =
+                        (current.record.reflekt().getField("field_IconID", true) as String?)
+                            .orEmpty(),
+                    attachedEmoji =
+                        parseEmojiInfo(
+                            current.record.reflekt().getField("field_EmojiInfo", true)
+                                as ByteArray?,
+                        ),
                 ),
-            ),
-        ).enrichEmojiUrls()
-    }.getOrElse { throwable ->
-        WeLogger.e(TAG, "failed to read current TextStatus", throwable)
-        TextStatusResult.Error(throwable)
+            )
+            .enrichEmojiUrls()
     }
+        .getOrElse { throwable ->
+            WeLogger.e(TAG, "failed to read current TextStatus", throwable)
+            TextStatusResult.Error(throwable)
+        }
 
     fun openCurrentStatusActions(context: Context, wxId: String): Boolean = runCatching {
         val current = readCurrentStatus(wxId) ?: return false
         val actionMethod = methodCurrentStatusActions.method
-        val showParam = actionMethod.declaringClass.declaredConstructors
-            .single().parameterTypes.single().createInstance()
+        val showParam =
+            actionMethod.declaringClass.declaredConstructors
+                .single()
+                .parameterTypes
+                .single()
+                .createInstance()
         val logic = actionMethod.declaringClass.createInstance(showParam)
-        logic.reflekt().firstField {
-            type = Context::class
-        }.set(context)
-        logic.reflekt().firstField {
-            type = actionMethod.parameterTypes[1]
-        }.set(current.hostObject)
+        logic
+            .reflekt()
+            .firstField {
+                type = Context::class
+            }
+            .set(context)
+        logic
+            .reflekt()
+            .firstField {
+                type = actionMethod.parameterTypes[1]
+            }
+            .set(current.hostObject)
         actionMethod.invoke(logic, context, current.hostObject)
         true
-    }.getOrElse { throwable ->
-        WeLogger.e(TAG, "failed to open current TextStatus actions", throwable)
-        false
     }
+        .getOrElse { throwable ->
+            WeLogger.e(TAG, "failed to open current TextStatus actions", throwable)
+            false
+        }
 
     fun renderIcon(imageView: ImageView, iconId: String) {
         methodSetTextStatusIcon.method.invoke(
@@ -240,7 +259,9 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
     private fun unwrapStatusRecord(value: Any): Any {
         val recordClass = classTextStatusRecord.clazz
         if (recordClass.isInstance(value)) return value
-        return value.reflekt().fields { superclass = true }
+        return value
+            .reflekt()
+            .fields { superclass = true }
             .first { recordClass.isAssignableFrom(it.type) }
             .get()!!
     }
@@ -250,35 +271,34 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         val md5 = emoji.md5 ?: return this
         if (!emoji.url.isNullOrBlank() || !emoji.thumbUrl.isNullOrBlank()) return this
 
-        val enrichedEmoji = runCatching {
-            WeServiceApi.getEmojiInfoByMd5(md5).reflekt().let { info ->
-                emoji.copy(
-                    url = (info.getField("field_cdnUrl", true) as String?)?.ifBlank { null },
-                    thumbUrl = (info.getField("field_thumbUrl", true) as String?)?.ifBlank { null },
-                )
+        val enrichedEmoji =
+            runCatching {
+                WeServiceApi.getEmojiInfoByMd5(md5).reflekt().let { info ->
+                    emoji.copy(
+                        url = (info.getField("field_cdnUrl", true) as String?)?.ifBlank { null },
+                        thumbUrl =
+                            (info.getField("field_thumbUrl", true) as String?)?.ifBlank { null },
+                    )
+                }
             }
-        }.onFailure {
-            WeLogger.w(TAG, "failed to resolve TextStatus emoji URL for $md5", it)
-        }.getOrNull() ?: return this
+                .onFailure {
+                    WeLogger.w(TAG, "failed to resolve TextStatus emoji URL for $md5", it)
+                }
+                .getOrNull() ?: return this
 
         return TextStatusResult.Ready(status.copy(attachedEmoji = enrichedEmoji))
     }
 
-    private data class CurrentStatus(
-        val hostObject: Any,
-        val record: Any,
-        val statusId: String,
-    )
+    private data class CurrentStatus(val hostObject: Any, val record: Any, val statusId: String)
 }
 
-private fun MethodData.usesFieldThroughDirectInvoke(fieldName: String): Boolean =
+private fun DexMethodInfo.usesFieldThroughDirectInvoke(fieldName: String): Boolean =
     usingFields.any { it.field.fieldName == fieldName } ||
         invokes.any { invoked ->
             invoked.usingFields.any { it.field.fieldName == fieldName }
         }
 
 @Serializable
-@OptIn(ExperimentalSerializationApi::class)
 private data class TextStatusEmojiProto(
     @ProtoNumber(1) val md5: String = "",
     @ProtoNumber(2) val url: String = "",
@@ -286,26 +306,31 @@ private data class TextStatusEmojiProto(
     @ProtoNumber(11) val attachedText: String = "",
 )
 
-@OptIn(ExperimentalSerializationApi::class)
 private fun parseEmojiInfo(bytes: ByteArray?): TextStatusEmoji? {
     val payload = bytes ?: return null
     if (payload.isEmpty()) return null
     return runCatching {
         ProtoBuf.decodeFromByteArray<TextStatusEmojiProto>(payload)
-    }.onFailure {
-        WeLogger.w("WeTextStatusApi", "failed to decode TextStatus EmojiInfo", it)
-    }.getOrNull()?.let { proto ->
-        if (proto.md5.isBlank() && proto.url.isBlank() &&
-            proto.thumbUrl.isBlank() && proto.attachedText.isBlank()
-        ) {
-            null
-        } else {
-            TextStatusEmoji(
-                md5 = proto.md5.ifBlank { null },
-                url = proto.url.ifBlank { null },
-                thumbUrl = proto.thumbUrl.ifBlank { null },
-                attachedText = proto.attachedText.ifBlank { null },
-            )
-        }
     }
+        .onFailure {
+            WeLogger.w("WeTextStatusApi", "failed to decode TextStatus EmojiInfo", it)
+        }
+        .getOrNull()
+        ?.let { proto ->
+            if (
+                proto.md5.isBlank() &&
+                    proto.url.isBlank() &&
+                    proto.thumbUrl.isBlank() &&
+                    proto.attachedText.isBlank()
+            ) {
+                null
+            } else {
+                TextStatusEmoji(
+                    md5 = proto.md5.ifBlank { null },
+                    url = proto.url.ifBlank { null },
+                    thumbUrl = proto.thumbUrl.ifBlank { null },
+                    attachedText = proto.attachedText.ifBlank { null },
+                )
+            }
+        }
 }

@@ -6,6 +6,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.contacts.showOpenConversationDialog
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.ChatInfoIcon
 import dev.ujhhgtg.wekit.utils.HookParam
 
@@ -27,10 +28,12 @@ object OpenConversationMenu : SwitchFeature(), WeHomeScreenPopupMenuApi.IMenuIte
     override fun getMenuItems(param: HookParam): List<WeHomeScreenPopupMenuApi.MenuItem> {
         return listOf(
             WeHomeScreenPopupMenuApi.MenuItem(
-                777025, localizedHomeMenuString(R.string.home_menu_open_conversation), ChatInfoIcon
+                777025,
+                localizedString(R.string.home_menu_open_conversation),
+                ChatInfoIcon,
             ) {
                 showOpenConversationDialog(LauncherUI.getInstance()!!)
-            }
+            },
         )
     }
 }

@@ -29,11 +29,11 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -48,10 +48,8 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.moveTo
 
-object VirtualVoipVideo : ClickableFeature(), IResolveDex {
+object VirtualVoipVideo : ClickableFeature() {
 
     override val technicalId = "虚拟视频通话"
     override val nameRes = R.string.feature_virtual_voip_video_name
@@ -62,29 +60,20 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private const val VIDEO_FILE = "virtual_voip_video.mp4"
 
-    private val VIDEO_PATH by lazy {
-        val target = KnownPaths.moduleAssets / VIDEO_FILE
-        // 旧版本把导入的视频存放在 moduleData 根目录，自动迁移到 moduleAssets
-        val legacy = KnownPaths.moduleData / VIDEO_FILE
-        if (legacy.exists() && !target.exists()) {
-            runCatching { legacy.moveTo(target) }
-                .onFailure { WeLogger.w(TAG, "failed to migrate virtual voip video into moduleAssets", it) }
-        }
-        target
-    }
+    private val VIDEO_PATH by lazy { KnownPaths.moduleAssets / VIDEO_FILE }
 
     private var sourceType by prefOption("virtual_voip_source_type", "file")
     private var streamUrl by prefOption("virtual_voip_stream_url", "")
     private var streamOrientation by prefOption("virtual_voip_stream_orientation", "auto")
 
-    private val CAMERA2_METHODS = setOf(
-        "createCaptureSession",
-        "createCaptureSessionByOutputConfigurations",
-        "createExtensionSession"
-    )
+    private val CAMERA2_METHODS =
+        setOf(
+            "createCaptureSession",
+            "createCaptureSessionByOutputConfigurations",
+            "createExtensionSession",
+        )
 
-    @Volatile
-    private var isVoipUiActive = false
+    @Volatile private var isVoipUiActive = false
 
     private var mediaPlayer: MediaPlayer? = null
 
@@ -96,27 +85,23 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private var cachedDummySurface: Surface? = null
     private val dummySurface: Surface
-        @Synchronized get() = cachedDummySurface?.takeIf { it.isValid }
-            ?: Surface(dummySurfaceTexture).also { cachedDummySurface = it }
+        @Synchronized
+        get() =
+            cachedDummySurface?.takeIf { it.isValid }
+                ?: Surface(dummySurfaceTexture).also { cachedDummySurface = it }
 
-    @Volatile
-    private var lastCheckedKey: String? = null
+    @Volatile private var lastCheckedKey: String? = null
 
-    @Volatile
-    private var isVideoPortraitCached: Boolean = false
+    @Volatile private var isVideoPortraitCached: Boolean = false
 
     private val camera2HookBypass = ThreadLocal.withInitial { false }
 
     private val methodLaunchVoipPage by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.VoIPMP.Launcher", "launch page ")
-        }
+        usingEqStrings("MicroMsg.VoIPMP.Launcher", "launch page ")
     }
 
     private val methodStartCamera by dexMethod {
-        matcher {
-            usingEqStrings("MicroMsg.ILinkVoIPCameraHelper", "old startCamera abandon")
-        }
+        usingEqStrings("MicroMsg.ILinkVoIPCameraHelper", "old startCamera abandon")
     }
 
     private val isVideoPortrait: Boolean
@@ -140,15 +125,27 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
             val retriever = MediaMetadataRetriever()
             try {
                 retriever.setDataSource(file.absolutePath)
-                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-                val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+                val width =
+                    retriever
+                        .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                        ?.toIntOrNull() ?: 0
+                val height =
+                    retriever
+                        .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                        ?.toIntOrNull() ?: 0
+                val rotation =
+                    retriever
+                        .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                        ?.toIntOrNull() ?: 0
 
                 val realWidth = if (rotation == 90 || rotation == 270) height else width
                 val realHeight = if (rotation == 90 || rotation == 270) width else height
 
                 isVideoPortraitCached = realWidth < realHeight
-                WeLogger.d(TAG, "video check: width=$width, height=$height, rotation=$rotation -> isPortrait=$isVideoPortraitCached")
+                WeLogger.d(
+                    TAG,
+                    "video check: width=$width, height=$height, rotation=$rotation -> isPortrait=$isVideoPortraitCached",
+                )
             } catch (e: Exception) {
                 WeLogger.e(TAG, "failed to parse video orientation metadata", e)
                 isVideoPortraitCached = false
@@ -171,104 +168,128 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         }
 
         listOf(
-            "com.tencent.mm.plugin.voip.ui.VideoActivity",
-            "com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI"
-        ).forEach { className ->
-            className.toClass().apply {
-                firstMethod { name = "onCreate" }.hookBefore {
-                    isVoipUiActive = true
-                    WeLogger.d(TAG, "entered voip ui: $className")
-                }
+                "com.tencent.mm.plugin.voip.ui.VideoActivity",
+                "com.tencent.mm.plugin.multitalk.ui.MultiTalkMainUI",
+            )
+            .forEach { className ->
+                className.toClass().apply {
+                    firstMethod { name = "onCreate" }
+                        .hookBefore {
+                            isVoipUiActive = true
+                            WeLogger.d(TAG, "entered voip ui: $className")
+                        }
 
-                firstMethod { name = "onDestroy" }.hookBefore {
-                    isVoipUiActive = false
-                    releasePlayer("left voip ui: $className")
+                    firstMethod { name = "onDestroy" }
+                        .hookBefore {
+                            isVoipUiActive = false
+                            releasePlayer("left voip ui: $className")
+                        }
                 }
             }
-        }
 
         Camera::class.apply {
-            firstMethod { name = "setPreviewTexture" }.hookBefore {
-                WeLogger.i(TAG, "Camera::setPreviewTexture is called")
+            firstMethod { name = "setPreviewTexture" }
+                .hookBefore {
+                    WeLogger.i(TAG, "Camera::setPreviewTexture is called")
 
-                if (!shouldInterceptCamera) return@hookBefore
+                    if (!shouldInterceptCamera) return@hookBefore
 
-                WeLogger.i(TAG, "should intercept Camera::setPreviewTexture, starting virtual video...")
+                    WeLogger.i(
+                        TAG,
+                        "should intercept Camera::setPreviewTexture, starting virtual video...",
+                    )
 
-                val targetTexture = args[0] as? SurfaceTexture? ?: return@hookBefore
+                    val targetTexture = args[0] as? SurfaceTexture? ?: return@hookBefore
 
-                args[0] = dummySurfaceTexture
-                startVirtualVideo(
-                    surface = Surface(targetTexture),
-                    ownsSurface = true
-                )
-                WeLogger.d(TAG, "camera1 preview texture replaced")
-            }
+                    args[0] = dummySurfaceTexture
+                    startVirtualVideo(
+                        surface = Surface(targetTexture),
+                        ownsSurface = true,
+                    )
+                    WeLogger.d(TAG, "camera1 preview texture replaced")
+                }
 
             firstMethod {
                 name = "getCameraInfo"
                 parameters(int, Camera.CameraInfo::class)
-            }.hookAfter {
-                if (!shouldInterceptCamera) return@hookAfter
-                val info = args[1] as? Camera.CameraInfo ?: return@hookAfter
-
-                if (isVideoPortrait) {
-                    val isFront = info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT
-                    info.orientation = if (isFront) 90 else 270
-                    WeLogger.i(TAG, "portrait video detected: forcing camera orientation to ${info.orientation}")
-                } else {
-                    info.orientation = 0
-                    WeLogger.i(TAG, "landscape video detected: forcing camera orientation to 0")
-                }
-                info.facing = Camera.CameraInfo.CAMERA_FACING_BACK
-                WeLogger.i(TAG, "forcing camera facing to back")
             }
+                .hookAfter {
+                    if (!shouldInterceptCamera) return@hookAfter
+                    val info = args[1] as? Camera.CameraInfo ?: return@hookAfter
+
+                    if (isVideoPortrait) {
+                        val isFront = info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT
+                        info.orientation = if (isFront) 90 else 270
+                        WeLogger.i(
+                            TAG,
+                            "portrait video detected: forcing camera orientation to ${info.orientation}",
+                        )
+                    } else {
+                        info.orientation = 0
+                        WeLogger.i(TAG, "landscape video detected: forcing camera orientation to 0")
+                    }
+                    info.facing = Camera.CameraInfo.CAMERA_FACING_BACK
+                    WeLogger.i(TAG, "forcing camera facing to back")
+                }
         }
 
         val cameraDeviceImpl = runCatching {
             "android.hardware.camera2.impl.CameraDeviceImpl".toClass()
-        }.getOrNull()
+        }
+            .getOrNull()
 
         if (cameraDeviceImpl == null) {
             WeLogger.w(TAG, "CameraDeviceImpl not found, Camera2 hook skipped")
             return
         }
 
-        cameraDeviceImpl.declaredMethods.filter {
-            it.name in CAMERA2_METHODS
-        }.forEach { method ->
-            method.hookBefore {
-                WeLogger.i(TAG, "Camera2::$method is called")
-                if (!shouldInterceptCamera) return@hookBefore
-                WeLogger.i(TAG, "should intercept Camera2::$method, starting virtual video...")
-                hijackCamera2Session(this)
+        cameraDeviceImpl.declaredMethods
+            .filter {
+                it.name in CAMERA2_METHODS
             }
-        }
-
-        CameraCharacteristics::class.firstMethod { name = "get" }.hookAfter {
-            if (camera2HookBypass.get()!!) return@hookAfter
-            if (!shouldInterceptCamera) return@hookAfter
-            val key = args[0] as? CameraCharacteristics.Key<*>? ?: return@hookAfter
-
-            if (key == CameraCharacteristics.SENSOR_ORIENTATION) {
-                if (isVideoPortrait) {
-                    camera2HookBypass.set(true)
-                    val characteristics = thisObject as? CameraCharacteristics
-                    val lensFacing = runCatching { characteristics?.get(CameraCharacteristics.LENS_FACING) }.getOrNull()
-                    camera2HookBypass.set(false)
-
-                    val isFront = lensFacing == CameraCharacteristics.LENS_FACING_FRONT
-                    result = if (isFront) 90 else 270
-                    WeLogger.i(TAG, "portrait video detected: forcing Camera2 SENSOR_ORIENTATION to $result")
-                } else {
-                    result = 0
-                    WeLogger.i(TAG, "landscape video detected: forcing Camera2 SENSOR_ORIENTATION to 0")
+            .forEach { method ->
+                method.hookBefore {
+                    WeLogger.i(TAG, "Camera2::$method is called")
+                    if (!shouldInterceptCamera) return@hookBefore
+                    WeLogger.i(TAG, "should intercept Camera2::$method, starting virtual video...")
+                    hijackCamera2Session(this)
                 }
-            } else if (key == CameraCharacteristics.LENS_FACING) {
-                WeLogger.i(TAG, "forcing lens facing to BACK")
-                result = CameraCharacteristics.LENS_FACING_BACK
             }
-        }
+
+        CameraCharacteristics::class.firstMethod { name = "get" }
+            .hookAfter {
+                if (camera2HookBypass.get()!!) return@hookAfter
+                if (!shouldInterceptCamera) return@hookAfter
+                val key = args[0] as? CameraCharacteristics.Key<*>? ?: return@hookAfter
+
+                if (key == CameraCharacteristics.SENSOR_ORIENTATION) {
+                    if (isVideoPortrait) {
+                        camera2HookBypass.set(true)
+                        val characteristics = thisObject as? CameraCharacteristics
+                        val lensFacing = runCatching {
+                            characteristics?.get(CameraCharacteristics.LENS_FACING)
+                        }
+                            .getOrNull()
+                        camera2HookBypass.set(false)
+
+                        val isFront = lensFacing == CameraCharacteristics.LENS_FACING_FRONT
+                        result = if (isFront) 90 else 270
+                        WeLogger.i(
+                            TAG,
+                            "portrait video detected: forcing Camera2 SENSOR_ORIENTATION to $result",
+                        )
+                    } else {
+                        result = 0
+                        WeLogger.i(
+                            TAG,
+                            "landscape video detected: forcing Camera2 SENSOR_ORIENTATION to 0",
+                        )
+                    }
+                } else if (key == CameraCharacteristics.LENS_FACING) {
+                    WeLogger.i(TAG, "forcing lens facing to BACK")
+                    result = CameraCharacteristics.LENS_FACING_BACK
+                }
+            }
     }
 
     override fun onDisable() {
@@ -282,122 +303,174 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
             // 确保如果当前保存的配置是 auto 却切换到了 stream 模式时，降级显示为 portrait
             var orientationText by remember {
-                mutableStateOf(if (currentType == "stream" && streamOrientation == "auto") "portrait" else streamOrientation)
+                mutableStateOf(
+                    if (currentType == "stream" && streamOrientation == "auto") "portrait"
+                    else streamOrientation,
+                )
             }
             var fileExists by remember { mutableStateOf(VIDEO_PATH.toFile().exists()) }
             var urlValue by remember { mutableStateOf(streamUrl) }
 
             AlertDialogContent(
-                    title = { Text(stringResource(R.string.voip_virtual_video_title)) },
-                    text = {
-                        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
-                            item(key = "source") {
-                                DropDownMenuWidget(
-                                    title = stringResource(R.string.voip_virtual_video_source),
-                                    description = null,
-                                    value = currentType,
-                                    options = listOf(
-                                        DropdownOption("file", stringResource(R.string.voip_virtual_video_local_file)),
-                                        DropdownOption("stream", stringResource(R.string.voip_virtual_video_stream)),
+                title = { Text(stringResource(R.string.voip_virtual_video_title)) },
+                text = {
+                    SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+                        item(key = "source") {
+                            DropDownMenuWidget(
+                                title = stringResource(R.string.voip_virtual_video_source),
+                                description = null,
+                                value = currentType,
+                                options =
+                                    listOf(
+                                        DropdownOption(
+                                            "file",
+                                            stringResource(R.string.voip_virtual_video_local_file),
+                                        ),
+                                        DropdownOption(
+                                            "stream",
+                                            stringResource(R.string.voip_virtual_video_stream),
+                                        ),
                                     ),
-                                    onValueChange = {
-                                        currentType = it
-                                        sourceType = it
-                                        if (it == "file") {
-                                            // 恢复为保存的全局文件方向配置
-                                            orientationText = streamOrientation
-                                        } else if (orientationText == "auto") {
-                                            // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
-                                            orientationText = "portrait"
-                                            streamOrientation = "portrait"
-                                        }
-                                    },
-                                )
-                            }
-                            item(key = "select_video", animatedVisibility = currentType == "file") {
-                                BaseWidget(
-                                    title = stringResource(R.string.voip_virtual_video_select),
-                                    description = stringResource(
+                                onValueChange = {
+                                    currentType = it
+                                    sourceType = it
+                                    if (it == "file") {
+                                        // 恢复为保存的全局文件方向配置
+                                        orientationText = streamOrientation
+                                    } else if (orientationText == "auto") {
+                                        // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
+                                        orientationText = "portrait"
+                                        streamOrientation = "portrait"
+                                    }
+                                },
+                            )
+                        }
+                        item(key = "select_video", animatedVisibility = currentType == "file") {
+                            BaseWidget(
+                                title = stringResource(R.string.voip_virtual_video_select),
+                                description =
+                                    stringResource(
                                         if (fileExists) {
                                             R.string.voip_virtual_video_ready
                                         } else {
                                             R.string.voip_virtual_video_missing
-                                        }
-                                    ) + "\n" + stringResource(R.string.voip_virtual_video_path, VIDEO_PATH),
-                                    onClick = {
-                                        TransparentActivity.launch(context) {
-                                            val selMediaLauncher = registerForActivityResult(
-                                                ActivityResultContracts.PickVisualMedia()
+                                        },
+                                    ) +
+                                        "\n" +
+                                        stringResource(
+                                            R.string.voip_virtual_video_path,
+                                            VIDEO_PATH,
+                                        ),
+                                onClick = {
+                                    TransparentActivity.launch(context) {
+                                        val selMediaLauncher =
+                                            registerForActivityResult(
+                                                ActivityResultContracts.PickVisualMedia(),
                                             ) { uri ->
                                                 finish()
                                                 if (uri == null) return@registerForActivityResult
 
                                                 contentResolver.openInputStream(uri)?.use { input ->
-                                                    VIDEO_PATH.toFile().outputStream().use { output ->
+                                                    VIDEO_PATH.toFile().outputStream().use { output
+                                                        ->
                                                         input.copyTo(output)
                                                     }
-                                                } ?: run {
-                                                    WeLogger.e(TAG, "failed to open input stream")
-                                                    showToast(
-                                                        context,
-                                                        localizedVoipString(R.string.voip_virtual_video_open_failed),
-                                                    )
-                                                    return@registerForActivityResult
                                                 }
+                                                    ?: run {
+                                                        WeLogger.e(
+                                                            TAG,
+                                                            "failed to open input stream",
+                                                        )
+                                                        showToast(
+                                                            context,
+                                                            localizedString(
+                                                                R.string
+                                                                    .voip_virtual_video_open_failed,
+                                                            ),
+                                                        )
+                                                        return@registerForActivityResult
+                                                    }
 
                                                 fileExists = true
                                                 showToast(
                                                     context,
-                                                    localizedVoipString(R.string.voip_virtual_video_imported),
+                                                    localizedString(
+                                                        R.string.voip_virtual_video_imported,
+                                                    ),
                                                 )
                                             }
 
-                                            selMediaLauncher.launch(
-                                                PickVisualMediaRequest(
-                                                    ActivityResultContracts.PickVisualMedia.VideoOnly
-                                                )
-                                            )
-                                        }
-                                    },
-                                )
-                            }
-                            item(key = "stream_url", animatedVisibility = currentType == "stream") {
-                                TextFieldDialogWidget(
-                                    title = stringResource(R.string.voip_virtual_video_url),
-                                    value = urlValue,
-                                    onValueChange = {
-                                        urlValue = it
-                                        streamUrl = it
-                                    },
-                                    dialogTitle = stringResource(R.string.voip_virtual_video_url),
-                                    confirmLabel = stringResource(R.string.dialog_confirm),
-                                    dismissLabel = stringResource(R.string.dialog_cancel),
-                                )
-                            }
-                            item(key = "orientation") {
-                                DropDownMenuWidget(
-                                    title = stringResource(R.string.voip_virtual_video_orientation),
-                                    description = null,
-                                    value = orientationText,
-                                    options = buildList {
+                                        selMediaLauncher.launch(
+                                            PickVisualMediaRequest(
+                                                ActivityResultContracts.PickVisualMedia.VideoOnly,
+                                            ),
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                        item(key = "stream_url", animatedVisibility = currentType == "stream") {
+                            TextFieldDialogWidget(
+                                title = stringResource(R.string.voip_virtual_video_url),
+                                value = urlValue,
+                                onValueChange = {
+                                    urlValue = it
+                                    streamUrl = it
+                                },
+                                dialogTitle = stringResource(R.string.voip_virtual_video_url),
+                                confirmLabel = stringResource(R.string.dialog_confirm),
+                                dismissLabel = stringResource(R.string.dialog_cancel),
+                            )
+                        }
+                        item(key = "orientation") {
+                            DropDownMenuWidget(
+                                title = stringResource(R.string.voip_virtual_video_orientation),
+                                description = null,
+                                value = orientationText,
+                                options =
+                                    buildList {
                                         // 网络流不支持自动方向，auto 选项仅在本地文件模式下提供
                                         if (currentType == "file") {
-                                            add(DropdownOption("auto", stringResource(R.string.voip_virtual_video_orientation_auto)))
+                                            add(
+                                                DropdownOption(
+                                                    "auto",
+                                                    stringResource(
+                                                        R.string
+                                                            .voip_virtual_video_orientation_auto,
+                                                    ),
+                                                ),
+                                            )
                                         }
-                                        add(DropdownOption("portrait", stringResource(R.string.voip_virtual_video_orientation_portrait)))
-                                        add(DropdownOption("landscape", stringResource(R.string.voip_virtual_video_orientation_landscape)))
+                                        add(
+                                            DropdownOption(
+                                                "portrait",
+                                                stringResource(
+                                                    R.string
+                                                        .voip_virtual_video_orientation_portrait,
+                                                ),
+                                            ),
+                                        )
+                                        add(
+                                            DropdownOption(
+                                                "landscape",
+                                                stringResource(
+                                                    R.string
+                                                        .voip_virtual_video_orientation_landscape,
+                                                ),
+                                            ),
+                                        )
                                     },
-                                    onValueChange = {
-                                        orientationText = it
-                                        streamOrientation = it
-                                    },
-                                )
-                            }
+                                onValueChange = {
+                                    orientationText = it
+                                    streamOrientation = it
+                                },
+                            )
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
-                    },
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }
@@ -405,15 +478,16 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
     private fun hijackCamera2Session(param: HookParam) {
         param.args.forEachIndexed { index, arg ->
             if (arg == null) return@forEachIndexed
-            val hijackedArg = when (arg) {
-                is List<*> -> hijackSurfaceList(arg)
-                else -> hijackSessionConfiguration(arg)
-            } ?: return@forEachIndexed
+            val hijackedArg =
+                when (arg) {
+                    is List<*> -> hijackSurfaceList(arg)
+                    else -> hijackSessionConfiguration(arg)
+                } ?: return@forEachIndexed
 
             param.args[index] = hijackedArg.replacement
             startVirtualVideo(
                 surface = hijackedArg.playbackSurface,
-                ownsSurface = false
+                ownsSurface = false,
             )
             WeLogger.d(TAG, "Camera2 session argument replaced: ${param.member.name}")
             return
@@ -424,7 +498,8 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         if (list.isEmpty()) return null
         return when (list.firstOrNull()) {
             is Surface -> hijackDirectSurfaces(list.filterIsInstance<Surface>())
-            is OutputConfiguration -> hijackOutputConfigurations(list.filterIsInstance<OutputConfiguration>())
+            is OutputConfiguration ->
+                hijackOutputConfigurations(list.filterIsInstance<OutputConfiguration>())
             else -> null
         }
     }
@@ -433,11 +508,13 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         val playbackSurface = list.firstOrNull() ?: return null
         return HijackedArg(
             replacement = List(list.size) { dummySurface },
-            playbackSurface = playbackSurface
+            playbackSurface = playbackSurface,
         )
     }
 
-    private fun hijackOutputConfigurations(list: List<OutputConfiguration>): HijackedArg<List<OutputConfiguration>>? {
+    private fun hijackOutputConfigurations(
+        list: List<OutputConfiguration>,
+    ): HijackedArg<List<OutputConfiguration>>? {
         var playbackSurface: Surface? = null
         val replacement = list.map { config ->
             val surface = runCatching { config.surface }.getOrNull()
@@ -454,51 +531,69 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
     private fun hijackSessionConfiguration(config: Any): HijackedArg<*>? {
         return when (config) {
             is SessionConfiguration -> {
-                val hijackedOutputs = hijackOutputConfigurations(config.outputConfigurations) ?: return null
+                val hijackedOutputs =
+                    hijackOutputConfigurations(config.outputConfigurations) ?: return null
                 SessionConfiguration(
-                    config.sessionType,
-                    hijackedOutputs.replacement,
-                    config.executor,
-                    config.stateCallback
-                ).apply {
-                    sessionParameters = config.sessionParameters
-                    inputConfiguration = config.inputConfiguration
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        val colorSpace = config.reflekt().getField("mColorSpace") as Int
-                        ColorSpace.Named.entries.getOrNull(colorSpace)?.let { setColorSpace(it) }
-                    }
-                }.let { HijackedArg(it, hijackedOutputs.playbackSurface) }
-            }
-
-            else -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && config is ExtensionSessionConfiguration) {
-                    val hijackedOutputs = hijackOutputConfigurations(config.outputConfigurations) ?: return null
-                    ExtensionSessionConfiguration(
-                        config.extension,
+                        config.sessionType,
                         hijackedOutputs.replacement,
                         config.executor,
-                        config.stateCallback
-                    ).apply {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
-                            config.sessionWideParams?.let { setSessionWideParams(it) }
-                        }
-                        postviewOutputConfiguration = config.postviewOutputConfiguration
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                            val colorSpace = config.reflekt().firstField {
-                                name = "mColorSpace"
-                            }.get() as Int
+                        config.stateCallback,
+                    )
+                    .apply {
+                        sessionParameters = config.sessionParameters
+                        inputConfiguration = config.inputConfiguration
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            val colorSpace = config.reflekt().getField("mColorSpace") as Int
                             ColorSpace.Named.entries.getOrNull(colorSpace)?.let {
                                 setColorSpace(it)
                             }
                         }
-                    }.let { HijackedArg(it, hijackedOutputs.playbackSurface) }
+                    }
+                    .let { HijackedArg(it, hijackedOutputs.playbackSurface) }
+            }
+
+            else -> {
+                if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                        config is ExtensionSessionConfiguration
+                ) {
+                    val hijackedOutputs =
+                        hijackOutputConfigurations(config.outputConfigurations) ?: return null
+                    ExtensionSessionConfiguration(
+                            config.extension,
+                            hijackedOutputs.replacement,
+                            config.executor,
+                            config.stateCallback,
+                        )
+                        .apply {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+                                config.sessionWideParams?.let { setSessionWideParams(it) }
+                            }
+                            postviewOutputConfiguration = config.postviewOutputConfiguration
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                                val colorSpace =
+                                    config
+                                        .reflekt()
+                                        .firstField {
+                                            name = "mColorSpace"
+                                        }
+                                        .get() as Int
+                                ColorSpace.Named.entries.getOrNull(colorSpace)?.let {
+                                    setColorSpace(it)
+                                }
+                            }
+                        }
+                        .let { HijackedArg(it, hijackedOutputs.playbackSurface) }
                 } else null
             }
         }
     }
 
     private val shouldInterceptCamera: Boolean
-        get() = isVoipUiActive && (sourceType == "file" && VIDEO_PATH.toFile().exists() || sourceType == "stream" && streamUrl.isNotEmpty())
+        get() =
+            isVoipUiActive &&
+                (sourceType == "file" && VIDEO_PATH.toFile().exists() ||
+                    sourceType == "stream" && streamUrl.isNotEmpty())
 
     @Synchronized
     private fun startVirtualVideo(surface: Surface, ownsSurface: Boolean) {
@@ -535,7 +630,8 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                 runCatching {
                     preparedPlayer.start()
                     WeLogger.d(TAG, "virtual video playback started")
-                }.onFailure { WeLogger.e(TAG, "failed to start virtual video", it) }
+                }
+                    .onFailure { WeLogger.e(TAG, "failed to start virtual video", it) }
             }
             player.setOnErrorListener { erroredPlayer, what, extra ->
                 WeLogger.w(TAG, "virtual video playback error: what=$what, extra=$extra")
@@ -543,11 +639,12 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
                 true
             }
             player.prepareAsync()
-        }.onFailure {
-            val sourceLocation = if (type == "file") file.absolutePath else url
-            WeLogger.e(TAG, "failed to prepare virtual video: $sourceLocation", it)
-            releasePlayer("prepare failed")
         }
+            .onFailure {
+                val sourceLocation = if (type == "file") file.absolutePath else url
+                WeLogger.e(TAG, "failed to prepare virtual video: $sourceLocation", it)
+                releasePlayer("prepare failed")
+            }
     }
 
     @Synchronized
@@ -560,7 +657,8 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         if (player != null) {
             runCatching {
                 player.release()
-            }.onFailure { WeLogger.w(TAG, "failed to release player after $reason", it) }
+            }
+                .onFailure { WeLogger.w(TAG, "failed to release player after $reason", it) }
         }
 
         ownedPlaybackSurface?.runCatching { release() }
@@ -569,6 +667,6 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private data class HijackedArg<T>(
         val replacement: T,
-        val playbackSurface: Surface
+        val playbackSurface: Surface,
     )
 }

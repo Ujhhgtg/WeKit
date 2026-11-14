@@ -14,7 +14,6 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import java.lang.reflect.Field
 
 object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateViewListener {
-
     override val technicalId = "合并消息显示"
     override val nameRes = R.string.feature_merge_messages_into_groups_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -37,16 +36,31 @@ object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateVi
 
     private fun ensureFields(tag: Any) {
         if (!::avatarField.isInitialized) {
-            avatarField = tag.reflekt()
-                .firstField { name = "avatarIV"; superclass() }.self
+            avatarField =
+                tag.reflekt()
+                    .firstField {
+                        name = "avatarIV"
+                        superclass()
+                    }
+                    .self
         }
         if (!::displayNameField.isInitialized) {
-            displayNameField = tag.reflekt()
-                .firstField { name = "userTV"; superclass() }.self
+            displayNameField =
+                tag.reflekt()
+                    .firstField {
+                        name = "userTV"
+                        superclass()
+                    }
+                    .self
         }
         if (!::timeField.isInitialized) {
-            timeField = tag.reflekt()
-                .firstField { name = "timeTV"; superclass() }.self
+            timeField =
+                tag.reflekt()
+                    .firstField {
+                        name = "timeTV"
+                        superclass()
+                    }
+                    .self
         }
     }
 
@@ -75,14 +89,15 @@ object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateVi
         val currentSender = msgInfo.sender
         val position = param.args[2] as Int
 
-        val adapter = param.thisObject!!.reflekt()
-            .firstField { type = WeMessageApi.classChattingDataAdapter.clazz }
-            .get() ?: return
+        val adapter =
+            param.thisObject!!
+                .reflekt()
+                .firstField { type = WeMessageApi.classChattingDataAdapter.clazz }
+                .get() ?: return
 
         ensureFields(tag)
 
-        val currentHasVisibleTime =
-            (timeField.get(tag) as? View)?.visibility == View.VISIBLE
+        val currentHasVisibleTime = (timeField.get(tag) as? View)?.visibility == View.VISIBLE
         timeVisibilityCache.put(position, currentHasVisibleTime)
 
         val isFirstInGroup = run {
@@ -99,8 +114,7 @@ object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateVi
         // Avatar: INVISIBLE (not GONE) so the text column stays aligned
         (avatarField.get(tag) as? View)?.let { avatar ->
             val avatarContainer = avatar.parent as? View ?: avatar
-            avatarContainer.visibility =
-                if (isLastInGroup) View.VISIBLE else View.INVISIBLE
+            avatarContainer.visibility = if (isLastInGroup) View.VISIBLE else View.INVISIBLE
         }
 
         // Display Name: only shown in group chats
@@ -113,9 +127,8 @@ object MergeMessagesIntoGroups : SwitchFeature(), WeChatMessageViewApi.ICreateVi
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private fun senderAt(adapter: Any, position: Int): String? = runCatching {
-        val raw = adapter.reflekt()
-            .firstMethod { name = "getItem" }
-            .invoke(position) ?: return null
+        val raw = adapter.reflekt().firstMethod { name = "getItem" }.invoke(position) ?: return null
         MessageInfo(raw).sender
-    }.getOrNull()
+    }
+        .getOrNull()
 }

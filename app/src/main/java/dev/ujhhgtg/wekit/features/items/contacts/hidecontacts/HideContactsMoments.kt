@@ -12,7 +12,7 @@ import java.util.LinkedList
 private const val TAG = "HideContacts.Moments"
 
 /** Every Moments-side surface a hidden contact can leak through. */
-internal fun HideContacts.installMomentsHooks() {
+fun HideContacts.installMomentsHooks() {
     installMomentsRedDotHook()
     installMomentsInlineEntryHook()
 }
@@ -21,13 +21,13 @@ internal fun HideContacts.installMomentsHooks() {
  * Keeps a hidden contact out of the 发现 tab's "N 位朋友的新动态" avatar + red dot.
  *
  * On 8.0.76 that entry is a *single* avatar, not an avatar strip, and the avatar it draws is driven
- * by one user-info KV pair: 68377 holds the wxid. "68377 is non-empty" is only *one of two* terms of
- * the dot predicate, though — `FindMoreFriendsUI.java:916-918` computes it as
+ * by one user-info KV pair: 68377 holds the wxid. "68377 is non-empty" is only *one of two* terms
+ * of the dot predicate, though — `FindMoreFriendsUI.java:916-918` computes it as
  * `!(t8.K0(this.f226904x) && this.f226907y == 0)`, i.e. "68377 non-empty **OR** there are unread
  * likes/comments" (`f226907y` is `SnsCommentStorage.O0()`, `FindMoreFriendsUI.java:904`). The
  * bottom-tab dot in `com/tencent/mm/ui/ie.java:494` gates on 68377 alone. So suppressing 68377
- * removes the avatar and the 68377-attributable dot, but a hidden contact who likes or comments on a
- * post *you* can see still counts towards the unread-comment term — that surface is the inline
+ * removes the avatar and the 68377-attributable dot, but a hidden contact who likes or comments on
+ * a post *you* can see still counts towards the unread-comment term — that surface is the inline
  * like/comment hook below, not this one.
  *
  * There is exactly one writer of that KV in the sync path — `NetSceneSnsSync.updateSyncDataCache`,
@@ -42,24 +42,25 @@ internal fun HideContacts.installMomentsHooks() {
  * (`com/tencent/mm/ui/rg.java:371`) both read 68377 purely to decide whether to open Moments in
  * "there is something new" mode.
  *
- * Cancelling — as opposed to rewriting `Username` to `""` — is deliberate. `H` writes 68377 (author)
- * together with 68422/68418 (feed id), 68400 (create time) and 68421 (WeiShang feed type), and
- * `w2`'s `isNeedToUpdateRedDot` compares the *next* incoming post against all of them. Skipping the
- * method leaves those five fields internally consistent, still describing the last non-hidden post
- * that legitimately earned the red dot — which is exactly the state the user should keep seeing.
- * Blanking only the username would leave the other four fields pointing at a post nobody can see.
+ * Cancelling — as opposed to rewriting `Username` to `""` — is deliberate. `H` writes 68377
+ * (author) together with 68422/68418 (feed id), 68400 (create time) and 68421 (WeiShang feed type),
+ * and `w2`'s `isNeedToUpdateRedDot` compares the *next* incoming post against all of them. Skipping
+ * the method leaves those five fields internally consistent, still describing the last non-hidden
+ * post that legitimately earned the red dot — which is exactly the state the user should keep
+ * seeing. Blanking only the username would leave the other four fields pointing at a post nobody
+ * can see.
  *
  * One caveat to "consistent": `H` also *resets* the 68419/68420 counters, and cancelling it skips
  * those resets. 68420 is the "held the old red dot N times in a row" counter that
- * `isNeedToUpdateRedDot` increments on the branch where it does *not* call `H`
- * (`w2.java:191`), then compares against `clicfg_sns_red_dot_compare_times` (default 10). With `H`
- * permanently cancelled for hidden authors that counter only ever grows, so after ~10 suppressed
- * syncs WeChat starts biasing towards showing a dot for the next non-hidden post. That is benign —
- * it can only cause an *extra* dot for a post the user is allowed to see, never a leak — so it is
- * accepted rather than worked around.
+ * `isNeedToUpdateRedDot` increments on the branch where it does *not* call `H` (`w2.java:191`),
+ * then compares against `clicfg_sns_red_dot_compare_times` (default 10). With `H` permanently
+ * cancelled for hidden authors that counter only ever grows, so after ~10 suppressed syncs WeChat
+ * starts biasing towards showing a dot for the next non-hidden post. That is benign — it can only
+ * cause an *extra* dot for a post the user is allowed to see, never a leak — so it is accepted
+ * rather than worked around.
  *
- * The method returns `void`, so cancellation is `result = null`, and it neither reads nor writes any
- * state we touch — there is no way for this hook to re-trigger itself.
+ * The method returns `void`, so cancellation is `result = null`, and it neither reads nor writes
+ * any state we touch — there is no way for this hook to re-trigger itself.
  */
 private fun HideContacts.installMomentsRedDotHook() {
     methodSnsSyncUpdateRedDotCache.hookBefore {
@@ -95,21 +96,30 @@ private fun HideContacts.installMomentsInlineEntryHook() {
     // SnsCommentFooter.getCommentInfo(), and that method name is real (not obfuscated).
     val entryClass = runCatching {
         SnsCommentFooter::class.java.getMethod("getCommentInfo").returnType
-    }.getOrElse {
-        WeLogger.w(TAG, "failed to resolve the SNS like/comment entry class; moments inline hiding unavailable", it)
-        return
     }
+        .getOrElse {
+            WeLogger.w(
+                TAG,
+                "failed to resolve the SNS like/comment entry class; moments inline hiding unavailable",
+                it,
+            )
+            return
+        }
 
     // Declared String fields, in source order, are [Username, Nickname, Content, ReplyUsername,
     // ...] — verified against a65/ha6.java (f9152d/f9153e/f9156h/f9160o) and cross-checked in
     // com/tencent/mm/plugin/sns/ui/widget/t2.java, which reads the same four fields by their real
     // names. Selecting by declared type + ordinal (mirrors SplitGroupCall's ILinkMember lookup and
     // HideContactsVoip.readMultiTalkInvite) survives a field rename; hardcoding "f9152d" would not.
-    val stringFields = entryClass.reflekt().fields { type = BString }.map { it.self.makeAccessible() }
+    val stringFields =
+        entryClass.reflekt().fields { type = BString }.map { it.self.makeAccessible() }
     val usernameField = stringFields.getOrNull(0)
     val replyUsernameField = stringFields.getOrNull(3)
     if (usernameField == null || replyUsernameField == null) {
-        WeLogger.w(TAG, "failed to resolve username/replyUsername fields on the SNS entry class; moments inline hiding unavailable")
+        WeLogger.w(
+            TAG,
+            "failed to resolve username/replyUsername fields on the SNS entry class; moments inline hiding unavailable",
+        )
         return
     }
 
@@ -118,11 +128,21 @@ private fun HideContacts.installMomentsInlineEntryHook() {
     // parseFrom() isn't declared on the SnsObject stub (only toByteArray()/the LikeUserList family
     // are), so it is resolved reflectively once here, exactly as FakeMomentsLikes already does.
     val parseFromMethod = runCatching {
-        SnsObject::class.reflekt().firstMethod { name = "parseFrom"; superclass() }.self
-    }.getOrElse {
-        WeLogger.w(TAG, "failed to resolve SnsObject.parseFrom; moments inline hiding unavailable", it)
-        return
+        SnsObject::class.reflekt()
+            .firstMethod {
+                name = "parseFrom"
+                superclass()
+            }
+            .self
     }
+        .getOrElse {
+            WeLogger.w(
+                TAG,
+                "failed to resolve SnsObject.parseFrom; moments inline hiding unavailable",
+                it,
+            )
+            return
+        }
 
     fun isEntryHidden(entry: Any): Boolean {
         val username = usernameField.get(entry) as? String
@@ -155,13 +175,19 @@ private fun HideContacts.installMomentsInlineEntryHook() {
         val clone = SnsObject().also { parseFromMethod.invoke(it, original.toByteArray()) }
 
         if (hasHiddenLike) {
-            val filtered = LinkedList((clone.LikeUserList as List<*>).filterNotNull().filterNot(::isEntryHidden))
+            val filtered =
+                LinkedList(
+                    (clone.LikeUserList as List<*>).filterNotNull().filterNot(::isEntryHidden),
+                )
             clone.LikeUserList = filtered
             clone.LikeUserListCount = filtered.size
             clone.LikeCount = filtered.size
         }
         if (hasHiddenComment) {
-            val filtered = LinkedList((clone.CommentUserList as List<*>).filterNotNull().filterNot(::isEntryHidden))
+            val filtered =
+                LinkedList(
+                    (clone.CommentUserList as List<*>).filterNotNull().filterNot(::isEntryHidden),
+                )
             clone.CommentUserList = filtered
             clone.CommentUserListCount = filtered.size
             clone.CommentCount = filtered.size

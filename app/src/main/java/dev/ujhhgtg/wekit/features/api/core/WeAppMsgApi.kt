@@ -1,17 +1,19 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import android.util.Pair
+import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
-import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 
-object WeAppMsgApi : ApiFeature(), IResolveDex {
-
+object WeAppMsgApi : ApiFeature() {
     override val technicalId = "AppMsg 发送服务"
     override val nameRes = R.string.feature_we_app_msg_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -19,49 +21,48 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
 
     data class NativeSendResult(val statusCode: Int, val localMsgId: Long?)
 
-    private val methodParseXml by dexMethod()    // op0.q.u(String)
-    private val methodSendAppMsg by dexMethod()  // k0.J(...)
+    private val classAppMsgContent by dexClass {
+        usingStrings("<appmsg appid=\"", "parse amessage xml failed")
+    }
+    private val classAppMsgLogic by dexClass {
+        usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
+    }
 
     private const val TAG = "WeAppMsgApi"
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        val classAppMsgContent = dexKit.findClass {
-            matcher {
-                usingStrings("<appmsg appid=\"", "parse amessage xml failed")
-            }
-        }.single()
-
-        val classAppMsgLogic = dexKit.findClass {
-            matcher {
-                usingStrings("MicroMsg.AppMsgLogic", "summerbig sendAppMsg attachFilePath")
-            }
-        }.single()
-
-        methodParseXml.find(dexKit, true) {
-            matcher {
-                declaredClass = classAppMsgContent.name
+    private val methodParseXml by dexMethodFrom {
+        DexResolutionContext.findMethods {
+                declaredClass = classAppMsgContent.data.name
                 modifiers = Modifier.PUBLIC or Modifier.STATIC
                 paramTypes(String::class.java.name)
-                returnType = classAppMsgContent.name
-                usingStrings("parse msg failed")
+                returnType = classAppMsgContent.data.name
+                usingString("parse msg failed")
             }
+            .first()
+    }
+    private val methodSendAppMsg by dexMethod {
+        declaredClass = classAppMsgLogic.data.name
+        modifiers = Modifier.STATIC
+        paramCount = 6
+        paramTypes(classAppMsgContent.data.name, "java.lang.String", null, null, null, null)
+    }
+    private val fieldQuoteItem by dexFieldFrom {
+        classAppMsgContent.data.fields.single {
+            it.typeName == "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"
         }
-
-        methodSendAppMsg.find(dexKit) {
-            matcher {
-                declaredClass = classAppMsgLogic.name
-                modifiers = Modifier.STATIC
-                paramCount = 6
-                paramTypes(
-                    classAppMsgContent.name,
-                    "java.lang.String",
-                    null,
-                    null,
-                    null,
-                    null
-                )
+    }
+    private val fieldQuoteMsgSource by dexFieldFrom {
+        // AppMsgLogic reads the outgoing msgSource, not the quoted message's msgsource.
+        classAppMsgLogic.data.methods
+            .asSequence()
+            .flatMap { it.usingFields.asSequence() }
+            .filter { it.usingType == FieldUsingType.Read }
+            .map { it.field }
+            .filter {
+                it.className == fieldQuoteItem.data.typeName && it.typeName == "java.lang.String"
             }
-        }
+            .distinctBy { it.descriptor }
+            .single()
     }
 
     fun sendXmlAppMsg(
@@ -70,7 +71,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
         appId: String,
         url: String?,
         data: ByteArray?,
-        xmlContent: String
+        xmlContent: String,
     ): Boolean {
         return try {
             WeLogger.i(TAG, "sending appmsg to $target")
@@ -80,14 +81,21 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
                 return false
             }
 
+            // XML parsing leaves the outgoing quote msgSource unset. Older send paths
+            // pass it to fromXml without a null check; native quote composition uses "".
+            val quoteItem = fieldQuoteItem.field.get(contentObj)
+            if (quoteItem != null && fieldQuoteMsgSource.field.get(quoteItem) == null) {
+                fieldQuoteMsgSource.field.set(quoteItem, "")
+            }
+
             methodSendAppMsg.method.invoke(
-                null,         // static
+                null, // static
                 contentObj, // content
-                appId,             // appId
-                title,             // title/appName
-                target,            // toUser
-                url,               // url
-                data               // thumbDat
+                appId, // appId
+                title, // title/appName
+                target, // toUser
+                url, // attachFilePath
+                data, // thumbDat
             )
 
             true
@@ -98,15 +106,16 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     }
 
     fun sendAppMsgObject(target: String, contentObj: Any): NativeSendResult {
-        val result = methodSendAppMsg.method.invoke(
-            null,
-            contentObj,
-            "",
-            "",
-            target,
-            "",
-            null,
-        ) as Pair<*, *>
+        val result =
+            methodSendAppMsg.method.invoke(
+                null,
+                contentObj,
+                "",
+                "",
+                target,
+                "",
+                null,
+            ) as Pair<*, *>
         return NativeSendResult(result.first as Int, result.second as? Long)
     }
 }

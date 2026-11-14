@@ -25,8 +25,8 @@ import com.composables.icons.materialsymbols.outlined.Visibility
 import com.composables.icons.materialsymbols.outlined.Visibility_off
 
 /**
- * A setting widget that displays the current string value on a standard clickable row and
- * edits it in a dialog, following InstallerX's row-driven input pattern.
+ * A setting widget that displays the current string value on a standard clickable row and edits it
+ * in a dialog, following InstallerX's row-driven input pattern.
  *
  * @param title The row headline.
  * @param value The current value, shown as the row description.
@@ -65,11 +65,12 @@ fun TextFieldDialogWidget(
         modifier = modifier,
         iconPlaceholder = false,
         title = title,
-        description = when {
-            value.isBlank() -> valueHint
-            password -> "••••••••"
-            else -> value
-        },
+        description =
+            when {
+                value.isBlank() -> valueHint
+                password -> "••••••••"
+                else -> value
+            },
         enabled = enabled,
         onClick = {
             draft = value
@@ -89,27 +90,30 @@ fun TextFieldDialogWidget(
                 onValueChange = { draft = filter(it) },
                 singleLine = singleLine,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                visualTransformation = if (password && !reveal) {
-                    PasswordVisualTransformation()
-                } else {
-                    VisualTransformation.None
-                },
-                trailingIcon = if (password) {
-                    {
-                        IconButton(onClick = { reveal = !reveal }) {
-                            Icon(
-                                imageVector = if (reveal) {
-                                    MaterialSymbols.Outlined.Visibility_off
-                                } else {
-                                    MaterialSymbols.Outlined.Visibility
-                                },
-                                contentDescription = null,
-                            )
+                visualTransformation =
+                    if (password && !reveal) {
+                        PasswordVisualTransformation()
+                    } else {
+                        VisualTransformation.None
+                    },
+                trailingIcon =
+                    if (password) {
+                        {
+                            IconButton(onClick = { reveal = !reveal }) {
+                                Icon(
+                                    imageVector =
+                                        if (reveal) {
+                                            MaterialSymbols.Outlined.Visibility_off
+                                        } else {
+                                            MaterialSymbols.Outlined.Visibility
+                                        },
+                                    contentDescription = null,
+                                )
+                            }
                         }
-                    }
-                } else {
-                    null
-                },
+                    } else {
+                        null
+                    },
                 modifier = Modifier.fillMaxWidth(),
             )
         },
@@ -119,7 +123,9 @@ fun TextFieldDialogWidget(
                     showDialog = false
                     onValueChange(draft)
                 },
-            ) { Text(confirmLabel) }
+            ) {
+                Text(confirmLabel)
+            }
         },
         dismissButton = {
             TextButton(onClick = { showDialog = false }) { Text(dismissLabel) }

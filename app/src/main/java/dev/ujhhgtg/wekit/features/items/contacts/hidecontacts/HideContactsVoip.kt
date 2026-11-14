@@ -19,7 +19,6 @@ private const val TAG = "HideContacts.Voip"
  * ## Which stack actually runs on 8.0.7x
  *
  * A 1:1 call is delivered entirely through the VoIPMP / ILink native core:
- *
  * ```
  * push (hp5.m.L0 / hp5.t.yi)
  *   -> qq5.j.b9(...)                 mp5/q2.java:618
@@ -33,15 +32,14 @@ private const val TAG = "HideContacts.Voip"
  *
  * The legacy v2protocal RUDP stack (`MicroMsg.Voip.VoipServiceEx` / `VoipIncomingCallManager`) is
  * only reached when the *peer* falls back to the old protocol. Auto-reject used to be implemented
- * solely against that stack, which is why it never did anything for a normal 8.0.7x call: the
- * hooks simply never fired, so no rejection packet was ever sent. Those hooks are kept below purely
- * as a legacy fallback.
+ * solely against that stack, which is why it never did anything for a normal 8.0.7x call: the hooks
+ * simply never fired, so no rejection packet was ever sent. Those hooks are kept below purely as a
+ * legacy fallback.
  *
  * ## Ordering constraint (this is the subtle part)
  *
  * `v0.f()` — the native hangup that a rejection ultimately reaches — can only reject a room the
  * native core already knows about. Inside `ZIDL_FBV` the call order is:
- *
  * ```
  * jVar.qa(...)            <- banner/notification/ring dispatch happens FIRST
  * r0.f371853w = 2         <- ...then status
@@ -52,15 +50,15 @@ private const val TAG = "HideContacts.Voip"
  *
  * So a rejection issued from inside the `qa` hook would run before any of that state exists. Worse,
  * the previous implementation cancelled `ZIDL_FBV` outright with `hookBefore { result = null }`,
- * which skipped both the state writes *and* the ack — leaving CoreV2 half-initialised with
- * `r0.p()` false, so every later rejection attempt was a no-op and the caller just rang until the
- * 60 s timeout.
+ * which skipped both the state writes *and* the ack — leaving CoreV2 half-initialised with `r0.p()`
+ * false, so every later rejection attempt was a no-op and the caller just rang until the 60 s
+ * timeout.
  *
  * Hence: suppress the UI in [installVoipMpHooks] (via `qa`, the ringtone and the FGS), let
  * `ZIDL_FBV` run to completion, and only then — from its `hookAfter` — invoke `q2.Qa()`, the same
  * "rejectByShortCut" entry WeChat's own Bluetooth quick-reject uses.
  */
-internal fun HideContacts.installVoipHooks() {
+fun HideContacts.installVoipHooks() {
     installVoipMpHooks()
     installMultiTalkHooks()
     installVoipRecordHooks()
@@ -72,8 +70,7 @@ internal fun HideContacts.installVoipHooks() {
  * `Qa()` on it later. WeChat itself obtains it via `pa5.n0.c(qq5.j.class)`; capturing `thisObject`
  * from a call we already intercept avoids having to resolve that plugin-lookup machinery.
  */
-@Volatile
-private var voipMpLauncher: Any? = null
+@Volatile private var voipMpLauncher: Any? = null
 
 private fun HideContacts.installVoipMpHooks() {
     // Banner + notification + ringtone dispatch. Cancelling this one call suppresses the whole
@@ -125,7 +122,7 @@ private fun rejectVoipMpCall(wxId: String) {
         WeLogger.w(TAG, "no VoIPMP launcher captured; cannot auto-reject call from $wxId")
         return
     }
-    if (HideContacts.methodVoipMpReject.isPlaceholder) {
+    if (!HideContacts.methodVoipMpReject.isFound) {
         WeLogger.w(TAG, "rejectByShortCut wasn't resolved; cannot auto-reject call from $wxId")
         return
     }
@@ -142,11 +139,11 @@ private fun rejectVoipMpCall(wxId: String) {
  * VoIPMP machinery hooked above and needs nothing extra here; when it is off, it goes through the
  * classic ILink stack and lands in `MultiTalkManager.onInviteMultiTalk`.
  *
- * Suppressing there mirrors what WeChat itself does for a blacklisted inviter (it logs
- * "not open multitalk receiver or black user" and returns without showing any UI).
+ * Suppressing there mirrors what WeChat itself does for a blacklisted inviter (it logs "not open
+ * multitalk receiver or black user" and returns without showing any UI).
  */
 private fun HideContacts.installMultiTalkHooks() {
-    if (methodMultiTalkOnInvite.isPlaceholder) {
+    if (!methodMultiTalkOnInvite.isFound) {
         WeLogger.w(TAG, "onInviteMultiTalk wasn't resolved; multitalk invite hiding unavailable")
         return
     }
@@ -156,8 +153,8 @@ private fun HideContacts.installMultiTalkHooks() {
         val (chatroom, inviter) = readMultiTalkInvite(group) ?: return@hookBefore
 
         // Either the group itself or the person who invited us being hidden is enough.
-        val hiddenTarget = listOfNotNull(chatroom, inviter).firstOrNull { isHiddenNow(it) }
-            ?: return@hookBefore
+        val hiddenTarget =
+            listOfNotNull(chatroom, inviter).firstOrNull { isHiddenNow(it) } ?: return@hookBefore
 
         WeLogger.i(TAG, "suppressing multitalk invite (chatroom=$chatroom inviter=$inviter)")
         result = null
@@ -175,7 +172,7 @@ private fun HideContacts.installMultiTalkHooks() {
  * names, but their fields are obfuscated, so we go by declared type and position — the same
  * approach SplitGroupCall already uses for `ILinkMember`:
  *
- * - MultiTalkGroup  String fields: [?, ?, chatroom, ?]  -> index 2; the only List field is members
+ * - MultiTalkGroup String fields: [?, ?, chatroom, ?] -> index 2; the only List field is members
  * - MultiTalkGroupMember String fields: [username, inviterUsername] -> [0], [1]
  *
  * This reproduces `o2.d(group)`, which finds our own member entry and returns who invited it.
@@ -183,34 +180,47 @@ private fun HideContacts.installMultiTalkHooks() {
 private fun readMultiTalkInvite(group: Any): Pair<String?, String?>? = runCatching {
     val groupRef = group.reflekt()
     val chatroom = groupRef.fields { type = BString }.getOrNull(2)?.get() as? String
-    val members = groupRef.firstField { type = List::class }.get() as? List<*> ?: return@runCatching null
+    val members =
+        groupRef.firstField { type = List::class }.get() as? List<*> ?: return@runCatching null
 
     val selfWxId = RuntimeConfig.loggedInWxId
-    val inviter = members.filterNotNull().firstNotNullOfOrNull { member ->
-        val strings = member.reflekt().fields { type = BString }
-        val username = strings.getOrNull(0)?.get() as? String
-        if (username == selfWxId) strings.getOrNull(1)?.get() as? String else null
-    }
+    val inviter =
+        members.filterNotNull().firstNotNullOfOrNull { member ->
+            val strings = member.reflekt().fields { type = BString }
+            val username = strings.getOrNull(0)?.get() as? String
+            if (username == selfWxId) strings.getOrNull(1)?.get() as? String else null
+        }
     chatroom to inviter
-}.onFailure { WeLogger.w(TAG, "failed to read MultiTalkGroup", it) }.getOrNull()
+}
+    .onFailure { WeLogger.w(TAG, "failed to read MultiTalkGroup", it) }
+    .getOrNull()
 
 /** `v0.g(isReject, isMissCall, isPhoneCall, isNetworkError, boolean, boolean)`. */
 private fun rejectMultiTalk(manager: Any?, target: String) {
     if (manager == null) return
-    if (SplitGroupCall.methodExitMultiTalk.isPlaceholder) {
+    if (!SplitGroupCall.methodExitMultiTalk.isFound) {
         WeLogger.w(TAG, "exitCurrentMultiTalk wasn't resolved; cannot auto-reject group call")
         return
     }
     WeLogger.i(TAG, "auto-rejecting multitalk invite from $target")
     runCatching {
-        SplitGroupCall.methodExitMultiTalk.method.invoke(manager, true, false, false, false, true, false)
-    }.onFailure { WeLogger.w(TAG, "exitCurrentMultiTalk failed for $target", it) }
+        SplitGroupCall.methodExitMultiTalk.method.invoke(
+            manager,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+        )
+    }
+        .onFailure { WeLogger.w(TAG, "exitCurrentMultiTalk failed for $target", it) }
 }
 
 /**
- * Call-record messages ("未接听" / "已取消" / duration bubbles). There are three separate insertion
- * paths and the previous implementation hooked only the legacy one — via a matcher that resolved to
- * the wrong member entirely (see [HideContacts.methodVoipLegacyInsertMsg]).
+ * Call-record messages ("未接听" / "已取消" / duration bubbles). There are three separate insertion paths
+ * and the previous implementation hooked only the legacy one — via a matcher that resolved to the
+ * wrong member entirely (see [HideContacts.methodVoipLegacyInsertMsg]).
  */
 private fun HideContacts.installVoipRecordHooks() {
     // VoIPMP local insertion — the one that matters on 8.0.7x.
@@ -225,11 +235,16 @@ private fun HideContacts.installVoipRecordHooks() {
     // the same as "nothing was inserted", which is exactly how WeChat treats a parse failure.
     methodVoipBubbleHandle.hookBefore {
         val addMsg = args.getOrNull(1) ?: return@hookBefore
-        val talker = runCatching {
-            addMsg.reflekt().fields { type = BString }.firstNotNullOfOrNull { field ->
-                (field.get() as? String)?.takeIf { isHiddenNow(it) }
+        val talker =
+            runCatching {
+                addMsg
+                    .reflekt()
+                    .fields { type = BString }
+                    .firstNotNullOfOrNull { field ->
+                        (field.get() as? String)?.takeIf { isHiddenNow(it) }
+                    }
             }
-        }.getOrNull() ?: return@hookBefore
+                .getOrNull() ?: return@hookBefore
         WeLogger.i(TAG, "suppressing pushed voip bubble from $talker")
         result = null
     }
@@ -238,7 +253,7 @@ private fun HideContacts.installVoipRecordHooks() {
     // those strings live in the synthetic Runnable `b2$$a.run()` — a ZERO-parameter method — so
     // `args[0] as String` threw ArrayIndexOutOfBoundsException on every legacy call record. This
     // matches the real 8-parameter `b2.d(talker, ...)` instead.
-    if (!methodVoipLegacyInsertMsg.isPlaceholder) {
+    if (methodVoipLegacyInsertMsg.isFound) {
         methodVoipLegacyInsertMsg.hookBefore {
             val wxId = args[0] as? String ?: return@hookBefore
             if (!isHiddenNow(wxId)) return@hookBefore
@@ -263,7 +278,7 @@ private fun HideContacts.installLegacyVoipHooks() {
     // The "已拒绝通话" banner that WeChat raises AFTER a rejection. It lives on the same manager as
     // the incoming card but is a separate method, so suppressing the incoming card leaves it
     // visible — which defeats the point of hiding when auto-reject is on.
-    if (methodVoipShowFinishCard.isPlaceholder) {
+    if (!methodVoipShowFinishCard.isFound) {
         WeLogger.w(TAG, "showFinishCard wasn't resolved; the post-reject banner will stay visible")
     } else {
         methodVoipShowFinishCard.hookBefore {
@@ -308,19 +323,23 @@ private fun HideContacts.installLegacyVoipHooks() {
 
     // Fallback for the foreground service, in case it is started through a path that bypasses
     // xp5.b.d. VoipNewForegroundService extends this and does not override onStartCommand.
-    VoipForegroundService::class.reflekt().firstMethod { name = "onStartCommand" }.hookBefore {
-        val self = thisObject as VoipForegroundService
-        val intent = args[0] as? Intent ?: return@hookBefore
-        val wxId = intent.getStringExtra("Voip_User") ?: return@hookBefore
-        if (!isHiddenNow(wxId)) return@hookBefore
-        self.stopSelf()
-        result = Service.START_NOT_STICKY
-    }
+    VoipForegroundService::class.reflekt()
+        .firstMethod { name = "onStartCommand" }
+        .hookBefore {
+            val self = thisObject as VoipForegroundService
+            val intent = args[0] as? Intent ?: return@hookBefore
+            val wxId = intent.getStringExtra("Voip_User") ?: return@hookBefore
+            if (!isHiddenNow(wxId)) return@hookBefore
+            self.stopSelf()
+            result = Service.START_NOT_STICKY
+        }
 }
 
 /**
  * Reads the caller wxid out of an `a65.b57` RoomInfo, which declares exactly one String field
  * (`f3634i` = callerUserName).
  */
-private fun HookParam.legacyCallerWxId(): String? =
-    runCatching { args[0]!!.reflekt().firstField { type = BString }.get() as? String }.getOrNull()
+private fun HookParam.legacyCallerWxId(): String? = runCatching {
+    args[0]!!.reflekt().firstField { type = BString }.get() as? String
+}
+    .getOrNull()

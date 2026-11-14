@@ -15,16 +15,17 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.i18n.localizedQuantity
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.contacts.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
@@ -36,7 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
-
     override val technicalId = "自动缓存图片"
     override val nameRes = R.string.feature_auto_cache_images_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -44,9 +44,9 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
 
     private const val TAG = "AutoCacheImages"
 
-    private var useWhitelist by WePrefs.prefOption("autocache_images_use_whitelist", false)
-    private var whitelist by WePrefs.prefOption("autocache_images_whitelist", emptySet())
-    private var blacklist by WePrefs.prefOption("autocache_images_blacklist", emptySet())
+    private var useWhitelist by KvStore.prefOption("autocache_images_use_whitelist", false)
+    private var whitelist by KvStore.prefOption("autocache_images_whitelist", emptySet())
+    private var blacklist by KvStore.prefOption("autocache_images_blacklist", emptySet())
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
@@ -98,8 +98,22 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_whitelist_selected else R.string.chat_auto_cache_blacklist_selected),
-                                description = stringResource(if (useWhitelistState) R.string.chat_auto_cache_images_whitelist_description else R.string.chat_auto_cache_images_blacklist_description),
+                                title =
+                                    stringResource(
+                                        if (useWhitelistState) {
+                                            R.string.filter_list_whitelist_selected
+                                        } else {
+                                            R.string.filter_list_blacklist_selected
+                                        },
+                                    ),
+                                description =
+                                    stringResource(
+                                        if (useWhitelistState) {
+                                            R.string.chat_auto_cache_images_whitelist_description
+                                        } else {
+                                            R.string.chat_auto_cache_images_blacklist_description
+                                        },
+                                    ),
                                 checked = useWhitelistState,
                                 onCheckedChange = {
                                     useWhitelistState = it
@@ -110,28 +124,51 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                         item {
                             BaseWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_configure_whitelist else R.string.chat_auto_cache_configure_blacklist),
-                                description = stringResource(R.string.chat_auto_cache_select_contacts_hint),
-                                onClick = {
-                                val contacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
-                                val currentList = if (useWhitelistState) whitelist else blacklist
-
-                                showComposeDialog(context) {
-                                    ContactsSelector(
-                                        title = stringResource(if (useWhitelistState) R.string.chat_auto_cache_select_whitelist else R.string.chat_auto_cache_select_blacklist),
-                                        contacts = contacts,
-                                        initialSelectedWxIds = currentList,
-                                        onDismiss = onDismiss
-                                    ) { selectedIds ->
+                                title =
+                                    stringResource(
                                         if (useWhitelistState) {
-                                            whitelist = selectedIds
+                                            R.string.filter_list_configure_whitelist
                                         } else {
-                                            blacklist = selectedIds
+                                            R.string.filter_list_configure_blacklist
+                                        },
+                                    ),
+                                description =
+                                    stringResource(R.string.filter_list_select_contacts_hint),
+                                onClick = {
+                                    val contacts =
+                                        WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
+                                    val currentList =
+                                        if (useWhitelistState) whitelist else blacklist
+
+                                    showComposeDialog(context) {
+                                        ContactsSelector(
+                                            title =
+                                                stringResource(
+                                                    if (useWhitelistState) {
+                                                        R.string.filter_list_select_whitelist
+                                                    } else {
+                                                        R.string.filter_list_select_blacklist
+                                                    },
+                                                ),
+                                            contacts = contacts,
+                                            initialSelectedWxIds = currentList,
+                                            onDismiss = onDismiss,
+                                        ) { selectedIds ->
+                                            if (useWhitelistState) {
+                                                whitelist = selectedIds
+                                            } else {
+                                                blacklist = selectedIds
+                                            }
+                                            showToast(
+                                                localizedQuantity(
+                                                    R.plurals.filter_list_contacts_saved,
+                                                    selectedIds.size,
+                                                    selectedIds.size,
+                                                ),
+                                            )
+                                            onDismiss()
                                         }
-                                        showToast(localizedChatQuantity(R.plurals.chat_auto_cache_contacts_saved, selectedIds.size, selectedIds.size))
-                                        onDismiss()
                                     }
-                                }
                                 },
                                 trailingContent = {
                                     Icon(
@@ -144,7 +181,9 @@ object AutoCacheImages : ClickableFeature(), WeDatabaseListenerApi.IInsertListen
                         }
                     }
                 },
-                dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) } }
+                dismissButton = {
+                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_close)) }
+                },
             )
         }
     }

@@ -16,11 +16,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * 聊天输入栏监听服务。
  *
- * 监听聊天界面输入栏的文本变化事件，其他功能可通过 [addListener] 注册实现
- * [IInputBarListener] 接口的监听器来接收文本变化通知。
+ * 监听聊天界面输入栏的文本变化事件，其他功能可通过 [addListener] 注册实现 [IInputBarListener] 接口的监听器来接收文本变化通知。
  */
 object WeChatInputBarApi : ApiFeature() {
-
     override val technicalId = "聊天输入栏监听服务"
     override val nameRes = R.string.feature_we_chat_input_bar_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -46,16 +44,13 @@ object WeChatInputBarApi : ApiFeature() {
     /**
      * 注册一个输入栏监听器。
      *
-     * 监听器的 [IInputBarListener.onTextChanged] 会在每次输入框文本变化时被调用。
-     * 重复注册同一个监听器实例不会生效。
+     * 监听器的 [IInputBarListener.onTextChanged] 会在每次输入框文本变化时被调用。 重复注册同一个监听器实例不会生效。
      */
     fun addListener(listener: IInputBarListener) {
         listeners.addIfAbsent(listener)
     }
 
-    /**
-     * 移除一个已注册的输入栏监听器。
-     */
+    /** 移除一个已注册的输入栏监听器。 */
     fun removeListener(listener: IInputBarListener) {
         listeners.remove(listener)
     }
@@ -71,35 +66,64 @@ object WeChatInputBarApi : ApiFeature() {
         //
         // fl5.i is obfuscated and can't be referenced at compile time, so we locate
         // the field at runtime: whichever non-null field value exposes addTextChangedListener.
-        ChatFooter::class.java.reflekt()
-            .firstMethod { name = "onAttachedToWindow"; parameterCount = 0 }
+        ChatFooter::class
+            .java
+            .reflekt()
+            .firstMethod {
+                name = "onAttachedToWindow"
+                parameterCount = 0
+            }
             .hookAfter {
                 val chatFooter = thisObject as ChatFooter
 
                 if (!hookedFooters.add(chatFooter)) return@hookAfter
 
-                val field = chatFooter.reflekt().firstField {
-                    type { clazz ->
-                        clazz.isInterface && clazz.declaredMethods.any { it.name == "addTextChangedListener" }
-                    }
-                }.get()!!
-                field.reflekt().firstMethod {
-                    name = "addTextChangedListener"
-                    superclass()
-                }.invoke(object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                    override fun afterTextChanged(s: Editable?) {
-                        val text = s?.toString() ?: ""
-                        for (listener in listeners) {
-                            try {
-                                listener.onTextChanged(chatFooter, text)
-                            } catch (e: Throwable) {
-                                WeLogger.e(TAG, "input bar listener callback failed", e)
+                val field =
+                    chatFooter
+                        .reflekt()
+                        .firstField {
+                            type { clazz ->
+                                clazz.isInterface &&
+                                    clazz.declaredMethods.any {
+                                        it.name == "addTextChangedListener"
+                                    }
                             }
                         }
+                        .get()!!
+                field
+                    .reflekt()
+                    .firstMethod {
+                        name = "addTextChangedListener"
+                        superclass()
                     }
-                })
+                    .invoke(
+                        object : TextWatcher {
+                            override fun beforeTextChanged(
+                                s: CharSequence?,
+                                start: Int,
+                                count: Int,
+                                after: Int,
+                            ) {}
+
+                            override fun onTextChanged(
+                                s: CharSequence?,
+                                start: Int,
+                                before: Int,
+                                count: Int,
+                            ) {}
+
+                            override fun afterTextChanged(s: Editable?) {
+                                val text = s?.toString() ?: ""
+                                for (listener in listeners) {
+                                    try {
+                                        listener.onTextChanged(chatFooter, text)
+                                    } catch (e: Throwable) {
+                                        WeLogger.e(TAG, "input bar listener callback failed", e)
+                                    }
+                                }
+                            }
+                        },
+                    )
 
                 WeLogger.d(TAG, "attached text watcher to ${field.javaClass.name}")
             }

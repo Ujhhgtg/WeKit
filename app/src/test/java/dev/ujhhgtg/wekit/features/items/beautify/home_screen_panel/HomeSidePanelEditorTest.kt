@@ -11,14 +11,16 @@ class HomeSidePanelEditorTest {
 
     private class SequenceIds : HomeSidePanelIdGenerator {
         private var next = 0
+
         override fun nextId(): String = "editor-id-" + next++
     }
 
     @Test
     fun changesStayInDraftUntilCommit() {
-        val original = HomeSidePanelLayout(
-            cards = listOf(DateTimeCardConfig("date"), WalletCardConfig("wallet")),
-        )
+        val original =
+            HomeSidePanelLayout(
+                cards = listOf(DateTimeCardConfig("date"), WalletCardConfig("wallet")),
+            )
         val editor = HomeSidePanelEditSession(original, SequenceIds())
 
         editor.moveCard(1, 0)
@@ -27,8 +29,7 @@ class HomeSidePanelEditorTest {
         assertEquals(listOf("date", "wallet"), original.cards.map { it.id })
         assertEquals(listOf("wallet", "date"), editor.draft.cards.map { it.id })
         assertTrue(
-            (editor.committedLayout().cards.first() as WalletCardConfig)
-                .hideBalanceByDefault,
+            (editor.committedLayout().cards.first() as WalletCardConfig).hideBalanceByDefault,
         )
     }
 
@@ -44,10 +45,11 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun duplicateCardsAndActionsGetFreshIds() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(cards = emptyList<HomeSidePanelCardConfig>()),
-            SequenceIds(),
-        )
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(cards = emptyList<HomeSidePanelCardConfig>()),
+                SequenceIds(),
+            )
 
         assertNotEquals(
             editor.addCard(HomeSidePanelCardType.WEATHER),
@@ -62,10 +64,11 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun onlyEmptyActionCardShowsWholeCardDelete() {
-        val card = HorizontalActionsCardConfig(
-            "card",
-            listOf(HomeSidePanelActionConfig("action", HomeSidePanelActionKind.SCAN)),
-        )
+        val card =
+            HorizontalActionsCardConfig(
+                "card",
+                listOf(HomeSidePanelActionConfig("action", HomeSidePanelActionKind.SCAN)),
+            )
 
         assertFalse(isWholeCardDeleteVisible(card))
         assertTrue(isWholeCardDeleteVisible(card.copy(actions = emptyList())))
@@ -74,17 +77,24 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun removingTheFinalActionLeavesItsCardEmpty() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(
-                cards = listOf(
-                    HorizontalActionsCardConfig(
-                        "card",
-                        listOf(HomeSidePanelActionConfig("action", HomeSidePanelActionKind.SCAN)),
-                    ),
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(
+                    cards =
+                        listOf(
+                            HorizontalActionsCardConfig(
+                                "card",
+                                listOf(
+                                    HomeSidePanelActionConfig(
+                                        "action",
+                                        HomeSidePanelActionKind.SCAN,
+                                    ),
+                                ),
+                            ),
+                        ),
                 ),
-            ),
-            SequenceIds(),
-        )
+                SequenceIds(),
+            )
 
         editor.removeAction("card", "action")
 
@@ -96,27 +106,32 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun movingAnActionOnlyChangesItsOwnCard() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(
-                cards = listOf(
-                    HorizontalActionsCardConfig(
-                        "first",
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(
+                    cards =
                         listOf(
-                            HomeSidePanelActionConfig("a", HomeSidePanelActionKind.SCAN),
-                            HomeSidePanelActionConfig("b", HomeSidePanelActionKind.WALLET),
+                            HorizontalActionsCardConfig(
+                                "first",
+                                listOf(
+                                    HomeSidePanelActionConfig("a", HomeSidePanelActionKind.SCAN),
+                                    HomeSidePanelActionConfig("b", HomeSidePanelActionKind.WALLET),
+                                ),
+                            ),
+                            VerticalActionsCardConfig(
+                                "second",
+                                listOf(
+                                    HomeSidePanelActionConfig("c", HomeSidePanelActionKind.MOMENTS),
+                                    HomeSidePanelActionConfig(
+                                        "d",
+                                        HomeSidePanelActionKind.CHANNELS,
+                                    ),
+                                ),
+                            ),
                         ),
-                    ),
-                    VerticalActionsCardConfig(
-                        "second",
-                        listOf(
-                            HomeSidePanelActionConfig("c", HomeSidePanelActionKind.MOMENTS),
-                            HomeSidePanelActionConfig("d", HomeSidePanelActionKind.CHANNELS),
-                        ),
-                    ),
                 ),
-            ),
-            SequenceIds(),
-        )
+                SequenceIds(),
+            )
 
         editor.moveAction("first", 1, 0)
 
@@ -134,15 +149,17 @@ class HomeSidePanelEditorTest {
     fun updatingOneDuplicateWeatherCardLeavesTheOtherUntouched() {
         val firstCity = DEFAULT_WEATHER_CITY.copy(city = "上海", cityNum = "101020100")
         val secondCity = DEFAULT_WEATHER_CITY.copy(city = "北京", cityNum = "101010100")
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(
-                cards = listOf(
-                    WeatherCardConfig("first", firstCity),
-                    WeatherCardConfig("second", secondCity),
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(
+                    cards =
+                        listOf(
+                            WeatherCardConfig("first", firstCity),
+                            WeatherCardConfig("second", secondCity),
+                        ),
                 ),
-            ),
-            SequenceIds(),
-        )
+                SequenceIds(),
+            )
 
         editor.updateWeather("second") { it.copy(city = firstCity) }
 
@@ -152,15 +169,17 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun updatingOneDuplicateDateCardLeavesTheOtherUntouched() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(
-                cards = listOf(
-                    DateTimeCardConfig("first"),
-                    DateTimeCardConfig("second"),
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(
+                    cards =
+                        listOf(
+                            DateTimeCardConfig("first"),
+                            DateTimeCardConfig("second"),
+                        ),
                 ),
-            ),
-            SequenceIds(),
-        )
+                SequenceIds(),
+            )
 
         editor.updateDateTime("second") { it.copy(showLunarCalendar = true) }
 
@@ -170,25 +189,32 @@ class HomeSidePanelEditorTest {
 
     @Test
     fun invalidIdsTypesAndIndicesFailLoudly() {
-        val editor = HomeSidePanelEditSession(
-            HomeSidePanelLayout(cards = listOf(WalletCardConfig("wallet"))),
-            SequenceIds(),
-        )
+        val editor =
+            HomeSidePanelEditSession(
+                HomeSidePanelLayout(cards = listOf(WalletCardConfig("wallet"))),
+                SequenceIds(),
+            )
 
         assertTrue(
             assertThrows(IllegalArgumentException::class.java) {
-                editor.removeCard("missing")
-            }.message!!.contains("missing"),
+                    editor.removeCard("missing")
+                }
+                .message!!
+                .contains("missing"),
         )
         assertTrue(
             assertThrows(IllegalArgumentException::class.java) {
-                editor.updateWeather("wallet") { it }
-            }.message!!.contains("Weather"),
+                    editor.updateWeather("wallet") { it }
+                }
+                .message!!
+                .contains("Weather"),
         )
         assertTrue(
             assertThrows(IndexOutOfBoundsException::class.java) {
-                editor.moveCard(0, 1)
-            }.message!!.contains("index"),
+                    editor.moveCard(0, 1)
+                }
+                .message!!
+                .contains("index"),
         )
     }
 }

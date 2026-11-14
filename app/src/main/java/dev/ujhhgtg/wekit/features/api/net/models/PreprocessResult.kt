@@ -6,7 +6,7 @@ data class PreprocessResult(
     val json: JSONObject? = null,
     val protoBytes: ByteArray? = null,
     val nativeNetScene: Any? = null,
-    val onSendSuccess: (() -> Unit)? = null
+    val onSendSuccess: (() -> Unit)? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

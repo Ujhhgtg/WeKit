@@ -47,6 +47,11 @@ public class ChatFooter extends FrameLayout {
         throw new RuntimeException("Stub!");
     }
 
+    /** The open bottom panel (0 when none). */
+    public int getPanelType() {
+        throw new RuntimeException("Stub!");
+    }
+
     public View getV2TBtnLayout() {
         throw new RuntimeException("Stub!");
     }

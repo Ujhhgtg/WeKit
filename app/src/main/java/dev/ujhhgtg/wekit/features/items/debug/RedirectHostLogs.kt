@@ -14,10 +14,10 @@ import com.tencent.mars.xlog.Log
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.getBoolOrFalse
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.getBoolOrFalse
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -26,7 +26,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object RedirectHostLogs : ClickableFeature() {
-
     override val technicalId = "重定向微信日志"
     override val nameRes = R.string.feature_redirect_host_logs_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)
@@ -37,75 +36,85 @@ object RedirectHostLogs : ClickableFeature() {
 
     override fun onEnable() {
         Log::class.reflekt().apply {
-            if (getBoolOrFalse("${KEY_PREFIX}v"))
+            if (getBoolOrFalse("${KEY_PREFIX}v")) {
                 firstMethod {
                     name = "v"
                     parameterCount = 3
                     modifiers(Modifiers.STATIC)
-                }.hookBefore {
-                    runCatching {
-                        val tag = args[0] as String
-                        var formatString = args[1] as String
-                        formatString = formatString.format(*(args[2] as Array<*>))
-                        WeLogger.v(TAG, "[V] [$tag] $formatString")
-                    }
                 }
+                    .hookBefore {
+                        runCatching {
+                            val tag = args[0] as String
+                            var formatString = args[1] as String
+                            formatString = formatString.format(*(args[2] as Array<*>))
+                            WeLogger.v(TAG, "[V] [$tag] $formatString")
+                        }
+                    }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}d"))
+            if (getBoolOrFalse("${KEY_PREFIX}d")) {
                 firstMethod {
                     name = "d"
                     parameterCount = 3
                     modifiers(Modifiers.STATIC)
-                }.hookBefore {
-                    runCatching {
-                        val tag = args[0] as String
-                        var formatString = args[1] as String
-                        formatString = formatString.format(*(args[2] as Array<*>))
-                        WeLogger.d(TAG, "[D] [$tag] $formatString")
-                    }
                 }
+                    .hookBefore {
+                        runCatching {
+                            val tag = args[0] as String
+                            var formatString = args[1] as String
+                            formatString = formatString.format(*(args[2] as Array<*>))
+                            WeLogger.d(TAG, "[D] [$tag] $formatString")
+                        }
+                    }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}i"))
+            if (getBoolOrFalse("${KEY_PREFIX}i")) {
                 firstMethod {
                     name = "i"
                     parameterCount = 3
                     modifiers(Modifiers.STATIC)
-                }.hookBefore {
-                    runCatching {
-                        val tag = args[0] as String
-                        var formatString = args[1] as String
-                        formatString = formatString.format(*(args[2] as Array<*>))
-                        WeLogger.i(TAG, "[I] [$tag] $formatString")
-                    }
                 }
+                    .hookBefore {
+                        runCatching {
+                            val tag = args[0] as String
+                            var formatString = args[1] as String
+                            formatString = formatString.format(*(args[2] as Array<*>))
+                            WeLogger.i(TAG, "[I] [$tag] $formatString")
+                        }
+                    }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}w"))
+            if (getBoolOrFalse("${KEY_PREFIX}w")) {
                 firstMethod {
                     name = "w"
                     parameterCount = 3
                     modifiers(Modifiers.STATIC)
-                }.hookBefore {
-                    runCatching {
-                        val tag = args[0] as String
-                        var formatString = args[1] as String
-                        formatString = formatString.format(*(args[2] as Array<*>))
-                        WeLogger.w(TAG, "[W] [$tag] $formatString")
-                    }
                 }
+                    .hookBefore {
+                        runCatching {
+                            val tag = args[0] as String
+                            var formatString = args[1] as String
+                            formatString = formatString.format(*(args[2] as Array<*>))
+                            WeLogger.w(TAG, "[W] [$tag] $formatString")
+                        }
+                    }
+            }
 
-            if (getBoolOrFalse("${KEY_PREFIX}e"))
+            if (getBoolOrFalse("${KEY_PREFIX}e")) {
                 firstMethod {
                     name = "e"
                     parameterCount = 3
                     modifiers(Modifiers.STATIC)
-                }.hookBefore {
-                    runCatching {
-                        val tag = args[0] as String
-                        var formatString = args[1] as String
-                        formatString = formatString.format(*(args[2] as Array<*>))
-                        WeLogger.e(TAG, "[E] [$tag] $formatString")
-                    }
                 }
+                    .hookBefore {
+                        runCatching {
+                            val tag = args[0] as String
+                            var formatString = args[1] as String
+                            formatString = formatString.format(*(args[2] as Array<*>))
+                            WeLogger.e(TAG, "[E] [$tag] $formatString")
+                        }
+                    }
+            }
         }
     }
 
@@ -140,7 +149,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 checked = v,
                                 onCheckedChange = {
                                     v = it
-                                    WePrefs.putBool("${KEY_PREFIX}v", it)
+                                    KvStore.putBool("${KEY_PREFIX}v", it)
                                     dirty = true
                                 },
                             )
@@ -152,7 +161,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 checked = d,
                                 onCheckedChange = {
                                     d = it
-                                    WePrefs.putBool("${KEY_PREFIX}d", it)
+                                    KvStore.putBool("${KEY_PREFIX}d", it)
                                     dirty = true
                                 },
                             )
@@ -164,7 +173,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 checked = i,
                                 onCheckedChange = {
                                     i = it
-                                    WePrefs.putBool("${KEY_PREFIX}i", it)
+                                    KvStore.putBool("${KEY_PREFIX}i", it)
                                     dirty = true
                                 },
                             )
@@ -176,7 +185,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 checked = w,
                                 onCheckedChange = {
                                     w = it
-                                    WePrefs.putBool("${KEY_PREFIX}w", it)
+                                    KvStore.putBool("${KEY_PREFIX}w", it)
                                     dirty = true
                                 },
                             )
@@ -188,7 +197,7 @@ object RedirectHostLogs : ClickableFeature() {
                                 checked = e,
                                 onCheckedChange = {
                                     e = it
-                                    WePrefs.putBool("${KEY_PREFIX}e", it)
+                                    KvStore.putBool("${KEY_PREFIX}e", it)
                                     dirty = true
                                 },
                             )

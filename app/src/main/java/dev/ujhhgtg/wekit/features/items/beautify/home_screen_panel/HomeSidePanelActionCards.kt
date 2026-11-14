@@ -48,13 +48,13 @@ import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import kotlinx.coroutines.delay
 
-internal enum class HomeSidePanelActionPlacement {
+enum class HomeSidePanelActionPlacement {
     TILE,
     LIST_ITEM,
 }
 
 @Composable
-internal fun HomeSidePanelHorizontalActionsCard(
+fun HomeSidePanelHorizontalActionsCard(
     card: HorizontalActionsCardConfig,
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
@@ -64,27 +64,33 @@ internal fun HomeSidePanelHorizontalActionsCard(
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
     actionTerminalModifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
-    onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
+    onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit =
+        { _, _, _ ->
+        },
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)? = null,
     onAddAction: (cardId: String) -> Unit = {},
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
-    val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
-    val draggedActionId = (insertionSnapshot?.payload as? HomeSidePanelDragPayload.ExistingAction)
-        ?.takeIf { it.cardId == card.id }
-        ?.actionId
+    val (animatedActions, visibleActionIds) =
+        rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val draggedActionId =
+        (insertionSnapshot?.payload as? HomeSidePanelDragPayload.ExistingAction)
+            ?.takeIf { it.cardId == card.id }
+            ?.actionId
     val displayedActions = animatedActions.filterNot { it.id == draggedActionId }
     val visualInsertionIndex = insertionSnapshot?.visualActionInsertionIndex(card.id, card.actions)
-    val interactiveActionIds = if (interactionEnabled) {
-        card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
-    } else {
-        emptySet()
-    }
-    val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
-        cardId = card.id,
-        editMode = editMode,
-        actionsEmpty = card.actions.isEmpty(),
-    )
+    val interactiveActionIds =
+        if (interactionEnabled) {
+            card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
+        } else {
+            emptySet()
+        }
+    val showEmptyCardDelete =
+        rememberHomeSidePanelEmptyDeleteVisibility(
+            cardId = card.id,
+            editMode = editMode,
+            actionsEmpty = card.actions.isEmpty(),
+        )
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
     val addVisibility = remember(card.id) { MutableTransitionState(showAdd) }
     addVisibility.targetState = showAdd
@@ -122,11 +128,12 @@ internal fun HomeSidePanelHorizontalActionsCard(
                             content = content,
                             editMode = editMode,
                             interactive = interactive,
-                            modifier = if (editMode && interactive) {
-                                actionDragModifier(card.id, action.id)
-                            } else {
-                                Modifier
-                            },
+                            modifier =
+                                if (editMode && interactive) {
+                                    actionDragModifier(card.id, action.id)
+                                } else {
+                                    Modifier
+                                },
                             onRunAction = onRunAction,
                             onDeleteAction = onDeleteAction,
                         )
@@ -154,17 +161,20 @@ internal fun HomeSidePanelHorizontalActionsCard(
                     ) {
                         HomeSidePanelAddActionItem(
                             placement = HomeSidePanelActionPlacement.TILE,
-                            onClick = if (interactionEnabled && editMode) {
-                                { onAddAction(card.id) }
-                            } else {
-                                null
-                            },
-                            onDeleteCard = if (showEmptyCardDelete) {
-                                onDeleteCard?.let { delete -> { delete(card.id) } }
-                            } else {
-                                null
-                            },
-                            actionTerminalModifier = if (editMode) actionTerminalModifier else Modifier,
+                            onClick =
+                                if (interactionEnabled && editMode) {
+                                    { onAddAction(card.id) }
+                                } else {
+                                    null
+                                },
+                            onDeleteCard =
+                                if (showEmptyCardDelete) {
+                                    onDeleteCard?.let { delete -> { delete(card.id) } }
+                                } else {
+                                    null
+                                },
+                            actionTerminalModifier =
+                                if (editMode) actionTerminalModifier else Modifier,
                             wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
                         )
                     }
@@ -175,7 +185,7 @@ internal fun HomeSidePanelHorizontalActionsCard(
 }
 
 @Composable
-internal fun HomeSidePanelVerticalActionsCard(
+fun HomeSidePanelVerticalActionsCard(
     card: VerticalActionsCardConfig,
     content: HomeSidePanelActionCardContent,
     editMode: Boolean,
@@ -185,28 +195,34 @@ internal fun HomeSidePanelVerticalActionsCard(
     actionDragModifier: (cardId: String, actionId: String) -> Modifier = { _, _ -> Modifier },
     actionTerminalModifier: Modifier = Modifier,
     cardDragModifier: Modifier = Modifier,
-    onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit = { _, _, _ -> },
+    onRunAction: (cardId: String, actionId: String, kind: HomeSidePanelActionKind) -> Unit =
+        { _, _, _ ->
+        },
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)? = null,
     onAddAction: (cardId: String) -> Unit = {},
     onDeleteCard: ((String) -> Unit)? = null,
 ) {
     val showAdd = editMode || content == HomeSidePanelActionCardContent.Preview
-    val (animatedActions, visibleActionIds) = rememberHomeSidePanelAnimatedActions(card.id, card.actions)
-    val draggedActionId = (insertionSnapshot?.payload as? HomeSidePanelDragPayload.ExistingAction)
-        ?.takeIf { it.cardId == card.id }
-        ?.actionId
+    val (animatedActions, visibleActionIds) =
+        rememberHomeSidePanelAnimatedActions(card.id, card.actions)
+    val draggedActionId =
+        (insertionSnapshot?.payload as? HomeSidePanelDragPayload.ExistingAction)
+            ?.takeIf { it.cardId == card.id }
+            ?.actionId
     val displayedActions = animatedActions.filterNot { it.id == draggedActionId }
     val visualInsertionIndex = insertionSnapshot?.visualActionInsertionIndex(card.id, card.actions)
-    val interactiveActionIds = if (interactionEnabled) {
-        card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
-    } else {
-        emptySet()
-    }
-    val showEmptyCardDelete = rememberHomeSidePanelEmptyDeleteVisibility(
-        cardId = card.id,
-        editMode = editMode,
-        actionsEmpty = card.actions.isEmpty(),
-    )
+    val interactiveActionIds =
+        if (interactionEnabled) {
+            card.actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
+        } else {
+            emptySet()
+        }
+    val showEmptyCardDelete =
+        rememberHomeSidePanelEmptyDeleteVisibility(
+            cardId = card.id,
+            editMode = editMode,
+            actionsEmpty = card.actions.isEmpty(),
+        )
     val addVisibility = remember(card.id) { MutableTransitionState(showAdd) }
     addVisibility.targetState = showAdd
     HomeSidePanelActionsCardFrame(card.id, modifier) {
@@ -238,11 +254,12 @@ internal fun HomeSidePanelVerticalActionsCard(
                             content = content,
                             editMode = editMode,
                             interactive = interactive,
-                            modifier = if (editMode && interactive) {
-                                actionDragModifier(card.id, action.id)
-                            } else {
-                                Modifier
-                            },
+                            modifier =
+                                if (editMode && interactive) {
+                                    actionDragModifier(card.id, action.id)
+                                } else {
+                                    Modifier
+                                },
                             onRunAction = onRunAction,
                             onDeleteAction = onDeleteAction,
                         )
@@ -274,16 +291,18 @@ internal fun HomeSidePanelVerticalActionsCard(
                 ) {
                     HomeSidePanelAddActionItem(
                         placement = HomeSidePanelActionPlacement.LIST_ITEM,
-                        onClick = if (interactionEnabled && editMode) {
-                            { onAddAction(card.id) }
-                        } else {
-                            null
-                        },
-                        onDeleteCard = if (showEmptyCardDelete) {
-                            onDeleteCard?.let { delete -> { delete(card.id) } }
-                        } else {
-                            null
-                        },
+                        onClick =
+                            if (interactionEnabled && editMode) {
+                                { onAddAction(card.id) }
+                            } else {
+                                null
+                            },
+                        onDeleteCard =
+                            if (showEmptyCardDelete) {
+                                onDeleteCard?.let { delete -> { delete(card.id) } }
+                            } else {
+                                null
+                            },
                         actionTerminalModifier = if (editMode) actionTerminalModifier else Modifier,
                         wholeCardDragModifier = if (editMode) cardDragModifier else Modifier,
                     )
@@ -294,7 +313,7 @@ internal fun HomeSidePanelVerticalActionsCard(
 }
 
 @Composable
-internal fun HomeSidePanelAddActionItem(
+fun HomeSidePanelAddActionItem(
     placement: HomeSidePanelActionPlacement,
     onClick: (() -> Unit)?,
     onDeleteCard: (() -> Unit)?,
@@ -302,71 +321,77 @@ internal fun HomeSidePanelAddActionItem(
     wholeCardDragModifier: Modifier,
 ) {
     when (placement) {
-        HomeSidePanelActionPlacement.TILE -> Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
-                    .then(actionTerminalModifier)
-                    .then(wholeCardDragModifier),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        HomeSidePanelActionPlacement.TILE ->
+            Box(
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                Card(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                            .then(actionTerminalModifier)
+                            .then(wholeCardDragModifier),
+                    shape = RoundedCornerShape(18.dp),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
                 ) {
-                    Icon(
-                        MaterialSymbols.Outlined.Add,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Icon(
+                            MaterialSymbols.Outlined.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            stringResource(R.string.action_add),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    HomeSidePanelCardBadge(
+                        editMode = true,
+                        onEdit = null,
+                        onDelete = onDeleteCard,
+                        deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
                     )
-                    Text(stringResource(R.string.action_add), style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                HomeSidePanelCardBadge(
-                    editMode = true,
-                    onEdit = null,
-                    onDelete = onDeleteCard,
-                    deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
-                )
-            }
-        }
 
-        HomeSidePanelActionPlacement.LIST_ITEM -> Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            ListItem(
-                leadingContent = {
-                    Icon(
-                        MaterialSymbols.Outlined.Add,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
-                    .then(actionTerminalModifier)
-                    .then(wholeCardDragModifier),
+        HomeSidePanelActionPlacement.LIST_ITEM ->
+            Box(
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.action_add))
+                ListItem(
+                    leadingContent = {
+                        Icon(
+                            MaterialSymbols.Outlined.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                            .then(actionTerminalModifier)
+                            .then(wholeCardDragModifier),
+                ) {
+                    Text(stringResource(R.string.action_add))
+                }
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    HomeSidePanelCardBadge(
+                        editMode = true,
+                        onEdit = null,
+                        onDelete = onDeleteCard,
+                        deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
+                    )
+                }
             }
-            Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                HomeSidePanelCardBadge(
-                    editMode = true,
-                    onEdit = null,
-                    onDelete = onDeleteCard,
-                    deleteDescriptionRes = R.string.home_side_panel_delete_empty_action_card,
-                )
-            }
-        }
     }
 }
 
@@ -378,12 +403,14 @@ private fun HomeSidePanelActionsCardFrame(
 ) {
     HomeSidePanelCardFrame(
         cardId = cardId,
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(tween(HOME_SIDE_PANEL_REFLOW_ANIMATION_MILLIS)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .animateContentSize(tween(HOME_SIDE_PANEL_REFLOW_ANIMATION_MILLIS)),
         cardModifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         editMode = false,
         onEdit = null,
         onDelete = null,
@@ -404,62 +431,73 @@ private fun HomeSidePanelActionItem(
     onDeleteAction: ((cardId: String, actionId: String) -> Unit)?,
 ) {
     val spec = homeSidePanelActionSpec(action.kind)
-    val clickModifier = if (
-        interactive && !editMode && content == HomeSidePanelActionCardContent.Runtime
-    ) {
-        Modifier.clickable {
-            onRunAction(cardId, action.id, action.kind)
+    val clickModifier =
+        if (interactive && !editMode && content == HomeSidePanelActionCardContent.Runtime) {
+            Modifier.clickable {
+                onRunAction(cardId, action.id, action.kind)
+            }
+        } else {
+            Modifier
         }
-    } else {
-        Modifier
-    }
     Box(modifier = modifier.fillMaxWidth()) {
         when (placement) {
-            HomeSidePanelActionPlacement.TILE -> Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(clickModifier),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+            HomeSidePanelActionPlacement.TILE ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().then(clickModifier),
+                    shape = RoundedCornerShape(18.dp),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
                 ) {
-                    Icon(spec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(spec.labelRes),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-
-            HomeSidePanelActionPlacement.LIST_ITEM -> ListItem(
-                leadingContent = {
-                    Icon(spec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                },
-                trailingContent = if (editMode) {
-                    null
-                } else {
-                    {
-                        Icon(MaterialSymbols.Outlined.Chevron_right, contentDescription = null)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Icon(
+                            spec.icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            stringResource(spec.labelRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(clickModifier),
-            ) {
-                Text(stringResource(spec.labelRes))
+                }
+
+            HomeSidePanelActionPlacement.LIST_ITEM ->
+                ListItem(
+                    leadingContent = {
+                        Icon(
+                            spec.icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    trailingContent =
+                        if (editMode) {
+                            null
+                        } else {
+                            {
+                                Icon(
+                                    MaterialSymbols.Outlined.Chevron_right,
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                    modifier = Modifier.fillMaxWidth().then(clickModifier),
+                ) {
+                    Text(stringResource(spec.labelRes))
+                }
+        }
+        val badgeAlignment =
+            when (placement) {
+                HomeSidePanelActionPlacement.TILE -> Alignment.TopEnd
+                HomeSidePanelActionPlacement.LIST_ITEM -> Alignment.CenterEnd
             }
-        }
-        val badgeAlignment = when (placement) {
-            HomeSidePanelActionPlacement.TILE -> Alignment.TopEnd
-            HomeSidePanelActionPlacement.LIST_ITEM -> Alignment.CenterEnd
-        }
         Box(modifier = Modifier.align(badgeAlignment)) {
             HomeSidePanelCardBadge(
                 editMode = editMode && interactive,
@@ -472,15 +510,16 @@ private fun HomeSidePanelActionItem(
 }
 
 @Composable
-internal fun HomeSidePanelDraggedActionItem(
+fun HomeSidePanelDraggedActionItem(
     card: HomeSidePanelCardConfig,
     action: HomeSidePanelActionConfig,
 ) {
-    val placement = when (card) {
-        is HorizontalActionsCardConfig -> HomeSidePanelActionPlacement.TILE
-        is VerticalActionsCardConfig -> HomeSidePanelActionPlacement.LIST_ITEM
-        else -> error("Dragged action belongs to non-action card '${card.id}'")
-    }
+    val placement =
+        when (card) {
+            is HorizontalActionsCardConfig -> HomeSidePanelActionPlacement.TILE
+            is VerticalActionsCardConfig -> HomeSidePanelActionPlacement.LIST_ITEM
+            else -> error("Dragged action belongs to non-action card '${card.id}'")
+        }
     HomeSidePanelActionItem(
         cardId = card.id,
         action = action,
@@ -502,11 +541,12 @@ private fun rememberHomeSidePanelAnimatedActions(
     actions: List<HomeSidePanelActionConfig>,
 ): Pair<List<HomeSidePanelActionConfig>, Map<String, Boolean>> {
     val displayed = remember(cardId) { mutableStateListOf(*actions.toTypedArray()) }
-    val visible = remember(cardId) {
-        mutableStateMapOf<String, Boolean>().apply {
-            actions.forEach { put(it.id, true) }
+    val visible =
+        remember(cardId) {
+            mutableStateMapOf<String, Boolean>().apply {
+                actions.forEach { put(it.id, true) }
+            }
         }
-    }
     LaunchedEffect(actions) {
         val targetIds = actions.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
         val newIds = targetIds - displayed.mapTo(mutableSetOf(), HomeSidePanelActionConfig::id)
@@ -520,7 +560,7 @@ private fun rememberHomeSidePanelAnimatedActions(
         visible.keys.toList().forEach { id -> visible[id] = id in targetIds }
         newIds.forEach { id -> visible[id] = false }
         if (newIds.isNotEmpty()) {
-            withFrameNanos { }
+            withFrameNanos {}
             newIds.forEach { id -> visible[id] = true }
         }
         if (exiting.isNotEmpty()) {
@@ -552,32 +592,44 @@ private fun rememberHomeSidePanelEmptyDeleteVisibility(
 }
 
 private fun homeSidePanelActionEnter(horizontal: Boolean) =
-    fadeIn(tween(150)) + scaleIn(tween(180), initialScale = 0.9f) + if (horizontal) {
-        expandHorizontally(tween(180), expandFrom = Alignment.CenterHorizontally)
-    } else {
-        expandVertically(tween(180), expandFrom = Alignment.Top)
-    }
+    fadeIn(tween(150)) +
+        scaleIn(tween(180), initialScale = 0.9f) +
+        if (horizontal) {
+            expandHorizontally(tween(180), expandFrom = Alignment.CenterHorizontally)
+        } else {
+            expandVertically(tween(180), expandFrom = Alignment.Top)
+        }
 
 private fun homeSidePanelActionExit(horizontal: Boolean) =
-    fadeOut(tween(120)) + scaleOut(tween(160), targetScale = 0.88f) + if (horizontal) {
-        shrinkHorizontally(tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS), shrinkTowards = Alignment.CenterHorizontally)
-    } else {
-        shrinkVertically(tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS), shrinkTowards = Alignment.Top)
-    }
+    fadeOut(tween(120)) +
+        scaleOut(tween(160), targetScale = 0.88f) +
+        if (horizontal) {
+            shrinkHorizontally(
+                tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS),
+                shrinkTowards = Alignment.CenterHorizontally,
+            )
+        } else {
+            shrinkVertically(
+                tween(HOME_SIDE_PANEL_ACTION_EXIT_MILLIS),
+                shrinkTowards = Alignment.Top,
+            )
+        }
 
 private fun homeSidePanelAddEnter(horizontal: Boolean) =
-    fadeIn(tween(160)) + if (horizontal) {
-        expandHorizontally(tween(200), expandFrom = Alignment.Start)
-    } else {
-        expandVertically(tween(200), expandFrom = Alignment.Top)
-    }
+    fadeIn(tween(160)) +
+        if (horizontal) {
+            expandHorizontally(tween(200), expandFrom = Alignment.Start)
+        } else {
+            expandVertically(tween(200), expandFrom = Alignment.Top)
+        }
 
 private fun homeSidePanelAddExit(horizontal: Boolean) =
-    fadeOut(tween(120)) + if (horizontal) {
-        shrinkHorizontally(tween(180), shrinkTowards = Alignment.Start)
-    } else {
-        shrinkVertically(tween(180), shrinkTowards = Alignment.Top)
-    }
+    fadeOut(tween(120)) +
+        if (horizontal) {
+            shrinkHorizontally(tween(180), shrinkTowards = Alignment.Start)
+        } else {
+            shrinkVertically(tween(180), shrinkTowards = Alignment.Top)
+        }
 
 private const val HOME_SIDE_PANEL_ACTION_EXIT_MILLIS = 170
 private const val HOME_SIDE_PANEL_EMPTY_DELETE_HANDOFF_MILLIS = 200

@@ -24,9 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * Backs the `builtin-jvm` tool provider. JVM objects cannot be expressed as text, so any
  * non-trivial value the model produces or receives is referred to through an opaque, session-
  * global **handle** like `#12`, held in [JvmObjectRegistry]. Every value the model passes as an
- * argument is a self-describing `kind:payload` **token** (see [dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge.parseValue]); every result is
- * rendered back either inline (primitives/strings/null) or as a freshly-minted handle
- * (see [dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge.render]).
+ * argument is a self-describing `kind:payload` **token** (see
+ * [dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge.parseValue]); every result is rendered back either
+ * inline (primitives/strings/null) or as a freshly-minted handle (see
+ * [dev.ujhhgtg.wekit.agent.jvm.JvmValueBridge.render]).
  *
  * The registry is process-global (the tool-invoker layer has no session id); the model manages its
  * lifetime with the `jvm-clear-handles` tool.
@@ -37,12 +38,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * WeChat process, since the only way to release them was the MANUAL_APPROVAL `jvm-clear-handles`
  * tool. Weak values let the host reclaim a screen the moment it is genuinely gone; a handle that
  * outlives its object resolves to null and the caller reports it as *expired* (see
- * [missingHandleMessage]) instead of NPE-ing. The map is additionally bounded ([MAX_ENTRIES]) so the
- * leftover empty shells can't grow without limit either.
+ * [missingHandleMessage]) instead of NPE-ing. The map is additionally bounded ([MAX_ENTRIES]) so
+ * the leftover empty shells can't grow without limit either.
  */
 @Keep
 object JvmObjectRegistry {
-
     /** Upper bound on retained entries; oldest (lowest-id) entries are evicted past it. */
     private const val MAX_ENTRIES = 4096
 
@@ -82,17 +82,20 @@ object JvmObjectRegistry {
 
     /**
      * A model-readable explanation for a handle that failed to resolve, distinguishing an expired
-     * (garbage-collected) handle from one that never existed. Callers surface this as the tool result.
+     * (garbage-collected) handle from one that never existed. Callers surface this as the tool
+     * result.
      */
     fun missingHandleMessage(handle: String): String {
-        val id = handle.removePrefix("#").trim().toIntOrNull()
-            ?: return "Malformed handle '$handle' (expected #N)."
-        return if (objects.containsKey(id))
+        val id =
+            handle.removePrefix("#").trim().toIntOrNull()
+                ?: return "Malformed handle '$handle' (expected #N)."
+        return if (objects.containsKey(id)) {
             "Handle '#$id' has expired — the object it pointed at was garbage-collected (handles are " +
-                    "weak so they never keep whole screens alive). Re-run the tool that produced it " +
-                    "(e.g. ui-dump-tree / ui-find-views) to obtain fresh handles."
-        else
+                "weak so they never keep whole screens alive). Re-run the tool that produced it " +
+                "(e.g. ui-dump-tree / ui-find-views) to obtain fresh handles."
+        } else {
             "No live handle '#$id' (it was never created, or the handle registry has been cleared)."
+        }
     }
 
     /** Number of handles whose object is still alive. */
@@ -107,9 +110,10 @@ object JvmObjectRegistry {
 
     /**
      * Drops entries whose referent has been collected. Called at turn teardown: a full [clear] is
-     * deliberately NOT done there, because the registry is process-global while turns are per-session
-     * and several sessions can run at once — clearing would yank handles out from under a concurrent
-     * turn. Weak values already make the memory release automatic; this only reaps the empty shells.
+     * deliberately NOT done there, because the registry is process-global while turns are
+     * per-session and several sessions can run at once — clearing would yank handles out from under
+     * a concurrent turn. Weak values already make the memory release automatic; this only reaps the
+     * empty shells.
      */
     fun purgeDead(): Int {
         val before = objects.size
@@ -121,12 +125,17 @@ object JvmObjectRegistry {
     private fun evict() {
         purgeDead()
         val excess = objects.size - MAX_ENTRIES
-        if (excess > 0) objects.keys.sorted().take(excess).forEach { objects.remove(it) }
+        if (excess > 0) {
+            objects.keys.sorted().take(excess).forEach { objects.remove(it) }
+        }
     }
 
     /** A short, model-readable summary of every live handle. */
     fun describeAll(): String {
-        val live = objects.entries.mapNotNull { (id, ref) -> ref.get()?.let { id to it } }.sortedBy { it.first }
+        val live =
+            objects.entries
+                .mapNotNull { (id, ref) -> ref.get()?.let { id to it } }
+                .sortedBy { it.first }
         if (live.isEmpty()) return "No live handles."
         return live.joinToString("\n") { (id, obj) ->
             "#$id : ${obj.javaClass.name} = ${JvmValueBridge.previewOf(obj)}"
@@ -138,37 +147,40 @@ object JvmObjectRegistry {
 class JvmBridgeException(message: String) : RuntimeException(message)
 
 object JvmValueBridge {
-
     private const val PREVIEW_MAX = 300
 
     // -------------------------------------------------------------------------------------------
     // Class / type resolution
     // -------------------------------------------------------------------------------------------
 
-    private val PRIMITIVES: Map<String, Class<*>> = mapOf(
-        "boolean" to bool,
-        "byte" to byte,
-        "char" to char,
-        "short" to short,
-        "int" to int,
-        "long" to long,
-        "float" to float,
-        "double" to double,
-        "void" to void,
-    )
+    private val PRIMITIVES: Map<String, Class<*>> =
+        mapOf(
+            "boolean" to bool,
+            "byte" to byte,
+            "char" to char,
+            "short" to short,
+            "int" to int,
+            "long" to long,
+            "float" to float,
+            "double" to double,
+            "void" to void,
+        )
 
     /**
      * Resolves a fully-qualified class name to a [Class], supporting primitives (`int`), arrays
-     * (`java.lang.String[]`, `int[]`), and any host/module class via [ClassLoaders.HYBRID].
+     * (`java.lang.String[]`, `int[]`), and any host/module class via
+     * [ClassLoaders.HYBRID_FOR_MODULE].
      */
     fun resolveClass(fqcn: String): Class<*> {
         val name = fqcn.trim()
-        PRIMITIVES[name]?.let { return it }
+        PRIMITIVES[name]?.let {
+            return it
+        }
         if (name.endsWith("[]")) {
             val component = resolveClass(name.removeSuffix("[]"))
             return java.lang.reflect.Array.newInstance(component, 0).javaClass
         }
-        return runCatching { name.toClass(ClassLoaders.HYBRID) }
+        return runCatching { name.toClass(ClassLoaders.HYBRID_FOR_MODULE) }
             .getOrElse { throw JvmBridgeException("Class not found: $name (${it.message})") }
     }
 
@@ -178,15 +190,15 @@ object JvmValueBridge {
 
     /**
      * Parses one value token into a runtime value.
-     *  - `null`                    → null
-     *  - `str:<text>`              → String
-     *  - `int:/long:/short:/byte:` → integral primitives
-     *  - `dbl:/flt:`               → floating primitives
-     *  - `bool:<true|false>`       → boolean
-     *  - `char:<c>`                → char
-     *  - `class:<fqcn>`            → Class object
-     *  - `ref:#N` / `#N`           → object from the handle registry
-     *  - `enum:<fqcn>#NAME`        → enum constant
+     * - `null` → null
+     * - `str:<text>` → String
+     * - `int:/long:/short:/byte:` → integral primitives
+     * - `dbl:/flt:` → floating primitives
+     * - `bool:<true|false>` → boolean
+     * - `char:<c>` → char
+     * - `class:<fqcn>` → Class object
+     * - `ref:#N` / `#N` → object from the handle registry
+     * - `enum:<fqcn>#NAME` → enum constant
      */
     fun parseValue(token: String): Any? {
         val t = token.trim()
@@ -194,27 +206,78 @@ object JvmValueBridge {
         val idx = t.indexOf(':')
         // Bare handle shorthand.
         if (t.startsWith("#")) return resolveRef(t)
-        if (idx < 0) throw JvmBridgeException("Malformed value token '$token' (expected kind:payload, e.g. str:hello or ref:#3)")
+        if (idx < 0) {
+            throw JvmBridgeException(
+                "Malformed value token '$token' (expected kind:payload, e.g. str:hello or ref:#3)",
+            )
+        }
         val kind = t.substring(0, idx)
         val payload = t.substring(idx + 1)
         return when (kind) {
-            "str" -> payload
-            "int" -> payload.trim().toIntOrNull() ?: throw JvmBridgeException("int: expects an integer, got '$payload'")
-            "long" -> payload.trim().toLongOrNull() ?: throw JvmBridgeException("long: expects an integer, got '$payload'")
-            "short" -> payload.trim().toShortOrNull() ?: throw JvmBridgeException("short: expects a short, got '$payload'")
-            "byte" -> payload.trim().toByteOrNull() ?: throw JvmBridgeException("byte: expects a byte, got '$payload'")
-            "dbl", "double" -> payload.trim().toDoubleOrNull() ?: throw JvmBridgeException("dbl: expects a number, got '$payload'")
-            "flt", "float" -> payload.trim().toFloatOrNull() ?: throw JvmBridgeException("flt: expects a number, got '$payload'")
-            "bool", "boolean" -> when (payload.trim().lowercase()) {
-                "true" -> true; "false" -> false
-                else -> throw JvmBridgeException("bool: expects true|false, got '$payload'")
+            "str" -> {
+                payload
             }
 
-            "char" -> payload.firstOrNull() ?: throw JvmBridgeException("char: expects a character")
-            "class" -> resolveClass(payload)
-            "ref" -> resolveRef(payload)
-            "enum" -> parseEnum(payload)
-            else -> throw JvmBridgeException("Unknown value kind '$kind' in token '$token'")
+            "int" -> {
+                payload.trim().toIntOrNull()
+                    ?: throw JvmBridgeException("int: expects an integer, got '$payload'")
+            }
+
+            "long" -> {
+                payload.trim().toLongOrNull()
+                    ?: throw JvmBridgeException("long: expects an integer, got '$payload'")
+            }
+
+            "short" -> {
+                payload.trim().toShortOrNull()
+                    ?: throw JvmBridgeException("short: expects a short, got '$payload'")
+            }
+
+            "byte" -> {
+                payload.trim().toByteOrNull()
+                    ?: throw JvmBridgeException("byte: expects a byte, got '$payload'")
+            }
+
+            "dbl",
+            "double" -> {
+                payload.trim().toDoubleOrNull()
+                    ?: throw JvmBridgeException("dbl: expects a number, got '$payload'")
+            }
+
+            "flt",
+            "float" -> {
+                payload.trim().toFloatOrNull()
+                    ?: throw JvmBridgeException("flt: expects a number, got '$payload'")
+            }
+
+            "bool",
+            "boolean" -> {
+                when (payload.trim().lowercase()) {
+                    "true" -> true
+                    "false" -> false
+                    else -> throw JvmBridgeException("bool: expects true|false, got '$payload'")
+                }
+            }
+
+            "char" -> {
+                payload.firstOrNull() ?: throw JvmBridgeException("char: expects a character")
+            }
+
+            "class" -> {
+                resolveClass(payload)
+            }
+
+            "ref" -> {
+                resolveRef(payload)
+            }
+
+            "enum" -> {
+                parseEnum(payload)
+            }
+
+            else -> {
+                throw JvmBridgeException("Unknown value kind '$kind' in token '$token'")
+            }
         }
     }
 
@@ -244,15 +307,18 @@ object JvmValueBridge {
     /** A truncated, single-line preview of an object's toString. */
     fun previewOf(value: Any?): String {
         if (value == null) return "null"
-        val raw = runCatching { value.toString() }.getOrElse { "<toString threw ${it.javaClass.simpleName}>" }
+        val raw = runCatching {
+            value.toString()
+        }
+            .getOrElse { "<toString threw ${it.javaClass.simpleName}>" }
         val oneLine = raw.replace('\n', ' ').replace('\r', ' ')
         return if (oneLine.length > PREVIEW_MAX) oneLine.take(PREVIEW_MAX) + "…" else oneLine
     }
 
     /**
      * Renders a returned value for the model. Primitives / boxed primitives / String / null are
-     * shown inline with their type; everything else is stored in the registry and returned as a
-     * `#N : <type> = <preview>` handle so it can be referenced in later calls.
+     * shown inline with their type; everything else is stored in the registry and returned as a `#N
+     * : <type> = <preview>` handle so it can be referenced in later calls.
      */
     fun render(value: Any?): String {
         if (value == null) return "null"
@@ -261,12 +327,20 @@ object JvmValueBridge {
         return "$handle : ${value.javaClass.name} = ${previewOf(value)}"
     }
 
-    private fun isInline(value: Any): Boolean = when (value) {
-        is CharSequence, is Boolean, is Char,
-        is Byte, is Short, is Int, is Long, is Float, is Double -> true
+    private fun isInline(value: Any): Boolean =
+        when (value) {
+            is CharSequence,
+            is Boolean,
+            is Char,
+            is Byte,
+            is Short,
+            is Int,
+            is Long,
+            is Float,
+            is Double -> true
 
-        else -> false
-    }
+            else -> false
+        }
 
     // -------------------------------------------------------------------------------------------
     // Main-thread marshaling
@@ -275,9 +349,9 @@ object JvmValueBridge {
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     /**
-     * Runs [block] on the WeChat main (UI) thread and returns its result, blocking the calling
-     * (IO) thread up to [timeoutMs]. Needed for View/Activity work. If already on the main thread,
-     * runs inline.
+     * Runs [block] on the WeChat main (UI) thread and returns its result, blocking the calling (IO)
+     * thread up to [timeoutMs]. Needed for View/Activity work. If already on the main thread, runs
+     * inline.
      */
     fun <T> onMain(timeoutMs: Long = 10_000L, block: () -> T): T {
         if (Looper.myLooper() == Looper.getMainLooper()) return block()

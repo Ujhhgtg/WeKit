@@ -7,6 +7,8 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.sse.SSE
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,8 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Owns the live set of [McpToolProvider]s (§4). Builds one per enabled MCP [ProviderEntity], drives
@@ -33,7 +33,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 object McpClientManager {
 
-    private val TAG = "McpClientManager"
+    private const val TAG = "McpClientManager"
 
     private val httpClient: HttpClient by lazy {
         HttpClient(CIO) { install(SSE) }
@@ -58,20 +58,21 @@ object McpClientManager {
         _providers.value = providerMap.values.toList()
     }
 
-    /** Called when the connected-provider set changes, so the caller can refresh the tool registry. */
-    @Volatile
-    var onProvidersChanged: (() -> Unit)? = null
+    /**
+     * Called when the connected-provider set changes, so the caller can refresh the tool registry.
+     */
+    @Volatile var onProvidersChanged: (() -> Unit)? = null
 
     fun connectedProviders(): List<McpToolProvider> = _providers.value
 
     /**
-     * Reconciles the live provider set against the enabled MCP rows in Room. New enabled servers get
-     * a provider + reconnect loop; removed/disabled ones are torn down. Idempotent — safe to call on
-     * startup and whenever the server list changes.
+     * Reconciles the live provider set against the enabled MCP rows in Room. New enabled servers
+     * get a provider + reconnect loop; removed/disabled ones are torn down. Idempotent — safe to
+     * call on startup and whenever the server list changes.
      */
     suspend fun sync() {
-        val rows = WeAgentRepository.getAllProviders()
-            .filter { it.kind == ProviderKind.MCP && it.enabled }
+        val rows =
+            WeAgentRepository.getAllProviders().filter { it.kind == ProviderKind.MCP && it.enabled }
 
         val wantedIds = rows.map { it.id }.toSet()
 
@@ -115,22 +116,22 @@ object McpClientManager {
                 provider.connect()
                 if (provider.state == McpConnectionState.CONNECTED) {
                     attempt = 0
-                    seedPermissions(provider)
                     onProvidersChanged?.invoke()
                 } else {
                     attempt++
-                    val backoff = minOf(BASE_BACKOFF_MS * (1L shl (attempt - 1).coerceIn(0, 6)), MAX_BACKOFF_MS)
-                    WeLogger.w(TAG, "reconnect '${provider.name}' in ${backoff}ms (attempt $attempt)")
+                    val backoff =
+                        minOf(
+                            BASE_BACKOFF_MS * (1L shl (attempt - 1).coerceIn(0, 6)),
+                            MAX_BACKOFF_MS,
+                        )
+                    WeLogger.w(
+                        TAG,
+                        "reconnect '${provider.name}' in ${backoff}ms (attempt $attempt)",
+                    )
                     delay(backoff.milliseconds)
                 }
             }
         }
-    }
-
-    private suspend fun seedPermissions(provider: McpToolProvider) {
-        runCatching {
-            WeAgentRepository.seedMcpTools(provider.id, provider.listTools().map { it.name })
-        }.onFailure { WeLogger.w(TAG, "seedMcpTools failed for '${provider.name}'", it) }
     }
 
     private fun removeProvider(id: String) {
@@ -140,9 +141,10 @@ object McpClientManager {
     }
 
     /**
-     * Manually re-fetch a server's tools/list (§4 "refresh tools"). A server that isn't connected is
-     * connected first, so the button also works as "retry now" instead of silently no-op'ing while
-     * the backoff loop sleeps. Both paths publish to [McpToolProvider.status], so the UI follows.
+     * Manually re-fetch a server's tools/list (§4 "refresh tools"). A server that isn't connected
+     * is connected first, so the button also works as "retry now" instead of silently no-op'ing
+     * while the backoff loop sleeps. Both paths publish to [McpToolProvider.status], so the UI
+     * follows.
      */
     /** Rebuilds one provider from its stored row after its connection settings changed. */
     suspend fun reload(id: String) {
@@ -155,7 +157,6 @@ object McpClientManager {
         if (provider.state != McpConnectionState.CONNECTED) {
             provider.connect()
             if (provider.state != McpConnectionState.CONNECTED) return false
-            seedPermissions(provider)
             onProvidersChanged?.invoke()
             return true // connect() already refreshed tools/list
         }
@@ -165,11 +166,14 @@ object McpClientManager {
     private fun parseHeaders(headersJson: String?): Map<String, String> {
         if (headersJson.isNullOrBlank()) return emptyMap()
         return runCatching {
-            (Json.parseToJsonElement(headersJson) as? JsonObject)
-                ?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap()
-        }.getOrElse {
-            WeLogger.w(TAG, "failed to parse MCP headers json", it); emptyMap()
+            (Json.parseToJsonElement(headersJson) as? JsonObject)?.mapValues {
+                it.value.jsonPrimitive.content
+            } ?: emptyMap()
         }
+            .getOrElse {
+                WeLogger.w(TAG, "failed to parse MCP headers json", it)
+                emptyMap()
+            }
     }
 
     private const val HEALTHCHECK_INTERVAL_MS = 30_000L

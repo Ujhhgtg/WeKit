@@ -10,21 +10,25 @@ class HomeSidePanelRuntimeRulesTest {
 
     @Test
     fun deltaSeparatesActivateRemoveAndReconfigure() {
-        val old = HomeSidePanelLayout(
-            cards = listOf(
-                WeatherCardConfig("same", DEFAULT_WEATHER_CITY),
-                HitokotoCardConfig("removed"),
-            ),
-        )
-        val new = HomeSidePanelLayout(
-            cards = listOf(
-                WeatherCardConfig(
-                    "same",
-                    DEFAULT_WEATHER_CITY.copy(cityNum = "101020100"),
-                ),
-                WalletCardConfig("added"),
-            ),
-        )
+        val old =
+            HomeSidePanelLayout(
+                cards =
+                    listOf(
+                        WeatherCardConfig("same", DEFAULT_WEATHER_CITY),
+                        HitokotoCardConfig("removed"),
+                    ),
+            )
+        val new =
+            HomeSidePanelLayout(
+                cards =
+                    listOf(
+                        WeatherCardConfig(
+                            "same",
+                            DEFAULT_WEATHER_CITY.copy(cityNum = "101020100"),
+                        ),
+                        WalletCardConfig("added"),
+                    ),
+            )
 
         assertEquals(
             HomeSidePanelRuntimeDelta(
@@ -64,13 +68,15 @@ class HomeSidePanelRuntimeRulesTest {
 
     @Test
     fun promotionRetainsCommittedCardSnapshotsOnly() {
-        val snapshots = mapOf(
-            "committed" to "kept snapshot",
-            "discarded" to "discarded snapshot",
-        )
-        val committed = HomeSidePanelLayout(
-            cards = listOf(WeatherCardConfig("committed", DEFAULT_WEATHER_CITY)),
-        )
+        val snapshots =
+            mapOf(
+                "committed" to "kept snapshot",
+                "discarded" to "discarded snapshot",
+            )
+        val committed =
+            HomeSidePanelLayout(
+                cards = listOf(WeatherCardConfig("committed", DEFAULT_WEATHER_CITY)),
+            )
 
         assertEquals(
             mapOf("committed" to "kept snapshot"),
@@ -81,20 +87,24 @@ class HomeSidePanelRuntimeRulesTest {
     @Test
     fun walletMasksAreIndependentWhileBalanceIsShared() {
         val sharedBalance = 12_345L
-        val hidden = HomeSidePanelWalletUiState(
-            balanceFen = sharedBalance,
-            displayState = HomeSidePanelWalletDisplayState(
-                defaultMaskEnabled = true,
-                isMasked = true,
-            ),
-        )
-        val visible = HomeSidePanelWalletUiState(
-            balanceFen = sharedBalance,
-            displayState = HomeSidePanelWalletDisplayState(
-                defaultMaskEnabled = false,
-                isMasked = false,
-            ),
-        )
+        val hidden =
+            HomeSidePanelWalletUiState(
+                balanceFen = sharedBalance,
+                displayState =
+                    HomeSidePanelWalletDisplayState(
+                        defaultMaskEnabled = true,
+                        isMasked = true,
+                    ),
+            )
+        val visible =
+            HomeSidePanelWalletUiState(
+                balanceFen = sharedBalance,
+                displayState =
+                    HomeSidePanelWalletDisplayState(
+                        defaultMaskEnabled = false,
+                        isMasked = false,
+                    ),
+            )
 
         assertEquals(sharedBalance, hidden.balanceFen)
         assertEquals(sharedBalance, visible.balanceFen)
@@ -102,16 +112,12 @@ class HomeSidePanelRuntimeRulesTest {
     }
 
     @Test
-    fun layoutProvenanceSelectsOneTimeMigrationAndPersistencePolicy() {
+    fun layoutProvenanceSelectsPersistencePolicy() {
         val layout = HomeSidePanelLayout(cards = emptyList())
 
         assertEquals(
             HomeSidePanelLiveCachePolicy.STORED,
             homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Stored(layout)),
-        )
-        assertEquals(
-            HomeSidePanelLiveCachePolicy.MIGRATED,
-            homeSidePanelLiveCachePolicy(HomeSidePanelLayoutLoad.Migrated(layout)),
         )
         assertEquals(
             HomeSidePanelLiveCachePolicy.FALLBACK,
@@ -123,11 +129,7 @@ class HomeSidePanelRuntimeRulesTest {
                 ),
             ),
         )
-        assertFalse(HomeSidePanelLiveCachePolicy.STORED.importLegacyCaches)
         assertTrue(HomeSidePanelLiveCachePolicy.STORED.persistLiveCaches)
-        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.importLegacyCaches)
-        assertTrue(HomeSidePanelLiveCachePolicy.MIGRATED.persistLiveCaches)
-        assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.importLegacyCaches)
         assertFalse(HomeSidePanelLiveCachePolicy.FALLBACK.persistLiveCaches)
     }
 }

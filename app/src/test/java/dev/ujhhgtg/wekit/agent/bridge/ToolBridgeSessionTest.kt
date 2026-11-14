@@ -1,28 +1,26 @@
 package dev.ujhhgtg.wekit.agent.bridge
 
+import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
+import dev.ujhhgtg.wekit.agent.engine.AgentSessionContext
 import dev.ujhhgtg.wekit.agent.engine.ApprovalGateway
 import dev.ujhhgtg.wekit.agent.engine.ManualApprovalHandler
 import dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult
 import dev.ujhhgtg.wekit.agent.engine.ToolCallExecutor
-import dev.ujhhgtg.wekit.agent.engine.AgentSessionContext
-import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
-import dev.ujhhgtg.wekit.agent.ui.UiImageSink
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.agent.tool.ProviderTool
-import dev.ujhhgtg.wekit.agent.tool.ToolMode
-import dev.ujhhgtg.wekit.agent.tool.ToolPermissionSource
 import dev.ujhhgtg.wekit.agent.tool.ToolProvider
 import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
 import dev.ujhhgtg.wekit.agent.tool.ToolVisibility
+import dev.ujhhgtg.wekit.agent.ui.UiImageSink
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.serialization.json.JsonArray
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -33,63 +31,112 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ToolBridgeSessionTest {
-    private val builtin = provider(ProviderKind.BUILTIN, "builtin", listOf(
-        "edit", "exec", "discover_tools", "terminal_start", "load_skill", "read_only",
-    ))
+    private val builtin =
+        provider(
+            ProviderKind.BUILTIN,
+            "builtin",
+            listOf(
+                "edit",
+                "exec",
+                "discover_tools",
+                "terminal_start",
+                "load_skill",
+                "read_only",
+            ),
+        )
     private val mcp = provider(ProviderKind.MCP, "remote", listOf("lookup"))
-    private val registry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(builtin, mcp))
-    private val executor = ToolCallExecutor(registry, ApprovalGateway(
-        ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-    ))
+    private val registry = ToolRegistry(listOf(builtin, mcp))
+    private val executor =
+        ToolCallExecutor(
+            registry,
+            ApprovalGateway(
+                ManualApprovalHandler { ManualApprovalResult.Approved },
+                null,
+            ),
+            permissionLevel = { PermissionLevel.REQUEST_APPROVAL },
+        )
 
     @Test
     fun `list exposes only non-file non-terminal direct and qualified mcp tools`() = runBlocking {
         val session = session()
-        val names = kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
-            .jsonArray.map { it.jsonObject.getValue("name").jsonPrimitive.content }
+        val names =
+            kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
+                .jsonArray
+                .map {
+                    it.jsonObject.getValue("name").jsonPrimitive.content
+                }
 
         assertEquals(listOf("load_skill", "read_only", "mcp__remote__lookup"), names)
     }
 
     @Test
     fun `qualified mcp tools cannot bypass bridge exclusions`() = runBlocking {
-        val mcpWithReservedNames = provider(
-            ProviderKind.MCP, "reserved",
-            listOf("edit", "exec", "discover_tools", "terminal_custom", "lookup"),
-        )
-        val scopedRegistry = ToolRegistry(
-            ToolPermissionSource { _, _, mode -> mode },
-            listOf(builtin, mcpWithReservedNames),
-        )
-        val scopedExecutor = ToolCallExecutor(scopedRegistry, ApprovalGateway(
-            ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-        ))
-        val session = ToolBridgeSession(
-            scopedRegistry, scopedExecutor, ToolVisibility(true), EmptyCoroutineContext,
-            "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", {}, "native", null,
-        )
-        val names = kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
-            .jsonArray.map { it.jsonObject.getValue("name").jsonPrimitive.content }
+        val mcpWithReservedNames =
+            provider(
+                ProviderKind.MCP,
+                "reserved",
+                listOf("edit", "exec", "discover_tools", "terminal_custom", "lookup"),
+            )
+        val scopedRegistry = ToolRegistry(listOf(builtin, mcpWithReservedNames))
+        val scopedExecutor =
+            ToolCallExecutor(
+                scopedRegistry,
+                ApprovalGateway(
+                    ManualApprovalHandler { ManualApprovalResult.Approved },
+                    null,
+                ),
+                permissionLevel = { PermissionLevel.REQUEST_APPROVAL },
+            )
+        val session =
+            ToolBridgeSession(
+                scopedRegistry,
+                scopedExecutor,
+                ToolVisibility(true),
+                EmptyCoroutineContext,
+                "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH),
+                "owner",
+                {},
+                "native",
+                null,
+            )
+        val names =
+            kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
+                .jsonArray
+                .map {
+                    it.jsonObject.getValue("name").jsonPrimitive.content
+                }
 
         assertTrue("mcp__reserved__lookup" in names)
-        assertTrue(names.none { it.contains("__edit") || it.contains("__exec") ||
-            it.contains("__discover_tools") || it.contains("__terminal_") })
+        assertTrue(
+            names.none {
+                it.contains("__edit") ||
+                    it.contains("__exec") ||
+                    it.contains("__discover_tools") ||
+                    it.contains("__terminal_")
+            },
+        )
     }
 
     @Test
     fun `revoked token rejects subsequent requests`() = runBlocking {
         val session = session()
         session.revoke()
-        val response = kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}")).jsonObject
-        assertFalse(response.getValue("ok").jsonPrimitive.content.toBoolean())
+        val response =
+            kotlinx.serialization.json.Json.parseToJsonElement(session.handle("{\"op\":\"list\"}"))
+                .jsonObject
+        assertFalse(
+            response.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("token_revoked", response.getValue("error").jsonPrimitive.content)
     }
 
     @Test
     fun `malformed argument shape returns machine readable error`() = runBlocking {
-        val response = kotlinx.serialization.json.Json.parseToJsonElement(
-            session().handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":7}"),
-        ).jsonObject
+        val response =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                    session().handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":7}"),
+                )
+                .jsonObject
         assertEquals("invalid_arguments", response.getValue("error").jsonPrimitive.content)
     }
 
@@ -97,10 +144,14 @@ class ToolBridgeSessionTest {
     fun `nested call executes independently and is audited`() = runBlocking {
         val audits = mutableListOf<ToolBridgeSession.AuditEntry>()
         val session = session(audits::add)
-        val response = kotlinx.serialization.json.Json.parseToJsonElement(
-            session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}"),
-        ).jsonObject
-        assertTrue(response.getValue("ok").jsonPrimitive.content.toBoolean())
+        val response =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                    session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}"),
+                )
+                .jsonObject
+        assertTrue(
+            response.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("read_only", response.getValue("result").jsonPrimitive.content)
         with(audits.single()) {
             assertEquals("owner", sessionId)
@@ -116,14 +167,16 @@ class ToolBridgeSessionTest {
     fun `audit failure does not suppress successful tool result`() = runBlocking {
         var auditAttempts = 0
         var executions = 0
-        val provider = provider(ProviderKind.BUILTIN, "success", listOf("read_only")) {
-            executions++
-            "completed"
-        }
-        val session = session(provider, ManualApprovalResult.Approved) {
-            auditAttempts++
-            error("audit unavailable")
-        }
+        val provider =
+            provider(ProviderKind.BUILTIN, "success", listOf("read_only")) {
+                executions++
+                "completed"
+            }
+        val session =
+            session(provider, ManualApprovalResult.Approved) {
+                auditAttempts++
+                error("audit unavailable")
+            }
 
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
 
@@ -136,22 +189,28 @@ class ToolBridgeSessionTest {
     fun `audit failure does not suppress denied tool result`() = runBlocking {
         var auditAttempts = 0
         var executions = 0
-        val provider = provider(ProviderKind.BUILTIN, "denied", listOf("read_only"), ToolMode.MANUAL_APPROVAL) {
-            executions++
-            "unexpected"
-        }
-        val session = session(provider, ManualApprovalResult.Rejected("not approved")) {
-            auditAttempts++
-            error("audit unavailable")
-        }
+        val provider =
+            provider(ProviderKind.BUILTIN, "denied", listOf("read_only"), sideEffect = true) {
+                executions++
+                "unexpected"
+            }
+        val session =
+            session(provider, ManualApprovalResult.Rejected("not approved")) {
+                auditAttempts++
+                error("audit unavailable")
+            }
 
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
         val json = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
 
-        assertFalse(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(
+            json.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("approval_denied", json.getValue("error").jsonPrimitive.content)
         assertEquals("USER_REJECTED", json.getValue("status").jsonPrimitive.content)
-        assertTrue(json.getValue("result").jsonPrimitive.content.contains("not approved"))
+        assertTrue(
+            json.getValue("result").jsonPrimitive.content.contains("not approved"),
+        )
         assertEquals(0, executions)
         assertEquals(1, auditAttempts)
     }
@@ -160,63 +219,93 @@ class ToolBridgeSessionTest {
     fun `audit failure does not suppress failed tool result`() = runBlocking {
         var auditAttempts = 0
         var executions = 0
-        val provider = provider(ProviderKind.BUILTIN, "failure", listOf("read_only")) {
-            executions++
-            error("target failed")
-        }
-        val session = session(provider, ManualApprovalResult.Approved) {
-            auditAttempts++
-            error("audit unavailable")
-        }
+        val provider =
+            provider(ProviderKind.BUILTIN, "failure", listOf("read_only")) {
+                executions++
+                error("target failed")
+            }
+        val session =
+            session(provider, ManualApprovalResult.Approved) {
+                auditAttempts++
+                error("audit unavailable")
+            }
 
         val response = session.handle("{\"op\":\"call\",\"name\":\"read_only\",\"arguments\":{}}")
         val json = kotlinx.serialization.json.Json.parseToJsonElement(response).jsonObject
 
-        assertFalse(json.getValue("ok").jsonPrimitive.content.toBoolean())
+        assertFalse(
+            json.getValue("ok").jsonPrimitive.content.toBoolean(),
+        )
         assertEquals("execution_failed", json.getValue("error").jsonPrimitive.content)
         assertEquals("AUTO_ALLOWED", json.getValue("status").jsonPrimitive.content)
-        assertTrue(json.getValue("result").jsonPrimitive.content.contains("target failed"))
+        assertTrue(
+            json.getValue("result").jsonPrimitive.content.contains("target failed"),
+        )
         assertEquals(1, executions)
         assertEquals(1, auditAttempts)
     }
 
     @Test
-    fun `terminal-lived call replaces completed parent job and preserves agent contexts`() = runBlocking {
-        val completedParent = Job().also { it.complete() }
-        val agentContext = AgentSessionContext("terminal-owner")
-        val imageSink = UiImageSink()
-        var observedJob: Job? = null
-        var observedJobWasActive = false
-        var observedAgentContext: AgentSessionContext? = null
-        var observedImageSink: UiImageSink? = null
-        val contextProvider = object : ToolProvider by builtin {
-            override fun listTools() = listOf(ProviderTool("inspect", "inspect", JsonObject(emptyMap()), ToolMode.ENABLED))
-            override suspend fun execute(toolName: String, arguments: JsonObject): String {
-                val context = currentCoroutineContext()
-                observedJob = context[Job]
-                observedJobWasActive = observedJob!!.isActive
-                observedAgentContext = context[AgentSessionContext]
-                observedImageSink = context[UiImageSink]
-                return "ok"
-            }
+    fun `terminal-lived call replaces completed parent job and preserves agent contexts`() =
+        runBlocking {
+            val completedParent = Job().also { it.complete() }
+            val agentContext = AgentSessionContext("terminal-owner")
+            val imageSink = UiImageSink()
+            var observedJob: Job? = null
+            var observedJobWasActive = false
+            var observedAgentContext: AgentSessionContext? = null
+            var observedImageSink: UiImageSink? = null
+            val contextProvider =
+                object : ToolProvider by builtin {
+                    override fun listTools() =
+                        listOf(
+                            ProviderTool(
+                                "inspect",
+                                "inspect",
+                                JsonObject(emptyMap()),
+                                sideEffect = false,
+                            ),
+                        )
+
+                    override suspend fun execute(toolName: String, arguments: JsonObject): String {
+                        val context = currentCoroutineContext()
+                        observedJob = context[Job]
+                        observedJobWasActive = observedJob!!.isActive
+                        observedAgentContext = context[AgentSessionContext]
+                        observedImageSink = context[UiImageSink]
+                        return "ok"
+                    }
+                }
+            val contextRegistry = ToolRegistry(listOf(contextProvider))
+            val contextExecutor =
+                ToolCallExecutor(
+                    contextRegistry,
+                    ApprovalGateway(
+                        ManualApprovalHandler { ManualApprovalResult.Approved },
+                        null,
+                    ),
+                    permissionLevel = { PermissionLevel.REQUEST_APPROVAL },
+                )
+            val session =
+                ToolBridgeSession(
+                    contextRegistry,
+                    contextExecutor,
+                    ToolVisibility(true),
+                    completedParent + agentContext + imageSink,
+                    "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH),
+                    "owner",
+                    {},
+                    "native",
+                    null,
+                )
+
+            session.handle("{\"op\":\"call\",\"name\":\"inspect\",\"arguments\":{}}")
+
+            assertTrue(observedJobWasActive)
+            assertFalse(observedJob === completedParent)
+            assertTrue(observedAgentContext === agentContext)
+            assertTrue(observedImageSink === imageSink)
         }
-        val contextRegistry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(contextProvider))
-        val contextExecutor = ToolCallExecutor(contextRegistry, ApprovalGateway(
-            ManualApprovalHandler { ManualApprovalResult.Approved }, null,
-        ))
-        val session = ToolBridgeSession(
-            contextRegistry, contextExecutor, ToolVisibility(true),
-            completedParent + agentContext + imageSink,
-            "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", {}, "native", null,
-        )
-
-        session.handle("{\"op\":\"call\",\"name\":\"inspect\",\"arguments\":{}}")
-
-        assertTrue(observedJobWasActive)
-        assertFalse(observedJob === completedParent)
-        assertTrue(observedAgentContext === agentContext)
-        assertTrue(observedImageSink === imageSink)
-    }
 
     @Test
     fun `one-shot endpoint is injected only for command lifetime`() = runBlocking {
@@ -233,17 +322,24 @@ class ToolBridgeSessionTest {
                 context = EmptyCoroutineContext,
             ) {
                 endpoint = it
-                assertEquals(server.port.toString(), it.environment().getValue("WEAGENT_BRIDGE_PORT"))
+                assertEquals(
+                    server.port.toString(),
+                    it.environment().getValue("WEAGENT_BRIDGE_PORT"),
+                )
                 assertEquals(it.token, it.environment().getValue("WEAGENT_BRIDGE_TOKEN"))
-                val active = kotlinx.serialization.json.Json.parseToJsonElement(
-                    InvokeToolClient(it.port, it.token).list(),
-                ).jsonArray
+                val active =
+                    kotlinx.serialization.json.Json.parseToJsonElement(
+                            InvokeToolClient(it.port, it.token).list(),
+                        )
+                        .jsonArray
                 assertTrue(active.isNotEmpty())
             }
 
-            val revoked = kotlinx.serialization.json.Json.parseToJsonElement(
-                InvokeToolClient(endpoint.port, endpoint.token).list(),
-            ).jsonObject
+            val revoked =
+                kotlinx.serialization.json.Json.parseToJsonElement(
+                        InvokeToolClient(endpoint.port, endpoint.token).list(),
+                    )
+                    .jsonObject
             assertEquals("unauthorized", revoked.getValue("error").jsonPrimitive.content)
         } finally {
             server.close()
@@ -251,21 +347,41 @@ class ToolBridgeSessionTest {
         }
     }
 
-    private fun session(audit: suspend (ToolBridgeSession.AuditEntry) -> Unit = {}) = ToolBridgeSession(
-        registry, executor, ToolVisibility(visionTools = true), EmptyCoroutineContext,
-        "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", audit, "native", null,
-    )
+    private fun session(audit: suspend (ToolBridgeSession.AuditEntry) -> Unit = {}) =
+        ToolBridgeSession(
+            registry,
+            executor,
+            ToolVisibility(visionTools = true),
+            EmptyCoroutineContext,
+            "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH),
+            "owner",
+            audit,
+            "native",
+            null,
+        )
 
     private fun session(
         provider: ToolProvider,
         approval: ManualApprovalResult,
         audit: suspend (ToolBridgeSession.AuditEntry) -> Unit,
     ): ToolBridgeSession {
-        val registry = ToolRegistry(ToolPermissionSource { _, _, mode -> mode }, listOf(provider))
-        val executor = ToolCallExecutor(registry, ApprovalGateway(ManualApprovalHandler { approval }, null))
+        val registry = ToolRegistry(listOf(provider))
+        val executor =
+            ToolCallExecutor(
+                registry,
+                ApprovalGateway(ManualApprovalHandler { approval }, null),
+                permissionLevel = { PermissionLevel.REQUEST_APPROVAL },
+            )
         return ToolBridgeSession(
-            registry, executor, ToolVisibility(true), EmptyCoroutineContext,
-            "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH), "owner", audit, "native", null,
+            registry,
+            executor,
+            ToolVisibility(true),
+            EmptyCoroutineContext,
+            "a".repeat(ToolBridgeProtocol.TOKEN_LENGTH),
+            "owner",
+            audit,
+            "native",
+            null,
         )
     }
 
@@ -273,14 +389,20 @@ class ToolBridgeSessionTest {
         kind: ProviderKind,
         id: String,
         names: List<String>,
-        mode: ToolMode = ToolMode.ENABLED,
+        sideEffect: Boolean = false,
         execute: suspend (String) -> String = { it },
-    ) = object : ToolProvider {
-        override val id = id
-        override val name = id
-        override val kind = kind
-        override val isAvailable = true
-        override fun listTools() = names.map { ProviderTool(it, "$it description", JsonObject(emptyMap()), mode) }
-        override suspend fun execute(toolName: String, arguments: JsonObject) = execute(toolName)
-    }
+    ) =
+        object : ToolProvider {
+            override val id = id
+            override val name = id
+            override val kind = kind
+            override val isAvailable = true
+
+            override fun listTools() = names.map {
+                ProviderTool(it, "$it description", JsonObject(emptyMap()), sideEffect)
+            }
+
+            override suspend fun execute(toolName: String, arguments: JsonObject) =
+                execute(toolName)
+        }
 }

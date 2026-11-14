@@ -2,34 +2,33 @@ package dev.ujhhgtg.wekit.features.items.payment
 
 import android.content.ContentValues
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
-import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
+import dev.ujhhgtg.wekit.features.automation.AutomationReplyContext
+import dev.ujhhgtg.wekit.features.automation.AutomationReplyExecutor
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
-import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.concurrent.thread
 
 object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
-
     override val technicalId = "自动接收转账"
     override val nameRes = R.string.feature_auto_accept_transfers_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)
@@ -38,6 +37,7 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     private const val TAG = "AutoAcceptTransfers"
 
     override fun onEnable() {
+        TransferAutomation.store.snapshot()
         WeDatabaseListenerApi.addListener(this)
     }
 
@@ -57,15 +57,10 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
     private val PAY_SUBTYPE_REGEX = Regex("<paysubtype.*?(\\d+)</paysubtype>")
 
-    private fun parsePaySubtypeFromXml(xml: String): String? {
-        return runCatching {
-            PAY_SUBTYPE_REGEX
-                .find(xml)
-                ?.groupValues
-                ?.get(1)
-                ?.trim()
-        }.getOrDefault(null)
+    private fun parsePaySubtypeFromXml(xml: String): String? = runCatching {
+        PAY_SUBTYPE_REGEX.find(xml)?.groupValues?.get(1)?.trim()
     }
+        .getOrDefault(null)
 
     private fun handleTransfer(values: ContentValues) {
         val talker = values.getAsString("talker") ?: ""
@@ -79,12 +74,15 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
 
         val msgInfo = MessageInfo.fromContentValues(values)
 
-        val transferMsg = msgInfo.toTransferMessage() ?: run {
-            WeLogger.w(TAG, "failed to parse transfer message")
-            return
-        }
+        val transferMsg =
+            msgInfo.toTransferMessage()
+                ?: run {
+                    WeLogger.w(TAG, "failed to parse transfer message")
+                    return
+                }
 
-        val payerUsername = transferMsg.payerUsername.ifEmpty { msgInfo.sender }.ifEmpty { msgInfo.talker }
+        val payerUsername =
+            transferMsg.payerUsername.ifEmpty { msgInfo.sender }.ifEmpty { msgInfo.talker }
 
         if (payerUsername == WeApi.selfWxId) {
             WeLogger.w(TAG, "self is payer, ignoring")
@@ -97,20 +95,29 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
             return
         }
 
-        val rules = TransferSettings.resolve(talker, payerUsername)
-        val totalFeeCents = transferMsg.totalFee.takeIf { it > 0L }
-            ?: parseFeedescCents(transferMsg.feedesc)
-        if (rules.amountRange.enabled && totalFeeCents == null) {
-            WeLogger.w(TAG, "amount rule is enabled but transfer amount cannot be parsed; feedesc=${transferMsg.feedesc}")
+        val rules = TransferAutomation.store.resolve(talker, payerUsername)
+        val amountRange = rules[TransferAutomation.amountRange]
+        val totalFeeCents =
+            transferMsg.totalFee.takeIf { it > 0L } ?: parseFeedescCents(transferMsg.feedesc)
+        if (amountRange.enabled && totalFeeCents == null) {
+            WeLogger.w(
+                TAG,
+                "amount rule is enabled but transfer amount cannot be parsed; feedesc=${transferMsg.feedesc}",
+            )
             return
         }
-        if (!rules.accepts(totalFeeCents ?: 0L, transferMsg.payMemo)) return
+        val accepted =
+            rules[TransferAutomation.accept].enabled &&
+                rules[TransferAutomation.timeRange].matches() &&
+                amountRange.matches(totalFeeCents ?: 0L) &&
+                rules[TransferAutomation.memoKeyword].matches(transferMsg.payMemo)
+        if (!accepted) return
 
-        val delayTime = rules.delay.millis()
+        val delayTime = rules[TransferAutomation.delay].millis()
         WeLogger.i(
             TAG,
             "matched transfer rules: talker=$talker, payer=$payerUsername, totalFee=$totalFeeCents, " +
-                    "feeType=${transferMsg.feeType}, delay=$delayTime"
+                "feeType=${transferMsg.feeType}, delay=$delayTime",
         )
 
         thread(name = "AcceptTransferThread") {
@@ -120,27 +127,35 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
                     Thread.sleep(delayTime)
                 }
 
-                WePaymentApi.confirmTransfer(transferMsg.transactionId, transferMsg.transferId, payerUsername, transferMsg.invalidTime)
+                WePaymentApi.confirmTransfer(
+                    transferMsg.transactionId,
+                    transferMsg.transferId,
+                    payerUsername,
+                    transferMsg.invalidTime,
+                )
                 WeLogger.i(TAG, "called WePaymentApi.confirmTransfer")
 
-                if (rules.autoReply.enabled) {
-                    WeMessageApi.sendText(
-                        msgInfo.talker,
-                        rules.autoReply.text.replace($$"$amount", transferMsg.feedesc)
-                    )
-                }
+                AutomationReplyExecutor.launch(
+                    rules[TransferAutomation.reply],
+                    AutomationReplyContext(
+                        talker = msgInfo.talker,
+                        sender = payerUsername,
+                        msgId = msgInfo.id,
+                        variables = mapOf("amount" to transferMsg.feedesc),
+                    ),
+                )
 
-                if (!rules.notification.enabled) return@thread
+                if (!rules[TransferAutomation.notification].enabled) return@thread
 
                 val displayName = WeDatabaseApi.getDisplayName(payerUsername)
 
-                runOnUiThread {
+                postOnUiThread {
                     showToast(
-                        localizedPaymentString(
+                        localizedString(
                             R.string.payment_transfer_received,
                             displayName,
                             transferMsg.feedesc,
-                        )
+                        ),
                     )
                 }
             } catch (e: Throwable) {
@@ -150,17 +165,15 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
     }
 
     override fun onClick(context: ComponentActivity) {
-        TransferSettings.showMainDialog(context)
+        AutomationSettingsActivity.start(context, TransferAutomation)
     }
 
     private fun parseFeedescCents(feedesc: String): Long? {
         val amount = Regex("\\d+(?:\\.\\d{1,2})?").find(feedesc)?.value ?: return null
         return runCatching {
-            BigDecimal(amount)
-                .movePointRight(2)
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValueExact()
-        }.getOrNull()
+            BigDecimal(amount).movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact()
+        }
+            .getOrNull()
     }
 
     override fun onBeforeToggle(newState: Boolean, context: Context): Boolean {
@@ -170,12 +183,18 @@ object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertLi
                     title = { Text(text = stringResource(R.string.warning)) },
                     text = { Text(text = stringResource(R.string.payment_risk_warning)) },
                     confirmButton = {
-                        Button(onClick = {
-                            applyToggle(true)
-                            onDismiss()
-                        }) { Text(stringResource(R.string.dialog_confirm)) }
+                        TextButton(
+                            onClick = {
+                                applyToggle(true)
+                                onDismiss()
+                            },
+                        ) {
+                            Text(stringResource(R.string.dialog_confirm))
+                        }
                     },
-                    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) } }
+                    dismissButton = {
+                        TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    },
                 )
             }
             return false

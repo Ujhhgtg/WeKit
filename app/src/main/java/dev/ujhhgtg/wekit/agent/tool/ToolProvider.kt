@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.agent.tool
 import kotlinx.serialization.json.JsonObject
 
 /**
- * A source of tools for the agent. Either the fixed "builtin" provider (backed by the
- * `@AgentTool` registry) or one MCP server (§3.4). Both are structurally identical to the model.
+ * A source of tools for the agent. Either the fixed "builtin" provider (backed by the `@AgentTool`
+ * registry) or one MCP server (§3.4). Both are structurally identical to the model.
  */
 interface ToolProvider {
     /** Stable id used as the `providerId` in the Room permission table. */
@@ -21,19 +21,26 @@ interface ToolProvider {
     /** Snapshot of the tools this provider currently exposes. */
     fun listTools(): List<ProviderTool>
 
-    /** Execute a tool by its bare name with the given JSON arguments, returning a model-readable result. */
+    /**
+     * Execute a tool by its bare name with the given JSON arguments, returning a model-readable
+     * result.
+     */
     suspend fun execute(toolName: String, arguments: JsonObject): String
 }
 
-enum class ProviderKind { BUILTIN, MCP }
+enum class ProviderKind {
+    BUILTIN,
+    MCP,
+}
 
 /**
- * A tool as advertised by a [ToolProvider], before permission resolution. [factoryDefaultMode]
- * is the out-of-the-box mode used only to seed the permission table for a never-seen tool.
+ * A tool as advertised by a [ToolProvider]. [sideEffect] drives the session permission level's
+ * approval behavior: side-effect-free tools run directly in every level, side-effecting tools are
+ * gated (manually or by smart review) unless the session grants full access.
  */
 data class ProviderTool(
     val name: String,
     val description: String,
     val jsonSchema: JsonObject,
-    val factoryDefaultMode: ToolMode,
+    val sideEffect: Boolean,
 )

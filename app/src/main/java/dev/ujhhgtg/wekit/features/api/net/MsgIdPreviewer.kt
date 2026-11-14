@@ -6,17 +6,12 @@ import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 
-/**
- * MsgId 预览工具
- */
+/** MsgId 预览工具 */
 object MsgIdPreviewer {
-
     private const val MMKV_FILE_ID = "db_max_id_record"
     private const val KEY_PREFIX = "msg."
 
-    /**
-     * 生成 ClientMsgId
-     */
+    /** 生成 ClientMsgId */
     fun generateClientMsgId(wxId: String, timeMs: Long): Int {
         val rawString = generateClientMsgIdString(wxId, timeMs)
         return rawString.hashCode()
@@ -37,11 +32,9 @@ object MsgIdPreviewer {
         return str2 + suffixHex + suffixNum
     }
 
-    /**
-     * MD5 实现
-     */
-    private fun md5V2(bytes: ByteArray): String {
-        return try {
+    /** MD5 实现 */
+    private fun md5V2(bytes: ByteArray): String =
+        try {
             val digest = MessageDigest.getInstance("MD5")
             digest.update(bytes)
             val bArrDigest = digest.digest()
@@ -58,26 +51,28 @@ object MsgIdPreviewer {
         } catch (_: Exception) {
             ""
         }
-    }
 
     /**
      * 获取下一个可用的 MsgId
+     *
      * @param tableName 表名，主表为 "message"，小程序为 "appbrandmessage" 等
      */
-    fun previewNextId(tableName: String): Long {
-        return try {
+    fun previewNextId(tableName: String): Long =
+        try {
             val mmkvClass = Class.forName("com.tencent.mmkv.MMKV")
-            val mmkvWithIDMethod = mmkvClass.getDeclaredMethod(
-                "mmkvWithID",
-                String::class.java,
-                Int::class.javaPrimitiveType
-            )
+            val mmkvWithIDMethod =
+                mmkvClass.getDeclaredMethod(
+                    "mmkvWithID",
+                    String::class.java,
+                    Int::class.javaPrimitiveType,
+                )
             val mmkvInstance = mmkvWithIDMethod.invoke(null, MMKV_FILE_ID, 2)
-            val decodeLongMethod = mmkvClass.getDeclaredMethod(
-                "decodeLong",
-                String::class.java,
-                Long::class.javaPrimitiveType
-            )
+            val decodeLongMethod =
+                mmkvClass.getDeclaredMethod(
+                    "decodeLong",
+                    String::class.java,
+                    Long::class.javaPrimitiveType,
+                )
 
             val currentId =
                 decodeLongMethod.invoke(mmkvInstance, "$KEY_PREFIX$tableName", 0L) as Long
@@ -91,31 +86,60 @@ object MsgIdPreviewer {
             WeLogger.e("MsgIdProvider", "MMKV 反射失败: ${e.message}")
             System.currentTimeMillis()
         }
-    }
 
-    private fun calculateNext(tableName: String, current: Long): Long {
-        return when (tableName) {
-            "message" -> when (current) {
-                1_000_000L -> 10_000_000L
-                90_000_000L -> 500_000_001L
-                else -> current + 1
+    private fun calculateNext(tableName: String, current: Long): Long =
+        when (tableName) {
+            "message" -> {
+                when (current) {
+                    1_000_000L -> 10_000_000L
+                    90_000_000L -> 500_000_001L
+                    else -> current + 1
+                }
             }
 
-            "qmessage" -> if (current == 1_500_000L) 90_000_001L else current + 1
-            "tmessage" -> if (current == 2_000_000L) 93_000_001L else current + 1
-            "bottlemessage" -> if (current == 2_500_000L) 96_000_001L else current + 1
-            "bizchatmessage" -> if (current == 3_000_000L) 99_000_001L else current + 1
-            "appbrandmessage" -> if (current == 3_500_000L) 102_000_001L else current + 1
-            "findermessage006" -> if (current == 4_500_000L) 108_000_001L else current + 1
-            "gamelifemessage" -> if (current == 5_000_000L) 208_000_001L else current + 1
-            "textstatusmessage" -> if (current == 5_500_000L) 308_000_001L else current + 1
-            "bizfansmessage" -> if (current == 6_000_000L) 408_000_001L else current + 1
-            else -> current + 1
-        }
-    }
+            "qmessage" -> {
+                if (current == 1_500_000L) 90_000_001L else current + 1
+            }
 
-    private fun getInitialId(tableName: String): Long {
-        return when (tableName) {
+            "tmessage" -> {
+                if (current == 2_000_000L) 93_000_001L else current + 1
+            }
+
+            "bottlemessage" -> {
+                if (current == 2_500_000L) 96_000_001L else current + 1
+            }
+
+            "bizchatmessage" -> {
+                if (current == 3_000_000L) 99_000_001L else current + 1
+            }
+
+            "appbrandmessage" -> {
+                if (current == 3_500_000L) 102_000_001L else current + 1
+            }
+
+            "findermessage006" -> {
+                if (current == 4_500_000L) 108_000_001L else current + 1
+            }
+
+            "gamelifemessage" -> {
+                if (current == 5_000_000L) 208_000_001L else current + 1
+            }
+
+            "textstatusmessage" -> {
+                if (current == 5_500_000L) 308_000_001L else current + 1
+            }
+
+            "bizfansmessage" -> {
+                if (current == 6_000_000L) 408_000_001L else current + 1
+            }
+
+            else -> {
+                current + 1
+            }
+        }
+
+    private fun getInitialId(tableName: String): Long =
+        when (tableName) {
             "message" -> 1L
             "qmessage" -> 1_000_001L
             "tmessage" -> 1_500_001L
@@ -128,5 +152,4 @@ object MsgIdPreviewer {
             "bizfansmessage" -> 5_500_001L
             else -> 1L
         }
-    }
 }

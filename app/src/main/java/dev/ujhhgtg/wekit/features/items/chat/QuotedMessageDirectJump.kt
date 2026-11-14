@@ -11,14 +11,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
@@ -26,7 +24,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
-object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
+object QuotedMessageDirectJump : ClickableFeature() {
 
     override val technicalId = "引用消息直达"
     override val nameRes = R.string.feature_quoted_message_direct_jump_name
@@ -38,36 +36,30 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
 
     private val methodClickEvent by dexMethod {
         searchPackages("com.tencent.mm.ui.chatting.viewitems")
-        matcher {
-            usingEqStrings(
-                "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "handleItemClickEvent,quotedMsg is null!"
-            )
-        }
+        usingEqStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "handleItemClickEvent,quotedMsg is null!",
+        )
     }
     private val methodClickToPositionEvent by dexMethod {
-        matcher {
-            declaredClass(methodClickEvent.data.declaredClassName)
-            usingEqStrings(
-                "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "handleItemClickToPositionEvent,quotedMsg is null!"
-            )
-        }
+        declaredClass(methodClickEvent.data.declaredClassName)
+        usingEqStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "handleItemClickToPositionEvent,quotedMsg is null!",
+        )
     }
     private val methodGetQuoteMessageInfo by dexMethod {
-        matcher {
-            declaredClass(methodClickEvent.data.declaredClassName)
-            usingStrings(
-                "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
-                "%s msgId:%s msgSvrId:%s"
-            )
-        }
+        declaredClass(methodClickEvent.data.declaredClassName)
+        usingStrings(
+            "MicroMsg.msgquote.QuoteMsgSourceClickLogic",
+            "%s msgId:%s msgSvrId:%s",
+        )
     }
-    private val classEnumQuoteJumpToPositionSource by dexClass(allowFailure = true) {
-        matcher {
+    private val classEnumQuoteJumpToPositionSource by
+        dexClass(allowFailure = true) {
             usingEqStrings("QuoteLongClickFromQuoteView", "QuoteClickFromTextPreviewLocateView")
         }
-    }
+
     override fun onEnable() {
         methodClickEvent.hookBefore {
             val isInputBox = args[1] == null
@@ -80,29 +72,31 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
             val stringValue = args[4]
             val msgQuoteItem = args[5]
             val chattingItemHolder = args[7]!!
-            val chattingItem = chattingItemHolder.reflekt()
-                .firstField { type { it != String::class.java } }.get()
+            val chattingItem =
+                chattingItemHolder.reflekt().firstField { type { it != String::class.java } }.get()
             val mGetQuoteMessageInfo = methodGetQuoteMessageInfo.method
             var msgInfo: Any
             if (mGetQuoteMessageInfo.parameterCount == 6) {
-                msgInfo = mGetQuoteMessageInfo.invoke(
-                    null,
-                    false /* isGroupChat: this arg is ignored */,
-                    WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
-                    longValue,
-                    stringValue,
-                    msgQuoteItem,
-                    "handleQuoteMsgClick" /* hardcoded in original code */
-                )!!
+                msgInfo =
+                    mGetQuoteMessageInfo.invoke(
+                        null,
+                        false /* isGroupChat: this arg is ignored */,
+                        WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
+                        longValue,
+                        stringValue,
+                        msgQuoteItem,
+                        "handleQuoteMsgClick", /* hardcoded in original code */
+                    )!!
             } else {
-                msgInfo = mGetQuoteMessageInfo.invoke(
-                    null,
-                    false /* isGroupChat: this arg is ignored */,
-                    WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
-                    longValue,
-                    msgQuoteItem,
-                    "handleQuoteMsgClick" /* hardcoded in original code */
-                )!!
+                msgInfo =
+                    mGetQuoteMessageInfo.invoke(
+                        null,
+                        false /* isGroupChat: this arg is ignored */,
+                        WeMessageApi.methodChattingContextGetTalker.method.invoke(chattingContext),
+                        longValue,
+                        msgQuoteItem,
+                        "handleQuoteMsgClick", /* hardcoded in original code */
+                    )!!
             }
             val mClickToPositionEvent = methodClickToPositionEvent.method
             if (mClickToPositionEvent.parameterCount == 8) {
@@ -115,7 +109,10 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                     longValue,
                     stringValue,
                     msgQuoteItem,
-                    enumValueOfClass(classEnumQuoteJumpToPositionSource.clazz, "QuoteLongClickFromQuoteView")
+                    enumValueOfClass(
+                        classEnumQuoteJumpToPositionSource.clazz,
+                        "QuoteLongClickFromQuoteView",
+                    ),
                 )
             } else {
                 methodClickToPositionEvent.method.invoke(
@@ -126,7 +123,7 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                     view,
                     longValue,
                     msgQuoteItem,
-                    true
+                    true,
                 )
             }
             result = null
@@ -145,7 +142,10 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                         item {
                             SwitchWidget(
                                 title = stringResource(R.string.chat_quote_jump_message_list),
-                                description = stringResource(R.string.chat_quote_jump_message_list_description),
+                                description =
+                                    stringResource(
+                                        R.string.chat_quote_jump_message_list_description,
+                                    ),
                                 checked = messageList,
                                 onCheckedChange = {
                                     messageList = it
@@ -156,7 +156,8 @@ object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
                         item {
                             SwitchWidget(
                                 title = stringResource(R.string.chat_quote_jump_input_box),
-                                description = stringResource(R.string.chat_quote_jump_input_box_description),
+                                description =
+                                    stringResource(R.string.chat_quote_jump_input_box_description),
                                 checked = inputBox,
                                 onCheckedChange = {
                                     inputBox = it

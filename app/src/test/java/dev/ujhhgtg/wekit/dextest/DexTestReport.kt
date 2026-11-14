@@ -1,16 +1,16 @@
 package dev.ujhhgtg.wekit.dextest
 
-import kotlin.io.path.writeText
-import dev.ujhhgtg.wekit.dexkit.resolution.DexResolutionStatus
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionStatus
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import kotlin.io.path.writeText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal const val DEX_TEST_SCHEMA_VERSION = 1
+internal const val DEX_TEST_SCHEMA_VERSION = 3
 
 internal val DexTestJson = Json {
     encodeDefaults = true
@@ -29,8 +29,8 @@ internal data class DexTestError(
 internal data class DexTestDelegateReport(
     val key: String,
     val status: DexResolutionStatus,
+    /** Present only for [DexResolutionStatus.SUCCESS]. */
     val descriptor: String? = null,
-    val isPlaceholder: Boolean = false,
     val message: String? = null,
     val exceptionType: String? = null,
     val stackTrace: String? = null,
@@ -41,6 +41,8 @@ internal data class DexTestDelegateReport(
 internal data class DexTestFeatureReport(
     val className: String,
     val displayName: String,
+    /** 设备端云缓存按此字段匹配 feature；仅在类加载失败时为空字符串（该类 outcome 必然 FAIL，不会进入发布资产）。 */
+    val technicalId: String = "",
     val methodHash: String = "",
     val outcome: DexTestFeatureOutcome,
     val elapsedMillis: Long,
@@ -65,8 +67,8 @@ internal enum class DexTestApkOutcome {
 
 @Serializable
 internal data class DexTestEnvironment(
-    val dexKitVersion: String,
-    val dexKitRevision: String,
+    val engineVersion: String,
+    val engineRevision: String,
     val architecture: String,
     val jvmVersion: String,
 )

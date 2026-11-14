@@ -7,10 +7,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import android.widget.ImageView
+import androidx.core.graphics.createBitmap
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.data
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -23,33 +24,27 @@ import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import java.lang.reflect.Modifier
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.fileSize
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.math.roundToInt
-import org.luckypray.dexkit.DexKitBridge
 
-object ViewStickerAsImage : SwitchFeature(), IResolveDex {
-
+object ViewStickerAsImage : SwitchFeature() {
     override val technicalId = "表情消息以图片打开"
     override val nameRes = R.string.feature_view_sticker_as_image_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_view_sticker_as_image_description
 
     private const val TAG = "ViewStickerAsImage"
-
-    private val methodEmojiClickHandler by dexMethod()
-    private val methodEmojiClickEntry by dexMethod()
-    private val methodEmojiResolverGetter by dexMethod()
-    private val methodResolveEmojiInfo by dexMethod()
-    private val methodGetEmojiDecryptPath by dexMethod()
 
     override fun onEnable() {
         methodEmojiClickEntry.hookBefore {
@@ -66,53 +61,46 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun resolveDex(dexKit: DexKitBridge) {
-        methodEmojiClickHandler.find(dexKit) {
-            searchPackages("com.tencent.mm.ui.chatting.viewitems")
-            matcher {
-                paramCount = 1
-                returnType = "void"
-                usingEqStrings("MicroMsg.EmojiClickListener", "exit in teen mode")
-            }
+    private val methodEmojiClickHandler by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.viewitems")
+        paramCount = 1
+        returnType = "void"
+        usingEqString("MicroMsg.EmojiClickListener")
+        usingEqString("exit in teen mode")
+    }
+    private val methodEmojiClickEntry by dexMethod {
+        declaredClass {
+            className = methodEmojiClickHandler.data.declaredClassName
         }
-
-        methodEmojiClickEntry.find(dexKit) {
-            matcher {
-                declaredClass(methodEmojiClickHandler.data.declaredClassName)
-                paramTypes("android.view.View", null, null)
-                returnType = "void"
-            }
-        }
-
-        val resolveEmojiInfo = dexKit.findMethod {
-            matcher {
+        paramTypes("android.view.View", null, null)
+        returnType = "void"
+    }
+    private val methodResolveEmojiInfo by dexMethodFrom {
+        DexResolutionContext.findMethods {
                 paramTypes(methodEmojiClickEntry.data.paramTypeNames[2])
-                returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
+                returnType {
+                    className = "com.tencent.mm.storage.emotion.EmojiInfo"
+                }
             }
-        }.single { !Modifier.isStatic(it.modifiers) }
-        methodResolveEmojiInfo.setDescriptor(resolveEmojiInfo)
-
-        methodEmojiResolverGetter.find(dexKit) {
-            searchPackages("com.tencent.mm.feature.emoji")
-            matcher {
-                paramCount = 0
-                returnType = methodResolveEmojiInfo.data.declaredClassName
-            }
+            .single { !Modifier.isStatic(it.modifiers) }
+    }
+    private val methodEmojiResolverGetter by dexMethod {
+        searchPackages("com.tencent.mm.feature.emoji")
+        paramCount = 0
+        returnType {
+            className = methodResolveEmojiInfo.data.declaredClassName
         }
-
-        methodGetEmojiDecryptPath.find(dexKit) {
-            matcher {
-                declaredClass = "com.tencent.mm.storage.emotion.EmojiInfo"
-                paramCount = 0
-                returnType = "java.lang.String"
-                usingEqStrings(
-                    "MicroMsg.emoji.EmojiInfo",
-                    "[cpan] get icon path failed. product id and md5 are null.",
-                    "decrypt/",
-                    "getDecryptPath decrypt %s",
-                )
-            }
+    }
+    private val methodGetEmojiDecryptPath by dexMethod {
+        declaredClass {
+            className = "com.tencent.mm.storage.emotion.EmojiInfo"
         }
+        paramCount = 0
+        returnType = "java.lang.String"
+        usingEqString("MicroMsg.emoji.EmojiInfo")
+        usingEqString("[cpan] get icon path failed. product id and md5 are null.")
+        usingEqString("decrypt/")
+        usingEqString("getDecryptPath decrypt %s")
     }
 
     private fun resolveUsableActivity(view: View): Activity? {
@@ -121,25 +109,25 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         return getTopMostActivity()?.takeUnless { it.isFinishing || it.isDestroyed }
     }
 
-    private fun resolveWechatDecodedPath(hostMessage: Any): Path? {
-        return try {
-            val resolver = methodEmojiResolverGetter.method
-                .invoke(WeServiceApi.emojiFeatureService)!!
-            val emojiInfo = methodResolveEmojiInfo.method
-                .invoke(resolver, hostMessage)!!
+    private fun resolveWechatDecodedPath(hostMessage: Any): Path? =
+        try {
+            val resolver =
+                methodEmojiResolverGetter.method.invoke(WeServiceApi.emojiFeatureService)!!
+            val emojiInfo = methodResolveEmojiInfo.method.invoke(resolver, hostMessage)!!
             val path = (methodGetEmojiDecryptPath.method.invoke(emojiInfo) as String).asPath
             path.takeIf { it.isAbsolute && it.isRegularFile() && it.fileSize() > 0L }
         } catch (error: Exception) {
             WeLogger.e(TAG, "failed to resolve WeChat sticker decrypt path", error)
             null
         }
-    }
 
     private fun resolveCachedGif(messageInfo: MessageInfo): Path? {
-        val md5 = messageInfo.stickerMd5 ?: run {
-            WeLogger.e(TAG, "failed to resolve sticker md5")
-            return null
-        }
+        val md5 =
+            messageInfo.stickerMd5
+                ?: run {
+                    WeLogger.e(TAG, "failed to resolve sticker md5")
+                    return null
+                }
         val directory = KnownPaths.moduleCache / "view-sticker-as-image" / "decoded"
         val destination = directory / "$md5.gif"
         if (!destination.isRegularFile() || destination.fileSize() <= 0L) {
@@ -150,10 +138,11 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
 
     private fun prunePreviewDirectory(directory: Path, extension: String) {
         try {
-            Files.createDirectories(directory)
-            directory.listDirectoryEntries()
+            directory.createDirectories()
+            directory
+                .listDirectoryEntries()
                 .filter { it.isRegularFile() && it.name.endsWith(extension) }
-                .sortedByDescending { Files.getLastModifiedTime(it).toMillis() }
+                .sortedByDescending { it.getLastModifiedTime().toMillis() }
                 .drop(10)
                 .forEach { it.deleteIfExists() }
         } catch (error: Exception) {
@@ -165,14 +154,16 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         clickedView: View,
         hostMessage: Any,
         messageInfo: MessageInfo,
-    ): Path? = resolveWechatDecodedPath(hostMessage)
-        ?: resolveCachedGif(messageInfo)
-        ?: createSnapshot(clickedView)
+    ): Path? =
+        resolveWechatDecodedPath(hostMessage)
+            ?: resolveCachedGif(messageInfo)
+            ?: createSnapshot(clickedView)
 
     private fun createSnapshot(clickedView: View): Path? {
-        val imageView = clickedView.findViewWhich {
-            it is ImageView && it.drawable != null
-        } as? ImageView ?: return null
+        val imageView =
+            clickedView.findViewWhich {
+                it is ImageView && it.drawable != null
+            } as? ImageView ?: return null
         val drawable = imageView.drawable
         val sourceWidth = imageView.width.takeIf { it > 0 } ?: drawable.intrinsicWidth
         val sourceHeight = imageView.height.takeIf { it > 0 } ?: drawable.intrinsicHeight
@@ -185,12 +176,8 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         var bitmap: Bitmap? = null
         return try {
             prunePreviewDirectory(directory, ".png")
-            output = Files.createTempFile(directory, "sticker-preview-", ".png")
-            bitmap = Bitmap.createBitmap(
-                outputWidth,
-                outputHeight,
-                Bitmap.Config.ARGB_8888,
-            )
+            output = createTempFile(directory, "sticker-preview-", ".png")
+            bitmap = createBitmap(outputWidth, outputHeight)
             val canvas = Canvas(bitmap)
             canvas.scale(
                 outputWidth.toFloat() / sourceWidth,
@@ -218,11 +205,12 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
         }
     }
 
-    private fun startNativeImageViewer(activity: Activity, imagePath: Path): Boolean {
-        return try {
+    private fun startNativeImageViewer(activity: Activity, imagePath: Path): Boolean =
+        try {
             activity.startActivity(
                 Intent().apply {
-                    component = ComponentName(activity.packageName, "com.tencent.mm.ui.tools.ShowImageUI")
+                    component =
+                        ComponentName(activity.packageName, "com.tencent.mm.ui.tools.ShowImageUI")
                     putExtra("key_image_path", imagePath.absolutePathString())
                 },
             )
@@ -231,5 +219,4 @@ object ViewStickerAsImage : SwitchFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to start WeChat image viewer", error)
             false
         }
-    }
 }

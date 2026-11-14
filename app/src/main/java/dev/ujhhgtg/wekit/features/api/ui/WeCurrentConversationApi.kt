@@ -8,7 +8,6 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import java.lang.ref.WeakReference
 
 object WeCurrentConversationApi : ApiFeature() {
-
     override val technicalId = "当前聊天服务"
     override val nameRes = R.string.feature_we_current_conversation_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -25,7 +24,8 @@ object WeCurrentConversationApi : ApiFeature() {
         ChatFooter::class.reflekt()
             .firstMethod {
                 name = "setUserName"
-            }.hookAfter {
+            }
+            .hookAfter {
                 chatFooterRef = WeakReference(thisObject as ChatFooter)
                 val conv = args[0] as? String
                 if (!conv.isNullOrEmpty()) {

@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "deploy": "wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "vitepress": "2.0.0-alpha.20",
+    "wrangler": "4.129.0"
+  }
+}

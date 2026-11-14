@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -26,24 +25,23 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.composables.icons.materialsymbols.MaterialSymbols
-import com.composables.icons.materialsymbols.outlined.Delete
-import com.composables.icons.materialsymbols.outlined.Opacity
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
 import coil3.load
 import coil3.request.crossfade
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Delete
+import com.composables.icons.materialsymbols.outlined.Opacity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
+import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -64,8 +62,7 @@ import kotlin.io.path.div
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
-
+object ApplyGlobalBackground : ClickableFeature() {
     override val technicalId = "应用全局背景"
     override val nameRes = R.string.feature_apply_global_background_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -74,14 +71,14 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private const val TAG = "ApplyGlobalBackground"
 
     private val methodInitImageView by dexMethod {
-        matcher {
-            declaredClass = "com.tencent.mm.ui.base.MultiTouchImageView"
-            modifiers(Modifiers.FINAL)
-            returnType = "void"
-            addInvoke {
-                declaredClass = "android.widget.ImageView"
-                name = "setScaleType"
-            }
+        declaredClass {
+            className = "com.tencent.mm.ui.base.MultiTouchImageView"
+        }
+        modifiers = java.lang.reflect.Modifier.FINAL
+        returnType = "void"
+        invokeMethod {
+            declaredClass = "android.widget.ImageView"
+            name = "setScaleType"
         }
     }
 
@@ -100,100 +97,109 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private const val APPLY_STATUS_BAR_DELAY_MS = 80L
 
     /**
-     * Activities that must never receive the background overlay — full-screen media viewers,
-     * video recorders, scanners, and other UIs where a tinted overlay would be wrong.
+     * Activities that must never receive the background overlay — full-screen media viewers, video
+     * recorders, scanners, and other UIs where a tinted overlay would be wrong.
      *
      * Note: ThumbPlayerViewContainer / ThumbPlayerVideoView are Views (FrameLayout / TextureView),
      * not Activities, so they were removed from this list — they would never match here.
      */
-    private val blacklistedActivities = setOf(
-        "${PackageNames.WECHAT}.plugin.sns.ui.SnsOnlineVideoActivity",
-        "${PackageNames.WECHAT}.plugin.recordvideo.activity.MMRecordUI",
-        "${PackageNames.WECHAT}.plugin.fav.ui.detail.FavoriteImgDetailUI",
-        "${PackageNames.WECHAT}.plugin.scanner.ui.BaseScanUI",
-        "${PackageNames.WECHAT}.plugin.finder.ui.FinderHomeAffinityUI",
-        "${PackageNames.WECHAT}.plugin.lite.ui.WxaLiteAppLiteUI",
-        "${PackageNames.WECHAT}.ui.chatting.gallery.ImageGalleryUI",
-        "${PackageNames.WECHAT}.ui.chatting.gallery.ImageGalleryGridUI",
-        "${PackageNames.WECHAT}.ui.chatting.gallery.MediaHistoryGalleryUI",
-        "${PackageNames.WECHAT}.plugin.subapp.ui.gallery.GestureGalleryUI",
-        "${PackageNames.WECHAT}.plugin.gallery.picker.view.ImageCropUI",
-        "${PackageNames.WECHAT}.plugin.sns.ui.SnsBrowseUI",
-        "${PackageNames.WECHAT}.plugin.finder.ui.FinderShareFeedRelUI",
-        "${PackageNames.WECHAT}.plugin.gallery.ui.ImagePreviewUI",
-        "${PackageNames.WECHAT}.plugin.gallery.ui.AlbumPreviewUI",
-        "${PackageNames.WECHAT}.plugin.luckymoney.ui.LuckyMoneyBeforeDetailUI",
-        "${PackageNames.WECHAT}.plugin.location_soso.SoSoProxyUI",
-        "${PackageNames.WECHAT}.plugin.finder.feed.ui.FinderProfileTimeLineUI",
-        "${PackageNames.WECHAT}.plugin.sns.ui.SnsGalleryUI",
-        "${PackageNames.WECHAT}.pluginsdk.ui.ProfileHdHeadImg",
-        "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewMMUI",
-        "${PackageNames.WECHAT}.plugin.voip.ui.VideoActivity"
-    )
+    private val blacklistedActivities =
+        setOf(
+            "${PackageNames.WECHAT}.plugin.sns.ui.SnsOnlineVideoActivity",
+            "${PackageNames.WECHAT}.plugin.recordvideo.activity.MMRecordUI",
+            "${PackageNames.WECHAT}.plugin.fav.ui.detail.FavoriteImgDetailUI",
+            "${PackageNames.WECHAT}.plugin.scanner.ui.BaseScanUI",
+            "${PackageNames.WECHAT}.plugin.finder.ui.FinderHomeAffinityUI",
+            "${PackageNames.WECHAT}.plugin.lite.ui.WxaLiteAppLiteUI",
+            "${PackageNames.WECHAT}.ui.chatting.gallery.ImageGalleryUI",
+            "${PackageNames.WECHAT}.ui.chatting.gallery.ImageGalleryGridUI",
+            "${PackageNames.WECHAT}.ui.chatting.gallery.MediaHistoryGalleryUI",
+            "${PackageNames.WECHAT}.plugin.subapp.ui.gallery.GestureGalleryUI",
+            "${PackageNames.WECHAT}.plugin.gallery.picker.view.ImageCropUI",
+            "${PackageNames.WECHAT}.plugin.sns.ui.SnsBrowseUI",
+            "${PackageNames.WECHAT}.plugin.finder.ui.FinderShareFeedRelUI",
+            "${PackageNames.WECHAT}.plugin.gallery.ui.ImagePreviewUI",
+            "${PackageNames.WECHAT}.plugin.gallery.ui.AlbumPreviewUI",
+            "${PackageNames.WECHAT}.plugin.luckymoney.ui.LuckyMoneyBeforeDetailUI",
+            "${PackageNames.WECHAT}.plugin.location_soso.SoSoProxyUI",
+            "${PackageNames.WECHAT}.plugin.finder.feed.ui.FinderProfileTimeLineUI",
+            "${PackageNames.WECHAT}.plugin.sns.ui.SnsGalleryUI",
+            "${PackageNames.WECHAT}.pluginsdk.ui.ProfileHdHeadImg",
+            "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewMMUI",
+            "${PackageNames.WECHAT}.plugin.voip.ui.VideoActivity",
+        )
 
     override fun onEnable() {
-        migrateLegacyBackgroundUri()
-
         Activity::class.reflekt().apply {
             firstMethod {
                 name = "onCreate"
                 parameters(Bundle::class)
-            }.hookAfter {
-                val activity = thisObject as Activity
-                applyTransparentStatusBarIfEnabled(activity)
             }
+                .hookAfter {
+                    val activity = thisObject as Activity
+                    applyTransparentStatusBarIfEnabled(activity)
+                }
 
             firstMethod {
                 name = "onStart"
                 parameterCount = 0
-            }.hookAfter {
-                val activity = thisObject as Activity
-                applyTransparentStatusBarIfEnabled(activity)
             }
+                .hookAfter {
+                    val activity = thisObject as Activity
+                    applyTransparentStatusBarIfEnabled(activity)
+                }
 
             firstMethod {
                 name = "onResume"
                 parameterCount = 0
-            }.hookAfter {
-                val activity = thisObject as Activity
-                applyTransparentStatusBarIfEnabled(activity)
-                applyBackground(activity)
             }
+                .hookAfter {
+                    val activity = thisObject as Activity
+                    applyTransparentStatusBarIfEnabled(activity)
+                    applyBackground(activity)
+                }
 
             firstMethod {
                 name = "onWindowFocusChanged"
                 parameters(Boolean::class)
-            }.hookAfter {
-                val activity = thisObject as Activity
-                applyTransparentStatusBarIfEnabled(activity)
             }
+                .hookAfter {
+                    val activity = thisObject as Activity
+                    applyTransparentStatusBarIfEnabled(activity)
+                }
         }
 
         methodInitImageView.hookBefore {
             val view = thisObject as ImageView
-            view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    val activity = activityOf(v.context) ?: return
-                    synchronized(activityAttachedViews) {
-                        activityAttachedViews.getOrPut(activity) { mutableSetOf() }.add(v)
+            view.addOnAttachStateChangeListener(
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: View) {
+                        val activity = activityOf(v.context) ?: return
+                        synchronized(activityAttachedViews) {
+                            activityAttachedViews.getOrPut(activity) { mutableSetOf() }.add(v)
+                        }
+                        WeLogger.d(TAG, "view attached to ${activity.javaClass.simpleName}")
+                        overlayFromActivity(activity)?.isVisible = false
                     }
-                    WeLogger.d(TAG, "view attached to ${activity.javaClass.simpleName}")
-                    overlayFromActivity(activity)?.isVisible = false
-                }
 
-                override fun onViewDetachedFromWindow(v: View) {
-                    val activity = activityOf(v.context) ?: return
-                    val empty = synchronized(activityAttachedViews) {
-                        val set = activityAttachedViews[activity] ?: return
-                        set.remove(v)
-                        set.isEmpty()
+                    override fun onViewDetachedFromWindow(v: View) {
+                        val activity = activityOf(v.context) ?: return
+                        val empty =
+                            synchronized(activityAttachedViews) {
+                                val set = activityAttachedViews[activity] ?: return
+                                set.remove(v)
+                                set.isEmpty()
+                            }
+                        if (empty) {
+                            WeLogger.d(
+                                TAG,
+                                "all views detached from ${activity.javaClass.simpleName}",
+                            )
+                            overlayFromActivity(activity)?.isVisible = true
+                        }
                     }
-                    if (empty) {
-                        WeLogger.d(TAG, "all views detached from ${activity.javaClass.simpleName}")
-                        overlayFromActivity(activity)?.isVisible = true
-                    }
-                }
-            })
+                },
+            )
         }
     }
 
@@ -219,30 +225,6 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private const val MIN_OPACITY_PERCENT = 1
     private const val MAX_OPACITY_PERCENT = 80
 
-    /**
-     * Old versions stored the SAF content:// uri of the picked image. Copy that image into
-     * moduleAssets once and rewrite the pref to a file uri. On failure the legacy value is
-     * kept so a transient failure (e.g. storage not ready yet) retries on the next startup.
-     */
-    private fun migrateLegacyBackgroundUri() {
-        val legacy = backgroundUri ?: return
-        if (!legacy.startsWith("content://")) return
-
-        val migrated = runCatching {
-            HostInfo.application.contentResolver.openInputStream(Uri.parse(legacy))?.use { input ->
-                backgroundImageFile.toFile().outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            } != null
-        }.onFailure {
-            WeLogger.w(TAG, "failed to migrate legacy background image", it)
-        }.isSuccess
-
-        if (migrated) {
-            backgroundUri = backgroundImageFile.asAndroidUri.toString()
-        }
-    }
-
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val originalOpacity = remember { opacity }
@@ -250,13 +232,15 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             var hasImage by remember { mutableStateOf(backgroundUri != null) }
             var opacityPercent by remember {
                 mutableIntStateOf(
-                    (opacity * 100f).roundToInt().coerceIn(MIN_OPACITY_PERCENT, MAX_OPACITY_PERCENT)
+                    (opacity * 100f)
+                        .roundToInt()
+                        .coerceIn(MIN_OPACITY_PERCENT, MAX_OPACITY_PERCENT),
                 )
             }
             var transparentStatusBarInput by remember { mutableStateOf(transparentStatusBar) }
             var restartRequired by remember { mutableStateOf(false) }
             val currentRestartRequired by rememberUpdatedState(restartRequired)
-            val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+            val localizedContext by rememberUpdatedState(LocalLocalizedContext.current)
 
             DisposableEffect(Unit) {
                 onDispose {
@@ -273,13 +257,14 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                         item {
                             BaseWidget(
                                 title = stringResource(R.string.action_select_image),
-                                description = stringResource(
-                                    if (hasImage) {
-                                        R.string.beautify_global_background_set
-                                    } else {
-                                        R.string.beautify_global_background_not_set
-                                    }
-                                ),
+                                description =
+                                    stringResource(
+                                        if (hasImage) {
+                                            R.string.beautify_global_background_set
+                                        } else {
+                                            R.string.beautify_global_background_not_set
+                                        },
+                                    ),
                                 onClick = {
                                     onDismiss()
                                     selectBackgroundImage(context)
@@ -292,14 +277,23 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                             hasImage = false
                                             runCatching { backgroundImageFile.deleteIfExists() }
                                                 .onFailure {
-                                                    WeLogger.w(TAG, "failed to delete background image file", it)
+                                                    WeLogger.w(
+                                                        TAG,
+                                                        "failed to delete background image file",
+                                                        it,
+                                                    )
                                                 }
-                                            showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
+                                            showToast(
+                                                localizedContext.getString(
+                                                    R.string.beautify_global_background_cleared,
+                                                ),
+                                            )
                                         },
                                     ) {
                                         Icon(
                                             MaterialSymbols.Outlined.Delete,
-                                            contentDescription = stringResource(R.string.action_clear_image),
+                                            contentDescription =
+                                                stringResource(R.string.action_clear_image),
                                         )
                                     }
                                 },
@@ -321,7 +315,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                         opacity = newOpacity
                                         restartRequired =
                                             newOpacity != originalOpacity ||
-                                                    transparentStatusBarInput != originalTransparentStatusBar
+                                                transparentStatusBarInput !=
+                                                    originalTransparentStatusBar
                                     },
                                 )
                             }
@@ -329,14 +324,19 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                         item {
                             SwitchWidget(
                                 iconPlaceholder = false,
-                                title = stringResource(R.string.beautify_global_background_status_bar),
-                                description = stringResource(R.string.beautify_global_background_status_bar_summary),
+                                title =
+                                    stringResource(R.string.beautify_global_background_status_bar),
+                                description =
+                                    stringResource(
+                                        R.string.beautify_global_background_status_bar_summary,
+                                    ),
                                 checked = transparentStatusBarInput,
                                 onCheckedChange = {
                                     transparentStatusBarInput = it
                                     transparentStatusBar = it
                                     restartRequired =
-                                        opacity != originalOpacity || it != originalTransparentStatusBar
+                                        opacity != originalOpacity ||
+                                            it != originalTransparentStatusBar
                                 },
                             )
                         }
@@ -361,14 +361,13 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             val decor = window.decorView as? ViewGroup ?: return
 
             window.statusBarColor = Color.TRANSPARENT
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                window.isStatusBarContrastEnforced = false
-            }
+            window.isStatusBarContrastEnforced = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 window.setDecorFitsSystemWindows(false)
             } else {
                 @Suppress("DEPRECATION")
-                decor.systemUiVisibility = decor.systemUiVisibility or
+                decor.systemUiVisibility =
+                    decor.systemUiVisibility or
                         View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                         View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
             }
@@ -377,18 +376,20 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
             decor.postDelayed(APPLY_STATUS_BAR_DELAY_MS) {
                 clearStatusBarBackground(activity, decor)
             }
-        }.onFailure {
-            WeLogger.w(TAG, "failed to apply transparent status bar", it)
         }
+            .onFailure {
+                WeLogger.w(TAG, "failed to apply transparent status bar", it)
+            }
     }
 
     @SuppressLint("DiscouragedApi")
     private fun clearStatusBarBackground(activity: Activity, decor: ViewGroup) {
-        val statusBarBackgroundId = activity.resources.getIdentifier(
-            "statusBarBackground",
-            "id",
-            "android"
-        )
+        val statusBarBackgroundId =
+            activity.resources.getIdentifier(
+                "statusBarBackground",
+                "id",
+                "android",
+            )
 
         if (statusBarBackgroundId != 0) {
             decor.findViewById<View>(statusBarBackgroundId)?.makeTransparent()
@@ -428,22 +429,22 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
         }
     }
 
-    private fun createOverlay(context: Context, decor: ViewGroup): ImageView {
-        return ImageView(context).apply {
+    private fun createOverlay(context: Context, decor: ViewGroup): ImageView =
+        ImageView(context).apply {
             tag = OVERLAY_TAG
             background = null
             isClickable = false
             isFocusable = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             scaleType = ImageView.ScaleType.CENTER_CROP
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            layoutParams =
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
             elevation = 100f
             decor.addView(this)
         }
-    }
 
     private fun findOverlay(decor: ViewGroup): ImageView? {
         for (index in 0 until decor.childCount) {
@@ -465,7 +466,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
         if (viewId == View.NO_ID) return null
         return runCatching {
             resources.getResourceEntryName(viewId)
-        }.getOrNull()
+        }
+            .getOrNull()
     }
 
     @SuppressLint("DiscouragedApi", "InternalInsetResource")
@@ -480,34 +482,45 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
 
     private fun selectBackgroundImage(context: ComponentActivity) {
         TransparentActivity.launch(context) {
-            val launcher = registerForActivityResult(
-                ActivityResultContracts.PickVisualMedia()
-            ) { uri ->
-                finish()
-                if (uri == null) return@registerForActivityResult
+            val launcher =
+                registerForActivityResult(
+                    ActivityResultContracts.PickVisualMedia(),
+                ) { uri ->
+                    finish()
+                    if (uri == null) return@registerForActivityResult
 
-                val ok = runCatching {
-                    HostInfo.application.contentResolver.openInputStream(uri)?.use { input ->
-                        backgroundImageFile.toFile().outputStream().use { output ->
-                            input.copyTo(output)
+                    val ok = runCatching {
+                        HostInfo.application.contentResolver.openInputStream(uri)?.use { input ->
+                            backgroundImageFile.toFile().outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        } != null
+                    }
+                        .onFailure {
+                            WeLogger.e(TAG, "failed to import background image", it)
                         }
-                    } != null
-                }.onFailure {
-                    WeLogger.e(TAG, "failed to import background image", it)
-                }.isSuccess
+                        .isSuccess
 
-                if (ok) {
-                    backgroundUri = backgroundImageFile.asAndroidUri.toString()
-                    showToast(context.localizedBeautifyString(R.string.beautify_global_background_selected))
-                } else {
-                    showToast(context.localizedBeautifyString(R.string.beautify_global_background_import_failed))
+                    if (ok) {
+                        backgroundUri = backgroundImageFile.asAndroidUri.toString()
+                        showToast(
+                            context.localizedString(
+                                R.string.beautify_global_background_selected,
+                            ),
+                        )
+                    } else {
+                        showToast(
+                            context.localizedString(
+                                R.string.beautify_global_background_import_failed,
+                            ),
+                        )
+                    }
                 }
-            }
 
             launcher.launch(
                 PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                )
+                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                ),
             )
         }
     }

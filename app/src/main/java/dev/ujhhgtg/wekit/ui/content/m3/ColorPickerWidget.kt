@@ -62,14 +62,13 @@ fun ColorPickerWidget(
         onTrailingClick = showPicker,
         trailingContent = {
             Box(
-                Modifier
-                    .padding(4.dp)
+                Modifier.padding(4.dp)
                     .size(32.dp)
                     .clip(CircleShape)
                     .checkerboard(4.dp)
                     .background(color?.let(::Color) ?: Color.Transparent)
                     .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                    .semantics { contentDescription = pickerLabel }
+                    .semantics { contentDescription = pickerLabel },
             )
         },
     )

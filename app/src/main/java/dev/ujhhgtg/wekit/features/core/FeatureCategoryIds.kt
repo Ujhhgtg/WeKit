@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.core
 
 object FeatureCategoryIds {
     const val CHAT = "chat"
+    const val CHAT_INPUT_BAR_MENU = "chat_input_bar_menu"
     const val CONTACTS_GROUPS = "contacts_groups"
     const val PAYMENT = "payment"
     const val MOMENTS = "moments"
@@ -15,31 +16,35 @@ object FeatureCategoryIds {
     const val PROFILE = "profile"
     const val DEBUG = "debug"
     const val SCRIPTING_JAVA = "scripting_java"
+    const val SCRIPTING_PYTHON = "scripting_python"
     const val ENTERTAIN = "entertain"
     const val BATCH = "batch"
     const val HOME_SCREEN_MENU = "home_screen_menu"
     const val CONTACT_DETAILS = "contact_details"
     const val API = "api"
 
-    val ALL: Set<String> = setOf(
-        CHAT,
-        CONTACTS_GROUPS,
-        PAYMENT,
-        MOMENTS,
-        SYSTEM_PRIVACY,
-        VOIP,
-        NOTIFICATIONS,
-        BEAUTIFY,
-        OFFICIAL_ACCOUNTS,
-        MINIAPPS,
-        CHANNELS,
-        PROFILE,
-        DEBUG,
-        SCRIPTING_JAVA,
-        ENTERTAIN,
-        BATCH,
-        HOME_SCREEN_MENU,
-        CONTACT_DETAILS,
-        API,
-    )
+    val ALL: Set<String> =
+        setOf(
+            CHAT,
+            CHAT_INPUT_BAR_MENU,
+            CONTACTS_GROUPS,
+            PAYMENT,
+            MOMENTS,
+            SYSTEM_PRIVACY,
+            VOIP,
+            NOTIFICATIONS,
+            BEAUTIFY,
+            OFFICIAL_ACCOUNTS,
+            MINIAPPS,
+            CHANNELS,
+            PROFILE,
+            DEBUG,
+            SCRIPTING_JAVA,
+            SCRIPTING_PYTHON,
+            ENTERTAIN,
+            BATCH,
+            HOME_SCREEN_MENU,
+            CONTACT_DETAILS,
+            API,
+        )
 }

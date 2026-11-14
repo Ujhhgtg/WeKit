@@ -1,10 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.graphics.BitmapFactory
-import android.media.ExifInterface
+import androidx.exifinterface.media.ExifInterface
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.InputStream
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
@@ -13,6 +12,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import kotlin.io.path.outputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -20,24 +20,29 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-internal sealed interface HomeSidePanelImageImportResult {
+sealed interface HomeSidePanelImageImportResult {
     data class Success(
         val assetId: String,
         val file: Path,
         val widthPx: Int,
         val heightPx: Int,
     ) : HomeSidePanelImageImportResult
+
     data object TooLarge : HomeSidePanelImageImportResult
+
     data object TooManyPixels : HomeSidePanelImageImportResult
+
     data object UnsupportedAspectRatio : HomeSidePanelImageImportResult
+
     data object InvalidImage : HomeSidePanelImageImportResult
+
     data class Failure(val error: Throwable) : HomeSidePanelImageImportResult
 }
 
-internal class HomeSidePanelImageAssetStore(
+class HomeSidePanelImageAssetStore(
     private val root: Path = KnownPaths.moduleAssets / "home_side_panel" / "images",
 ) {
-    internal data class PreparedCommit(
+    data class PreparedCommit(
         val sessionId: String,
         val promotedAssetIds: Set<String>,
         val orphanedAssetIds: Set<String>,
@@ -111,82 +116,96 @@ internal class HomeSidePanelImageAssetStore(
 
     fun cleanupStaleDrafts() {
         draftRoot.toFile().deleteRecursively()
-        root.toFile().listFiles { file ->
-            file.isFile && file.name.startsWith('.') && file.name.endsWith(".part")
-        }?.forEach { it.delete() }
+        root
+            .toFile()
+            .listFiles { file ->
+                file.isFile && file.name.startsWith('.') && file.name.endsWith(".part")
+            }
+            ?.forEach { it.delete() }
     }
 
     suspend fun importDraft(
         sessionId: String,
         openInput: () -> InputStream,
-    ): HomeSidePanelImageImportResult = withContext(Dispatchers.IO) {
-        val validatedSessionId = runCatching { validateId(sessionId, "session") }.getOrElse {
-            return@withContext HomeSidePanelImageImportResult.Failure(it)
-        }
-        val assetId = UUID.randomUUID().toString()
-        val session = draftSession(validatedSessionId).createDirectories()
-        val partial = session / ".$assetId.part"
-        val destination = draftAsset(validatedSessionId, assetId)
-        try {
-            var total = 0L
-            openInput().use { input ->
-                partial.outputStream().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        total += read
-                        if (total > MAX_IMAGE_BYTES) {
-                            return@withContext HomeSidePanelImageImportResult.TooLarge
+    ): HomeSidePanelImageImportResult =
+        withContext(Dispatchers.IO) {
+            val validatedSessionId = runCatching {
+                validateId(sessionId, "session")
+            }
+                .getOrElse {
+                    return@withContext HomeSidePanelImageImportResult.Failure(it)
+                }
+            val assetId = UUID.randomUUID().toString()
+            val session = draftSession(validatedSessionId).createDirectories()
+            val partial = session / ".$assetId.part"
+            val destination = draftAsset(validatedSessionId, assetId)
+            try {
+                var total = 0L
+                openInput().use { input ->
+                    partial.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            total += read
+                            if (total > MAX_IMAGE_BYTES) {
+                                return@withContext HomeSidePanelImageImportResult.TooLarge
+                            }
+                            output.write(buffer, 0, read)
                         }
-                        output.write(buffer, 0, read)
                     }
                 }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(partial.toString(), bounds)
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                    return@withContext HomeSidePanelImageImportResult.InvalidImage
+                }
+                val dimensions = orientedDimensions(partial, bounds.outWidth, bounds.outHeight)
+                if (dimensions.widthPx.toLong() * dimensions.heightPx.toLong() > MAX_IMAGE_PIXELS) {
+                    return@withContext HomeSidePanelImageImportResult.TooManyPixels
+                }
+                if (
+                    !isHomeSidePanelImageAspectRatioSupported(
+                        dimensions.widthPx,
+                        dimensions.heightPx,
+                    )
+                ) {
+                    return@withContext HomeSidePanelImageImportResult.UnsupportedAspectRatio
+                }
+                currentCoroutineContext().ensureActive()
+                moveAtomically(partial, destination)
+                HomeSidePanelImageImportResult.Success(
+                    assetId = assetId,
+                    file = destination,
+                    widthPx = dimensions.widthPx,
+                    heightPx = dimensions.heightPx,
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                HomeSidePanelImageImportResult.Failure(error)
+            } finally {
+                partial.deleteIfExists()
             }
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(partial.toString(), bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-                return@withContext HomeSidePanelImageImportResult.InvalidImage
-            }
-            val dimensions = orientedDimensions(partial, bounds.outWidth, bounds.outHeight)
-            if (dimensions.widthPx.toLong() * dimensions.heightPx.toLong() > MAX_IMAGE_PIXELS) {
-                return@withContext HomeSidePanelImageImportResult.TooManyPixels
-            }
-            if (!isHomeSidePanelImageAspectRatioSupported(dimensions.widthPx, dimensions.heightPx)) {
-                return@withContext HomeSidePanelImageImportResult.UnsupportedAspectRatio
-            }
-            currentCoroutineContext().ensureActive()
-            moveAtomically(partial, destination)
-            HomeSidePanelImageImportResult.Success(
-                assetId = assetId,
-                file = destination,
-                widthPx = dimensions.widthPx,
-                heightPx = dimensions.heightPx,
-            )
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            HomeSidePanelImageImportResult.Failure(error)
-        } finally {
-            partial.deleteIfExists()
         }
-    }
 
     private fun formalAsset(assetId: String): Path = root / assetId
 
     private fun orientedDimensions(path: Path, widthPx: Int, heightPx: Int): ImportedDimensions {
         val orientation = runCatching {
-            ExifInterface(path.toString()).getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL,
-            )
-        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+            ExifInterface(path.toString())
+                .getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+        }
+            .getOrDefault(ExifInterface.ORIENTATION_NORMAL)
         return if (
             orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
-            orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
-            orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
-            orientation == ExifInterface.ORIENTATION_TRANSVERSE
+                orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+                orientation == ExifInterface.ORIENTATION_TRANSVERSE
         ) {
             ImportedDimensions(heightPx, widthPx)
         } else {
@@ -195,19 +214,23 @@ internal class HomeSidePanelImageAssetStore(
     }
 
     private fun moveAtomically(source: Path, destination: Path) {
-        Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE)
+        source.moveTo(destination, StandardCopyOption.ATOMIC_MOVE)
     }
 
     private fun formalPartial(assetId: String): Path = root / ".$assetId.part"
 
     private fun draftSession(sessionId: String): Path = draftRoot / sessionId
 
-    private fun draftAsset(sessionId: String, assetId: String): Path = draftSession(sessionId) / assetId
+    private fun draftAsset(sessionId: String, assetId: String): Path =
+        draftSession(sessionId) / assetId
 
     private fun validateId(id: String, subject: String): String {
-        val parsed = runCatching { UUID.fromString(id) }.getOrElse {
-            throw IllegalArgumentException("Invalid $subject ID: $id", it)
+        val parsed = runCatching {
+            UUID.fromString(id)
         }
+            .getOrElse {
+                throw IllegalArgumentException("Invalid $subject ID: $id", it)
+            }
         require(parsed.toString() == id) { "Invalid $subject ID: $id" }
         return id
     }

@@ -28,14 +28,25 @@ private const val FEATURES_CORE_PACKAGE = "$PACKAGE_NAME.features.core"
 private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "$FEATURES_CORE_PACKAGE.BaseFeature"
 private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
-private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dexkit.abc.IResolveDex"
+private val DEX_DELEGATE_TYPES = setOf(
+    "$PACKAGE_NAME.dex.dsl.DexClassDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexMethodDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexFieldDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexConstructorDelegate",
+)
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
         FeaturesScanner(environment.codeGenerator, environment.logger)
 }
 
-/** Generates runtime registries for source Feature and ExtensionPack objects. */
+/**
+ * Generates runtime registries for source Feature and ExtensionPack objects.
+ *
+ * Multiple Feature objects may share one source file. They are registered independently while
+ * [FeaturesProvider.SOURCE_KEY_BY_FEATURE] maps each object back to the same source key, so the
+ * file-based new-feature timestamp remains shared without imposing a one-object-per-file layout.
+ */
 class FeaturesScanner(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
@@ -67,20 +78,13 @@ class FeaturesScanner(
             return emptyList()
         }
 
-        features.groupBy { it.containingFile!! }
-            .filterValues { it.size > 1 }
-            .forEach { (file, duplicates) ->
-                duplicates.forEach { symbol ->
-                    logger.error(
-                        "Feature source ${file.filePath} declares multiple Feature objects: " +
-                            duplicates.joinToString { it.qualifiedName!!.asString() },
-                        symbol,
-                    )
-                }
-            }
-
         generateFeaturesProvider(features)
-        generateDexResolutionRegistry(features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) })
+        generateDexResolutionRegistry(features.filter { feature ->
+            feature.getAllProperties().any {
+                it.type.resolve().declaration.qualifiedName?.asString() in DEX_DELEGATE_TYPES
+            }
+        })
+        generateFeatureDependencies(features)
         generateExtensionPacksProvider(extensionPacks)
         return emptyList()
     }
@@ -170,10 +174,62 @@ class FeaturesScanner(
                     ClassName("kotlin.collections", "List").parameterizedBy(entryType),
                 ).initializer(entries).build(),
             )
-            .addKdoc("Auto-generated lazy registry for desktop DexKit tests.\n")
+            .addKdoc("Auto-generated lazy registry for desktop Dex tests.\n")
             .build()
         FileSpec.builder(FEATURES_CORE_PACKAGE, "DexResolutionTestRegistry")
             .addType(entryClass)
+            .addType(registry)
+            .build()
+            .writeTo(codeGenerator, dependencies(symbols))
+    }
+
+    /**
+     * Direct Feature → Feature references found in each feature's source (see
+     * [FeatureReferenceScanner]); the app derives transitive dependencies at runtime.
+     */
+    private fun generateFeatureDependencies(symbols: List<KSClassDeclaration>) {
+        val featureSymbols = symbols.associateWith { symbol ->
+            FeatureReferenceScanner.FeatureSymbol(
+                qualifiedName = symbol.qualifiedName!!.asString(),
+                simpleName = symbol.simpleName.asString(),
+                packageName = symbol.packageName.asString(),
+            )
+        }
+        val byQualifiedName = symbols.associateBy { it.qualifiedName!!.asString() }
+        val direct = sortedMapOf<String, Set<String>>()
+        symbols.groupBy { it.containingFile!! }.forEach { (file, fileSymbols) ->
+            direct += FeatureReferenceScanner.scan(
+                source = java.io.File(file.filePath).readText(),
+                packageName = file.packageName.asString(),
+                fileFeatures = fileSymbols.map(featureSymbols::getValue),
+                features = featureSymbols.values.toList(),
+            )
+        }
+
+        val baseFeature = ClassName(FEATURES_CORE_PACKAGE, "BaseFeature")
+        val mapType = ClassName("kotlin.collections", "Map").parameterizedBy(
+            baseFeature,
+            ClassName("kotlin.collections", "List").parameterizedBy(baseFeature),
+        )
+        val initializer = CodeBlock.builder().apply {
+            add("mapOf(\n")
+            indent()
+            direct.filterValues { it.isNotEmpty() }.forEach { (feature, dependencies) ->
+                add("%T to listOf(", byQualifiedName.getValue(feature).toClassName())
+                dependencies.sorted().forEachIndexed { index, dependency ->
+                    if (index > 0) add(", ")
+                    add("%T", byQualifiedName.getValue(dependency).toClassName())
+                }
+                add("),\n")
+            }
+            unindent()
+            add(")")
+        }.build()
+        val registry = TypeSpec.objectBuilder("GeneratedFeatureDependencies")
+            .addProperty(PropertySpec.builder("DIRECT", mapType).initializer(initializer).build())
+            .addKdoc("Auto-generated direct Feature dependencies scanned from source. Do not edit manually.\n")
+            .build()
+        FileSpec.builder(FEATURES_CORE_PACKAGE, "GeneratedFeatureDependencies")
             .addType(registry)
             .build()
             .writeTo(codeGenerator, dependencies(symbols))

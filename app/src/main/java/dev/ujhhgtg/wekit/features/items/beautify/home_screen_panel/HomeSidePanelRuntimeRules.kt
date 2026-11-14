@@ -2,30 +2,26 @@ package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import java.security.MessageDigest
 
-internal data class HomeSidePanelRuntimeDelta(
+data class HomeSidePanelRuntimeDelta(
     val activate: Set<String> = emptySet(),
     val deactivate: Set<String> = emptySet(),
     val reconfigure: Set<String> = emptySet(),
 )
 
-internal enum class HomeSidePanelLiveCachePolicy(
-    val importLegacyCaches: Boolean,
-    val persistLiveCaches: Boolean,
-) {
-    STORED(importLegacyCaches = false, persistLiveCaches = true),
-    MIGRATED(importLegacyCaches = true, persistLiveCaches = true),
-    FALLBACK(importLegacyCaches = false, persistLiveCaches = false),
+enum class HomeSidePanelLiveCachePolicy(val persistLiveCaches: Boolean) {
+    STORED(persistLiveCaches = true),
+    FALLBACK(persistLiveCaches = false),
 }
 
-internal fun homeSidePanelLiveCachePolicy(
+fun homeSidePanelLiveCachePolicy(
     load: HomeSidePanelLayoutLoad,
-): HomeSidePanelLiveCachePolicy = when (load) {
-    is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
-    is HomeSidePanelLayoutLoad.Migrated -> HomeSidePanelLiveCachePolicy.MIGRATED
-    is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
-}
+): HomeSidePanelLiveCachePolicy =
+    when (load) {
+        is HomeSidePanelLayoutLoad.Stored -> HomeSidePanelLiveCachePolicy.STORED
+        is HomeSidePanelLayoutLoad.Fallback -> HomeSidePanelLiveCachePolicy.FALLBACK
+    }
 
-internal fun homeSidePanelRuntimeDelta(
+fun homeSidePanelRuntimeDelta(
     old: HomeSidePanelLayout?,
     new: HomeSidePanelLayout,
 ): HomeSidePanelRuntimeDelta {
@@ -39,21 +35,21 @@ internal fun homeSidePanelRuntimeDelta(
     )
 }
 
-internal fun weatherCacheFingerprint(city: WeatherCity): String =
-    sha256("weather|${city.cityNum}")
+fun weatherCacheFingerprint(city: WeatherCity): String = sha256("weather|${city.cityNum}")
 
-internal fun hitokotoCacheFingerprint(settings: HitokotoSettings): String = sha256(
-    buildString {
-        append("hitokoto|")
-        append(settings.categories.sorted().joinToString(","))
-        append('|')
-        append(settings.minLength?.toString().orEmpty())
-        append('|')
-        append(settings.maxLength?.toString().orEmpty())
-    },
-)
+fun hitokotoCacheFingerprint(settings: HitokotoSettings): String =
+    sha256(
+        buildString {
+            append("hitokoto|")
+            append(settings.categories.sorted().joinToString(","))
+            append('|')
+            append(settings.minLength?.toString().orEmpty())
+            append('|')
+            append(settings.maxLength?.toString().orEmpty())
+        },
+    )
 
-internal fun <T> retainCommittedCardEntries(
+fun <T> retainCommittedCardEntries(
     entries: Map<String, T>,
     committed: HomeSidePanelLayout,
 ): Map<String, T> {
@@ -62,17 +58,23 @@ internal fun <T> retainCommittedCardEntries(
 }
 
 private fun List<HomeSidePanelCardConfig>.runtimeCardsById(): Map<String, HomeSidePanelCardConfig> =
-    filter { it.hasRuntimeState() }.associateBy(HomeSidePanelCardConfig::id)
+    filter {
+        it.hasRuntimeState()
+    }
+    .associateBy(HomeSidePanelCardConfig::id)
 
-internal fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean = when (this) {
-    is WeatherCardConfig,
-    is WalletCardConfig,
-    is HitokotoCardConfig,
-    -> true
+fun HomeSidePanelCardConfig.hasRuntimeState(): Boolean =
+    when (this) {
+        is WeatherCardConfig,
+        is WalletCardConfig,
+        is HitokotoCardConfig -> true
 
-    else -> false
-}
+        else -> false
+    }
 
-private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
-    .digest(value.toByteArray(Charsets.UTF_8))
-    .joinToString(separator = "") { byte -> "%02x".format(byte) }
+private fun sha256(value: String): String =
+    MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8)).joinToString(
+        separator = "",
+    ) { byte ->
+        "%02x".format(byte)
+    }

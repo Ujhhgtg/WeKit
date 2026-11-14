@@ -1,4 +1,9 @@
 enableFeaturePreview("NO_IMPLICIT_LOOKUP_IN_PARENT_PROJECTS")
+// Required while the scripta composite build is present: its settings enables typesafe project
+// accessors, which makes Gradle generate accessors for this build too. A project literally named
+// "extensions" would generate getExtensions(), clashing with ExtensionAware.getExtensions()
+// (AbstractMethodError) — hence the module lives in extension-packs/.
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
@@ -31,11 +36,6 @@ dependencyResolutionManagement {
                 includeGroup("com.github.topjohnwu.libsu")
             }
         }
-        maven("https://api.xposed.info/") {
-            content {
-                includeGroup("de.robv.android.xposed")
-            }
-        }
         mavenCentral()
         val gprUser = providers.gradleProperty("gpr.user")
             .orElse(providers.environmentVariable("GITHUB_ACTOR"))
@@ -64,12 +64,17 @@ plugins {
 
 rootProject.name = "wekit"
 
+// Composite build: scripta code editor (not published to Maven Central; keep its own
+// toolchain, plugins and version catalog).
+includeBuild("libs/common/scripta")
+
 include(
     ":app",
+    ":bootstrap",
+    ":libs:loader-api",
     ":libs:common:annotation-scanner",
     ":libs:common:stubs",
     ":libs:common:bsh",
     ":libs:common:reflekt",
-    ":libs:monet-generator-api",
-    ":extensions:monet-generator"
+    ":libs:python-runtime-api",
 )

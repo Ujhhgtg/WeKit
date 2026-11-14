@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,20 +33,17 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
+import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.launch
 
-data class PanelPackChoice(
-    val id: String,
-    val title: String,
-    val itemCount: Int,
-)
+data class PanelPackChoice(val id: String, val title: String, val itemCount: Int)
 
 /**
- * Opens the panel shell in a deliberately narrow mode used by message-menu save actions.
- * The caller can only choose an existing local pack or create one; the full panel navigation
- * is not exposed until the save operation has completed.
+ * Opens the panel shell in a deliberately narrow mode used by message-menu save actions. The caller
+ * can only choose an existing local pack or create one; the full panel navigation is not exposed
+ * until the save operation has completed.
  */
 fun showPanelPackPicker(
     context: Context,
@@ -86,7 +82,7 @@ private fun PanelPackPickerContent(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val currentLocalizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
+    val currentLocalizedContext by rememberUpdatedState(LocalLocalizedContext.current)
     var creating by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(false) }
 
@@ -104,12 +100,14 @@ private fun PanelPackPickerContent(
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
                     IconButton(onClick = onDismiss) {
                         Icon(MaterialSymbols.Outlined.Close, stringResource(R.string.dialog_close))
                     }
@@ -122,12 +120,15 @@ private fun PanelPackPickerContent(
                             colors = panelListItemColors(),
                             leadingContent = { Icon(MaterialSymbols.Outlined.Add, null) },
                             content = { Text(createLabel) },
-                            supportingContent = { Text(stringResource(R.string.panel_pack_picker_create_hint)) },
+                            supportingContent = {
+                                Text(stringResource(R.string.panel_pack_picker_create_hint))
+                            },
                         )
                     }
                     items(packs, key = { it.id }) { pack ->
                         ListItem(
-                            modifier = Modifier.clickable(enabled = !creating) { selectPack(pack.id) },
+                            modifier =
+                                Modifier.clickable(enabled = !creating) { selectPack(pack.id) },
                             colors = panelListItemColors(),
                             leadingContent = { Icon(packIcon, null) },
                             content = { Text(pack.title) },
@@ -166,7 +167,9 @@ private fun PanelPackPickerContent(
                                 onFailure = { error ->
                                     showPanelErrorToast(
                                         error.message
-                                            ?: currentLocalizedContext.getString(R.string.panel_pack_create_failed),
+                                            ?: currentLocalizedContext.getString(
+                                                R.string.panel_pack_create_failed,
+                                            ),
                                     )
                                 },
                             )

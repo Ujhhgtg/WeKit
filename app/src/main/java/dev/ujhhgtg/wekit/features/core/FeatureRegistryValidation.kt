@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.features.core
 
-internal fun validateFeatures(features: List<BaseFeature>): List<BaseFeature> {
+fun validateFeatures(features: List<BaseFeature>): List<BaseFeature> {
     features.forEach { feature ->
         require(feature.technicalId.isNotEmpty()) {
             "Feature ${feature.javaClass.name} has an empty technical ID"
@@ -13,8 +13,7 @@ internal fun validateFeatures(features: List<BaseFeature>): List<BaseFeature> {
             "Feature ${feature.javaClass.name} has unknown categories: $unknownCategories"
         }
     }
-    val duplicates = features.groupBy(BaseFeature::technicalId)
-        .filterValues { it.size > 1 }
+    val duplicates = features.groupBy(BaseFeature::technicalId).filterValues { it.size > 1 }
     require(duplicates.isEmpty()) {
         duplicates.entries.joinToString(", ") { (technicalId, matchingFeatures) ->
             "Duplicate Feature technical ID '$technicalId': " +

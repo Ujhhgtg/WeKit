@@ -1,0 +1,1 @@
+{"name":"wekit-remote-admin-deployment","private":true,"type":"module","scripts":{"build":"node ../build.mjs admin"}}

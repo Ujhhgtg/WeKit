@@ -3,7 +3,8 @@
 
 package dev.ujhhgtg.wekit.ui.content.liquid
 
-// Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache 2.0).
+// Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache
+// 2.0).
 // Vendored from InstallerX-Revived's ui/library/liquid package.
 
 import androidx.compose.foundation.shape.CornerBasedShape
@@ -16,10 +17,10 @@ import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
 /**
  * Rounded-rect refraction lens with optional chromatic dispersion.
  *
- * @param chromaticAberration Strength of the rim chromatic dispersion. `0` disables the
- *  effect (cheaper non-dispersion shader is used). Typical values: `0.1` for subtle,
- *  `0.2` for Apple-pill-like, `0.3+` for pronounced rainbow halo. The dispersion offset
- *  scales with the refraction depth so it concentrates at the rim band's outer edge.
+ * @param chromaticAberration Strength of the rim chromatic dispersion. `0` disables the effect
+ *   (cheaper non-dispersion shader is used). Typical values: `0.1` for subtle, `0.2` for
+ *   Apple-pill-like, `0.3+` for pronounced rainbow halo. The dispersion offset scales with the
+ *   refraction depth so it concentrates at the rim band's outer edge.
  */
 fun BackdropEffectScope.lens(
     refractionHeight: Float,
@@ -75,10 +76,30 @@ private fun BackdropEffectScope.roundedRectCornerRadii(): FloatArray? {
     val sizePx = size
     val maxRadius = sizePx.minDimension / 2f
     val isLtr = layoutDirection == LayoutDirection.Ltr
-    val topLeft = if (isLtr) cornerShape.topStart.toPx(sizePx, this) else cornerShape.topEnd.toPx(sizePx, this)
-    val topRight = if (isLtr) cornerShape.topEnd.toPx(sizePx, this) else cornerShape.topStart.toPx(sizePx, this)
-    val bottomRight = if (isLtr) cornerShape.bottomEnd.toPx(sizePx, this) else cornerShape.bottomStart.toPx(sizePx, this)
-    val bottomLeft = if (isLtr) cornerShape.bottomStart.toPx(sizePx, this) else cornerShape.bottomEnd.toPx(sizePx, this)
+    val topLeft =
+        if (isLtr) {
+            cornerShape.topStart.toPx(sizePx, this)
+        } else {
+            cornerShape.topEnd.toPx(sizePx, this)
+        }
+    val topRight =
+        if (isLtr) {
+            cornerShape.topEnd.toPx(sizePx, this)
+        } else {
+            cornerShape.topStart.toPx(sizePx, this)
+        }
+    val bottomRight =
+        if (isLtr) {
+            cornerShape.bottomEnd.toPx(sizePx, this)
+        } else {
+            cornerShape.bottomStart.toPx(sizePx, this)
+        }
+    val bottomLeft =
+        if (isLtr) {
+            cornerShape.bottomStart.toPx(sizePx, this)
+        } else {
+            cornerShape.bottomEnd.toPx(sizePx, this)
+        }
     return floatArrayOf(
         topLeft.fastCoerceAtMost(maxRadius),
         topRight.fastCoerceAtMost(maxRadius),
@@ -87,7 +108,8 @@ private fun BackdropEffectScope.roundedRectCornerRadii(): FloatArray? {
     )
 }
 
-private const val ROUNDED_RECT_SDF = """
+private const val ROUNDED_RECT_SDF =
+    """
 float radiusAt(float2 coord, float4 radii) {
     if (coord.x >= 0.0) {
         if (coord.y <= 0.0) return radii.y;
@@ -115,7 +137,8 @@ float2 gradSdRoundedRect(float2 coord, float2 halfSize, float radius) {
     }
 }
 """
-private const val ROUNDED_RECT_REFRACTION_SHADER = """
+private const val ROUNDED_RECT_REFRACTION_SHADER =
+    """
 uniform shader content;
 
 uniform float2 size;
@@ -150,7 +173,8 @@ half4 main(float2 coord) {
     return content.eval(refractedCoord);
 }
 """
-private const val ROUNDED_RECT_REFRACTION_WITH_DISPERSION_SHADER = """
+private const val ROUNDED_RECT_REFRACTION_WITH_DISPERSION_SHADER =
+    """
 uniform shader content;
 
 uniform float2 size;

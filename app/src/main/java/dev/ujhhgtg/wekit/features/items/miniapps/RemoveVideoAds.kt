@@ -5,20 +5,21 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.utils.TargetProcesses
+import dev.ujhhgtg.wekit.utils.TargetProcess
 import org.json.JSONObject
 
 object RemoveVideoAds : SwitchFeature() {
-
     override val technicalId = "移除视频广告"
     override val nameRes = R.string.feature_remove_video_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)
     override val descriptionRes = R.string.feature_remove_video_ads_description
 
-    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
+    override val targetProcesses = setOf(TargetProcess.MAIN, TargetProcess.APPBRAND)
 
     override fun onEnable() {
-        "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding".toClass().reflekt()
+        "com.tencent.mm.appbrand.commonjni.AppBrandJsBridgeBinding"
+            .toClass()
+            .reflekt()
             .firstMethod { name = "subscribeHandler" }
             .hookBefore {
                 val type = args[0] as String? ?: ""

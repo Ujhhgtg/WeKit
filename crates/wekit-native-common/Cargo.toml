@@ -1,0 +1,16 @@
+[package]
+name = "wekit-native-common"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+relocation-driver = []
+
+[dependencies]
+anyhow = "1"
+libc = "0.2"
+
+[[bin]]
+name = "wekit-relocation-driver"
+path = "src/bin/relocation_driver.rs"
+required-features = ["relocation-driver"]

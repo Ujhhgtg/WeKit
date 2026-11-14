@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.features.api.ui
 import android.app.Activity
 import android.content.ContextWrapper
 import android.content.Intent
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HookParam
@@ -12,7 +12,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
 object WeStartActivityApi : ApiFeature() {
-
     override val technicalId = "活动启动监听服务"
     override val nameRes = R.string.feature_we_start_activity_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -36,18 +35,19 @@ object WeStartActivityApi : ApiFeature() {
 
     override fun onEnable() {
         listOf(
-            Activity::class.java,
-            ContextWrapper::class.java
-        ).forEach { clazz ->
-            clazz.declaredMethods.forEach {
-                if (it.name != "startActivity" && it.name != "startActivityForResult") {
-                    return@forEach
-                }
-                it.hookBefore {
-                    handleStartActivity(this)
+                Activity::class.java,
+                ContextWrapper::class.java,
+            )
+            .forEach { clazz ->
+                clazz.declaredMethods.forEach {
+                    if (it.name != "startActivity" && it.name != "startActivityForResult") {
+                        return@forEach
+                    }
+                    it.hookBefore {
+                        handleStartActivity(this)
+                    }
                 }
             }
-        }
     }
 
     private fun handleStartActivity(param: HookParam) {

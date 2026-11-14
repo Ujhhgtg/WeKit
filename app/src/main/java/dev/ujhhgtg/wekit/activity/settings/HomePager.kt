@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -30,18 +29,25 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Android
+import com.composables.icons.materialsymbols.outlined.Chat
 import com.composables.icons.materialsymbols.outlined.Check_circle
+import com.composables.icons.materialsymbols.outlined.Deployed_code
+import com.composables.icons.materialsymbols.outlined.Layers
+import com.composables.icons.materialsymbols.outlined.Menu_book
+import com.composables.icons.materialsymbols.outlined.Schedule
+import com.composables.icons.materialsymbols.outlined.Smartphone
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.openLsposedManager
 import dev.ujhhgtg.wekit.activity.openRootManager
-import dev.ujhhgtg.wekit.loader.entry.zygisk.ZygiskLoaderService
+import dev.ujhhgtg.wekit.loader.api.InjectionMode
 import dev.ujhhgtg.wekit.loader.startup.StartupInfo
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.utils.HostInfo
+import dev.ujhhgtg.wekit.utils.currentHookBridge
 import dev.ujhhgtg.wekit.utils.formatEpoch
-
 
 // ---------------------------------------------------------------------------
 //  Page 0 — Home
@@ -63,7 +69,6 @@ fun HomePager() {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StatusCard() {
     val context = LocalContext.current
@@ -71,18 +76,15 @@ private fun StatusCard() {
     var showNoRootManager by remember { mutableStateOf(false) }
     val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     val statusTitle = stringResource(R.string.home_module_activated)
-    val hookBridgeName = StartupInfo.hookBridge?.hookBridgeName
-        ?: stringResource(R.string.common_not_provided)
+    val hookBridgeName = currentHookBridge.hookBridgeName
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
         onClick = {
-            if (StartupInfo.loaderService is ZygiskLoaderService) {
+            if (StartupInfo.injectionMode == InjectionMode.ZYGISK) {
                 showNoRootManager = !openRootManager(context)
             } else {
                 openLsposedManager(activity)
@@ -109,13 +111,14 @@ private fun StatusCard() {
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             },
-            colors = ListItemDefaults.colors(
-                containerColor = Color.Transparent,
-                contentColor = contentColor,
-                leadingContentColor = contentColor,
-                trailingContentColor = contentColor,
-                supportingContentColor = contentColor.copy(alpha = 0.7f),
-            ),
+            colors =
+                ListItemDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = contentColor,
+                    leadingContentColor = contentColor,
+                    trailingContentColor = contentColor,
+                    supportingContentColor = contentColor.copy(alpha = 0.7f),
+                ),
             content = {
                 Text(
                     text = statusTitle,
@@ -139,16 +142,15 @@ private fun StatusCard() {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StatusTag(label: String, backgroundColor: Color, contentColor: Color) {
     Box(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(4.dp),
-            )
+        modifier =
+            Modifier.padding(end = 4.dp)
+                .background(
+                    color = backgroundColor,
+                    shape = RoundedCornerShape(4.dp),
+                ),
     ) {
         Text(
             text = label,
@@ -165,56 +167,69 @@ private fun DeviceInformation() {
     SegmentedColumn(title = stringResource(R.string.home_device_info_title)) {
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Chat,
                 title = stringResource(R.string.home_wechat_version),
-                description = stringResource(R.string.home_version_value, HostInfo.versionName, HostInfo.versionCode),
+                description =
+                    stringResource(
+                        R.string.home_version_value,
+                        HostInfo.versionName,
+                        HostInfo.versionCode,
+                    ),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Deployed_code,
                 title = stringResource(R.string.home_module_version),
-                description = stringResource(
-                    R.string.home_version_value,
-                    BuildConfig.VERSION_NAME,
-                    BuildConfig.VERSION_CODE,
-                ),
+                description =
+                    stringResource(
+                        R.string.home_version_value,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Schedule,
                 title = stringResource(R.string.home_build_time),
-                description = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true),
+                description = formatEpoch(BuildConfig.COMMIT_TIMESTAMP, true),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Smartphone,
                 title = stringResource(R.string.home_device_model),
-                description = stringResource(R.string.home_device_model_value, Build.MANUFACTURER, Build.MODEL),
+                description =
+                    stringResource(
+                        R.string.home_device_model_value,
+                        Build.MANUFACTURER,
+                        Build.MODEL,
+                    ),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Android,
                 title = stringResource(R.string.home_android_version),
-                description = stringResource(
-                    R.string.home_android_version_value,
-                    Build.VERSION.RELEASE,
-                    Build.VERSION.SDK_INT,
-                ),
+                description =
+                    stringResource(
+                        R.string.home_android_version_value,
+                        Build.VERSION.RELEASE,
+                        Build.VERSION.SDK_INT,
+                    ),
             )
         }
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Layers,
                 title = stringResource(R.string.home_loading_environment),
-                description = stringResource(
-                    R.string.home_loading_environment_value,
-                    loaderName,
-                    StartupInfo.hookBridge?.hookBridgeName ?: stringResource(R.string.common_not_provided),
-                ),
+                description =
+                    stringResource(
+                        R.string.home_loading_environment_value,
+                        loaderName,
+                        currentHookBridge.hookBridgeName,
+                    ),
             )
         }
     }
@@ -226,10 +241,10 @@ private fun LearnMore() {
     SegmentedColumn(title = stringResource(R.string.home_learn_more_title)) {
         item {
             BaseWidget(
-                iconPlaceholder = false,
+                icon = MaterialSymbols.Outlined.Menu_book,
                 title = stringResource(R.string.home_learn_more_item_title),
                 description = stringResource(R.string.home_learn_more_item_summary),
-                onClick = { uriHandler.openUri("https://ujhhgtgteams.gitbook.io/wekit-docs") },
+                onClick = { uriHandler.openUri("https://docs.wekit.ujhhgtg.dev") },
             )
         }
     }

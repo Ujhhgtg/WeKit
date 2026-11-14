@@ -1,8 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import dev.ujhhgtg.wekit.R
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Exposure_plus_1
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -10,6 +10,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -19,13 +20,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "消息复读"
     override val nameRes = R.string.feature_repeat_messages_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_repeat_messages_description
 
-    private val TAG = RepeatMessages::class.java.simpleName
+    private const val TAG = "RepeatMessages"
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
@@ -36,65 +36,96 @@ object RepeatMessages : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsP
     }
 
     @Suppress("DEPRECATION")
-    private val SUPPORTED_MSG_TYPES = setOf(
-        MessageType.TEXT,
-        MessageType.QUOTE,
-        MessageType.APP,
-        MessageType.IMAGE,
-        MessageType.VOICE,
-        MessageType.MICRO_VIDEO,
-        MessageType.STICKER,
-        MessageType.SO_GOU_EMOJI
-    )
+    private val SUPPORTED_MSG_TYPES =
+        setOf(
+            MessageType.TEXT,
+            MessageType.QUOTE,
+            MessageType.APP,
+            MessageType.IMAGE,
+            MessageType.VOICE,
+            MessageType.VIDEO,
+            MessageType.MICRO_VIDEO,
+            MessageType.STICKER,
+            MessageType.SO_GOU_EMOJI,
+        )
 
     fun isSupported(msgInfo: MessageInfo): Boolean = msgInfo.type in SUPPORTED_MSG_TYPES
 
-    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> =
+        listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777008, localizedChatString(R.string.chat_repeat_menu), ExposurePlus1Icon, MaterialSymbols.Outlined.Exposure_plus_1,
+                777008,
+                localizedString(R.string.chat_repeat_menu),
+                ExposurePlus1Icon,
+                MaterialSymbols.Outlined.Exposure_plus_1,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
                     val context = view.context
 
                     CoroutineScope(Dispatchers.IO).launch {
                         val sent = repeatMessage(msgInfo)
-                        if (!sent) showToastSuspend(context, context.localizedChatString(R.string.chat_repeat_failed))
+                        if (!sent) {
+                            showToastSuspend(
+                                context,
+                                context.localizedString(R.string.chat_repeat_failed),
+                            )
+                        }
                     }
-                }
-            )
+                },
+            ),
         )
-    }
 
     @Suppress("DEPRECATION")
-    fun repeatMessage(msgInfo: MessageInfo): Boolean {
-        return runCatching {
-            when (msgInfo.type) {
-                MessageType.TEXT -> WeMessageApi.sendText(msgInfo.talker, msgInfo.actualContent)
-                MessageType.IMAGE -> repeatImage(msgInfo)
-                MessageType.VOICE -> repeatVoice(msgInfo)
-                MessageType.VIDEO, MessageType.MICRO_VIDEO -> repeatVideo(msgInfo)
-                MessageType.STICKER, MessageType.SO_GOU_EMOJI -> repeatEmoji(msgInfo)
-                MessageType.APP -> WeMessageApi.sendXmlAppMsg(msgInfo.talker, msgInfo.actualContent)
-                MessageType.QUOTE -> {
-                    val quote = msgInfo.toQuoteMessage()!!
-                    val content = quote.title
-                    WeLogger.i(
-                        TAG,
-                        "repeat quote: destination=${msgInfo.talker}, messageId=${msgInfo.id}, " +
-                            "quotedMsgSvrId=${quote.svrid}, contentLength=${content.length}",
-                    )
-                    val sent = WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content)
-                    WeLogger.i(TAG, "repeat quote result: accepted=$sent")
-                    sent
-                }
-                else -> false
+    fun repeatMessage(msgInfo: MessageInfo): Boolean = runCatching {
+        when (msgInfo.type) {
+            MessageType.TEXT -> {
+                WeMessageApi.sendText(msgInfo.talker, msgInfo.actualContent)
             }
-        }.getOrElse {
+
+            MessageType.IMAGE -> {
+                repeatImage(msgInfo)
+            }
+
+            MessageType.VOICE -> {
+                repeatVoice(msgInfo)
+            }
+
+            MessageType.VIDEO,
+            MessageType.MICRO_VIDEO -> {
+                repeatVideo(msgInfo)
+            }
+
+            MessageType.STICKER,
+            MessageType.SO_GOU_EMOJI -> {
+                repeatEmoji(msgInfo)
+            }
+
+            MessageType.APP -> {
+                WeMessageApi.sendXmlAppMsg(msgInfo.talker, msgInfo.actualContent)
+            }
+
+            MessageType.QUOTE -> {
+                val quote = msgInfo.toQuoteMessage()!!
+                val content = quote.title
+                WeLogger.i(
+                    TAG,
+                    "repeat quote: destination=${msgInfo.talker}, messageId=${msgInfo.id}, " +
+                        "quotedMsgSvrId=${quote.svrid}, contentLength=${content.length}",
+                )
+                val sent = WeMessageApi.sendQuoteText(msgInfo.talker, quote.svrid, content)
+                WeLogger.i(TAG, "repeat quote result: accepted=$sent")
+                sent
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+        .getOrElse {
             WeLogger.e(TAG, "failed to repeat message: type=${msgInfo.typeCode}", it)
             false
         }
-    }
 
     private fun repeatImage(msgInfo: MessageInfo): Boolean {
         val md5 = WeServiceApi.getImageMd5FromMsgInfo(msgInfo)

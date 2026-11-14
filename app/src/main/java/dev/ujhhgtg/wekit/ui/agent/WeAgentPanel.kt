@@ -15,7 +15,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -29,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -46,13 +46,12 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,15 +83,18 @@ import com.composables.icons.materialsymbols.outlined.Menu
 import com.composables.icons.materialsymbols.outlined.Menu_open
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Shield
+import com.composables.icons.materialsymbols.outlined.Smart_toy
 import com.composables.icons.materialsymbols.outlined.Star
 import com.composables.icons.materialsymbols.outlined.Stop
 import com.composables.icons.materialsymbols.outlinedfilled.Star
-import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
+import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
+import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ChatRow
+import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -103,10 +105,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  * Activity (Phase 8), not here.
  */
 @Composable
-fun WeAgentPanel(
-    onDismiss: () -> Unit,
-    onBackHandlerChanged: ((() -> Unit)?) -> Unit,
-) {
+fun WeAgentPanel(onDismiss: () -> Unit, onBackHandlerChanged: ((() -> Unit)?) -> Unit) {
     // The session sidebar is collapsed by default; the header icon toggles it.
     var sidebarOpen by remember { mutableStateOf(false) }
 
@@ -119,23 +118,26 @@ fun WeAgentPanel(
         onDispose { onBackHandlerChanged(null) }
     }
 
-    // Scrim + centered card.
+    // Scrim + centered card. imePadding lifts the whole panel above the soft keyboard on devices
+    // that don't resize the overlay window despite SOFT_INPUT_ADJUST_RESIZE (a no-op if they do,
+    // since a resized window reports no overlapping IME inset).
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
-            .clickable(onClick = onDismiss),
+        modifier =
+            Modifier.fillMaxSize()
+                .imePadding()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 3.dp,
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.86f)
-                // Swallow clicks so tapping the card doesn't dismiss.
-                .clickable(enabled = false) {},
+            modifier =
+                Modifier.fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.86f)
+                    // Swallow clicks so tapping the card doesn't dismiss.
+                    .clickable(enabled = false) {},
         ) {
             // Chat fills the whole card; the sidebar floats above it when open.
             Box(Modifier.fillMaxSize()) {
@@ -170,8 +172,7 @@ private fun SessionSidebar(open: Boolean, onClose: () -> Unit) {
             exit = fadeOut(tween(150)),
         ) {
             Box(
-                Modifier
-                    .fillMaxSize()
+                Modifier.fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.32f))
                     .clickable(onClick = onClose),
             )
@@ -184,11 +185,11 @@ private fun SessionSidebar(open: Boolean, onClose: () -> Unit) {
             modifier = Modifier.align(Alignment.CenterStart),
         ) {
             SessionDrawerContent(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.62f)
-                    // Swallow taps so they don't fall through to the scrim.
-                    .clickable(enabled = false) {},
+                modifier =
+                    Modifier.fillMaxHeight()
+                        .fillMaxWidth(0.62f)
+                        // Swallow taps so they don't fall through to the scrim.
+                        .clickable(enabled = false) {},
                 onClose = onClose,
             )
         }
@@ -218,7 +219,12 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { WeAgentService.newSession(); onClose() }) {
+                IconButton(
+                    onClick = {
+                        WeAgentService.newSession()
+                        onClose()
+                    },
+                ) {
                     Icon(
                         MaterialSymbols.Outlined.Add,
                         contentDescription = stringResource(R.string.agent_panel_new_session),
@@ -230,13 +236,23 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                 items(sessions, key = { it.id }) { s ->
                     val selected = s.id == current
                     Surface(
-                        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        color =
+                            if (selected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                Color.Transparent
+                            },
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { WeAgentService.switchSession(s.id); onClose() },
+                        modifier =
+                            Modifier.fillMaxWidth().clickable {
+                                WeAgentService.switchSession(s.id)
+                                onClose()
+                            },
                     ) {
-                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(
                                 s.title,
                                 style = MaterialTheme.typography.bodySmall,
@@ -244,20 +260,42 @@ private fun SessionDrawerContent(modifier: Modifier, onClose: () -> Unit) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            // Star toggles favorite (pins to top + delete-protects). Delete only shows
-                            // for non-favorited sessions — a favorite must be un-starred before deleting.
-                            IconButton(onClick = { WeAgentService.toggleFavorite(s.id) }, modifier = Modifier.width(28.dp)) {
+                            // Star toggles favorite (pins to top + delete-protects). Delete only
+                            // shows
+                            // for non-favorited sessions — a favorite must be un-starred before
+                            // deleting.
+                            IconButton(
+                                onClick = { WeAgentService.toggleFavorite(s.id) },
+                                modifier = Modifier.width(28.dp),
+                            ) {
                                 Icon(
-                                    if (s.favorite) MaterialSymbols.OutlinedFilled.Star else MaterialSymbols.Outlined.Star,
-                                    contentDescription = stringResource(
-                                        if (s.favorite) R.string.agent_panel_unfavorite else R.string.agent_panel_favorite,
-                                    ),
-                                    tint = if (s.favorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                    if (s.favorite) {
+                                        MaterialSymbols.OutlinedFilled.Star
+                                    } else {
+                                        MaterialSymbols.Outlined.Star
+                                    },
+                                    contentDescription =
+                                        stringResource(
+                                            if (s.favorite) {
+                                                R.string.agent_panel_unfavorite
+                                            } else {
+                                                R.string.agent_panel_favorite
+                                            },
+                                        ),
+                                    tint =
+                                        if (s.favorite) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            LocalContentColor.current
+                                        },
                                     modifier = Modifier.width(16.dp),
                                 )
                             }
                             if (!s.favorite) {
-                                IconButton(onClick = { WeAgentService.deleteSession(s.id) }, modifier = Modifier.width(28.dp)) {
+                                IconButton(
+                                    onClick = { WeAgentService.deleteSession(s.id) },
+                                    modifier = Modifier.width(28.dp),
+                                ) {
                                     Icon(
                                         MaterialSymbols.Outlined.Delete,
                                         contentDescription = stringResource(R.string.action_delete),
@@ -287,19 +325,31 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
                     contentDescription = stringResource(R.string.agent_panel_expand_sessions),
                 )
             }
-            Text("WeAgent", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = {
-                val ctx = dev.ujhhgtg.wekit.utils.HostInfo.application
-                ctx.startActivity(
-                    Intent(ctx, WeAgentSettingsActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            Text(
+                "WeAgent",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(
+                onClick = {
+                    val ctx = dev.ujhhgtg.wekit.utils.HostInfo.application
+                    ctx.startActivity(
+                        Intent(ctx, WeAgentSettingsActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                    onDismiss()
+                },
+            ) {
+                Icon(
+                    MaterialSymbols.Outlined.Settings,
+                    contentDescription = stringResource(R.string.action_settings),
                 )
-                onDismiss()
-            }) {
-                Icon(MaterialSymbols.Outlined.Settings, contentDescription = stringResource(R.string.action_settings))
             }
             IconButton(onClick = onDismiss) {
-                Icon(MaterialSymbols.Outlined.Close, contentDescription = stringResource(R.string.action_close))
+                Icon(
+                    MaterialSymbols.Outlined.Close,
+                    contentDescription = stringResource(R.string.action_close),
+                )
             }
         }
 
@@ -318,10 +368,10 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
 }
 
 /**
- * Compact token-usage strip shown above the input bar when "显示用量详细信息" is on (§ item 3),
- * following the common coding-agent convention: last request's input/output tokens plus the
- * context-window fill (percentage + a thin bar) when the current model declares a window. Renders
- * nothing until the first response of a session arrives.
+ * Compact token-usage strip shown above the input bar when "显示用量详细信息" is on (§ item 3), following
+ * the common coding-agent convention: last request's input/output tokens plus the context-window
+ * fill (percentage + a thin bar) when the current model declares a window. Renders nothing until
+ * the first response of a session arrives.
  */
 @Composable
 private fun UsageStrip() {
@@ -339,11 +389,16 @@ private fun UsageStrip() {
     val ctx = resolvedCtx ?: models.firstOrNull { it.id == currentModelId }?.contextWindow
     // Prompt tokens are the context occupancy; fall back to total when prompt isn't reported.
     val used = u.promptTokens ?: u.totalTokens
-    val pct = if (ctx != null && ctx > 0 && used != null) (used.toFloat() / ctx).coerceIn(0f, 1f) else null
+    val pct =
+        if (ctx != null && ctx > 0 && used != null) {
+            (used.toFloat() / ctx).coerceIn(0f, 1f)
+        } else {
+            null
+        }
 
-    Column(Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 2.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val parts = buildList {
                 u.promptTokens?.let { add("↑ ${fmtTokens(it)}") }
@@ -351,7 +406,9 @@ private fun UsageStrip() {
                 u.totalTokens?.let { add("Σ ${fmtTokens(it)}") }
             }
             Text(
-                parts.joinToString("   ").ifEmpty { stringResource(R.string.agent_panel_usage_empty) },
+                parts.joinToString("   ").ifEmpty {
+                    stringResource(R.string.agent_panel_usage_empty)
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -368,10 +425,13 @@ private fun UsageStrip() {
             Spacer(Modifier.height(2.dp))
             LinearProgressIndicator(
                 progress = { pct },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp),
-                color = if (pct >= 0.9f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth().height(3.dp),
+                color =
+                    if (pct >= 0.9f) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
@@ -379,14 +439,13 @@ private fun UsageStrip() {
 }
 
 /** Compact token count: 1234 -> "1.2k", 980 -> "980". */
-private fun fmtTokens(n: Int): String =
-    if (n >= 1000) "%.1fk".format(n / 1000f) else n.toString()
+private fun fmtTokens(n: Int): String = if (n >= 1000) "%.1fk".format(n / 1000f) else n.toString()
 
 /**
  * Multiline input with a bottom action row: a [+] menu on the left and a send button on the right.
  * The [+] opens a nested two-level menu for in-session quick actions (§1.3): switch model, bind a
- * environment, switch the system-prompt profile, and insert a preset
- * prompt. Model/environment/prompt/preset each open a submenu.
+ * environment, switch the system-prompt profile, and insert a preset prompt.
+ * Model/environment/prompt/preset each open a submenu.
  */
 @Composable
 private fun InputBar(
@@ -396,12 +455,15 @@ private fun InputBar(
 ) {
     val ballState = WeAgentService.ballState.value
     val queue by WeAgentService.queuedMessage
-    val queueText = queue  // resolve the delegate so we can smart-cast below
-    val isRunning = ballState == WeAgentService.BallState.RUNNING || ballState == WeAgentService.BallState.PENDING_APPROVAL
+    val queueText = queue // resolve the delegate so we can smart-cast below
+    val isRunning =
+        ballState == WeAgentService.BallState.RUNNING ||
+            ballState == WeAgentService.BallState.PENDING_APPROVAL
 
     fun send() {
         if (text.isNotBlank()) {
-            WeAgentService.sendMessage(text); onTextChange("")
+            WeAgentService.sendMessage(text)
+            onTextChange("")
         }
     }
 
@@ -410,9 +472,7 @@ private fun InputBar(
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         ) {
             Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
                 UsageStrip()
@@ -423,17 +483,13 @@ private fun InputBar(
                     value = queueText,
                     onValueChange = {},
                     readOnly = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     minLines = 2,
                     maxLines = 6,
                     enabled = false,
                 )
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
+                    Modifier.fillMaxWidth().padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PlusMenu(onInsertPreset = onInsertPreset)
@@ -462,9 +518,7 @@ private fun InputBar(
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
     ) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
             UsageStrip()
@@ -475,19 +529,17 @@ private fun InputBar(
                 value = text,
                 onValueChange = onTextChange,
                 placeholder = { Text(stringResource(R.string.agent_panel_message_placeholder)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 minLines = 2,
                 maxLines = 6,
             )
-            // Action row: [+] left, [Send](./Interrupt) right.
+            // Action row: [+] [Model] [Permission] left, [Send](./Interrupt) right.
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp),
+                Modifier.fillMaxWidth().padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                ModelMenuButton()
+                PermissionMenuButton()
                 PlusMenu(onInsertPreset = onInsertPreset)
                 Spacer(Modifier.weight(1f))
                 if (isRunning) {
@@ -513,48 +565,64 @@ private fun InputBar(
 }
 
 /** State for which submenu (if any) of the [PlusMenu] is currently open. */
-private enum class PlusSubmenu { NONE, MODEL, ENVIRONMENT, PROFILE, PRESET }
+private enum class PlusSubmenu {
+    NONE,
+    ENVIRONMENT,
+    PROFILE,
+    PRESET,
+}
 
 /**
- * The nested "+" quick-action menu. The root lists the current selections; tapping model/environment/
- * profile/preset opens a submenu.
+ * The nested "+" quick-action menu. The root lists the current selections; tapping environment/
+ * profile/preset opens a submenu. Model and permission live on sibling buttons
+ * ([ModelMenuButton]/[PermissionMenuButton]) next to the "+".
  */
 @Composable
 private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var submenu by remember { mutableStateOf(PlusSubmenu.NONE) }
 
-    val models = WeAgentService.availableModels
     val systemPrompts = WeAgentService.availableSystemPrompts
     val environments = WeAgentService.availableLinuxEnvironments
     val presets = WeAgentService.availablePresets
-    val currentModelId by WeAgentService.currentModelId
     val currentSystemPromptId by WeAgentService.currentSystemPromptId
     val currentEnvironmentId by WeAgentService.currentLinuxEnvironmentId
     val currentSessionId by WeAgentService.currentSessionId
-    val effectiveEnvironmentId by remember(currentSessionId) {
-        currentSessionId?.let(WeAgentService.linuxEnvironmentManager::observeEffectiveEnvironmentId)
-            ?: kotlinx.coroutines.flow.flowOf(NATIVE_ENVIRONMENT_ID)
-    }.collectAsState(initial = WeAgentService.effectiveLinuxEnvironmentId.value)
-    val environmentLocked = WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
-        WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
+    val effectiveEnvironmentId by
+        remember(currentSessionId) {
+                currentSessionId?.let(
+                    WeAgentService.linuxEnvironmentManager::observeEffectiveEnvironmentId,
+                ) ?: kotlinx.coroutines.flow.flowOf(NATIVE_ENVIRONMENT_ID)
+            }
+            .collectAsState(initial = WeAgentService.effectiveLinuxEnvironmentId.value)
+    val environmentLocked =
+        WeAgentService.ballState.value == WeAgentService.BallState.RUNNING ||
+            WeAgentService.ballState.value == WeAgentService.BallState.PENDING_APPROVAL
 
-    // A null model id means "默认": the session follows the settings default model, resolved at turn
-    // time (mirrors environment/systemPrompt). Show "默认" for null rather than "未选择".
     val defaultLabel = stringResource(R.string.agent_panel_default)
     val noneLabel = stringResource(R.string.agent_panel_none)
-    val modelLabel = if (currentModelId == null) defaultLabel
-    else models.firstOrNull { it.id == currentModelId }?.label
-        ?: stringResource(R.string.agent_panel_not_selected)
-    val environmentLabel = environments.firstOrNull { it.id == (currentEnvironmentId ?: effectiveEnvironmentId) }
-        ?.let { "${it.name} (${it.type})" } ?: defaultLabel
-    val systemPromptLabel = when (currentSystemPromptId) {
-        null -> defaultLabel; "" -> noneLabel
-        else -> systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel
-    }
+    val environmentLabel =
+        environments
+            .firstOrNull { it.id == (currentEnvironmentId ?: effectiveEnvironmentId) }
+            ?.let { "${it.name} (${it.type})" } ?: defaultLabel
+    val systemPromptLabel =
+        when (currentSystemPromptId) {
+            null -> {
+                defaultLabel
+            }
+
+            "" -> {
+                noneLabel
+            }
+
+            else -> {
+                systemPrompts.firstOrNull { it.id == currentSystemPromptId }?.name ?: defaultLabel
+            }
+        }
 
     fun close() {
-        expanded = false; submenu = PlusSubmenu.NONE
+        expanded = false
+        submenu = PlusSubmenu.NONE
     }
 
     fun handleDismissRequest() {
@@ -562,7 +630,12 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
     }
 
     Box {
-        IconButton(onClick = { expanded = true; submenu = PlusSubmenu.NONE }) {
+        IconButton(
+            onClick = {
+                expanded = true
+                submenu = PlusSubmenu.NONE
+            },
+        ) {
             Icon(
                 MaterialSymbols.Outlined.Add,
                 contentDescription = stringResource(R.string.agent_panel_quick_actions),
@@ -572,17 +645,21 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
             when (submenu) {
                 PlusSubmenu.NONE -> {
                     DropdownMenuItem(
-                        text = { NestedRow(stringResource(R.string.agent_panel_model), modelLabel) },
-                        onClick = { submenu = PlusSubmenu.MODEL },
-                    )
-                    DropdownMenuItem(
-                        text = { NestedRow(stringResource(R.string.agent_panel_environment), environmentLabel) },
+                        text = {
+                            NestedRow(
+                                stringResource(R.string.agent_panel_environment),
+                                environmentLabel,
+                            )
+                        },
                         enabled = !environmentLocked,
                         onClick = { submenu = PlusSubmenu.ENVIRONMENT },
                     )
                     DropdownMenuItem(
                         text = {
-                            NestedRow(stringResource(R.string.agent_panel_system_prompt), systemPromptLabel)
+                            NestedRow(
+                                stringResource(R.string.agent_panel_system_prompt),
+                                systemPromptLabel,
+                            )
                         },
                         onClick = { submenu = PlusSubmenu.PROFILE },
                     )
@@ -597,81 +674,96 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                     )
                 }
 
-                PlusSubmenu.MODEL -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_model)) { submenu = PlusSubmenu.NONE }
+                PlusSubmenu.ENVIRONMENT -> {
+                    SubmenuHeader(stringResource(R.string.agent_panel_environment)) {
+                        submenu = PlusSubmenu.NONE
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(
-                                if (currentModelId == null) {
+                                if (currentEnvironmentId == null) {
                                     stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                } else defaultLabel,
+                                } else {
+                                    defaultLabel
+                                },
                             )
                         },
-                        onClick = { WeAgentService.setSessionModel(null); close() },
-                    )
-                    if (models.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.agent_panel_add_model_first)) },
-                            onClick = ::close,
-                        )
-                    }
-                    models.forEach { m ->
-                        DropdownMenuItem(
-                            text = { Text(m.label + if (m.id == currentModelId) "  ✓" else "") },
-                            onClick = { WeAgentService.setSessionModel(m.id); close() },
-                        )
-                    }
-                }
-
-                PlusSubmenu.ENVIRONMENT -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_environment)) { submenu = PlusSubmenu.NONE }
-                    DropdownMenuItem(
-                        text = { Text(if (currentEnvironmentId == null) stringResource(R.string.agent_panel_checked_value, defaultLabel) else defaultLabel) },
                         enabled = !environmentLocked,
-                        onClick = { WeAgentService.setSessionLinuxEnvironment(null); close() },
+                        onClick = {
+                            WeAgentService.setSessionLinuxEnvironment(null)
+                            close()
+                        },
                     )
                     environments.forEach { w ->
                         DropdownMenuItem(
-                            text = { Text("${w.name} (${w.type})" + if (w.id == currentEnvironmentId) "  ✓" else "") },
+                            text = {
+                                Text(
+                                    "${w.name} (${w.type})" +
+                                        if (w.id == currentEnvironmentId) "  ✓" else "",
+                                )
+                            },
                             enabled = !environmentLocked,
-                            onClick = { WeAgentService.setSessionLinuxEnvironment(w.id); close() },
+                            onClick = {
+                                WeAgentService.setSessionLinuxEnvironment(w.id)
+                                close()
+                            },
                         )
                     }
                 }
 
                 PlusSubmenu.PROFILE -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_system_prompt)) { submenu = PlusSubmenu.NONE }
+                    SubmenuHeader(stringResource(R.string.agent_panel_system_prompt)) {
+                        submenu = PlusSubmenu.NONE
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(
                                 if (currentSystemPromptId == null) {
                                     stringResource(R.string.agent_panel_checked_value, defaultLabel)
-                                } else defaultLabel,
+                                } else {
+                                    defaultLabel
+                                },
                             )
                         },
-                        onClick = { WeAgentService.setSessionSystemPrompt(null); close() },
+                        onClick = {
+                            WeAgentService.setSessionSystemPrompt(null)
+                            close()
+                        },
                     )
-                    // "无" = explicitly no system prompt (sentinel ""), distinct from "默认" (follow default).
+                    // "无" = explicitly no system prompt (sentinel ""), distinct from "默认" (follow
+                    // default).
                     DropdownMenuItem(
                         text = {
                             Text(
                                 if (currentSystemPromptId == "") {
                                     stringResource(R.string.agent_panel_checked_value, noneLabel)
-                                } else noneLabel,
+                                } else {
+                                    noneLabel
+                                },
                             )
                         },
-                        onClick = { WeAgentService.setSessionSystemPrompt(""); close() },
+                        onClick = {
+                            WeAgentService.setSessionSystemPrompt("")
+                            close()
+                        },
                     )
                     systemPrompts.forEach { sp ->
                         DropdownMenuItem(
-                            text = { Text(sp.name + if (sp.id == currentSystemPromptId) "  ✓" else "") },
-                            onClick = { WeAgentService.setSessionSystemPrompt(sp.id); close() },
+                            text = {
+                                Text(sp.name + if (sp.id == currentSystemPromptId) "  ✓" else "")
+                            },
+                            onClick = {
+                                WeAgentService.setSessionSystemPrompt(sp.id)
+                                close()
+                            },
                         )
                     }
                 }
 
                 PlusSubmenu.PRESET -> {
-                    SubmenuHeader(stringResource(R.string.agent_panel_preset_prompt)) { submenu = PlusSubmenu.NONE }
+                    SubmenuHeader(stringResource(R.string.agent_panel_preset_prompt)) {
+                        submenu = PlusSubmenu.NONE
+                    }
                     if (presets.isEmpty()) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.agent_panel_no_presets)) },
@@ -681,7 +773,10 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
                     presets.forEach { preset ->
                         DropdownMenuItem(
                             text = { Text(preset.title) },
-                            onClick = { onInsertPreset(preset.content); close() },
+                            onClick = {
+                                onInsertPreset(preset.content)
+                                close()
+                            },
                         )
                     }
                 }
@@ -689,6 +784,119 @@ private fun PlusMenu(onInsertPreset: (String) -> Unit) {
         }
     }
 }
+
+/**
+ * Standalone model picker next to the "+" button, using the same Smart_toy mark as the WeAgent
+ * entry in the WeChat chat toolbar. A null session model means "默认": the session follows the
+ * settings default model, resolved at turn time.
+ */
+@Composable
+private fun ModelMenuButton() {
+    var expanded by remember { mutableStateOf(false) }
+    val models = WeAgentService.availableModels
+    val currentModelId by WeAgentService.currentModelId
+    val defaultLabel = stringResource(R.string.agent_panel_default)
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                MaterialSymbols.Outlined.Smart_toy,
+                contentDescription = stringResource(R.string.agent_panel_model),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (currentModelId == null) {
+                            stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                        } else {
+                            defaultLabel
+                        },
+                    )
+                },
+                onClick = {
+                    WeAgentService.setSessionModel(null)
+                    expanded = false
+                },
+            )
+            if (models.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.agent_panel_add_model_first)) },
+                    onClick = { expanded = false },
+                )
+            }
+            models.forEach { m ->
+                DropdownMenuItem(
+                    text = { Text(m.label + if (m.id == currentModelId) "  ✓" else "") },
+                    onClick = {
+                        WeAgentService.setSessionModel(m.id)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Standalone session permission picker next to the model button. A null session level means "默认"
+ * (follow the settings default). Changes take effect immediately — tool calls resolve the level at
+ * call time.
+ */
+@Composable
+private fun PermissionMenuButton() {
+    var expanded by remember { mutableStateOf(false) }
+    val currentLevel by WeAgentService.currentPermissionLevel
+    val defaultLabel = stringResource(R.string.agent_panel_default)
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                MaterialSymbols.Outlined.Shield,
+                contentDescription = stringResource(R.string.agent_panel_permission),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (currentLevel == null) {
+                            stringResource(R.string.agent_panel_checked_value, defaultLabel)
+                        } else {
+                            defaultLabel
+                        },
+                    )
+                },
+                onClick = {
+                    WeAgentService.setSessionPermissionLevel(null)
+                    expanded = false
+                },
+            )
+            PermissionLevel.entries.forEach { level ->
+                DropdownMenuItem(
+                    text = { Text(level.panelLabel() + if (level == currentLevel) "  ✓" else "") },
+                    onClick = {
+                        WeAgentService.setSessionPermissionLevel(level)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** Localized label for a [PermissionLevel] in the permission menu. */
+@Composable
+private fun PermissionLevel.panelLabel(): String =
+    stringResource(
+        when (this) {
+            PermissionLevel.REQUEST_APPROVAL -> R.string.agent_permission_level_request_approval
+            PermissionLevel.AUTO_EDIT -> R.string.agent_permission_level_auto_edit
+            PermissionLevel.AUTO_APPROVAL -> R.string.agent_permission_level_auto_approval
+            PermissionLevel.FULL_ACCESS -> R.string.agent_permission_level_full_access
+        },
+    )
 
 /** A root menu row showing a label on the left and the current value on the right. */
 @Composable
@@ -723,21 +931,27 @@ private fun SubmenuHeader(title: String, onBack: () -> Unit) {
 private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {}) {
     val messages = WeAgentService.uiMessages
     // The list state lives in WeAgentService so it survives this panel being disposed when the ball
-    // closes; that's what keeps the scroll position put across open/close instead of resetting to the
-    // top. We only pull to the bottom on a real new row or a session switch — never on a plain reopen.
+    // closes; that's what keeps the scroll position put across open/close instead of resetting to
+    // the
+    // top. We only pull to the bottom on a real new row or a session switch — never on a plain
+    // reopen.
     val listState = WeAgentService.messageListState
     val currentSessionId by WeAgentService.currentSessionId
     // For each user message, the createdAt of the assistant message that immediately preceded it.
     // "回到此处" / "创建分支" on a user row rewinds/branches to that assistant turn, not to the user
     // message itself — so the user's prompt ends up re-entering via the input bar instead of being
-    // baked into history. Null means no preceding assistant turn (rewind clears all; branch is empty).
+    // baked into history. Null means no preceding assistant turn (rewind clears all; branch is
+    // empty).
     val prevAssistantAt by remember {
         derivedStateOf {
             buildMap {
                 var last: java.time.Instant? = null
                 for (m in messages) {
-                    if (m.role == ChatRow.Role.USER) put(m.id, last)
-                    else if (m.role == ChatRow.Role.ASSISTANT) last = m.createdAt
+                    if (m.role == ChatRow.Role.USER) {
+                        put(m.id, last)
+                    } else if (m.role == ChatRow.Role.ASSISTANT) {
+                        last = m.createdAt
+                    }
                 }
             }
         }
@@ -745,7 +959,8 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
     LaunchedEffect(Unit) {
         // Track the size seen at the start of THIS composition so the first emission (which just
         // reopening the panel produces) never scrolls — that's what preserves the position. After
-        // that, a grown size animates to the bottom, and a session switch snaps there instantly once.
+        // that, a grown size animates to the bottom, and a session switch snaps there instantly
+        // once.
         var lastSize = -1
         snapshotFlow { messages.size to currentSessionId }
             .collect { (size, sessionId) ->
@@ -759,15 +974,25 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
                         WeAgentService.messageListSyncedSessionId = sessionId
                         listState.scrollToItem(messages.lastIndex)
                     }
+
                     // First emission of this composition (a plain reopen): keep the saved position.
-                    lastSize == -1 -> Unit
+                    lastSize == -1 -> {
+                        Unit
+                    }
+
                     // A genuine new row arrived while visible: follow it to the bottom.
-                    size > lastSize -> listState.animateScrollToItem(messages.lastIndex)
+                    size > lastSize -> {
+                        listState.animateScrollToItem(messages.lastIndex)
+                    }
                 }
                 lastSize = size
             }
     }
-    LazyColumn(modifier.fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    LazyColumn(
+        modifier.fillMaxWidth(),
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         items(messages, key = { it.id }) { row ->
             MessageBubble(
                 row = row,
@@ -778,7 +1003,6 @@ private fun MessageList(modifier: Modifier, onRestoreInput: (String) -> Unit = {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     row: ChatRow,
@@ -786,15 +1010,27 @@ private fun MessageBubble(
     prevAssistantTimestamp: java.time.Instant? = null,
 ) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     when (row.role) {
-        ChatRow.Role.TOOL -> ToolCard(row)
+        ChatRow.Role.TOOL -> {
+            ToolCard(row)
+        }
+
         else -> {
-            val (bg, align) = when (row.role) {
-                ChatRow.Role.USER -> MaterialTheme.colorScheme.primaryContainer to Alignment.End
-                ChatRow.Role.SYSTEM_NOTE -> MaterialTheme.colorScheme.errorContainer to Alignment.CenterHorizontally
-                else -> MaterialTheme.colorScheme.surfaceVariant to Alignment.Start
-            }
+            val (bg, align) =
+                when (row.role) {
+                    ChatRow.Role.USER -> {
+                        MaterialTheme.colorScheme.primaryContainer to Alignment.End
+                    }
+
+                    ChatRow.Role.SYSTEM_NOTE -> {
+                        MaterialTheme.colorScheme.errorContainer to Alignment.CenterHorizontally
+                    }
+
+                    else -> {
+                        MaterialTheme.colorScheme.surfaceVariant to Alignment.Start
+                    }
+                }
             // The text card renders when there's text, or when there's no reasoning at all (so an
             // empty assistant turn still shows a placeholder). When reasoning exists but the turn
             // only made tool calls (no text), the text card is skipped.
@@ -805,8 +1041,10 @@ private fun MessageBubble(
                 // displaying completed reasoning after the turn ends (reasoningStreaming=false).
                 if (row.reasoningStreaming || row.reasoning?.isNotBlank() == true) {
                     ReasoningCard(reasoning = row.reasoning, isStreaming = row.reasoningStreaming)
-                    // Only separate from the text card when it actually follows; otherwise the outer
-                    // LazyColumn's spacing already provides the gap to the next row (avoids a double gap).
+                    // Only separate from the text card when it actually follows; otherwise the
+                    // outer
+                    // LazyColumn's spacing already provides the gap to the next row (avoids a
+                    // double gap).
                     if (showTextCard) Spacer(Modifier.height(6.dp))
                 }
                 if (showTextCard) {
@@ -815,11 +1053,15 @@ private fun MessageBubble(
                     // Two-step confirmation state for "回到此处": first click arms it (turns red),
                     // second click executes. Resets whenever the menu closes.
                     var confirmGoBack by remember(row.id) { mutableStateOf(false) }
-                    val longPressable = (row.role == ChatRow.Role.ASSISTANT || row.role == ChatRow.Role.USER) && row.text.isNotEmpty()
+                    val longPressable =
+                        (row.role == ChatRow.Role.ASSISTANT || row.role == ChatRow.Role.USER) &&
+                            row.text.isNotEmpty()
                     // A running turn blocks "回到此处" (the UI contract: truncation only when idle).
-                    val sessionRunning = WeAgentService.ballState.value.let {
-                        it == WeAgentService.BallState.RUNNING || it == WeAgentService.BallState.PENDING_APPROVAL
-                    }
+                    val sessionRunning =
+                        WeAgentService.ballState.value.let {
+                            it == WeAgentService.BallState.RUNNING ||
+                                it == WeAgentService.BallState.PENDING_APPROVAL
+                        }
                     val sessionId = WeAgentService.currentSessionId.value
                     // The timestamp passed to truncateToMessage / branchSession.
                     // • Assistant row  → the row's own createdAt (unchanged behavior).
@@ -827,23 +1069,28 @@ private fun MessageBubble(
                     //   message itself is NOT baked into history — it's restored to the input bar
                     //   instead. Instant.EPOCH when there is no preceding assistant message, which
                     //   the SQL interprets as "before all real messages" (clears / empty branch).
-                    val anchorAt = if (row.role == ChatRow.Role.USER) {
-                        prevAssistantTimestamp ?: java.time.Instant.EPOCH
-                    } else {
-                        row.createdAt
-                    }
+                    val anchorAt =
+                        if (row.role == ChatRow.Role.USER) {
+                            prevAssistantTimestamp ?: java.time.Instant.EPOCH
+                        } else {
+                            row.createdAt
+                        }
                     Box {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = bg),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = if (longPressable) {
-                                Modifier.combinedClickable(
-                                    onClick = {},
-                                    onLongClick = { menuOpen = true },
-                                )
-                            } else Modifier,
+                            modifier =
+                                if (longPressable) {
+                                    Modifier.combinedClickable(
+                                        onClick = {},
+                                        onLongClick = { menuOpen = true },
+                                    )
+                                } else {
+                                    Modifier
+                                },
                         ) {
-                            // Assistant replies are rendered as Markdown; user/system text stays verbatim.
+                            // Assistant replies are rendered as Markdown; user/system text stays
+                            // verbatim.
                             if (row.role == ChatRow.Role.ASSISTANT && row.text.isNotEmpty()) {
                                 MarkdownText(
                                     markdown = row.text,
@@ -869,13 +1116,18 @@ private fun MessageBubble(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.agent_panel_copy)) },
                                     leadingIcon = {
-                                        Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null)
+                                        Icon(
+                                            MaterialSymbols.Outlined.Copy_all,
+                                            contentDescription = null,
+                                        )
                                     },
                                     onClick = {
                                         copyToClipboard(row.text)
                                         showToast(
                                             context,
-                                            localizedContext.getString(R.string.copied_to_clipboard),
+                                            localizedContext.getString(
+                                                R.string.copied_to_clipboard,
+                                            ),
                                         )
                                         menuOpen = false
                                     },
@@ -889,26 +1141,41 @@ private fun MessageBubble(
                                             stringResource(
                                                 if (confirmGoBack) {
                                                     R.string.agent_panel_confirm_return_here
-                                                } else R.string.agent_panel_return_here,
+                                                } else {
+                                                    R.string.agent_panel_return_here
+                                                },
                                             ),
-                                            color = if (confirmGoBack) MaterialTheme.colorScheme.error
-                                            else LocalContentColor.current,
+                                            color =
+                                                if (confirmGoBack) {
+                                                    MaterialTheme.colorScheme.error
+                                                } else {
+                                                    LocalContentColor.current
+                                                },
                                         )
                                     },
                                     leadingIcon = {
                                         Icon(
                                             MaterialSymbols.Outlined.History,
                                             contentDescription = null,
-                                            tint = if (confirmGoBack) MaterialTheme.colorScheme.error
-                                            else LocalContentColor.current,
+                                            tint =
+                                                if (confirmGoBack) {
+                                                    MaterialTheme.colorScheme.error
+                                                } else {
+                                                    LocalContentColor.current
+                                                },
                                         )
                                     },
                                     enabled = !sessionRunning,
                                     onClick = {
                                         if (confirmGoBack) {
                                             if (sessionId != null) {
-                                                WeAgentService.truncateToMessage(sessionId, anchorAt)
-                                                if (row.role == ChatRow.Role.USER) onRestoreInput(row.text)
+                                                WeAgentService.truncateToMessage(
+                                                    sessionId,
+                                                    anchorAt,
+                                                )
+                                                if (row.role == ChatRow.Role.USER) {
+                                                    onRestoreInput(row.text)
+                                                }
                                             }
                                             menuOpen = false
                                             confirmGoBack = false
@@ -918,17 +1185,25 @@ private fun MessageBubble(
                                     },
                                 )
                                 // --- 创建分支 ---
-                                // User rows: branches from the preceding assistant turn and restores
+                                // User rows: branches from the preceding assistant turn and
+                                // restores
                                 // the user message text to the input bar in the new session.
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.agent_panel_create_branch)) },
+                                    text = {
+                                        Text(stringResource(R.string.agent_panel_create_branch))
+                                    },
                                     leadingIcon = {
-                                        Icon(MaterialSymbols.Outlined.Call_split, contentDescription = null)
+                                        Icon(
+                                            MaterialSymbols.Outlined.Call_split,
+                                            contentDescription = null,
+                                        )
                                     },
                                     onClick = {
                                         if (sessionId != null) {
                                             WeAgentService.branchSession(sessionId, anchorAt)
-                                            if (row.role == ChatRow.Role.USER) onRestoreInput(row.text)
+                                            if (row.role == ChatRow.Role.USER) {
+                                                onRestoreInput(row.text)
+                                            }
                                         }
                                         menuOpen = false
                                     },
@@ -947,25 +1222,25 @@ private fun MessageBubble(
  * JSON) and an output section (result), separated by a thin divider. Collapsed by default.
  * Long-pressing the header copies both sections to the clipboard.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ToolCard(row: ChatRow) {
     var expanded by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
-    val caretRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
+    val localizedContext = LocalLocalizedContext.current
+    val caretRotation by
+        animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "caret")
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth()) {
                 Row(
-                    Modifier
-                        .fillMaxWidth()
+                    Modifier.fillMaxWidth()
                         .combinedClickable(
                             onClick = { expanded = !expanded },
                             onLongClick = { menuOpen = true },
@@ -982,7 +1257,11 @@ private fun ToolCard(row: ChatRow) {
                     )
                     Text(
                         stringResource(
-                            if (expanded) R.string.agent_panel_collapse else R.string.agent_panel_expand,
+                            if (expanded) {
+                                R.string.agent_panel_collapse
+                            } else {
+                                R.string.agent_panel_expand
+                            },
                         ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -997,23 +1276,37 @@ private fun ToolCard(row: ChatRow) {
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.agent_panel_copy)) },
-                        leadingIcon = { Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null)
+                        },
                         onClick = {
                             val content = buildString {
                                 row.toolInput?.let {
-                                    append(localizedContext.getString(R.string.agent_panel_tool_input_copy, it))
+                                    append(
+                                        localizedContext.getString(
+                                            R.string.agent_panel_tool_input_copy,
+                                            it,
+                                        ),
+                                    )
                                 }
                                 if (row.text.isNotEmpty()) {
                                     if (row.toolInput != null) {
                                         append("\n\n")
-                                        append(localizedContext.getString(R.string.agent_panel_tool_output_copy))
+                                        append(
+                                            localizedContext.getString(
+                                                R.string.agent_panel_tool_output_copy,
+                                            ),
+                                        )
                                         append('\n')
                                     }
                                     append(row.text)
                                 }
                             }
                             copyToClipboard(content)
-                            showToast(context, localizedContext.getString(R.string.copied_to_clipboard))
+                            showToast(
+                                context,
+                                localizedContext.getString(R.string.copied_to_clipboard),
+                            )
                             menuOpen = false
                         },
                     )
@@ -1064,12 +1357,11 @@ private fun ToolCard(row: ChatRow) {
 }
 
 /**
- * Reasoning ("思考过程") card. While the turn is streaming ([isStreaming]=true) it shows an
- * animated "思考中···" header with a sweeping aurora shimmer — conveying that the model is actively
- * thinking. After streaming ends the title reverts to "💭 思考过程" and the card behaves like a
- * normal collapsible. Long-pressing the header copies the reasoning to the clipboard.
+ * Reasoning ("思考过程") card. While the turn is streaming ([isStreaming]=true) it shows an animated
+ * "思考中···" header with a sweeping aurora shimmer — conveying that the model is actively thinking.
+ * After streaming ends the title reverts to "💭 思考过程" and the card behaves like a normal
+ * collapsible. Long-pressing the header copies the reasoning to the clipboard.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReasoningCard(
     reasoning: String?,
@@ -1077,7 +1369,7 @@ private fun ReasoningCard(
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val context = LocalContext.current
-    val localizedContext = LocalWeKitLocalizedContext.current
+    val localizedContext = LocalLocalizedContext.current
     // expanded tracks the user's manual preference. effectiveExpanded also opens the body
     // automatically while streaming so reasoning text is visible as it arrives.
     var expanded by remember { mutableStateOf(false) }
@@ -1087,33 +1379,41 @@ private fun ReasoningCard(
     LaunchedEffect(isStreaming) { if (!isStreaming) expanded = false }
     val effectiveExpanded = expanded || isStreaming
     var menuOpen by remember { mutableStateOf(false) }
-    val caretRotation by animateFloatAsState(if (effectiveExpanded) 180f else 0f, tween(220), label = "caret")
+    val caretRotation by
+        animateFloatAsState(if (effectiveExpanded) 180f else 0f, tween(220), label = "caret")
 
     val infiniteTransition = rememberInfiniteTransition(label = "reasoning-anim")
 
     // Shimmer sweep: a diagonal gradient that travels left→right across the card header.
-    val shimmerProgress by infiniteTransition.animateFloat(
-        initialValue = -0.5f,
-        targetValue = 1.5f,
-        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
-        label = "shimmer",
-    )
+    val shimmerProgress by
+        infiniteTransition.animateFloat(
+            initialValue = -0.5f,
+            targetValue = 1.5f,
+            animationSpec =
+                infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
+            label = "shimmer",
+        )
     // Cycling dots for "思考中·" / "思考中··" / "思考中···"
-    val dotPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
-        label = "dots",
-    )
+    val dotPhase by
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 3f,
+            animationSpec =
+                infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
+            label = "dots",
+        )
 
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
-    val titleText = if (isStreaming) {
-        stringResource(
-            R.string.agent_panel_thinking,
-            "·".repeat(dotPhase.toInt() % 3 + 1),
-        )
-    } else stringResource(R.string.agent_panel_reasoning)
+    val titleText =
+        if (isStreaming) {
+            stringResource(
+                R.string.agent_panel_thinking,
+                "·".repeat(dotPhase.toInt() % 3 + 1),
+            )
+        } else {
+            stringResource(R.string.agent_panel_reasoning)
+        }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = containerColor),
@@ -1122,30 +1422,37 @@ private fun ReasoningCard(
     ) {
         Column(Modifier.fillMaxWidth()) {
             Box(
-                Modifier
-                    .fillMaxWidth()
+                Modifier.fillMaxWidth()
                     // Aurora shimmer drawn behind the header row only when streaming.
                     .then(
-                        if (isStreaming) Modifier.drawBehind {
-                            drawRect(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        primary.copy(alpha = 0.18f),
-                                        secondary.copy(alpha = 0.30f),
-                                        primary.copy(alpha = 0.18f),
-                                        Color.Transparent,
+                        if (isStreaming) {
+                            Modifier.drawBehind {
+                                drawRect(
+                                    Brush.linearGradient(
+                                        colors =
+                                            listOf(
+                                                Color.Transparent,
+                                                primary.copy(alpha = 0.18f),
+                                                secondary.copy(alpha = 0.30f),
+                                                primary.copy(alpha = 0.18f),
+                                                Color.Transparent,
+                                            ),
+                                        start = Offset(size.width * (shimmerProgress - 0.4f), 0f),
+                                        end =
+                                            Offset(
+                                                size.width * (shimmerProgress + 0.4f),
+                                                size.height,
+                                            ),
                                     ),
-                                    start = Offset(size.width * (shimmerProgress - 0.4f), 0f),
-                                    end = Offset(size.width * (shimmerProgress + 0.4f), size.height),
                                 )
-                            )
-                        } else Modifier
+                            }
+                        } else {
+                            Modifier
+                        },
                     ),
             ) {
                 Row(
-                    Modifier
-                        .fillMaxWidth()
+                    Modifier.fillMaxWidth()
                         .combinedClickable(
                             onClick = { expanded = !expanded },
                             onLongClick = { menuOpen = true },
@@ -1163,7 +1470,11 @@ private fun ReasoningCard(
                     // Caret always shown so the user can collapse during or after streaming.
                     Text(
                         stringResource(
-                            if (effectiveExpanded) R.string.agent_panel_collapse else R.string.agent_panel_expand,
+                            if (effectiveExpanded) {
+                                R.string.agent_panel_collapse
+                            } else {
+                                R.string.agent_panel_expand
+                            },
                         ) + " ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -1178,10 +1489,15 @@ private fun ReasoningCard(
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.agent_panel_copy)) },
-                        leadingIcon = { Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(MaterialSymbols.Outlined.Copy_all, contentDescription = null)
+                        },
                         onClick = {
                             copyToClipboard(reasoning ?: "")
-                            showToast(context, localizedContext.getString(R.string.copied_to_clipboard))
+                            showToast(
+                                context,
+                                localizedContext.getString(R.string.copied_to_clipboard),
+                            )
                             menuOpen = false
                         },
                     )
@@ -1209,39 +1525,55 @@ private fun ApprovalCard() {
     val p = pending ?: return
     var reason by remember(p) { mutableStateOf("") }
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        colors =
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
     ) {
         Column(Modifier.padding(10.dp)) {
             Text(
                 stringResource(R.string.agent_panel_tool_approval_request, p.pending.toolName),
                 style = MaterialTheme.typography.titleSmall,
             )
-            Text(p.pending.argumentsJson, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
-            p.pending.modelExplanation?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(4.dp))
-                Text(it, style = MaterialTheme.typography.bodySmall)
-            }
+            Text(
+                p.pending.argumentsJson,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            p.pending.modelExplanation
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
                 label = { Text(stringResource(R.string.agent_panel_rejection_reason)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             )
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = {
-                    WeAgentService.resolveApproval(
-                        dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Rejected(reason.ifBlank { null })
-                    )
-                }) { Text(stringResource(R.string.agent_panel_reject)) }
-                TextButton(onClick = {
-                    WeAgentService.resolveApproval(dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Approved)
-                }) { Text(stringResource(R.string.agent_panel_approve)) }
+                TextButton(
+                    onClick = {
+                        WeAgentService.resolveApproval(
+                            dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Rejected(
+                                reason.ifBlank { null },
+                            ),
+                        )
+                    },
+                ) {
+                    Text(stringResource(R.string.agent_panel_reject))
+                }
+                TextButton(
+                    onClick = {
+                        WeAgentService.resolveApproval(
+                            dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult.Approved,
+                        )
+                    },
+                ) {
+                    Text(stringResource(R.string.agent_panel_approve))
+                }
             }
         }
     }

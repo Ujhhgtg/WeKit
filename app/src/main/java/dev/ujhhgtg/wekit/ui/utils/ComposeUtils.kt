@@ -16,12 +16,9 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
-import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
+import dev.ujhhgtg.wekit.i18n.LocaleProvider
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
-import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
-import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 
 // useful for showing a compose dialog in non-compose context,
 // or when you don't want to manage the state for a dialog inside a composable
@@ -31,14 +28,15 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 fun showComposeDialog(
     context: Context,
     directlyDismissable: Boolean = true,
-    content: @Composable ShowComposeDialogScope.() -> Unit
+    content: @Composable ShowComposeDialogScope.() -> Unit,
 ) {
-    val context = CommonContextWrapper(context)
+    ResourcesInjector.injectModuleRes(context.resources)
 
-    val dialog = ComponentDialog(
-        context,
-        android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth
-    )
+    val dialog =
+        ComponentDialog(
+            context,
+            android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar_MinWidth,
+        )
 
     dialog.apply {
         window!!.apply {
@@ -53,25 +51,18 @@ fun showComposeDialog(
         setContentView(
             ComposeView(context).apply {
                 setContent {
-                    WeKitLocaleProvider(mode = LocaleResourceMode.InjectedHost) {
-                        val themedContent: @Composable () -> Unit = {
-                            ModuleTheme {
-                                Box(
-                                    modifier = Modifier.wrapContentSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    scope.content()
-                                }
+                    LocaleProvider {
+                        ModuleTheme {
+                            Box(
+                                modifier = Modifier.wrapContentSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                scope.content()
                             }
-                        }
-                        if (ThemeSettings.uiEngine == SettingsUiEngine.NUKE) {
-                            NukeModuleTheme(content = themedContent)
-                        } else {
-                            themedContent()
                         }
                     }
                 }
-            }
+            },
         )
 
         window!!.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
@@ -83,7 +74,7 @@ class ShowComposeDialogScope(
     val context: Context,
     val dialog: Dialog,
     val window: Window,
-    val onDismiss: () -> Unit
+    val onDismiss: () -> Unit,
 )
 
 fun View.setLifecycleOwner(lifecycleOwner: XposedLifecycleOwner) {

@@ -1,28 +1,29 @@
 # WeKit
 
-适用于微信的 Xposed 模块
+适用于微信的增强模块，支持 Xposed 和 Zygisk 两种加载方式。
 
 <img alt="fabric" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/fabric_vector.svg"> <img alt="forge" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/unsupported/forge_vector.svg">
 
 <a href="https://ifdian.net/a/ujhhgtg"><img alt="buymeacoffee-plural" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/buymeacoffee-plural_vector.svg"></a>
-<a href="https://ujhhgtgteams.gitbook.io/wekit-docs"><img alt="gitbook" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/gitbook_vector.svg"></a>
+<a href="https://docs.wekit.ujhhgtg.dev"><img alt="文档" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/gitbook_vector.svg"></a>
 
 ## 文档
 
-请参阅 [文档](https://ujhhgtgteams.gitbook.io/wekit-docs) 以使用本模块。
+请参阅 [文档](https://docs.wekit.ujhhgtg.dev) 以使用本模块。
 
-- [🚀 快速开始](https://ujhhgtgteams.gitbook.io/wekit-docs/getting-started)
-- [📥 安装指南](https://ujhhgtgteams.gitbook.io/wekit-docs/installation)
-- [⚙️ 配置指南](https://ujhhgtgteams.gitbook.io/wekit-docs/configuration)
-- [❓ 常见问题](https://ujhhgtgteams.gitbook.io/wekit-docs/faq)
-- [🛠 开发指南](https://ujhhgtgteams.gitbook.io/wekit-docs/development)
+- [🚀 快速开始](https://docs.wekit.ujhhgtg.dev/getting-started)
+- [📥 安装指南](https://docs.wekit.ujhhgtg.dev/installation)
+- [🧩 Zygisk 模式](https://docs.wekit.ujhhgtg.dev/zygisk)
+- [⚙️ 配置指南](https://docs.wekit.ujhhgtg.dev/configuration)
+- [❓ 常见问题](https://docs.wekit.ujhhgtg.dev/faq)
+- [🛠 开发指南](https://docs.wekit.ujhhgtg.dev/development)
 
 ## 翻译 / Translation
 
 [![Translation status](https://hosted.weblate.org/widget/wekit/wekit/svg-badge.svg)](https://hosted.weblate.org/projects/wekit/wekit/)
 
 欢迎通过 [Hosted Weblate](https://hosted.weblate.org/projects/wekit/wekit/) 参与简体中文和
-繁体中文翻译。贡献流程、术语和本地校验说明见[翻译贡献指南](docs/translations/README.md)。
+繁体中文翻译。贡献流程、术语和本地校验说明见[翻译贡献指南](docs/translations/index.md)。
 
 ## 联系
 

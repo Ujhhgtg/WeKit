@@ -8,19 +8,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-/**
- * Resolves the factory-defaulted, user-overridable [ToolMode] for a given provider + tool.
- * Backed by the Room `tool_permissions` table at runtime (Phase 2); a permissive default impl is
- * used when persistence is unavailable.
- */
-fun interface ToolPermissionSource {
-    fun modeFor(providerId: String, toolName: String, factoryDefault: ToolMode): ToolMode
+/** How tools are advertised to the model for a request (§3.3). */
+enum class ToolLoadingMode {
+    STATIC,
+    DYNAMIC,
 }
 
-/** How tools are advertised to the model for a request (§3.3). */
-enum class ToolLoadingMode { STATIC, DYNAMIC }
-
-enum class ToolCallOrigin { DIRECT, ENVIRONMENT_BRIDGE }
+enum class ToolCallOrigin {
+    DIRECT,
+    ENVIRONMENT_BRIDGE,
+}
 
 /**
  * Per-turn gating of the conditionally-advertised builtin tools (§3.4).
@@ -41,34 +38,31 @@ data class ToolVisibility(
          * Visibility outside a resolved turn (settings previews, defaults). Vision is off — nothing
          * has declared a vision model.
          */
-        fun fromGlobals(): ToolVisibility =
-            ToolVisibility(visionTools = false)
+        fun fromGlobals(): ToolVisibility = ToolVisibility(visionTools = false)
     }
 }
 
 /**
- * A tool as it will be sent to the model, after permission resolution and name qualification.
+ * A tool as it will be sent to the model, after visibility gating and name qualification.
  * [exposedName] is what the model calls; it maps back to a concrete [provider] + [bareName].
  */
 data class WireTool(
     val exposedName: String,
     val description: String,
     val jsonSchema: JsonObject,
-    val mode: ToolMode,
+    val sideEffect: Boolean,
     val provider: ToolProvider,
     val bareName: String,
 )
 
 /**
- * The heart of §3: unifies the builtin provider and every connected MCP provider, applies the
- * four-state permission model, and produces the request-time tool list in either static-injection
- * or dynamic-discovery mode. Not tied to a single conversation — the engine holds per-turn
- * discovery state separately (see [discoveredThisTurn]).
+ * The heart of §3: unifies the builtin provider and every connected MCP provider and produces the
+ * request-time tool list in either static-injection or dynamic-discovery mode. Not tied to a single
+ * conversation — the engine holds per-turn discovery state separately (see [discoveredThisTurn]).
+ * Approval gating is NOT applied here: it is a per-session permission level (§3.1), resolved at
+ * call time by the engine's [dev.ujhhgtg.wekit.agent.engine.ApprovalGateway].
  */
-class ToolRegistry(
-    private val permissions: ToolPermissionSource,
-    providers: List<ToolProvider> = BuiltinToolProvider.all,
-) {
+class ToolRegistry(providers: List<ToolProvider> = BuiltinToolProvider.all) {
     private val providers = providers.toMutableList()
 
     fun setMcpProviders(mcpProviders: List<ToolProvider>) {
@@ -83,39 +77,45 @@ class ToolRegistry(
         if (provider.kind == ProviderKind.BUILTIN) bare else "mcp__${provider.id}__$bare"
 
     /**
-     * Every non-disabled, available tool across providers, with resolved modes. [visibility] gates
-     * the conditionally-advertised builtin tools for this turn (see [ToolVisibility]); providers
-     * themselves list everything they own, so gating lives in exactly one place.
+     * Every available tool across providers. [visibility] gates the conditionally-advertised
+     * builtin tools for this turn (see [ToolVisibility]); providers themselves list everything they
+     * own, so gating lives in exactly one place.
      */
-    fun resolveVisibleTools(visibility: ToolVisibility = ToolVisibility.fromGlobals()): List<WireTool> = buildList {
+    fun resolveVisibleTools(
+        visibility: ToolVisibility = ToolVisibility.fromGlobals(),
+    ): List<WireTool> = buildList {
         for (provider in providers) {
             if (!provider.isAvailable) continue
             for (tool in provider.listTools()) {
                 if (!isAdvertised(provider, tool.name, visibility)) continue
-                val mode = permissions.modeFor(provider.id, tool.name, tool.factoryDefaultMode)
-                if (mode == ToolMode.DISABLED) continue
                 add(
                     WireTool(
                         exposedName = exposedName(provider, tool.name),
                         description = tool.description,
                         jsonSchema = tool.jsonSchema,
-                        mode = mode,
+                        sideEffect = tool.sideEffect,
                         provider = provider,
                         bareName = tool.name,
-                    )
+                    ),
                 )
             }
         }
     }
 
     /**
-     * Whether a builtin tool is advertised at all under [visibility]. Non-builtin (MCP) providers are
-     * never gated this way. Kept name-based so gating never touches permission seeding — the rows are
-     * still seeded, the tools are simply not offered to the model this turn.
+     * Whether a builtin tool is advertised at all under [visibility]. Non-builtin (MCP) providers
+     * are never gated this way. Kept name-based so gating never touches anything else — the tools
+     * are simply not offered to the model this turn.
      */
-    private fun isAdvertised(provider: ToolProvider, bareName: String, visibility: ToolVisibility): Boolean {
+    private fun isAdvertised(
+        provider: ToolProvider,
+        bareName: String,
+        visibility: ToolVisibility,
+    ): Boolean {
         if (provider.kind != ProviderKind.BUILTIN) return true
-        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES) return false
+        if (!visibility.visionTools && bareName in BuiltinToolProvider.VISION_TOOL_NAMES) {
+            return false
+        }
         return true
     }
 
@@ -130,11 +130,17 @@ class ToolRegistry(
         visibility: ToolVisibility = ToolVisibility.fromGlobals(),
     ): List<WireTool> =
         when (mode) {
-            ToolLoadingMode.STATIC -> resolveVisibleTools(visibility)
-            ToolLoadingMode.DYNAMIC -> buildList {
-                add(discoverToolsMeta())
-                resolveVisibleTools(visibility).filterTo(this) {
-                    it.exposedName in discoveredThisTurn || it.exposedName in DYNAMIC_BASELINE_NAMES
+            ToolLoadingMode.STATIC -> {
+                resolveVisibleTools(visibility)
+            }
+
+            ToolLoadingMode.DYNAMIC -> {
+                buildList {
+                    add(discoverToolsMeta())
+                    resolveVisibleTools(visibility).filterTo(this) {
+                        it.exposedName in discoveredThisTurn ||
+                            it.exposedName in DYNAMIC_BASELINE_NAMES
+                    }
                 }
             }
         }
@@ -146,7 +152,7 @@ class ToolRegistry(
     ): WireTool? = resolveVisibleTools(visibility).firstOrNull { it.exposedName == exposedName }
 
     /**
-     * Execute a resolved tool. Permission gating is the engine's responsibility; this performs the
+     * Execute a resolved tool. Approval gating is the engine's responsibility; this performs the
      * actual call once approved. [DISCOVER_TOOLS_NAME] is handled by the engine, not here.
      */
     suspend fun execute(tool: WireTool, arguments: JsonObject): String =
@@ -154,18 +160,21 @@ class ToolRegistry(
 
     // -------- discover_tools meta-tool (§3.3) --------
 
-    fun discoverToolsMeta(): WireTool = WireTool(
-        exposedName = DISCOVER_TOOLS_NAME,
-        description = "Discover available tools. action=list_providers lists tool providers; " +
-                "action=list_tools returns tools (optionally filtered by provider) with full JSON schemas; " +
-                "action=search_tools fuzzy-matches name/description by keyword. Returned tools become callable.",
-        jsonSchema = DISCOVER_TOOLS_SCHEMA,
-        mode = ToolMode.ENABLED,
-        // Meta-tool: handled by the engine (ToolDiscovery), never executed via this provider — the
-        // field is only for display, so any built-in provider works.
-        provider = providers.first { it.kind == ProviderKind.BUILTIN },
-        bareName = DISCOVER_TOOLS_NAME,
-    )
+    fun discoverToolsMeta(): WireTool =
+        WireTool(
+            exposedName = DISCOVER_TOOLS_NAME,
+            description =
+                "Discover available tools. action=list_providers lists tool providers; " +
+                    "action=list_tools returns tools (optionally filtered by provider) with full JSON schemas; " +
+                    "action=search_tools fuzzy-matches name/description by keyword. Returned tools become callable.",
+            jsonSchema = DISCOVER_TOOLS_SCHEMA,
+            sideEffect = false,
+            // Meta-tool: handled by the engine (ToolDiscovery), never executed via this provider —
+            // the
+            // field is only for display, so any built-in provider works.
+            provider = providers.first { it.kind == ProviderKind.BUILTIN },
+            bareName = DISCOVER_TOOLS_NAME,
+        )
 
     companion object {
         const val DISCOVER_TOOLS_NAME = "discover_tools"
@@ -188,7 +197,9 @@ class ToolRegistry(
                 if (providerKind == ProviderKind.MCP) add(exposedName.substringAfterLast("__"))
             }
             return names.none { name ->
-                name == "edit" || name == "exec" || name == DISCOVER_TOOLS_NAME ||
+                name == "edit" ||
+                    name == "exec" ||
+                    name == DISCOVER_TOOLS_NAME ||
                     name.startsWith("terminal_")
             }
         }

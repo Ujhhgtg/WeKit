@@ -6,11 +6,11 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation
+import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
-
     override val technicalId = "快捷打开朋友圈"
     override val nameRes = R.string.feature_quick_open_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -24,23 +24,22 @@ object QuickOpenMoments : SwitchFeature(), WeConversationContextMenuApi.IMenuIte
         WeConversationContextMenuApi.removeProvider(this)
     }
 
-    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> {
-        return listOf(
+    override fun getMenuItems(): List<WeConversationContextMenuApi.MenuItem> =
+        listOf(
             WeConversationContextMenuApi.MenuItem(
                 id = 777018,
-                text = localizedContactsString(R.string.contacts_open_moments),
+                text = localizedString(R.string.contacts_open_moments),
                 drawable = CameraIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker
                     talker.isNotEmpty() &&
-                            !talker.isGroupChatWxId &&
-                            !talker.startsWith("gh_") &&
-                            !talker.endsWith("@app") &&
-                            !talker.startsWith(ConversationAggregation.FOLDER_PREFIX)
+                        !talker.isGroupChatWxId &&
+                        !talker.startsWith("gh_") &&
+                        !talker.endsWith("@app") &&
+                        !talker.startsWith(ConversationAggregation.FOLDER_PREFIX)
                 },
             ) { context ->
                 WeApi.openMoments(context.activity, context.talker)
-            }
+            },
         )
-    }
 }

@@ -47,24 +47,23 @@ import java.nio.charset.StandardCharsets
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
-/**
- * Decompiles [BshSnapshot] serialized AST nodes back into BeanShell source code.
- */
+/** Decompiles [BshSnapshot] serialized AST nodes back into BeanShell source code. */
 object BshSnapshotDecompiler {
-
     // DEBUG: set true to annotate output with /* node-id:children */
     private const val DEBUG = false
 
     private fun dbg(node: Node, result: String): String {
         if (!DEBUG) return result
-        val info = "/* ${node.javaClass.simpleName}[id=${node.getId()},ch=${node.jjtGetNumChildren()}] */"
+        val info =
+            "/* ${node.javaClass.simpleName}[id=${node.getId()},ch=${node.jjtGetNumChildren()}] */"
         return "$result $info"
     }
 
     val SECRET_KEY: SecretKey =
         SecretKeySpec("0123456789abcdef".toByteArray(StandardCharsets.UTF_8), "AES")
 
-    private val MAGIC = byteArrayOf('B'.code.toByte(), 'S'.code.toByte(), 'H'.code.toByte(), 'S'.code.toByte())
+    private val MAGIC =
+        byteArrayOf('B'.code.toByte(), 'S'.code.toByte(), 'H'.code.toByte(), 'S'.code.toByte())
 
     // ── Public entry points ────────────────────────────────────────────────
 
@@ -84,12 +83,11 @@ object BshSnapshotDecompiler {
             val code = decompileNode(node, 0)
             // Add trailing semicolons for IDE friendliness.
             // BeanShell itself does not require them.
-            if (code.isEmpty() ||
-                code.endsWith(";") ||
-                code.endsWith("}") ||
-                code.endsWith(":")
-            ) code
-            else "$code;"
+            if (code.isEmpty() || code.endsWith(";") || code.endsWith("}") || code.endsWith(":")) {
+                code
+            } else {
+                "$code;"
+            }
         }
     }
 
@@ -107,8 +105,9 @@ object BshSnapshotDecompiler {
         } else {
             ObjectInputStream(bis).use { ois ->
                 val obj = ois.readObject()
-                if (obj !is BshSnapshot)
+                if (obj !is BshSnapshot) {
                     throw InvalidClassException("Expected BshSnapshot, got ${obj.javaClass.name}")
+                }
                 obj
             }
         }
@@ -126,8 +125,11 @@ object BshSnapshotDecompiler {
             file.inputStream().use { raw ->
                 ObjectInputStream(raw).use { ois ->
                     val obj = ois.readObject()
-                    if (obj !is BshSnapshot)
-                        throw InvalidClassException("Expected BshSnapshot, got ${obj.javaClass.name}")
+                    if (obj !is BshSnapshot) {
+                        throw InvalidClassException(
+                            "Expected BshSnapshot, got ${obj.javaClass.name}",
+                        )
+                    }
                     obj
                 }
             }
@@ -139,10 +141,10 @@ object BshSnapshotDecompiler {
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun decompileNode(node: Node, indent: Int): String {
-        if (node.jjtGetNumChildren() == 0 && node.getId() == 0)
-            return ""
+        if (node.jjtGetNumChildren() == 0 && node.getId() == 0) return ""
         return dbg(
-            node, when (node.getId()) {
+            node,
+            when (node.getId()) {
                 0 -> ""
                 1 -> decompileClass(node as BSHClassDeclaration, indent)
                 2 -> decompileEnumConst(node as BSHEnumConstant)
@@ -189,7 +191,7 @@ object BshSnapshotDecompiler {
                 43 -> "try"
                 44 -> decompileAutoCloseable(node as BSHAutoCloseable, indent)
                 else -> "/* unknown node ${node.javaClass.name} */"
-            }
+            },
         )
     }
 
@@ -197,8 +199,12 @@ object BshSnapshotDecompiler {
         val sb = StringBuilder()
         if (block.isSynchronized) {
             // synchronized(expr) – child 0 is the expression, child 1+ is the body
-            val expr = if (block.jjtGetNumChildren() > 0)
-                decompileNode(block.jjtGetChild(0), indent) else "?"
+            val expr =
+                if (block.jjtGetNumChildren() > 0) {
+                    decompileNode(block.jjtGetChild(0), indent)
+                } else {
+                    "?"
+                }
             sb.append("synchronized ($expr) ")
             for (i in 1 until block.jjtGetNumChildren()) {
                 sb.append(decompileNode(block.jjtGetChild(i), indent))
@@ -211,8 +217,14 @@ object BshSnapshotDecompiler {
                 if (child.isNotEmpty()) {
                     sb.append("  ".repeat(indent + 1))
                     sb.append(child)
-                    if (!child.endsWith(";") && !child.endsWith("}") && !child.endsWith("{\n") && !child.endsWith(":"))
+                    if (
+                        !child.endsWith(";") &&
+                            !child.endsWith("}") &&
+                            !child.endsWith("{\n") &&
+                            !child.endsWith(":")
+                    ) {
                         sb.append(";")
+                    }
                     sb.append("\n")
                 }
             }
@@ -255,11 +267,14 @@ object BshSnapshotDecompiler {
             sb.append(" ")
             i++
         }
-        val methodName = if (!md.name.isNullOrEmpty()) {
-            md.name
-        } else if (i < nc && md.jjtGetChild(i).getId() == 14) {
-            (md.jjtGetChild(i) as BSHAmbiguousName).text
-        } else "?"
+        val methodName =
+            if (!md.name.isNullOrEmpty()) {
+                md.name
+            } else if (i < nc && md.jjtGetChild(i).getId() == 14) {
+                (md.jjtGetChild(i) as BSHAmbiguousName).text
+            } else {
+                "?"
+            }
         if (i < nc && md.jjtGetChild(i).getId() == 14) {
             i++
         }
@@ -351,18 +366,19 @@ object BshSnapshotDecompiler {
     }
 
     @Suppress("RemoveRedundantQualifierName")
-    private fun decompilePrimitiveType(pt: BSHPrimitiveType): String = when (pt.type) {
-        java.lang.Boolean.TYPE -> "boolean"
-        java.lang.Character.TYPE -> "char"
-        java.lang.Byte.TYPE -> "byte"
-        java.lang.Short.TYPE -> "short"
-        java.lang.Integer.TYPE -> "int"
-        java.lang.Long.TYPE -> "long"
-        java.lang.Float.TYPE -> "float"
-        java.lang.Double.TYPE -> "double"
-        java.lang.Void.TYPE -> "void"
-        else -> pt.type.name
-    }
+    private fun decompilePrimitiveType(pt: BSHPrimitiveType): String =
+        when (pt.type) {
+            java.lang.Boolean.TYPE -> "boolean"
+            java.lang.Character.TYPE -> "char"
+            java.lang.Byte.TYPE -> "byte"
+            java.lang.Short.TYPE -> "short"
+            java.lang.Integer.TYPE -> "int"
+            java.lang.Long.TYPE -> "long"
+            java.lang.Float.TYPE -> "float"
+            java.lang.Double.TYPE -> "double"
+            java.lang.Void.TYPE -> "void"
+            else -> pt.type.name
+        }
 
     private fun decompileAssignment(assn: BSHAssignment, indent: Int): String {
         val nc = assn.jjtGetNumChildren()
@@ -391,7 +407,8 @@ object BshSnapshotDecompiler {
     }
 
     private fun decompileUnary(ue: BSHUnaryExpression, indent: Int): String {
-        val operand = if (ue.jjtGetNumChildren() > 0) decompileNode(ue.jjtGetChild(0), indent) else "?"
+        val operand =
+            if (ue.jjtGetNumChildren() > 0) decompileNode(ue.jjtGetChild(0), indent) else "?"
         val op = operatorImage(ue.kind)
         return if (ue.postfix) "$operand$op" else "$op$operand"
     }
@@ -400,7 +417,8 @@ object BshSnapshotDecompiler {
         if (node.jjtGetNumChildren() < 2) return decompileChildren(node, ", ", indent)
         val type = decompileNode(node.jjtGetChild(0), indent)
         val expr = decompileNode(node.jjtGetChild(1), indent)
-        return "(($type) $expr)" // I don't care, AI fails to fix this, so I'll just take the shortcut
+        return "(($type) $expr)" // I don't care, AI fails to fix this, so I'll just take the
+        // shortcut
     }
 
     private fun decompilePrimaryExpr(node: Node, indent: Int): String {
@@ -420,19 +438,26 @@ object BshSnapshotDecompiler {
         return dbg(node, sb.toString())
     }
 
-    private fun decompilePrimarySuffix(sfx: BSHPrimarySuffix, indent: Int): String {
-        return when (sfx.operation) {
+    private fun decompilePrimarySuffix(sfx: BSHPrimarySuffix, indent: Int): String =
+        when (sfx.operation) {
             1 -> {
-                val idx = if (sfx.jjtGetNumChildren() > 0) decompileNode(sfx.jjtGetChild(0), indent) else ""
+                val idx =
+                    if (sfx.jjtGetNumChildren() > 0) {
+                        decompileNode(sfx.jjtGetChild(0), indent)
+                    } else {
+                        ""
+                    }
                 if (sfx.slice) {
                     val si = StringBuilder(if (sfx.safeNavigate) "?.[" else "[")
-                    if (sfx.hasLeftIndex && sfx.jjtGetNumChildren() > 0)
+                    if (sfx.hasLeftIndex && sfx.jjtGetNumChildren() > 0) {
                         si.append(decompileNode(sfx.jjtGetChild(0), indent))
+                    }
                     si.append(":")
                     if (sfx.hasRightIndex) {
                         val ri = if (sfx.hasLeftIndex) 1 else 0
-                        if (ri < sfx.jjtGetNumChildren())
+                        if (ri < sfx.jjtGetNumChildren()) {
                             si.append(decompileNode(sfx.jjtGetChild(ri), indent))
+                        }
                     }
                     si.append("]")
                     si.toString()
@@ -443,70 +468,124 @@ object BshSnapshotDecompiler {
 
             2 -> {
                 val name = sfx.field ?: "?"
-                if (sfx.jjtGetNumChildren() > 0)
+                if (sfx.jjtGetNumChildren() > 0) {
                     ".$name${decompileArgs(sfx.jjtGetChild(0), indent)}"
-                else
+                } else {
                     ".$name"
+                }
             }
 
             3 -> {
-                val expr = if (sfx.jjtGetNumChildren() > 0) decompileNode(sfx.jjtGetChild(0), indent) else "?"
+                val expr =
+                    if (sfx.jjtGetNumChildren() > 0) {
+                        decompileNode(sfx.jjtGetChild(0), indent)
+                    } else {
+                        "?"
+                    }
                 ".($expr)"
             }
 
             4 -> {
-                val alloc = if (sfx.jjtGetNumChildren() > 0) decompileNode(sfx.jjtGetChild(0), indent) else ""
+                val alloc =
+                    if (sfx.jjtGetNumChildren() > 0) {
+                        decompileNode(sfx.jjtGetChild(0), indent)
+                    } else {
+                        ""
+                    }
                 ".$alloc"
             }
 
-            5 -> "::${sfx.field ?: "?"}"
-            6 -> ".class"
-            else -> "/* unknown suffix op=${sfx.operation} */"
+            5 -> {
+                "::${sfx.field ?: "?"}"
+            }
+
+            6 -> {
+                ".class"
+            }
+
+            else -> {
+                "/* unknown suffix op=${sfx.operation} */"
+            }
         }
-    }
 
     private fun decompileMethodInvocation(node: Node, indent: Int): String {
-        val name = if (node.jjtGetNumChildren() > 0) decompileNode(node.jjtGetChild(0), indent) else "?"
-        val args = if (node.jjtGetNumChildren() > 1) decompileArgs(node.jjtGetChild(1), indent) else "()"
+        val name =
+            if (node.jjtGetNumChildren() > 0) decompileNode(node.jjtGetChild(0), indent) else "?"
+        val args =
+            if (node.jjtGetNumChildren() > 1) decompileArgs(node.jjtGetChild(1), indent) else "()"
         return "$name$args"
     }
 
-    private fun decompileLambda(le: BSHLambdaExpression, indent: Int): String {
-        return if (le.singleParamName != null) {
-            val body = if (le.jjtGetNumChildren() > 0) decompileNode(le.jjtGetChild(0), indent) else ""
+    private fun decompileLambda(le: BSHLambdaExpression, indent: Int): String =
+        if (le.singleParamName != null) {
+            val body =
+                if (le.jjtGetNumChildren() > 0) decompileNode(le.jjtGetChild(0), indent) else ""
             "${le.singleParamName} -> $body"
         } else {
-            val params = if (le.jjtGetNumChildren() > 0) decompileNode(le.jjtGetChild(0), indent) else "()"
-            val body = if (le.jjtGetNumChildren() > 1) decompileNode(le.jjtGetChild(1), indent) else ""
+            val params =
+                if (le.jjtGetNumChildren() > 0) decompileNode(le.jjtGetChild(0), indent) else "()"
+            val body =
+                if (le.jjtGetNumChildren() > 1) decompileNode(le.jjtGetChild(1), indent) else ""
             "$params -> $body"
         }
-    }
 
     private fun decompileLiteral(lit: BSHLiteral): String {
-        val result = when (val v = lit.value) {
-            null -> "null"
-            is String -> quote(v)
-            is Char -> "'${escapeChar(v)}'"
-            is Boolean -> v.toString()
-            is Number -> v.toString()
-            is Primitive -> when (v) {
-                Primitive.NULL -> "null"
-                Primitive.TRUE -> "true"
-                Primitive.FALSE -> "false"
-                Primitive.VOID -> "void"
-                else -> {
-                    when (val actual = v.getValue()) {
-                        is Char -> "'${escapeChar(actual)}'"
-                        is String -> quote(actual)
-                        is Boolean -> actual.toString()
-                        is Number -> actual.toString()
-                        else -> actual?.toString() ?: "null"
+        val result =
+            when (val v = lit.value) {
+                null -> {
+                    "null"
+                }
+
+                is String -> {
+                    quote(v)
+                }
+
+                is Char -> {
+                    "'${escapeChar(v)}'"
+                }
+
+                is Boolean -> {
+                    v.toString()
+                }
+
+                is Number -> {
+                    v.toString()
+                }
+
+                is Primitive -> {
+                    when (v) {
+                        Primitive.NULL -> {
+                            "null"
+                        }
+
+                        Primitive.TRUE -> {
+                            "true"
+                        }
+
+                        Primitive.FALSE -> {
+                            "false"
+                        }
+
+                        Primitive.VOID -> {
+                            "void"
+                        }
+
+                        else -> {
+                            when (val actual = v.getValue()) {
+                                is Char -> "'${escapeChar(actual)}'"
+                                is String -> quote(actual)
+                                is Boolean -> actual.toString()
+                                is Number -> actual.toString()
+                                else -> actual?.toString() ?: "null"
+                            }
+                        }
                     }
                 }
-            }
 
-            else -> v.toString()
-        }
+                else -> {
+                    v.toString()
+                }
+            }
         return dbg(lit, result)
     }
 
@@ -528,8 +607,12 @@ object BshSnapshotDecompiler {
         val first = alloc.jjtGetChild(0)
         if (first.getId() == 29) {
             i = 1
-            val tn = if (i < nc && alloc.jjtGetChild(i).getId() == 11)
-                decompileNode(alloc.jjtGetChild(i++), indent) else "?"
+            val tn =
+                if (i < nc && alloc.jjtGetChild(i).getId() == 11) {
+                    decompileNode(alloc.jjtGetChild(i++), indent)
+                } else {
+                    "?"
+                }
             sb.append(tn)
             sb.append(decompileArrayDims(first as BSHArrayDimensions, indent))
         } else {
@@ -537,7 +620,9 @@ object BshSnapshotDecompiler {
             i = 1
             if (i < nc && alloc.jjtGetChild(i).getId() == 27) {
                 sb.append(decompileArgs(alloc.jjtGetChild(i++), indent))
-            } else sb.append("()")
+            } else {
+                sb.append("()")
+            }
         }
         while (i < nc) {
             val child = alloc.jjtGetChild(i++)
@@ -576,8 +661,14 @@ object BshSnapshotDecompiler {
             if (cs.isNotEmpty()) {
                 sb.append("  ".repeat(indent + 1))
                 sb.append(cs)
-                if (!cs.endsWith(";") && !cs.endsWith("}") && !cs.endsWith("{\n") && !cs.endsWith(":"))
+                if (
+                    !cs.endsWith(";") &&
+                        !cs.endsWith("}") &&
+                        !cs.endsWith("{\n") &&
+                        !cs.endsWith(":")
+                ) {
                     sb.append(";")
+                }
                 sb.append("\n")
             }
         }
@@ -586,10 +677,12 @@ object BshSnapshotDecompiler {
         return sb.toString()
     }
 
-    private fun decompileSwitchLabel(sl: BSHSwitchLabel, indent: Int): String {
-        return if (sl.isDefault) "default:"
-        else "case ${if (sl.jjtGetNumChildren() > 0) decompileNode(sl.jjtGetChild(0), indent) else ""}:"
-    }
+    private fun decompileSwitchLabel(sl: BSHSwitchLabel, indent: Int): String =
+        if (sl.isDefault) {
+            "default:"
+        } else {
+            "case ${if (sl.jjtGetNumChildren() > 0) decompileNode(sl.jjtGetChild(0), indent) else ""}:"
+        }
 
     private fun decompileIf(ifs: BSHIfStatement, indent: Int): String {
         val nc = ifs.jjtGetNumChildren()
@@ -622,7 +715,8 @@ object BshSnapshotDecompiler {
         var i = 0
         val nc = fs.jjtGetNumChildren()
         val init = if (fs.hasForInit && 0 < nc) decompileNode(fs.jjtGetChild(i++), indent) else ""
-        val cond = if (fs.hasExpression && i < nc) decompileNode(fs.jjtGetChild(i++), indent) else ""
+        val cond =
+            if (fs.hasExpression && i < nc) decompileNode(fs.jjtGetChild(i++), indent) else ""
         val upd = if (fs.hasForUpdate && i < nc) decompileNode(fs.jjtGetChild(i++), indent) else ""
         val body = if (i < nc) decompileNode(fs.jjtGetChild(i), indent) else "{}"
         return "for ($init; $cond; $upd) $body"
@@ -651,19 +745,28 @@ object BshSnapshotDecompiler {
         return sb.toString()
     }
 
-    private fun decompileReturn(rs: BSHReturnStatement, indent: Int): String = when (rs.kind) {
-        47 -> {
-            val value = if (rs.jjtGetNumChildren() > 0) decompileNode(rs.jjtGetChild(0), indent) else ""
-            if (value.isNotEmpty()) "return $value;" else "return;"
-        }
+    private fun decompileReturn(rs: BSHReturnStatement, indent: Int): String =
+        when (rs.kind) {
+            47 -> {
+                val value =
+                    if (rs.jjtGetNumChildren() > 0) decompileNode(rs.jjtGetChild(0), indent) else ""
+                if (value.isNotEmpty()) "return $value;" else "return;"
+            }
 
-        13 -> "break;"
-        20 -> "continue;"
-        else -> {
-            val value = if (rs.jjtGetNumChildren() > 0) decompileNode(rs.jjtGetChild(0), indent) else ""
-            "return $value;"
+            13 -> {
+                "break;"
+            }
+
+            20 -> {
+                "continue;"
+            }
+
+            else -> {
+                val value =
+                    if (rs.jjtGetNumChildren() > 0) decompileNode(rs.jjtGetChild(0), indent) else ""
+                "return $value;"
+            }
         }
-    }
 
     private fun decompileTry(node: Node, indent: Int): String {
         val nc = node.jjtGetNumChildren()
@@ -673,10 +776,16 @@ object BshSnapshotDecompiler {
             val twr = node.jjtGetChild(i++)
             sb.append("try (")
             val rs = mutableListOf<String>()
-            for (j in 0 until twr.jjtGetNumChildren()) rs.add(decompileNode(twr.jjtGetChild(j), indent))
+            for (j in 0 until twr.jjtGetNumChildren()) {
+                rs.add(
+                    decompileNode(twr.jjtGetChild(j), indent),
+                )
+            }
             sb.append(rs.joinToString("; "))
             sb.append(") ")
-        } else sb.append("try ")
+        } else {
+            sb.append("try ")
+        }
         if (i < nc) sb.append(decompileNode(node.jjtGetChild(i++), indent))
         while (i < nc && node.jjtGetChild(i).getId() == 42) {
             val cp = node.jjtGetChild(i++)
@@ -697,8 +806,12 @@ object BshSnapshotDecompiler {
         val sb = StringBuilder()
         if (mc.isFinal) sb.append("final ")
         val nc = mc.jjtGetNumChildren()
-        if (nc == 0) sb.append(mc.name) else {
-            sb.append((0 until nc).joinToString(" | ") { decompileType(mc.jjtGetChild(it) as BSHType) })
+        if (nc == 0) {
+            sb.append(mc.name)
+        } else {
+            sb.append(
+                (0 until nc).joinToString(" | ") { decompileType(mc.jjtGetChild(it) as BSHType) },
+            )
             sb.append(" ${mc.name}")
         }
         return sb.toString()
@@ -717,10 +830,16 @@ object BshSnapshotDecompiler {
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun decompileChildren(node: Node, sep: String, indent: Int): String =
-        (0 until node.jjtGetNumChildren()).joinToString(sep) { decompileNode(node.jjtGetChild(it), indent) }
+        (0 until node.jjtGetNumChildren()).joinToString(sep) {
+            decompileNode(node.jjtGetChild(it), indent)
+        }
 
     private fun decompileChild(node: Node, index: Int, indent: Int): String =
-        if (index < node.jjtGetNumChildren()) decompileNode(node.jjtGetChild(index), indent) else "?"
+        if (index < node.jjtGetNumChildren()) {
+            decompileNode(node.jjtGetChild(index), indent)
+        } else {
+            "?"
+        }
 
     private fun modifiersString(m: Modifiers): String {
         val mods = m.modifiers
@@ -744,105 +863,106 @@ object BshSnapshotDecompiler {
         return list.joinToString(" ")
     }
 
-    private fun operatorImage(kind: Int): String = when (kind) {
-        11 -> "abstract"
-        12 -> "boolean"
-        13 -> "break"
-        14 -> "class"
-        15 -> "byte"
-        16 -> "case"
-        17 -> "catch"
-        18 -> "char"
-        20 -> "continue"
-        21 -> "default"
-        22 -> "do"
-        23 -> "double"
-        24 -> "else"
-        25 -> "enum"
-        26 -> "extends"
-        27 -> "false"
-        28 -> "final"
-        30 -> "float"
-        31 -> "for"
-        33 -> "if"
-        34 -> "implements"
-        35 -> "import"
-        36 -> "instanceof"
-        37 -> "int"
-        38 -> "interface"
-        39 -> "long"
-        41 -> "new"
-        42 -> "null"
-        43 -> "package"
-        44 -> "private"
-        45 -> "protected"
-        46 -> "public"
-        47 -> "return"
-        48 -> "short"
-        49 -> "static"
-        50 -> "strictfp"
-        51 -> "switch"
-        52 -> "synchronized"
-        54 -> "throw"
-        55 -> "throws"
-        56 -> "true"
-        57 -> "try"
-        58 -> "void"
-        59 -> "volatile"
-        60 -> "when"
-        61 -> "while"
-        76 -> "("
-        77 -> ")"
-        82 -> ";"
-        84 -> "."
-        85 -> "="
-        86 -> ">"
-        88 -> "<"
-        90 -> "!"
-        91 -> "~"
-        92 -> "=="
-        93 -> "<="
-        95 -> ">="
-        97 -> "!="
-        98 -> "||"
-        100 -> "&&"
-        102 -> "++"
-        103 -> "--"
-        104 -> "+"
-        105 -> "-"
-        106 -> "*"
-        107 -> "/"
-        108 -> "&"
-        110 -> "|"
-        112 -> "^"
-        114 -> "%"
-        116 -> "**"
-        118 -> "<<"
-        120 -> ">>"
-        122 -> ">>>"
-        124 -> "+="
-        125 -> "-="
-        126 -> "*="
-        127 -> "/="
-        128 -> "&="
-        130 -> "|="
-        132 -> "^="
-        134 -> "%="
-        136 -> "**="
-        138 -> "<<="
-        140 -> ">>="
-        142 -> ">>>="
-        144 -> "->"
-        145 -> "<=>"
-        146 -> "??="
-        147 -> "??"
-        148 -> "?:"
-        149 -> "?"
-        150 -> ":"
-        151 -> "::"
-        152 -> "..."
-        else -> "/* op:$kind */"
-    }
+    private fun operatorImage(kind: Int): String =
+        when (kind) {
+            11 -> "abstract"
+            12 -> "boolean"
+            13 -> "break"
+            14 -> "class"
+            15 -> "byte"
+            16 -> "case"
+            17 -> "catch"
+            18 -> "char"
+            20 -> "continue"
+            21 -> "default"
+            22 -> "do"
+            23 -> "double"
+            24 -> "else"
+            25 -> "enum"
+            26 -> "extends"
+            27 -> "false"
+            28 -> "final"
+            30 -> "float"
+            31 -> "for"
+            33 -> "if"
+            34 -> "implements"
+            35 -> "import"
+            36 -> "instanceof"
+            37 -> "int"
+            38 -> "interface"
+            39 -> "long"
+            41 -> "new"
+            42 -> "null"
+            43 -> "package"
+            44 -> "private"
+            45 -> "protected"
+            46 -> "public"
+            47 -> "return"
+            48 -> "short"
+            49 -> "static"
+            50 -> "strictfp"
+            51 -> "switch"
+            52 -> "synchronized"
+            54 -> "throw"
+            55 -> "throws"
+            56 -> "true"
+            57 -> "try"
+            58 -> "void"
+            59 -> "volatile"
+            60 -> "when"
+            61 -> "while"
+            76 -> "("
+            77 -> ")"
+            82 -> ";"
+            84 -> "."
+            85 -> "="
+            86 -> ">"
+            88 -> "<"
+            90 -> "!"
+            91 -> "~"
+            92 -> "=="
+            93 -> "<="
+            95 -> ">="
+            97 -> "!="
+            98 -> "||"
+            100 -> "&&"
+            102 -> "++"
+            103 -> "--"
+            104 -> "+"
+            105 -> "-"
+            106 -> "*"
+            107 -> "/"
+            108 -> "&"
+            110 -> "|"
+            112 -> "^"
+            114 -> "%"
+            116 -> "**"
+            118 -> "<<"
+            120 -> ">>"
+            122 -> ">>>"
+            124 -> "+="
+            125 -> "-="
+            126 -> "*="
+            127 -> "/="
+            128 -> "&="
+            130 -> "|="
+            132 -> "^="
+            134 -> "%="
+            136 -> "**="
+            138 -> "<<="
+            140 -> ">>="
+            142 -> ">>>="
+            144 -> "->"
+            145 -> "<=>"
+            146 -> "??="
+            147 -> "??"
+            148 -> "?:"
+            149 -> "?"
+            150 -> ":"
+            151 -> "::"
+            152 -> "..."
+            else -> "/* op:$kind */"
+        }
 
     private fun quote(s: String): String {
         val sb = StringBuilder()
@@ -863,12 +983,13 @@ object BshSnapshotDecompiler {
         return sb.toString()
     }
 
-    private fun escapeChar(c: Char): String = when (c) {
-        '\'' -> "\\'"
-        '\\' -> "\\\\"
-        '\n' -> "\\n"
-        '\r' -> "\\r"
-        '\t' -> "\\t"
-        else -> c.toString()
-    }
+    private fun escapeChar(c: Char): String =
+        when (c) {
+            '\'' -> "\\'"
+            '\\' -> "\\\\"
+            '\n' -> "\\n"
+            '\r' -> "\\r"
+            '\t' -> "\\t"
+            else -> c.toString()
+        }
 }

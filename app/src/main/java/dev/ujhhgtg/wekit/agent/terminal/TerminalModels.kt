@@ -2,10 +2,22 @@ package dev.ujhhgtg.wekit.agent.terminal
 
 import dev.ujhhgtg.wekit.agent.environment.EnvironmentSnapshot
 
-enum class TerminalState { STARTING, RUNNING, EXITED, KILLED, FAILED, EXPIRED }
+enum class TerminalState {
+    STARTING,
+    RUNNING,
+    EXITED,
+    KILLED,
+    FAILED,
+    EXPIRED,
+}
 
 data class TerminalEvent(val type: Type, val value: String? = null, val durationMs: Long = 0) {
-    enum class Type { TEXT, KEY, CHORD, SLEEP }
+    enum class Type {
+        TEXT,
+        KEY,
+        CHORD,
+        SLEEP,
+    }
 }
 
 data class TerminalReadResult(
@@ -24,11 +36,16 @@ data class TerminalBackendStart(
 
 interface TerminalBackendSession {
     suspend fun write(bytes: ByteArray)
+
     /** Returns null when no bytes are ready yet and an empty array at EOF. */
     suspend fun read(maxBytes: Int): ByteArray?
+
     suspend fun resize(cols: Int, rows: Int)
+
     suspend fun waitForExit(): Int?
+
     suspend fun kill()
+
     suspend fun close()
 }
 
