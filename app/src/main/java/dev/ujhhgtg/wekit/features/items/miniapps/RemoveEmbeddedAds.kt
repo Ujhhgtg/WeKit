@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -12,7 +11,7 @@ import dev.ujhhgtg.wekit.utils.TargetProcess
 import java.lang.reflect.Field
 import org.json.JSONObject
 
-object RemoveEmbeddedAds : SwitchFeature(), IResolveDex {
+object RemoveEmbeddedAds : SwitchFeature() {
     override val technicalId = "移除嵌入广告"
     override val nameRes = R.string.feature_remove_embedded_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

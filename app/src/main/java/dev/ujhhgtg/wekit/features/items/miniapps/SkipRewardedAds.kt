@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -43,7 +42,7 @@ import kotlin.io.path.div
  * - isSkitAd + "ad_video_has_finished_report" -> short drama completion report (optional). If any
  *   core structure is missing, it's reported via WeLogger.w and no partial patch is applied.
  */
-object SkipRewardedAds : SwitchFeature(), IResolveDex {
+object SkipRewardedAds : SwitchFeature() {
     override val technicalId = "跳过激励广告"
     override val nameRes = R.string.feature_skip_rewarded_ads_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

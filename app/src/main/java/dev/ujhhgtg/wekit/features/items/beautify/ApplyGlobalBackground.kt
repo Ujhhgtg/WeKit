@@ -37,7 +37,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -63,7 +62,7 @@ import kotlin.io.path.div
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
+object ApplyGlobalBackground : ClickableFeature() {
     override val technicalId = "应用全局背景"
     override val nameRes = R.string.feature_apply_global_background_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

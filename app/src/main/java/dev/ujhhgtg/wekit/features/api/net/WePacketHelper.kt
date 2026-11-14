@@ -8,9 +8,8 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -30,7 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-object WePacketHelper : ApiFeature(), IResolveDex {
+object WePacketHelper : ApiFeature() {
     override val technicalId = "网络数据包服务"
     override val nameRes = R.string.feature_we_packet_helper_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -95,8 +94,6 @@ object WePacketHelper : ApiFeature(), IResolveDex {
     }
 
     // 业务特定请求类
-    private val classNewSendMsgReq by dexClass()
-    val classOplogReq by dexClass()
 
     // 网络
     val classNetScenePat by dexClass {
@@ -108,7 +105,6 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             usingNumbers(849L)
         }
     }
-    private val classNetDispatcher by dexClass()
     private val classIOnSceneEnd by dexClass {
         modifiers = Modifier.INTERFACE
         interfaceCount = 0
@@ -134,7 +130,6 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             )
         }
     }
-    private val classReqResp by dexClass()
 
     private val methodGetNetQueue by dexMethod {
         val kernelName = WeDatabaseApi.classMmKernel.data.name
@@ -157,7 +152,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         cgiReqClassMap[681] = classOplogReq.clazz
     }
 
-    override fun resolveDex() {
+    private val classNewSendMsgReq by dexClassFrom {
         val wrapperName = classRawReq.data.superClass!!.name
         val candidates = DexResolutionContext.findClasses {
             superClass {
@@ -172,7 +167,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
             }
         }
 
-        for (candidate in candidates) {
+        candidates.first { candidate ->
             val isMsgReq =
                 DexResolutionContext.findMethods {
                         declaredClass = candidate.name
@@ -183,12 +178,10 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                     }
                     .isEmpty()
 
-            if (isMsgReq) {
-                classNewSendMsgReq.setDescriptor(candidate.name)
-                break
-            }
+            isMsgReq
         }
-
+    }
+    private val classReqResp by dexClassFrom {
         val cbIface = classCallbackIface.data.name
         val callbackMethod =
             DexResolutionContext.findMethods {
@@ -198,10 +191,12 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 .first()
 
         val reqRespName = callbackMethod.paramTypeNames[3]
-        classReqResp.setDescriptor(reqRespName)
-
         WeLogger.i(TAG, "found ReqResp base class: $reqRespName")
-
+        DexResolutionContext.metadata.classInfoByName(reqRespName)!!
+    }
+    private val classNetDispatcher by dexClassFrom {
+        val reqRespName = classReqResp.data.name
+        val cbIface = classCallbackIface.data.name
         val dispatchMethod =
             DexResolutionContext.findMethods {
                     modifiers = Modifier.STATIC or Modifier.PUBLIC
@@ -210,10 +205,9 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                 }
                 .firstOrNull()
 
-        if (dispatchMethod != null) {
-            classNetDispatcher.setDescriptor(dispatchMethod.declaredClassName)
-        }
-
+        checkNotNull(dispatchMethod) { "DexSQL: No network dispatcher found" }.declaredClass!!
+    }
+    val classOplogReq by dexClassFrom {
         val directOplogReq = DexResolutionContext.findClasses {
             superClass {
                 className = classProtoBase.data.name
@@ -228,7 +222,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
 
         when (directOplogReq.size) {
             1 -> {
-                classOplogReq.setDescriptor(directOplogReq.single())
+                directOplogReq.single()
             }
 
             0 -> {
@@ -264,7 +258,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                         )
 
                 WeLogger.i(TAG, "located oplog successfully: ${realProtoClass.name}")
-                classOplogReq.setDescriptor(realProtoClass)
+                realProtoClass
             }
 
             else -> {

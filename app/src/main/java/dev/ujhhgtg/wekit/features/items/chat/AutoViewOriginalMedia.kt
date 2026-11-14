@@ -6,17 +6,15 @@ import android.widget.TextView
 import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.util.WeakHashMap
 
-object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
+object AutoViewOriginalMedia : SwitchFeature() {
     override val technicalId = "自动查看原图"
     override val nameRes = R.string.feature_auto_view_original_media_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -24,13 +22,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
 
     private const val MEDIA_DOWNLOAD_TEXT_CLASS =
         "com.tencent.mm.plugin.media.view.download.MediaDownloadText"
-
-    private val methodSetImageHdImgBtnVisibility by dexMethod()
-    private val methodCheckNeedShowOriginVideoBtn by dexMethod()
-    private val classMediaGalleryVideoBottomBarLayer by dexClass()
-    private val methodUpdateMediaGalleryVideoOriginButton by dexMethod()
-    private val classMediaGalleryChatLiveBottomBarLayer by dexClass()
-    private val methodBindMediaGalleryChatLiveBottomBar by dexMethod()
 
     private val lastLivePhotoBindings = WeakHashMap<Any, Any>()
 
@@ -44,7 +35,7 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             "View Full Video",
         )
 
-    override fun resolveDex() {
+    private val methodSetImageHdImgBtnVisibility by dexMethodFrom {
         val results =
             DexResolutionContext.findMethods {
                     declaredClass {
@@ -60,50 +51,27 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
                         usingEqString("setImageHdImgBtnVisibility")
                     }
                 }
-        methodSetImageHdImgBtnVisibility.setDescriptor(results.single())
-
-        methodCheckNeedShowOriginVideoBtn.find {
-            declaredClass {
-                className = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
-            }
-            usingEqString("checkNeedShowOriginVideoBtn")
+        results.single()
+    }
+    private val methodCheckNeedShowOriginVideoBtn by dexMethod {
+        declaredClass {
+            className = "com.tencent.mm.ui.chatting.gallery.ImageGalleryUI"
         }
-
-        classMediaGalleryVideoBottomBarLayer.find {
-            usingEqString("MediaGallery.VideoBottomBarLayer")
-        }
-
-        val chatLiveBottomBarLayers = DexResolutionContext.findClasses {
+        usingEqString("checkNeedShowOriginVideoBtn")
+    }
+    private val classMediaGalleryVideoBottomBarLayer by dexClass {
+        usingEqString("MediaGallery.VideoBottomBarLayer")
+    }
+    private val classMediaGalleryChatLiveBottomBarLayer by
+        dexClass(allowFailure = true) {
             method {
                 name = "<init>"
                 paramCount = 1
                 usingEqString("MediaGallery.ChatLiveBottomBarLayer")
             }
         }
-
-        when (chatLiveBottomBarLayers.size) {
-            0 -> {
-                classMediaGalleryChatLiveBottomBarLayer.markExpectedFailure()
-                methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
-                methodBindMediaGalleryChatLiveBottomBar.markExpectedFailure()
-                return
-            }
-
-            1 -> {
-                classMediaGalleryChatLiveBottomBarLayer.setDescriptor(
-                    chatLiveBottomBarLayers.single(),
-                )
-            }
-
-            else -> {
-                error(
-                    "multiple MediaGallery.ChatLiveBottomBarLayer classes found: " +
-                        chatLiveBottomBarLayers.joinToString { it.name },
-                )
-            }
-        }
-
-        methodBindMediaGalleryChatLiveBottomBar.find {
+    private val methodBindMediaGalleryChatLiveBottomBar by classMediaGalleryChatLiveBottomBarLayer
+        .dexMethod {
             declaredClass {
                 className = classMediaGalleryChatLiveBottomBarLayer.data.name
             }
@@ -112,8 +80,8 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             usingEqString("bindContext")
             usingEqString("msgInfo")
         }
-
-        val updateVideoOriginButtonMethods = DexResolutionContext.findMethods {
+    private val methodUpdateMediaGalleryVideoOriginButton by
+        classMediaGalleryChatLiveBottomBarLayer.dexMethod(allowFailure = true) {
             declaredClass {
                 className = classMediaGalleryVideoBottomBarLayer.data.name
             }
@@ -121,26 +89,6 @@ object AutoViewOriginalMedia : SwitchFeature(), IResolveDex {
             returnType = "void"
             usingEqString("getString(...)")
         }
-
-        when (updateVideoOriginButtonMethods.size) {
-            0 -> {
-                methodUpdateMediaGalleryVideoOriginButton.markExpectedFailure()
-            }
-
-            1 -> {
-                methodUpdateMediaGalleryVideoOriginButton.setDescriptor(
-                    updateVideoOriginButtonMethods.single(),
-                )
-            }
-
-            else -> {
-                error(
-                    "multiple layered original-video update methods found: " +
-                        updateVideoOriginButtonMethods.joinToString { it.descriptor },
-                )
-            }
-        }
-    }
 
     override fun onEnable() {
         listOf(

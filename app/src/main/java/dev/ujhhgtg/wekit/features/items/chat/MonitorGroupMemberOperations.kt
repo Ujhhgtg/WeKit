@@ -6,7 +6,6 @@ import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -22,8 +21,7 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
-object MonitorGroupMemberOperations :
-    SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
+object MonitorGroupMemberOperations : SwitchFeature(), WeDatabaseListenerApi.IUpdateListener {
     override val technicalId = "群成员行为监控"
     override val nameRes = R.string.feature_monitor_group_member_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

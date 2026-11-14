@@ -17,7 +17,6 @@ import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
 import dev.ujhhgtg.wekit.extensions.ScriptDepsPack
@@ -57,7 +56,7 @@ import kotlinx.coroutines.launch
 import me.hd.wauxv.data.bean.MsgInfoBean
 import me.hd.wauxv.data.bean.PayMsgBean
 
-object JavaScriptingHook : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener {
+object JavaScriptingHook : ClickableFeature(), WeDatabaseListenerApi.IUpdateListener {
 
     override val technicalId = "脚本引擎 (Java)"
     override val nameRes = R.string.feature_java_scripting_hook_name

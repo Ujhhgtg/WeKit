@@ -22,7 +22,6 @@ import androidx.dynamicanimation.animation.SpringForce
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -62,7 +61,7 @@ import java.util.WeakHashMap
  *     - 重力掉落: translationY = -250dp + scale 0.9, spring 回 0/1.0 (translation stiffness=300,
  *       dampingRatio=0.5; scale stiffness=200, dampingRatio=0.6)。
  */
-object MessageEntranceAnimation : ClickableFeature(), IResolveDex {
+object MessageEntranceAnimation : ClickableFeature() {
 
     override val technicalId = "消息进入动画"
     override val nameRes = R.string.feature_message_entrance_animation_name

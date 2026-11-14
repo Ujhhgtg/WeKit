@@ -4,8 +4,8 @@ import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -13,7 +13,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
-object WeContactLabelApi : ApiFeature(), IResolveDex {
+object WeContactLabelApi : ApiFeature() {
     override val technicalId = "联系人标签服务"
     override val nameRes = R.string.feature_we_contact_label_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -145,9 +145,7 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
      * So: among methods that use "UserLabelInfoList", find a read of a `String` field whose
      * declaring class has exactly two fields, both `String` — that class is the target.
      */
-    private val classContactLabelPb by dexClass()
-
-    override fun resolveDex() {
+    private val classContactLabelPb by dexClassFrom {
         val candidates =
             DexResolutionContext.findMethods {
                     usingEqString("UserLabelInfoList")
@@ -174,7 +172,7 @@ object WeContactLabelApi : ApiFeature(), IResolveDex {
             error("failed to locate classContactLabelPb")
         }
 
-        classContactLabelPb.setDescriptor(className)
+        DexResolutionContext.metadata.classInfoByName(className)!!
     }
 
     /**

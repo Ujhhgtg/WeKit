@@ -6,18 +6,16 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import java.util.Collections
 import java.util.WeakHashMap
 
-object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
+object AutoEnableSendAsMediaGroup : SwitchFeature() {
     override val technicalId = "自动启用合并发送媒体"
     override val nameRes = R.string.feature_auto_enable_send_as_media_group_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -68,35 +66,20 @@ object AutoEnableSendAsMediaGroup : SwitchFeature(), IResolveDex {
         }
 
     /** The half-screen picker's data-class state, identified by its toString() literal. */
-    private val classLocalPickerState by dexClass()
+    private val classLocalPickerState by
+        dexClass(allowFailure = true) {
+            usingEqString("ChattingLocalMediaPickerState(selection=")
+        }
 
     /** State reducer run on every selection change: (state, selectionSnapshot) -> state. */
-    private val methodLocalPickerSelectionReducer by dexMethod()
+    private val methodLocalPickerSelectionReducer by classLocalPickerState.dexMethod {
+        returnType = classLocalPickerState.data.name
+        paramTypes(classLocalPickerState.data.name, null)
+        usingNumbers(3)
+    }
 
     private val localPickerStateVisible = Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
     private val forceMediaGroupChecked = ThreadLocal<Boolean>()
-
-    override fun resolveDex() {
-        // Probe: only hosts with the half-screen chat picker have this state class
-        val states = DexResolutionContext.findClasses {
-            usingEqString("ChattingLocalMediaPickerState(selection=")
-        }
-        if (states.isEmpty()) {
-            classLocalPickerState.markExpectedFailure()
-            methodLocalPickerSelectionReducer.markExpectedFailure()
-            return
-        }
-        val state = states.single()
-        classLocalPickerState.setDescriptor(state)
-        methodLocalPickerSelectionReducer.setDescriptor(
-            DexResolutionContext.findMethods {
-                    returnType = state.name
-                    paramTypes(state.name, null)
-                    usingNumbers(3)
-                }
-                .single(),
-        )
-    }
 
     override fun onEnable() {
         if (classLocalPickerState.isFound) hookLocalPicker()

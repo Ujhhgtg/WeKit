@@ -4,12 +4,11 @@ import android.view.KeyEvent
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object QuickRemoveQuote : SwitchFeature(), IResolveDex {
+object QuickRemoveQuote : SwitchFeature() {
     override val technicalId = "快捷清除引用"
     override val nameRes = R.string.feature_quick_remove_quote_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

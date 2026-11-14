@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
@@ -14,7 +12,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Path
 
-object WeVfsApi : ApiFeature(), IResolveDex {
+object WeVfsApi : ApiFeature() {
     override val technicalId = "微信虚拟文件系统服务"
     override val nameRes = R.string.feature_we_vfs_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

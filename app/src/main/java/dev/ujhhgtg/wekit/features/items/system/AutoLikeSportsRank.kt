@@ -22,7 +22,6 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -50,7 +49,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-object AutoLikeSportsRank : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
+object AutoLikeSportsRank : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
     override val technicalId = "运动排行榜自动点赞"
     override val nameRes = R.string.feature_auto_like_sports_rank_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

@@ -3,8 +3,6 @@ package dev.ujhhgtg.wekit.features.api.core
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -19,7 +17,7 @@ import java.lang.reflect.Modifier
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-object WeConversationApi : ApiFeature(), IResolveDex {
+object WeConversationApi : ApiFeature() {
     override val technicalId = "对话服务"
     override val nameRes = R.string.feature_we_conversation_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

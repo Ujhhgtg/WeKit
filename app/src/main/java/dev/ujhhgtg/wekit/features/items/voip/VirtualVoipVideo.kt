@@ -30,7 +30,6 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -50,7 +49,7 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.io.path.div
 
-object VirtualVoipVideo : ClickableFeature(), IResolveDex {
+object VirtualVoipVideo : ClickableFeature() {
 
     override val technicalId = "虚拟视频通话"
     override val nameRes = R.string.feature_virtual_voip_video_name

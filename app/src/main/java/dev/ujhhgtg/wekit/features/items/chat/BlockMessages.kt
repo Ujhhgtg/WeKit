@@ -9,7 +9,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -171,7 +170,7 @@ object BlockMessagesAutomation : AutomationSpec("MESSAGE_BLOCK") {
 }
 
 /** Drops matching incoming messages before WeChat stores them (ported from Hchat's 屏蔽消息). */
-object BlockMessages : ClickableFeature(), IResolveDex {
+object BlockMessages : ClickableFeature() {
     override val technicalId = "屏蔽消息"
     override val nameRes = R.string.feature_block_messages_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

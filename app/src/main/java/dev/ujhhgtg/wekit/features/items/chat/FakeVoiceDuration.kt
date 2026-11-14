@@ -10,7 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -20,7 +19,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
 
-object FakeVoiceDuration : ClickableFeature(), IResolveDex {
+object FakeVoiceDuration : ClickableFeature() {
     override val technicalId = "伪装语音时长"
     override val nameRes = R.string.feature_fake_voice_duration_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

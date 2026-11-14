@@ -4,7 +4,6 @@ import android.view.View
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -16,7 +15,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-object WeChatMessageViewApi : ApiFeature(), IResolveDex {
+object WeChatMessageViewApi : ApiFeature() {
     override val technicalId = "消息 View 创建监听服务"
     override val nameRes = R.string.feature_we_chat_message_view_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

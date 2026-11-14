@@ -5,19 +5,17 @@ import android.view.View
 import android.widget.ListView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexFieldDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableHomeScreenRecentsPage : SwitchFeature(), IResolveDex {
+object DisableHomeScreenRecentsPage : SwitchFeature() {
     override val technicalId = "隐藏主页下滑「最近」页"
     override val nameRes = R.string.feature_disable_home_screen_recents_page_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
@@ -82,12 +80,51 @@ object DisableHomeScreenRecentsPage : SwitchFeature(), IResolveDex {
                 "[flushPendingHeaders] flushing %d headers",
             )
         }
-    private val fieldRecyclerShowHeader by dexField()
-    private val methodRecyclerSelection by dexMethod()
-    private val methodRecyclerOffsetUpdate by dexMethod()
-    private val fieldRecyclerScrollOffset by dexField()
-    private val methodRecyclerLayout by dexMethod()
-    private val methodRecyclerScrollToPosition by dexMethod()
+    private val fieldRecyclerShowHeader by classConversationRecyclerView.dexField {
+        declaredClass = classConversationRecyclerView.data.name
+        type = "boolean"
+        readMethod {
+            name = "getShowHeaderContainer"
+            paramCount = 0
+            returnType = "boolean"
+        }
+    }
+    private val methodRecyclerSelection by classConversationRecyclerView.dexMethod {
+        declaredClass = classConversationRecyclerView.data.name
+        name = "setSelectionWithOffset"
+        paramTypes("int")
+        returnType = "void"
+    }
+    private val methodRecyclerOffsetUpdate by classConversationRecyclerView.dexMethod {
+        declaredClass = classConversationRecyclerView.data.name
+        paramCount = 0
+        returnType = "void"
+        usingString("[updateScrollOffset] weUIStatusBar:")
+    }
+    private val fieldRecyclerScrollOffset by classConversationRecyclerView.dexField {
+        declaredClass = classConversationRecyclerView.data.name
+        type = "int"
+        readMethod {
+            name = "getScrollOffset"
+            paramCount = 0
+            returnType = "int"
+        }
+    }
+    private val methodRecyclerLayout by classConversationRecyclerView.dexMethod {
+        declaredClass = classConversationRecyclerView.data.name
+        name = "onLayout"
+        paramTypes("boolean", "int", "int", "int", "int")
+        returnType = "void"
+    }
+    private val methodRecyclerScrollToPosition by classConversationRecyclerView.dexMethodFrom {
+        methodRecyclerLayout.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == "androidx.recyclerview.widget.LinearLayoutManager" &&
+                    it.paramTypeNames == listOf("int", "int") &&
+                    it.returnTypeName == "void"
+            }
+    }
     private val methodOpenHeader by dexMethod {
         paramTypes("boolean", "long", "int")
         returnType = "void"
@@ -102,63 +139,6 @@ object DisableHomeScreenRecentsPage : SwitchFeature(), IResolveDex {
     }
 
     @SuppressLint("StaticFieldLeak") private var layingOut: View? = null
-
-    override fun resolveDex() {
-        if (!classConversationRecyclerView.isFound) {
-            fieldRecyclerShowHeader.markExpectedFailure()
-            methodRecyclerSelection.markExpectedFailure()
-            methodRecyclerOffsetUpdate.markExpectedFailure()
-            fieldRecyclerScrollOffset.markExpectedFailure()
-            methodRecyclerLayout.markExpectedFailure()
-            methodRecyclerScrollToPosition.markExpectedFailure()
-            return
-        }
-        fieldRecyclerShowHeader.find {
-            declaredClass = classConversationRecyclerView.data.name
-            type = "boolean"
-            readMethod {
-                name = "getShowHeaderContainer"
-                paramCount = 0
-                returnType = "boolean"
-            }
-        }
-        methodRecyclerSelection.find {
-            declaredClass = classConversationRecyclerView.data.name
-            name = "setSelectionWithOffset"
-            paramTypes("int")
-            returnType = "void"
-        }
-        methodRecyclerOffsetUpdate.find {
-            declaredClass = classConversationRecyclerView.data.name
-            paramCount = 0
-            returnType = "void"
-            usingString("[updateScrollOffset] weUIStatusBar:")
-        }
-        fieldRecyclerScrollOffset.find {
-            declaredClass = classConversationRecyclerView.data.name
-            type = "int"
-            readMethod {
-                name = "getScrollOffset"
-                paramCount = 0
-                returnType = "int"
-            }
-        }
-        methodRecyclerLayout.find {
-            declaredClass = classConversationRecyclerView.data.name
-            name = "onLayout"
-            paramTypes("boolean", "int", "int", "int", "int")
-            returnType = "void"
-        }
-        methodRecyclerScrollToPosition.setDescriptor(
-            methodRecyclerLayout.data.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    it.declaredClassName == "androidx.recyclerview.widget.LinearLayoutManager" &&
-                        it.paramTypeNames == listOf("int", "int") &&
-                        it.returnTypeName == "void"
-                },
-        )
-    }
 
     override fun onEnable() {
         methodListHeaderUpdate.hookBefore {

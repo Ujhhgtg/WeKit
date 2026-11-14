@@ -28,13 +28,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
@@ -62,7 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.random.Random
 
-object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
+object SplitGroupCall : ClickableFeature(), IContactInfoProvider {
     override val technicalId = "分裂群组通话"
     override val nameRes = R.string.feature_split_group_call_name
     override val categoryIds = listOf(FeatureCategoryIds.ENTERTAIN)
@@ -79,53 +77,123 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     }
 
     /** com.tencent.mm.plugin.multitalk.model.e3 —— SubCoreMultiTalk. */
-    private val classSubCoreMultiTalk by dexClass()
+    private val classSubCoreMultiTalk by
+        dexClass(allowFailure = true) {
+            usingString("MicroMsg.SubCoreMultiTalk")
+            usingString("add , is running , forbid add")
+        }
 
     /** com.tencent.mm.plugin.multitalk.model.v0 —— MultiTalkManager. */
-    val methodExitMultiTalk by dexMethod()
+    val methodExitMultiTalk by classSubCoreMultiTalk.dexMethod {
+        usingString(
+            "exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b",
+        )
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.i4 —— ILinkService (enum, 单例 INSTANCE). */
-    private val classILinkService by dexClass()
+    private val classILinkService by classSubCoreMultiTalk.dexClass {
+        usingString(
+            "steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b " +
+                "mCurrentStatus %d mIsJoiningRoom %b",
+        )
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.w —— ILinkMember. */
-    private val classILinkMember by dexClass()
+    private val classILinkMember by classSubCoreMultiTalk.dexClass {
+        usingString("ILinkMember{memberId=")
+    }
 
     /** com.tencent.mm.plugin.multitalk.ilinkservice.n1 —— 邀请任务 (Runnable). */
-    private val classInviteTask by dexClass()
+    private val classInviteTask by classSubCoreMultiTalk.dexClass {
+        usingString("enter inviteSync. %s, %s, %d, %b")
+    }
 
     /** e3.Ri() —— 获取 MultiTalkManager 单例. */
-    val methodGetMultiTalkManager by dexMethod()
+    val methodGetMultiTalkManager by classSubCoreMultiTalk.dexMethod {
+        declaredClass = classSubCoreMultiTalk.data.name
+        modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
+        returnType {
+            className = methodExitMultiTalk.data.declaredClassName
+        }
+    }
 
     /** v0.D(e4) —— 设置通话状态 (onChangeMultiTalkStatus). */
-    private val methodSetStatus by dexMethod()
+    private val methodSetStatus by classSubCoreMultiTalk.dexMethod {
+        declaredClass {
+            className = methodExitMultiTalk.data.declaredClassName
+        }
+        paramCount = 1
+        usingString("onChangeMultiTalkStatus is %s")
+    }
 
     /** v0.O(String, int) —— setCurrentMTSDKMode, 记录群 -> 通话模式. */
-    private val methodSetMtSdkMode by dexMethod()
+    private val methodSetMtSdkMode by classSubCoreMultiTalk.dexMethod {
+        declaredClass {
+            className = methodExitMultiTalk.data.declaredClassName
+        }
+        paramCount = 2
+        usingString("setCurrentMTSDKMode groupid:%s, mode:%d")
+    }
 
     /** i4.N(long, String) —— 设置自身 uin 与用户名 (set name). */
-    private val methodSetName by dexMethod()
+    private val methodSetName by classSubCoreMultiTalk.dexMethod {
+        declaredClass = classILinkService.data.name
+        paramCount = 2
+        usingString("set name=%s, uin=%d")
+    }
 
     /** i4.J(Runnable) —— 投递任务到 ILink 串行工作线程. */
-    private val methodPostTask by dexMethod()
+    private val methodPostTask by classSubCoreMultiTalk.dexMethod {
+        declaredClass = classILinkService.data.name
+        paramCount = 1
+        paramTypes("java.lang.Runnable")
+    }
 
     /** n1(i4, ArrayList<w>, String) —— 邀请任务构造器. */
-    private val ctorInviteTask by dexConstructor()
+    private val ctorInviteTask by classSubCoreMultiTalk.dexConstructor {
+        declaredClass = classInviteTask.data.name
+        paramCount = 3
+        paramTypes(classILinkService.data.name, "java.util.ArrayList", "java.lang.String")
+    }
 
     /**
      * c1(i4, int) —— 挂断任务 (Runnable), run() 调用 native Hangup(int)。 c1 与 i4 都含有字符串 "Hangup ret:", 但
      * i4 (enum) 的构造器签名是 (String, int), 因此用 (i4, int) 的参数签名即可唯一命中 c1 的构造器。
      */
-    private val ctorHangupTask by dexConstructor()
+    private val ctorHangupTask by classSubCoreMultiTalk.dexConstructor {
+        declaredClass {
+            usingString("Hangup ret:")
+        }
+        paramCount = 2
+        paramTypes(classILinkService.data.name, "int")
+    }
 
     /** i4.INSTANCE —— ILinkService 单例. */
-    private val fieldILinkInstance by dexField()
+    private val fieldILinkInstance by classSubCoreMultiTalk.dexField {
+        declaredClass = classILinkService.data.name
+        type = classILinkService.data.name
+        modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
+    }
 
     /**
      * i4.f166883p1 —— 房间 ID (chatroom username) 字符串字段, 进入 native Invite。 i4 上有多个 String 字段,
      * 无法按名字/顺序命中; 通过 "唯一读取该字段的方法" 反查: 方法 p(b) 含字符串 "start audio device failed", 且其中唯一被读取的 String
-     * 字段即 f166883p1。 由 [resolveDex] 手动填充。
+     * 字段即 f166883p1。
      */
-    private val fieldRoomId by dexField()
+    private val fieldRoomId by classSubCoreMultiTalk.dexFieldFrom {
+        val iLinkServiceName = classILinkService.data.name
+        val readerMethod =
+            DexResolutionContext.findMethods {
+                    declaredClass = classILinkService.data.name
+                    usingString("start audio device failed")
+                }
+                .single()
+        readerMethod.usingFields
+            .map { it.field }
+            .single {
+                it.className == iLinkServiceName && it.typeName == "java.lang.String"
+            }
+    }
 
     /** TalkRoomServer.enterTalkRoom(String, int) —— 发起「实时对讲机」. */
     private val methodEnterTalkRoom by dexMethod {
@@ -153,134 +221,6 @@ object SplitGroupCall : ClickableFeature(), IContactInfoProvider, IResolveDex {
     private val fieldCurrentTalkRoom by dexField {
         declaredClass(methodEnterTalkRoom.data.declaredClassName)
         type = "java.lang.String"
-    }
-
-    override fun resolveDex() {
-        val subCoreMultiTalkClasses = DexResolutionContext.findClasses {
-            usingString("MicroMsg.SubCoreMultiTalk")
-            usingString("add , is running , forbid add")
-        }
-
-        when (subCoreMultiTalkClasses.size) {
-            1 -> {
-                classSubCoreMultiTalk.setDescriptor(subCoreMultiTalkClasses.single())
-            }
-
-            0 -> {
-                classSubCoreMultiTalk.markExpectedFailure()
-                methodExitMultiTalk.markExpectedFailure()
-                classILinkService.markExpectedFailure()
-                classILinkMember.markExpectedFailure()
-                classInviteTask.markExpectedFailure()
-                methodGetMultiTalkManager.markExpectedFailure()
-                methodSetStatus.markExpectedFailure()
-                methodSetMtSdkMode.markExpectedFailure()
-                methodSetName.markExpectedFailure()
-                methodPostTask.markExpectedFailure()
-                ctorInviteTask.markExpectedFailure()
-                ctorHangupTask.markExpectedFailure()
-                fieldILinkInstance.markExpectedFailure()
-                fieldRoomId.markExpectedFailure()
-                return
-            }
-
-            else -> {
-                error(
-                    "multiple SubCoreMultiTalk classes found: " +
-                        subCoreMultiTalkClasses.joinToString { it.name },
-                )
-            }
-        }
-
-        methodExitMultiTalk.find {
-            usingString(
-                "exitCurrentMultiTalk: isReject %b isMissCall %b isPhoneCall %b isNetworkError %b",
-            )
-        }
-
-        classILinkService.find {
-            usingString(
-                "steve: initsession : mIsInitedEngine :%b mIsInitingEngine %b " +
-                    "mCurrentStatus %d mIsJoiningRoom %b",
-            )
-        }
-
-        classILinkMember.find {
-            usingString("ILinkMember{memberId=")
-        }
-
-        classInviteTask.find {
-            usingString("enter inviteSync. %s, %s, %d, %b")
-        }
-
-        methodGetMultiTalkManager.find {
-            declaredClass = classSubCoreMultiTalk.data.name
-            modifiers = ReflectModifier.STATIC or ReflectModifier.PUBLIC
-            returnType {
-                className = methodExitMultiTalk.data.declaredClassName
-            }
-        }
-
-        methodSetStatus.find {
-            declaredClass {
-                className = methodExitMultiTalk.data.declaredClassName
-            }
-            paramCount = 1
-            usingString("onChangeMultiTalkStatus is %s")
-        }
-
-        methodSetMtSdkMode.find {
-            declaredClass {
-                className = methodExitMultiTalk.data.declaredClassName
-            }
-            paramCount = 2
-            usingString("setCurrentMTSDKMode groupid:%s, mode:%d")
-        }
-
-        methodSetName.find {
-            declaredClass = classILinkService.data.name
-            paramCount = 2
-            usingString("set name=%s, uin=%d")
-        }
-
-        methodPostTask.find {
-            declaredClass = classILinkService.data.name
-            paramCount = 1
-            paramTypes("java.lang.Runnable")
-        }
-
-        ctorInviteTask.find {
-            declaredClass = classInviteTask.data.name
-            paramCount = 3
-            paramTypes(classILinkService.data.name, "java.util.ArrayList", "java.lang.String")
-        }
-
-        ctorHangupTask.find {
-            declaredClass {
-                usingString("Hangup ret:")
-            }
-            paramCount = 2
-            paramTypes(classILinkService.data.name, "int")
-        }
-
-        fieldILinkInstance.find {
-            declaredClass = classILinkService.data.name
-            type = classILinkService.data.name
-            modifiers = ReflectModifier.PUBLIC or ReflectModifier.STATIC or ReflectModifier.FINAL
-        }
-
-        val iLinkServiceName = classILinkService.data.name
-        val readerMethod =
-            DexResolutionContext.findMethods {
-                    declaredClass = classILinkService.data.name
-                    usingString("start audio device failed")
-                }
-                .single()
-        val roomIdField =
-            readerMethod.usingFields
-                .map { it.field }
-                .single { it.className == iLinkServiceName && it.typeName == "java.lang.String" }
-        fieldRoomId.setDescriptor(roomIdField)
     }
 
     override fun onClick(context: ComponentActivity) {

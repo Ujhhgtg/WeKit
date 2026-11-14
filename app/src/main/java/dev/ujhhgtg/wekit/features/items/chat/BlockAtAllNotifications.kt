@@ -15,7 +15,6 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Chevron_right
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -160,7 +159,7 @@ object BlockAtAllNotifications : ClickableFeature() {
 }
 
 /** Installs the notification hooks in both the main and push processes. */
-object BlockAtAllNotificationsRuntime : ApiFeature(), IResolveDex {
+object BlockAtAllNotificationsRuntime : ApiFeature() {
     override val technicalId = "群聊@所有人通知拦截服务"
     override val nameRes = R.string.feature_block_at_all_notifications_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

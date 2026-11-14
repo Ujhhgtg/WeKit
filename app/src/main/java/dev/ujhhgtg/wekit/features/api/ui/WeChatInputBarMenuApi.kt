@@ -16,7 +16,6 @@ import com.composables.icons.materialsymbols.outlined.Block
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -30,7 +29,7 @@ import dev.ujhhgtg.wekit.ui.utils.findViewWhich
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-object WeChatInputBarMenuApi : ApiFeature(), IResolveDex {
+object WeChatInputBarMenuApi : ApiFeature() {
     override val technicalId = "聊天输入栏增强 API"
     override val nameRes = R.string.feature_we_chat_input_bar_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

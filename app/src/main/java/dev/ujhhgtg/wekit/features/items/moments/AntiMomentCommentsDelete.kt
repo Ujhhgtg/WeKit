@@ -4,7 +4,6 @@ import com.tencent.mm.protocal.protobuf.SnsObject
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
@@ -25,7 +24,7 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
  *   `checkLocalDeletedComment` merge step runs first, so comments the server dropped are put back
  *   there.
  */
-object AntiMomentCommentsDelete : SwitchFeature(), IResolveDex {
+object AntiMomentCommentsDelete : SwitchFeature() {
     override val technicalId = "朋友圈评论防撤回"
     override val nameRes = R.string.feature_anti_moment_comments_delete_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

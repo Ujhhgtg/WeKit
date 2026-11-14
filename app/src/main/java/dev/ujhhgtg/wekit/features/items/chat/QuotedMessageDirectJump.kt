@@ -12,8 +12,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -26,7 +24,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 
-object QuotedMessageDirectJump : ClickableFeature(), IResolveDex {
+object QuotedMessageDirectJump : ClickableFeature() {
 
     override val technicalId = "引用消息直达"
     override val nameRes = R.string.feature_quoted_message_direct_jump_name

@@ -6,7 +6,6 @@ import android.webkit.ValueCallback
 import dev.ujhhgtg.dexsql.matcher.NameMatch
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeWebViewApi.tracked
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -30,7 +29,7 @@ import java.util.concurrent.TimeUnit
  * 两种 WebView 并不共享带这些方法的公共父类（xweb 的是 FrameLayout 包装器），因此所有操作均通过反射按 方法名调用，同时适配二者（与
  * [dev.ujhhgtg.wekit.features.items.miniapps.ErudaConsole] 的做法一致）。
  */
-object WeWebViewApi : ApiFeature(), IResolveDex {
+object WeWebViewApi : ApiFeature() {
     override val technicalId = "WebView 追踪服务"
     override val nameRes = R.string.feature_we_web_view_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

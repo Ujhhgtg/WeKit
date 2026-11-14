@@ -35,7 +35,6 @@ import com.tencent.mm.ui.widget.MMNeat7extView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -67,7 +66,7 @@ import org.commonmark.node.Heading
 import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 
-object MarkdownRendering : ClickableFeature(), IResolveDex {
+object MarkdownRendering : ClickableFeature() {
     override val technicalId = "Markdown 渲染"
     override val nameRes = R.string.feature_markdown_rendering_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

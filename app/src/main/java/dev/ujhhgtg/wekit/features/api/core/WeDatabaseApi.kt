@@ -5,8 +5,6 @@ import android.database.Cursor
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.models.ChatroomSyncStateReadResult
@@ -26,7 +24,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
 @SuppressLint("DiscouragedApi")
-object WeDatabaseApi : ApiFeature(), IResolveDex {
+object WeDatabaseApi : ApiFeature() {
     override val technicalId = "数据库服务"
     override val nameRes = R.string.feature_we_database_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

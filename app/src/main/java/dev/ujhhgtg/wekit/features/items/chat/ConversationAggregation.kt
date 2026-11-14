@@ -49,7 +49,6 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.structured.ConversationFolder as ChatFolder
 import dev.ujhhgtg.wekit.data.structured.ConversationFolderType as FolderType
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -91,8 +90,7 @@ object ConversationAggregation :
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeStartActivityApi.IStartActivityListener,
-    WeConversationContextMenuApi.IMenuItemsProvider,
-    IResolveDex {
+    WeConversationContextMenuApi.IMenuItemsProvider {
 
     override val technicalId = "对话归拢"
     override val nameRes = R.string.feature_conversation_aggregation_name

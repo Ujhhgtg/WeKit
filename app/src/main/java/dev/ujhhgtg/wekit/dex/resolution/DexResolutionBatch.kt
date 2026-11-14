@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.dex.resolution
 
 import dev.ujhhgtg.dexsql.DexSqlBridge
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.features.core.BaseFeature
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
@@ -12,12 +12,12 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 sealed interface DexResolutionEvent {
-    val item: IResolveDex
+    val item: BaseFeature
 
-    data class Start(override val item: IResolveDex) : DexResolutionEvent
+    data class Start(override val item: BaseFeature) : DexResolutionEvent
 
     data class Finished(
-        override val item: IResolveDex,
+        override val item: BaseFeature,
         val error: Exception?,
         val elapsedMillis: Long,
     ) : DexResolutionEvent
@@ -25,7 +25,7 @@ sealed interface DexResolutionEvent {
 
 /** Shared by Android and desktop validation. The caller owns the bridge until this returns. */
 suspend fun resolveDexBatch(
-    items: List<IResolveDex>,
+    items: List<BaseFeature>,
     host: DexHostMetadata,
     workerCount: Int = 4,
     dexSql: DexSqlBridge? = null,

@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableMomentsFolding : SwitchFeature(), IResolveDex {
+object DisableMomentsFolding : SwitchFeature() {
     override val technicalId = "禁用朋友圈折叠"
     override val nameRes = R.string.feature_disable_moments_folding_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

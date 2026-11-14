@@ -44,6 +44,12 @@ import kotlin.reflect.KProperty
 sealed class BaseDexDelegate(val key: String) {
     lateinit var owner: BaseFeature
 
+    var group: DexGroup? = null
+
+    var computedDescriptor: (() -> String?)? = null
+
+    var allowComputedFailure: Boolean = false
+
     var state: DexResolutionState = DexResolutionState.Pending
         private set
 
@@ -129,6 +135,13 @@ class DexClassDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
+    val data: DexClassInfo
+        get() {
+            DexResolutionContext.ensureResolved(this)
+            return DexResolutionContext.metadata.classInfoByName(requireDescriptor())
+                ?: error("DexSQL metadata missing for class " + requireDescriptor())
+        }
+
     private var cachedClass: Class<*>? = null
 
     val clazz: Class<*>
@@ -156,6 +169,13 @@ class DexFieldDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
     BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexFieldDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
+
+    val data: DexFieldInfo
+        get() {
+            DexResolutionContext.ensureResolved(this)
+            return DexResolutionContext.metadata.fieldInfo(requireDescriptor())
+                ?: error("DexSQL metadata missing for field " + requireDescriptor())
+        }
 
     private var cachedField: Field? = null
 
@@ -195,6 +215,13 @@ class DexMethodDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
 
+    val data: DexMethodInfo
+        get() {
+            DexResolutionContext.ensureResolved(this)
+            return DexResolutionContext.metadata.methodInfo(requireDescriptor())
+                ?: error("DexSQL metadata missing for method " + requireDescriptor())
+        }
+
     private var cachedMethod: Method? = null
 
     val method: Method
@@ -211,7 +238,7 @@ class DexMethodDelegate(key: String, private val sqlSpec: DexSqlSpec? = null) :
     )
     fun reflekt(): Nothing = error("You shouldn't call .reflekt() on a Method")
 
-    /** Raw full method descriptor, e.g. for imperative resolveDex() bodies. */
+    /** Raw full method descriptor. */
     fun setDescriptor(desc: String) = setResolvedDescriptor(desc)
 
     @Suppress("NOTHING_TO_INLINE")
@@ -228,6 +255,13 @@ class DexConstructorDelegate(key: String, private val sqlSpec: DexSqlSpec? = nul
     BaseDexDelegate(key), ReadOnlyProperty<BaseFeature, DexConstructorDelegate> {
     override val dexSqlSpec: DexSqlSpec?
         get() = sqlSpec
+
+    val data: DexMethodInfo
+        get() {
+            DexResolutionContext.ensureResolved(this)
+            return DexResolutionContext.metadata.methodInfo(requireDescriptor())
+                ?: error("DexSQL metadata missing for constructor " + requireDescriptor())
+        }
 
     private var cachedConstructor: Constructor<*>? = null
 
@@ -247,7 +281,7 @@ class DexConstructorDelegate(key: String, private val sqlSpec: DexSqlSpec? = nul
 
     fun newInstance(vararg initArgs: Any?): Any = constructor.newInstance(*initArgs)
 
-    /** Raw full constructor descriptor, e.g. for imperative resolveDex() bodies. */
+    /** Raw full constructor descriptor. */
     fun setDescriptor(desc: String) = setResolvedDescriptor(desc)
 
     @Suppress("NOTHING_TO_INLINE")
@@ -264,30 +298,6 @@ class DexConstructorDelegate(key: String, private val sqlSpec: DexSqlSpec? = nul
 // ---------------------------------------------------------------------------
 // 委托工厂函数 — 自动注册到父 Feature
 // ---------------------------------------------------------------------------
-
-fun dexConstructor():
-    PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexConstructorDelegate>> =
-    PropertyDelegateProvider { item, property ->
-        DexConstructorDelegate(property.name).also { item.registerDexDelegate(it) }
-    }
-
-fun dexClass():
-    PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexClassDelegate>> =
-    PropertyDelegateProvider { item, property ->
-        DexClassDelegate(property.name).also { item.registerDexDelegate(it) }
-    }
-
-fun dexField():
-    PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexFieldDelegate>> =
-    PropertyDelegateProvider { item, property ->
-        DexFieldDelegate(property.name).also { item.registerDexDelegate(it) }
-    }
-
-fun dexMethod():
-    PropertyDelegateProvider<BaseFeature, ReadOnlyProperty<BaseFeature, DexMethodDelegate>> =
-    PropertyDelegateProvider { item, property ->
-        DexMethodDelegate(property.name).also { item.registerDexDelegate(it) }
-    }
 
 internal fun dexMethod(
     spec: MethodSpec,
@@ -557,32 +567,4 @@ internal fun dexConstructor(
         DexConstructorDelegate(property.name, sqlSpec = DexSqlSpec({ sql }, allowFailure)).also {
             item.registerDexDelegate(it)
         }
-    }
-
-val DexClassDelegate.data: DexClassInfo
-    get() {
-        DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.metadata.classInfoByName(requireDescriptor())
-            ?: error("DexSQL metadata missing for class " + requireDescriptor())
-    }
-
-val DexMethodDelegate.data: DexMethodInfo
-    get() {
-        DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.metadata.methodInfo(requireDescriptor())
-            ?: error("DexSQL metadata missing for method " + requireDescriptor())
-    }
-
-val DexConstructorDelegate.data: DexMethodInfo
-    get() {
-        DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.metadata.methodInfo(requireDescriptor())
-            ?: error("DexSQL metadata missing for constructor " + requireDescriptor())
-    }
-
-val DexFieldDelegate.data: DexFieldInfo
-    get() {
-        DexResolutionContext.ensureResolved(this)
-        return DexResolutionContext.metadata.fieldInfo(requireDescriptor())
-            ?: error("DexSQL metadata missing for field " + requireDescriptor())
     }

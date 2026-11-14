@@ -2,14 +2,12 @@ package dev.ujhhgtg.wekit.features.items.voip
 
 import dev.ujhhgtg.dexsql.matcher.AnnotationVisibility
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Modifier
 
-object RemoveLimitsDuringCalls : SwitchFeature(), IResolveDex {
+object RemoveLimitsDuringCalls : SwitchFeature() {
     override val technicalId = "移除通话时聊天限制"
     override val nameRes = R.string.feature_remove_limits_during_calls_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT, FeatureCategoryIds.VOIP)

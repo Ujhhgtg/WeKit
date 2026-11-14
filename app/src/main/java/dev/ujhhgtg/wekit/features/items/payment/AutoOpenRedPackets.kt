@@ -14,8 +14,6 @@ import androidx.core.net.toUri
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -43,7 +41,7 @@ import kotlin.concurrent.thread
 import org.json.JSONObject
 
 @SuppressLint("DiscouragedApi")
-object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertListener, IResolveDex {
+object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     override val technicalId = "自动抢红包"
     override val nameRes = R.string.feature_auto_open_red_packets_name

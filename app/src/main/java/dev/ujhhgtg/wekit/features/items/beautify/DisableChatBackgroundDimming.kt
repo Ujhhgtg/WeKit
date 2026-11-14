@@ -5,12 +5,11 @@ import android.view.View
 import android.widget.ImageView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableChatBackgroundDimming : SwitchFeature(), IResolveDex {
+object DisableChatBackgroundDimming : SwitchFeature() {
     override val technicalId = "禁用聊天背景压暗"
     override val nameRes = R.string.feature_disable_chat_background_dimming_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

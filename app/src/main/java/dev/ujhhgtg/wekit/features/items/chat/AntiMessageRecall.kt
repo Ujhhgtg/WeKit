@@ -25,7 +25,6 @@ import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -54,7 +53,6 @@ import java.util.WeakHashMap
 
 object AntiMessageRecall :
     ClickableFeature(),
-    IResolveDex,
     WeXmlParserApi.IAfterParseListener,
     WeChatMessageViewApi.ICreateViewListener {
     override val technicalId = "防撤回"

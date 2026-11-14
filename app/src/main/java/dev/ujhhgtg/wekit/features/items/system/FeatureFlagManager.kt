@@ -48,7 +48,6 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.WeKitDatabase
 import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.withDexSql
@@ -89,7 +88,7 @@ import kotlinx.coroutines.yield
  * API entry: [fd5.d1].[b](String key, Object defaultValue) — central get method. Key format:
  * fullKey = b() + '_' + h() (via [ly4.e.l])
  */
-object FeatureFlagManager : ClickableFeature(), IResolveDex {
+object FeatureFlagManager : ClickableFeature() {
     override val technicalId = "灰度测试管理器"
     override val nameRes = R.string.feature_feature_flag_manager_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.DexClassDelegate
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -44,7 +43,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 
-object SwipeConversationOperations : ClickableFeature(), IResolveDex {
+object SwipeConversationOperations : ClickableFeature() {
     override val technicalId = "左划对话菜单"
     override val nameRes = R.string.feature_swipe_conversation_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

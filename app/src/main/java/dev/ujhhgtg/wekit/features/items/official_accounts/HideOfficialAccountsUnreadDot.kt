@@ -2,12 +2,11 @@ package dev.ujhhgtg.wekit.features.items.official_accounts
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object HideOfficialAccountsUnreadDot : SwitchFeature(), IResolveDex {
+object HideOfficialAccountsUnreadDot : SwitchFeature() {
 
     override val technicalId = "隐藏公众号未读红点"
     override val nameRes = R.string.feature_hide_official_accounts_unread_dot_name

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.dextest
 
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
+import dev.ujhhgtg.wekit.dex.cache.GeneratedMethodHashes
+import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestRegistry
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +20,7 @@ class DexResolutionRegistryTest {
 
         entries.forEach { entry ->
             val type = Class.forName(entry.className, false, javaClass.classLoader)
-            assertTrue(IResolveDex::class.java.isAssignableFrom(type))
+            assertTrue(BaseFeature::class.java.isAssignableFrom(type))
         }
     }
 
@@ -35,5 +36,17 @@ class DexResolutionRegistryTest {
                     Class.forName(className, true, javaClass.classLoader)
                 }
             }
+    }
+
+    @Test
+    fun registryMatchesFeaturesWithSourceHashes() {
+        val features =
+            DexResolutionTestRegistry.ITEMS.map { entry ->
+                val type = Class.forName(entry.className, true, javaClass.classLoader)
+                type.getField("INSTANCE").get(null) as BaseFeature
+            }
+
+        assertTrue(features.all { it.hasDexDelegates })
+        assertEquals(GeneratedMethodHashes.HASHES.keys, features.map { it.technicalId }.toSet())
     }
 }

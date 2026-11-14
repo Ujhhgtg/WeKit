@@ -29,12 +29,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.CloudDexResolver
 import dev.ujhhgtg.wekit.dex.cache.DexCacheManager
 import dev.ujhhgtg.wekit.dex.resolution.LocalDexFailure
 import dev.ujhhgtg.wekit.dex.resolution.LocalDexProgress
 import dev.ujhhgtg.wekit.dex.resolution.LocalDexResolver
+import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.i18n.LocalLocalizedContext
 import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -73,7 +73,7 @@ private const val CLOUD_MIN_ITEMS = 20
 
 @Composable
 fun DexResolver(
-    items: List<IResolveDex>,
+    items: List<BaseFeature>,
     mode: DexResolutionMode,
     scope: CoroutineScope,
     dismiss: () -> Unit,

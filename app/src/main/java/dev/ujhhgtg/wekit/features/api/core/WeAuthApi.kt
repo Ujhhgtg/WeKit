@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.api.core
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -14,7 +13,7 @@ import java.lang.reflect.Proxy
 import java.util.LinkedList
 import java.util.concurrent.atomic.AtomicBoolean
 
-object WeAuthApi : ApiFeature(), IResolveDex {
+object WeAuthApi : ApiFeature() {
     override val technicalId = "授权与登录服务"
     override val nameRes = R.string.feature_we_auth_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

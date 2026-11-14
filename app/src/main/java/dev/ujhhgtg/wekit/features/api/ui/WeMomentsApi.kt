@@ -22,8 +22,6 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexField
@@ -62,7 +60,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
-object WeMomentsApi : ApiFeature(), IResolveDex {
+object WeMomentsApi : ApiFeature() {
     override val technicalId = "朋友圈服务"
     override val nameRes = R.string.feature_we_moments_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

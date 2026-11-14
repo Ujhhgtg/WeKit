@@ -2,15 +2,13 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-object RemoveCustomStickersLimit : SwitchFeature(), IResolveDex {
+object RemoveCustomStickersLimit : SwitchFeature() {
     override val technicalId = "解除单个表情数量上限"
     override val nameRes = R.string.feature_remove_custom_stickers_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

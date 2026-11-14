@@ -1,8 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.contacts
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -21,7 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
+object AutoDndAfterJoinGroup : SwitchFeature() {
     override val technicalId = "加入群聊自动免打扰"
     override val nameRes = R.string.feature_auto_dnd_after_join_group_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
@@ -30,7 +29,6 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
     private const val TAG = "AutoDndAfterJoinGroup"
     private const val MAX_DEDUP_KEYS = 256
 
-    private val methodSyncChatroomMembers by dexMethod()
     private val stateLock = Any()
     private val dedupKeys = LinkedHashMap<String, Unit>(MAX_DEDUP_KEYS, 0.75f, true)
     private var observedSelfWxId: String? = null
@@ -42,7 +40,7 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
         val selfWxId: String,
     )
 
-    override fun resolveDex() {
+    private val methodSyncChatroomMembers by dexMethodFrom {
         val matches =
             DexResolutionContext.findMethods {
                     returnType = "boolean"
@@ -69,7 +67,7 @@ object AutoDndAfterJoinGroup : SwitchFeature(), IResolveDex {
             "expected one ChatroomMembersLogic sync method, found ${matches.size}: " +
                 matches.joinToString { it.descriptor }
         }
-        methodSyncChatroomMembers.setDescriptor(matches.single().descriptor)
+        matches.single()
     }
 
     override fun onEnable() {

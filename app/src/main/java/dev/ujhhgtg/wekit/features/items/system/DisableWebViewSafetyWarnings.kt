@@ -1,13 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.system
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableWebViewSafetyWarnings : SwitchFeature(), IResolveDex {
+object DisableWebViewSafetyWarnings : SwitchFeature() {
     override val technicalId = "禁用 WebView 安全警告"
     override val nameRes = R.string.feature_disable_web_view_safety_warnings_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

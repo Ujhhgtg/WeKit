@@ -23,7 +23,6 @@ import com.composables.icons.materialsymbols.outlined.Upload
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -38,7 +37,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.math.DecimalExpression
 import java.math.RoundingMode
 
-object ModifySportsStepCount : ClickableFeature(), IResolveDex {
+object ModifySportsStepCount : ClickableFeature() {
     private const val KEY_PASSIVE_EXPRESSION = "step_passive_expression"
     private const val VALUE_VARIABLE = "value"
     private const val TAG = "ModifySportsStepCount"

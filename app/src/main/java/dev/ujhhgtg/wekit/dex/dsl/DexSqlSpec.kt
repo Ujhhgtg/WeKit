@@ -81,8 +81,23 @@ private constructor(
 /** Resolve one SQL-backed delegate into the same descriptor state as DexKit. */
 fun BaseDexDelegate.resolveFromDexSql(bridge: DexSqlBridge) {
     val spec = dexSqlSpec ?: return
+    resolveDescriptor { spec.resolve(bridge) }
+}
+
+fun BaseDexDelegate.resolveComputedDescriptor() {
+    val provider = computedDescriptor ?: return
+    resolveDescriptor {
+        provider().also {
+            check(it != null || allowComputedFailure) {
+                "Computed Dex delegate $key returned no descriptor (allowFailure = false)"
+            }
+        }
+    }
+}
+
+private fun BaseDexDelegate.resolveDescriptor(provider: () -> String?) {
     try {
-        val descriptor = spec.resolve(bridge)
+        val descriptor = provider()
         if (descriptor == null) {
             markExpectedFailure()
             return

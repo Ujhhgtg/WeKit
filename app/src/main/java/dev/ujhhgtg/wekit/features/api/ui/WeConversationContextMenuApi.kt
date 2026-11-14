@@ -11,7 +11,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -20,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Proxy
 
-object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
+object WeConversationContextMenuApi : ApiFeature() {
     override val technicalId = "对话菜单增强扩展"
     override val nameRes = R.string.feature_we_conversation_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

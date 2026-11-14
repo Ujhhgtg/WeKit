@@ -1,13 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.TargetProcess
 
-object SkipSplash : SwitchFeature(), IResolveDex {
+object SkipSplash : SwitchFeature() {
     override val technicalId = "跳过启动页面"
     override val nameRes = R.string.feature_skip_splash_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

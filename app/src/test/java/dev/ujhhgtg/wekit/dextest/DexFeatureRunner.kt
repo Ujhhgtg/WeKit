@@ -1,14 +1,12 @@
 package dev.ujhhgtg.wekit.dextest
 
 import dev.ujhhgtg.dexsql.DexSqlBridge
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.GeneratedMethodHashes
 import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionEvent
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionState
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionStatus
-import dev.ujhhgtg.wekit.dex.resolution.resolveAllDex
 import dev.ujhhgtg.wekit.dex.resolution.resolveDexBatch
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.DexResolutionTestEntry
@@ -47,23 +45,11 @@ internal fun runDexFeature(
     started: TimeMark = TimeSource.Monotonic.markNow(),
     dexSql: DexSqlBridge? = null,
 ): DexTestFeatureReport {
-    val resolver =
-        feature as? IResolveDex
-            ?: return DexTestFeatureReport(
-                className = entry.className,
-                displayName = displayName(feature),
-                technicalId = feature.technicalId,
-                methodHash = GeneratedMethodHashes.HASHES[feature.technicalId].orEmpty(),
-                outcome = DexTestFeatureOutcome.INITIALIZATION_FAILURE,
-                elapsedMillis = started.elapsedNow().inWholeMilliseconds,
-                featureError =
-                    DexTestError(message = "${entry.className} does not implement IResolveDex"),
-            )
-
     feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
 
     val error = runCatching {
-        resolver.resolveAllDex(host, dexSql = dexSql)
+        check(feature.hasDexDelegates) { "${entry.className} has no Dex delegates" }
+        feature.resolveAllDex(host, dexSql = dexSql)
     }
         .exceptionOrNull()
     error?.rethrowIfFatal()
@@ -84,7 +70,7 @@ private fun dexFeatureReport(
         val failingKey =
             feature.dexDelegates
                 .firstOrNull { it.state is DexResolutionState.UnexpectedFailure }
-                ?.key ?: "${entry.className}#resolveDex"
+                ?.key ?: "${entry.className}#resolution"
         pending.forEach { it.markBlocked(failingKey) }
     }
 
@@ -126,7 +112,7 @@ internal fun runDexBatchFeatures(
         val started = TimeSource.Monotonic.markNow()
         try {
             val feature = loadFeature(entry, classLoader)
-            check(feature is IResolveDex) { "${entry.className} does not implement IResolveDex" }
+            check(feature.hasDexDelegates) { "${entry.className} has no Dex delegates" }
             entry to feature
         } catch (error: Throwable) {
             error.rethrowIfFatal()
@@ -147,10 +133,10 @@ internal fun runDexBatchFeatures(
     loaded.forEach { (_, feature) ->
         feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
     }
-    val finished = mutableMapOf<IResolveDex, DexResolutionEvent.Finished>()
+    val finished = mutableMapOf<BaseFeature, DexResolutionEvent.Finished>()
     runBlocking {
         resolveDexBatch(
-            loaded.map { it.second as IResolveDex },
+            loaded.map { it.second },
             host,
             workerCount,
             dexSql,
@@ -159,7 +145,7 @@ internal fun runDexBatchFeatures(
         }
     }
     loaded.forEach { (entry, feature) ->
-        val result = finished.getValue(feature as IResolveDex)
+        val result = finished.getValue(feature)
         reports[entry] = dexFeatureReport(feature, entry, result.error, result.elapsedMillis)
     }
     return entries.map(reports::getValue)

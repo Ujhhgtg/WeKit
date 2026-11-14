@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.widget.ImageButton
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeChatInputBarMenuApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -12,7 +11,7 @@ import dev.ujhhgtg.wekit.features.items.chat_input_bar_menu.InputBarMenu
 import dev.ujhhgtg.wekit.ui.utils.findViewByChildIndexes
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 
-object ChatFooterHooks : ApiFeature(), IResolveDex {
+object ChatFooterHooks : ApiFeature() {
     override val technicalId = "聊天输入栏钩子"
     override val nameRes = R.string.feature_chat_footer_hooks_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

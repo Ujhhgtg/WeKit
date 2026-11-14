@@ -270,7 +270,7 @@ androidComponents {
 
 val generateMethodHashes =
     tasks.register<GenerateMethodHashesTask>("generateMethodHashes") {
-        description = "Generate resolveDex() method hashes"
+        description = "Generate Dex delegate source hashes"
         group = "wekit"
         sourceDir.set(file("src/main/java"))
         outputDir.set(layout.buildDirectory.dir("generated/source/methodhashes"))

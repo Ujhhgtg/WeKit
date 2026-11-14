@@ -1,11 +1,9 @@
 package dev.ujhhgtg.wekit.dex.cache
 
 import dev.ujhhgtg.wekit.data.WeKitDatabase
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.unreachable
 
 /** Host-versioned Dex descriptors stored inside the shared Room database. */
 object DexCacheManager {
@@ -31,9 +29,9 @@ object DexCacheManager {
      * A complete cache for the current resolver hash wins; otherwise a failure recorded for the
      * same hash keeps the item out of resolution until the hash or host partition changes.
      */
-    fun stateOf(item: IResolveDex): DexItemState {
+    fun stateOf(item: BaseFeature): DexItemState {
         if (isItemCacheValid(item)) return DexItemState.Valid
-        val failure = readFailure((item as BaseFeature).technicalId)
+        val failure = readFailure(item.technicalId)
         return if (failure != null && failure.methodHash == methodHash(item)) {
             DexItemState.Failed(failure.message)
         } else {
@@ -41,8 +39,7 @@ object DexCacheManager {
         }
     }
 
-    private fun isItemCacheValid(item: IResolveDex): Boolean {
-        if (item !is BaseFeature) unreachable()
+    private fun isItemCacheValid(item: BaseFeature): Boolean {
         val record = read(item.technicalId) ?: return false
         if (record.methodHash != methodHash(item)) return false
         val missing = item.dexDelegates.filter { it.key !in record.descriptors }
@@ -53,8 +50,7 @@ object DexCacheManager {
         return true
     }
 
-    fun saveItemCache(item: IResolveDex) {
-        if (item !is BaseFeature) error("item is not BaseFeature")
+    fun saveItemCache(item: BaseFeature) {
         val descriptors = item.collectDescriptors()
         val db = database()
         db.beginTransaction()
@@ -89,8 +85,7 @@ object DexCacheManager {
     }
 
     /** Replaces any stale cache of [item] with a failure record for its current resolver hash. */
-    fun saveItemFailure(item: IResolveDex, error: Throwable) {
-        if (item !is BaseFeature) error("item is not BaseFeature")
+    fun saveItemFailure(item: BaseFeature, error: Throwable) {
         val message = error.message ?: error.javaClass.name
         val db = database()
         db.beginTransaction()
@@ -120,8 +115,7 @@ object DexCacheManager {
     }
 
     /** Cached descriptors by delegate key; a `null` value is a cached expected failure. */
-    fun loadItemCache(item: IResolveDex): Map<String, String?>? {
-        if (item !is BaseFeature) error("item is not BaseFeature")
+    fun loadItemCache(item: BaseFeature): Map<String, String?>? {
         return read(item.technicalId)?.descriptors
     }
 
@@ -169,7 +163,7 @@ object DexCacheManager {
         WeLogger.i(TAG, "cleared Room Dex cache for $hostVersion")
     }
 
-    fun getOutdatedItems(items: List<IResolveDex>): List<IResolveDex> = items.filter {
+    fun getOutdatedItems(items: List<BaseFeature>): List<BaseFeature> = items.filter {
         !isItemCacheValid(it)
     }
 
@@ -208,8 +202,8 @@ object DexCacheManager {
         }
     }
 
-    fun methodHash(item: IResolveDex): String {
-        val hash = GeneratedMethodHashes.HASHES[(item as BaseFeature).technicalId]
+    fun methodHash(item: BaseFeature): String {
+        val hash = GeneratedMethodHashes.HASHES[item.technicalId]
         if (hash.isNullOrBlank()) {
             error("failed to retrieve method hash for item ${item.technicalId}")
         }

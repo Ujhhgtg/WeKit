@@ -1,12 +1,12 @@
 import java.io.File
 
 internal enum class ResolveBlockKind {
-    CUSTOM,
     INLINE_SQL,
     INLINE_QUERY_CLASS,
     INLINE_QUERY_FIELD,
     INLINE_QUERY_METHOD,
     INLINE_QUERY_CONSTRUCTOR,
+    GROUP,
 }
 
 internal data class ResolveSourceBlock(
@@ -47,7 +47,7 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
     val packageName = clean.findCode(Regex("""package\s+([\w.]+)"""))?.groupValues?.get(1)
     val classRegex = Regex("""\b(?:class|object)\s+(\w+)\b""")
     val declarations = clean.findAllCode(classRegex)
-    val resolveDexDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
+    val resolverDeclaration = declarations.withIndex().firstNotNullOfOrNull { (index, match) ->
         val braceIndex = clean.indexOfCode('{', match.range.first)
         val closingBraceIndex = clean.indexOfCode('}', match.range.first)
         val nextDeclarationIndex = declarations.getOrNull(index + 1)?.range?.first ?: clean.length
@@ -60,12 +60,21 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         }
 
         val signature = clean.substring(match.range.first, braceIndex)
-        if (signature.contains(":") && Regex("""\bIResolveDex\b""").containsMatchIn(signature)) match else null
+        if (!signature.contains(":") || !FEATURE_BASE.containsMatchIn(signature)) {
+            return@firstNotNullOfOrNull null
+        }
+        val bodyEnd = clean.findBlockEnd(braceIndex)
+        val depth = clean.braceDepthAt(braceIndex + 1)
+        val hasDelegates = clean.findAllCode(DELEGATE_DECLARATION).any {
+            it.range.first > braceIndex && it.range.first < bodyEnd &&
+                clean.braceDepthAt(it.range.first) == depth
+        }
+        match.takeIf { hasDelegates }
     } ?: return null
 
-    val className = resolveDexDeclaration.groupValues[1]
+    val className = resolverDeclaration.groupValues[1]
     val fullClassName = if (packageName != null) "$packageName.$className" else className
-    val classBodyStart = clean.indexOfCode('{', resolveDexDeclaration.range.last)
+    val classBodyStart = clean.indexOfCode('{', resolverDeclaration.range.last)
     val classBodyEnd = if (classBodyStart == -1) -1 else clean.findBlockEnd(classBodyStart)
     val classBodyDepth = if (classBodyStart == -1) -1 else clean.braceDepthAt(classBodyStart + 1)
     fun isDirectMember(match: MatchResult): Boolean =
@@ -81,21 +90,19 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         sourceLinesByBlock[block] = IntArray(end - start + 1) { clean.sourceLineAt(start + it) }
     }
 
-    val resolveDexMatch = clean.findAllCode(Regex("""override\s+fun\s+resolveDex\s*\(""")).firstOrNull(::isDirectMember)
-    if (resolveDexMatch != null) {
-        val start = clean.indexOfCode('{', resolveDexMatch.range.last)
-        val end = if (start == -1) -1 else clean.findBlockEnd(start)
-        if (end != -1) {
-            addBlock(ResolveBlockKind.CUSTOM, start, end)
-        }
-    }
-
     val technicalId = clean.findAllCode(TECHNICAL_ID)
         .firstOrNull(::isDirectMember)
         ?.groupValues?.get(1)
         ?.unescapeKotlinLiteral()
 
     val separatorRegex = Regex("""\b(val|fun|private|public|internal|class|object|override)\b""")
+    clean.findAllCode(GROUP_DECLARATION).filter(::isDirectMember).forEach { match ->
+        val open = clean.indexOfCode('(', match.range.last)
+        val end = if (open == -1) -1 else clean.findParenthesisEnd(open)
+        if (end != -1 && end < classBodyEnd) {
+            addBlock(ResolveBlockKind.GROUP, match.range.first, end)
+        }
+    }
     clean.findAllCode(SQL_INLINE_DELEGATE).filter(::isDirectMember).forEach { match ->
         val openParenthesis = clean.indexOfCode('(', match.range.last)
         val end = if (openParenthesis == -1) -1 else clean.findParenthesisEnd(openParenthesis)
@@ -135,13 +142,16 @@ private fun scanDexResolverSource(sourceText: String, file: File): DexResolverSo
         if (index < clean.length && clean.text[index] == '{') {
             val end = clean.findBlockEnd(index)
             if (end != -1 && end < classBodyEnd) {
-                addBlock(match.groupValues[1].toQueryResolveBlockKind(), index, end)
+                val start = if (match.groups["receiver"] != null || match.groups["computed"] != null) {
+                    match.range.first
+                } else {
+                    index
+                }
+                addBlock(match.groups["kind"]!!.value.toQueryResolveBlockKind(), start, end)
             }
         }
     }
-    if (blocks.isEmpty()) {
-        error("Class $fullClassName implements IResolveDex but has neither a resolveDex() body nor any SQL/query dex delegate.")
-    }
+    check(blocks.isNotEmpty()) { "Class $fullClassName has no supported Dex delegate declarations." }
 
     return DexResolverSource(file, fullClassName, technicalId, blocks.sortedBy { it.startLine }, sourceLinesByBlock)
 }
@@ -174,7 +184,12 @@ private val SQL_INLINE_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constru
 private val SQL_DSL_CALL =
     Regex("""(?:sql|methodSpec|classSpec|fieldSpec)(?:Method|Class|Field|Constructor)?\b""")
 private val INLINE_QUERY_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)Query\b""")
-private val UNIFIED_DELEGATE = Regex("""\bby\s+dex(Class|Field|Method|Constructor)\b""")
+private val UNIFIED_DELEGATE =
+    Regex("""\bby\s+(?<receiver>[\w.]+\s*\.\s*)?dex(?<kind>Class|Field|Method|Constructor)(?<computed>From)?\b""")
+private val GROUP_DECLARATION = Regex("""\bval\s+\w+(?:\s*:\s*[\w.]+)?\s*=\s*dexGroup\s*(?=\()""")
+private val FEATURE_BASE = Regex("""\b(?:Base|Api|Switch|Clickable)Feature\s*\(""")
+private val DELEGATE_DECLARATION =
+    Regex("""\bby\s+(?:[\w.]+\s*\.\s*)?dex(?:Class|Field|Method|Constructor)(?:From|Query)?\b""")
 private val LIVE_HOST_ACCESS = Regex("""\b(?:class|method|field|ctor)[A-Za-z0-9_]*\.(clazz|method|field|constructor)\b""")
 private val HOST_VERSION_ACCESS = Regex("""\bHostInfo\.(versionCode|versionName|isHostGooglePlay)\b""")
 private val TECHNICAL_ID = Regex("""\btechnicalId\s*=\s*"((?:[^"\\\n]|\\.)*)"""")

@@ -4,8 +4,6 @@ import android.content.Context
 import android.text.Html
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.FavInfoProto
@@ -27,7 +25,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 
 /** Reads favorite (收藏) items and sends them to chats through WeChat's own FavSendLogic. */
-object WeFavoriteApi : ApiFeature(), IResolveDex {
+object WeFavoriteApi : ApiFeature() {
     override val technicalId = "收藏服务"
     override val nameRes = R.string.feature_we_favorite_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

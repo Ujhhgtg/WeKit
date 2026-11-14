@@ -39,7 +39,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -61,7 +60,7 @@ import dev.ujhhgtg.wekit.utils.android.constructor
 import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 
-object FloatingChatFooter : ClickableFeature(), IResolveDex {
+object FloatingChatFooter : ClickableFeature() {
     override val technicalId = "悬浮输入框"
     override val nameRes = R.string.feature_floating_chat_footer_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.api.net
 
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
@@ -17,7 +16,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
-object WeTransferApi : ApiFeature(), IResolveDex {
+object WeTransferApi : ApiFeature() {
     override val technicalId = "转账服务"
     override val nameRes = R.string.feature_we_transfer_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

@@ -58,7 +58,6 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -82,7 +81,7 @@ import java.util.WeakHashMap
 import kotlin.math.roundToInt
 
 @Suppress("DEPRECATION")
-object FloatingChatHeader : ClickableFeature(), IResolveDex {
+object FloatingChatHeader : ClickableFeature() {
 
     override val technicalId = "悬浮标题栏"
     override val nameRes = R.string.feature_floating_chat_header_name

@@ -8,12 +8,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
@@ -25,7 +23,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.postOnUiThread
 import java.util.IdentityHashMap
 
-object BeautifyHome : SwitchFeature(), IResolveDex {
+object BeautifyHome : SwitchFeature() {
     override val technicalId = "美化首页"
     override val nameRes = R.string.feature_beautify_home_name
     override val descriptionRes = R.string.feature_beautify_home_description
@@ -75,7 +73,6 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
             usingEqStrings("resetActionBarView")
         }
     }
-    val fieldListSpacer by dexField()
     val fieldMainStatusMask by dexField {
         declaredClass = "com.tencent.mm.ui.conversation.MainUI"
         type = "android.view.View"
@@ -88,8 +85,6 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
         dexClass(allowFailure = true) {
             className = "com.tencent.mm.ui.conversation.recycler.ConversationRecyclerView"
         }
-    val fieldRecyclerActionBar by dexField()
-    val fieldRecyclerSpacer by dexField()
 
     private val fieldPlusItem by
         dexField(allowFailure = true) {
@@ -99,78 +94,67 @@ object BeautifyHome : SwitchFeature(), IResolveDex {
                 usingEqStrings("bindPlusItemActionView plusActionView")
             }
         }
-    val fieldSearchItem by dexField()
-    val methodShowPlusMenu by dexMethod()
-
-    override fun resolveDex() {
-        fieldListSpacer.setDescriptor(
-            DexResolutionContext.findFields {
-                    declaredClass {
-                        className = "com.tencent.mm.ui.conversation.ConversationListView"
-                    }
-                    type = "android.view.View"
-                    writeMethod {
-                        usingEqString("initActionBarView check multiWindowMode %b")
-                    }
+    val fieldListSpacer by dexFieldFrom {
+        DexResolutionContext.findFields {
+                declaredClass {
+                    className = "com.tencent.mm.ui.conversation.ConversationListView"
                 }
-                .single { it.descriptor != fieldListActionBar.data.descriptor },
-        )
-
-        if (classRecyclerView.isFound) {
-            fieldRecyclerActionBar.find {
+                type = "android.view.View"
+                writeMethod {
+                    usingEqString("initActionBarView check multiWindowMode %b")
+                }
+            }
+            .single { it.descriptor != fieldListActionBar.data.descriptor }
+    }
+    val fieldRecyclerActionBar by classRecyclerView.dexField {
+        declaredClass = classRecyclerView.data.name
+        type = "android.view.View"
+        readMethod {
+            usingEqString("resetActionBarView\$app_release")
+        }
+    }
+    val fieldRecyclerSpacer by classRecyclerView.dexFieldFrom {
+        DexResolutionContext.findFields {
                 declaredClass = classRecyclerView.data.name
                 type = "android.view.View"
-                readMethod {
-                    usingEqString("resetActionBarView\$app_release")
+                writeMethod {
+                    usingEqString(
+                        "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
+                    )
                 }
             }
-            fieldRecyclerSpacer.setDescriptor(
-                DexResolutionContext.findFields {
-                        declaredClass = classRecyclerView.data.name
-                        type = "android.view.View"
-                        writeMethod {
-                            usingEqString(
-                                "[setupActionBarView] statusBarHeight changed: %d -> %d (abvTop=%d isMW=%b)",
-                            )
-                        }
-                    }
-                    .single { it.descriptor != fieldRecyclerActionBar.data.descriptor },
-            )
-        } else {
-            fieldRecyclerActionBar.markExpectedFailure()
-            fieldRecyclerSpacer.markExpectedFailure()
-        }
-
+            .single { it.descriptor != fieldRecyclerActionBar.data.descriptor }
+    }
+    val fieldSearchItem by dexFieldFrom {
+        DexResolutionContext.ensureResolved(fieldPlusItem)
         // The plus binding method is absent in the newer search-entrance layout.
         if (fieldPlusItem.isFound) {
-            fieldSearchItem.setDescriptor(
-                DexResolutionContext.findFields {
-                        declaredClass = "com.tencent.mm.ui.HomeUI"
-                        type = "android.view.MenuItem"
-                    }
-                    .single { it.descriptor != fieldPlusItem.data.descriptor },
-            )
-        } else {
-            fieldSearchItem.find {
-                declaredClass = "com.tencent.mm.ui.HomeUI"
-                type = "android.view.MenuItem"
-                readMethod {
-                    usingEqString("restoreSearchActionViewAlpha")
+            DexResolutionContext.findFields {
+                    declaredClass = "com.tencent.mm.ui.HomeUI"
+                    type = "android.view.MenuItem"
                 }
-            }
+                .single { it.descriptor != fieldPlusItem.data.descriptor }
+        } else {
+            DexResolutionContext.findFields {
+                    declaredClass = "com.tencent.mm.ui.HomeUI"
+                    type = "android.view.MenuItem"
+                    readMethod {
+                        usingEqString("restoreSearchActionViewAlpha")
+                    }
+                }
+                .single()
         }
-
+    }
+    val methodShowPlusMenu by dexMethod {
         val buildMenu = WeHomeScreenPopupMenuApi.methodAddItem.data
         val plusMenuClass = WeHomeScreenPopupMenuApi.methodHandleItemClick.data.declaredClass!!
-        methodShowPlusMenu.find {
-            declaredClass = plusMenuClass.superClass!!.name
-            returnType = "boolean"
-            callerMethod { descriptor = buildMenu.descriptor }
-            if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
-                paramTypes("int")
-            } else {
-                paramCount = 0
-            }
+        declaredClass = plusMenuClass.superClass!!.name
+        returnType = "boolean"
+        callerMethod { descriptor = buildMenu.descriptor }
+        if (buildMenu.declaredClassName == "com.tencent.mm.ui.HomeUI") {
+            paramTypes("int")
+        } else {
+            paramCount = 0
         }
     }
 

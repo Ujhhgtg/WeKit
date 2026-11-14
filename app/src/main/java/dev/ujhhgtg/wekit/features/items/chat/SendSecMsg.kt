@@ -15,7 +15,6 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -50,7 +49,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  * - sec_msg_node 合并方法: MsgSourceHelper 中唯一的 "(?s)<sec_msg_node[^>]*>.*?</sec_msg_node>" 正则字面量
  *   (8.0.72 为 az0.ia.O, 8.0.65 为 zt0.t9.N), 签名均为 static (msgInfo, String, boolean) -> void。
  */
-object SendSecMsg : ClickableFeature(), IResolveDex {
+object SendSecMsg : ClickableFeature() {
     override val technicalId = "安全消息发送"
     override val nameRes = R.string.feature_send_sec_msg_name
     override val categoryIds =

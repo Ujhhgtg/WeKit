@@ -38,7 +38,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -63,7 +62,7 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-object EmojiGameControl : ClickableFeature(), IResolveDex {
+object EmojiGameControl : ClickableFeature() {
     override val technicalId = "表情游戏控制"
     override val nameRes = R.string.feature_emoji_game_control_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

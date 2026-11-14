@@ -7,10 +7,10 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -44,7 +44,7 @@ data class TextStatusEmoji(
     val attachedText: String?,
 )
 
-object WeTextStatusApi : ApiFeature(), IResolveDex {
+object WeTextStatusApi : ApiFeature() {
     override val technicalId = "微信状态服务"
     override val nameRes = R.string.feature_we_text_status_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -52,7 +52,9 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
 
     private const val TAG = "WeTextStatusApi"
 
-    private val classTextStatusService by dexClass()
+    private val classTextStatusService by dexClassFrom {
+        methodTextStatusStorageAccessor.data.declaredClass!!
+    }
     private val classTextStatusRecord by dexClass {
         field {
             name = "field_UserName"
@@ -73,7 +75,6 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
             name = "field_EmojiInfo"
         }
     }
-    private val methodTextStatusStorageAccessor by dexMethod()
     private val methodLatestStatusByUsername by dexMethod {
         paramTypes("java.lang.String")
         usingEqStrings(
@@ -91,9 +92,6 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
             "Super calls with default arguments not supported in this target, function: setIcon",
         )
     }
-    private val methodTextStatusIconHelperAccessor by dexMethod()
-    private val methodTextStatusDescription by dexMethod()
-    private val methodCurrentStatusActions by dexMethod()
 
     private val serviceInstance by lazy {
         val serviceClass = classTextStatusService.clazz
@@ -110,7 +108,7 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
         methodTextStatusIconHelperAccessor.method.invoke(null)!!
     }
 
-    override fun resolveDex() {
+    private val methodTextStatusStorageAccessor by dexMethodFrom {
         val latestStatusMethod = methodLatestStatusByUsername.data
         val storageInterface =
             latestStatusMethod.declaredClass!!.interfaces.single { candidate ->
@@ -120,52 +118,46 @@ object WeTextStatusApi : ApiFeature(), IResolveDex {
                         method.returnTypeName == latestStatusMethod.returnTypeName
                 }
             }
-        val storageAccessor =
-            DexResolutionContext.findMethods {
-                    paramTypes = emptyList<Any?>()
-                    returnType = storageInterface.name
+        DexResolutionContext.findMethods {
+                paramTypes = emptyList<Any?>()
+                returnType = storageInterface.name
+            }
+            .single { candidate ->
+                candidate.declaredClass!!.fields.any { field ->
+                    field.typeName == candidate.declaredClassName &&
+                        Modifier.isStatic(field.modifiers)
                 }
-                .single { candidate ->
-                    candidate.declaredClass!!.fields.any { field ->
-                        field.typeName == candidate.declaredClassName &&
-                            Modifier.isStatic(field.modifiers)
-                    }
-                }
-
-        val topicInfoMethod = methodTextStatusTopicInfo.data
+            }
+    }
+    private val methodTextStatusIconHelperAccessor by dexMethodFrom {
         val setIconMethod = methodSetTextStatusIcon.data
         val iconHelperType = setIconMethod.paramTypeNames.first()
-        val iconHelperAccessor =
-            DexResolutionContext.findMethods {
-                    paramTypes = emptyList<Any?>()
-                    returnType = iconHelperType
-                    modifiers = Modifier.STATIC
-                }
-                .single()
-        val statusDescriptionMethod =
-            DexResolutionContext.findMethods {
-                    declaredClass = iconHelperType
-                    paramTypes(topicInfoMethod.returnTypeName)
-                    returnType = String::class.java.name
-                }
-                .single()
-        val statusType = latestStatusMethod.returnTypeName
-        val currentStatusActionsMethod =
-            DexResolutionContext.findMethods {
-                    paramTypes(Context::class.java.name, statusType)
-                    returnType = Void.TYPE.name
-                    usingEqString("MicroMsg.MMSubMenuHelper")
-                    usingEqString("show, menu empty")
-                }
-                .single { candidate ->
-                    candidate.usesFieldThroughDirectInvoke("field_UserName")
-                }
-
-        classTextStatusService.setDescriptor(storageAccessor.declaredClass!!)
-        methodTextStatusStorageAccessor.setDescriptor(storageAccessor)
-        methodTextStatusIconHelperAccessor.setDescriptor(iconHelperAccessor)
-        methodTextStatusDescription.setDescriptor(statusDescriptionMethod)
-        methodCurrentStatusActions.setDescriptor(currentStatusActionsMethod)
+        DexResolutionContext.findMethods {
+                paramTypes = emptyList<Any?>()
+                returnType = iconHelperType
+                modifiers = Modifier.STATIC
+            }
+            .single()
+    }
+    private val methodTextStatusDescription by dexMethodFrom {
+        DexResolutionContext.findMethods {
+                declaredClass = methodSetTextStatusIcon.data.paramTypeNames.first()
+                paramTypes(methodTextStatusTopicInfo.data.returnTypeName)
+                returnType = String::class.java.name
+            }
+            .single()
+    }
+    private val methodCurrentStatusActions by dexMethodFrom {
+        val statusType = methodLatestStatusByUsername.data.returnTypeName
+        DexResolutionContext.findMethods {
+                paramTypes(Context::class.java.name, statusType)
+                returnType = Void.TYPE.name
+                usingEqString("MicroMsg.MMSubMenuHelper")
+                usingEqString("show, menu empty")
+            }
+            .single { candidate ->
+                candidate.usesFieldThroughDirectInvoke("field_UserName")
+            }
     }
 
     fun read(wxId: String): TextStatusResult = runCatching {

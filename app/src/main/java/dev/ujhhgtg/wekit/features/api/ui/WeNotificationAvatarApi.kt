@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -16,7 +15,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 
 /** Conversation avatars for notifications, through WeChat's own notification avatar loader. */
-object WeNotificationAvatarApi : ApiFeature(), IResolveDex {
+object WeNotificationAvatarApi : ApiFeature() {
     override val technicalId = "通知头像服务"
     override val nameRes = R.string.feature_we_notification_avatar_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

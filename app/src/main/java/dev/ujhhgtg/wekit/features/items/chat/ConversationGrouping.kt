@@ -125,12 +125,12 @@ import dev.ujhhgtg.wekit.data.structured.ALL_CONVERSATIONS_GROUP_ID
 import dev.ujhhgtg.wekit.data.structured.BuiltInGroupLabel
 import dev.ujhhgtg.wekit.data.structured.ConversationGroup as ChatGroup
 import dev.ujhhgtg.wekit.data.structured.ConversationGroupType as GroupType
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
+import dev.ujhhgtg.wekit.dex.dsl.dexGroup
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -184,7 +184,7 @@ import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 
-object ConversationGrouping : ClickableFeature(), IResolveDex {
+object ConversationGrouping : ClickableFeature() {
     override val technicalId = "对话分组"
     override val nameRes = R.string.feature_conversation_grouping_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -1414,71 +1414,32 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
 
     private const val TAG = "ConversationGrouping"
 
-    private val classRecyclerDataSource by dexClass()
-
-    private val methodRecyclerQueryPage by dexMethod()
-
-    private val fieldRecyclerPageItems by dexField()
-
-    private val classRecyclerRow by dexClass()
-
-    private val fieldRecyclerRowConversation by dexField()
-
-    private val methodRecyclerSubmitUiChange by dexMethod()
-
-    private val fieldRecyclerPendingItems by dexField()
-
-    private val methodRecyclerEmitToUi by dexMethod()
-
-    private val fieldRecyclerActorItems by dexField()
-
-    private val fieldRecyclerMvvmList by dexField()
-
-    private val methodRecyclerRefreshAll by dexMethod()
-
-    private val fieldRecyclerLoading by dexField()
+    private val recycler =
+        dexGroup(
+            whenFound = { WeConversationListViewApi.classConversationRecyclerAdapter },
+        )
 
     private val methodOnTabCreate by dexMethod {
         declaredClass = "com.tencent.mm.ui.conversation.MainUI"
         usingEqStrings("MicroMsg.MainUI", "onTabCreate, %d")
     }
 
-    override fun resolveDex() {
-        DexResolutionContext.ensureResolved(
-            WeConversationListViewApi.classConversationRecyclerAdapter,
-        )
-        if (!WeConversationListViewApi.classConversationRecyclerAdapter.isFound) {
-            classRecyclerDataSource.markExpectedFailure()
-            methodRecyclerQueryPage.markExpectedFailure()
-            fieldRecyclerPageItems.markExpectedFailure()
-            classRecyclerRow.markExpectedFailure()
-            fieldRecyclerRowConversation.markExpectedFailure()
-            methodRecyclerSubmitUiChange.markExpectedFailure()
-            fieldRecyclerPendingItems.markExpectedFailure()
-            methodRecyclerEmitToUi.markExpectedFailure()
-            fieldRecyclerActorItems.markExpectedFailure()
-            fieldRecyclerMvvmList.markExpectedFailure()
-            methodRecyclerRefreshAll.markExpectedFailure()
-            fieldRecyclerLoading.markExpectedFailure()
-            return
+    private val classRecyclerDataSource by recycler.dexClass {
+        usingEqString("MicroMsg.ConversationAdapter.ConvRecyclerDataSource")
+        usingEqString("syncFoldExpandStatus: isShowPlaceTop=")
+    }
+    private val methodRecyclerQueryPage by recycler.dexMethod {
+        paramCount = 1
+        usingEqString("getConvList: may getContact error, size mismatch")
+        usingEqString("getConvList ")
+    }
+    private val fieldRecyclerPageItems by recycler.dexField {
+        declaredClass {
+            className = methodRecyclerQueryPage.data.returnTypeName
         }
-
-        classRecyclerDataSource.find {
-            usingEqString("MicroMsg.ConversationAdapter.ConvRecyclerDataSource")
-            usingEqString("syncFoldExpandStatus: isShowPlaceTop=")
-        }
-        methodRecyclerQueryPage.find {
-            paramCount = 1
-            usingEqString("getConvList: may getContact error, size mismatch")
-            usingEqString("getConvList ")
-        }
-        fieldRecyclerPageItems.find {
-            declaredClass {
-                className = methodRecyclerQueryPage.data.returnTypeName
-            }
-            type = "java.util.ArrayList"
-        }
-
+        type = "java.util.ArrayList"
+    }
+    private val classRecyclerRow by recycler.dexClassFrom {
         val conversationClassName =
             WeConversationListViewApi.methodAdapterGetItem.data.returnTypeName
         val rowBuilders =
@@ -1501,51 +1462,52 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             DexResolutionContext.metadata.classInfoByName(
                 rowBuilders.single().returnTypeName,
             )!!
-        classRecyclerRow.setDescriptor(recyclerRow)
-        fieldRecyclerRowConversation.setDescriptor(
-            recyclerRow.fields.single {
-                it.typeName == conversationClassName
-            },
-        )
-
+        recyclerRow
+    }
+    private val fieldRecyclerRowConversation by recycler.dexFieldFrom {
+        classRecyclerRow.data.fields.single {
+            it.typeName == WeConversationListViewApi.methodAdapterGetItem.data.returnTypeName
+        }
+    }
+    private val fieldRecyclerMvvmList by recycler.dexFieldFrom {
         val recyclerAdapterBase =
             WeConversationListViewApi.classConversationRecyclerAdapter.data.superClass!!
         require(recyclerAdapterBase.fields.size == 1) {
             "expected one Recycler adapter base field, found: " +
                 recyclerAdapterBase.fields.joinToString { it.descriptor }
         }
-        val recyclerMvvmListField = recyclerAdapterBase.fields.single()
-        fieldRecyclerMvvmList.setDescriptor(recyclerMvvmListField)
-
-        methodRecyclerSubmitUiChange.find {
-            declaredClass = recyclerMvvmListField.typeName
-            paramCount = 1
-            returnType = "void"
-            usingEqString("submitUIChange callback:")
-            usingEqString(" currentDataListVersion:")
+        recyclerAdapterBase.fields.single()
+    }
+    private val methodRecyclerSubmitUiChange by recycler.dexMethod {
+        declaredClass = fieldRecyclerMvvmList.data.typeName
+        paramCount = 1
+        returnType = "void"
+        usingEqString("submitUIChange callback:")
+        usingEqString(" currentDataListVersion:")
+    }
+    private val fieldRecyclerPendingItems by recycler.dexField {
+        declaredClass {
+            className = methodRecyclerSubmitUiChange.data.paramTypeNames.single()
         }
-        fieldRecyclerPendingItems.find {
-            declaredClass {
-                className = methodRecyclerSubmitUiChange.data.paramTypeNames.single()
-            }
-            type = "java.util.List"
-            readMethod {
-                declaredClass {
-                    className = methodRecyclerSubmitUiChange.data.declaredClassName
-                }
-                paramTypes(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
-                usingEqString("submitUIChange callback:")
-                usingEqString(" currentDataListVersion:")
-            }
-        }
-        methodRecyclerEmitToUi.find {
+        type = "java.util.List"
+        readMethod {
             declaredClass {
                 className = methodRecyclerSubmitUiChange.data.declaredClassName
             }
-            paramCount = 2
-            returnType = "void"
-            usingString("emitToUI: frozen, skip all (type=")
+            paramTypes(methodRecyclerSubmitUiChange.data.paramTypeNames.single())
+            usingEqString("submitUIChange callback:")
+            usingEqString(" currentDataListVersion:")
         }
+    }
+    private val methodRecyclerEmitToUi by recycler.dexMethod {
+        declaredClass {
+            className = methodRecyclerSubmitUiChange.data.declaredClassName
+        }
+        paramCount = 2
+        returnType = "void"
+        usingString("emitToUI: frozen, skip all (type=")
+    }
+    private val fieldRecyclerActorItems by recycler.dexFieldFrom {
         // emitToUI reads two ArrayLists: the actor snapshot it diffs from, and the UI list that
         // submitUIChange replaces. The snapshot is the one submitUIChange never touches.
         val uiListFields =
@@ -1566,34 +1528,34 @@ object ConversationGrouping : ClickableFeature(), IResolveDex {
             "expected one conversation actor snapshot field, found: " +
                 actorItems.joinToString { it.descriptor }
         }
-        fieldRecyclerActorItems.setDescriptor(actorItems.single())
-        methodRecyclerRefreshAll.find {
-            declaredClass {
-                className = methodRecyclerSubmitUiChange.data.declaredClassName
-            }
-            modifiers = ReflectModifier.STATIC
-            paramTypes(
-                methodRecyclerSubmitUiChange.data.declaredClassName,
-                null,
-                "int",
-                "java.lang.Object",
-            )
-            returnType = "void"
-            usingEqString("submitRefreshAll")
+        actorItems.single()
+    }
+    private val methodRecyclerRefreshAll by recycler.dexMethod {
+        declaredClass {
+            className = methodRecyclerSubmitUiChange.data.declaredClassName
         }
-        fieldRecyclerLoading.find {
-            declaredClass {
-                className = methodRecyclerSubmitUiChange.data.declaredClassName
-            }
-            type = "boolean"
-            readMethod {
-                usingString("already loading, ignore StartLoad type=")
-            }
-            writeMethod {
-                name = "onStateChanged"
-                paramCount = 2
-                returnType = "void"
-            }
+        modifiers = ReflectModifier.STATIC
+        paramTypes(
+            methodRecyclerSubmitUiChange.data.declaredClassName,
+            null,
+            "int",
+            "java.lang.Object",
+        )
+        returnType = "void"
+        usingEqString("submitRefreshAll")
+    }
+    private val fieldRecyclerLoading by recycler.dexField {
+        declaredClass {
+            className = methodRecyclerSubmitUiChange.data.declaredClassName
+        }
+        type = "boolean"
+        readMethod {
+            usingString("already loading, ignore StartLoad type=")
+        }
+        writeMethod {
+            name = "onStateChanged"
+            paramCount = 2
+            returnType = "void"
         }
     }
 

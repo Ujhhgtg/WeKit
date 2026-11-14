@@ -14,7 +14,6 @@ import android.view.animation.PathInterpolator
 import androidx.core.graphics.drawable.toDrawable
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -35,7 +34,7 @@ import java.util.WeakHashMap
  *     - 其余行: 从旧位置平移归位, 普通为 250ms + Telegram `DEFAULT_INTERPOLATOR`, 灭霸时为 475ms + `EASE_OUT`
  *       (`ChatListItemAnimator.animateMoveImpl`)。
  */
-object MessageDeletionAnimation : SwitchFeature(), IResolveDex {
+object MessageDeletionAnimation : SwitchFeature() {
     override val technicalId = "消息删除动画"
     override val nameRes = R.string.feature_message_deletion_animation_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

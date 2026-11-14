@@ -36,7 +36,6 @@ import androidx.core.graphics.toColorInt
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
@@ -55,8 +54,7 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlin.math.roundToInt
 
-object DisplayGroupMemberRoles :
-    ClickableFeature(), IResolveDex, WeChatMessageViewApi.ICreateViewListener {
+object DisplayGroupMemberRoles : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
     override val technicalId = "显示群成员身份"
     override val nameRes = R.string.feature_display_group_member_roles_name

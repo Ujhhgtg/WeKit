@@ -29,7 +29,6 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -53,7 +52,7 @@ import java.util.ArrayDeque
 import java.util.Locale
 import java.util.WeakHashMap
 
-object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
+object ModifyWalletBalanceDisplay : ClickableFeature() {
 
     override val technicalId = "修改显示余额"
     override val nameRes = R.string.feature_modify_wallet_balance_display_name

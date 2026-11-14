@@ -9,14 +9,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.ui.utils.findViewsWhich
 import java.util.concurrent.CopyOnWriteArrayList
 
-object WeContactHeaderApi : ApiFeature(), IResolveDex {
+object WeContactHeaderApi : ApiFeature() {
     override val technicalId = "联系人详情头部扩展"
     override val nameRes = R.string.feature_we_contact_header_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

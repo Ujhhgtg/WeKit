@@ -4,7 +4,6 @@ import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -12,7 +11,7 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import java.util.LinkedList
 import org.json.JSONObject
 
-object WeShortVideosShareMenuApi : ApiFeature(), IResolveDex {
+object WeShortVideosShareMenuApi : ApiFeature() {
     override val technicalId = "视频号分享菜单扩展"
     override val nameRes = R.string.feature_we_short_videos_share_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

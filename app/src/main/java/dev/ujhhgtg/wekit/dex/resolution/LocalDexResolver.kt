@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.dex.resolution
 
 import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.dexsql.android.open
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -41,15 +40,15 @@ object LocalDexResolver {
      * error before rethrowing, so the next startup does not ask for the same resolution again.
      */
     suspend fun resolve(
-        items: List<IResolveDex>,
+        items: List<BaseFeature>,
         onProgress: suspend (LocalDexProgress) -> Unit,
     ): LocalDexResolutionResult = resolutionMutex.withLock {
         withContext(Dispatchers.IO) {
             val roots = items.distinct()
-            val finished = mutableSetOf<IResolveDex>()
+            val finished = mutableSetOf<BaseFeature>()
             val (result, elapsed) =
                 measureTimedValue {
-                    val failures = mutableMapOf<IResolveDex, LocalDexFailure>()
+                    val failures = mutableMapOf<BaseFeature, LocalDexFailure>()
                     try {
                         if (roots.isNotEmpty()) {
                             // Metadata reads (*Data replacement) need the DexSQL dataset even when
@@ -62,7 +61,7 @@ object LocalDexResolver {
                                     dexSql,
                                 ) { event ->
                                     val item = event.item
-                                    val displayName = (item as BaseFeature).technicalPath
+                                    val displayName = item.technicalPath
                                     when (event) {
                                         is DexResolutionEvent.Start -> {
                                             onProgress(LocalDexProgress.Start(displayName))
@@ -117,13 +116,13 @@ object LocalDexResolver {
         }
     }
 
-    private fun recordUnfinishedFailures(items: Collection<IResolveDex>, error: Exception) {
+    private fun recordUnfinishedFailures(items: Collection<BaseFeature>, error: Exception) {
         items.forEach { item ->
             runCatching { DexCacheManager.saveItemFailure(item, error) }
                 .onFailure {
                     WeLogger.e(
                         TAG,
-                        "failed to record Dex failure for ${(item as BaseFeature).technicalPath}",
+                        "failed to record Dex failure for ${item.technicalPath}",
                         it,
                     )
                 }

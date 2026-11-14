@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -27,7 +26,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import kotlin.io.path.copyTo
 
-object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
+object NoCompressUploadedImages : ClickableFeature() {
     override val technicalId = "上传原图"
     override val nameRes = R.string.feature_no_compress_uploaded_images_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

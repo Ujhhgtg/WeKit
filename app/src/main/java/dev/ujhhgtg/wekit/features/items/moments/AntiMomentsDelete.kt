@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.moments
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
@@ -33,7 +32,7 @@ import dev.ujhhgtg.wekit.utils.serialization.ProtoWire
  * The server also omits moments the author made private, restricted by a visibility window (e.g.
  * "仅三天可见"), or hid from you; those are kept and marked as well.
  */
-object AntiMomentsDelete : SwitchFeature(), IResolveDex {
+object AntiMomentsDelete : SwitchFeature() {
     override val technicalId = "朋友圈防撤回"
     override val nameRes = R.string.feature_anti_moments_delete_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

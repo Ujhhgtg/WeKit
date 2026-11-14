@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -46,7 +45,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import java.lang.ref.WeakReference
 import java.lang.reflect.Modifier as JavaModifier
 
-object WeChatMessageContextMenuApi : ApiFeature(), IResolveDex {
+object WeChatMessageContextMenuApi : ApiFeature() {
     override val technicalId = "聊天界面消息菜单扩展"
     override val nameRes = R.string.feature_we_chat_message_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

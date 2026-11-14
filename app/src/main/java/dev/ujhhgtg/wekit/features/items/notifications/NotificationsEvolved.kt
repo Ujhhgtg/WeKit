@@ -27,8 +27,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -80,7 +78,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-object NotificationsEvolved : ClickableFeature(), IResolveDex {
+object NotificationsEvolved : ClickableFeature() {
     override val technicalId = "通知进化"
     override val nameRes = R.string.feature_notifications_evolved_name
     override val categoryIds = listOf(FeatureCategoryIds.NOTIFICATIONS)

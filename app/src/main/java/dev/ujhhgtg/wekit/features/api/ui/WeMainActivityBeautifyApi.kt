@@ -8,7 +8,6 @@ import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.BaseFeature
@@ -20,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.IdentityHashMap
 
-object WeMainActivityBeautifyApi : ApiFeature(), IResolveDex {
+object WeMainActivityBeautifyApi : ApiFeature() {
     override val technicalId = "微信主屏幕美化服务"
     override val nameRes = R.string.feature_we_main_activity_beautify_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

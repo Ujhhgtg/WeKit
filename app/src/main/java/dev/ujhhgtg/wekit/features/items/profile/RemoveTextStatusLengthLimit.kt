@@ -3,14 +3,12 @@ package dev.ujhhgtg.wekit.features.items.profile
 import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
-import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
+object RemoveTextStatusLengthLimit : SwitchFeature() {
     override val technicalId = "解除状态词长度限制"
     override val nameRes = R.string.feature_remove_text_status_length_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)
@@ -26,18 +24,14 @@ object RemoveTextStatusLengthLimit : SwitchFeature(), IResolveDex {
             "afterTextChanged inputCount:",
         )
     }
-    private val fieldStatusTextLengthLimit by dexField()
-
-    override fun resolveDex() {
-        fieldStatusTextLengthLimit.setDescriptor(
-            methodStatusTextChanged.data.usingFields
-                .filter { it.usingType == FieldUsingType.Read }
-                .map { it.field }
-                .distinctBy { it.descriptor }
-                .single {
-                    it.className == STATUS_EDITOR_CLASS && it.typeName == "int"
-                },
-        )
+    private val fieldStatusTextLengthLimit by dexFieldFrom {
+        methodStatusTextChanged.data.usingFields
+            .filter { it.usingType == FieldUsingType.Read }
+            .map { it.field }
+            .distinctBy { it.descriptor }
+            .single {
+                it.className == STATUS_EDITOR_CLASS && it.typeName == "int"
+            }
     }
 
     override fun onEnable() {

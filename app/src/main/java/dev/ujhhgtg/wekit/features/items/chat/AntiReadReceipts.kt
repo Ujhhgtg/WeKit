@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import androidx.core.net.toUri
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -15,7 +14,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
  * through FinderLoaderApi before loading or prefetching it, so skipping this method prevents either
  * path from reaching the tracking server.
  */
-object AntiReadReceipts : SwitchFeature(), IResolveDex {
+object AntiReadReceipts : SwitchFeature() {
     override val technicalId = "反已读追踪"
     override val nameRes = R.string.feature_anti_read_receipts_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

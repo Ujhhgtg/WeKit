@@ -23,8 +23,6 @@ import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
@@ -40,7 +38,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.formatEpoch
 import java.util.Locale
 
-object DisplayDetails : ClickableFeature(), IResolveDex {
+object DisplayDetails : ClickableFeature() {
 
     override val technicalId = "底部详细信息"
     override val nameRes = R.string.feature_display_details_name

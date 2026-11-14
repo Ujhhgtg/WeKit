@@ -4,11 +4,9 @@ import android.content.Context
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -16,7 +14,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.reflection.BString
 
-object WeServiceApi : ApiFeature(), IResolveDex {
+object WeServiceApi : ApiFeature() {
     override val technicalId = "微信服务管理服务"
     override val nameRes = R.string.feature_we_service_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)
@@ -75,12 +73,13 @@ object WeServiceApi : ApiFeature(), IResolveDex {
         searchPackages("com.tencent.mm.ui.chatting.manager")
         usingEqStrings("[get] ", " is not a interface!")
     }
-    private val methodMmKernelGetServiceImpl by dexMethod()
+    private val methodMmKernelGetServiceImpl by dexMethod {
+        declaredClass = classMmKernel.data.name
+        paramTypes(Class::class.java.name)
+    }
     private val classMmKernel by dexClass {
         usingEqStrings("MicroMsg.MMKernel", "Kernel not null, has initialized.")
     }
-    private val methodVideoPathFeatureServiceRestoreMp4Path by
-        dexMethod() // formerly VideoInfoStorage
     val classVideoService by dexClass {
         usingEqStrings(
             "MicroMsg.VideoService",
@@ -250,12 +249,7 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             msgInfo.imagePath!!,
         ) as String
 
-    override fun resolveDex() {
-        methodMmKernelGetServiceImpl.find {
-            declaredClass = classMmKernel.data.name
-            paramTypes(Class::class.java.name)
-        }
-
+    private val methodVideoPathFeatureServiceRestoreMp4Path by dexMethodFrom {
         val results =
             DexResolutionContext.findMethods {
                     usingEqString("MicroMsg.C2CVideoPathFeatureService")
@@ -269,6 +263,6 @@ object WeServiceApi : ApiFeature(), IResolveDex {
                         usingEqString(".mp4")
                     }
                 }
-        methodVideoPathFeatureServiceRestoreMp4Path.setDescriptor(results.single())
+        results.single()
     }
 }

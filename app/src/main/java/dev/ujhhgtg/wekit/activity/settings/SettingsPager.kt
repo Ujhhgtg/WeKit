@@ -95,7 +95,6 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
@@ -188,7 +187,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         onClick = {
                             DexResolutionPrompt.show(
                                 context,
-                                FeaturesProvider.ALL_FEATURES.filterIsInstance<IResolveDex>(),
+                                FeaturesProvider.ALL_FEATURES.filter { it.hasDexDelegates },
                                 DexResolutionMode.Rerun,
                             )
                         },

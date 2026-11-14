@@ -6,7 +6,6 @@ import androidx.core.view.isVisible
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -18,7 +17,7 @@ import dev.ujhhgtg.wekit.utils.android.baseActivity
  * 朋友圈信息流顶部的互动消息气泡由 ImproveHeaderUIC.onNotifyChange 驱动: 有未读互动时显示「N 条新消息」, 只有已读互动时显示「朋友的互动消息」,
  * 一条互动都没有时直接隐藏。这里把最后一种情况也改成显示。
  */
-object AlwaysShowInteractionEntry : SwitchFeature(), IResolveDex {
+object AlwaysShowInteractionEntry : SwitchFeature() {
     override val technicalId = "常驻互动消息入口"
     override val nameRes = R.string.feature_always_show_interaction_entry_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

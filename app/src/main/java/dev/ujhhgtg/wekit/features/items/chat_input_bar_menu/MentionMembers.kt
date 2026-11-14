@@ -12,7 +12,6 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Alternate_email
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -54,7 +53,7 @@ import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
  *   (msgInfo, String, boolean) -> void; 复用它注入 atuserlist 节点, 其内部调用 msgInfo 的 msgsource setter 并置脏,
  *   随入库写入 lvbuffer, doScene 组装出网请求时 MsgSource 同样携带该节点。
  */
-object MentionMembers : SwitchFeature(), IResolveDex {
+object MentionMembers : SwitchFeature() {
 
     override val technicalId = "@所有人"
     override val nameRes = R.string.feature_mention_members_name

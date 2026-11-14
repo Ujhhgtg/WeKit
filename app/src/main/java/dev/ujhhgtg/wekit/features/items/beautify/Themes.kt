@@ -71,7 +71,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -121,7 +120,7 @@ import org.json.JSONObject
  */
 @Suppress("DEPRECATION")
 @SuppressLint("DiscouragedApi", "InternalInsetResource")
-object Themes : ClickableFeature(), IResolveDex {
+object Themes : ClickableFeature() {
 
     override val technicalId = "主题"
     override val nameRes = R.string.feature_themes_name

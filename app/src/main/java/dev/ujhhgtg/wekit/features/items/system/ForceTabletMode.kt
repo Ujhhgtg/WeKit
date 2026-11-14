@@ -7,9 +7,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -17,13 +16,11 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 
-object ForceTabletMode : SwitchFeature(), IResolveDex {
+object ForceTabletMode : SwitchFeature() {
     override val technicalId = "强制平板模式"
     override val nameRes = R.string.feature_force_tablet_mode_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_force_tablet_mode_description
-
-    private val methodIsTablet by dexMethod()
 
     //    private val methodIsTablet2 by dexMethod {
     //        matcher {
@@ -41,7 +38,7 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
     //        }
     //    }
 
-    override fun resolveDex() {
+    private val methodIsTablet by dexMethodFrom {
         val modernTabletMethods = DexResolutionContext.findMethods {
             returnType = "boolean"
             usingEqString("MicroMsg.UIUtils")
@@ -50,15 +47,16 @@ object ForceTabletMode : SwitchFeature(), IResolveDex {
 
         when (modernTabletMethods.size) {
             1 -> {
-                methodIsTablet.setDescriptor(modernTabletMethods.single())
+                modernTabletMethods.single()
             }
 
             0 -> {
-                methodIsTablet.find {
-                    returnType = "boolean"
-                    usingEqString("Lenovo TB-9707F")
-                    usingEqString("eebbk")
-                }
+                DexResolutionContext.findMethods {
+                        returnType = "boolean"
+                        usingEqString("Lenovo TB-9707F")
+                        usingEqString("eebbk")
+                    }
+                    .single()
             }
 
             else -> {

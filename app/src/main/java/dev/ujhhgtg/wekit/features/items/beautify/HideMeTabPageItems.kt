@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.isGone
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -29,7 +28,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import java.util.Collections
 import java.util.WeakHashMap
 
-object HideMeTabPageItems : ClickableFeature(), IResolveDex {
+object HideMeTabPageItems : ClickableFeature() {
     override val technicalId = "「我」页面精简"
     override val nameRes = R.string.feature_hide_me_tab_page_items_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.core
 
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.Preferences
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.DexCacheManager
 import dev.ujhhgtg.wekit.dex.cache.DexItemState
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
@@ -38,11 +37,10 @@ object FeaturesLoader {
 
         // States are loaded for every Dex feature so settings can show errors even for features
         // that SafeMode keeps from starting; only features about to start can request resolution.
-        allFeatures.filterIsInstance<IResolveDex>().forEach(::loadDexState)
-        val needsResolution =
-            featuresToStart.filterIsInstance<IResolveDex>().filter {
-                (it as BaseFeature).dexState == DexItemState.NeedsResolution
-            }
+        allFeatures.filter { it.hasDexDelegates }.forEach(::loadDexState)
+        val needsResolution = featuresToStart.filter {
+            it.dexState == DexItemState.NeedsResolution
+        }
 
         if (needsResolution.isNotEmpty()) {
             // Starting any feature now could run it against a missing dependency; the resolution
@@ -84,11 +82,10 @@ object FeaturesLoader {
      * Reads the persisted state of [item] and, when valid, restores its delegates from the cache. A
      * cache that cannot be restored is deleted, and the item needs resolution again.
      */
-    private fun loadDexState(item: IResolveDex) {
-        val feature = item as BaseFeature
-        val path = feature.technicalPath
+    private fun loadDexState(item: BaseFeature) {
+        val path = item.technicalPath
         val state = DexCacheManager.stateOf(item)
-        feature.dexState = state
+        item.dexState = state
         when (state) {
             DexItemState.Valid -> {
                 try {
@@ -96,8 +93,8 @@ object FeaturesLoader {
                     check(missingKeys.isEmpty()) { "cache lost keys while loading: $missingKeys" }
                 } catch (e: Exception) {
                     WeLogger.e(TAG, "cache load failed for $path", e)
-                    runCatching { DexCacheManager.deleteCache(feature.technicalId) }
-                    feature.dexState = DexItemState.NeedsResolution
+                    runCatching { DexCacheManager.deleteCache(item.technicalId) }
+                    item.dexState = DexItemState.NeedsResolution
                 }
             }
 

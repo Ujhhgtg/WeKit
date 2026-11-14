@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -9,7 +8,7 @@ import dev.ujhhgtg.wekit.utils.HookParam
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
-object WeXmlParserApi : ApiFeature(), IResolveDex {
+object WeXmlParserApi : ApiFeature() {
     override val technicalId = "XML 解析钩子服务"
     override val nameRes = R.string.feature_we_xml_parser_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

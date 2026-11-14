@@ -18,10 +18,8 @@ import dev.ujhhgtg.dexsql.meta.FieldUsingType
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
-import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -37,11 +35,11 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.motion_photo.WeKitLivePhotoBackend
-import java.lang.reflect.Modifier
 import org.json.JSONObject
+import java.lang.reflect.Modifier
 
 /** Supplies the missing local media adapter while retaining WeChat's validation and remux. */
-object UnlockLivePhotos : ClickableFeature(), IResolveDex {
+object UnlockLivePhotos : ClickableFeature() {
     override val technicalId = "强开实况照片"
     override val nameRes = R.string.feature_unlock_live_photos_name
     override val descriptionRes = R.string.feature_unlock_live_photos_description
@@ -74,11 +72,26 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
             "getLivePhotoMediaData >> parse data json error",
         )
     }
-    private val fieldCore by dexField()
-    private val fieldCoreVersion by dexField()
-    private val fieldSysVersion by dexField()
-    private val fieldSupport by dexField()
-    private val fieldSnsSave by dexField()
+    private val fieldCore by dexFieldFrom {
+        classWrapper.data.fields
+            .filter { Modifier.isStatic(it.modifiers) }
+            .single { it.typeName == CORE }
+    }
+    private val fieldCoreVersion by dexFieldFrom {
+        classWrapper.data.fields
+            .filter { Modifier.isStatic(it.modifiers) }
+            .single { it.typeName == "int" }
+    }
+    private val fieldSysVersion by dexFieldFrom {
+        classWrapper.data.fields
+            .filter { Modifier.isStatic(it.modifiers) }
+            .single { it.typeName == "java.lang.String" }
+    }
+    private val fieldSupport by dexFieldFrom {
+        classWrapper.data.fields
+            .filter { Modifier.isStatic(it.modifiers) }
+            .single { it.typeName == "boolean" }
+    }
 
     private val methodExpt by dexMethod {
         returnType = "java.lang.String"
@@ -115,12 +128,7 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
         usingEqStrings("enablePublishLivePhoto", "SnsLivePhoto.ServerPublishConfig")
     }
 
-    override fun resolveDex() {
-        val fields = classWrapper.data.fields.filter { Modifier.isStatic(it.modifiers) }
-        fieldCore.setDescriptor(fields.single { it.typeName == CORE })
-        fieldCoreVersion.setDescriptor(fields.single { it.typeName == "int" })
-        fieldSysVersion.setDescriptor(fields.single { it.typeName == "java.lang.String" })
-        fieldSupport.setDescriptor(fields.single { it.typeName == "boolean" })
+    private val fieldSnsSave by dexFieldFrom {
         val saveReads =
             DexResolutionContext.findMethods {
                     usingEqString("enableSaveLivePhoto")
@@ -135,24 +143,7 @@ object UnlockLivePhotos : ClickableFeature(), IResolveDex {
                 }
                 .distinctBy { it.descriptor }
                 .toList()
-        fieldSnsSave.setDescriptor(saveReads.single())
-        // The stable adapter must provide all six signatures on every supported host.
-        val expected =
-            mapOf(
-                "initCore" to Pair(listOf("android.content.Context"), "int"),
-                "isSupport" to Pair(emptyList(), "boolean"),
-                "getCoreMetaData" to Pair(emptyList(), "java.lang.String"),
-                "isLivePhoto" to Pair(listOf("java.util.List"), "java.util.HashMap"),
-                "getVideoMetaData" to Pair(listOf("long", "java.lang.String"), "java.lang.String"),
-                "exportLivePhoto" to Pair(listOf("java.lang.String"), "int"),
-            )
-        expected.forEach { (name, signature) ->
-            classCore.data.methods.single {
-                it.name == name &&
-                    it.paramTypeNames == signature.first &&
-                    it.returnTypeName == signature.second
-            }
-        }
+        saveReads.single()
     }
 
     override fun onEnable() {

@@ -6,7 +6,6 @@ import androidx.core.os.postDelayed
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
@@ -17,7 +16,7 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 
-object WePacketDispatcher : ApiFeature(), IResolveDex {
+object WePacketDispatcher : ApiFeature() {
 
     override val technicalId = "数据包拦截与篡改服务"
     override val nameRes = R.string.feature_we_packet_dispatcher_name

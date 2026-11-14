@@ -28,7 +28,12 @@ private const val FEATURES_CORE_PACKAGE = "$PACKAGE_NAME.features.core"
 private const val EXTENSIONS_PACKAGE = "$PACKAGE_NAME.extensions"
 private const val BASE_FEATURE = "$FEATURES_CORE_PACKAGE.BaseFeature"
 private const val EXTENSION_PACK = "$EXTENSIONS_PACKAGE.ExtensionPack"
-private const val RESOLVER_INTERFACE = "$PACKAGE_NAME.dex.abc.IResolveDex"
+private val DEX_DELEGATE_TYPES = setOf(
+    "$PACKAGE_NAME.dex.dsl.DexClassDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexMethodDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexFieldDelegate",
+    "$PACKAGE_NAME.dex.dsl.DexConstructorDelegate",
+)
 
 class FeaturesKspProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
@@ -74,7 +79,11 @@ class FeaturesScanner(
         }
 
         generateFeaturesProvider(features)
-        generateDexResolutionRegistry(features.filter { it.isSubtypeOf(RESOLVER_INTERFACE) })
+        generateDexResolutionRegistry(features.filter { feature ->
+            feature.getAllProperties().any {
+                it.type.resolve().declaration.qualifiedName?.asString() in DEX_DELEGATE_TYPES
+            }
+        })
         generateFeatureDependencies(features)
         generateExtensionPacksProvider(extensionPacks)
         return emptyList()

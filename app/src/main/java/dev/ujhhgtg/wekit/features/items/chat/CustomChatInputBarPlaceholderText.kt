@@ -16,7 +16,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -32,7 +31,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import java.time.LocalDate
 
 object CustomChatInputBarPlaceholderText :
-    ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
+    ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
     override val technicalId = "自定义输入框占位符文本"
     override val nameRes = R.string.feature_custom_chat_input_bar_placeholder_text_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

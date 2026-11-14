@@ -31,11 +31,11 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -59,7 +59,7 @@ import java.util.WeakHashMap
  * own key chains evaluate — `LauncherUI.dispatchKeyEvent`, `MainUI.onKeyDown`, the chat
  * FootComponent's key handler and MMActivity's controller — resolved from their Dex metadata.
  */
-object PredictiveBackGestures : SwitchFeature(), IResolveDex {
+object PredictiveBackGestures : SwitchFeature() {
 
     override val technicalId = "微信预见性返回手势"
     override val nameRes = R.string.feature_predictive_back_gestures_name
@@ -145,31 +145,84 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     }
 
     /** `VASLauncher.r7()`: a VAS pane is shown and takes every key. */
-    private val methodVasPaneVisible by dexMethod()
+    private val methodVasPaneVisible by dexMethodFrom {
+        methodLauncherDispatchKeyEvent.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == VAS_LAUNCHER && it.isNoArgBoolean()
+            }
+    }
 
     /** `NewChattingTabUI.m()`: the chat fragment is foreground and takes BACK. */
-    private val methodChatForeground by dexMethod()
+    private val methodChatForeground by dexMethodFrom {
+        methodLauncherDispatchKeyEvent.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == NEW_CHATTING_TAB_UI && it.isNoArgBoolean()
+            }
+    }
 
     /** `BaseChattingUIFragment`'s ChattingContext, read by `NewChattingTabUI.m()`. */
-    private val fieldFragmentChattingContext by dexField()
+    private val fieldFragmentChattingContext by dexFieldFrom {
+        methodChatForeground.data.readFields().single {
+            it.declaredClassName == BASE_CHATTING_UI_FRAGMENT
+        }
+    }
 
     /** The ChattingContext's foreground flag: the footer only takes BACK while it is set. */
-    private val fieldChattingContextForeground by dexField()
+    private val fieldChattingContextForeground by dexFieldFrom {
+        methodChatForeground.data.readFields().single {
+            it.declaredClassName == fieldFragmentChattingContext.data.typeName &&
+                it.typeName == "boolean"
+        }
+    }
 
     /** `MultiTaskUIC.M7(KeyEvent)`: the multitask panel's key handler. */
-    private val methodMultiTaskKeyHandler by dexMethod()
+    private val methodMultiTaskKeyHandler by dexMethodFrom {
+        methodLauncherDispatchKeyEvent.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == MULTITASK_UIC &&
+                    it.paramTypeNames == listOf("android.view.KeyEvent") &&
+                    it.returnTypeName == "boolean"
+            }
+    }
 
     /** `MultiTaskUIC.S7()`: the multitask panel is open. */
-    private val methodMultiTaskPanelOpen by dexMethod()
+    private val methodMultiTaskPanelOpen by dexMethodFrom {
+        methodMultiTaskKeyHandler.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == MULTITASK_UIC && it.isNoArgBoolean()
+            }
+    }
 
     /**
      * `MultiTaskChatbotUIC.P7()`: the chatbot panel is open; absent where LauncherUI does not route
      * BACK to it (before 8.0.77).
      */
-    private val methodChatbotPanelOpen by dexMethod()
+    private val methodChatbotPanelOpen by
+        dexMethodFrom(allowFailure = true) {
+            val invokes = methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }
+            if (invokes.none { it.declaredClassName == CHATBOT_UIC }) null
+            else
+                invokes.single {
+                    it.declaredClassName == CHATBOT_UIC &&
+                        it.name != "onBackPressed" &&
+                        it.isNoArgBoolean()
+                }
+        }
 
     /** `MainTabUI.g()`: the current home tab, asked for `onKeyDown` before moving the task back. */
-    private val methodCurrentTabFragment by dexMethod()
+    private val methodCurrentTabFragment by dexMethodFrom {
+        methodLauncherDispatchKeyEvent.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == MAIN_TAB_UI &&
+                    it.paramCount == 0 &&
+                    it.returnTypeName == MM_FRAGMENT
+            }
+    }
 
     // --- Dex: MainUI.onKeyDown closes the conversation list's pull-down header ---
 
@@ -184,10 +237,18 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
      * MainUI's conversation list host (a ConversationListView, or the list-host interface on
      * 8.0.78+).
      */
-    private val fieldMainUiListHost by dexField()
+    private val fieldMainUiListHost by dexFieldFrom {
+        methodMainUiOnKeyDown.data.readFields().single { it.declaredClassName == MAIN_UI }
+    }
 
     /** The list host's `isHeaderOpen()`. */
-    private val methodListHostHeaderOpen by dexMethod()
+    private val methodListHostHeaderOpen by dexMethodFrom {
+        methodMainUiOnKeyDown.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == fieldMainUiListHost.data.typeName && it.isNoArgBoolean()
+            }
+    }
 
     // --- Dex: the chat FootComponent's key handler, the only chat component that takes BACK ---
 
@@ -207,13 +268,37 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     }
 
     /** `ChatFooter`'s voice-input (speech-to-text) panel flag. */
-    private val fieldFooterVoiceInput by dexField()
+    private val fieldFooterVoiceInput by dexFieldFrom {
+        methodFootKeyHandler.data
+            .readFields()
+            .filter { it.declaredClassName == CHAT_FOOTER }
+            .single { it.typeName == "boolean" }
+    }
 
     /** `ChatFooter`'s full-screen text edit helper. */
-    private val fieldFooterFullScreenEdit by dexField()
+    private val fieldFooterFullScreenEdit by dexFieldFrom {
+        val handler = methodFootKeyHandler.data
+        handler
+            .readFields()
+            .filter { it.declaredClassName == CHAT_FOOTER }
+            .single { field ->
+                handler.invokes
+                    .distinctBy { it.descriptor }
+                    .any {
+                        it.declaredClassName == field.typeName && it.isNoArgBoolean()
+                    }
+            }
+    }
 
     /** The full-screen edit helper's `isActive()`. */
-    private val methodFullScreenEditActive by dexMethod()
+    private val methodFullScreenEditActive by dexMethodFrom {
+        methodFootKeyHandler.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == fieldFooterFullScreenEdit.data.typeName &&
+                    it.isNoArgBoolean()
+            }
+    }
 
     // --- Dex: SwipeBackLayout's gesture switch (off during the chat enter animation and after
     // pop-out) ---
@@ -238,10 +323,38 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
     }
 
     /** The controller's action-bar search helper. */
-    private val fieldControllerSearchHelper by dexField()
+    private val fieldControllerSearchHelper by dexFieldFrom {
+        val controller = methodControllerKeyDown.data
+        val fields =
+            controller.readFields().filter { it.declaredClassName == controller.declaredClassName }
+        val handler =
+            controller.invokes
+                .distinctBy { it.descriptor }
+                .single { invoke ->
+                    invoke.paramTypeNames == listOf("int", "android.view.KeyEvent") &&
+                        invoke.returnTypeName == "boolean" &&
+                        fields.any { it.typeName == invoke.declaredClassName }
+                }
+        fields.single { it.typeName == handler.declaredClassName }
+    }
 
     /** The search helper's expanded flag, which its BACK handler checks. */
-    private val fieldSearchExpanded by dexField()
+    private val fieldSearchExpanded by dexFieldFrom {
+        val controller = methodControllerKeyDown.data
+        val fields =
+            controller.readFields().filter { it.declaredClassName == controller.declaredClassName }
+        val handler =
+            controller.invokes
+                .distinctBy { it.descriptor }
+                .single { invoke ->
+                    invoke.paramTypeNames == listOf("int", "android.view.KeyEvent") &&
+                        invoke.returnTypeName == "boolean" &&
+                        fields.any { it.typeName == invoke.declaredClassName }
+                }
+        handler.readFields().single {
+            it.declaredClassName == handler.declaredClassName && it.typeName == "boolean"
+        }
+    }
 
     // --- Dex: the UIC every GloUIComponentActivity imports only forwards BACK to registered
     // children ---
@@ -290,117 +403,6 @@ object PredictiveBackGestures : SwitchFeature(), IResolveDex {
                 "com.tencent.mm.plugin.sns.ui.improve.cover.SnsImproveCoverLayout",
             )
         }
-    }
-
-    override fun resolveDex() {
-        val dispatchInvokes =
-            methodLauncherDispatchKeyEvent.data.invokes.distinctBy { it.descriptor }
-        methodVasPaneVisible.setDescriptor(
-            dispatchInvokes.single {
-                it.declaredClassName == VAS_LAUNCHER && it.isNoArgBoolean()
-            },
-        )
-        methodChatForeground.setDescriptor(
-            dispatchInvokes.single {
-                it.declaredClassName == NEW_CHATTING_TAB_UI && it.isNoArgBoolean()
-            },
-        )
-        methodMultiTaskKeyHandler.setDescriptor(
-            dispatchInvokes.single {
-                it.declaredClassName == MULTITASK_UIC &&
-                    it.paramTypeNames == listOf("android.view.KeyEvent") &&
-                    it.returnTypeName == "boolean"
-            },
-        )
-        methodMultiTaskPanelOpen.setDescriptor(
-            methodMultiTaskKeyHandler.data.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    it.declaredClassName == MULTITASK_UIC && it.isNoArgBoolean()
-                },
-        )
-        // Older LauncherUIs (with or without the class) never ask the chatbot panel about BACK.
-        if (dispatchInvokes.none { it.declaredClassName == CHATBOT_UIC }) {
-            methodChatbotPanelOpen.markExpectedFailure()
-        } else {
-            methodChatbotPanelOpen.setDescriptor(
-                dispatchInvokes.single {
-                    it.declaredClassName == CHATBOT_UIC &&
-                        it.name != "onBackPressed" &&
-                        it.isNoArgBoolean()
-                },
-            )
-        }
-        methodCurrentTabFragment.setDescriptor(
-            dispatchInvokes.single {
-                it.declaredClassName == MAIN_TAB_UI &&
-                    it.paramCount == 0 &&
-                    it.returnTypeName == MM_FRAGMENT
-            },
-        )
-
-        val chatForegroundReads = methodChatForeground.data.readFields()
-        val chattingContext = chatForegroundReads.single {
-            it.declaredClassName == BASE_CHATTING_UI_FRAGMENT
-        }
-        fieldFragmentChattingContext.setDescriptor(chattingContext)
-        fieldChattingContextForeground.setDescriptor(
-            chatForegroundReads.single {
-                it.declaredClassName == chattingContext.typeName && it.typeName == "boolean"
-            },
-        )
-
-        val mainUiOnKeyDown = methodMainUiOnKeyDown.data
-        val listHost = mainUiOnKeyDown.readFields().single { it.declaredClassName == MAIN_UI }
-        fieldMainUiListHost.setDescriptor(listHost)
-        methodListHostHeaderOpen.setDescriptor(
-            mainUiOnKeyDown.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    it.declaredClassName == listHost.typeName && it.isNoArgBoolean()
-                },
-        )
-
-        val footKeyHandler = methodFootKeyHandler.data
-        val footerReads = footKeyHandler.readFields().filter { it.declaredClassName == CHAT_FOOTER }
-        val footInvokes = footKeyHandler.invokes.distinctBy { it.descriptor }
-        fieldFooterVoiceInput.setDescriptor(footerReads.single { it.typeName == "boolean" })
-        val fullScreenEdit = footerReads.single { field ->
-            footInvokes.any { it.declaredClassName == field.typeName && it.isNoArgBoolean() }
-        }
-        fieldFooterFullScreenEdit.setDescriptor(fullScreenEdit)
-        methodFullScreenEditActive.setDescriptor(
-            footInvokes.single {
-                it.declaredClassName == fullScreenEdit.typeName && it.isNoArgBoolean()
-            },
-        )
-
-        val controllerKeyDown = methodControllerKeyDown.data
-        val controllerFields =
-            controllerKeyDown.readFields().filter {
-                it.declaredClassName == controllerKeyDown.declaredClassName
-            }
-        // Older versions also call static volume-key listeners with the same signature; the search
-        // helper is the key handler held in one of the controller's own fields.
-        val searchKeyHandler =
-            controllerKeyDown.invokes
-                .distinctBy { it.descriptor }
-                .single { invoke ->
-                    invoke.paramTypeNames == listOf("int", "android.view.KeyEvent") &&
-                        invoke.returnTypeName == "boolean" &&
-                        controllerFields.any { it.typeName == invoke.declaredClassName }
-                }
-        fieldControllerSearchHelper.setDescriptor(
-            controllerFields.single {
-                it.typeName == searchKeyHandler.declaredClassName
-            },
-        )
-        fieldSearchExpanded.setDescriptor(
-            searchKeyHandler.readFields().single {
-                it.declaredClassName == searchKeyHandler.declaredClassName &&
-                    it.typeName == "boolean"
-            },
-        )
     }
 
     private fun DexMethodInfo.isNoArgBoolean() = paramCount == 0 && returnTypeName == "boolean"

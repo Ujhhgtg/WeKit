@@ -4,13 +4,12 @@ import android.app.Activity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableLowAvailableStorageDetection : SwitchFeature(), IResolveDex {
+object DisableLowAvailableStorageDetection : SwitchFeature() {
     override val technicalId = "禁用存储空间不足检测"
     override val nameRes = R.string.feature_disable_low_available_storage_detection_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

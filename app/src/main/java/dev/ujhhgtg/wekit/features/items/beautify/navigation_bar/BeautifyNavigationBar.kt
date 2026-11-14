@@ -16,7 +16,6 @@ import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationListViewApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
@@ -32,7 +31,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.abs
 
-object BeautifyNavigationBar : ClickableFeature(), IResolveDex {
+object BeautifyNavigationBar : ClickableFeature() {
 
     override val technicalId = "美化首页底部导航栏"
     override val nameRes = R.string.feature_beautify_navigation_bar_name

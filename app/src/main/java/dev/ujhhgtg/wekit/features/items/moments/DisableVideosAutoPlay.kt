@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object DisableVideosAutoPlay : SwitchFeature(), IResolveDex {
+object DisableVideosAutoPlay : SwitchFeature() {
     override val technicalId = "禁止自动播放视频"
     override val nameRes = R.string.feature_disable_videos_auto_play_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

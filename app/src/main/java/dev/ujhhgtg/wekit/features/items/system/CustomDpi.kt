@@ -18,7 +18,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -31,7 +30,7 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 
-object CustomDpi : ClickableFeature(), IResolveDex {
+object CustomDpi : ClickableFeature() {
     override val technicalId = "DPI 修改"
     override val nameRes = R.string.feature_custom_dpi_name
     override val categoryIds =

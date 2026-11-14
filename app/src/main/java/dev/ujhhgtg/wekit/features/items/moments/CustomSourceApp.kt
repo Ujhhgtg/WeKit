@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -34,7 +33,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.util.LinkedList
 
-object CustomSourceApp : ClickableFeature(), IResolveDex {
+object CustomSourceApp : ClickableFeature() {
     override val technicalId = "自定义尾巴"
     override val nameRes = R.string.feature_custom_source_app_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

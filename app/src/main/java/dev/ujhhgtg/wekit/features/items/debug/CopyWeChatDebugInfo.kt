@@ -7,7 +7,6 @@ import com.tencent.mm.plugin.setting.ui.setting.SettingsAboutMMHeaderPreference
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -16,7 +15,7 @@ import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
-object CopyWeChatDebugInfo : ClickableFeature(), IResolveDex {
+object CopyWeChatDebugInfo : ClickableFeature() {
     override val technicalId = "复制调试信息"
     override val nameRes = R.string.feature_copy_we_chat_debug_info_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

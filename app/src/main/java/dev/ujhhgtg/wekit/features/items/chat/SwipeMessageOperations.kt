@@ -27,10 +27,9 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
@@ -57,8 +56,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-object SwipeMessageOperations :
-    ClickableFeature(), IResolveDex, WeChatMessageViewApi.ICreateViewListener {
+object SwipeMessageOperations : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
     override val technicalId = "滑动消息快捷操作"
     override val nameRes = R.string.feature_swipe_message_operations_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -117,19 +115,15 @@ object SwipeMessageOperations :
         usingEqStrings("onTouch: touch down", "onTouch: touch up")
     }
 
-    private val methodHideChatInput by dexMethod()
-
-    override fun resolveDex() {
-        methodHideChatInput.setDescriptor(
-            methodChatListOnTouch.data.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    it.declaredClassName == "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" &&
-                        it.returnTypeName == "void" &&
-                        (it.paramTypeNames == listOf("boolean") ||
-                            it.paramTypeNames == listOf("int", "boolean"))
-                },
-        )
+    private val methodHideChatInput by dexMethodFrom {
+        methodChatListOnTouch.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                it.declaredClassName == "com.tencent.mm.pluginsdk.ui.chat.ChatFooter" &&
+                    it.returnTypeName == "void" &&
+                    (it.paramTypeNames == listOf("boolean") ||
+                        it.paramTypeNames == listOf("int", "boolean"))
+            }
     }
 
     // ── lifecycle ────────────────────────────────────────────────────────────

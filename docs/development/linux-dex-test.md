@@ -33,6 +33,30 @@
 工作进程失败、APK 失败、原生构建失败或报告失败，工具会在尝试其余 APK 后返回非零退出码。
 源码解析报告通过，并不能证明 Hook 在实体设备上运行时的行为正确。
 
+### 条件委托与派生目标
+
+当一个结构探针只在部分微信版本存在时，可直接把后续委托挂在探针上：
+
+```kotlin
+private val classProbe by dexClass(allowFailure = true) { usingEqString("...") }
+private val methodTarget by classProbe.dexMethod { declaredClass = classProbe.data.name }
+```
+
+探针缺失时，目标会自动记录为 `EXPECTED_FAILURE`，其匹配器不会执行。需要为多个目标
+标记同一个兼容性分支时，使用命名组：
+
+```kotlin
+private val modern = dexGroup(whenFound = { classProbe })
+private val legacy = dexGroup(whenAbsent = { classProbe })
+private val modernTarget by modern.dexMethod { /* ... */ }
+private val legacyTarget by legacy.dexMethod { /* ... */ }
+```
+
+`dexClassFrom`、`dexMethodFrom`、`dexFieldFrom` 和 `dexConstructorFrom` 用于从已解析的
+Dex 元数据派生描述符。派生块在活动的 `DexResolutionContext` 内执行，可以读取其他委托的
+`.data`；没有结果时只有显式的 `allowFailure = true` 才会成为预期失败。探针歧义、派生块
+异常和已选择分支中的失败都必须保持为失败，不能作为兼容性回退条件。
+
 首次运行需要 JDK 21 环境、Android SDK `apkanalyzer`、CMake、Ninja、Git，以及用于拉取
 固定版本 DexSQL 引擎源码的网络连接。固定版本的 Linux 原生库根据 xtask 中的引擎固定
 版本构建。

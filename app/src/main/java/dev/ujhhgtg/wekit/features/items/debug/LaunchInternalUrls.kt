@@ -9,7 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -19,7 +18,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.unsafe.TheUnsafe
 
-object LaunchInternalUrls : ClickableFeature(), IResolveDex {
+object LaunchInternalUrls : ClickableFeature() {
     override val technicalId = "启动微信内部 URL"
     override val nameRes = R.string.feature_launch_internal_urls_name
     override val categoryIds = listOf(FeatureCategoryIds.DEBUG)

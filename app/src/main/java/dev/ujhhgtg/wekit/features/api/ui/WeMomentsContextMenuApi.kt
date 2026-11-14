@@ -8,8 +8,6 @@ import android.view.View
 import com.tencent.mm.plugin.sns.storage.SnsInfo
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -17,7 +15,7 @@ import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 @SuppressLint("StaticFieldLeak")
-object WeMomentsContextMenuApi : ApiFeature(), IResolveDex {
+object WeMomentsContextMenuApi : ApiFeature() {
     override val technicalId = "朋友圈菜单增强扩展"
     override val nameRes = R.string.feature_we_moments_context_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

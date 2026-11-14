@@ -27,13 +27,13 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
+import dev.ujhhgtg.wekit.dex.dsl.dexGroup
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -87,7 +87,7 @@ import kotlin.random.Random
 import org.json.JSONObject
 
 @SuppressLint("DiscouragedApi")
-object WeMessageApi : ApiFeature(), IResolveDex {
+object WeMessageApi : ApiFeature() {
 
     override val technicalId = "消息发送服务"
     override val nameRes = R.string.feature_we_message_api_name
@@ -123,7 +123,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     }
 
     // hi0.j1::d() is identical to xv0.a9::e(); either duplicate is a valid target.
-    val methodGetSendMsgObject by dexMethod()
     private val methodPostToQueue by dexMethod {
         searchPackages("com.tencent.mm.modelbase")
         declaredClass(classNetSceneQueue.data.name)
@@ -253,14 +252,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val classQuoteMsgItem by dexClass {
         className = "com.tencent.mm.plugin.msgquote.model.MsgQuoteItem"
     }
-    private val classQuoteRelation by dexClass()
-    private val methodQuoteNormalizeType by dexMethod()
-    private val methodQuoteMsgSource by dexMethod()
-    private val methodQuoteStorageGetter by dexMethod()
-    private val methodQuoteRelationInsert by dexMethod()
-    private val fieldQuoteAppTitle by dexField()
-    private val fieldQuoteAppType by dexField()
-    private val fieldQuoteAppItem by dexField()
 
     // -------------------------------------------------------------------------------------
     // 图片发送组件
@@ -268,11 +259,14 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private val classMvvmBase by dexClass {
         usingStrings("MicroMsg.Mvvm.MvvmPlugin", "onAccountInitialized start")
     }
-    private val classImageSender by dexClass()
-    private val classImageTask by
+    private val classImageSender by
         dexClass(allowFailure = true) {
-            usingStrings("msg_raw_img_send")
+            usingString("MicroMsg.ImgUpload.MsgImgSyncSendFSC")
+            usingString("/cgi-bin/micromsg-bin/uploadmsgimg")
         }
+    private val classImageTask by dexClassFrom {
+        DexResolutionContext.metadata.classInfoByName(methodImageSendEntry.data.paramTypeNames[1])!!
+    }
     private val classConfigLogic by dexClass {
         usingEqStrings("MicroMsg.ConfigStorageLogic", "get userinfo fail")
     }
@@ -281,7 +275,13 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             superClass(classMvvmBase.data.name)
             usingStrings("MicroMsg.ImgUpload.MsgImgFeatureService")
         }
-    private val methodImageSendEntry by dexMethod()
+    private val methodImageSendEntry by dexMethod {
+        declaredClass = classImageSender.data.name
+        modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
+        paramCount = 4..5
+        usingEqString("send_mid_size")
+        usingEqString("send_hevc_mid_size")
+    }
 
     // -------------------------------------------------------------------------------------
     // 语音发送组件
@@ -420,183 +420,144 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         val height: Int,
     )
 
-    override fun resolveDex() {
+    val methodGetSendMsgObject by dexMethodFrom {
         // The shared matcher matches two identical implementations; pick the first match
         // explicitly instead of relaxing the matcher.
-        methodGetSendMsgObject.setDescriptor(
-            DexResolutionContext.findMethods {
-                    paramCount = 0
-                    returnType {
-                        className = classNetSceneObserverOwner.data.name
-                    }
-                    modifiers = Modifier.STATIC
+        DexResolutionContext.findMethods {
+                paramCount = 0
+                returnType {
+                    className = classNetSceneObserverOwner.data.name
                 }
-                .first(),
-        )
-
-        val quoteCompose = methodQuoteCompose.data
-
+                modifiers = Modifier.STATIC
+            }
+            .first()
+    }
+    private val fieldQuoteAppTitle by dexFieldFrom {
         val appMessageName = classAppMessage.data.name
         val quoteWrites =
-            quoteCompose.usingFields
+            methodQuoteCompose.data.usingFields
                 .filter { it.usingType == MetaFieldUsingType.Write }
                 .map { it.field }
                 .distinctBy { it.descriptor }
-        fieldQuoteAppTitle.setDescriptor(
-            quoteWrites.single {
-                it.className == appMessageName && it.typeName == "java.lang.String"
-            },
-        )
-        fieldQuoteAppType.setDescriptor(
-            quoteWrites.single {
-                it.className == appMessageName && it.typeName == "int"
-            },
-        )
-        fieldQuoteAppItem.setDescriptor(
-            quoteWrites.single {
-                it.className == appMessageName && it.typeName == classQuoteMsgItem.data.name
-            },
-        )
-
-        methodQuoteNormalizeType.setDescriptor(
-            quoteCompose.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    Modifier.isStatic(it.modifiers) &&
-                        it.paramTypeNames == listOf("int") &&
-                        it.returnTypeName == "int"
-                },
-        )
-
+        quoteWrites.single {
+            it.className == appMessageName && it.typeName == "java.lang.String"
+        }
+    }
+    private val fieldQuoteAppType by dexFieldFrom {
+        methodQuoteCompose.data.usingFields
+            .filter { it.usingType == MetaFieldUsingType.Write }
+            .map { it.field }
+            .distinctBy { it.descriptor }
+            .single {
+                it.className == classAppMessage.data.name && it.typeName == "int"
+            }
+    }
+    private val fieldQuoteAppItem by dexFieldFrom {
+        methodQuoteCompose.data.usingFields
+            .filter { it.usingType == MetaFieldUsingType.Write }
+            .map { it.field }
+            .distinctBy { it.descriptor }
+            .single {
+                it.className == classAppMessage.data.name &&
+                    it.typeName == classQuoteMsgItem.data.name
+            }
+    }
+    private val methodQuoteNormalizeType by dexMethodFrom {
+        methodQuoteCompose.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                Modifier.isStatic(it.modifiers) &&
+                    it.paramTypeNames == listOf("int") &&
+                    it.returnTypeName == "int"
+            }
+    }
+    private val methodQuoteMsgSource by dexMethodFrom {
         val msgInfoName = classMsgInfo.data.name
-        methodQuoteMsgSource.setDescriptor(
-            quoteCompose.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    !Modifier.isStatic(it.modifiers) &&
-                        it.paramTypeNames == listOf(msgInfoName) &&
-                        it.returnTypeName == "java.lang.String"
-                },
-        )
-
-        val quoteRelation =
-            DexResolutionContext.findClasses {
-                    usingString("MsgQute{field_msgId=")
-                    usingString("field_quotedMsgTalker=")
+        methodQuoteCompose.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                !Modifier.isStatic(it.modifiers) &&
+                    it.paramTypeNames == listOf(msgInfoName) &&
+                    it.returnTypeName == "java.lang.String"
+            }
+    }
+    private val classQuoteRelation by dexClass {
+        usingString("MsgQute{field_msgId=")
+        usingString("field_quotedMsgTalker=")
+    }
+    private val classQuoteStorage by dexClass {
+        usingString("MicroMsg.msgquote.MsgQuoteStorage")
+        usingString("getMsgQuteByMsgId:%s")
+    }
+    private val methodQuoteRelationInsert by dexMethodFrom {
+        classQuoteStorage.data.methods.single { candidate ->
+            candidate.paramTypeNames == listOf(classQuoteRelation.data.name) &&
+                candidate.returnTypeName == "boolean" &&
+                candidate.usingFields.any {
+                    it.usingType == MetaFieldUsingType.Write && it.field.name == "field_status"
                 }
-                .single()
-        classQuoteRelation.setDescriptor(quoteRelation)
-        val quoteStorage =
-            DexResolutionContext.findClasses {
-                    usingString("MicroMsg.msgquote.MsgQuoteStorage")
-                    usingString("getMsgQuteByMsgId:%s")
-                }
-                .single()
-
-        methodQuoteRelationInsert.setDescriptor(
-            quoteStorage.methods.single { candidate ->
-                candidate.paramTypeNames == listOf(quoteRelation.name) &&
-                    candidate.returnTypeName == "boolean" &&
-                    candidate.usingFields.any {
-                        it.usingType == MetaFieldUsingType.Write && it.field.name == "field_status"
-                    }
-            },
-        )
-        methodQuoteStorageGetter.setDescriptor(
-            quoteCompose.invokes
-                .distinctBy { it.descriptor }
-                .single {
-                    !Modifier.isStatic(it.modifiers) &&
-                        it.paramCount == 0 &&
-                        it.returnTypeName == quoteStorage.name
-                },
-        )
-
-        classImageSender.find(allowFailure = true) {
-            usingString("MicroMsg.ImgUpload.MsgImgSyncSendFSC")
-            usingString("/cgi-bin/micromsg-bin/uploadmsgimg")
         }
-
-        methodImageSendEntry.find {
-            declaredClass = classImageSender.data.name
-            modifiers = Modifier.PUBLIC or Modifier.STATIC or Modifier.FINAL
-            paramCount = 4..5
-            usingEqString("send_mid_size")
-            usingEqString("send_hevc_mid_size")
-        }
-
-        val taskClassName = methodImageSendEntry.data.paramTypeNames[1]
-        classImageTask.setDescriptor(taskClassName)
-
-        val imageFeatureServiceNewPathProbes = DexResolutionContext.findMethods {
+    }
+    private val methodQuoteStorageGetter by dexMethodFrom {
+        methodQuoteCompose.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
+                !Modifier.isStatic(it.modifiers) &&
+                    it.paramCount == 0 &&
+                    it.returnTypeName == classQuoteStorage.data.name
+            }
+    }
+    private val methodImgUploadFeatureServiceNewPathProbe by
+        dexMethod(allowFailure = true) {
             usingEqStrings("sendRawImgAsyncWithPreBuild[", "send_group_id")
         }
-
-        when (imageFeatureServiceNewPathProbes.size) {
-            1 -> {
-                methodImgUploadFeatureServiceNewPathProbe.setDescriptor(
-                    imageFeatureServiceNewPathProbes.single(),
-                )
-                methodImgUploadFeatureServiceSendImage.find {
-                    declaredClass {
-                        usingEqString("MicroMsg.ImgUpload.MsgImgFeatureService")
-                        usingEqString("taskListener")
-                        usingEqString("params")
-                    }
-                    paramCount = 1
-                    paramTypes(classImageTask.data.name)
-                    usingEqString("params")
-                }
-                methodAppInfoSetAppId.find {
-                    declaredClass {
-                        usingEqString("appinfo")
-                        usingEqString("appid")
-                        usingEqString("version")
-                        usingEqString("appname")
-                        usingEqString("isforceupdate")
-                        usingEqString("messageaction")
-                        usingEqString("messageext")
-                        usingEqString("mediatagname")
-                    }
-                    paramTypes("java.lang.String")
-                    usingNumbers(0)
-                }
-                ctorNetSceneUploadMsgImg.markExpectedFailure()
+    private val methodImgUploadFeatureServiceSendImage by methodImgUploadFeatureServiceNewPathProbe
+        .dexMethod {
+            declaredClass {
+                usingEqString("MicroMsg.ImgUpload.MsgImgFeatureService")
+                usingEqString("taskListener")
+                usingEqString("params")
             }
-
-            0 -> {
-                methodImgUploadFeatureServiceNewPathProbe.markExpectedFailure()
-                methodImgUploadFeatureServiceSendImage.markExpectedFailure()
-                methodAppInfoSetAppId.markExpectedFailure()
-                ctorNetSceneUploadMsgImg.find {
-                    searchPackages("com.tencent.mm.modelimage")
-                    name = "<init>"
-                    declaredClass {
-                        usingEqString("MicroMsg.NetSceneUploadMsgImg")
-                        usingEqString("/cgi-bin/micromsg-bin/uploadmsgimg")
-                    }
-                    paramTypes(
-                        "int",
-                        "java.lang.String",
-                        "java.lang.String",
-                        "java.lang.String",
-                        "int",
-                        null,
-                        "int",
-                        "java.lang.String",
-                        "java.lang.String",
-                        "boolean",
-                        "int",
-                    )
-                }
-            }
-
-            else ->
-                error(
-                    "multiple send_group_id image path probes found: " +
-                        imageFeatureServiceNewPathProbes.joinToString { it.descriptor },
-                )
+            paramCount = 1
+            paramTypes(classImageTask.data.name)
+            usingEqString("params")
         }
+    private val methodAppInfoSetAppId by methodImgUploadFeatureServiceNewPathProbe.dexMethod {
+        declaredClass {
+            usingEqString("appinfo")
+            usingEqString("appid")
+            usingEqString("version")
+            usingEqString("appname")
+            usingEqString("isforceupdate")
+            usingEqString("messageaction")
+            usingEqString("messageext")
+            usingEqString("mediatagname")
+        }
+        paramTypes("java.lang.String")
+        usingNumbers(0)
+    }
+    private val legacyImageUpload =
+        dexGroup(whenAbsent = { methodImgUploadFeatureServiceNewPathProbe })
+    private val ctorNetSceneUploadMsgImg by legacyImageUpload.dexConstructor {
+        searchPackages("com.tencent.mm.modelimage")
+        name = "<init>"
+        declaredClass {
+            usingEqString("MicroMsg.NetSceneUploadMsgImg")
+            usingEqString("/cgi-bin/micromsg-bin/uploadmsgimg")
+        }
+        paramTypes(
+            "int",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "int",
+            null,
+            "int",
+            "java.lang.String",
+            "java.lang.String",
+            "boolean",
+            "int",
+        )
     }
 
     /** 正常未读显示数字；正常未读为零且存在免打扰未读时显示红点。 */
@@ -1543,11 +1504,6 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             false
         }
     }
-
-    private val methodImgUploadFeatureServiceNewPathProbe by dexMethod()
-    private val methodImgUploadFeatureServiceSendImage by dexMethod()
-    private val methodAppInfoSetAppId by dexMethod()
-    private val ctorNetSceneUploadMsgImg by dexConstructor()
 
     fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
         if (methodImgUploadFeatureServiceNewPathProbe.isFound) {

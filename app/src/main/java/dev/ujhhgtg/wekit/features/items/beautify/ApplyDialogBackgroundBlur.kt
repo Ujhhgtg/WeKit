@@ -18,7 +18,6 @@ import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -32,7 +31,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Modifier
 
-object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
+object ApplyDialogBackgroundBlur : ClickableFeature() {
     override val technicalId = "对话框窗口级背景模糊"
     override val nameRes = R.string.feature_apply_dialog_background_blur_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

@@ -83,7 +83,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -130,7 +129,7 @@ private enum class ToolbarDisplayMode(val preferenceValue: String, @StringRes va
 }
 
 @SuppressLint("StaticFieldLeak")
-object ChatToolbar : ClickableFeature(), IResolveDex {
+object ChatToolbar : ClickableFeature() {
     override val technicalId = "聊天工具栏"
     override val nameRes = R.string.feature_chat_toolbar_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

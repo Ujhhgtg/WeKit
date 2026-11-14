@@ -7,14 +7,13 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HookHandle
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 
-object RemoveSignatureLimits : SwitchFeature(), IResolveDex {
+object RemoveSignatureLimits : SwitchFeature() {
     override val technicalId = "移除个性签名限制"
     override val nameRes = R.string.feature_remove_signature_limits_name
     override val categoryIds = listOf(FeatureCategoryIds.PROFILE)

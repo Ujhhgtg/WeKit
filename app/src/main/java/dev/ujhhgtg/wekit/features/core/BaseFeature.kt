@@ -4,14 +4,17 @@ package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
 import androidx.annotation.StringRes
+import dev.ujhhgtg.dexsql.DexSqlBridge
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.cache.DexItemState
 import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.dex.dsl.DexMethodDelegate
+import dev.ujhhgtg.wekit.dex.resolution.DexHostMetadata
+import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
+import dev.ujhhgtg.wekit.dex.resolution.ResolutionCoordinator
 import dev.ujhhgtg.wekit.utils.HookAction
 import dev.ujhhgtg.wekit.utils.HookBuilder
 import dev.ujhhgtg.wekit.utils.HookHandle
@@ -55,8 +58,7 @@ abstract class BaseFeature {
      * Persisted Dex state for the current host; set by [FeaturesLoader]. Always valid for non-Dex
      * features.
      */
-    var dexState: DexItemState =
-        if (this is IResolveDex) DexItemState.NeedsResolution else DexItemState.Valid
+    var dexState: DexItemState = DexItemState.Valid
 
     /** Every reason this feature must not start or be enabled; empty when it may. */
     val errors: List<FeatureError>
@@ -107,10 +109,43 @@ abstract class BaseFeature {
     val dexDelegates: List<BaseDexDelegate>
         get() = _dexDelegates
 
-    fun registerDexDelegate(d: BaseDexDelegate) {
-        d.owner = this
-        _dexDelegates += d
+    val hasDexDelegates: Boolean
+        get() = _dexDelegates.isNotEmpty()
+
+    fun registerDexDelegate(delegate: BaseDexDelegate) {
+        delegate.owner = this
+        _dexDelegates += delegate
+        dexState = DexItemState.NeedsResolution
     }
+
+    fun collectDescriptors(): Map<String, String?> = dexDelegates.associate { delegate ->
+        check(delegate.isSettled) {
+            "Dex delegate ${delegate.key} is not resolved: ${delegate.state}"
+        }
+        delegate.key to delegate.getDescriptorString()
+    }
+
+    fun loadFromCache(cache: Map<String, String?>): Set<String> {
+        val missingKeys = mutableSetOf<String>()
+        for (delegate in dexDelegates) {
+            if (delegate.key in cache) {
+                delegate.restore(cache[delegate.key])
+            } else {
+                missingKeys += delegate.key
+            }
+        }
+        return missingKeys
+    }
+
+    fun resolveAllDex(
+        host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
+        coordinator: ResolutionCoordinator<BaseFeature> =
+            DexResolutionContext.newCoordinator(listOf(this)),
+        dexSql: DexSqlBridge? = null,
+    ) =
+        DexResolutionContext.withResolutionContext(host, coordinator, dexSql) {
+            DexResolutionContext.resolve(this)
+        }
 
     val unhooks = mutableListOf<HookHandle>()
 

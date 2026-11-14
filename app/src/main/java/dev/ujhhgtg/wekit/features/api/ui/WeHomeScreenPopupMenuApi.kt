@@ -10,8 +10,6 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -25,7 +23,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
+object WeHomeScreenPopupMenuApi : ApiFeature() {
     override val technicalId = "首页菜单服务"
     override val nameRes = R.string.feature_we_home_screen_popup_menu_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

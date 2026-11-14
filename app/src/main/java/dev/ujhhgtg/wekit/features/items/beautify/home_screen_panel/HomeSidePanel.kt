@@ -31,8 +31,6 @@ import com.tencent.mm.ui.base.CustomViewPager
 import com.tencent.mm.ui.mogic.WxViewPager
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeLauncherBackApi
@@ -97,7 +95,7 @@ private fun homeSidePanelShouldReparentExternalChrome(
         parentClassName != "androidx.appcompat.widget.ActionBarOverlayLayout"
 
 @Suppress("DEPRECATION")
-object HomeSidePanel : SwitchFeature(), IResolveDex {
+object HomeSidePanel : SwitchFeature() {
 
     override val technicalId = "主页侧滑面板"
     override val nameRes = R.string.feature_home_side_panel_name

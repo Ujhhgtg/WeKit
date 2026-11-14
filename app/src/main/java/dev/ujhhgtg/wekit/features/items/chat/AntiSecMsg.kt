@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -22,7 +20,7 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
  * 两个方法都强制返回 false: 完整判定覆盖菜单与其他消费点, 原始检查覆盖 直接绕过完整判定的调用方 (如文本选择路径 com.tencent.mm.ui.chatting.x3)。 全部
  * 8.0.65–8.0.77 均存在, 按项目约定不设 allowFailure。
  */
-object AntiSecMsg : SwitchFeature(), IResolveDex {
+object AntiSecMsg : SwitchFeature() {
     override val technicalId = "反安全消息"
     override val nameRes = R.string.feature_anti_sec_msg_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

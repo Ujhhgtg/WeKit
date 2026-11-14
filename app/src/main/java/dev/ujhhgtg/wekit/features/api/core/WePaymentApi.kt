@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
@@ -11,7 +9,7 @@ import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-object WePaymentApi : ApiFeature(), IResolveDex {
+object WePaymentApi : ApiFeature() {
     override val technicalId = "支付服务"
     override val nameRes = R.string.feature_we_payment_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

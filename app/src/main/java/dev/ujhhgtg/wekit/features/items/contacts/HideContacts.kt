@@ -31,11 +31,8 @@ import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
+import dev.ujhhgtg.wekit.dex.dsl.dexGroup
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
-import dev.ujhhgtg.wekit.dex.dsl.find
-import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -72,10 +69,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 object HideContacts :
-    ClickableFeature(),
-    IResolveDex,
-    WeChatInputBarApi.IInputBarListener,
-    WeDatabaseListenerApi.IQueryListener {
+    ClickableFeature(), WeChatInputBarApi.IInputBarListener, WeDatabaseListenerApi.IQueryListener {
 
     override val technicalId = "隐藏联系人"
     override val nameRes = R.string.feature_hide_contacts_name
@@ -953,16 +947,9 @@ object HideContacts :
     // ── multitalk (群通话), used when the VoIPMP multitalk experiment is off ───────────────────
 
     /** `v0.G(MultiTalkGroup)` — MultiTalkManager.onInviteMultiTalk. */
-    val methodMultiTalkOnInvite by dexMethod()
-
-    override fun resolveDex() {
-        // Declared on MultiTalkManager, which exists only with the legacy MultiTalk stack.
-        DexResolutionContext.ensureResolved(SplitGroupCall.methodExitMultiTalk)
-        if (!SplitGroupCall.methodExitMultiTalk.isFound) {
-            methodMultiTalkOnInvite.markExpectedFailure()
-            return
-        }
-        methodMultiTalkOnInvite.find(allowFailure = true) {
+    private val multiTalk = dexGroup(whenFound = { SplitGroupCall.methodExitMultiTalk })
+    val methodMultiTalkOnInvite by
+        multiTalk.dexMethod(allowFailure = true) {
             declaredClass {
                 className = SplitGroupCall.methodExitMultiTalk.data.declaredClassName
             }
@@ -971,7 +958,6 @@ object HideContacts :
                 "onInviteMultiTalk All Var Value:\n isMute: %b isHandsFree: %b isCameraFace: %b multiTalkStatus: %s groupIsNull: %b",
             )
         }
-    }
 
     /**
      * `v0.g(isReject, isMissCall, isPhoneCall, isNetworkError, boolean, boolean)` —

@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import dev.ujhhgtg.dexsql.matcher.NameMatch
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -10,7 +9,7 @@ import dev.ujhhgtg.wekit.utils.TargetProcess
 import dev.ujhhgtg.wekit.utils.enumValueOfClass
 import java.lang.reflect.Modifier
 
-object RemoveMenuLimits : SwitchFeature(), IResolveDex {
+object RemoveMenuLimits : SwitchFeature() {
     override val technicalId = "去除菜单限制"
     override val nameRes = R.string.feature_remove_menu_limits_name
     override val categoryIds = listOf(FeatureCategoryIds.MINIAPPS)

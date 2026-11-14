@@ -7,7 +7,6 @@ import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeHomeScreenPopupMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -20,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.nul
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.Serializable
 
-object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
+object QrCodeRecord : ClickableFeature(), WeHomeScreenPopupMenuApi.IMenuItemsProvider {
     override val technicalId = "二维码扫描记录"
     override val nameRes = R.string.feature_qr_code_record_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
@@ -125,6 +124,4 @@ object QrCodeRecord : ClickableFeature(), IResolveDex, WeHomeScreenPopupMenuApi.
     val methodQBarString by dexMethod {
         usingEqStrings("MicroMsg.QBarStringHandler", "key_offline_scan_show_tips")
     }
-
-    override fun resolveDex() {}
 }

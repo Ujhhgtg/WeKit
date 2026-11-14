@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -24,7 +23,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
-object WeContactApi : ApiFeature(), IResolveDex {
+object WeContactApi : ApiFeature() {
 
     override val technicalId = "联系人服务"
     override val nameRes = R.string.feature_we_contact_api_name

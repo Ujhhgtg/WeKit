@@ -11,9 +11,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
-import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -26,7 +25,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HookParam
 import kotlin.math.roundToInt
 
-object RoundAvatars : ClickableFeature(), IResolveDex {
+object RoundAvatars : ClickableFeature() {
     override val technicalId = "圆角头像"
     override val nameRes = R.string.feature_round_avatars_name
     override val categoryIds =
@@ -38,7 +37,6 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
     private val ctorAvatarCreate by dexConstructor {
         usingEqStrings("workerScope", "username")
     }
-    private val methodAvatarModify by dexMethod()
 
     private val radiusFactor: Float
         get() = KvStore.getFloatOrDef(KEY_ROUND_AVATAR, 0.5f).coerceIn(0.1f, 0.5f)
@@ -65,21 +63,17 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
         notifyCustomContactAvatarChanged()
     }
 
-    override fun resolveDex() {
-        val modifyMethods =
-            DexResolutionContext.findMethods {
-                    usingEqString("workerScope")
-                    usingEqString("username")
-                }
-                .filter { it.name != "<init>" }
+    private val methodAvatarModify by
+        dexMethodFrom(allowFailure = true) {
+            val modifyMethods =
+                DexResolutionContext.findMethods {
+                        usingEqString("workerScope")
+                        usingEqString("username")
+                    }
+                    .filter { it.name != "<init>" }
 
-        val modifyMethod = modifyMethods.singleOrNull()
-        if (modifyMethod == null) {
-            methodAvatarModify.markExpectedFailure()
-        } else {
-            methodAvatarModify.setDescriptor(modifyMethod.descriptor)
+            modifyMethods.singleOrNull()
         }
-    }
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

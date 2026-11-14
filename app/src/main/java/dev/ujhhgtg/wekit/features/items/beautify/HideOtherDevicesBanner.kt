@@ -2,12 +2,11 @@ package dev.ujhhgtg.wekit.features.items.beautify
 
 import android.view.View
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object HideOtherDevicesBanner : SwitchFeature(), IResolveDex {
+object HideOtherDevicesBanner : SwitchFeature() {
     override val technicalId = "隐藏其他设备横幅"
     override val nameRes = R.string.feature_hide_other_devices_banner_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)

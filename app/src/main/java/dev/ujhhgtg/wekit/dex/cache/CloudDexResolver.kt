@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.dex.cache
 
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -30,7 +29,7 @@ sealed interface CloudDexNotice {
 
 data class CloudDexResolutionResult(
     val importedCount: Int,
-    val remainingItems: List<IResolveDex>,
+    val remainingItems: List<BaseFeature>,
     val notice: CloudDexNotice?,
 )
 
@@ -49,7 +48,7 @@ object CloudDexResolver {
             .build()
     }
 
-    suspend fun resolve(items: List<IResolveDex>): CloudDexResolutionResult =
+    suspend fun resolve(items: List<BaseFeature>): CloudDexResolutionResult =
         withContext(Dispatchers.IO) {
             val host =
                 CloudDexHost(
@@ -77,9 +76,8 @@ object CloudDexResolver {
                         host = host,
                         items =
                             items.map { item ->
-                                val feature = item as BaseFeature
                                 CurrentDexItem(
-                                    technicalId = feature.technicalId,
+                                    technicalId = item.technicalId,
                                     methodHash = DexCacheManager.methodHash(item),
                                     delegateKeys =
                                         item.dexDelegates.mapTo(linkedSetOf()) { it.key },
@@ -159,7 +157,7 @@ object CloudDexResolver {
         return output.toString(Charsets.UTF_8.name())
     }
 
-    private fun failure(items: List<IResolveDex>, notice: CloudDexNotice) =
+    private fun failure(items: List<BaseFeature>, notice: CloudDexNotice) =
         CloudDexResolutionResult(
             importedCount = 0,
             remainingItems = items,

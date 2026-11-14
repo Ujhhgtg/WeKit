@@ -1,14 +1,13 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-object WeGroupApi : ApiFeature(), IResolveDex {
+object WeGroupApi : ApiFeature() {
     override val technicalId = "群聊管理服务"
     override val nameRes = R.string.feature_we_group_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

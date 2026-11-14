@@ -47,10 +47,9 @@ import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.AssetStore
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -85,7 +84,7 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
-object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IResolveDex {
+object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider {
     override val technicalId = "自定义好友本地头像"
     override val nameRes = R.string.feature_custom_local_friend_avatars_name
     override val categoryIds =
@@ -178,28 +177,24 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     }
 
     // com.tencent.mm.feature.avatar.w.pg; an exception: this doesn't call methodMvvmLoadAvatar
-    private val methodFeatureAvatarSimple1 by dexMethod()
-
-    override fun resolveDex() {
-        methodFeatureAvatarSimple1.setDescriptor(
-            DexResolutionContext.findMethods {
+    private val methodFeatureAvatarSimple1 by dexMethodFrom {
+        DexResolutionContext.findMethods {
+                declaredClass = classAvatarDrawable.data.name
+                paramTypes("android.widget.ImageView", "java.lang.String")
+                returnType = "void"
+                usingNumbers(0.5f)
+            }
+            .singleOrNull()
+            ?: DexResolutionContext.findMethods {
                     declaredClass = classAvatarDrawable.data.name
                     paramTypes("android.widget.ImageView", "java.lang.String")
                     returnType = "void"
-                    usingNumbers(0.5f)
-                }
-                .singleOrNull()
-                ?: DexResolutionContext.findMethods {
-                        declaredClass = classAvatarDrawable.data.name
-                        paramTypes("android.widget.ImageView", "java.lang.String")
-                        returnType = "void"
-                        invokeMethod {
-                            declaredClass = "android.view.View"
-                            name = "invalidate"
-                        }
+                    invokeMethod {
+                        declaredClass = "android.view.View"
+                        name = "invalidate"
                     }
-                    .single(),
-        )
+                }
+                .single()
     }
 
     private val methodPluginsdkLoadAvatar by

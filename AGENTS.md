@@ -55,7 +55,7 @@
   them back into Java-like source (AES key recovered from WAuxiliary's decompiled source)
 - `libs/common/reflekt/` — submodule: reflection utility library (`dev.ujhhgtg.reflekt`)
 - `libs/common/stubs/` — compileOnly stubs for WeChat and Android hidden classes
-- `buildSrc/` — custom Gradle tasks: `GenerateMethodHashesTask` (`IResolveDex` `resolveDex` method
+- `buildSrc/` — custom Gradle tasks: `GenerateMethodHashesTask` (`BaseFeature` delegate-source
   MD5 cache), `GenerateNewFeaturesTask` (Kotlin sources added within 30 days of HEAD →
   `NewFeatures.ADDED_AT_BY_SOURCE_KEY`; KSP joins them to features for the 新功能 pseudo-category)
 - `xtask/` — build orchestration behind `./x`: native-lib compilation + NDK linker config, APK
@@ -71,7 +71,7 @@
 - Base classes: `SwitchFeature` (toggle), `ClickableFeature` (toggle + onClick), `ApiFeature`
   (always-on), `BaseFeature` (abstract base, do not use directly)
 - DEX analysis uses DexSQL queries plus the WeKit query matcher; DexKit has been removed, so
-  every target lives behind an `IResolveDex` delegate. Resolver bodies and delegate blocks are
+  every target lives behind a `BaseFeature` Dex delegate. Matcher and computed delegate blocks are
   MD5-hashed as the cache key (`GenerateMethodHashesTask`). The `dev.ujhhgtg:dexsql` library's
   Rust engine only executes read-only SQL — row selection and resolver-state classification are
   WeKit responsibilities.
@@ -79,7 +79,7 @@
   resolves and restarts WeChat. Failures are persisted per resolver hash. A feature with
   `BaseFeature.errors` (own/transitive-dependency Dex state or `declaredErrors`) never starts
   and can't be enabled — declare host restrictions via `declaredErrors`, not toasts in `onEnable`
-- DEX-resolved targets DSL: `val methodTarget by dexMethod()` / `val classTarget by dexClass()` →
+- DEX-resolved targets DSL: `val methodTarget by dexMethod { ... }` / `val classTarget by dexClass { ... }` →
   `methodTarget.hookBefore { ... }`, `methodTarget.method`, `classTarget.clazz`
 - Extension scripts resolve DEX through the same query matcher: Python plugins use the
   query-backed `wekit.dex` module (spec builders plus `find_methods`/`find_classes`/`find_fields`),
@@ -118,7 +118,7 @@
 
 ## Desktop Dex validation
 
-- `./x dex-test` runs the same `IResolveDex`/DexSQL resolution as `DexCacheManager.kt` against
+- `./x dex-test` runs the same `BaseFeature`/DexSQL resolution as `DexCacheManager.kt` against
   WeChat APKs on the desktop. Only the supported range **8.0.65–8.0.80** is a compatibility gate;
   other APKs are for investigation only.
 - `--workers 4` exercises the shared batch scheduler used by Android resolution; `--workers 1` is
@@ -137,7 +137,7 @@
   returning with pending delegates is `INCOMPLETE`. Initialization, worker, native-library, APK
   metadata, report, unexpected, blocked, or incomplete failures must stay visible and fail the command.
 - Desktop testing is expensive. Rerun only the affected supported APKs after changing `dexMethod`,
-  `dexClass`, `dexField`, SQL queries/DSL expressions, or `resolveDex` logic; don't rerun a
+  `dexClass`, `dexField`, SQL queries/DSL expressions, or computed delegate logic; don't rerun a
   passed version for unrelated changes.
 - The desktop worker only loads DexSQL when `./x dex-test` can build the host `libwekit_native.so`;
   the task always runs the incremental host build before starting workers, so the library cannot
@@ -147,7 +147,7 @@
 
 ### Desktop-safe Dex resolver rules
 
-- All `resolveDex` bodies share one `DexResolutionContext`.
+- All matcher and computed delegate bodies share one `DexResolutionContext`.
   To use an already-resolved delegate in a later query, read its Dex metadata
   (`delegate.data.name`, `.declaredClassName`, `.returnTypeName`, `.paramTypeNames`,
   `.superClass`, `.interfaces`, etc.), never JVM reflection (`.clazz`, `.method`, `.constructor`,

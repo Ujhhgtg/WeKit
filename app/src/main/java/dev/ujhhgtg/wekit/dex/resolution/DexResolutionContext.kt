@@ -13,8 +13,8 @@ import dev.ujhhgtg.dexsql.meta.DexClassInfo
 import dev.ujhhgtg.dexsql.meta.DexFieldInfo
 import dev.ujhhgtg.dexsql.meta.DexMetadata
 import dev.ujhhgtg.dexsql.meta.DexMethodInfo
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dex.dsl.resolveComputedDescriptor
 import dev.ujhhgtg.wekit.dex.dsl.resolveFromDexSql
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -73,7 +73,7 @@ object DexResolutionContext {
     val metadata: DexMetadata
         get() = current.get()?.metadata ?: error("DexSQL metadata context is not active")
 
-    /** Session-scoped query matcher usable from custom resolveDex bodies. */
+    /** Session-scoped query matcher usable from computed delegate providers. */
     val matcher: DexMatcherSession
         get() = current.get()?.matcher ?: error("Dex resolution context is not active")
 
@@ -107,7 +107,7 @@ object DexResolutionContext {
             resolveWithinOwner(delegate, session)
             return
         }
-        resolve(delegate.owner as IResolveDex, session)
+        resolve(delegate.owner, session)
     }
 
     /**
@@ -132,13 +132,21 @@ object DexResolutionContext {
         }
         session.resolving += delegate
         try {
-            val dexSql =
-                session.dexSql
-                    ?: error(
-                        "DexSQL resolution context is not active for " +
-                            delegate.owner.technicalPath,
-                    )
-            delegate.resolveFromDexSql(dexSql)
+            if (delegate.group?.isAvailable() == false) {
+                delegate.markExpectedFailure()
+                return
+            }
+            if (delegate.computedDescriptor != null) {
+                delegate.resolveComputedDescriptor()
+            } else {
+                val dexSql =
+                    session.dexSql
+                        ?: error(
+                            "DexSQL resolution context is not active for " +
+                                delegate.owner.technicalPath,
+                        )
+                delegate.resolveFromDexSql(dexSql)
+            }
             check(delegate.isSettled) {
                 "Dex delegate " +
                     delegate.owner.technicalPath +
@@ -176,44 +184,33 @@ object DexResolutionContext {
         }
     }
 
-    fun resolve(item: IResolveDex) {
+    fun resolve(item: BaseFeature) {
         resolve(item, current.get() ?: error("Dex resolution context is not active"))
     }
 
-    private fun resolve(item: IResolveDex, session: Session) {
-        val feature = item as BaseFeature
+    private fun resolve(feature: BaseFeature, session: Session) {
         session.coordinator.resolve(
             feature,
-            canReuse = { item.dexDelegates.all(BaseDexDelegate::isSettled) },
+            canReuse = { feature.dexDelegates.all(BaseDexDelegate::isSettled) },
         ) {
             session.stack += feature
             try {
-                item.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
+                feature.dexDelegates.forEach(BaseDexDelegate::resetForResolution)
                 // SQL builders are lazy: they execute here, inside the resolution context, so
                 // .data references inside a builder resolve their dependencies on demand.
-                val sqlDelegates = item.dexDelegates.filter { it.dexSqlSpec != null }
-                if (sqlDelegates.isNotEmpty()) {
-                    val dexSql =
-                        session.dexSql
-                            ?: error(
-                                "DexSQL resolution context is not active for " +
-                                    feature.technicalPath,
-                            )
-                    sqlDelegates.forEach { it.resolveFromDexSql(dexSql) }
-                }
-                item.resolveDex()
-                item.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
-                check(item.dexDelegates.all(BaseDexDelegate::isSettled)) {
+                feature.dexDelegates.forEach { resolveWithinOwner(it, session) }
+                feature.dexDelegates.forEach(BaseDexDelegate::markIncomplete)
+                check(feature.dexDelegates.all(BaseDexDelegate::isSettled)) {
                     "Incomplete or failed Dex resolution: " + feature.technicalPath
                 }
             } catch (error: Throwable) {
                 val causeKey =
-                    item.dexDelegates
+                    feature.dexDelegates
                         .firstOrNull {
                             it.state is DexResolutionState.UnexpectedFailure
                         }
-                        ?.key ?: feature.javaClass.name + "#resolveDex"
-                item.dexDelegates.forEach { it.markBlocked(causeKey) }
+                        ?.key ?: feature.javaClass.name + "#resolution"
+                feature.dexDelegates.forEach { it.markBlocked(causeKey) }
                 throw error
             } finally {
                 session.stack.removeAt(session.stack.lastIndex)
@@ -221,16 +218,6 @@ object DexResolutionContext {
         }
     }
 
-    fun newCoordinator(items: Collection<IResolveDex>, checkActive: () -> Unit = {}) =
-        ResolutionCoordinator(items.map { it as BaseFeature }, { it.technicalPath }, checkActive)
+    fun newCoordinator(items: Collection<BaseFeature>, checkActive: () -> Unit = {}) =
+        ResolutionCoordinator(items, { it.technicalPath }, checkActive)
 }
-
-fun IResolveDex.resolveAllDex(
-    host: DexHostMetadata = DexHostMetadata.currentAndroidHost(),
-    coordinator: ResolutionCoordinator<BaseFeature> =
-        DexResolutionContext.newCoordinator(listOf(this)),
-    dexSql: DexSqlBridge? = null,
-) =
-    DexResolutionContext.withResolutionContext(host, coordinator, dexSql) {
-        DexResolutionContext.resolve(this)
-    }

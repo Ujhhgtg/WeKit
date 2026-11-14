@@ -2,10 +2,9 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -13,7 +12,7 @@ import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import java.lang.reflect.Field
 import java.util.concurrent.CopyOnWriteArraySet
 
-object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
+object RemoveMessageSelectionLimit : SwitchFeature() {
     override val technicalId = "解除消息多选数量限制"
     override val nameRes = R.string.feature_remove_message_selection_limit_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -48,8 +47,30 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
      * resolved at runtime), so resolve all candidates once and assign them explicitly
      * instead of relaxing uniqueness. Ordering is the previous resolver's deterministic result order.
      */
-    private val methodSetQuickSelectViewEnabled1 by dexMethod()
-    private val methodSetQuickSelectViewEnabled2 by dexMethod()
+    private val methodSetQuickSelectViewEnabled1 by dexMethodFrom {
+        val candidates = DexResolutionContext.findMethods {
+            declaredClass = classChatItemQuickSelect.data.name
+            usingNumbers(SELECTION_LIMIT)
+            paramTypes("boolean")
+            returnType = "void"
+        }
+        check(candidates.size >= 2) {
+            "DexSQL: Expected two quick-select setter candidates, found ${candidates.size}"
+        }
+        candidates[0]
+    }
+    private val methodSetQuickSelectViewEnabled2 by dexMethodFrom {
+        val candidates = DexResolutionContext.findMethods {
+            declaredClass = classChatItemQuickSelect.data.name
+            usingNumbers(SELECTION_LIMIT)
+            paramTypes("boolean")
+            returnType = "void"
+        }
+        check(candidates.size >= 2) {
+            "DexSQL: Expected two quick-select setter candidates, found ${candidates.size}"
+        }
+        candidates[1]
+    }
 
     private val selectedMessagesField: Field by lazy {
         WeMessageApi.methodToggleMessageSelection.method.declaringClass.declaredFields
@@ -65,20 +86,6 @@ object RemoveMessageSelectionLimit : SwitchFeature(), IResolveDex {
     )
 
     private val selectedMessageCountOverride = ThreadLocal<Int>()
-
-    override fun resolveDex() {
-        val candidates = DexResolutionContext.findMethods {
-            declaredClass = classChatItemQuickSelect.data.name
-            usingNumbers(SELECTION_LIMIT)
-            paramTypes("boolean")
-            returnType = "void"
-        }
-        check(candidates.size >= 2) {
-            "DexSQL: Expected two quick-select setter candidates, found ${candidates.size}"
-        }
-        methodSetQuickSelectViewEnabled1.setDescriptor(candidates[0].descriptor)
-        methodSetQuickSelectViewEnabled2.setDescriptor(candidates[1].descriptor)
-    }
 
     override fun onEnable() {
         listOf(

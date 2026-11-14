@@ -2,13 +2,12 @@ package dev.ujhhgtg.wekit.features.api.net
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 
-object WeNetSceneApi : ApiFeature(), IResolveDex {
+object WeNetSceneApi : ApiFeature() {
     override val technicalId = "NetScene 服务"
     override val nameRes = R.string.feature_we_net_scene_api_name
     override val categoryIds = listOf(FeatureCategoryIds.API)

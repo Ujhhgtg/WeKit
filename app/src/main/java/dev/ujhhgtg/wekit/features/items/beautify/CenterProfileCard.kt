@@ -35,7 +35,6 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -56,7 +55,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
-object CenterProfileCard : ClickableFeature(), IResolveDex {
+object CenterProfileCard : ClickableFeature() {
     override val technicalId = "资料卡居中"
     override val nameRes = R.string.feature_center_profile_card_name
     override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY, FeatureCategoryIds.PROFILE)

@@ -2,25 +2,18 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.dexClass
-import dev.ujhhgtg.wekit.dex.dsl.dexField
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
+import dev.ujhhgtg.wekit.dex.dsl.dexFieldFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.dex.resolution.DexResolutionContext
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object ForceEnableAllTools : SwitchFeature(), IResolveDex {
+object ForceEnableAllTools : SwitchFeature() {
     override val technicalId = "强制启用所有功能"
     override val nameRes = R.string.feature_force_enable_all_tools_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
     override val descriptionRes = R.string.feature_force_enable_all_tools_description
-
-    private val classAppPanelConfig by dexClass()
-    private val fieldAppPanelConfig by dexField()
-    private val fieldFirstFlag by dexField()
-    private val fieldFlagEnabled by dexField()
-    private val methodRefreshAppPanel by dexMethod()
 
     override fun onEnable() {
         methodRefreshAppPanel.hookBefore {
@@ -37,42 +30,46 @@ object ForceEnableAllTools : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun resolveDex() {
-        val refreshMethod =
-            DexResolutionContext.findMethods {
-                    searchPackages(APP_PANEL_PACKAGE)
-                    declaredClass = APP_PANEL_CLASS
-                    usingEqString("MicroMsg.AppPanel")
-                    usingEqString("roomEnable:%s, hideRoomLive:%s")
-                    paramCount = 0
-                    returnType = "void"
-                }
-                .single()
-        methodRefreshAppPanel.setDescriptor(refreshMethod)
-
-        val usedFields = refreshMethod.usingFields.map { it.field }.distinctBy { it.descriptor }
+    private val methodRefreshAppPanel by dexMethod {
+        searchPackages(APP_PANEL_PACKAGE)
+        declaredClass = APP_PANEL_CLASS
+        usingEqString("MicroMsg.AppPanel")
+        usingEqString("roomEnable:%s, hideRoomLive:%s")
+        paramCount = 0
+        returnType = "void"
+    }
+    private val fieldFirstFlag by dexFieldFrom {
+        val usedFields =
+            methodRefreshAppPanel.data.usingFields.map { it.field }.distinctBy { it.descriptor }
         // The previous resolver skipped non-final fields before resolving their type, so an
         // external or
         // primitive type (classInfoByName -> null) must count as "no boolean fields".
-        val firstFlag = usedFields.first { field ->
+        usedFields.first { field ->
             field.modifiers and java.lang.reflect.Modifier.FINAL != 0 &&
                 DexResolutionContext.metadata.classInfoByName(field.typeName)?.fields?.count {
                     it.typeName == "boolean"
                 } == 1
         }
-        val configClass = firstFlag.declaredClass!!
-        val appPanelConfig = usedFields.single { field ->
-            field.className == APP_PANEL_CLASS && field.typeName == configClass.name
-        }
-        val flagEnabled =
-            DexResolutionContext.metadata.classInfoByName(firstFlag.typeName)!!.fields.single {
+    }
+    private val classAppPanelConfig by dexClassFrom {
+        fieldFirstFlag.data.declaredClass!!
+    }
+    private val fieldAppPanelConfig by dexFieldFrom {
+        methodRefreshAppPanel.data.usingFields
+            .map { it.field }
+            .distinctBy { it.descriptor }
+            .single { field ->
+                field.className == APP_PANEL_CLASS &&
+                    field.typeName == classAppPanelConfig.data.name
+            }
+    }
+    private val fieldFlagEnabled by dexFieldFrom {
+        DexResolutionContext.metadata
+            .classInfoByName(fieldFirstFlag.data.typeName)!!
+            .fields
+            .single {
                 it.typeName == "boolean"
             }
-
-        classAppPanelConfig.setDescriptor(configClass)
-        fieldAppPanelConfig.setDescriptor(appPanelConfig)
-        fieldFirstFlag.setDescriptor(firstFlag)
-        fieldFlagEnabled.setDescriptor(flagEnabled)
     }
 
     private const val APP_PANEL_PACKAGE = "com.tencent.mm.pluginsdk.ui.chat"

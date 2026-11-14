@@ -15,8 +15,6 @@ import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -32,11 +30,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import java.util.concurrent.atomic.AtomicBoolean
 
-object SuperConversationPinning :
-    SwitchFeature(),
-    WeConversationContextMenuApi.IMenuItemsProvider,
-    //    WeDatabaseListenerApi.IQueryListener,
-    IResolveDex {
+object SuperConversationPinning : SwitchFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
     override val technicalId = "超级对话置顶"
     override val nameRes = R.string.feature_super_conversation_pinning_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

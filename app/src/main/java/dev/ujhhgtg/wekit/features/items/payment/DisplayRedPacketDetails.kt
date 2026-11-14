@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
@@ -25,7 +24,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.json.JSONObject
 
-object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
+object DisplayRedPacketDetails : SwitchFeature() {
     override val technicalId = "红包页面详情"
     override val nameRes = R.string.feature_display_red_packet_details_name
     override val categoryIds = listOf(FeatureCategoryIds.PAYMENT)

@@ -4,7 +4,6 @@ import android.view.MenuItem
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.NearbyFriendProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.WeProto
@@ -14,7 +13,7 @@ import dev.ujhhgtg.wekit.i18n.localizedString
 import dev.ujhhgtg.wekit.utils.reflection.int
 import java.util.LinkedList
 
-object AutoAddNearbyFriends : ClickableFeature(), IResolveDex {
+object AutoAddNearbyFriends : ClickableFeature() {
     override val technicalId = "自动添加附近的人"
     override val nameRes = R.string.feature_auto_add_nearby_friends_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)

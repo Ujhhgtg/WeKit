@@ -59,8 +59,6 @@ import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dex.dsl.dexField
@@ -87,7 +85,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
-object BatchManageMoments : ClickableFeature(), IResolveDex {
+object BatchManageMoments : ClickableFeature() {
     override val technicalId = "批量管理朋友圈"
     override val nameRes = R.string.feature_batch_manage_moments_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS, FeatureCategoryIds.BATCH)

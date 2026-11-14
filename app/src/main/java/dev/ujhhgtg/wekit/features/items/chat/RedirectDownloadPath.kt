@@ -12,7 +12,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeVfsApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -36,7 +35,7 @@ import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.name
 
-object RedirectDownloadPath : ClickableFeature(), IResolveDex {
+object RedirectDownloadPath : ClickableFeature() {
 
     override val technicalId = "重定向文件下载路径"
     override val nameRes = R.string.feature_redirect_download_path_name

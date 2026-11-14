@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.data.KvStore.prefOption
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexClass
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -47,7 +46,7 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
  *
  * 所有锚点均为跨版本稳定字符串, 按项目约定不加 allowFailure。
  */
-object VoiceMessagePlaybackOptimization : ClickableFeature(), IResolveDex {
+object VoiceMessagePlaybackOptimization : ClickableFeature() {
     override val technicalId = "语音消息播放逻辑优化"
     override val nameRes = R.string.feature_voice_message_playback_optimization_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)

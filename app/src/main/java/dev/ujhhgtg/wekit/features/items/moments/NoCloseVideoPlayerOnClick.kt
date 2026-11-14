@@ -5,13 +5,12 @@ import android.view.MotionEvent
 import android.view.View
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexField
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object NoCloseVideoPlayerOnClick : SwitchFeature(), IResolveDex {
+object NoCloseVideoPlayerOnClick : SwitchFeature() {
     override val technicalId = "单击不关闭视频播放器"
     override val nameRes = R.string.feature_no_close_video_player_on_click_name
     override val categoryIds = listOf(FeatureCategoryIds.MOMENTS)

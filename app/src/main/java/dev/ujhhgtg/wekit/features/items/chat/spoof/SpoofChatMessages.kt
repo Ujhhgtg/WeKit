@@ -27,10 +27,9 @@ import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.data.entity.SpoofedChatMessageEntity
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
-import dev.ujhhgtg.wekit.dex.dsl.data
-import dev.ujhhgtg.wekit.dex.dsl.dexClass
+import dev.ujhhgtg.wekit.dex.dsl.dexClassFrom
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
+import dev.ujhhgtg.wekit.dex.dsl.dexMethodFrom
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -54,8 +53,7 @@ import kotlin.math.max
  * value, while the stored message and anything sent stay untouched.
  */
 @SuppressLint("ThreadConstraint")
-object SpoofChatMessages :
-    ClickableFeature(), IResolveDex, WeChatMessageContextMenuApi.IMenuItemsProvider {
+object SpoofChatMessages : ClickableFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
     override val technicalId = "伪造聊天消息"
     override val nameRes = R.string.feature_spoof_chat_messages_name
     override val categoryIds = listOf(FeatureCategoryIds.CHAT)
@@ -120,13 +118,9 @@ object SpoofChatMessages :
         declaredClass = "com.tencent.mm.ui.chatting.viewitems.mvvmview.ChattingImgMvvmView"
         usingEqStrings("MicroMsg.ChattingImgMvvmView", "viewModel.thumbImgW: ")
     }
-    private val methodThumbnailSize by dexMethod()
-    private val methodImageServiceGetter by dexMethod()
-    private val classImageSizeService by dexClass()
-
-    override fun resolveDex() {
+    private val methodThumbnailSize by dexMethodFrom {
         val invokes = methodImageViewBind.data.invokes.distinctBy { it.descriptor }
-        val size = invokes.single { method ->
+        invokes.single { method ->
             method.paramTypeNames == listOf("int", "int") &&
                 method.returnTypeName != "void" &&
                 !method.returnTypeName.startsWith("android.") &&
@@ -134,19 +128,20 @@ object SpoofChatMessages :
                     !Modifier.isStatic(it.modifiers) && it.typeName == "int"
                 } == 2
         }
-        methodThumbnailSize.setDescriptor(size)
-        methodImageServiceGetter.setDescriptor(
-            invokes.single {
+    }
+    private val methodImageServiceGetter by dexMethodFrom {
+        methodImageViewBind.data.invokes
+            .distinctBy { it.descriptor }
+            .single {
                 Modifier.isStatic(it.modifiers) && it.paramTypeNames == listOf("java.lang.Class")
-            },
-        )
-        classImageSizeService.setDescriptor(
-            size.declaredClass!!.interfaces.single { service ->
-                // The host looks up an empty kernel-service marker, then casts it to the concrete
-                // image service to call its sizing method.
-                service.interfaces.any { it.name == methodImageServiceGetter.data.returnTypeName }
-            },
-        )
+            }
+    }
+    private val classImageSizeService by dexClassFrom {
+        methodThumbnailSize.data.declaredClass!!.interfaces.single { service ->
+            // The host looks up an empty kernel-service marker, then casts it to the concrete
+            // image service to call its sizing method.
+            service.interfaces.any { it.name == methodImageServiceGetter.data.returnTypeName }
+        }
     }
 
     /** Views a row registered for spoofing; cleared before the row binds another message. */

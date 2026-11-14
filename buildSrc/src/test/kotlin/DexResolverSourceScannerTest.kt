@@ -1,28 +1,96 @@
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class DexResolverSourceScannerTest {
     @Test
-    fun extractsCustomAndSqlDelegateExpressions() {
+    fun findsDelegatesAfterANonDexFeatureInTheSameFile() {
+        val source = scanDexResolverSource("Sample.kt", """
+            object Plain : SwitchFeature() {
+                override val technicalId = "plain"
+            }
+            object Resolver : ApiFeature() {
+                override val technicalId = "resolver"
+                private val target by dexMethodFrom { findTarget() }
+            }
+        """.trimIndent())!!
+
+        assertEquals("Resolver", source.qualifiedClassName)
+        assertEquals("resolver", source.technicalId)
+        assertEquals(1, source.blocks.size)
+    }
+
+    @Test
+    fun ignoresFeaturesWithoutDelegateDeclarations() {
+        assertNull(
+            scanDexResolverSource("Sample.kt", """
+                object Sample : BaseFeature() {
+                    fun initialize() { println("not a resolver") }
+                }
+            """.trimIndent()),
+        )
+    }
+
+    @Test
+    fun conditionalAndComputedDeclarationsIncludeTheirPolicyInTheHashInput() {
+        val text = """
+            object Sample : BaseFeature() {
+                override val technicalId = "sample"
+                private val modern = dexGroup(whenFound = { probe })
+                private val probe by dexClass(allowFailure = true) { className = "Probe" }
+                private val method by modern.dexMethod { name = "run" }
+                private val field by probe.dexFieldFrom { probe.data.fields.single() }
+            }
+        """.trimIndent()
+        val source = scanDexResolverSource("Sample.kt", text)!!
+        assertEquals(4, source.blocks.size)
+        assertTrue(source.blocks.any { it.text.contains("whenFound") })
+        assertTrue(source.blocks.any { it.text.startsWith("by modern.dexMethod") })
+        assertTrue(source.blocks.any { it.text.startsWith("by probe.dexFieldFrom") })
+        assertNotEquals(
+            source.blocks.map { it.text },
+            scanDexResolverSource("Sample.kt", text.replace("whenFound", "whenAbsent"))!!.blocks.map { it.text },
+        )
+        assertNotEquals(
+            source.blocks.map { it.text },
+            scanDexResolverSource("Sample.kt", text.replace("modern.dexMethod", "probe.dexMethod"))!!.blocks.map { it.text },
+        )
+    }
+
+    @Test
+    fun computedAndGroupBlocksAreCheckedForDesktopUnsafeAccess() {
+        val source = scanDexResolverSource("Sample.kt", """
+            object Sample : BaseFeature() {
+                override val technicalId = "sample"
+                private val modern = dexGroup(whenFound = { classProbe.clazz; classProbe })
+                private val target by modern.dexMethodFrom { methodProbe.method; null }
+            }
+        """.trimIndent())!!
+        assertEquals(2, findDesktopIncompatibleAccesses(source).size)
+    }
+    @Test
+    fun extractsComputedAndSqlDelegateExpressions() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
                 package sample
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(
                         "SELECT descriptor FROM methods ORDER BY descriptor LIMIT 1",
                         allowFailure = true,
                     )
                     private val field by dexField(sqlField { type = "int" })
-                    override fun resolveDex() {
-                        method.find(methodSpec { name("m") })
+                    private val derived by dexMethodFrom {
+                        method.data.invokes.single()
                     }
                 }
             """.trimIndent(),
         )!!
 
         assertEquals(
-            listOf(ResolveBlockKind.INLINE_SQL, ResolveBlockKind.INLINE_SQL, ResolveBlockKind.CUSTOM),
+            listOf(ResolveBlockKind.INLINE_SQL, ResolveBlockKind.INLINE_SQL, ResolveBlockKind.INLINE_QUERY_METHOD),
             source.blocks.map { it.kind },
         )
     }
@@ -32,7 +100,7 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(
                         sqlMethod {
                             name = "onCreate"
@@ -49,7 +117,7 @@ class DexResolverSourceScannerTest {
 
         assertEquals(List(4) { ResolveBlockKind.INLINE_SQL }, source.blocks.map { it.kind })
         val methodBlock = source.blocks.first()
-        assertEquals(3, methodBlock.startLine)
+        assertEquals(2, methodBlock.startLine)
         assertEquals(true, methodBlock.text.contains("sqlMethod"))
         assertEquals(true, methodBlock.text.contains("allowFailure = true"))
     }
@@ -59,7 +127,7 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val clazz by dexClassQuery { uniqueClass(classSpec { className = "C" }) }
                     private val method by dexMethodQuery { uniqueMethod(methodSpec { name("m") }) }
                     private val field by dexFieldQuery { uniqueField(fieldSpec { name("f") }) }
@@ -98,7 +166,7 @@ class DexResolverSourceScannerTest {
                  * A multiline comment removed by the scanner.
                  */
 
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(sqlMethod { name = "m" })
                 }
             """.trimIndent(),
@@ -108,7 +176,7 @@ class DexResolverSourceScannerTest {
     }
 
     @Test
-    fun extractsBlocksOnlyFromTheIResolveDexDeclaration() {
+    fun extractsBlocksOnlyFromTheFeatureDeclaration() {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
@@ -116,7 +184,7 @@ class DexResolverSourceScannerTest {
                     private val ignored by dexMethod(sqlMethod { name = "ignored" })
                 }
 
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val included by dexClass(sqlClass { className = "sample" })
                 }
             """.trimIndent(),
@@ -131,7 +199,7 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(
                         sqlMethod { usingStrings("classOwner.clazz HostInfo.versionCode") },
                     )
@@ -147,7 +215,7 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(
                         sqlMethod {
                             /*
@@ -171,7 +239,7 @@ class DexResolverSourceScannerTest {
             "Sample.kt",
             """
                 package sample
-                object Sample : BaseFeature(), IResolveDex {
+                object Sample : BaseFeature() {
                     override val technicalId = "防撤回"
                     private val method by dexMethod(sqlMethod { name = "m" })
                 }
@@ -188,7 +256,7 @@ class DexResolverSourceScannerTest {
             scanDexResolverSource(
                 "Missing.kt",
                 """
-                    object Sample : IResolveDex {
+                    object Sample : BaseFeature() {
                         private val method by dexMethod(sqlMethod { name = "m" })
                     }
                 """.trimIndent(),
@@ -199,7 +267,7 @@ class DexResolverSourceScannerTest {
             scanDexResolverSource(
                 "NonLiteral.kt",
                 """
-                    object Sample : IResolveDex {
+                    object Sample : BaseFeature() {
                         override val technicalId = BuildConfig.ID
                         private val method by dexMethod(sqlMethod { name = "m" })
                     }
@@ -213,7 +281,7 @@ class DexResolverSourceScannerTest {
         val source = scanDexResolverSource(
             "Sample.kt",
             """
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     override val technicalId = "a\"b\\c"
                     private val method by dexMethod(sqlMethod { name = "m" })
                 }
@@ -227,15 +295,14 @@ class DexResolverSourceScannerTest {
         val sampleSource =
             """
                 package sample
-                object Sample : IResolveDex {
+                object Sample : BaseFeature() {
                     private val method by dexMethod(
                         sqlMethod { className = classOwner.clazz },
                     )
 
-                    override fun resolveDex() {
-                        if (HostInfo.versionCode > 1) {
-                            method.find(methodSpec { name("m") })
-                        }
+                    private val derived by dexMethodFrom {
+                        check(HostInfo.versionCode > 1)
+                        method.data.invokes.single()
                     }
 
                     fun install() {

@@ -3,12 +3,11 @@ package dev.ujhhgtg.wekit.features.items.system
 import com.tencent.mm.ui.base.preference.Preference
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 
-object UseLegacyWalletViewInMePage : SwitchFeature(), IResolveDex {
+object UseLegacyWalletViewInMePage : SwitchFeature() {
     override val technicalId = "恢复旧版「我」界面卡包"
     override val nameRes = R.string.feature_use_legacy_wallet_view_in_me_page_name
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)

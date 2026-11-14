@@ -26,7 +26,6 @@ import androidx.core.content.getSystemService
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.automation.AutomationSettingsActivity
-import dev.ujhhgtg.wekit.dex.abc.IResolveDex
 import dev.ujhhgtg.wekit.dex.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -60,7 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * and sender filters, and WeKit-published notifications with their own sound, vibration, mark-read
  * / quick-reply actions and per-chat merging. Mutually exclusive with [NotificationsEvolved].
  */
-object CustomNotifications : ClickableFeature(), IResolveDex {
+object CustomNotifications : ClickableFeature() {
     override val technicalId = "自定义通知"
     override val nameRes = R.string.feature_custom_notifications_name
     override val categoryIds = listOf(FeatureCategoryIds.NOTIFICATIONS)
