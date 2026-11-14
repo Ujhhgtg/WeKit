@@ -6,7 +6,6 @@ import android.app.Instrumentation
 import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.res.Configuration
-import android.content.res.Resources
 import android.content.res.ResourcesImpl
 import android.content.res.loader.ResourcesProvider
 import android.os.Build
@@ -406,7 +405,9 @@ object MonetEngine : ClickableFeature() {
     private fun colorSource(state: ThemeState): (String) -> Int? =
         if (state.source == SOURCE_SYSTEM) {
             { name ->
-                Resources.getSystem().getIdentifier(name, "color", "android").takeIf { it != 0 }
+                HostInfo.application.resources
+                    .getIdentifier(name, "color", "android")
+                    .takeIf { it != 0 }
             }
         } else {
             seedColors(state.seed)
@@ -531,7 +532,7 @@ object MonetEngine : ClickableFeature() {
             0.0722f * (argb and 0xff)) / 255f
 
     private fun argb(value: Int): Int =
-        if (value ushr 24 == 0x01) Resources.getSystem().getColor(value, null) else value
+        if (value ushr 24 == 0x01) HostInfo.application.resources.getColor(value, null) else value
 
     @SuppressLint("SdCardPath")
     @RequiresApi(Build.VERSION_CODES.R)
