@@ -515,7 +515,6 @@ jobs:
       - name: Build native library
         id: native_build
         run: |
-          cargo xtask configure
           cargo xtask payload build --native-only --abi arm64-v8a
 
       - name: Pack extensions

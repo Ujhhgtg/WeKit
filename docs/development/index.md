@@ -89,7 +89,6 @@ exec cargo xtask "$@"
 
 | 命令 | 用途 |
 |------|------|
-| `./x configure` | 生成 Rust Android linker 配置 |
 | `./x bootstrap build` | 构建公开的二合一 bootstrap APK，或仅准备 Zygisk native 输入 |
 | `./x bootstrap build --local` | 构建内嵌 debug payload 的离线二合一 bootstrap APK；添加 `--release` 则内嵌 release payload |
 | `./x bootstrap install` | 构建并安装 bootstrap APK；`--local` 默认内嵌 debug payload，添加 `--release` 则内嵌 release payload，`--zygisk` 作为模块刷入 |
@@ -107,19 +106,17 @@ exec cargo xtask "$@"
 
 ### Rust Android 配置
 
-```bash
-./x configure
-```
+`./x bootstrap build`、`./x bootstrap install`、`./x payload build`、`./x check` 和
+`./x clippy` 使用版本目录配置的 NDK，通过子进程环境变量传递 ARM64 工具链，
+不再生成 `.cargo/config.toml`，也不需要预先执行配置命令。`--native-only` 模式使用相同机制。
 
-该命令使用版本目录配置的 NDK，为 ARM64 生成 linker 配置，包括：
+工具链变量包括 `CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER`、
+`CARGO_TARGET_AARCH64_LINUX_ANDROID_AR`、`CC_aarch64_linux_android`、
+`CXX_aarch64_linux_android` 和 `AR_aarch64_linux_android`；已导出的同名变量优先。
+Zygisk C++ bridge 使用的 `WEKIT_ANDROID_NDK` 和 `WEKIT_ANDROID_API` 始终来自固定 NDK 和最低 API 配置。
 
-```text
-crates/wekit-native/.cargo/config.toml
-crates/wekit-zygisk/.cargo/config.toml
-```
-
-完整 APK 模式的 `./x bootstrap build`、`./x bootstrap install` 和 `./x payload build` 会自动执行该步骤。直接运行
-`./x check` 或 `./x clippy` 前应执行一次 `./x configure`；`./x bootstrap build --native-only` 自动准备配置和 Zygisk native 输入，`./x payload build --native-only` 自动准备应用 native 输入。
+旧版本生成的 `crates/wekit-native/.cargo/config.toml` 和
+`crates/wekit-zygisk/.cargo/config.toml` 可以删除。
 
 ## APK
 
@@ -153,7 +150,7 @@ crates/wekit-zygisk/.cargo/config.toml
 
 每个 APK 构建命令依次执行：
 
-1. `./x configure`
+1. 根据固定 NDK 和最低 API 配置准备子进程工具链环境
 2. 为所选 ABI 准备该模块所需的 native 输入
 3. 将 native 库复制到对应模块的 `jniLibs/<abi>/`（payload 使用 `app/src/main/jniLibs/`，bootstrap 使用 `bootstrap/src/main/jniLibs/`）
 4. 执行对应的 Gradle `assemble` 任务，在签名前放入模块文件
@@ -215,7 +212,6 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 ### 检查 Rust native 库
 
 ```bash
-./x configure
 ./x check
 ./x clippy
 
@@ -294,10 +290,11 @@ Bootstrap 构建始终使用 release profile。`local` 变体默认自动构建�
 `--root` 和 `--reboot` 仅用于 `--zygisk`。
 不再提供独立 `zygisk` 构建/刷入命令或按修改时间选择旧 ZIP 的选项。
 
-原生调试可在 `crates/wekit-zygisk` 中直接运行 `cargo build --target aarch64-linux-android`；
-先用 `./x configure` 准备 NDK 链接配置。正常出 bootstrap 包使用 `./x bootstrap build`，
-正常出 payload 包使用 `./x payload build`；Gradle 只负责消费这些 native 输入并打包签名。直接 Cargo 构建还需要已
-初始化的 LSPlant 运行时依赖，以及可用的 CMake / Ninja。
+原生调试使用 `./x bootstrap build --native-only`，由构建命令自动准备 NDK 工具链环境。
+正常出 bootstrap 包使用 `./x bootstrap build`，正常出 payload 包使用 `./x payload build`；
+Gradle 只负责消费这些 native 输入并打包签名。在 `crates/wekit-zygisk` 中直接运行
+`cargo build --target aarch64-linux-android` 时，需自行设置上述工具链变量、
+`WEKIT_ANDROID_NDK` 和 `WEKIT_ANDROID_API`，并初始化 LSPlant 运行时依赖、提供可用的 CMake / Ninja。
 
 ### ART Hook 实现与验证
 

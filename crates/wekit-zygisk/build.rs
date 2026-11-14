@@ -28,10 +28,10 @@ fn main() {
         );
         let ndk = PathBuf::from(
             env::var_os("WEKIT_ANDROID_NDK")
-                .expect("run ./x configure to select the pinned Android NDK"),
+                .expect("use ./x bootstrap build to select the pinned Android NDK"),
         );
-        let api =
-            env::var("WEKIT_ANDROID_API").expect("run ./x configure to select the Android API");
+        let api = env::var("WEKIT_ANDROID_API")
+            .expect("use ./x bootstrap build to select the Android API");
         config
             .define(
                 "CMAKE_TOOLCHAIN_FILE",

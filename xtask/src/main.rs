@@ -2,7 +2,6 @@
 //!
 //! Usage: cargo xtask <COMMAND>
 //!
-//!   configure            Regenerate wekit-native/.cargo/config.toml from the local NDK.
 //!   bootstrap build      Build the public dual-format bootstrap APK.
 //!   bootstrap install    Build and install the bootstrap APK, or flash it as a Zygisk module.
 //!   payload build        Build the private business payload APK.
@@ -41,7 +40,7 @@ mod i18n_check;
 /// Matches `minSdk` in libs.versions.toml.
 const MIN_SDK: u32 = 29;
 
-/// Minimum NDK major version accepted by `configure`; the pinned NDK must be at least this new.
+/// Minimum NDK major version accepted for Android builds.
 const MIN_NDK_MAJOR: u32 = 29;
 
 // ── ABI table ─────────────────────────────────────────────────────────────────
@@ -54,18 +53,12 @@ struct AbiSpec {
     /// Clang binary prefix inside the NDK `bin/` dir (the part before
     /// `{MIN_SDK}-clang`).
     clang_prefix: &'static str,
-    /// Prefix used for `CC_`, `CXX_`, `AR_` keys in `.cargo/config.toml`.
-    /// Matches the hardcoded strings in `ConfigureCargoTask.kt`.
-    env_key: &'static str,
 }
 
-// Order matches the template in ConfigureCargoTask.kt so that
-// `cargo xtask configure` and the Gradle task produce identical output.
 static ABI_TABLE: &[AbiSpec] = &[AbiSpec {
     android_name: "arm64-v8a",
     cargo_triple: "aarch64-linux-android",
     clang_prefix: "aarch64-linux-android",
-    env_key: "aarch64_linux_android",
 }];
 
 /// ABIs included in release APKs (the default build targets).
@@ -89,9 +82,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Regenerate wekit-native/.cargo/config.toml from the local NDK.
-    Configure,
-
     /// Build and install the public bootstrap APK.
     Bootstrap(BootstrapArgs),
 
@@ -291,7 +281,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     print_banner();
     match cli.command {
-        Cmd::Configure => task_configure()?,
         Cmd::Bootstrap(args) => match args.command {
             BootstrapCommand::Build(args) => task_build_bootstrap(&args)?,
             BootstrapCommand::Install(args) => task_install(args)?,
@@ -458,62 +447,37 @@ fn host_prebuilt_tag() -> Result<&'static str> {
     }
 }
 
-// ── Task: configure ────────────────────────────────────────────────────────────
-
-fn task_configure() -> Result<()> {
-    let root = workspace_root();
-    let ndk_bin_dir = find_ndk_bin_dir(&root)?;
-
-    // On Windows the NDK ships `.cmd` wrappers for the clang binaries.
+fn configure_android_toolchain(command: &mut Command, root: &Path, spec: &AbiSpec) -> Result<()> {
+    let ndk_bin_dir = find_ndk_bin_dir(root)?;
     let ext = if cfg!(target_os = "windows") {
         ".cmd"
     } else {
         ""
     };
-    let ar = format!("{ndk_bin_dir}/llvm-ar");
-
-    let mut out = String::new();
-
-    // [target.*] sections — one per ABI.
-    for spec in ABI_TABLE {
-        let linker = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang{ext}", spec.clang_prefix);
-        out.push_str(&format!(
-            "[target.{}]\nar = \"{ar}\"\nlinker = \"{linker}\"\n\n",
-            spec.cargo_triple
-        ));
-    }
-
-    // [env] section — CC/CXX/AR vars consumed by `cc-rs` and `bindgen`.
-    out.push_str("[env]\n");
-    for spec in ABI_TABLE {
-        let cc = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang{ext}", spec.clang_prefix);
-        let cxx = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang++{ext}", spec.clang_prefix);
-        out.push_str(&format!("CC_{k} = \"{cc}\"\n", k = spec.env_key));
-        out.push_str(&format!("CXX_{k} = \"{cxx}\"\n", k = spec.env_key));
-        out.push_str(&format!("AR_{k} = \"{ar}\"\n\n", k = spec.env_key));
-    }
-
-    let out = out.trim_end_matches('\n').to_owned() + "\n";
-
-    // Write for wekit-native
-    let config_path = native_crate_dir(&root).join(".cargo/config.toml");
-    fs::create_dir_all(config_path.parent().unwrap())?;
-    fs::write(&config_path, &out)
-        .with_context(|| format!("failed to write {}", config_path.display()))?;
-    println!("configure: wrote {}", config_path.display());
-
-    // The C++ ART bridge uses exactly the same pinned NDK/API as Rust and AGP.
-    let ndk_dir = pinned_ndk_dir(&root, None)?;
-    let zygisk_out = format!(
-        "{out}WEKIT_ANDROID_NDK = \"{}\"\nWEKIT_ANDROID_API = \"{MIN_SDK}\"\n",
-        ndk_dir.to_string_lossy().replace('\\', "/")
+    let exe = if cfg!(target_os = "windows") {
+        ".exe"
+    } else {
+        ""
+    };
+    let ar = format!("{ndk_bin_dir}/llvm-ar{exe}");
+    let cc = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang{ext}", spec.clang_prefix);
+    let cxx = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang++{ext}", spec.clang_prefix);
+    let cc_key = spec.cargo_triple.replace('-', "_");
+    let cargo_key = cc_key.to_ascii_uppercase();
+    command.envs(
+        [
+            (format!("CARGO_TARGET_{cargo_key}_LINKER"), cc.clone()),
+            (format!("CARGO_TARGET_{cargo_key}_AR"), ar.clone()),
+            (format!("CC_{cc_key}"), cc),
+            (format!("CXX_{cc_key}"), cxx),
+            (format!("AR_{cc_key}"), ar),
+        ]
+        .into_iter()
+        .filter(|(key, _)| env::var_os(key).is_none()),
     );
-    let zygisk_config_path = zygisk_crate_dir(&root).join(".cargo/config.toml");
-    fs::create_dir_all(zygisk_config_path.parent().unwrap())?;
-    fs::write(&zygisk_config_path, &zygisk_out)
-        .with_context(|| format!("failed to write {}", zygisk_config_path.display()))?;
-    println!("configure: wrote {}", zygisk_config_path.display());
-
+    command
+        .env("WEKIT_ANDROID_NDK", pinned_ndk_dir(root, None)?)
+        .env("WEKIT_ANDROID_API", MIN_SDK.to_string());
     Ok(())
 }
 
@@ -556,7 +520,6 @@ fn embedded_payload_gradle_arg(local: bool, release_payload: bool) -> Option<Str
 /// Build the public release bootstrap or its offline embedded-payload variant.
 fn task_build_bootstrap(args: &BootstrapBuildArgs) -> Result<()> {
     let root = workspace_root();
-    task_configure()?;
     build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
     build_bootstrap_loader(
         &root,
@@ -586,7 +549,6 @@ fn task_build_bootstrap(args: &BootstrapBuildArgs) -> Result<()> {
 fn task_install(args: InstallArgs) -> Result<()> {
     validate_root_manager(args.root.as_deref())?;
     let root = workspace_root();
-    task_configure()?;
     build_zygisk_native(&root, &[], false)?;
     build_bootstrap_loader(
         &root,
@@ -639,7 +601,6 @@ fn task_install(args: InstallArgs) -> Result<()> {
 
 fn task_build_module(args: &BuildArgs, module: &str) -> Result<()> {
     let root = workspace_root();
-    task_configure()?;
     if module == "bootstrap" {
         build_zygisk_native(&root, &args.native.abis, args.save_symbols)?;
         build_bootstrap_loader(
@@ -990,7 +951,7 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
             spec.android_name, spec.cargo_triple
         );
 
-        run_cargo(
+        run_android_cargo(
             &[
                 "build",
                 "--locked",
@@ -999,6 +960,8 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
                 spec.cargo_triple,
             ],
             &native_dir,
+            &root,
+            spec,
         )?;
 
         let so_src = root
@@ -1117,10 +1080,9 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let tooling = zygisk_dir(root);
     for abi in resolve_abis(abi_names)? {
-        // The package release profile retains symbols; only the packaged copy is stripped.
-        run_cmd(
-            "uv",
-            &[
+        let mut command = Command::new("uv");
+        command
+            .args([
                 "run",
                 "--locked",
                 "--project",
@@ -1135,9 +1097,10 @@ fn build_zygisk_native(root: &Path, abi_names: &[String], save_symbols: bool) ->
                 "--target",
                 abi.cargo_triple,
                 "--release",
-            ],
-            &zygisk_crate_dir(root),
-        )?;
+            ])
+            .current_dir(zygisk_crate_dir(root));
+        configure_android_toolchain(&mut command, root, abi)?;
+        run_checked(&mut command, "build Zygisk native library")?;
         let name = format!("lib{ZYGISK_MODULE_ID}.so");
         let source = root
             .join("target")
@@ -1417,7 +1380,7 @@ fn task_cargo_cmd(subcommand: &str, abi_args: &[String], extra_args: &[&str]) ->
 
         let mut cmd_args = vec![subcommand, "--target", spec.cargo_triple];
         cmd_args.extend_from_slice(extra_args);
-        run_cargo(&cmd_args, &native_dir)?;
+        run_android_cargo(&cmd_args, &native_dir, &root, spec)?;
     }
 
     Ok(())
@@ -1429,6 +1392,14 @@ fn run_cargo(args: &[&str], cwd: &Path) -> Result<()> {
     // Prefer the same `cargo` that invoked xtask (set by Cargo as $CARGO).
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     run_cmd(&cargo, args, cwd)
+}
+
+fn run_android_cargo(args: &[&str], cwd: &Path, root: &Path, spec: &AbiSpec) -> Result<()> {
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let mut command = Command::new(cargo);
+    command.args(args).current_dir(cwd);
+    configure_android_toolchain(&mut command, root, spec)?;
+    run_checked(&mut command, &format!("cargo {}", args.join(" ")))
 }
 
 fn run_gradlew(args: &[&str], cwd: &Path) -> Result<()> {

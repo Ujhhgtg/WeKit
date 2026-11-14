@@ -124,9 +124,10 @@ Required tools:
 
 `./x bootstrap build` initializes the pinned LSPlant and XZ Embedded sources.
 LSPlant's unrelated test/documentation submodules are
-not required. `./x configure` writes the selected NDK and API level into the
-Cargo configuration; direct Android Cargo builds also need this configuration
-and the initialized native dependencies. Desktop Rust tests build XZ Embedded,
+not required. Android build commands pass the pinned NDK and API level directly
+to Cargo through environment variables, including `WEKIT_ANDROID_NDK` and
+`WEKIT_ANDROID_API` for the C++ bridge. Direct Android Cargo builds need the same
+toolchain environment and initialized native dependencies. Desktop Rust tests build XZ Embedded,
 not LSPlant; initialize it with `git submodule update --init third_party/xz-embedded`.
 
 ## ART hooks
