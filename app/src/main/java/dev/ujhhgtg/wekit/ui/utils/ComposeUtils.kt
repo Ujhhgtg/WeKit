@@ -17,6 +17,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.ujhhgtg.wekit.i18n.LocaleProvider
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 
 // useful for showing a compose dialog in non-compose context,
@@ -29,7 +30,7 @@ fun showComposeDialog(
     directlyDismissable: Boolean = true,
     content: @Composable ShowComposeDialogScope.() -> Unit,
 ) {
-    val context = CommonContextWrapper(context)
+    ResourcesInjector.injectModuleRes(context.resources)
 
     val dialog =
         ComponentDialog(

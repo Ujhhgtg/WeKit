@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.ui.panel
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
-import android.os.Build
 import android.view.Gravity
 import android.view.Window
 import android.view.WindowManager
@@ -111,11 +110,12 @@ import com.composables.icons.materialsymbols.outlined.Search
 import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiText
-import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
+import dev.ujhhgtg.wekit.loader.utils.ResourcesInjector
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import dev.ujhhgtg.wekit.ui.utils.theme.InjectedUiTheme
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 data class PanelRailItem<T>(val destination: T, val icon: ImageVector, val label: String)
 
@@ -201,7 +201,7 @@ data class PanelImportOption<T>(
     val icon: ImageVector,
 )
 
-class PanelDialogScope constructor(private val dialog: Dialog) {
+class PanelDialogScope(private val dialog: Dialog) {
     private var implicitDismissBlockCount = 0
 
     val canDismissImplicitly: Boolean
@@ -226,11 +226,12 @@ fun showPanelDialog(
     onDismiss: () -> Unit = {},
     content: @Composable PanelDialogScope.() -> Unit,
 ) {
-    val wrapped = CommonContextWrapper(context)
+    ResourcesInjector.injectModuleRes(context.resources)
+
     // ComponentDialog supplies both back-dispatcher owners required by the current
     // activity-compose BackHandler implementation. A plain Dialog has neither owner
     // in an injected WeChat window and crashes as soon as BackHandler enters composition.
-    val dialog = ComponentDialog(wrapped, android.R.style.Theme_Translucent_NoTitleBar)
+    val dialog = ComponentDialog(context, android.R.style.Theme_Translucent_NoTitleBar)
     val scope = PanelDialogScope(dialog)
 
     dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -245,13 +246,11 @@ fun showPanelDialog(
         statusBarColor = Color.TRANSPARENT
         navigationBarColor = Color.TRANSPARENT
         navigationBarDividerColor = Color.TRANSPARENT
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            isStatusBarContrastEnforced = false
-            isNavigationBarContrastEnforced = false
-        }
+        isStatusBarContrastEnforced = false
+        isNavigationBarContrastEnforced = false
         WindowInsetsControllerCompat(this, decorView).apply {
-            isAppearanceLightStatusBars = !wrapped.isDarkMode
-            isAppearanceLightNavigationBars = !wrapped.isDarkMode
+            isAppearanceLightStatusBars = !context.isDarkMode
+            isAppearanceLightNavigationBars = !context.isDarkMode
         }
         addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         setDimAmount(0.3f)
@@ -263,7 +262,7 @@ fun showPanelDialog(
     }
     dialog.setCancelable(true)
     dialog.setContentView(
-        ComposeView(wrapped).apply {
+        ComposeView(context).apply {
             setContent {
                 CompositionLocalProvider(LocalPanelDialogScope provides scope) {
                     InjectedUiTheme {
@@ -689,7 +688,7 @@ private fun PanelActionSearchField(
     val density = LocalDensity.current
     LaunchedEffect(search.expanded) {
         if (search.expanded) {
-            delay(120)
+            delay(120.milliseconds)
             focusRequester.requestFocus()
             keyboard?.show()
         } else {
