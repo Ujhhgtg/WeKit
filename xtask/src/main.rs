@@ -155,6 +155,10 @@ struct BuildArgs {
     #[arg(long)]
     release: bool,
 
+    /// Enable string/resource protection. Defaults to false for debug, true for release.
+    #[arg(long, value_name = "BOOL", action = clap::ArgAction::Set)]
+    protect: Option<bool>,
+
     /// Also archive unstripped Zygisk native symbols under target/zygisk-symbols/.
     #[arg(long)]
     save_symbols: bool,
@@ -178,6 +182,10 @@ struct RunArgs {
     /// Install the release build instead of debug.
     #[arg(long, conflicts_with = "debug")]
     release: bool,
+
+    /// Enable string/resource protection. Defaults to false for debug, true for release.
+    #[arg(long, value_name = "BOOL", action = clap::ArgAction::Set)]
+    protect: Option<bool>,
 
     /// Install the APK as a Zygisk module through the device's root manager.
     #[arg(long)]
@@ -550,8 +558,13 @@ fn task_build_android(args: &BuildArgs) -> Result<()> {
     task_prepare_apk_native_inputs(&args.native.abis, args.save_symbols)?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("assemble", args.flavor.as_ref(), args.release);
-    println!("build: ./gradlew {gradle_task}");
-    run_gradlew(&[&gradle_task], &root)
+    let protection = args.protect.map(|value| format!("-Pprotect={value}"));
+    let mut gradle_args = vec![gradle_task.as_str()];
+    if let Some(property) = &protection {
+        gradle_args.push(property);
+    }
+    println!("build: ./gradlew {}", gradle_args.join(" "));
+    run_gradlew(&gradle_args, &root)
 }
 
 /// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
@@ -568,6 +581,9 @@ fn task_run(args: RunArgs) -> Result<()> {
         "gradlew"
     }));
     command.arg(&gradle_task).current_dir(&root);
+    if let Some(protect) = args.protect {
+        command.arg(format!("-Pprotect={protect}"));
+    }
     if let Some(device) = &args.device {
         command.env("ANDROID_SERIAL", device);
     }

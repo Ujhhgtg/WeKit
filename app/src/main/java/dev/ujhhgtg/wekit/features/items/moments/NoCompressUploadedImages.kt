@@ -19,7 +19,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
@@ -40,7 +40,7 @@ object NoCompressUploadedImages : ClickableFeature(), IResolveDex {
     private const val MODE_CONVERT = 0
     private const val MODE_COPY = 1
 
-    private var selectedMode by WePrefs.prefOption("no_compress_mode", MODE_CONVERT)
+    private var selectedMode by KvStore.prefOption("no_compress_mode", MODE_CONVERT)
 
     private val methodImagePreviewSend by dexMethod {
         matcher {

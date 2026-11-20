@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import dev.ujhhgtg.wekit.constants.Preferences
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.nuke.NukePopupAnimationMode
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.applyToWechat
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings.colorSpec
@@ -112,69 +112,69 @@ enum class AppColorSpec(
 object ThemeSettings {
 
     var uiEngine by mutableStateOf(
-        SettingsUiEngine.fromName(WePrefs.getString(Preferences.THEME_UI_ENGINE))
+        SettingsUiEngine.fromName(KvStore.getString(Preferences.THEME_UI_ENGINE))
     )
         private set
-    var themeMode by mutableStateOf(AppThemeMode.fromName(WePrefs.getString(Preferences.THEME_MODE)))
+    var themeMode by mutableStateOf(AppThemeMode.fromName(KvStore.getString(Preferences.THEME_MODE)))
         private set
     var predictiveBackEnabled by mutableStateOf(
-        WePrefs.getBoolOrFalse(Preferences.THEME_PREDICTIVE_BACK_ENABLED)
+        KvStore.getBoolOrFalse(Preferences.THEME_PREDICTIVE_BACK_ENABLED)
     )
         private set
     /** Installing the platform flags is a process-start operation. */
     val appliedPredictiveBackEnabled = predictiveBackEnabled
     var pageTransitionAnimation by mutableStateOf(
         PageTransitionAnimation.fromName(
-            WePrefs.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
+            KvStore.getString(Preferences.THEME_PAGE_TRANSITION_ANIMATION)
         )
     )
         private set
     /** Haptic feedback for the Nuke component engine; ignored by Material 3. */
     var nukeHaptics by mutableStateOf(
-        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
+        KvStore.getBoolOrDef(Preferences.THEME_NUKE_HAPTICS, true)
     )
         private set
     var nukePopupAnimation by mutableStateOf(
         NukePopupAnimationMode.fromName(
-            WePrefs.getString(Preferences.THEME_NUKE_POPUP_ANIMATION)
+            KvStore.getString(Preferences.THEME_NUKE_POPUP_ANIMATION)
         )
     )
         private set
     var nukePopupDialogHost by mutableStateOf(
-        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, true)
+        KvStore.getBoolOrDef(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, true)
     )
         private set
     var nukePopupPredictiveExit by mutableStateOf(
-        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, true)
+        KvStore.getBoolOrDef(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, true)
     )
         private set
     var nukePageExitOptimization by mutableStateOf(
-        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, true)
+        KvStore.getBoolOrDef(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, true)
     )
         private set
     var nukeImmediatePressFeedback by mutableStateOf(
-        WePrefs.getBoolOrDef(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, true)
+        KvStore.getBoolOrDef(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, true)
     )
         private set
     /** Seed the accent from the platform wallpaper accent (SDK >= 31) instead of [seedColor]. */
-    var dynamicWallpaper by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_DYNAMIC_WALLPAPER))
+    var dynamicWallpaper by mutableStateOf(KvStore.getBoolOrFalse(Preferences.THEME_DYNAMIC_WALLPAPER))
         private set
     var paletteStyle by mutableStateOf(
-        AppPaletteStyle.fromName(WePrefs.getString(Preferences.THEME_PALETTE_STYLE))
+        AppPaletteStyle.fromName(KvStore.getString(Preferences.THEME_PALETTE_STYLE))
     )
         private set
-    var colorSpec by mutableStateOf(AppColorSpec.fromName(WePrefs.getString(Preferences.THEME_COLOR_SPEC)))
+    var colorSpec by mutableStateOf(AppColorSpec.fromName(KvStore.getString(Preferences.THEME_COLOR_SPEC)))
         private set
 
     /** Seed color (ARGB int) used when wallpaper color is off. */
-    var seedColor by mutableIntStateOf(WePrefs.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
+    var seedColor by mutableIntStateOf(KvStore.getIntOrDef(Preferences.THEME_SEED_COLOR, DEFAULT_SEED_COLOR))
         private set
 
     /**
      * Whether the selected color also applies to WeChat itself (injected WeKit ComposeUI + native
      * recoloring via [dev.ujhhgtg.wekit.features.items.beautify.MonetEngine]). Does NOT take effect live — requires restarting WeChat.
      */
-    var applyToWechat by mutableStateOf(WePrefs.getBoolOrFalse(Preferences.THEME_APPLY_TO_WECHAT))
+    var applyToWechat by mutableStateOf(KvStore.getBoolOrFalse(Preferences.THEME_APPLY_TO_WECHAT))
         private set
 
     /** Spec coerced to 2021 when the current palette style can't honor 2025. */
@@ -183,52 +183,52 @@ object ThemeSettings {
 
     fun updateUiEngine(value: SettingsUiEngine) {
         uiEngine = value
-        WePrefs.putString(Preferences.THEME_UI_ENGINE, value.name)
+        KvStore.putString(Preferences.THEME_UI_ENGINE, value.name)
     }
 
     fun updateThemeMode(value: AppThemeMode) {
         themeMode = value
-        WePrefs.putString(Preferences.THEME_MODE, value.name)
+        KvStore.putString(Preferences.THEME_MODE, value.name)
     }
 
     fun updatePredictiveBackEnabled(value: Boolean) {
         predictiveBackEnabled = value
-        WePrefs.putBool(Preferences.THEME_PREDICTIVE_BACK_ENABLED, value)
+        KvStore.putBool(Preferences.THEME_PREDICTIVE_BACK_ENABLED, value)
     }
 
     fun updatePageTransitionAnimation(value: PageTransitionAnimation) {
         pageTransitionAnimation = value
-        WePrefs.putString(Preferences.THEME_PAGE_TRANSITION_ANIMATION, value.name)
+        KvStore.putString(Preferences.THEME_PAGE_TRANSITION_ANIMATION, value.name)
     }
 
     fun updateNukeHaptics(value: Boolean) {
         nukeHaptics = value
-        WePrefs.putBool(Preferences.THEME_NUKE_HAPTICS, value)
+        KvStore.putBool(Preferences.THEME_NUKE_HAPTICS, value)
     }
 
     fun updateNukePopupAnimation(value: NukePopupAnimationMode) {
         nukePopupAnimation = value
-        WePrefs.putString(Preferences.THEME_NUKE_POPUP_ANIMATION, value.name)
+        KvStore.putString(Preferences.THEME_NUKE_POPUP_ANIMATION, value.name)
     }
 
     fun updateNukePopupDialogHost(value: Boolean) {
         nukePopupDialogHost = value
-        WePrefs.putBool(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, value)
+        KvStore.putBool(Preferences.THEME_NUKE_POPUP_DIALOG_HOST, value)
     }
 
     fun updateNukePopupPredictiveExit(value: Boolean) {
         nukePopupPredictiveExit = value
-        WePrefs.putBool(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, value)
+        KvStore.putBool(Preferences.THEME_NUKE_POPUP_PREDICTIVE_EXIT, value)
     }
 
     fun updateNukePageExitOptimization(value: Boolean) {
         nukePageExitOptimization = value
-        WePrefs.putBool(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, value)
+        KvStore.putBool(Preferences.THEME_NUKE_PAGE_EXIT_OPTIMIZATION, value)
     }
 
     fun updateNukeImmediatePressFeedback(value: Boolean) {
         nukeImmediatePressFeedback = value
-        WePrefs.putBool(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, value)
+        KvStore.putBool(Preferences.THEME_NUKE_IMMEDIATE_PRESS_FEEDBACK, value)
     }
 
     fun applyNukeRecommendedFineTuning() {
@@ -249,27 +249,27 @@ object ThemeSettings {
 
     fun updateDynamicWallpaper(value: Boolean) {
         dynamicWallpaper = value
-        WePrefs.putBool(Preferences.THEME_DYNAMIC_WALLPAPER, value)
+        KvStore.putBool(Preferences.THEME_DYNAMIC_WALLPAPER, value)
     }
 
     fun updatePaletteStyle(value: AppPaletteStyle) {
         paletteStyle = value
-        WePrefs.putString(Preferences.THEME_PALETTE_STYLE, value.name)
+        KvStore.putString(Preferences.THEME_PALETTE_STYLE, value.name)
     }
 
     fun updateColorSpec(value: AppColorSpec) {
         colorSpec = value
-        WePrefs.putString(Preferences.THEME_COLOR_SPEC, value.name)
+        KvStore.putString(Preferences.THEME_COLOR_SPEC, value.name)
     }
 
     fun updateSeedColor(value: Int) {
         seedColor = value
-        WePrefs.putInt(Preferences.THEME_SEED_COLOR, value)
+        KvStore.putInt(Preferences.THEME_SEED_COLOR, value)
     }
 
     fun updateApplyToWechat(value: Boolean) {
         applyToWechat = value
-        WePrefs.putBool(Preferences.THEME_APPLY_TO_WECHAT, value)
+        KvStore.putBool(Preferences.THEME_APPLY_TO_WECHAT, value)
     }
 
     /** Default seed accent (WeChat green 0xFF07C160). */

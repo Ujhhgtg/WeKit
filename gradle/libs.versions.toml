@@ -1,6 +1,6 @@
 [versions]
-agp = "9.3.2"
-coil = "3.6.2"
+agp = "9.3.3"
+coil = "3.6.3"
 compose-bom = "2026.09.00"
 dexkit = "2.2.0"
 appcompat = "1.8.0"
@@ -12,16 +12,15 @@ activity = "1.13.0"
 navigationevent = "1.1.2"
 kotlin = "2.4.20"
 androidx-core-ktx = "1.19.0"
-mmkv = "2.4.2"
 osmdroid = "6.1.20"
 profileinstaller = "1.4.1"
 serialization = "1.11.0"
 lombok = "1.18.48"
-google-protobuf = "4.36.1"
+google-protobuf = "4.36.2"
 ksp = "2.3.11"
 okhttp = "5.5.0"
 fastjson2 = "2.0.65"
-hidden-api-bypass = "6.1"
+hidden-api-bypass = "6.2"
 runtime = "1.12.1"
 compose-material3 = "1.5.0-alpha28"
 libsu = "6.0.0"
@@ -38,13 +37,13 @@ mcp-server = "0.15.0"
 mcp-client = "0.15.0"
 jsoup = "1.23.2"
 room = "2.8.5"
-ktor = "3.5.2"
+ktor = "3.6.0"
 dexmaker = "2.28.6"
 dynamicanimation = "1.1.0"
 jsch = "2.28.7"
 sqliteJdbc = "3.53.4.0"
 arsclib = "1.4.0"
-apksig = "9.3.2"
+apksig = "9.3.3"
 bouncycastle = "1.86"
 pythonRuntimeChaquopy = "17.0.0"
 pythonRuntimeChaquopyRevision = "e01057c72fdd737f202bd1be1de85af51e06cad0"
@@ -108,7 +107,6 @@ osmdroid-android = { module = "org.osmdroid:osmdroid-android", version.ref = "os
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
-mmkv = { module = "com.tencent:mmkv", version.ref = "mmkv" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 google-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "google-protobuf" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

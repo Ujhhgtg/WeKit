@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,12 +16,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.entity.RealNameScanProgressEntity
+import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi
 import dev.ujhhgtg.wekit.features.api.net.WeTransferApi.fetchBeforeTransfer
@@ -36,22 +41,16 @@ import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.time.Duration.Companion.seconds
 
-@OptIn(ExperimentalSerializationApi::class)
 object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
     WeContactPrefsScreenApi.IContactInfoProvider {
 
@@ -61,79 +60,44 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
     override val descriptionRes = R.string.feature_brute_force_group_member_real_names_first_char_description
 
     private const val TAG = "BruteForceGroupMemberRealNamesFirstChar"
-    private const val PREF_KEY = "exploit_real_name_first_char"
 
     /** WeChat's retcode for "姓名验证不正确" — i.e. the guessed [Char] was wrong. */
     private const val RETCODE_WRONG_NAME = "268502266"
 
-
     // ── Result cache ──────────────────────────────────────────────────────────
-
-    private val cacheFile by lazy { KnownPaths.moduleData / "real_names_first_char.json" }
 
     /**
      * wxId → confirmed real-name first char. Only hits are stored.
      * Exposed so [DisplayGroupMemberRealName] can read it for combined display.
      */
     val realNames = ConcurrentHashMap<String, String>()
-
-    private fun loadCache() {
-        runCatching {
-            val file = cacheFile
-            if (!file.exists()) return
-            val map = Json.decodeFromString<Map<String, String>>(file.readText())
-            realNames.putAll(map)
-            WeLogger.d(TAG, "loaded ${map.size} cached first chars")
-        }.onFailure { WeLogger.w(TAG, "failed to load $cacheFile", it) }
-    }
-
-    private fun saveCache() {
-        runCatching {
-            cacheFile.writeText(Json.encodeToString(realNames.toMap()))
-        }.onFailure { WeLogger.w(TAG, "failed to save $cacheFile", it) }
-    }
-
-    // ── Progress persistence (pause / resume) ─────────────────────────────────
-
-    /**
-     * Persists the index into [COMMON_SURNAMES] at which the next attempt should resume after
-     * a rate-limit pause. Format: `Map<wxId, resumeIndex>`.
-     *
-     * Entries are written when a rate-limit retcode is encountered, and cleared on a confirmed
-     * hit, manual cancellation, or loop exhaustion so stale progress never blocks a fresh run.
-     */
-    private val progressFile by lazy { KnownPaths.moduleData / "real_names_first_char_progress.json" }
     private val savedProgress = ConcurrentHashMap<String, Int>()
 
-    private fun loadProgress() {
-        runCatching {
-            if (!progressFile.exists()) return
-            val map = Json.decodeFromString<Map<String, Int>>(progressFile.readText())
-            savedProgress.putAll(map)
-            WeLogger.d(TAG, "loaded progress for ${map.size} members")
-        }.onFailure { WeLogger.w(TAG, "failed to load $progressFile", it) }
+    private suspend fun saveProgress(memberId: String, resumeIndex: Int) = withContext(Dispatchers.IO) {
+        WeKitDatabase.instance.simpleStructuredDao()
+            .putScanProgress(RealNameScanProgressEntity(memberId, resumeIndex))
+        savedProgress[memberId] = resumeIndex
     }
 
-    private fun saveProgress(memberId: String, resumeIndex: Int) {
-        runCatching {
-            savedProgress[memberId] = resumeIndex
-            progressFile.writeText(Json.encodeToString(savedProgress.toMap()))
-        }.onFailure { WeLogger.w(TAG, "failed to save progress for $memberId", it) }
-    }
-
-    private fun clearProgress(memberId: String) {
-        if (savedProgress.remove(memberId) != null) {
-            runCatching {
-                progressFile.writeText(Json.encodeToString(savedProgress.toMap()))
-            }.onFailure { WeLogger.w(TAG, "failed to clear progress for $memberId", it) }
-        }
+    private suspend fun clearProgress(memberId: String) = withContext(Dispatchers.IO) {
+        WeKitDatabase.instance.simpleStructuredDao().removeScanProgress(memberId)
+        savedProgress.remove(memberId)
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onEnable() {
-        loadCache()
-        loadProgress()
+        runBlocking(Dispatchers.IO) {
+            JsonDataMigration.requireCompleted("chat", "real_names_first_char")
+            JsonDataMigration.requireCompleted("chat", "real_names_first_char_progress")
+            val dao = WeKitDatabase.instance.simpleStructuredDao()
+            val names = dao.getRealNameParts("FIRST")
+            val progress = dao.getScanProgress()
+            realNames.clear()
+            realNames.putAll(names.associate { it.wxId to it.value })
+            savedProgress.clear()
+            savedProgress.putAll(progress.associate { it.wxId to it.resumeIndex })
+        }
         WeContactPrefsScreenApi.addProvider(this)
     }
 
@@ -149,28 +113,23 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(
-                key = PREF_KEY,
                 title = localizedChatString(R.string.chat_real_name_bruteforce_title),
                 summary = realNames[memberId]?.let {
                     localizedChatString(R.string.chat_real_name_bruteforce_first_char, it)
                 } ?: localizedChatString(R.string.chat_real_name_bruteforce_tap),
-                position = 1
+                position = 1,
+                onClick = onClick@{ activity ->
+                    val clickedMemberId = activity.currentWxId ?: return@onClick
+                    // Non-null only when the profile was opened from inside a group chat.
+                    // Null means a direct friend lookup — beforetransfer and transferplaceorder
+                    // both handle this case with groupId omitted.
+                    val groupId = activity.intent.getStringExtra("Contact_ChatRoomId")
+                        ?.takeIf { it.isNotEmpty() }
+
+                    showComposeDialog(activity) { ExploitDialog(clickedMemberId, groupId) }
+                },
             )
         )
-    }
-
-    override fun onItemClick(activity: Activity, key: String): Boolean {
-        if (key != PREF_KEY) return false
-
-        val memberId = activity.currentWxId ?: return true
-        // Non-null only when the profile was opened from inside a group chat.
-        // Null means a direct friend lookup — beforetransfer and transferplaceorder
-        // both handle this case with groupId omitted.
-        val groupId = activity.intent.getStringExtra("Contact_ChatRoomId")
-            ?.takeIf { it.isNotEmpty() }
-
-        showComposeDialog(activity) { ExploitDialog(memberId, groupId) }
-        return true
     }
 
     // ── Brute-force orchestration ─────────────────────────────────────────────
@@ -282,9 +241,12 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                 }
 
                 retcode.isNullOrEmpty() || retcode == "0" -> {
-                    realNames[memberId] = candidate
-                    saveCache()
-                    clearProgress(memberId)
+                    withContext(Dispatchers.IO) {
+                        WeKitDatabase.instance.simpleStructuredDao()
+                            .recordFirstNameAndClearProgress(memberId, candidate)
+                        realNames[memberId] = candidate
+                        savedProgress.remove(memberId)
+                    }
                     return RunResult.Found(candidate, displayName)
                 }
 
@@ -320,6 +282,9 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
     ) {
         var phase by remember { mutableStateOf<Phase>(Phase.Idle) }
         var amountInput by remember { mutableStateOf("100000") }
+        var restarting by remember { mutableStateOf(false) }
+        var saveFailed by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
 
         // Read saved progress once at composition time; stable for the dialog lifetime
         val resumeIndex = remember { savedProgress[memberId] }
@@ -331,14 +296,19 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
             val current = phase
             if (current is Phase.Running) {
                 dialog.setCancelable(false)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val amount = amountInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 100000.0
-                    val result = runBruteForce(memberId, groupId, amount, current.state)
-                    if (phase is Phase.Running) {
-                        phase = Phase.Done(result)
-                        dialog.setCancelable(true)
+                val amount = amountInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 100000.0
+                val result = try {
+                    withContext(Dispatchers.IO) {
+                        runBruteForce(memberId, groupId, amount, current.state)
                     }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    WeLogger.e(TAG, "real-name operation failed before its result could be committed", e)
+                    RunResult.Failed(R.string.structured_storage_save_failed)
                 }
+                phase = Phase.Done(result)
+                dialog.setCancelable(true)
             }
         }
 
@@ -354,6 +324,13 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
             },
             text = {
                 DefaultColumn(Modifier.verticalScroll(rememberScrollState())) {
+                    if (restarting) {
+                        LinearWavyProgressIndicator()
+                        Text(stringResource(R.string.structured_storage_saving))
+                    }
+                    if (saveFailed) {
+                        Text(stringResource(R.string.structured_storage_save_failed), color = MaterialTheme.colorScheme.error)
+                    }
                     when (val current = phase) {
                         is Phase.Idle -> {
                             Text(stringResource(R.string.chat_real_name_bruteforce_warning_message))
@@ -369,6 +346,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                             }
                             TextField(
                                 value = amountInput,
+                                enabled = !restarting,
                                 onValueChange = { amountInput = it.filter { c -> c.isDigit() }.take(7) },
                                 label = { Text(stringResource(R.string.chat_real_name_bruteforce_amount)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -425,7 +403,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                     is Phase.Idle -> {
                         if (resumeIndex != null) {
                             // Two buttons when there is saved progress: resume (primary) and restart
-                            Button(onClick = {
+                            Button(enabled = !restarting, onClick = {
                                 phase = Phase.Running(
                                     RunState(mutableIntStateOf(0), remaining, startIndex = resumeIndex)
                                 )
@@ -439,7 +417,7 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                                 )
                             }
                         } else {
-                            Button(onClick = {
+                            Button(enabled = !restarting, onClick = {
                                 phase = Phase.Running(
                                     RunState(mutableIntStateOf(0), COMMON_SURNAMES.size)
                                 )
@@ -456,11 +434,26 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(),
                     is Phase.Idle -> {
                         if (resumeIndex != null) {
                             // "重新开始" clears saved progress and runs from index 0
-                            TextButton(onClick = {
-                                clearProgress(memberId)
-                                phase = Phase.Running(
-                                    RunState(mutableIntStateOf(0), COMMON_SURNAMES.size)
-                                )
+                            TextButton(enabled = !restarting, onClick = {
+                                restarting = true
+                                saveFailed = false
+                                dialog.setCancelable(false)
+                                scope.launch {
+                                    try {
+                                        clearProgress(memberId)
+                                        phase = Phase.Running(
+                                            RunState(mutableIntStateOf(0), COMMON_SURNAMES.size)
+                                        )
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        WeLogger.e(TAG, "failed to clear real-name scan progress", e)
+                                        saveFailed = true
+                                        dialog.setCancelable(true)
+                                    } finally {
+                                        restarting = false
+                                    }
+                                }
                             }) { Text(stringResource(R.string.chat_real_name_bruteforce_restart)) }
                         } else {
                             TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }

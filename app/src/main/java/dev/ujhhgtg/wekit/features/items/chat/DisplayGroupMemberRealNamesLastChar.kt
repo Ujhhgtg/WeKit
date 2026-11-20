@@ -14,6 +14,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.entity.ContactRealNamePartEntity
+import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferRespProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferReqProto
@@ -23,7 +26,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.PreferenceItem
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -33,17 +36,13 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 
 object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoProvider {
 
@@ -60,7 +59,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
      * Foreground color for the real-name annotation. Exposed so
      * [DisplayGroupMemberRealName] (the sole TextView annotator) can read the same preference.
      */
-    var annotationFg by WePrefs.prefOption("real_name_last_char_fg", DEFAULT_FG)
+    var annotationFg by KvStore.prefOption("real_name_last_char_fg", DEFAULT_FG)
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
@@ -86,14 +85,11 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
         }
     }
 
-    private const val PREF_KEY = "real_name_last_char"
-
-    private val cacheFile by lazy { KnownPaths.moduleData / "real_names.json" }
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     /**
      * wxId → masked real name (last char). Only confirmed hits are stored here.
-     * Persisted to [cacheFile] across sessions.
+     * Loaded when the feature is enabled; updated only after the row is persisted.
      * Exposed so [DisplayGroupMemberRealName] can read it for combined display.
      */
     val realNames = ConcurrentHashMap<String, String>()
@@ -108,7 +104,12 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onEnable() {
-        loadCache()
+        runBlocking(Dispatchers.IO) {
+            JsonDataMigration.requireCompleted("chat", "real_names_last_char")
+            val saved = WeKitDatabase.instance.simpleStructuredDao().getRealNameParts("MASKED")
+            realNames.clear()
+            realNames.putAll(saved.associate { it.wxId to it.value })
+        }
         WeContactPrefsScreenApi.addProvider(this)
     }
 
@@ -116,32 +117,15 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
         WeContactPrefsScreenApi.removeProvider(this)
     }
 
-    // ── Cache I/O ─────────────────────────────────────────────────────────────
-
-    private fun loadCache() {
-        runCatching {
-            val file = cacheFile
-            if (!file.exists()) return
-            val map = Json.decodeFromString<Map<String, String>>(file.readText())
-            realNames.putAll(map)
-            WeLogger.d(TAG, "loaded ${map.size} cached real names")
-        }.onFailure { WeLogger.w(TAG, "failed to load $cacheFile", it) }
-    }
-
-    private fun saveCache() {
-        runCatching {
-            cacheFile.writeText(Json.encodeToString(realNames.toMap()))
-        }.onFailure { WeLogger.w(TAG, "failed to save $cacheFile", it) }
-    }
-
     // ── Network fetch ─────────────────────────────────────────────────────────
 
-    /** Outcome of a [actualFetchRealName] call, reported on the CGI callback thread. */
+    /** Outcome of a [actualFetchRealName] call, reported on a background thread. */
     private sealed interface FetchResult {
         data class Found(val realName: String) : FetchResult
 
         /** Server responded but field "4" was absent → contact deleted/blocked us, or abnormal account. */
         data object NoRealName : FetchResult
+        data object SaveFailure : FetchResult
         data class Failure(val errType: Int, val errCode: Int, val errMsg: String?) : FetchResult
     }
 
@@ -152,7 +136,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
      * deleted/blocked us or the account is abnormal — no disk entry is written in that case.
      *
      * On [FetchResult.Found] the name is cached and persisted before [onResult] runs. [onResult]
-     * is invoked on the CGI callback thread; callers that touch UI must hop to the main thread.
+     * is invoked on a background thread; callers that touch UI must hop to the main thread.
      */
     private fun actualFetchRealName(senderId: String, groupId: String?, onResult: (FetchResult) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -167,9 +151,20 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                         ?.maskedRealName
 
                     if (realName != null) {
-                        realNames[senderId] = realName
-                        saveCache()
-                        onResult(FetchResult.Found(realName))
+                        CoroutineScope(Dispatchers.IO).launch persist@{
+                            try {
+                                WeKitDatabase.instance.simpleStructuredDao()
+                                    .putRealNamePart(ContactRealNamePartEntity(senderId, "MASKED", realName))
+                                realNames[senderId] = realName
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                WeLogger.w(TAG, "failed to save masked real name", e)
+                                onResult(FetchResult.SaveFailure)
+                                return@persist
+                            }
+                            onResult(FetchResult.Found(realName))
+                        }
                     } else {
                         onResult(FetchResult.NoRealName)
                     }
@@ -190,9 +185,8 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
     /**
      * Initiates a background fetch for [senderId]'s masked real name if no fetch has been
-     * dispatched yet this session. [onFound] is called on the CGI callback thread (not the main
-     * thread) when the name is successfully retrieved. Callers that need to touch UI must post
-     * to the main thread themselves.
+     * dispatched yet this session. [onFound] is called on a background thread when the name is
+     * successfully retrieved. Callers that need to touch UI must post to the main thread themselves.
      *
      * The [pendingOrQueried] gate ensures at most one in-flight request per wxId.
      */
@@ -206,7 +200,7 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
                 // wxId stays in pendingOrQueried to suppress retries for the rest of this session.
                 FetchResult.NoRealName -> {}
                 // Evict so the next view-bind for this sender can retry.
-                is FetchResult.Failure -> pendingOrQueried.remove(senderId)
+                is FetchResult.Failure, FetchResult.SaveFailure -> pendingOrQueried.remove(senderId)
             }
         }
     }
@@ -223,41 +217,38 @@ object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), IContactInfoPro
 
         return listOf(
             PreferenceItem(
-                key = PREF_KEY,
                 title = activity.localizedChatString(R.string.chat_real_name_fetch_title),
                 summary = realNames[memberId]?.let { activity.localizedChatString(R.string.chat_real_name_value, it) }
                     ?: activity.localizedChatString(R.string.chat_contact_tap_to_fetch),
-                position = 1
+                position = 1,
+                onClick = onClick@{ activity ->
+                    activity.run {
+                        val clickedMemberId = activity.currentWxId ?: return@onClick
+                        val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
+
+                        WeLogger.i(TAG, "fetching last char for $clickedMemberId $groupId")
+
+                        val cached = realNames[clickedMemberId]
+                        if (cached != null) {
+                            showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, cached))
+                            return@onClick
+                        }
+
+                        showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetching))
+                        actualFetchRealName(clickedMemberId, groupId) { result ->
+                            mainHandler.post {
+                                when (result) {
+                                    is FetchResult.Found -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, result.realName))
+                                    FetchResult.NoRealName -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_not_found))
+                                    FetchResult.SaveFailure -> showToast(activity, activity.localizedChatString(R.string.structured_storage_save_failed))
+                                    is FetchResult.Failure -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetch_failed, result.errMsg ?: result.errCode))
+                                }
+                            }
+                        }
+                    }
+                },
             )
         )
     }
 
-    override fun onItemClick(activity: Activity, key: String): Boolean {
-        if (key != PREF_KEY) return false
-
-        activity.run {
-            val memberId = activity.currentWxId ?: return true
-            val groupId = WeCurrentConversationApi.value.takeIf { it.isGroupChatWxId }
-
-            WeLogger.i(TAG, "fetching last char for $memberId $groupId")
-
-            val cached = realNames[memberId]
-            if (cached != null) {
-                showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, cached))
-                return true
-            }
-
-            showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetching))
-            actualFetchRealName(memberId, groupId) { result ->
-                mainHandler.post {
-                    when (result) {
-                        is FetchResult.Found -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_value, result.realName))
-                        FetchResult.NoRealName -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_not_found))
-                        is FetchResult.Failure -> showToast(activity, activity.localizedChatString(R.string.chat_real_name_fetch_failed, result.errMsg ?: result.errCode))
-                    }
-                }
-            }
-            return true
-        }
-    }
 }

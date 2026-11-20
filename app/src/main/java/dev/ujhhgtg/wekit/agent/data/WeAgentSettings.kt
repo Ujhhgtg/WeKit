@@ -1,9 +1,15 @@
 package dev.ujhhgtg.wekit.agent.data
 
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.KEY_OVERLAY_FOREGROUND_ONLY
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.KEY_OVERLAY_MODE
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.clear
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.clearCached
 import dev.ujhhgtg.wekit.agent.data.WeAgentSettings.load
 import dev.ujhhgtg.wekit.agent.data.entity.SettingEntity
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -13,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object WeAgentSettings {
 
-    private val db get() = WeAgentDatabase.instance
+    private val db get() = WeKitDatabase.instance
     private val cache = ConcurrentHashMap<String, String>()
 
     // Keys
@@ -50,7 +56,7 @@ object WeAgentSettings {
 
     /**
      * Drops [key] from the in-memory cache after its row was already deleted inside a caller's
-     * Room transaction (the DB write goes through [SettingDao.delete] there, not through [clear]).
+     * Room transaction (the DB write goes through [dev.ujhhgtg.wekit.agent.data.dao.SettingDao.delete] there, not through [clear]).
      */
     fun clearCached(key: String) {
         cache.remove(key)
@@ -109,10 +115,11 @@ object WeAgentSettings {
         get(KEY_OVERLAY_MODE)?.let { stored ->
             return OverlayMode.entries.firstOrNull { it.name == stored } ?: OverlayMode.DISABLED
         }
-        val migrated = when {
-            legacyFeatureEnabled == true && get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() == true ->
+        val migrated = when (legacyFeatureEnabled) {
+            true if get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() == true ->
                 OverlayMode.FOREGROUND_ONLY
-            legacyFeatureEnabled == true -> OverlayMode.ALWAYS
+
+            true -> OverlayMode.ALWAYS
             else -> OverlayMode.DISABLED
         }
         set(KEY_OVERLAY_MODE, migrated.name)
@@ -120,10 +127,10 @@ object WeAgentSettings {
     }
 
     /** Reads the send-while-running mode, defaulting to QUEUE_AFTER_TURN. */
-    suspend fun sendWhileRunningMode(): dev.ujhhgtg.wekit.features.api.agent.WeAgentService.SendWhileRunningMode =
+    suspend fun sendWhileRunningMode(): WeAgentService.SendWhileRunningMode =
         when (get(KEY_SEND_WHILE_RUNNING)) {
-            "QUEUE_AS_STEER" -> dev.ujhhgtg.wekit.features.api.agent.WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER
-            else -> dev.ujhhgtg.wekit.features.api.agent.WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN
+            "QUEUE_AS_STEER" -> WeAgentService.SendWhileRunningMode.QUEUE_AS_STEER
+            else -> WeAgentService.SendWhileRunningMode.QUEUE_AFTER_TURN
         }
 }
 

@@ -98,6 +98,8 @@ data class LlmUsage(
 data class LlmRequest(
     val modelIdRemote: String,
     val messages: List<LlmMessage>,
+    /** Persisted conversation UUID, reused across turns and auxiliary requests for routing/cache affinity. */
+    val sessionId: String,
     val tools: List<LlmToolSpec> = emptyList(),
     val reasoningEffort: String? = null,
     val customJsonOverride: JsonObject? = null,

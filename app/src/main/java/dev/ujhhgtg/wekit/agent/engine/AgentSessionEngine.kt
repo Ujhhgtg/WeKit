@@ -135,6 +135,7 @@ class AgentSessionEngine(
                 val request = dev.ujhhgtg.wekit.agent.model.LlmRequest(
                     modelIdRemote = config.modelIdRemote,
                     messages = pruneStaleImages(messages),
+                    sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
                     tools = wireTools.map { it.toSpec() },
                     reasoningEffort = config.reasoningEffort,
                     customJsonOverride = config.customJsonOverride,

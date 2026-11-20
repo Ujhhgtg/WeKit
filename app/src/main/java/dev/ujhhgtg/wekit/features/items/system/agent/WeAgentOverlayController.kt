@@ -21,7 +21,7 @@ import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.sh
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
 import dev.ujhhgtg.wekit.i18n.LocalizedContextFactory
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
@@ -144,8 +144,8 @@ object WeAgentOverlayController {
     private fun addBall() {
         val params = baseLayoutParams(focusable = false).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = WePrefs.getIntOrDef(PREF_BALL_X, 24)
-            y = WePrefs.getIntOrDef(PREF_BALL_Y, 240)
+            x = KvStore.getIntOrDef(PREF_BALL_X, 24)
+            y = KvStore.getIntOrDef(PREF_BALL_Y, 240)
         }
         ballParams = params
 
@@ -176,8 +176,8 @@ object WeAgentOverlayController {
                                 clampToScreen(v, p)
                                 runCatching { wm.updateViewLayout(v, p) }
                             }
-                            WePrefs.putInt(PREF_BALL_X, p.x)
-                            WePrefs.putInt(PREF_BALL_Y, p.y)
+                            KvStore.putInt(PREF_BALL_X, p.x)
+                            KvStore.putInt(PREF_BALL_Y, p.y)
                         },
                     )
                 }

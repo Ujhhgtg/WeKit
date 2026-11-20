@@ -27,7 +27,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -67,7 +67,7 @@ object MentionMembers : SwitchFeature(), IResolveDex {
     /** 微信服务器对 atuserlist 人数的上限, 超出部分静默截断 */
     private const val MAX_AT_USERS = 200
 
-    private var stealthMentionAll by WePrefs.prefOption("mention_members_stealth_all", false)
+    private var stealthMentionAll by KvStore.prefOption("mention_members_stealth_all", false)
 
     // 点击菜单确认后置位 (talker 到 atuserlist CSV); 消息入库发生在 performSend
     // 之后的异步流程里, 由入库钩子消费。发送失败残留的标记由 talker 不匹配兜底丢弃。

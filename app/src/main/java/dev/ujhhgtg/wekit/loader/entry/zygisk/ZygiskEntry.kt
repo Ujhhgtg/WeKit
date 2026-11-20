@@ -4,6 +4,7 @@ package dev.ujhhgtg.wekit.loader.entry.zygisk
 
 import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.annotation.Keep
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.BuildConfig
@@ -50,18 +51,18 @@ object ZygiskEntry {
     ) {
         val targetPackage = processName.substringBefore(':')
         if (!PackageNames.isWeChat(targetPackage)) {
-            WeLogger.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
+            Log.w(TAG, "ignoring unsupported Zygisk target: $targetPackage")
             return
         }
         synchronized(entryLock) {
             if (hookBridge != null) return
 
             try {
-                WeLogger.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
+                NativeLoader.configureZygiskPayload(apkPath, dataDir)
+                Log.i(TAG, "ZygiskEntry.init: process=$processName apk=$apkPath dataDir=$dataDir")
                 check(nativeInitialize()) {
                     "LSPlant bootstrap or hook bridge registration failed"
                 }
-                NativeLoader.configureZygiskPayload(apkPath, dataDir)
                 val service = ZygiskLoaderService(
                     modulePath = apkPath,
                     versionName = BuildConfig.VERSION_NAME,
@@ -91,6 +92,9 @@ object ZygiskEntry {
                         val appInfo = param.args.getOrNull(0) as? ApplicationInfo ?: return
                         if (appInfo.packageName != targetPackage) return
                         val factory = param.result ?: return
+                        // postAppSpecialize runs before Android binds/names the host process.
+                        // Authenticate only once LoadedApk has a real bound ApplicationInfo.
+                        NativeLoader.initDecoder(modulePath)
                         installFinalClassLoaderHook(bridge, factory, targetPackage)
                     }
                 }, priority = 10000)
@@ -103,7 +107,8 @@ object ZygiskEntry {
                 modulePath = ""
                 moduleStarted.set(false)
                 finalClassLoaderHookInstalled.set(false)
-                WeLogger.e(TAG, "ZygiskEntry.init failed", t)
+                // Loading the decoder can fail before WeLogger is safe to initialize.
+                Log.e(TAG, "ZygiskEntry.init failed", t)
             }
         }
     }

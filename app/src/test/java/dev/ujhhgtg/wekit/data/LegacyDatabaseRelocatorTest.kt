@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.agent.data
+package dev.ujhhgtg.wekit.data
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
-class WeAgentDatabaseRelocatorTest {
+class LegacyDatabaseRelocatorTest {
     @TempDir
     lateinit var root: Path
 
@@ -26,31 +26,31 @@ class WeAgentDatabaseRelocatorTest {
         val destination = root.resolve("private/weagent.db").toFile().apply {
             parentFile!!.mkdirs(); writeText("new")
         }
-        val prepared = WeAgentDatabaseRelocator(source, destination) {}.prepare()
+        val prepared = LegacyDatabaseRelocator(source, destination) {}.prepare()
         assertEquals(destination, prepared.file)
         assertFalse(prepared.migratedNow)
         assertEquals("new", destination.readText())
     }
 
     @Test
-    fun `commit keeps private copy and deletes external sidecars`() {
+    fun `commit keeps legacy source and sidecars for explicit cleanup`() {
         val source = sourceDatabase("payload")
         File(source.path + "-journal").writeText("")
         val destination = root.resolve("private/weagent.db").toFile()
-        val relocator = WeAgentDatabaseRelocator(source, destination) {}
+        val relocator = LegacyDatabaseRelocator(source, destination) {}
         val prepared = relocator.prepare()
         assertTrue(prepared.migratedNow)
         assertEquals("payload", destination.readText())
         relocator.commit(prepared)
-        assertFalse(source.exists())
-        assertFalse(File(source.path + "-journal").exists())
+        assertTrue(source.exists())
+        assertTrue(File(source.path + "-journal").exists())
     }
 
     @Test
     fun `rollback removes new copy and preserves source`() {
         val source = sourceDatabase("payload")
         val destination = root.resolve("private/weagent.db").toFile()
-        val relocator = WeAgentDatabaseRelocator(source, destination) {}
+        val relocator = LegacyDatabaseRelocator(source, destination) {}
         val prepared = relocator.prepare()
         relocator.rollback(prepared)
         assertTrue(source.exists())
@@ -62,7 +62,7 @@ class WeAgentDatabaseRelocatorTest {
         val source = root.resolve("external/weagent.db").toFile()
         val destination = root.resolve("private/nested/deep/weagent.db").toFile()
         var recoveryInvoked = false
-        val prepared = WeAgentDatabaseRelocator(source, destination) { recoveryInvoked = true }.prepare()
+        val prepared = LegacyDatabaseRelocator(source, destination) { recoveryInvoked = true }.prepare()
         assertEquals(destination, prepared.file)
         assertFalse(prepared.externalFallback)
         assertFalse(prepared.migratedNow)
@@ -74,7 +74,7 @@ class WeAgentDatabaseRelocatorTest {
     fun `recovery failure returns external fallback without data loss`() {
         val source = sourceDatabase("payload")
         val destination = root.resolve("private/weagent.db").toFile()
-        val prepared = WeAgentDatabaseRelocator(source, destination) { error("recover failed") }.prepare()
+        val prepared = LegacyDatabaseRelocator(source, destination) { error("recover failed") }.prepare()
         assertTrue(prepared.externalFallback)
         assertEquals(source, prepared.file)
         assertTrue(source.exists())

@@ -19,7 +19,7 @@ import kotlin.io.path.writeText
 object SafeMode {
 
     private const val TAG = "SafeMode"
-    private val flagFile = KnownPaths.moduleData / "safe_mode.flag"
+    private val flagFile = KnownPaths.moduleRoot / "safe_mode.flag"
 
     val isEnabled: Boolean
         get() = flagFile.exists()

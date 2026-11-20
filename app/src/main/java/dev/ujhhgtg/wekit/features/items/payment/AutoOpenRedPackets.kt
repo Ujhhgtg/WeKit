@@ -126,6 +126,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
     }
 
     override fun onEnable() {
+        RedPacketSettings.requireReady()
         WeDatabaseListenerApi.addListener(this)
 
         WePaymentApi.methodReceiveLuckyMoneyOnGYNetEnd.hookAfter {

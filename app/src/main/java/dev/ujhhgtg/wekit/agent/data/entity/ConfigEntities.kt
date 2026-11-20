@@ -114,6 +114,9 @@ data class LinuxEnvironmentEntity(
     val sshPort: Int? = null,
     val sshUsername: String? = null,
     val sshAuthenticationType: String? = null,
+    val sshPassword: String? = null,
+    val sshPrivateKey: String? = null,
+    val sshPrivateKeyPassphrase: String? = null,
     val sshCredentialCiphertext: ByteArray? = null,
     val sshCredentialIv: ByteArray? = null,
     val sshCredentialReference: String? = null,
@@ -128,6 +131,8 @@ data class LinuxEnvironmentEntity(
             rootfsPath == other.rootfsPath && rootfsContentVersion == other.rootfsContentVersion &&
             createdAt == other.createdAt && sshHost == other.sshHost && sshPort == other.sshPort &&
             sshUsername == other.sshUsername && sshAuthenticationType == other.sshAuthenticationType &&
+            sshPassword == other.sshPassword && sshPrivateKey == other.sshPrivateKey &&
+            sshPrivateKeyPassphrase == other.sshPrivateKeyPassphrase &&
             sshCredentialCiphertext.contentEqualsNullable(other.sshCredentialCiphertext) &&
             sshCredentialIv.contentEqualsNullable(other.sshCredentialIv) &&
             sshCredentialReference == other.sshCredentialReference &&
