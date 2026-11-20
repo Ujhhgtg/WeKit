@@ -30,7 +30,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -70,7 +70,7 @@ object AutoRefresh : ClickableFeature(), IResolveDex {
     private const val MAX_INTERVAL_MINUTES = 120
     private const val REFRESH_TIMEOUT_MS = 60_000L
 
-    private var intervalMinutes by WePrefs.prefOption("moments_auto_refresh_interval_minutes", DEFAULT_INTERVAL_MINUTES)
+    private var intervalMinutes by KvStore.prefOption("moments_auto_refresh_interval_minutes", DEFAULT_INTERVAL_MINUTES)
 
     fun interface IRefreshListener {
         /** The automatic timeline request has finished processing a valid response. */

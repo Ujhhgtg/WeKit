@@ -32,8 +32,8 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -120,7 +120,7 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             get() = when (this) {
                 BALANCE -> balanceExpression
                 LQT -> lqtExpression
-                BUSINESS -> if (WePrefs.default.contains(KEY_EXPRESSION_BUSINESS)) {
+                BUSINESS -> if (KvStore.contains(KEY_EXPRESSION_BUSINESS)) {
                     businessExpression
                 } else {
                     lqtExpression
@@ -313,12 +313,12 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
             Target.LQT -> KEY_ENABLE_LQT
             Target.BUSINESS -> KEY_ENABLE_BUSINESS
         }
-        if (!WePrefs.default.contains(key)) {
-            val hasConfiguredAmount = WePrefs.default.contains(KEY_BALANCE) ||
-                WePrefs.default.contains(KEY_LQT) || WePrefs.default.contains(KEY_BUSINESS) ||
-                WePrefs.default.contains(LEGACY_BALANCE) || WePrefs.default.contains(LEGACY_LQT) ||
-                WePrefs.default.contains(LEGACY_BUSINESS)
-            return WePrefs.getBoolOrDef(KEY_GLOBAL_ENABLE, isActive && hasConfiguredAmount)
+        if (!KvStore.contains(key)) {
+            val hasConfiguredAmount = KvStore.contains(KEY_BALANCE) ||
+                KvStore.contains(KEY_LQT) || KvStore.contains(KEY_BUSINESS) ||
+                KvStore.contains(LEGACY_BALANCE) || KvStore.contains(LEGACY_LQT) ||
+                KvStore.contains(LEGACY_BUSINESS)
+            return KvStore.getBoolOrDef(KEY_GLOBAL_ENABLE, isActive && hasConfiguredAmount)
         }
         return when (target) {
             Target.BALANCE -> enableBalance
@@ -372,9 +372,9 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     }
 
     private fun resolveMode(key: String, configured: String, fallback: String): String {
-        if (WePrefs.default.contains(key)) {
-            return when (WePrefs.getString(key)) {
-                MODE_FIXED, MODE_INCREASE, MODE_DECREASE -> WePrefs.getString(key)!!
+        if (KvStore.contains(key)) {
+            return when (KvStore.getString(key)) {
+                MODE_FIXED, MODE_INCREASE, MODE_DECREASE -> KvStore.getString(key)!!
                 else -> fallback
             }
         }
@@ -475,47 +475,47 @@ object ModifyWalletBalanceDisplay : ClickableFeature(), IResolveDex {
     }
 
     private fun migrateLegacySettings() {
-        if (!WePrefs.default.contains(KEY_BALANCE) && WePrefs.default.contains(LEGACY_BALANCE))
-            WePrefs.putString(KEY_BALANCE, WePrefs.getString(LEGACY_BALANCE)!!)
-        if (!WePrefs.default.contains(KEY_LQT) && WePrefs.default.contains(LEGACY_LQT))
-            WePrefs.putString(KEY_LQT, WePrefs.getString(LEGACY_LQT)!!)
-        if (!WePrefs.default.contains(KEY_BUSINESS) && WePrefs.default.contains(LEGACY_BUSINESS))
-            WePrefs.putString(KEY_BUSINESS, WePrefs.getString(LEGACY_BUSINESS)!!)
+        if (!KvStore.contains(KEY_BALANCE) && KvStore.contains(LEGACY_BALANCE))
+            KvStore.putString(KEY_BALANCE, KvStore.getString(LEGACY_BALANCE)!!)
+        if (!KvStore.contains(KEY_LQT) && KvStore.contains(LEGACY_LQT))
+            KvStore.putString(KEY_LQT, KvStore.getString(LEGACY_LQT)!!)
+        if (!KvStore.contains(KEY_BUSINESS) && KvStore.contains(LEGACY_BUSINESS))
+            KvStore.putString(KEY_BUSINESS, KvStore.getString(LEGACY_BUSINESS)!!)
 
         var migrated = false
         if (shouldMigrateWalletExpression(
-                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_BALANCE),
-                hasLegacyAmount = WePrefs.default.contains(KEY_BALANCE),
-                hasLegacyMode = WePrefs.default.contains(KEY_MODE_BALANCE),
+                hasExpression = KvStore.contains(KEY_EXPRESSION_BALANCE),
+                hasLegacyAmount = KvStore.contains(KEY_BALANCE),
+                hasLegacyMode = KvStore.contains(KEY_MODE_BALANCE),
             )
         ) {
-            val configured = WePrefs.getStringOrDef(KEY_BALANCE, "0.00")
+            val configured = KvStore.getStringOrDef(KEY_BALANCE, "0.00")
             val mode = resolveMode(KEY_MODE_BALANCE, configured, MODE_FIXED)
-            WePrefs.putString(KEY_EXPRESSION_BALANCE, migrateExpression(configured, mode))
+            KvStore.putString(KEY_EXPRESSION_BALANCE, migrateExpression(configured, mode))
             migrated = true
         }
         if (shouldMigrateWalletExpression(
-                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_LQT),
-                hasLegacyAmount = WePrefs.default.contains(KEY_LQT),
-                hasLegacyMode = WePrefs.default.contains(KEY_MODE_LQT),
+                hasExpression = KvStore.contains(KEY_EXPRESSION_LQT),
+                hasLegacyAmount = KvStore.contains(KEY_LQT),
+                hasLegacyMode = KvStore.contains(KEY_MODE_LQT),
             )
         ) {
-            val configured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
+            val configured = KvStore.getStringOrDef(KEY_LQT, "0.00")
             val mode = resolveMode(KEY_MODE_LQT, configured, MODE_FIXED)
-            WePrefs.putString(KEY_EXPRESSION_LQT, migrateExpression(configured, mode))
+            KvStore.putString(KEY_EXPRESSION_LQT, migrateExpression(configured, mode))
             migrated = true
         }
         if (shouldMigrateWalletExpression(
-                hasExpression = WePrefs.default.contains(KEY_EXPRESSION_BUSINESS),
-                hasLegacyAmount = WePrefs.default.contains(KEY_BUSINESS),
-                hasLegacyMode = WePrefs.default.contains(KEY_MODE_BUSINESS),
+                hasExpression = KvStore.contains(KEY_EXPRESSION_BUSINESS),
+                hasLegacyAmount = KvStore.contains(KEY_BUSINESS),
+                hasLegacyMode = KvStore.contains(KEY_MODE_BUSINESS),
             )
         ) {
-            val lqtConfigured = WePrefs.getStringOrDef(KEY_LQT, "0.00")
-            val configured = WePrefs.getString(KEY_BUSINESS) ?: lqtConfigured
+            val lqtConfigured = KvStore.getStringOrDef(KEY_LQT, "0.00")
+            val configured = KvStore.getString(KEY_BUSINESS) ?: lqtConfigured
             val lqtMode = resolveMode(KEY_MODE_LQT, lqtConfigured, MODE_FIXED)
             val mode = resolveMode(KEY_MODE_BUSINESS, configured, lqtMode)
-            WePrefs.putString(KEY_EXPRESSION_BUSINESS, migrateExpression(configured, mode))
+            KvStore.putString(KEY_EXPRESSION_BUSINESS, migrateExpression(configured, mode))
             migrated = true
         }
         if (migrated) WeLogger.i(TAG, "migrated legacy wallet balance settings to expressions")

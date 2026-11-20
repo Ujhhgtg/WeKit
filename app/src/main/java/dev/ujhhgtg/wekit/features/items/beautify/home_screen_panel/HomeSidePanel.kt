@@ -39,6 +39,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.features.items.beautify.AddMainScreenFab
+import dev.ujhhgtg.wekit.features.items.chat.ConversationGrouping
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.dpToPx
 import dev.ujhhgtg.wekit.ui.utils.findViewWhich
@@ -144,6 +145,10 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
     private const val TAG = "HomeSidePanel"
     private const val LAUNCHER_BOTTOM_TAB_VIEW_CLASS = "com.tencent.mm.ui.LauncherUIBottomTabView"
     private val sessions = WeakHashMap<WxViewPager, WeakReference<HomeSidePanelSession>>()
+
+    fun blocksConversationGroupSwipe(pager: ViewGroup): Boolean =
+        (pager as? WxViewPager)?.let { sessions[it]?.get()?.blocksConversationGroupSwipe() } == true
+
     private val pendingEdgeToEdgeAttachListeners =
         WeakHashMap<View, View.OnAttachStateChangeListener>()
     private val dispatchTouchEventMethod by lazy {
@@ -765,6 +770,8 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         fun ownsActivity(candidate: Activity): Boolean = activity === candidate
 
+        fun blocksConversationGroupSwipe(): Boolean = renderedProgress > 0f || dragging
+
         fun onLauncherResumed() {
             panelState.onLauncherResumed()
             requestSync(SYNC_ALL)
@@ -855,6 +862,7 @@ object HomeSidePanel : SwitchFeature(), IResolveDex {
 
         fun onPagerTouchDispatched(event: MotionEvent, cancelHost: () -> Unit): Boolean {
             if (event.actionMasked != MotionEvent.ACTION_MOVE || dragging) return false
+            if (ConversationGrouping.shouldDeferHomeSidePanel(viewPager, event)) return false
             // Compose scrolling and conversation swipes request disallow-intercept while dispatching
             // this very MOVE. Only decide whether to open after they have had that opportunity.
             if (gesture.onMove(event.x, event.y, event.eventTime) != HomeSidePanelGestureDecision.CONSUME) {

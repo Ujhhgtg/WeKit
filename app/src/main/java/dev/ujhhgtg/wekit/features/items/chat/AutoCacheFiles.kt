@@ -22,7 +22,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -55,9 +55,9 @@ object AutoCacheFiles : ClickableFeature(),
 
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private var useWhitelist by WePrefs.prefOption("autocache_files_use_whitelist", false)
-    private var whitelist by WePrefs.prefOption("autocache_files_whitelist", emptySet())
-    private var blacklist by WePrefs.prefOption("autocache_files_blacklist", emptySet())
+    private var useWhitelist by KvStore.prefOption("autocache_files_use_whitelist", false)
+    private var whitelist by KvStore.prefOption("autocache_files_whitelist", emptySet())
+    private var blacklist by KvStore.prefOption("autocache_files_blacklist", emptySet())
 
     override fun onEnable() {
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())

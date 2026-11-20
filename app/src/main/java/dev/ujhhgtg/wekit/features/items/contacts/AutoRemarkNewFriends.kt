@@ -18,7 +18,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -40,8 +40,8 @@ object AutoRemarkNewFriends : ClickableFeature() {
     private const val DEFAULT_TEXT_FORMAT = $$"$nickname ($time)"
     private const val DEFAULT_TIME_FORMAT = "yyyy-MM-dd"
 
-    private var textFormat by WePrefs.prefOption("auto_remark_text_format", DEFAULT_TEXT_FORMAT)
-    private var timeFormat by WePrefs.prefOption("auto_remark_time_format", DEFAULT_TIME_FORMAT)
+    private var textFormat by KvStore.prefOption("auto_remark_text_format", DEFAULT_TEXT_FORMAT)
+    private var timeFormat by KvStore.prefOption("auto_remark_time_format", DEFAULT_TIME_FORMAT)
 
     override fun onEnable() {
         "com.tencent.mm.plugin.profile.ui.SayHiWithSnsPermissionUI".toClass().reflekt().firstMethod("initView").hookBefore {

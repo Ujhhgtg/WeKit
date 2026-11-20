@@ -7,6 +7,7 @@ import dev.ujhhgtg.wekit.agent.model.LlmStreamEvent
 import dev.ujhhgtg.wekit.agent.tool.PermissionLevel
 import dev.ujhhgtg.wekit.agent.tool.ProviderKind
 import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
@@ -69,7 +70,7 @@ fun interface ManualApprovalHandler {
 /**
  * Resolves a tool call into an [ApprovalDecision] from the precomputed [ApprovalBehavior] (see
  * [behaviorFor]). AUTO allows immediately; MANUAL suspends on [manualHandler]; SMART fires an
- * independent small-model request (§2.2) that does not share the session context nor count toward
+ * independent small-model request (§2.2) that does not include conversation history nor count toward
  * its request budget.
  */
 class ApprovalGateway(
@@ -156,6 +157,7 @@ class ApprovalGateway(
                 LlmMessage(role = LlmRole.SYSTEM, content = instruction),
                 LlmMessage(role = LlmRole.USER, content = payload),
             ),
+            sessionId = currentCoroutineContext()[AgentSessionContext]!!.sessionId,
             tools = emptyList(),
             reasoningEffort = model.reasoningEffort,
             maxTokens = model.maxTokens,

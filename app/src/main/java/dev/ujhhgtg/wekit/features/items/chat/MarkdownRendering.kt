@@ -41,7 +41,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
@@ -230,7 +230,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
 
     private val selectedRenderMode: RenderMode
         get() = RenderMode.fromPreference(
-            WePrefs.getStringOrDef(KEY_RENDER_MODE, RenderMode.HTML.preference)
+            KvStore.getStringOrDef(KEY_RENDER_MODE, RenderMode.HTML.preference)
         )
 
     private val activeRenderMode: RenderMode
@@ -240,7 +240,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
         }
 
     private fun setRenderMode(mode: RenderMode) {
-        WePrefs.putString(KEY_RENDER_MODE, mode.preference)
+        KvStore.putString(KEY_RENDER_MODE, mode.preference)
     }
 
     private fun isNativeRendererCandidate(msg: Any): Boolean {
@@ -336,8 +336,8 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
             maxWidth = maxWidth,
             mode = activeRenderMode,
             textColor = textColor,
-            compactHtml = WePrefs.getBoolOrFalse(KEY_COMPACT_HTML),
-            noTextSizing = WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)
+            compactHtml = KvStore.getBoolOrFalse(KEY_COMPACT_HTML),
+            noTextSizing = KvStore.getBoolOrFalse(KEY_NO_TEXT_SIZING)
         )
         layoutCache[key]?.let { return it }
 
@@ -427,7 +427,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
         return Markwon.builder(context)
             .usePlugin(object : AbstractMarkwonPlugin() {
                 override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
-                    if (WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)) {
+                    if (KvStore.getBoolOrFalse(KEY_NO_TEXT_SIZING)) {
                         builder.setFactory(Heading::class.java) { _, _ ->
                             StyleSpan(Typeface.BOLD)
                         }
@@ -504,7 +504,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                         }
 
                         var noTextSizing by
-                        remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_NO_TEXT_SIZING)) }
+                        remember { mutableStateOf(KvStore.getBoolOrFalse(KEY_NO_TEXT_SIZING)) }
                         SegmentedColumn(
                             title = stringResource(R.string.chat_markdown_general_settings),
                             contentPadding = PaddingValues(0.dp),
@@ -517,14 +517,14 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                     checked = noTextSizing,
                                     onCheckedChange = {
                                         noTextSizing = it
-                                        WePrefs.putBool(KEY_NO_TEXT_SIZING, it)
+                                        KvStore.putBool(KEY_NO_TEXT_SIZING, it)
                                     },
                                 )
                             }
                         }
 
                         var compactHtml by
-                        remember { mutableStateOf(WePrefs.getBoolOrFalse(KEY_COMPACT_HTML)) }
+                        remember { mutableStateOf(KvStore.getBoolOrFalse(KEY_COMPACT_HTML)) }
                         SegmentedColumn(
                             title = stringResource(R.string.chat_markdown_html_settings),
                             contentPadding = PaddingValues(0.dp),
@@ -537,7 +537,7 @@ object MarkdownRendering : ClickableFeature(), IResolveDex {
                                     checked = compactHtml,
                                     onCheckedChange = {
                                         compactHtml = it
-                                        WePrefs.putBool(KEY_COMPACT_HTML, it)
+                                        KvStore.putBool(KEY_COMPACT_HTML, it)
                                     },
                                 )
                             }
