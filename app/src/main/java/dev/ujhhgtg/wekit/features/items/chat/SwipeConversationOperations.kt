@@ -2,6 +2,9 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Path
+import android.graphics.RectF
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -27,7 +30,8 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.features.items.beautify.BeautifyConversationList
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
@@ -113,7 +117,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         var talker: String? = null,
         var conversation: Any? = null,
         // The FrameLayout we insert to host content+panel; non-null once this row is set up (guard).
-        var wrapper: View? = null,
+        var wrapper: IslandSwipeLayout? = null,
         // The content view we translate (cj0), the action panel behind it, and its buttons.
         var content: View? = null,
         var panel: View? = null,
@@ -140,6 +144,80 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         var isPinned: Boolean = false,
         var isDnd: Boolean = false,
     )
+
+    /** Clip the whole reveal, including growing buttons and translated content, to its island. */
+    private class IslandSwipeLayout(context: Context) : FrameLayout(context) {
+        private var shape: BeautifyConversationList.IslandShape? = null
+        private val islandPath = Path()
+        private val islandBounds = RectF()
+        private val radii = FloatArray(8)
+        private var clipsIsland = false
+
+        fun setIslandShape(value: BeautifyConversationList.IslandShape?) {
+            if (shape == value) return
+            shape = value
+            updateIslandPath()
+        }
+
+        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+            super.onLayout(changed, left, top, right, bottom)
+            updateIslandPath()
+        }
+
+        private fun updateIslandPath() {
+            val surface = shape
+            if (surface == null || (!surface.first && !surface.last)) {
+                if (clipsIsland) {
+                    clipsIsland = false
+                    islandPath.rewind()
+                    invalidate()
+                }
+                return
+            }
+            val row = parent as View
+            // Row padding already moves this wrapper inside the surface and below any island
+            // gap. Map row coordinates here so neither the inset nor the gap is applied twice.
+            val clipLeft = surface.horizontalInset.toFloat() - left
+            val clipTop = surface.topInset.toFloat() - top
+            val clipRight = (row.width - surface.horizontalInset - left).toFloat()
+            val clipBottom = (row.height - top).toFloat()
+            val topRadius = if (surface.first) surface.radius else 0f
+            val bottomRadius = if (surface.last) surface.radius else 0f
+            // Button-width animations also request layout; their unchanged outer shape can reuse
+            // this path for both screen drawing and backdrop/snapshot captures.
+            if (clipsIsland && islandBounds.left == clipLeft && islandBounds.top == clipTop &&
+                islandBounds.right == clipRight && islandBounds.bottom == clipBottom &&
+                radii[0] == topRadius && radii[4] == bottomRadius
+            ) return
+            clipsIsland = true
+            islandBounds.set(clipLeft, clipTop, clipRight, clipBottom)
+            radii.fill(topRadius, 0, 4)
+            radii.fill(bottomRadius, 4, 8)
+            islandPath.rewind()
+            islandPath.addRoundRect(islandBounds, radii, Path.Direction.CW)
+            invalidate()
+        }
+
+        override fun dispatchDraw(canvas: Canvas) {
+            if (!clipsIsland) {
+                super.dispatchDraw(canvas)
+                return
+            }
+            val save = canvas.save()
+            try {
+                // Canvas clipping also works for frozen-page captures and older Android versions.
+                canvas.clipPath(islandPath)
+                super.dispatchDraw(canvas)
+            } finally {
+                canvas.restoreToCount(save)
+            }
+        }
+    }
+
+    fun refreshIslandShape(row: View) {
+        val state = row.getTag(VIEW_TAG_SWIPE_STATE) as? SwipeState ?: return
+        state.wrapper?.setIslandShape(BeautifyConversationList.islandShape(row))
+    }
 
     /**
      * Integer tag key under which a row's [SwipeState] is stamped onto the row view itself.
@@ -254,6 +332,9 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
                 // panel behind it. The recycled row now represents a different conversation, so any
                 // leftover open/translation from its previous use must be reset to closed.
                 setUpRow(view, state)
+                // Either feature's bind hook can run first. Pull here; the beautifier also pushes
+                // its final geometry after binding, including when this recycled row changes ends.
+                refreshIslandShape(view)
                 // Refresh active buttons and reveal width from current settings every bind.
                 rebindState(state, ctx)
                 resetRow(state)
@@ -285,7 +366,7 @@ object SwipeConversationOperations : ClickableFeature(), IResolveDex {
         val index = group.indexOfChild(content)
         val lp = content.layoutParams
 
-        val wrapper = FrameLayout(group.context)
+        val wrapper = IslandSwipeLayout(group.context)
         val panel = buildActionPanel(group.context, s)
 
         group.removeViewAt(index)

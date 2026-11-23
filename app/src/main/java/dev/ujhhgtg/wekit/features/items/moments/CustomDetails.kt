@@ -5,10 +5,13 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,14 +30,16 @@ import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.utils.EditIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.entity.MomentCustomDetailEntity
+import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
@@ -53,9 +58,15 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         $$"$userName"
     )
 
-    private val customTextsFile by lazy { KnownPaths.moduleData / "moments_custom_bottom_details.json" }
+    private val customDetails = ConcurrentHashMap<String, String>()
 
     override fun onEnable() {
+        runBlocking(Dispatchers.IO) {
+            JsonDataMigration.requireCompleted("moments", "custom_bottom_details")
+            val saved = WeKitDatabase.instance.simpleStructuredDao().getCustomDetails()
+            customDetails.clear()
+            customDetails.putAll(saved.associate { it.snsId to it.text })
+        }
         WeMomentsContextMenuApi.addProvider(this)
     }
 
@@ -81,14 +92,15 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         )
     }
 
-    fun getCustomText(snsId: Long): String? {
-        return getCustomTexts()[snsId.toString()]?.takeIf { it.isNotBlank() }
-    }
+    fun getCustomText(snsId: Long): String? = customDetails[snsId.toString()]
 
     private fun showEditor(context: Context, snsId: Long) {
         showComposeDialog(context) {
             var textInput by remember { mutableStateOf(TextFieldValue(getCustomText(snsId).orEmpty())) }
             var isFocused by remember { mutableStateOf(false) }
+            var saving by remember { mutableStateOf(false) }
+            var saveFailed by remember { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
             val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
             AlertDialogContent(
@@ -99,6 +111,7 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
+                            enabled = !saving,
                             label = { Text(stringResource(R.string.moments_custom_details_content)) },
                             minLines = 3,
                             modifier = Modifier
@@ -108,27 +121,61 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
 
                         Text(stringResource(R.string.moments_custom_details_insert_placeholder))
 
-                        PlaceholderChips(
-                            placeholders = PLACEHOLDERS,
-                            value = textInput,
-                            isFieldFocused = isFocused,
-                            onValueChange = { textInput = it },
-                        )
+                        if (saving) {
+                            LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+                            Text(stringResource(R.string.structured_storage_saving))
+                        } else {
+                            PlaceholderChips(
+                                placeholders = PLACEHOLDERS,
+                                value = textInput,
+                                isFieldFocused = isFocused,
+                                onValueChange = { textInput = it },
+                            )
+                        }
+                        if (saveFailed) {
+                            Text(stringResource(R.string.structured_storage_save_failed), color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        setCustomText(snsId, textInput.text)
-                        showToast(
-                            localizedContext.getString(
-                                if (textInput.text.isBlank()) R.string.moments_custom_details_cleared
-                                else R.string.moments_custom_details_saved
-                            )
-                        )
-                        onDismiss()
+                    Button(enabled = !saving, onClick = {
+                        saving = true
+                        saveFailed = false
+                        dialog.setCancelable(false)
+                        scope.launch {
+                            try {
+                                val key = snsId.toString()
+                                val text = textInput.text.trim()
+                                withContext(Dispatchers.IO) {
+                                    val dao = WeKitDatabase.instance.simpleStructuredDao()
+                                    if (text.isBlank()) {
+                                        dao.removeCustomDetail(key)
+                                        customDetails.remove(key)
+                                    } else {
+                                        dao.putCustomDetail(MomentCustomDetailEntity(key, text))
+                                        customDetails[key] = text
+                                    }
+                                }
+                                showToast(
+                                    localizedContext.getString(
+                                        if (textInput.text.isBlank()) R.string.moments_custom_details_cleared
+                                        else R.string.moments_custom_details_saved
+                                    )
+                                )
+                                onDismiss()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                WeLogger.e(TAG, "failed to save custom bottom details", e)
+                                saveFailed = true
+                            } finally {
+                                saving = false
+                                dialog.setCancelable(true)
+                            }
+                        }
                     }) {
                         Text(stringResource(R.string.action_save))
                     }
@@ -141,54 +188,4 @@ object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvid
         return (snsInfo?.reflekt()?.getField("field_snsId", true) as? Number)?.toLong()
     }
 
-    private fun setCustomText(snsId: Long, text: String) {
-        val customTexts = loadCustomTexts().toMutableMap()
-        val key = snsId.toString()
-        val normalized = text.trim()
-        if (normalized.isBlank()) {
-            customTexts.remove(key)
-        } else {
-            customTexts[key] = normalized
-        }
-        saveCustomTexts(customTexts)
-    }
-
-    /**
-     * Load custom texts from JSON file (snsId -> text).
-     */
-    private fun loadCustomTexts(): Map<String, String> {
-        val file = customTextsFile
-        if (!file.exists()) return emptyMap()
-        return runCatching {
-            DefaultJson.decodeFromString<Map<String, String>>(file.readText())
-                .filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
-        }.getOrElse { e ->
-            WeLogger.e(TAG, "failed to load $customTextsFile", e)
-            emptyMap()
-        }
-    }
-
-    private fun saveCustomTexts(customTexts: Map<String, String>) {
-        runCatching {
-            customTextsFile.writeText(DefaultJson.encodeToString(customTexts))
-        }.onFailure { e ->
-            WeLogger.e(TAG, "failed to save $customTextsFile", e)
-        }
-        markCacheDirty()
-    }
-
-    @Volatile
-    private var customTextsCache: Map<String, String>? = null
-    private val cacheDirty = AtomicBoolean(true)
-
-    private fun getCustomTexts(): Map<String, String> {
-        if (cacheDirty.compareAndSet(true, false)) {
-            customTextsCache = loadCustomTexts()
-        }
-        return customTextsCache!!
-    }
-
-    private fun markCacheDirty() {
-        cacheDirty.set(true)
-    }
 }

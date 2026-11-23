@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
@@ -26,12 +26,12 @@ object HomeSidePanelPreferences {
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
 
     var layoutRaw: String?
-        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.LAYOUT)
+        get() = KvStore.getString(HomeSidePanelPreferenceKeys.LAYOUT)
         set(value) {
             if (value == null) {
-                WePrefs.remove(HomeSidePanelPreferenceKeys.LAYOUT)
+                KvStore.remove(HomeSidePanelPreferenceKeys.LAYOUT)
             } else {
-                WePrefs.putString(HomeSidePanelPreferenceKeys.LAYOUT, value)
+                KvStore.putString(HomeSidePanelPreferenceKeys.LAYOUT, value)
             }
         }
 
@@ -39,7 +39,7 @@ object HomeSidePanelPreferences {
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY
 
     val legacyHideWalletBalance: Boolean
-        get() = WePrefs.getBoolOrDef(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
+        get() = KvStore.getBoolOrDef(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
 
     val legacyWeatherLastSuccess: WeatherSnapshot?
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_LAST_SUCCESS)
@@ -51,7 +51,7 @@ object HomeSidePanelPreferences {
         get() = decode(HomeSidePanelPreferenceKeys.HITOKOTO_LAST_SUCCESS)
 
     private inline fun <reified T> decode(key: String): T? {
-        val raw = WePrefs.getString(key) ?: return null
+        val raw = KvStore.getString(key) ?: return null
         return runCatching { DefaultJson.decodeFromString<T>(raw) }
             .onFailure { WeLogger.w(TAG, "failed to decode preference $key", it) }
             .getOrNull()

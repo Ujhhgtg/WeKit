@@ -30,8 +30,6 @@ import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
 import dev.ujhhgtg.wekit.agent.data.entity.LinuxEnvironmentEntity
 import dev.ujhhgtg.wekit.agent.environment.LinuxEnvironmentType
 import dev.ujhhgtg.wekit.agent.environment.NATIVE_ENVIRONMENT_ID
-import dev.ujhhgtg.wekit.agent.ssh.SshCredentialStore
-import dev.ujhhgtg.wekit.agent.ssh.SshCredentials
 import dev.ujhhgtg.wekit.agent.ssh.SshHostKeyException
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.extensions.ExtensionPackDialogs
@@ -313,8 +311,8 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
     if (existing != null) {
         val credentials = when {
             type != LinuxEnvironmentType.SSH -> null
-            authenticationType == "PASSWORD" && password.isNotEmpty() -> SshCredentialStore.encrypt(SshCredentials.Password(password))
-            authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> SshCredentialStore.encrypt(SshCredentials.PrivateKey(privateKey, passphrase.takeIf(String::isNotEmpty)))
+            authenticationType == "PASSWORD" && password.isNotEmpty() -> Unit
+            authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty() -> Unit
             authenticationType != existing.sshAuthenticationType -> error("credentials are required when changing SSH authentication type")
             else -> null
         }
@@ -324,8 +322,11 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
             sshPort = if (type == LinuxEnvironmentType.SSH) port.toInt() else existing.sshPort,
             sshUsername = if (type == LinuxEnvironmentType.SSH) username else existing.sshUsername,
             sshAuthenticationType = if (type == LinuxEnvironmentType.SSH) authenticationType else existing.sshAuthenticationType,
-            sshCredentialCiphertext = credentials?.ciphertext ?: existing.sshCredentialCiphertext,
-            sshCredentialIv = credentials?.iv ?: existing.sshCredentialIv,
+            sshPassword = if (authenticationType == "PASSWORD" && password.isNotEmpty()) password else existing.sshPassword,
+            sshPrivateKey = if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) privateKey else existing.sshPrivateKey,
+            sshPrivateKeyPassphrase = if (authenticationType == "PRIVATE_KEY" && privateKey.isNotEmpty()) passphrase.takeIf(String::isNotEmpty) else existing.sshPrivateKeyPassphrase,
+            sshCredentialCiphertext = if (password.isNotEmpty() || privateKey.isNotEmpty()) null else existing.sshCredentialCiphertext,
+            sshCredentialIv = if (password.isNotEmpty() || privateKey.isNotEmpty()) null else existing.sshCredentialIv,
             sshHostKeyAlgorithm = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyAlgorithm,
             sshHostKeyFingerprint = if (credentials != null && (host != existing.sshHost || username != existing.sshUsername || port.toInt() != existing.sshPort)) null else existing.sshHostKeyFingerprint,
         ))
@@ -342,11 +343,8 @@ private suspend fun saveOrCreate(id: String?, existing: LinuxEnvironmentEntity?,
         }
     }
     require(type == LinuxEnvironmentType.SSH) { "unsupported environment type" }
-    val credentials = if (authenticationType == "PASSWORD") {
-        SshCredentialStore.encrypt(SshCredentials.Password(password.also { require(it.isNotEmpty()) { "password is required" } }))
-    } else {
-        SshCredentialStore.encrypt(SshCredentials.PrivateKey(privateKey.also { require(it.isNotEmpty()) { "private key is required" } }, passphrase.takeIf(String::isNotEmpty)))
-    }
-    WeAgentService.linuxEnvironmentManager.upsert(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, environmentVariablesJson = normalizedVariables, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = authenticationType, sshCredentialCiphertext = credentials.ciphertext, sshCredentialIv = credentials.iv))
+    val normalizedPassword = password.takeIf { authenticationType == "PASSWORD" }?.also { require(it.isNotEmpty()) { "password is required" } }
+    val normalizedPrivateKey = privateKey.takeIf { authenticationType == "PRIVATE_KEY" }?.also { require(it.isNotEmpty()) { "private key is required" } }
+    WeAgentService.linuxEnvironmentManager.upsert(LinuxEnvironmentEntity(UUID.randomUUID().toString(), name, type, workingDirectory, environmentVariablesJson = normalizedVariables, sshHost = host, sshPort = port.toInt(), sshUsername = username, sshAuthenticationType = authenticationType, sshPassword = normalizedPassword, sshPrivateKey = normalizedPrivateKey, sshPrivateKeyPassphrase = passphrase.takeIf { normalizedPrivateKey != null && it.isNotEmpty() }))
     return true
 }

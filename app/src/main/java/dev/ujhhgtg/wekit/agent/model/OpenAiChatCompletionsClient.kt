@@ -42,6 +42,7 @@ class OpenAiChatCompletionsClient(
         // [DONE]) previously abandoned an open SSE body channel, leaking the connection until GC.
         // `execute` releases it on every path, including exceptions.
         http.preparePost(endpoint) {
+            header("x-opencode-session", request.sessionId)
             header(HttpHeaders.Authorization, "Bearer $apiKey")
             contentType(ContentType.Application.Json)
             setBody(LlmJson.json.encodeToString(JsonObject.serializer(), body))

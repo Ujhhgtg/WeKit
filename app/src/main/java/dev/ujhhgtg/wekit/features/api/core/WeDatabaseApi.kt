@@ -628,7 +628,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
      * 数据来自 chatroom.roomdata protobuf，群主或无邀请者信息时返回空字符串
      * @param groupId 群聊 wxId（xxx@chatroom）
      * @param memberId 成员 wxId
-     * @return 邀请者 wxId，未记录时返回空字符串
+     * @return 邀请者 wxId；没有邀请者记录时返回空字符串。空值不代表当前群主。
      */
     fun getGroupMemberInviter(groupId: String, memberId: String): String {
         if (!groupId.isGroupChatWxId || memberId.isEmpty()) return ""

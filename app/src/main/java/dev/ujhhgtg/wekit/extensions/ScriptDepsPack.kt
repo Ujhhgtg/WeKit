@@ -26,10 +26,10 @@ object ScriptDepsPack : ExtensionPack {
     private var cachedLoader: InMemoryDexClassLoader? = null
 
     override fun installDir(): File =
-        KnownPaths.moduleData.resolve("extensions/script-deps").toFile()
+        KnownPaths.moduleRoot.resolve("extensions/script-deps").toFile()
 
     override fun stagingDir(): File =
-        KnownPaths.moduleData.resolve("extensions/script-deps/.staging").toFile()
+        KnownPaths.moduleRoot.resolve("extensions/script-deps/.staging").toFile()
 
     override fun isInUse(): Boolean = cachedLoader != null
 

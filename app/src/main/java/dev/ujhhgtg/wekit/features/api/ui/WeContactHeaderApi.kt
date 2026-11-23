@@ -40,6 +40,14 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
         }
     }
 
+    private val bindBizHeader by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.plugin.profile.ui.BizInfoHeaderPreference"
+            paramTypes(View::class.java)
+            returnType = "void"
+        }
+    }
+
     fun addProvider(provider: Provider) {
         providers.addIfAbsent(provider)
     }
@@ -108,6 +116,40 @@ object WeContactHeaderApi : ApiFeature(), IResolveDex {
                     }
                 }
                 parent.addView(row)
+            }
+        }
+
+        bindBizHeader.hookAfter {
+            val root = args[0] as View
+            root.findViewsWhich { it.tag == ROW_TAG }.toList().forEach {
+                (it.parent as ViewGroup).removeView(it)
+            }
+            if (providers.isEmpty()) return@hookAfter
+
+            var context = root.context
+            while (context is ContextWrapper && context !is Activity) context = context.baseContext
+            val activity = context as Activity
+            val template = root.findViewsWhich { view ->
+                view is TextView && (view.parent as? LinearLayout)?.orientation == LinearLayout.VERTICAL &&
+                    view.layoutParams.width == ViewGroup.LayoutParams.MATCH_PARENT
+            }.map { it as TextView }.first()
+            val parent = template.parent as LinearLayout
+            for (provider in providers) {
+                val headerText = provider.getHeaderText(activity) ?: continue
+                parent.addView(TextView(template.context).apply {
+                    id = View.generateViewId()
+                    tag = ROW_TAG
+                    layoutParams = LinearLayout.LayoutParams(template.layoutParams as LinearLayout.LayoutParams)
+                    setTextSize(TypedValue.COMPLEX_UNIT_PX, template.textSize)
+                    setTextColor(template.textColors)
+                    typeface = template.typeface
+                    gravity = template.gravity
+                    includeFontPadding = template.includeFontPadding
+                    textDirection = template.textDirection
+                    setPaddingRelative(template.paddingStart, template.paddingTop, template.paddingEnd, template.paddingBottom)
+                    setLineSpacing(template.lineSpacingExtra, template.lineSpacingMultiplier)
+                    text = headerText
+                })
             }
         }
     }

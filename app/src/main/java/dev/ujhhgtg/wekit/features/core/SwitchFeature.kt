@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
@@ -22,7 +22,7 @@ abstract class SwitchFeature : BaseFeature() {
         get() = _isEnabled
 
     fun loadPersistedState() {
-        _isEnabled = WePrefs.getBoolOrDef(technicalId, defaultEnabled)
+        _isEnabled = KvStore.getBoolOrDef(technicalId, defaultEnabled)
     }
 
     final override fun startup() {
@@ -56,7 +56,7 @@ abstract class SwitchFeature : BaseFeature() {
     }
 
     fun applyToggle(newState: Boolean) {
-        WePrefs.putBool(technicalId, newState)
+        KvStore.putBool(technicalId, newState)
         isEnabled = newState
         toggleCompletionCallback?.run()
     }

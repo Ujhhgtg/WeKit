@@ -7,6 +7,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
+        mavenLocal { content { includeGroup("dev.ujhhgtg.lsparanoid") } }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -23,6 +24,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        mavenLocal { content { includeGroup("dev.ujhhgtg.lsparanoid") } }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")

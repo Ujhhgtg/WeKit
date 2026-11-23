@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,13 +27,15 @@ import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.utils.FolderAddIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import kotlinx.coroutines.launch
 
 object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi.IMenuItemsProvider {
 
@@ -88,7 +92,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
     }
 
     private fun onMenuClick(context: Context, talker: String) {
-        if (!ConversationAggregation.isEnabled) {
+        if (!ConversationAggregation.isActive) {
             showToast(context, context.localizedChatString(R.string.chat_add_folder_enable_grouping_first))
             return
         }
@@ -104,53 +108,67 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
 
     private fun showFolderPicker(context: Context, folders: List<FolderChoice>, talker: String) {
         showComposeDialog(context) {
+            val scope = rememberCoroutineScope()
+            var saving by remember { mutableStateOf(false) }
+            var failed by remember { mutableStateOf(false) }
+            androidx.compose.runtime.SideEffect { dialog.setCancelable(!saving) }
             AlertDialogContent(
                 modifier = Modifier.fillMaxWidth(),
                 title = { Text(stringResource(R.string.chat_add_folder_menu)) },
                 text = {
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 420.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(folders, key = { it.id }) { folder ->
-                            FolderPickRow(folder) {
-                                if (folder.isAuto) {
-                                    showToast(
-                                        context,
-                                        context.localizedChatString(R.string.chat_add_folder_automatic_unavailable, folder.name),
-                                    )
-                                    return@FolderPickRow
+                    Column {
+                        if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        if (failed) Text(stringResource(R.string.logs_save_failed), color = MaterialTheme.colorScheme.error)
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 420.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(folders, key = { it.id }) { folder ->
+                                FolderPickRow(folder, enabled = !saving) {
+                                    if (folder.isAuto) {
+                                        showToast(context, context.localizedChatString(
+                                            R.string.chat_add_folder_automatic_unavailable, folder.name))
+                                        return@FolderPickRow
+                                    }
+                                    saving = true
+                                    failed = false
+                                    scope.launch {
+                                        try {
+                                            if (!ConversationAggregation.addToFolder(folder.id, talker)) {
+                                                showToast(context, context.localizedChatString(
+                                                    R.string.chat_add_folder_manual_unavailable, folder.name))
+                                            } else {
+                                                showToast(context, context.localizedChatString(
+                                                    R.string.chat_add_folder_success, folder.name))
+                                                if (showConfigDialog) {
+                                                    ConversationAggregation.showAddToFolderDialog(context, folder.id, talker)
+                                                }
+                                                onDismiss()
+                                            }
+                                        } catch (error: Exception) {
+                                            if (error is kotlinx.coroutines.CancellationException) throw error
+                                            WeLogger.e("AddToAggregationFolder", "Failed to add folder member", error)
+                                            failed = true
+                                        } finally { saving = false }
+                                    }
                                 }
-                                onDismiss()
-                                addToFolder(context, folder, talker)
                             }
                         }
                     }
                 },
                 dismissButton = {
-                    TextButton(onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+                    TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
                 }
             )
         }
     }
 
-    private fun addToFolder(context: Context, folder: FolderChoice, talker: String) {
-        if (!ConversationAggregation.addToFolder(folder.id, talker)) {
-            showToast(context, context.localizedChatString(R.string.chat_add_folder_manual_unavailable, folder.name))
-            return
-        }
-        showToast(context, context.localizedChatString(R.string.chat_add_folder_success, folder.name))
-        if (showConfigDialog) {
-            ConversationAggregation.showAddToFolderDialog(context, folder.id, talker)
-        }
-    }
-
     @Composable
-    private fun FolderPickRow(folder: FolderChoice, onClick: () -> Unit) {
+    private fun FolderPickRow(folder: FolderChoice, enabled: Boolean, onClick: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(enabled = enabled, onClick = onClick)
                 .padding(vertical = 8.dp)
         ) {
             Text(folder.name)

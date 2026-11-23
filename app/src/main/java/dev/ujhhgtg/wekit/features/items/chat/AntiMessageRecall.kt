@@ -38,8 +38,8 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
+import dev.ujhhgtg.wekit.data.KvStore
+import dev.ujhhgtg.wekit.data.KvStore.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
@@ -448,7 +448,7 @@ object AntiMessageRecall : ClickableFeature(), IResolveDex, WeXmlParserApi.IAfte
         // The 提示格式 option was removed; the last stored template survives in MMKV and is what
         // old notices were rendered with. The MMKV key only exists if the user ever saved a custom
         // value (defaults are applied at read time), so fall back to the historical default.
-        val template = WePrefs.default.getString("recall_pattern")
+        val template = KvStore.getString("recall_pattern")
             ?: $$"「$sender」尝试撤回上一条消息 (已阻止)"
         val regex = buildLegacyNoticeRegex(template)
             ?: throw IllegalStateException("invalid stored recall pattern")

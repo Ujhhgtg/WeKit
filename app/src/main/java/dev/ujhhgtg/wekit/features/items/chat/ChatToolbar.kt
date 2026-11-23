@@ -93,7 +93,7 @@ import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ChatToolbar.scheduleGridInitWatchdog
 import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.data.KvStore
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -278,16 +278,16 @@ object ChatToolbar : ClickableFeature(), IResolveDex {
         synchronized(appGridToolTypes) { appGridToolTypes[itemView] = type }
     }
 
-    private var itemsOrder by WePrefs.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
-    private var enabledItems by WePrefs.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
-    private var displayModeValue by WePrefs.prefOption(
+    private var itemsOrder by KvStore.prefOption("chat_toolbar_order", NAME_TO_ICON_MAP.keys.joinToString(","))
+    private var enabledItems by KvStore.prefOption("chat_toolbar_enabled_items", NAME_TO_ICON_MAP.keys)
+    private var displayModeValue by KvStore.prefOption(
         "chat_toolbar_display_mode",
         ToolbarDisplayMode.ICON_AND_TEXT.preferenceValue,
     )
 
     // quick replies are stored as a JSON string array so individual replies may safely
     // contain commas, newlines or any other character
-    private var quickRepliesRaw by WePrefs.prefOption("chat_toolbar_quick_replies", "")
+    private var quickRepliesRaw by KvStore.prefOption("chat_toolbar_quick_replies", "")
 
     private val quickRepliesSerializer = ListSerializer(String.serializer())
 

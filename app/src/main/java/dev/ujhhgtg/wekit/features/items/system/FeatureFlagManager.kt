@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Icon
 import dev.ujhhgtg.wekit.ui.utils.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -49,8 +51,6 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
-import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.cacheLock
-import dev.ujhhgtg.wekit.features.items.system.FeatureFlagManager.markCacheDirty
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -58,22 +58,22 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.data.entity.FeatureFlagOverrideEntity
+import dev.ujhhgtg.wekit.data.WeKitDatabase
+import dev.ujhhgtg.wekit.data.JsonDataMigration
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.withDexKit
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import kotlinx.serialization.Serializable
 import org.luckypray.dexkit.query.matchers.ClassMatcher
-import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
 /**
@@ -97,7 +97,6 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     override val categoryIds = listOf(FeatureCategoryIds.SYSTEM_PRIVACY)
     override val descriptionRes = R.string.feature_feature_flag_manager_description
 
-    private val overridesFile by lazy { KnownPaths.moduleData / "feature_flag_overrides.json" }
 
     /**
      * Base class for all feature flags: [ly4.e] (verified from WeChat 8.0.69).
@@ -179,97 +178,23 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     }
 
     // ---------------------------------------------------------------------------
-    // Override data model
-    // ---------------------------------------------------------------------------
-
-    @Serializable
-    private data class FeatureFlagOverride(
-        val runtimeKey: String,
-        val internalType: String,  // "i"|"f"|"l"|"s"
-        val rawValue: String
-    ) {
-        /** The runtime value to set as hook result. */
-        val value: Any
-            get() = when (internalType) {
-                "i" -> rawValue.toInt()
-                "f" -> rawValue.toFloat()
-                "l" -> rawValue.toLong()
-                "s" -> rawValue
-                else -> error("Unknown override type: $internalType")
-            }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Override persistence
-    // ---------------------------------------------------------------------------
-
-    /**
-     * Load overrides from JSON file.
-     */
-    private fun loadOverrides(): Map<String, FeatureFlagOverride> {
-        val file = overridesFile
-        if (!file.exists()) return emptyMap()
-        return runCatching {
-            val list = DefaultJson.decodeFromString<List<FeatureFlagOverride>>(file.readText())
-            list.associateBy { it.runtimeKey }
-        }.getOrElse { e ->
-            WeLogger.e(TAG, "failed to load $overridesFile", e)
-            emptyMap()
-        }
-    }
-
-    /**
-     * Persist overrides, then mark cache as dirty.
-     */
-    private fun saveOverrides(overrides: List<FeatureFlagOverride>) {
-        saveOverridesRaw(overrides)
-        markCacheDirty()
-    }
-
-    private fun saveOverridesRaw(overrides: List<FeatureFlagOverride>) {
-        runCatching {
-            overridesFile.writeText(DefaultJson.encodeToString(overrides))
-        }.onFailure { e ->
-            WeLogger.e(TAG, "failed to save $overridesFile", e)
-        }
-    }
-
-    // ---------------------------------------------------------------------------
-    // Live-reloadable override cache
-    // ---------------------------------------------------------------------------
-
-    @Volatile
-    private var overridesCache: Map<String, FeatureFlagOverride>? = null
-    private val cacheLock = Any()
-
-    /**
-     * Returns the override map, loading it on first use after a [markCacheDirty].
-     *
-     * The load itself must happen under [cacheLock]: this is called from the central flag getter
-     * hook, which WeChat invokes concurrently from many threads during startup. If the load throws,
-     * nothing is cached, so the next caller simply retries instead of latching a broken state.
-     */
-    private fun getOverrides(): Map<String, FeatureFlagOverride> {
-        overridesCache?.let { return it }
-        return synchronized(cacheLock) {
-            overridesCache ?: loadOverrides().also { overridesCache = it }
-        }
-    }
-
-    private fun markCacheDirty() {
-        synchronized(cacheLock) {
-            overridesCache = null
-        }
-    }
-
-    // ---------------------------------------------------------------------------
     // Hook
     // ---------------------------------------------------------------------------
 
+    @Volatile
+    private var overrides: Map<String, FeatureFlagOverrideEntity> = emptyMap()
+
+    private fun loadOverrides() = runBlocking(Dispatchers.IO) {
+        JsonDataMigration.requireCompleted("feature_flags", "overrides")
+        val saved = WeKitDatabase.instance.simpleStructuredDao().getFlagOverrides()
+        overrides = saved.associateBy { it.runtimeKey }
+    }
+
     override fun onEnable() {
+        loadOverrides()
         methodRepairerConfigApiGet.hookBefore {
             val key = args[0] as? String ?: return@hookBefore
-            val override = getOverrides()[key] ?: return@hookBefore
+            val override = overrides[key] ?: return@hookBefore
             result = override.value
         }
     }
@@ -279,6 +204,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     // ---------------------------------------------------------------------------
 
     override fun onClick(context: ComponentActivity) {
+        loadOverrides()
         showComposeDialog(context) {
             FeatureFlagManagerDialog(onDismiss = onDismiss)
         }
@@ -645,7 +571,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
     private const val TAG = "FeatureFlagManager"
 
     @Composable
-    private fun OverrideValueDialog(
+    private fun ShowComposeDialogScope.OverrideValueDialog(
         runtimeKey: String,
         typeName: String,
         onDismiss: () -> Unit
@@ -660,11 +586,34 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         }
 
         val existingOverride = remember {
-            getOverrides()[runtimeKey]
+            overrides[runtimeKey]
         }
 
         var type by remember { mutableStateOf(existingOverride?.internalType ?: defaultTypeChar) }
         var rawValue by remember { mutableStateOf(existingOverride?.rawValue ?: "") }
+        var saving by remember { mutableStateOf(false) }
+        var saveFailed by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+
+        fun submit(action: suspend () -> Unit) {
+            saving = true
+            saveFailed = false
+            dialog.setCancelable(false)
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) { action() }
+                    onDismiss()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    WeLogger.e(TAG, "failed to commit feature flag override", e)
+                    saveFailed = true
+                } finally {
+                    saving = false
+                    dialog.setCancelable(true)
+                }
+            }
+        }
 
         AlertDialogContent(
             title = { Text(stringResource(R.string.system_feature_flags_set_override)) },
@@ -680,46 +629,52 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                             DropdownOption("l", "Long"),
                             DropdownOption("s", "String"),
                         ),
+                        enabled = !saving,
                         onValueChange = { type = it },
                     )
                     Spacer(Modifier.height(8.dp))
                     TextField(
                         value = rawValue,
+                        enabled = !saving,
                         onValueChange = { rawValue = it },
                         singleLine = true,
                         label = { Text(stringResource(R.string.system_feature_flags_value)) }
                     )
+                    if (saving) {
+                        LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+                        Text(stringResource(R.string.structured_storage_saving))
+                    }
+                    if (saveFailed) {
+                        Text(stringResource(R.string.structured_storage_save_failed), color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-                TextButton(onClick = {
-                    val overrides = loadOverrides().values.toMutableList()
-                    val existingIndex = overrides.indexOfFirst { it.runtimeKey == runtimeKey }
-                    if (existingIndex == -1) {
-                        WeLogger.i(TAG, "override not found for $runtimeKey, nothing to clear")
+                TextButton(onClick = onDismiss, enabled = !saving) { Text(stringResource(R.string.dialog_cancel)) }
+                TextButton(enabled = !saving, onClick = {
+                    if (overrides[runtimeKey] == null) {
                         showToast(localizedSystemString(R.string.system_feature_flags_override_not_found))
                         return@TextButton
                     }
-                    WeLogger.i(TAG, "removing override for $runtimeKey")
-                    overrides.removeAt(existingIndex)
-                    saveOverrides(overrides)
-                    onDismiss()
+                    submit {
+                        WeKitDatabase.instance.simpleStructuredDao().removeFlagOverride(runtimeKey)
+                        overrides = overrides - runtimeKey
+                    }
                 }) { Text(stringResource(R.string.action_clear)) }
             },
             confirmButton = {
-                Button(onClick = {
+                Button(enabled = !saving, onClick = {
                     val rawValueStr = rawValue
                     // Validate value based on type
                     val validated = when (type) {
-                        "s", "string" -> FeatureFlagOverride(runtimeKey, "s", rawValueStr)
+                        "s", "string" -> FeatureFlagOverrideEntity(runtimeKey, "s", rawValueStr)
                         "i", "int" -> {
                             val v = rawValueStr.toIntOrNull()
                             if (v == null) {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
-                            FeatureFlagOverride(runtimeKey, "i", rawValueStr)
+                            FeatureFlagOverrideEntity(runtimeKey, "i", rawValueStr)
                         }
 
                         "l", "long" -> {
@@ -728,7 +683,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
-                            FeatureFlagOverride(runtimeKey, "l", rawValueStr)
+                            FeatureFlagOverrideEntity(runtimeKey, "l", rawValueStr)
                         }
 
                         "f", "float" -> {
@@ -737,7 +692,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                                 showToast(localizedSystemString(R.string.system_feature_flags_invalid_value))
                                 return@Button
                             }
-                            FeatureFlagOverride(runtimeKey, "f", rawValueStr)
+                            FeatureFlagOverrideEntity(runtimeKey, "f", rawValueStr)
                         }
 
                         else -> {
@@ -746,17 +701,10 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
                         }
                     }
 
-                    val overrides = loadOverrides().values.toMutableList()
-                    val existingIndex = overrides.indexOfFirst { it.runtimeKey == runtimeKey }
-                    if (existingIndex == -1) {
-                        WeLogger.i(TAG, "adding new override for $runtimeKey")
-                        overrides.add(validated)
-                    } else {
-                        WeLogger.i(TAG, "updating override for $runtimeKey")
-                        overrides[existingIndex] = validated
+                    submit {
+                        WeKitDatabase.instance.simpleStructuredDao().putFlagOverride(validated)
+                        overrides = overrides + (runtimeKey to validated)
                     }
-                    saveOverrides(overrides)
-                    onDismiss()
                 }) { Text(stringResource(R.string.dialog_confirm)) }
             }
         )
