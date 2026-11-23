@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.view.View
+import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricManager
@@ -42,7 +43,9 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.CryptoManager
 import dev.ujhhgtg.wekit.utils.EncryptedData
 import dev.ujhhgtg.wekit.utils.TargetProcess
+import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.nul
 
@@ -77,6 +80,13 @@ object FingerprintPay : ClickableFeature() {
                 .map { it.get(thisObject as MyKeyboardWindow)!! as View }
 
             val context = thiz.context
+            // a mini program's cashier is started across processes into the mini program's task,
+            // not WeChat's main task; TransparentActivity.launch keeps the prompt in this task
+            WeLogger.i(
+                TAG,
+                "cashier in ${TargetProcesses.currentType}, " +
+                    "activity=${context.baseActivity?.javaClass?.name}, caller=${context.baseActivity?.callingActivity}"
+            )
 
             val rawEncData = encryptedData ?: run {
                 showToast(localizedPaymentString(R.string.payment_fingerprint_password_not_configured))
@@ -86,10 +96,16 @@ object FingerprintPay : ClickableFeature() {
             val encData = EncryptedData(splitRawEncData[0], splitRawEncData[1])
             decryptWithBiometric(context, encData) { plaintext ->
                 showToast(localizedPaymentString(R.string.payment_fingerprint_decrypted))
-                for (char in plaintext) {
-                    val digit = char.digitToInt()
-                    digitViews[digit].performClick()
-                    Thread.sleep(20)
+                // the prompt's host activity has only been asked to finish at this point; entering the
+                // last digit makes the cashier submit, setResult and finish on its own, which must
+                // happen once its window is back in front rather than while it is still covered
+                thiz.doOnWindowFocused {
+                    fun clickDigit(index: Int) {
+                        if (index == plaintext.length) return
+                        digitViews[plaintext[index].digitToInt()].performClick()
+                        thiz.post { clickDigit(index + 1) }
+                    }
+                    clickDigit(0)
                 }
             }
         }
@@ -170,6 +186,20 @@ object FingerprintPay : ClickableFeature() {
                 })
         }
 
+    }
+
+    private fun View.doOnWindowFocused(action: () -> Unit) {
+        if (hasWindowFocus()) {
+            post(action)
+            return
+        }
+        viewTreeObserver.addOnWindowFocusChangeListener(object : ViewTreeObserver.OnWindowFocusChangeListener {
+            override fun onWindowFocusChanged(hasFocus: Boolean) {
+                if (!hasFocus) return
+                viewTreeObserver.removeOnWindowFocusChangeListener(this)
+                post(action)
+            }
+        })
     }
 
     private fun buildPrompt(
