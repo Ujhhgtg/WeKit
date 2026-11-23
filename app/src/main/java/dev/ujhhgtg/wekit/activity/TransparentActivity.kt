@@ -11,6 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import dev.ujhhgtg.wekit.BuildConfig
+import dev.ujhhgtg.wekit.utils.android.baseActivity
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 class TransparentActivity : FragmentActivity() {
@@ -38,9 +39,13 @@ class TransparentActivity : FragmentActivity() {
 
         fun launch(context: Context, action: FragmentActivity.() -> Unit) {
             pendingAction = action
-            context.startActivity(
+            // stack onto the caller's task when there is one: with NEW_TASK the host stub is placed
+            // by its taskAffinity (WeChat's main task), which pulls LauncherUI to the front whenever
+            // the caller lives in another task (e.g. a mini program's cashier)
+            val activity = context.baseActivity
+            (activity ?: context).startActivity(
                 Intent(context, TransparentActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (activity == null) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     putExtra(BuildConfig.TAG, true)
                 }
             )
